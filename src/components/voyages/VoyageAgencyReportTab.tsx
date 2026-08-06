@@ -5,7 +5,9 @@ import { AgencyReportDocument } from './AgencyReportDocument'
 import { Info, MetricPanel } from '../shared/VoyageSectionCards'
 import { SignoffControl } from './SignoffControl'
 import { DepartmentSignoffControl } from './DepartmentSignoffControl'
+import { AgencyReportTimeline } from './AgencyReportTimeline'
 import {
+  useAgencyReportDepartmentSignoffEvents,
   useAgencyReportDerived,
   useAgencyReportOwn,
   useAgencyReportSignoffEvents,
@@ -30,6 +32,7 @@ import {
   type AgencyReportSignoffEvent,
   type SignoffState,
 } from '../../services/agencyDepartureReport'
+import { calculateAgencyReportDeadlineDate } from '../../services/agencyReportDeadline'
 import type { AgencyReportDepartmentKey, Json } from '../../types/database'
 import type { AdrEscalaPod } from '../../services/voyageSummaries'
 import { formatBRL, formatDate } from '../../lib/utils'
@@ -229,6 +232,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port)
   const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port)
+  const { data: departmentSignoffEvents } = useAgencyReportDepartmentSignoffEvents(voyageId, port)
   const { effectiveRole, isAdmin } = useAuth()
   const signoffMutation = useSetAgencyReportSignoff()
   const departmentSignoffMutation = useSetAgencyReportDepartmentSignoff()
@@ -379,6 +383,13 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const closedSnapshot = ownData?.closed_snapshot as typeof snapshot | null
   const isClosed = ownData?.status === 'closed' && closedSnapshot
 
+  // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback) —
+  // distinto de data?.schedule?.atd (POD-only), usado pela Linha do Tempo do
+  // ADR e, abaixo, pela própria seção Escala.
+  const isOmittedEscala = pods.find((entry) => entry.pod === port)?.omitted ?? false
+  const unifiedAtd = data?.unifiedAtd?.atd ?? null
+  const deadlineDate = unifiedAtd ? calculateAgencyReportDeadlineDate(unifiedAtd) : null
+
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap gap-2" aria-label="Selecionar escala ADR">
@@ -428,6 +439,20 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </div>
 
+        <AgencyReportTimeline
+          atd={unifiedAtd}
+          atdSource={data?.unifiedAtd?.atdSource ?? null}
+          atdRegisteredAt={data?.unifiedAtd?.atdRegisteredAt ?? null}
+          deadline={deadlineDate}
+          omitted={isOmittedEscala}
+          now={new Date()}
+          departmentSignoffs={ownData?.departmentSignoffs ?? []}
+          departmentEvents={departmentSignoffEvents ?? []}
+          actorNames={actorNames}
+          closedAt={ownData?.closed_at ?? null}
+          closedByName={ownData?.closed_by_name ?? ownData?.closed_by ?? null}
+        />
+
         {/* A Escala não é uma fase do ciclo: é o assunto do relatório. Uma
             faixa "Escala" só produziria um h2 seguido de um h3 com o mesmo
             nome, então a seção abre a aba sozinha (ADR 0036). */}
@@ -436,7 +461,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation}
           >
-            <Hero value={`${formatDate(data?.schedule?.atb)} → ${formatDate(data?.schedule?.atd)}`} unit="ATB → ATD" />
+            <Hero value={`${formatDate(data?.schedule?.atb)} → ${formatDate(unifiedAtd)}`} unit="ATB → ATD" />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               <Info label="Armador" value={carrierName} />
               <Info label="Navio / viagem" value={voyageLabel} />
@@ -447,7 +472,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               </label>
               <Info label="ATA" value={formatDate(data?.schedule?.ata)} />
               <Info label="ATB" value={formatDate(data?.schedule?.atb)} />
-              <Info label="ATD" value={formatDate(data?.schedule?.atd)} />
+              <Info label="ATD" value={formatDate(unifiedAtd)} />
               <Info label="Restow" value={String(data?.schedule?.rtw ?? 0)} />
             </div>
         </ReportSection>

@@ -181,6 +181,62 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
   return schedules
 }
 
+export type VoyageUnifiedAtd = {
+  /** ATD da escala unificada (YYYY-MM-DD), pela precedência POD-canônico/POL-fallback. */
+  atd: string | null
+  /** Portador cujo valor venceu a precedência — null quando nenhum dos dois tem ATD. */
+  atdSource: 'pod' | 'pol' | null
+  /** changed_at do audit_log do campo atd do portador vencedor: o instante do registro, não o valor. */
+  atdRegisteredAt: string | null
+}
+
+// ADR 0039: T0 do Prazo de Conclusão do ADR é o ATD da escala unificada, com a
+// mesma precedência POD-canônico/POL-fallback que projectVoyageEscalaSchedules
+// já usa (mergeEscalaField) — reaproveitada aqui como regra ("POD vence, salvo
+// vazio"), não a lógica inteira de merge/divergência, que serve a um propósito
+// diferente (a projeção de várias colunas de uma vez). Consulta focada, por
+// voyage+port, ao contrário de listVoyagePodSchedules/listVoyagePolSchedules
+// (que trazem todos os campos de todas as entidades de uma leva).
+export async function getVoyageUnifiedAtd(voyageId: number, port: string): Promise<VoyageUnifiedAtd> {
+  const podEntityId = buildVoyagePodEntityId(voyageId, port)
+  const polEntityId = buildVoyagePolEntityId(voyageId, port)
+
+  const [podRes, polRes] = await Promise.all([
+    supabase
+      .from('audit_logs')
+      .select('new_value, changed_at')
+      .eq('entity_type', POD_ENTITY_TYPE)
+      .eq('entity_id', podEntityId)
+      .eq('field_name', 'atd')
+      .order('changed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('audit_logs')
+      .select('new_value, changed_at')
+      .eq('entity_type', POL_ENTITY_TYPE)
+      .eq('entity_id', polEntityId)
+      .eq('field_name', 'atd')
+      .order('changed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  if (podRes.error) throw podRes.error
+  if (polRes.error) throw polRes.error
+
+  const podAtd = normalizeDateValue(podRes.data?.new_value ?? null)
+  const polAtd = normalizeDateValue(polRes.data?.new_value ?? null)
+
+  if (podAtd) {
+    return { atd: podAtd, atdSource: 'pod', atdRegisteredAt: podRes.data?.changed_at ?? null }
+  }
+  if (polAtd) {
+    return { atd: polAtd, atdSource: 'pol', atdRegisteredAt: polRes.data?.changed_at ?? null }
+  }
+  return { atd: null, atdSource: null, atdRegisteredAt: null }
+}
+
 export async function listVoyagePodSchedulesByVoyageIds(voyageIds: number[]) {
   if (!voyageIds.length) return new Map<string, VoyagePodSchedule>()
 

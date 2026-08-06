@@ -4,6 +4,7 @@ import {
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
   listClosedAgencyReportPorts,
+  listDepartmentSignoffEvents,
   listSignoffEvents,
   reopenReport,
   setDepartmentSignoff,
@@ -58,7 +59,7 @@ export function useSetAgencyReportSignoff() {
 }
 
 export function useSetAgencyReportDepartmentSignoff() {
-  return useAgencyReportOwnMutation(setDepartmentSignoff)
+  return useAgencyReportOwnMutation(setDepartmentSignoff, ['agency-report-department-signoff-events'])
 }
 
 export function useSetAgencyReportSectionObservation() {
@@ -69,6 +70,14 @@ export function useAgencyReportSignoffEvents(voyageId: number, port: string | nu
   return useQuery({
     queryKey: ['agency-report-signoff-events', voyageId, port],
     queryFn: () => listSignoffEvents(voyageId, port as string),
+    enabled: Boolean(port),
+  })
+}
+
+export function useAgencyReportDepartmentSignoffEvents(voyageId: number, port: string | null) {
+  return useQuery({
+    queryKey: ['agency-report-department-signoff-events', voyageId, port],
+    queryFn: () => listDepartmentSignoffEvents(voyageId, port as string),
     enabled: Boolean(port),
   })
 }

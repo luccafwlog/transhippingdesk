@@ -20,17 +20,19 @@ const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reo
   useAuthMock: vi.fn(),
 }))
 
-const { signoffMutateMock, departmentSignoffMutateMock, observationMutateMock, useAgencyReportSignoffEventsMock } = vi.hoisted(() => ({
+const { signoffMutateMock, departmentSignoffMutateMock, observationMutateMock, useAgencyReportSignoffEventsMock, useAgencyReportDepartmentSignoffEventsMock } = vi.hoisted(() => ({
   signoffMutateMock: vi.fn(),
   departmentSignoffMutateMock: vi.fn(),
   observationMutateMock: vi.fn(),
   useAgencyReportSignoffEventsMock: vi.fn(),
+  useAgencyReportDepartmentSignoffEventsMock: vi.fn(),
 }))
 
 vi.mock('../../../hooks/useAgencyReport', () => ({
   useAgencyReportDerived: useAgencyReportDerivedMock,
   useAgencyReportOwn: useAgencyReportOwnMock,
   useAgencyReportSignoffEvents: useAgencyReportSignoffEventsMock,
+  useAgencyReportDepartmentSignoffEvents: useAgencyReportDepartmentSignoffEventsMock,
   useSetAgencyReportSignoff: () => ({ mutate: signoffMutateMock, isPending: false }),
   useSetAgencyReportDepartmentSignoff: () => ({ mutate: departmentSignoffMutateMock, isPending: false }),
   useSetAgencyReportSectionObservation: () => ({ mutate: observationMutateMock }),
@@ -62,6 +64,7 @@ afterEach(cleanup)
 useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
 useAgencyReportOwnMock.mockReturnValue({ data: undefined })
 useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
+useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
 useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
 
 it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () => {
