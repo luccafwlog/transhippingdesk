@@ -4,6 +4,31 @@
 
 ## 2026-08
 
+- **Faturamento: ADR 0038 completa e consolidação de `/faturamento`:** taxa
+  local vira valor congelado ancorado na escala do POD, nas 13 etapas do
+  plano. Fatura consolidada congela `invoice_items` na consolidação, não só a
+  individual; recálculo é recusado para B/L já faturado; promoção automática
+  `calculated → ready_for_billing` sai, e o cálculo passa a ter duas fases —
+  provisório no import (antes do CE Mercante), confirmado e emitido no CE.
+  Situações que cobravam zero em silêncio (item sem implementação no motor,
+  THD com perfil `any`, B/L sem containers) agora param e sinalizam
+  `review_required`. Isenção de veículo passa a exigir prova positiva de
+  LCL/CFS em `movement_to` — corrige um bug que isentava 100% dos B/Ls com
+  veículo por o motor escrever e ler seu próprio `container_load_type`. Data
+  de referência da tarifa passa a ser a ETA da escala do POD, não o upload do
+  lote. Condições de Cliente sobrepostas viram restrição de exclusão no
+  banco. Taxa local em USD converte para BRL na emissão pelo ROE vigente, sem
+  o Recálculo Diário do Demurrage — e a mesma migration corrige um bug
+  pré-existente de emissão automática de fatura sem checar CE Mercante
+  (trigger `trg_emit_invoice_on_bl_ready`, removido). Rateio de container
+  compartilhado fecha exatamente o valor cheio do item (o último B/L do grupo
+  absorve o centavo de arredondamento). `/faturamento` perde as abas
+  Pendências (subconjunto literal da Validação) e Demurrage (duplicava
+  `/demurrage`); a segunda vira uma faixa de métricas com link para o módulo
+  real. Migrations `261`–`269`. *(plano arquivado
+  `2026-08-06-faturamento-ajuste-completo`; ADR 0038, nota editorial na
+  ADR 0008)*
+
 - **Criação e gestão de usuários internos em `/admin/usuarios`:** administrador cadastra nome, e-mail, setor e senha (`email_confirm: true`, login imediato, sem convite por e-mail — diverge deliberadamente do fluxo do Portal do Cliente, ADR 0037); altera e-mail/senha a qualquer momento; cada usuário troca a própria senha mediante revalidação da senha atual. Setor passa a ser obrigatório no cadastro (papéis legados `admin`/`operator` recusados). Escrita privilegiada isolada na Edge Function `admin-users`, que reserva `service_role` às operações de autenticação e usa o cliente do chamador para escrever em tabela, preservando RLS e o autor na auditoria; leitura via RPC `admin_list_users` (`SECURITY DEFINER`, restrita a `authenticated`). Tela ganha busca por nome/e-mail, colunas de e-mail e último acesso, e confirmação ao trocar de setor exibindo o escopo do destino. Corrige dois defeitos pré-existentes: troca de setor/status agora é auditada por trigger no banco (`trg_audit_user_profile_changes`), e desativar um usuário agora encerra a sessão ativa dele (antes só virava o flag, com o token válido até expirar). Migrations `259`/`260` (revoga `EXECUTE` de `anon` em `admin_list_users`, achado numa checagem pós-deploy — o projeto concede `EXECUTE` a `anon` por default privilege a cada função nova, e `REVOKE ... FROM PUBLIC` não atinge esse grant nomeado). *(plano arquivado `2026-08-05-admin-usuarios-criacao`; ADR 0037)*
 
 ## 2026-07
