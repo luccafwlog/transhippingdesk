@@ -666,9 +666,16 @@ individual, então não produz a comparação "mesmo navio, preços diferentes".
 
 **Movimento (FCL/LCL)**
 Declaração do armador, presente no próprio B/L, sobre como a carga foi estufada
-na origem e como é entregue no destino — na notação `CY` (*Container Yard*,
-container cheio) e `CFS` (*Container Freight Station*, desconsolidação). É a
-fonte de verdade sobre um B/L ser FCL ou LCL.
+na origem e como é entregue no destino. É a fonte de verdade sobre um B/L ser
+FCL ou LCL.
+
+Aparece em **duas notações equivalentes**, e o B/L pode trazer qualquer uma das
+duas — na prática `FCL`/`LCL` é a mais comum:
+
+| Notação | Equivale a |
+|---|---|
+| `CY` (*Container Yard*) | `FCL` — container cheio |
+| `CFS` (*Container Freight Station*) | `LCL` — consolidação/desconsolidação |
 
 O operador pode sobrescrever a leitura do documento na ficha do B/L quando ele
 vier errado ou vazio, e a correção fica registrada no Histórico. Quando não há

@@ -138,7 +138,12 @@ Nenhuma das decisões acima está implementada. Os verbetes correspondentes no
 `CONTEXT.md` carregam marcador explícito de "decidida e ainda não implementada"
 para o glossário não ser lido como descrição do motor.
 
+O Movimento aparece em duas notações equivalentes e o parser lê texto livre das
+células `T20`/`AC20`: `CY` = `FCL` e `CFS` = `LCL`, sendo `FCL`/`LCL` a forma
+mais comum nos B/Ls recebidos. A leitura precisa aceitar as duas, e não pode
+tratar notação desconhecida como ausência — cai em pendência de revisão.
+
 Pendência de verificação antes de implementar a decisão sobre FCL/LCL: confirmar
-contra dados reais que `movement_to` vem preenchido e com notação consistente.
-Se vier vazio na maioria dos B/Ls, a regra cai no caminho de pendência de
-revisão e vira atrito operacional em vez de correção.
+contra dados reais qual a taxa de preenchimento do campo. Se vier vazio na
+maioria dos B/Ls, a regra cai no caminho de pendência de revisão e vira atrito
+operacional em vez de correção.
