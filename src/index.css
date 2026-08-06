@@ -198,6 +198,8 @@ textarea {
 }
 
 .app-market-strip {
+  position: relative;
+  z-index: 400;
   background: linear-gradient(180deg, rgba(8, 17, 27, 0.98), rgba(11, 22, 36, 0.94));
   color: #ffffff;
   backdrop-filter: blur(12px);
