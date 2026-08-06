@@ -598,6 +598,112 @@ export async function calculateLocalChargesBatch(
   )
 }
 
+export type LocalChargeConferenceRow = {
+  bl_id: string
+  customer_name: string
+  pod: string
+  charge_name: string
+  application_basis: string | null
+  quantity: number
+  unit_value_brl: number | null
+  total_value_brl: number
+  price_origin: 'Tabela padrão' | 'Condição de Cliente'
+  shared_containers: string
+}
+
+// Etapa 5 do plano de faturamento: planilha de conferência do cálculo
+// provisório, por B/L e por item — a decisão 8 do ADR 0038 só faz sentido com
+// isso, senão o operador não tem como validar o número antes do CE. Marca
+// container compartilhado (application_basis='container_distinct_voyage')
+// com quantos B/Ls da viagem dividem cada container, para o rateio ser
+// conferível mesmo quando o B/L que completa o container ainda não chegou.
+export async function buildLocalChargeConferenceRows(blIds: string[]): Promise<LocalChargeConferenceRow[]> {
+  const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
+  if (normalizedIds.length === 0) return []
+
+  const { data: bls, error: blsError } = await supabase
+    .from('bls')
+    .select('id, pod, voyage_id, customer:customers(name)')
+    .in('id', normalizedIds)
+  if (blsError) throw blsError
+  const blMap = new Map(
+    (bls ?? []).map((bl) => [
+      bl.id as string,
+      { pod: bl.pod as string | null, voyageId: bl.voyage_id as number | null, customerName: (bl.customer as { name: string | null } | null)?.name ?? null },
+    ]),
+  )
+
+  const { data: calcs, error: calcsError } = await supabase
+    .from('charge_calculations')
+    .select('bl_id, quantity, unit_value_brl, total_value_brl, override_applied, calculation_key, charge_item:charge_table_items(name, application_basis)')
+    .in('bl_id', normalizedIds)
+    .in('status', ['calculated', 'reviewed', 'ready_for_billing'])
+    .gt('total_value_brl', 0)
+  if (calcsError) throw calcsError
+
+  const { data: blContainers, error: blContainersError } = await supabase
+    .from('bl_containers')
+    .select('bl_id, container_number')
+    .in('bl_id', normalizedIds)
+  if (blContainersError) throw blContainersError
+
+  const containersByBl = new Map<string, string[]>()
+  for (const row of blContainers ?? []) {
+    const containerNumber = (row.container_number ?? '').trim().toUpperCase()
+    if (!containerNumber) continue
+    const list = containersByBl.get(row.bl_id as string) ?? []
+    list.push(containerNumber)
+    containersByBl.set(row.bl_id as string, list)
+  }
+
+  const voyageIds = Array.from(new Set(Array.from(blMap.values()).map((bl) => bl.voyageId).filter((v): v is number => v != null)))
+  const shareByVoyageContainer = new Map<string, number>()
+  if (voyageIds.length > 0) {
+    const { data: voyageContainers, error: voyageContainersError } = await supabase
+      .from('bl_containers')
+      .select('container_number, bl:bls!inner(voyage_id)')
+      .in('bl.voyage_id', voyageIds)
+    if (voyageContainersError) throw voyageContainersError
+    for (const row of voyageContainers ?? []) {
+      const voyageId = (row.bl as { voyage_id: number } | null)?.voyage_id
+      const containerNumber = (row.container_number ?? '').trim().toUpperCase()
+      if (voyageId == null || !containerNumber) continue
+      const key = `${voyageId}:${containerNumber}`
+      shareByVoyageContainer.set(key, (shareByVoyageContainer.get(key) ?? 0) + 1)
+    }
+  }
+
+  return (calcs ?? []).map((row) => {
+    const bl = blMap.get(row.bl_id as string)
+    const chargeItem = row.charge_item as { name: string | null; application_basis: string | null } | null
+    const containers = containersByBl.get(row.bl_id as string) ?? []
+    const sharedLabel =
+      chargeItem?.application_basis === 'container_distinct_voyage'
+        ? containers
+            .map((containerNumber) => ({
+              containerNumber,
+              count: shareByVoyageContainer.get(`${bl?.voyageId}:${containerNumber}`) ?? 1,
+            }))
+            .filter((c) => c.count > 1)
+            .map((c) => `${c.containerNumber} (${c.count} B/Ls)`)
+            .join('; ')
+        : ''
+
+    return {
+      bl_id: row.bl_id as string,
+      customer_name: bl?.customerName ?? '',
+      pod: bl?.pod ?? '',
+      charge_name: chargeItem?.name ?? (row.calculation_key as string | null) ?? 'Linha de taxa',
+      application_basis: chargeItem?.application_basis ?? null,
+      quantity: Number(row.quantity ?? 0),
+      unit_value_brl: row.unit_value_brl == null ? null : Number(row.unit_value_brl),
+      total_value_brl: Number(row.total_value_brl ?? 0),
+      price_origin: row.override_applied ? 'Condição de Cliente' : 'Tabela padrão',
+      shared_containers: sharedLabel,
+    }
+  })
+}
+
 // Etapa 4 do plano de faturamento (ADR 0038, achado 11): cálculo provisório
 // logo após o import de B/L, antes do CE Mercante. Calcula os B/Ls importados
 // e os "irmãos" — B/Ls da mesma viagem que compartilham container com eles —

@@ -35,6 +35,7 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
   })
   const [selectedOpsRows, setSelectedOpsRows] = useState<string[]>([])
   const [exportingOps, setExportingOps] = useState(false)
+  const [exportingConference, setExportingConference] = useState(false)
 
   const {
     data: operationsRows,
@@ -153,6 +154,36 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       showToast('Falha ao exportar operação de taxas locais.', 'error')
     } finally {
       setExportingOps(false)
+    }
+  }
+
+  // Etapa 5 do plano de faturamento: exporta a planilha de conferência do
+  // cálculo provisório. Escopo explícito: seleção quando houver, senão as
+  // linhas filtradas atuais — nunca "tudo" sem o operador saber o que pegou.
+  async function handleExportConference() {
+    const scopeIds = selectedOpsRows.length > 0 ? selectedOpsRows : displayedRows.map((row) => row.id)
+    if (scopeIds.length === 0) {
+      showToast('Não há B/Ls para exportar com o filtro/seleção atual.', 'info')
+      return
+    }
+
+    setExportingConference(true)
+    try {
+      const { buildLocalChargeConferenceRows } = await import('../../services/charges/chargeOperationsService')
+      const { exportLocalChargeConferenceCsv } = await import('../../services/exports')
+      const rows = await buildLocalChargeConferenceRows(scopeIds)
+      if (rows.length === 0) {
+        showToast('Nenhuma linha de taxa calculada para os B/Ls do escopo atual.', 'info')
+        return
+      }
+      const scopeLabel =
+        selectedOpsRows.length > 0 ? `${scopeIds.length} B/L(s) selecionado(s)` : `${scopeIds.length} B/L(s) filtrado(s)`
+      exportLocalChargeConferenceCsv(rows, scopeLabel)
+      showToast(`Planilha de conferência exportada com ${rows.length} linha(s).`, 'success')
+    } catch {
+      showToast('Falha ao exportar planilha de conferência.', 'error')
+    } finally {
+      setExportingConference(false)
     }
   }
 
@@ -350,10 +381,12 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         reviewPendingMutation={batchReviewedMutation.isPending}
         readyPendingMutation={batchReadyMutation.isPending}
         exporting={exportingOps}
+        exportingConference={exportingConference}
         onUpdateFilter={updateOpsFilter}
         onPipelineStep={handlePipelineStep}
         onRunBatchOperation={(action) => void runBatchOperation(action)}
         onExport={() => void handleExportOperations()}
+        onExportConference={() => void handleExportConference()}
       />
       <ValidacaoOperationsTable
         rows={displayedRows}

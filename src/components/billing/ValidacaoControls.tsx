@@ -21,10 +21,12 @@ export function ValidacaoControls({
   reviewPendingMutation,
   readyPendingMutation,
   exporting,
+  exportingConference,
   onUpdateFilter,
   onPipelineStep,
   onRunBatchOperation,
   onExport,
+  onExportConference,
 }: {
   filters: OpsFilters
   selectedCount: number
@@ -41,10 +43,12 @@ export function ValidacaoControls({
   reviewPendingMutation: boolean
   readyPendingMutation: boolean
   exporting: boolean
+  exportingConference: boolean
   onUpdateFilter: <K extends keyof OpsFilters>(field: K, value: OpsFilters[K]) => void
   onPipelineStep: (step: PipelineStep) => void
   onRunBatchOperation: (action: BatchOperation) => void
   onExport: () => void
+  onExportConference: () => void
 }) {
   return (
     <>
@@ -181,6 +185,10 @@ export function ValidacaoControls({
           <Button variant="secondary" onClick={onExport} loading={exporting}>
             <Download size={15} />
             Exportar visao
+          </Button>
+          <Button variant="secondary" onClick={onExportConference} loading={exportingConference}>
+            <Download size={15} />
+            Exportar conferência (provisório)
           </Button>
           <span className="text-xs text-[var(--app-muted)]">{selectedCount} B/L(s) selecionado(s)</span>
         </div>
