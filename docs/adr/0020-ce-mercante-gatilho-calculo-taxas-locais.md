@@ -75,3 +75,32 @@ em que, por construção, todos os B/Ls da viagem já foram importados.
 - **Manter o billing no import do manifesto e mudar só o caminho do B/L.**
   Criaria dois gatilhos para a mesma regra e reabriria o problema quando um
   B/L de arquivo compartilha container com B/L nascido de manifesto. Rejeitada.
+
+## Nota editorial — 2026-08-06 (a rede de segurança da decisão 5 não cobre o caso residual)
+
+A **decisão 5** afirma que a proteção de faturamento da ADR 0017 cobre o caso de
+um B/L tardio compartilhar container com um B/L já calculado/faturado. A
+verificação em código mostra que **não cobre**.
+
+Em `src/services/blFreightImport.ts`, a análise de impacto de faturamento —
+incluindo o aviso `Container(s) compartilhados com outro B/L afetados` — só é
+computada quando o B/L importado **já existe e já tem cobrança própria**
+(`const billed = billingLockedBlIds.has(doc.blNumber)`; o impacto exige
+`existing && billed`). Para um B/L **novo**, nenhuma análise roda. Também não
+existe gatilho que recalcule B/Ls irmãos quando novos containers entram na
+viagem.
+
+Consequência: o cenário residual permanece descoberto. O primeiro B/L é rateado
+por `share_count = 1` e faturado pelo container inteiro; o irmão que chega depois
+é rateado por `1/2`; a soma cobrada excede 100% do container sem sinalização.
+
+Isto **não invalida a decisão principal** (o CE como gatilho único continua
+correto e resolve a cadeia normal). Invalida apenas a mitigação declarada na
+decisão 5 — e, por consequência, reabre as duas alternativas rejeitadas
+("recalcular irmãos" e "apenas sinalizar"), que haviam sido descartadas
+justamente por se considerar o residual coberto.
+
+Diagnóstico completo e opções de tratamento em
+[`docs/archive/audits/2026-08-06-revisao-motor-calculo-taxas-locais.md`](../archive/audits/2026-08-06-revisao-motor-calculo-taxas-locais.md),
+ponto 2. Enquanto uma das opções não for adotada, a decisão 5 deve ser lida como
+**intenção não implementada**, não como proteção vigente.
