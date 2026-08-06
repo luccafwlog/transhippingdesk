@@ -27,7 +27,7 @@ import {
   useSettleInvoiceRefund,
 } from '../../hooks/useBillingLedger'
 import { isConsolidatedInvoice } from '../../services/billing'
-import { buildInvoiceFileBaseName } from '../shared/invoiceFormat'
+import { buildInvoiceFileBaseName, describeInvoiceItemsFreezeNote } from '../shared/invoiceFormat'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
 import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
@@ -299,10 +299,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
               <Card className="overflow-hidden p-0">
                 <div className="border-b border-[#30363d] px-4 py-3">
                   <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Itens da invoice</h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Detalhamento congelado na emissão ({formatDate(detailQuery.data.invoice.issued_at)}) — não reflete recálculos
-                    posteriores do B/L.
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">{describeInvoiceItemsFreezeNote(detailQuery.data.invoice)}</p>
                 </div>
                 {canEditCharges ? (
                   <div className="border-b border-[#30363d] px-4 py-4">

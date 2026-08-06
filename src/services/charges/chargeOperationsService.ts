@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../../lib/utils'
 import { classifyDbError } from '../../lib/errors'
+import { isBlFinanciallyLocked } from '../../lib/chargeStatus'
 
 const OPERATIONAL_PAGE_SIZE = 1000
 
@@ -127,6 +128,16 @@ export async function calculateBlLocalCharges(
     recalculate?: boolean
   },
 ) {
+  // Etapa 2 do plano de faturamento (ADR 0038, achado 6): trava aqui, no unico
+  // ponto de entrada do app para esta RPC, para cobrir todo chamador atual
+  // (lote da Validacao e recalculo individual da Revisao) mesmo antes de a
+  // trava equivalente existir tambem no banco (migration pendente de aplicar).
+  const { data: bl, error: blError } = await supabase.from('bls').select('financial_status').eq('id', blId).maybeSingle()
+  if (blError) throw blError
+  if (isBlFinanciallyLocked(bl?.financial_status)) {
+    throw new Error(`B/L ${blId} ja foi faturado (status financeiro=${bl?.financial_status}); recalculo bloqueado.`)
+  }
+
   const { data, error } = await supabase.rpc('calculate_bl_local_charges', {
     p_bl_id: blId,
     ...(options?.actorId == null ? {} : { p_actor: options.actorId }),

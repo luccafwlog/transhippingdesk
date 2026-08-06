@@ -26,12 +26,14 @@ vi.mock('../supabase', () => ({
 
 function createBuilder(result: { data: unknown; error: unknown }) {
   const builder = {
+    select: vi.fn(() => builder),
     order: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     ilike: vi.fn(() => builder),
     in: vi.fn(() => builder),
     limit: vi.fn(() => builder),
     overrideTypes: vi.fn(() => builder),
+    maybeSingle: vi.fn(() => Promise.resolve(result)),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   }
@@ -42,6 +44,10 @@ describe('localCharges service', () => {
   beforeEach(() => {
     mockRpc.mockReset()
     mockFrom.mockReset()
+    // calculateBlLocalCharges consulta bls.financial_status antes da RPC (etapa 2
+    // do plano de faturamento); default nao-faturado para nao quebrar os demais
+    // testes que nao exercitam esse caminho especificamente.
+    mockFrom.mockImplementation(() => createBuilder({ data: { financial_status: 'pending' }, error: null }))
   })
 
   it('normaliza retorno do calculate_bl_local_charges', async () => {
@@ -78,6 +84,13 @@ describe('localCharges service', () => {
       p_actor: 'user-id',
       p_recalculate: true,
     })
+  })
+
+  it('recusa recalcular B/L ja faturado sem sequer chamar a RPC', async () => {
+    mockFrom.mockImplementation(() => createBuilder({ data: { financial_status: 'invoiced' }, error: null }))
+
+    await expect(calculateBlLocalCharges('CSC001', { actorId: 'user-id' })).rejects.toThrow('ja foi faturado')
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 
   it('recalcula o lote inteiro e agrega falhas por B/L sem interromper os demais', async () => {
