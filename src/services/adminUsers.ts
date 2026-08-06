@@ -7,14 +7,9 @@ export type AdminUserRow = UserProfile & {
 }
 
 export async function listAllUserProfiles(): Promise<AdminUserRow[]> {
-  // ponytail: tipos gerados não conhecem admin_list_users porque src/types/database.ts
-  // é protegido pelo hook e não foi regenerado contra a migration 258 (regenerar exigiria
-  // aplicá-la no projeto Supabase de produção fora do fluxo de deploy). Teto: a resposta
-  // da RPC não é verificada pelo compilador. Upgrade: regenerar os tipos e remover o cast.
-  const { data, error } = await (supabase.rpc as unknown as
-    (fn: string) => Promise<{ data: AdminUserRow[] | null; error: Error | null }>)('admin_list_users')
+  const { data, error } = await supabase.rpc('admin_list_users')
   if (error) throw error
-  return data ?? []
+  return (data ?? []) as AdminUserRow[]
 }
 
 export async function updateUserProfile(
