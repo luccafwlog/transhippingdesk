@@ -466,6 +466,11 @@ a estar em contagem e fica fora do prazo se reassinar depois da data-limite; os
 outros dois permanecem em dia, porque reabrir o ADR não apaga as assinaturas
 alheias. O atraso é sempre do departamento que reabriu a sua própria.
 
+O compromisso **não retroage**: só escalas cujo ATD é posterior ao início da
+vigência são medidas. ADRs anteriores não ganham cumprimento calculado nem
+entram no agregado, ainda que o dado das suas assinaturas exista — a operação
+que os assinou não conhecia o prazo.
+
 O cumprimento é atributo do **departamento**, nunca da pessoa: o nome de quem
 assinou continua visível em cada ADR, mas a medição agregada não soma por
 usuário. Quem clica no botão é quem estava disponível, não necessariamente quem
