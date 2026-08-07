@@ -166,8 +166,14 @@ export function Revisao() {
         dismissRecalcNotice(notice.id)
         showToast('Taxas locais recalculadas.', 'success')
       }
-    } catch {
-      showToast('Falha ao recalcular as taxas locais.', 'error')
+    } catch (error) {
+      const message = extractErrorText(error)
+      showToast(
+        message.toLowerCase().includes('ja foi faturado')
+          ? `Fatura já emitida para ${notice.id} — cancele e reemita para corrigir.`
+          : 'Falha ao recalcular as taxas locais.',
+        'error',
+      )
     } finally {
       setRecalcingId(null)
     }

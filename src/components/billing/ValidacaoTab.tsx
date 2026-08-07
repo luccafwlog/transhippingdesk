@@ -15,12 +15,21 @@ import { queryKeys } from '../../services/queryKeys'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { createInvoiceFromBls } from '../../services/billing'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
-import { isPendingBillingReview } from './validacaoPipeline'
+import { isAwaitingCeMercante, isBlLockedForRecalc, isPendingBillingReview } from './validacaoPipeline'
 import { ValidacaoControls } from './ValidacaoControls'
 import { ValidacaoOperationsTable } from './ValidacaoOperationsTable'
 import type { BatchOperation, OpsFilters, PipelineStep } from './validacaoTypes'
 
-export function ValidacaoTab({ userId }: { userId: string | null }) {
+export function ValidacaoTab({
+  userId,
+  initialChargeStatus,
+}: {
+  userId: string | null
+  // Etapa 12 do plano de faturamento: a aba Pendências foi removida — quem
+  // chegava lá via ?tab=pendencias cai aqui com esse filtro pré-aplicado,
+  // reproduzindo exatamente o recorte que a aba antiga mostrava.
+  initialChargeStatus?: OpsFilters['chargeStatus']
+}) {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
@@ -31,10 +40,11 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     cargoMode: '',
     pod: '',
     voyageId: '',
-    chargeStatus: '',
+    chargeStatus: initialChargeStatus ?? '',
   })
   const [selectedOpsRows, setSelectedOpsRows] = useState<string[]>([])
   const [exportingOps, setExportingOps] = useState(false)
+  const [exportingConference, setExportingConference] = useState(false)
 
   const {
     data: operationsRows,
@@ -59,9 +69,24 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     const rows = operationsRows ?? []
     const readyRows = rows.filter((row) => isChargeReady(row.charge_status))
     const readyInvoiced = readyRows.filter((row) => row.financial_status === 'invoiced').length
+    // Etapa 6 do plano de faturamento (ADR 0038, decisão 8): desde que o
+    // trigger de promoção automática saiu (migration 263), 'calculated' é
+    // genuinamente a fase provisória — calculado, ainda sem confirmação
+    // explícita. "Aguardando CE" é o motivo mais comum de um B/L de container
+    // ficar provisório: já calculado, cliente reconciliado, mas sem CE
+    // Mercante para emitir (reviewBillingAutomation.ts só bloqueia a emissão).
+    const provisionalRows = rows.filter((row) => row.charge_status === 'calculated')
+    const awaitingCeRows = rows.filter(isAwaitingCeMercante)
     return {
       total: rows.length,
+      provisional: provisionalRows.length,
+      awaitingCe: awaitingCeRows.length,
       reviewPending: rows.filter(isPendingBillingReview).length,
+      // Achado 5 da review da PR 501: pendencia REAL de revisao, para o botao
+      // "Recalcular todas em revisao" -- nao o bucket amplo de
+      // isPendingBillingReview (que inclui not_calculated/calculated
+      // provisorios sem nenhuma pendencia desde a migration 263).
+      reviewPendencyCount: rows.filter((row) => row.charge_status === 'review_required').length,
       ready: readyRows.length,
       readyInvoiced,
       readyPendingInvoice: Math.max(readyRows.length - readyInvoiced, 0),
@@ -156,16 +181,53 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
     }
   }
 
-  async function runBatchOperation(action: BatchOperation) {
-    const allIds = selectedOpsRows
+  // Etapa 5 do plano de faturamento: exporta a planilha de conferência do
+  // cálculo provisório. Escopo explícito: seleção quando houver, senão as
+  // linhas filtradas atuais — nunca "tudo" sem o operador saber o que pegou.
+  async function handleExportConference() {
+    const scopeIds = selectedOpsRows.length > 0 ? selectedOpsRows : displayedRows.map((row) => row.id)
+    if (scopeIds.length === 0) {
+      showToast('Não há B/Ls para exportar com o filtro/seleção atual.', 'info')
+      return
+    }
+
+    setExportingConference(true)
+    try {
+      const { buildLocalChargeConferenceRows } = await import('../../services/charges/chargeOperationsService')
+      const { exportLocalChargeConferenceCsv } = await import('../../services/exports')
+      const rows = await buildLocalChargeConferenceRows(scopeIds)
+      if (rows.length === 0) {
+        showToast('Nenhuma linha de taxa calculada para os B/Ls do escopo atual.', 'info')
+        return
+      }
+      const scopeLabel =
+        selectedOpsRows.length > 0 ? `${scopeIds.length} B/L(s) selecionado(s)` : `${scopeIds.length} B/L(s) filtrado(s)`
+      exportLocalChargeConferenceCsv(rows, scopeLabel)
+      showToast(`Planilha de conferência exportada com ${rows.length} linha(s).`, 'success')
+    } catch {
+      showToast('Falha ao exportar planilha de conferência.', 'error')
+    } finally {
+      setExportingConference(false)
+    }
+  }
+
+  async function runBatchOperation(action: BatchOperation, explicitIds?: string[]) {
+    const allIds = explicitIds ?? selectedOpsRows
     if (allIds.length === 0) {
       showToast('Selecione ao menos um B/L para executar acao em lote.', 'error')
       return
     }
 
+    const financialStatusById = new Map((operationsRows ?? []).map((row) => [row.id, row.financial_status] as const))
     const cargoModeById = new Map((operationsRows ?? []).map((row) => [row.id, row.cargo_mode] as const))
-    const localIds = allIds.filter((id) => cargoModeById.get(id) !== 'granito')
+    const allLocalIds = allIds.filter((id) => cargoModeById.get(id) !== 'granito')
     const graniteIds = allIds.filter((id) => cargoModeById.get(id) === 'granito')
+
+    // B/L ja faturado nunca e recalculado (etapa 2 do plano de faturamento):
+    // pula em vez de deixar o RPC recusar como erro generico, e reporta quanto pulou.
+    const invoicedIds =
+      action === 'recalculate' ? allLocalIds.filter((id) => isBlLockedForRecalc(financialStatusById.get(id))) : []
+    const localIds = allLocalIds.filter((id) => !invoicedIds.includes(id))
 
     try {
       const actorId = userId
@@ -188,7 +250,13 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
       const errorCount = localResult.errorCount + graniteResult.errorCount
       const firstError = [...localResult.errors, ...graniteResult.errors][0]
 
-      if (errorCount > 0 && firstError) {
+      if (invoicedIds.length > 0) {
+        showToast(
+          `${successCount} recalculado(s), ${invoicedIds.length} ignorado(s) (ja faturados)` +
+            (errorCount > 0 && firstError ? `, ${errorCount} falharam. Primeiro erro em ${firstError.blId}: ${firstError.message}` : '.'),
+          errorCount > 0 ? 'info' : 'success',
+        )
+      } else if (errorCount > 0 && firstError) {
         showToast(
           `Processamento parcial: ${successCount}/${total}. Primeiro erro em ${firstError.blId}: ${firstError.message}`,
           'info',
@@ -258,10 +326,27 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
       ])
-      setSelectedOpsRows([])
+      if (!explicitIds) setSelectedOpsRows([])
     } catch {
       showToast('Falha ao executar processamento em lote.', 'error')
     }
+  }
+
+  // Etapa 12 do plano de faturamento: recalcula todo o passo "Em revisao" do
+  // funil sem exigir selecao manual — reusa runBatchOperation (lote parcial,
+  // pula ja faturados, reporta contagem e primeiro erro) com a lista
+  // derivada do mesmo predicado que alimenta a contagem do passo 2.
+  async function handleRecalculateAllInReview() {
+    // Achado 5 da review da PR 501: recalcula so quem tem pendencia real de
+    // revisao (charge_status === 'review_required'), nao todo o bucket amplo
+    // "aguardando faturamento" -- que inclui B/Ls not_calculated/calculated
+    // sem pendencia alguma e poderia disparar recalculo em massa desnecessario.
+    const ids = (operationsRows ?? []).filter((row) => row.charge_status === 'review_required').map((row) => row.id)
+    if (ids.length === 0) {
+      showToast('Não há B/Ls em revisão para recalcular.', 'info')
+      return
+    }
+    await runBatchOperation('recalculate', ids)
   }
 
   async function handleIssueSingleInvoice(row: { id: string; customer?: { id: number | null } | null }) {
@@ -325,8 +410,11 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         filters={opsFilters}
         selectedCount={selectedOpsRows.length}
         operationsLoading={operationsLoading}
+        provisional={operationsSummary.provisional}
+        awaitingCe={operationsSummary.awaitingCe}
         reconciliationPending={operationsSummary.reconciliationPending}
         reviewPending={operationsSummary.reviewPending}
+        reviewPendencyCount={operationsSummary.reviewPendencyCount}
         ready={operationsSummary.ready}
         readyInvoiced={operationsSummary.readyInvoiced}
         readyPendingInvoice={operationsSummary.readyPendingInvoice}
@@ -337,10 +425,13 @@ export function ValidacaoTab({ userId }: { userId: string | null }) {
         reviewPendingMutation={batchReviewedMutation.isPending}
         readyPendingMutation={batchReadyMutation.isPending}
         exporting={exportingOps}
+        exportingConference={exportingConference}
         onUpdateFilter={updateOpsFilter}
         onPipelineStep={handlePipelineStep}
         onRunBatchOperation={(action) => void runBatchOperation(action)}
+        onRecalculateAllInReview={() => void handleRecalculateAllInReview()}
         onExport={() => void handleExportOperations()}
+        onExportConference={() => void handleExportConference()}
       />
       <ValidacaoOperationsTable
         rows={displayedRows}

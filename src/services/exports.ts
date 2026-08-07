@@ -1,7 +1,8 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import type { BLListItem, ContainerListItem, CustomerListItem, VaziosImportacaoContainerListItem } from '../types/database'
 import type { BaplieContainer } from '../types/database'
-import type { LocalChargeOperationalRow } from './charges/chargeOperationsService'
+import type { LocalChargeConferenceRow, LocalChargeOperationalRow } from './charges/chargeOperationsService'
+import { downloadCsv } from '../lib/csv'
 import type {
   CustomerReportRow,
   FinancialReportRow,
@@ -216,6 +217,28 @@ export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOpera
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'TaxasLocais')
   XLSX.writeFile(workbook, `taxas-locais-${makeTimestamp()}.xlsx`)
+}
+
+// Etapa 5 do plano de faturamento: planilha de conferência do cálculo
+// provisório (docs/plans/2026-08-06-faturamento-ajuste-completo.md). CSV, não
+// XLSX — é o consumidor de downloadCsv (src/lib/csv.ts), que existia sem uso.
+export function exportLocalChargeConferenceCsv(rows: LocalChargeConferenceRow[], scopeLabel: string) {
+  const extractedAt = new Date().toLocaleString('pt-BR')
+  const headers = ['B/L', 'Cliente', 'POD', 'Item', 'Base de Aplicação', 'Quantidade', 'Valor Unitário BRL', 'Valor Total BRL', 'Origem do Preço', 'Container Compartilhado']
+  const noteRow = [`Conferência de cálculo provisório — extraída em ${extractedAt} — escopo: ${scopeLabel}. O valor final sai no CE.`, '', '', '', '', '', '', '', '', '']
+  const dataRows = rows.map((row) => [
+    row.bl_id,
+    row.customer_name,
+    row.pod,
+    row.charge_name,
+    row.application_basis ?? '',
+    String(row.quantity),
+    row.unit_value_brl == null ? '' : row.unit_value_brl.toFixed(2),
+    row.total_value_brl.toFixed(2),
+    row.price_origin,
+    row.shared_containers,
+  ])
+  downloadCsv(`conferencia-taxas-locais-${makeTimestamp()}.csv`, headers, [noteRow, ...dataRows])
 }
 
 export async function exportOperationalReportWorkbook(rows: OperationalReportRow[]) {

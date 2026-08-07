@@ -26,12 +26,14 @@ vi.mock('../supabase', () => ({
 
 function createBuilder(result: { data: unknown; error: unknown }) {
   const builder = {
+    select: vi.fn(() => builder),
     order: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     ilike: vi.fn(() => builder),
     in: vi.fn(() => builder),
     limit: vi.fn(() => builder),
     overrideTypes: vi.fn(() => builder),
+    maybeSingle: vi.fn(() => Promise.resolve(result)),
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
   }
@@ -42,6 +44,10 @@ describe('localCharges service', () => {
   beforeEach(() => {
     mockRpc.mockReset()
     mockFrom.mockReset()
+    // calculateBlLocalCharges consulta bls.financial_status antes da RPC (etapa 2
+    // do plano de faturamento); default nao-faturado para nao quebrar os demais
+    // testes que nao exercitam esse caminho especificamente.
+    mockFrom.mockImplementation(() => createBuilder({ data: { financial_status: 'pending' }, error: null }))
   })
 
   it('normaliza retorno do calculate_bl_local_charges', async () => {
@@ -80,7 +86,26 @@ describe('localCharges service', () => {
     })
   })
 
+  it('recusa recalcular B/L ja faturado sem sequer chamar a RPC', async () => {
+    mockFrom.mockImplementation(() => createBuilder({ data: { financial_status: 'invoiced' }, error: null }))
+
+    await expect(calculateBlLocalCharges('CSC001', { actorId: 'user-id' })).rejects.toThrow('ja foi faturado')
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
   it('recalcula o lote inteiro e agrega falhas por B/L sem interromper os demais', async () => {
+    // Consulta unica de financial_status para o lote inteiro (evita uma SELECT
+    // sequencial por B/L dentro do loop de calculateBlLocalCharges).
+    mockFrom.mockImplementation(() =>
+      createBuilder({
+        data: [
+          { id: 'BL1', financial_status: 'pending' },
+          { id: 'BL2', financial_status: 'pending' },
+          { id: 'BL3', financial_status: 'pending' },
+        ],
+        error: null,
+      }),
+    )
     mockRpc
       .mockResolvedValueOnce({ data: { bl_id: 'BL1', status: 'calculated' }, error: null })
       .mockResolvedValueOnce({ data: null, error: new Error('tabela ausente') })
@@ -98,6 +123,7 @@ describe('localCharges service', () => {
       errors: [{ blId: 'BL2', message: 'tabela ausente' }],
     })
     expect(mockRpc).toHaveBeenCalledTimes(3)
+    expect(mockFrom).toHaveBeenCalledTimes(1)
   })
 
   it('aprova revisao por B/L e isola uma falha sem falso sucesso', async () => {

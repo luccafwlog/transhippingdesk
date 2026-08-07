@@ -100,7 +100,7 @@ export function BlOperacionalTab({
           <Field label="Movement From">
             <Input value={form.movement_from ?? ''} onChange={(event) => onFieldChange('movement_from', event.target.value)} />
           </Field>
-          <Field label="Movement To">
+          <Field label="Movement To" hint="Contendo LCL ou CFS, isenta veículo de taxa local no destino. Ausente ou outra notação cobra normalmente.">
             <Input value={form.movement_to ?? ''} onChange={(event) => onFieldChange('movement_to', event.target.value)} />
           </Field>
           <Field label="Data de emissao">

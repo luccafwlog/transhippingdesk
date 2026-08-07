@@ -60,7 +60,7 @@ beforeEach(() => {
 })
 
 describe('tryAutoIssueInvoice', () => {
-  it('bloqueia BL container sem CE Mercante antes de calcular taxas', async () => {
+  it('calcula taxas mesmo sem CE Mercante, mas bloqueia a emissao', async () => {
     mockFrom.mockImplementationOnce(() => ({
       select: () => ({
         eq: () => ({
@@ -76,9 +76,10 @@ describe('tryAutoIssueInvoice', () => {
 
     expect(result).toEqual({
       status: 'blocked',
-      message: 'Aguardando cadastro do CE Mercante para calcular taxas (ADR 0020).',
+      message: 'Aguardando cadastro do CE Mercante para emitir a fatura (ADR 0020).',
+      calculation: expect.objectContaining({ bl_id: 'BL1' }),
     })
-    expect(mockedCalculate).not.toHaveBeenCalled()
+    expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
     expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
 

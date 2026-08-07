@@ -1,5 +1,6 @@
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import { extractReviewReasons } from '../../hooks/useReview'
+import { isBlFinanciallyLocked } from '../../lib/chargeStatus'
 
 // B/L reconciliado que ainda não é faturável: preso entre a conciliação de cliente
 // e o "pronto faturar" (gate de revisão pendente, taxa em revisão ou apenas
@@ -44,4 +45,36 @@ export function getBillingBlockReason(row: {
   if (row.totals.line_count === 0 || Number(row.totals.total_brl ?? 0) <= 0) return 'Sem linhas de taxa calculadas.'
   if (row.charge_status !== 'ready_for_billing') return 'Ainda nao marcado como pronto para faturar.'
   return 'Pronto para emissao individual.'
+}
+
+// Etapa 2 do plano de faturamento (ADR 0038, achado 6): recalculo em lote nunca
+// toca B/L ja faturado — o RPC recusaria, e contar isso como erro genérico
+// esconde que a causa é a fatura já emitida, não uma falha.
+export const isBlLockedForRecalc = isBlFinanciallyLocked
+
+// Etapa 6 do plano de faturamento (ADR 0038, decisão 8): motivo mais comum de
+// um B/L de container ficar provisório depois que a promoção automática saiu
+// (migration 263) — já calculado e reconciliado, mas sem CE Mercante, então
+// reviewBillingAutomation.ts bloqueia só a emissão (não mais o cálculo).
+export function isAwaitingCeMercante(row: {
+  cargo_mode: string | null
+  financial_status: string | null
+  ce_mercante: string | null
+  charge_status: string | null
+  customer_reconciliation_status: string | null
+}) {
+  return (
+    (row.cargo_mode ?? 'container') === 'container' &&
+    (row.financial_status ?? 'pending') === 'pending' &&
+    !row.ce_mercante?.trim() &&
+    // Achado 9 da review da PR 501: sem isto o card "Aguardando CE" contava
+    // TODO o backlog aberto de container (ate B/Ls ainda sem taxa calculada
+    // ou sem cliente reconciliado), nao especificamente quem esta parado
+    // esperando CE Mercante. Exige que o B/L ja tenha passado da conciliação
+    // e do cálculo (isto é, o CE Mercante seja de fato o único bloqueio
+    // restante para a emissão), igual à premissa de reviewBillingAutomation.ts.
+    isCustomerReconciliationResolved(row.customer_reconciliation_status) &&
+    row.charge_status !== 'exempt' &&
+    row.charge_status !== 'not_calculated'
+  )
 }

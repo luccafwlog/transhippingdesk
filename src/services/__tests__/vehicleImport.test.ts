@@ -154,6 +154,7 @@ describe('vehicleImport', () => {
                   .map((value) => ({ id: value, voyage_id: 7 })),
                 error: null,
               }),
+              maybeSingle: async () => ({ data: { financial_status: 'pending' }, error: null }),
             }),
           }),
           update: () => ({
@@ -287,7 +288,14 @@ describe('vehicleImport', () => {
       }
       if (table === 'bls') {
         return {
-          select: () => ({ eq: () => ({ in: async () => ({ data: [{ id: 'BL001', voyage_id: 7 }], error: null }) }) }),
+          select: () => ({
+            eq: () => ({
+              in: async () => ({ data: [{ id: 'BL001', voyage_id: 7 }], error: null }),
+              // Consulta pontual pre-recalculo (etapa 2): reflete o estado apos o
+              // cancelamento da fatura ja ter sido aplicado por cancel_invoice.
+              maybeSingle: async () => ({ data: { financial_status: 'pending' }, error: null }),
+            }),
+          }),
           update: () => ({ in: async () => ({ error: null }) }),
         }
       }
@@ -367,6 +375,7 @@ describe('vehicleImport', () => {
                 data: [{ id: 'BL001', voyage_id: 7 }],
                 error: null,
               }),
+              maybeSingle: async () => ({ data: { financial_status: 'pending' }, error: null }),
             }),
           }),
           update: () => ({

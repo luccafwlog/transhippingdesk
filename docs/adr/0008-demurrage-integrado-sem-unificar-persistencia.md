@@ -24,3 +24,16 @@ Manter Demurrage em persistência própria, integrada nas superfícies financeir
 - **Positivas**: cálculo por container continua isolado e testável; a UI financeira entrega visão unificada sem forçar um modelo contábil único; regressões de ledger local não afetam diretamente Demurrage.
 - **Negativas / custos**: conciliação PIX precisa tratar fontes diferentes; relatórios e portal precisam agregar famílias de invoice distintas.
 - **Regra prática**: integrações devem unificar a experiência do usuário, não necessariamente a tabela de persistência, quando o domínio tem invariantes diferentes.
+
+## Nota editorial — 2026-08-06 (etapa 12 do plano de faturamento, ADR 0038)
+
+A aba Demurrage em `/faturamento` duplicava `/demurrage` — mesma lista, sem os
+filtros e a impressão de lá — e a própria aba já declarava isso em card fixo.
+O único recurso genuíno era o total consolidado em aberto, que `/demurrage`
+não mostra por segregar por status em abas. Decisão: **não unificar a
+exibição** de faturas de demurrage na aba Faturas (não viram linhas na mesma
+tabela de invoices locais) — a aba, a lista, o modal e a impressão duplicados
+saíram; ficou uma faixa de quatro métricas (`DemurrageMetricsStrip`) na aba
+Faturas com link para `/demurrage`, onde a gestão de fato acontece. Consistente
+com a "regra prática" acima: a experiência ganhou uma visão consolidada sem
+mexer em persistência ou tabela.
