@@ -128,9 +128,14 @@ BEGIN
       e.port,
       -- POD e canonico; POL so preenche o que o POD deixou vazio (mergeEscalaField).
       COALESCE(p.atd, l.atd) AS atd,
+      -- Casa pelo entity_id reconstruido (voyage_id::port), nao por
+      -- p.entity_id: quando o ATD unificado vem so do POL (POD nunca
+      -- registrou atd), p e NULL e p.entity_id nunca bateria com o
+      -- omitted gravado no lado POD, deixando a escala omitida escapar
+      -- da exclusao.
       EXISTS (
         SELECT 1 FROM latest_omitted o
-        WHERE o.entity_id = p.entity_id AND o.new_value = 'true'
+        WHERE o.entity_id = e.voyage_id || '::' || e.port AND o.new_value = 'true'
       ) AS omitted
     FROM escalas e
     LEFT JOIN pod_atd p ON p.voyage_id = e.voyage_id AND p.port = e.port

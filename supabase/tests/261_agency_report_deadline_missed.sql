@@ -76,6 +76,15 @@ VALUES
 INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at)
 VALUES ('voyage_pod_schedule', '900261::BRRET', 'atd', NULL, '2025-12-01', '00000000-0000-4000-8000-000000000261', now());
 
+-- Escala omitida cujo ATD unificado vem SO do POL (POD nunca registrou atd,
+-- so o omitted): regressao do caso em que o join da exclusao comparava
+-- contra pod_atd.entity_id (NULL quando o POD nao tem atd), deixando a
+-- escala omitida escapar da exclusao.
+INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at)
+VALUES
+  ('voyage_pod_schedule', '900261::BRPOL', 'omitted', 'false', 'true', '00000000-0000-4000-8000-000000000261', now()),
+  ('voyage_pol_schedule', '900261::BRPOL', 'atd', NULL, '2026-08-01', '00000000-0000-4000-8000-000000000261', now());
+
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000261', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
@@ -96,6 +105,13 @@ BEGIN
     WHERE type = 'agency_report_deadline_missed' AND entity_id LIKE '900261::BROMT::%'
   ) THEN
     RAISE EXCEPTION 'Escala omitida gerou alerta de vencimento.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.alerts
+    WHERE type = 'agency_report_deadline_missed' AND entity_id LIKE '900261::BRPOL::%'
+  ) THEN
+    RAISE EXCEPTION 'Escala omitida com ATD vindo so do POL gerou alerta de vencimento.';
   END IF;
 
   IF EXISTS (
