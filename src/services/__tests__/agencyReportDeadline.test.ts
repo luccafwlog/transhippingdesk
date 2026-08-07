@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   calculateAgencyReportDeadlineDate,
+  countBusinessDaysBetween,
   deriveAgencyReportDeadlineState,
 } from '../agencyReportDeadline'
 
@@ -99,5 +100,33 @@ describe('deriveAgencyReportDeadlineState', () => {
         now: '2026-08-10T10:00:00Z',
       }),
     ).toBe('overdue')
+  })
+})
+
+describe('countBusinessDaysBetween', () => {
+  it('conta os dias uteis entre segunda e quinta da mesma semana', () => {
+    // 2026-08-03 (seg) -> 2026-08-06 (qui): ter, qua, qui = 3 dias uteis.
+    expect(countBusinessDaysBetween('2026-08-03', '2026-08-06')).toBe(3)
+  })
+
+  it('fim de semana nao conta, mesmo quando o alvo cai num sabado', () => {
+    // 2026-08-03 (seg) -> 2026-08-08 (sab): ter, qua, qui, sex = 4 dias
+    // uteis; sabado (o proprio alvo) e domingo nao contam. Regressao do
+    // bug em que um helper "pula direto para o proximo dia util" faria o
+    // cursor ultrapassar um alvo em fim de semana antes de parar.
+    expect(countBusinessDaysBetween('2026-08-03', '2026-08-08')).toBe(4)
+  })
+
+  it('alvo no mesmo dia da partida: zero dias uteis', () => {
+    expect(countBusinessDaysBetween('2026-08-03', '2026-08-03')).toBe(0)
+  })
+
+  it('alvo anterior a partida: zero dias uteis (curto-circuito)', () => {
+    expect(countBusinessDaysBetween('2026-08-06', '2026-08-03')).toBe(0)
+  })
+
+  it('retorna null para data em formato invalido', () => {
+    expect(countBusinessDaysBetween('03/08/2026', '2026-08-06')).toBeNull()
+    expect(countBusinessDaysBetween('2026-08-03', 'not-a-date')).toBeNull()
   })
 })

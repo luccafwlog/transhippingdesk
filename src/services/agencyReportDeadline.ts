@@ -22,6 +22,22 @@ export type AgencyReportDeadlineInput = {
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 
 /**
+ * Avanca `cursor` (mutado in-place) em UM dia de calendario e informa se o
+ * dia resultante e util (segunda a sexta). Passo unico e nao "pula direto
+ * para o proximo dia util" de proposito: countBusinessDaysBetween precisa
+ * checar o alvo a cada dia de calendario, nao a cada dia util, senao um
+ * alvo que cai num fim de semana faria o cursor ultrapassar o alvo antes de
+ * parar. Compartilhado por calculateAgencyReportDeadlineDate (soma 3 dias
+ * uteis a partir de uma data) e countBusinessDaysBetween (conta dias uteis
+ * entre duas datas), para a regra de dia util nunca divergir entre as duas.
+ */
+function stepOneCalendarDayIsBusinessDay(cursor: Date): boolean {
+  cursor.setUTCDate(cursor.getUTCDate() + 1)
+  const weekday = cursor.getUTCDay() // 0 = domingo, 6 = sabado
+  return weekday !== 0 && weekday !== 6
+}
+
+/**
  * Calcula a data do prazo (YYYY-MM-DD) a partir de um ATD (YYYY-MM-DD),
  * somando 3 dias uteis (segunda a sexta). O dia do ATD nunca conta.
  * Retorna null se `atd` nao estiver no formato YYYY-MM-DD.
@@ -41,11 +57,7 @@ export function calculateAgencyReportDeadlineDate(atd: string): string | null {
 
   let businessDaysAdded = 0
   while (businessDaysAdded < 3) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1)
-    const weekday = cursor.getUTCDay() // 0 = domingo, 6 = sabado
-    if (weekday !== 0 && weekday !== 6) {
-      businessDaysAdded += 1
-    }
+    if (stepOneCalendarDayIsBusinessDay(cursor)) businessDaysAdded += 1
   }
 
   const deadlineYear = cursor.getUTCFullYear()
@@ -74,12 +86,13 @@ export function toDateOnly(value: string): string | null {
  * calculateAgencyReportDeadlineDate: o dia de partida nunca conta, o loop
  * sempre avança antes de contar). Usada pelo agregado de SLA (Task 5 do ADR
  * 0039) para medir quantos dias úteis um departamento levou do ATD até a
- * assinatura. Retorna 0 se `toDateOnly` não é posterior a `fromDateOnly`, ou
- * null se alguma das datas não estiver no formato YYYY-MM-DD.
+ * assinatura. Retorna 0 se `toDateOnlyValue` não é posterior a
+ * `fromDateOnly`, ou null se alguma das datas não estiver no formato
+ * YYYY-MM-DD.
  */
-export function countBusinessDaysBetween(fromDateOnly: string, toDateOnly: string): number | null {
+export function countBusinessDaysBetween(fromDateOnly: string, toDateOnlyValue: string): number | null {
   const fromMatch = fromDateOnly.match(DATE_ONLY_PATTERN)
-  const toMatch = toDateOnly.match(DATE_ONLY_PATTERN)
+  const toMatch = toDateOnlyValue.match(DATE_ONLY_PATTERN)
   if (!fromMatch || !toMatch) return null
 
   const [, fromYear, fromMonth, fromDay] = fromMatch
@@ -94,9 +107,7 @@ export function countBusinessDaysBetween(fromDateOnly: string, toDateOnly: strin
 
   let businessDays = 0
   while (cursor.getTime() < target.getTime()) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1)
-    const weekday = cursor.getUTCDay()
-    if (weekday !== 0 && weekday !== 6) businessDays += 1
+    if (stepOneCalendarDayIsBusinessDay(cursor)) businessDays += 1
   }
   return businessDays
 }

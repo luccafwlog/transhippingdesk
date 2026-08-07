@@ -1,11 +1,46 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const supabaseMocks = vi.hoisted(() => ({ from: vi.fn() }))
+const voyageRouteSchedulesMocks = vi.hoisted(() => ({ listVoyageEscalaSchedulesByVoyageIds: vi.fn() }))
+
+// listClosedAgencyReports/listAgencyReportSlaRows tocam o banco; as demais
+// funções deste módulo são puras — mesma convenção de billingHelpers.test.ts.
+vi.mock('../supabase', () => ({ supabase: { from: supabaseMocks.from } }))
+vi.mock('../voyageRouteSchedules', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../voyageRouteSchedules')>()
+  return { ...actual, listVoyageEscalaSchedulesByVoyageIds: voyageRouteSchedulesMocks.listVoyageEscalaSchedulesByVoyageIds }
+})
+
 import {
   isEscalaOmitted,
+  listAgencyReportSlaRows,
+  listClosedAgencyReports,
   mapClosedReportToSlaRow,
   summarizeAgencyReportSlaByDepartment,
   type ClosedAgencyReportListItem,
 } from '../agencyReportSla'
 import type { VoyageEscalaSchedule } from '../voyageRouteSchedules'
+
+beforeEach(() => {
+  supabaseMocks.from.mockReset()
+  voyageRouteSchedulesMocks.listVoyageEscalaSchedulesByVoyageIds.mockReset()
+})
+
+// Query builder encadeável mínimo (select/eq/order/gte/lte) que resolve como
+// uma Promise de { data, error } — mesmo formato que o client real do
+// Supabase expõe, o bastante para exercitar listClosedAgencyReports sem um
+// banco real.
+function makeQueryBuilder(result: { data: unknown; error: unknown }) {
+  const builder: Record<string, unknown> = {}
+  const chain = () => builder
+  builder.select = vi.fn(chain)
+  builder.eq = vi.fn(chain)
+  builder.order = vi.fn(chain)
+  builder.gte = vi.fn(chain)
+  builder.lte = vi.fn(chain)
+  builder.then = (resolve: (value: typeof result) => unknown) => resolve(result)
+  return builder
+}
 
 function closedReport(overrides: Partial<ClosedAgencyReportListItem> = {}): ClosedAgencyReportListItem {
   return {
@@ -126,5 +161,82 @@ describe('summarizeAgencyReportSlaByDepartment', () => {
   it('retorna rate null quando não há linhas para o período', () => {
     const summary = summarizeAgencyReportSlaByDepartment([])
     expect(summary.every((s) => s.total === 0 && s.rate === null)).toBe(true)
+  })
+})
+
+describe('listClosedAgencyReports', () => {
+  it('filtra por status=closed e aplica o intervalo de datas opcional', async () => {
+    const builder = makeQueryBuilder({ data: [closedReport()], error: null })
+    supabaseMocks.from.mockReturnValue(builder)
+
+    const result = await listClosedAgencyReports({ from: '2026-02-01', to: '2026-02-28' })
+
+    expect(supabaseMocks.from).toHaveBeenCalledWith('agency_departure_reports')
+    expect(builder.eq).toHaveBeenCalledWith('status', 'closed')
+    expect(builder.gte).toHaveBeenCalledWith('closed_at', '2026-02-01')
+    expect(builder.lte).toHaveBeenCalledWith('closed_at', '2026-02-28T23:59:59.999')
+    expect(result).toHaveLength(1)
+  })
+
+  it('sem intervalo informado, não filtra por data', async () => {
+    const builder = makeQueryBuilder({ data: [], error: null })
+    supabaseMocks.from.mockReturnValue(builder)
+
+    await listClosedAgencyReports()
+
+    expect(builder.gte).not.toHaveBeenCalled()
+    expect(builder.lte).not.toHaveBeenCalled()
+  })
+
+  it('propaga erro da consulta', async () => {
+    const builder = makeQueryBuilder({ data: null, error: new Error('falhou') })
+    supabaseMocks.from.mockReturnValue(builder)
+
+    await expect(listClosedAgencyReports()).rejects.toThrow('falhou')
+  })
+})
+
+describe('listAgencyReportSlaRows', () => {
+  it('exclui, via checagem viva, uma escala omitida cujo snapshot congelado tem ATD/deadline presentes', async () => {
+    // Regressão do caso central do módulo: uma linha que passaria pela
+    // exclusão de vigência (header.unifiedAtd/deadlineDate presentes) só é
+    // barrada porque a escala está omitida no estado vigente — não porque o
+    // ATD está ausente.
+    const omittedButWithAtd = closedReport({ voyage_id: 5, port: 'BROMT' })
+    const builder = makeQueryBuilder({ data: [omittedButWithAtd], error: null })
+    supabaseMocks.from.mockReturnValue(builder)
+    voyageRouteSchedulesMocks.listVoyageEscalaSchedulesByVoyageIds.mockResolvedValue(
+      new Map([[5, [{ entityId: '5::BROMT', voyageId: 5, port: 'BROMT', omitted: true } as VoyageEscalaSchedule]]]),
+    )
+
+    const rows = await listAgencyReportSlaRows()
+
+    expect(rows).toHaveLength(0)
+  })
+
+  it('inclui uma escala não omitida com snapshot vigente', async () => {
+    const builder = makeQueryBuilder({ data: [closedReport()], error: null })
+    supabaseMocks.from.mockReturnValue(builder)
+    voyageRouteSchedulesMocks.listVoyageEscalaSchedulesByVoyageIds.mockResolvedValue(
+      new Map([[1, [{ entityId: '1::BRVIX', voyageId: 1, port: 'BRVIX', omitted: false } as VoyageEscalaSchedule]]]),
+    )
+
+    const rows = await listAgencyReportSlaRows()
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].port).toBe('BRVIX')
+  })
+
+  it('não consulta a projeção de escalas quando não há linhas mapeadas (snapshots todos legados)', async () => {
+    const legacy = closedReport({
+      closed_snapshot: { header: { unifiedAtd: null, deadlineDate: null }, departmentSignoffs: [] },
+    })
+    const builder = makeQueryBuilder({ data: [legacy], error: null })
+    supabaseMocks.from.mockReturnValue(builder)
+
+    const rows = await listAgencyReportSlaRows()
+
+    expect(rows).toHaveLength(0)
+    expect(voyageRouteSchedulesMocks.listVoyageEscalaSchedulesByVoyageIds).not.toHaveBeenCalled()
   })
 })
