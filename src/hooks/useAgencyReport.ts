@@ -12,6 +12,7 @@ import {
   setSignoff,
   setTerminal,
 } from '../services/agencyDepartureReport'
+import { listAgencyReportSlaRows, type AgencyReportSlaDateRange } from '../services/agencyReportSla'
 
 export function useAgencyReportDerived(voyageId: number, port: string | null) {
   return useQuery({
@@ -96,4 +97,16 @@ export function useCloseAgencyReport() {
 
 export function useReopenAgencyReport() {
   return useAgencyReportOwnMutation(reopenReport, CLOSE_REOPEN_KEYS)
+}
+
+// Agregado de SLA do Prazo de Conclusão do ADR (Task 5 do ADR 0039), exibido
+// em Administração ("Prazo do ADR"). `enabled` fica a cargo da chamadora
+// (tab === '...'), mesmo padrão lazy-load de logs/métricas em AdminUsuarios.
+export function useAgencyReportSla(range: AgencyReportSlaDateRange | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['agency-report-sla', range?.from ?? null, range?.to ?? null],
+    queryFn: () => listAgencyReportSlaRows(range),
+    enabled,
+    staleTime: 30_000,
+  })
 }

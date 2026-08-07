@@ -68,11 +68,11 @@ tela, o alerta e o agregado, para que as três superfícies nunca discordem.
 **Files:** `src/pages/AdminUsuarios.tsx`, `src/services/agencyReportSla.ts`
 (novo), hook e testes correspondentes.
 
-- [ ] Listar uma linha por (viagem, porto) no período: ATD, assinatura de cada
+- [x] Listar uma linha por (viagem, porto) no período: ATD, assinatura de cada
       departamento, dias úteis até cada uma, cumpriu/não cumpriu e tempo total
       decorrido até o Fechamento.
-- [ ] Somar a taxa de cumprimento **por departamento**, nunca por usuário.
-- [ ] Excluir do agregado escalas omitidas e ATDs anteriores à vigência.
+- [x] Somar a taxa de cumprimento **por departamento**, nunca por usuário.
+- [x] Excluir do agregado escalas omitidas e ATDs anteriores à vigência.
 
 ### Task 6: Gates e publicação
 

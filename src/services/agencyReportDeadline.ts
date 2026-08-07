@@ -55,7 +55,7 @@ export function calculateAgencyReportDeadlineDate(atd: string): string | null {
 }
 
 /** Extrai a parte YYYY-MM-DD de um timestamp ISO (ou de uma data-only string). */
-function toDateOnly(value: string): string | null {
+export function toDateOnly(value: string): string | null {
   const dateOnlyMatch = value.match(DATE_ONLY_PATTERN)
   if (dateOnlyMatch) return dateOnlyMatch[0]
 
@@ -66,6 +66,39 @@ function toDateOnly(value: string): string | null {
   const month = String(parsed.getUTCMonth() + 1).padStart(2, '0')
   const day = String(parsed.getUTCDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+/**
+ * Conta dias úteis (segunda a sexta) estritamente entre duas datas
+ * YYYY-MM-DD, sem contar o dia de `fromDateOnly` (mesma convenção de
+ * calculateAgencyReportDeadlineDate: o dia de partida nunca conta, o loop
+ * sempre avança antes de contar). Usada pelo agregado de SLA (Task 5 do ADR
+ * 0039) para medir quantos dias úteis um departamento levou do ATD até a
+ * assinatura. Retorna 0 se `toDateOnly` não é posterior a `fromDateOnly`, ou
+ * null se alguma das datas não estiver no formato YYYY-MM-DD.
+ */
+export function countBusinessDaysBetween(fromDateOnly: string, toDateOnly: string): number | null {
+  const fromMatch = fromDateOnly.match(DATE_ONLY_PATTERN)
+  const toMatch = toDateOnly.match(DATE_ONLY_PATTERN)
+  if (!fromMatch || !toMatch) return null
+
+  const [, fromYear, fromMonth, fromDay] = fromMatch
+  const cursor = new Date(Date.UTC(Number(fromYear), Number(fromMonth) - 1, Number(fromDay)))
+  if (Number.isNaN(cursor.getTime())) return null
+
+  const [, toYear, toMonth, toDay] = toMatch
+  const target = new Date(Date.UTC(Number(toYear), Number(toMonth) - 1, Number(toDay)))
+  if (Number.isNaN(target.getTime())) return null
+
+  if (target.getTime() <= cursor.getTime()) return 0
+
+  let businessDays = 0
+  while (cursor.getTime() < target.getTime()) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+    const weekday = cursor.getUTCDay()
+    if (weekday !== 0 && weekday !== 6) businessDays += 1
+  }
+  return businessDays
 }
 
 /**

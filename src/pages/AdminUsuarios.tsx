@@ -20,9 +20,13 @@ import {
   type AdminUserRow,
 } from '../services/adminUsers'
 import { LOG_PAGE_SIZE, fetchAuditLogs, fetchSystemMetrics, type LogFilters } from '../services/adminObservability'
+import { useAgencyReportSla } from '../hooks/useAgencyReport'
+import { summarizeAgencyReportSlaByDepartment, type AgencyReportSlaDateRange } from '../services/agencyReportSla'
+import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
+import { formatDate } from '../lib/utils'
 import type { UserProfileRole } from '../types/database'
 
-type AdminTab = 'usuários' | 'logs' | 'métricas'
+type AdminTab = 'usuários' | 'logs' | 'métricas' | 'prazo-adr'
 
 const VERSION = '2.0.0'
 const COMMIT_SHA = String(import.meta.env.VITE_APP_COMMIT_SHA ?? 'unknown')
@@ -39,6 +43,7 @@ export function AdminUsuarios() {
   const [logFilters, setLogFilters] = useState<LogFilters>({
     entityType: '', changedBy: '', dateFrom: '', dateTo: '', page: 0,
   })
+  const [slaFilters, setSlaFilters] = useState<{ from: string; to: string }>({ from: '', to: '' })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-users'],
@@ -61,6 +66,13 @@ export function AdminUsuarios() {
     enabled: tab === 'métricas',
     staleTime: 60_000,
   })
+
+  const slaRange: AgencyReportSlaDateRange = {
+    from: slaFilters.from || undefined,
+    to: slaFilters.to || undefined,
+  }
+  const { data: slaRows, isLoading: slaLoading, error: slaError } = useAgencyReportSla(slaRange, tab === 'prazo-adr')
+  const slaSummary = summarizeAgencyReportSlaByDepartment(slaRows ?? [])
 
   const mutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Parameters<typeof updateUserProfile>[1] }) =>
@@ -152,14 +164,14 @@ export function AdminUsuarios() {
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {(['usuários', 'logs', 'métricas'] as AdminTab[]).map((t) => (
+        {(['usuários', 'logs', 'métricas', 'prazo-adr'] as AdminTab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`app-tab capitalize ${tab === t ? 'app-tab--active' : ''}`}
           >
-            {t === 'usuários' ? 'Usuários' : t === 'logs' ? 'Log de Ações' : 'Métricas'}
+            {t === 'usuários' ? 'Usuários' : t === 'logs' ? 'Log de Ações' : t === 'métricas' ? 'Métricas' : 'Prazo do ADR'}
           </button>
         ))}
       </div>
@@ -442,6 +454,118 @@ export function AdminUsuarios() {
               <MetricCard label="Última conciliação Pix" value={metrics?.lastPixReconAt ? formatDateTime(metrics.lastPixReconAt) : '-'} />
               <MetricCard label="Ultimo faturamento" value={metrics?.lastInvoiceAt ? formatDateTime(metrics.lastInvoiceAt) : '-'} />
             </div>
+          )}
+        </>
+      ) : null}
+
+      {tab === 'prazo-adr' ? (
+        <>
+          <p className="mb-3 text-sm text-[var(--app-muted)]">
+            Uma linha por (viagem, porto) de ADR fechado, com o ATD, a assinatura de cada departamento e o cumprimento
+            do Prazo de Conclusão do ADR. Cumprimento é medido por departamento, nunca por pessoa. Escalas omitidas e
+            ADRs fechados antes desta medição existir são excluídos.
+          </p>
+
+          <div className="mb-4 flex flex-wrap items-end gap-2">
+            <div>
+              <label className="mb-1 block app-field__label">Fechado de</label>
+              <input
+                type="date"
+                className="app-input"
+                value={slaFilters.from}
+                onChange={(e) => setSlaFilters((f) => ({ ...f, from: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block app-field__label">Fechado até</label>
+              <input
+                type="date"
+                className="app-input"
+                value={slaFilters.to}
+                onChange={(e) => setSlaFilters((f) => ({ ...f, to: e.target.value }))}
+              />
+            </div>
+            {(slaFilters.from || slaFilters.to) && (
+              <button
+                type="button"
+                className="app-btn app-btn--secondary"
+                onClick={() => setSlaFilters({ from: '', to: '' })}
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
+
+          {slaError ? <InlineError message="Erro ao carregar o agregado de Prazo do ADR." /> : null}
+
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3">
+            {slaSummary.map((s) => (
+              <MetricCard
+                key={s.department}
+                label={s.label}
+                value={s.total > 0 ? `${s.onTime}/${s.total} no prazo (${Math.round((s.rate ?? 0) * 100)}%)` : 'Sem dados no período'}
+              />
+            ))}
+          </div>
+
+          {slaLoading ? (
+            <div className="py-12 text-center text-[var(--app-muted)]">Carregando agregado...</div>
+          ) : (
+            <Card className="overflow-hidden p-0">
+              <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
+                <thead>
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Navio / Viagem</th>
+                    <th scope="col" className="px-4 py-3">Porto</th>
+                    <th scope="col" className="px-4 py-3">ATD</th>
+                    <th scope="col" className="px-4 py-3">Prazo</th>
+                    {(['operacoes', 'documentacao', 'equipamentos'] as const).map((department) => (
+                      <th key={department} scope="col" className="px-4 py-3">{AGENCY_REPORT_DEPARTMENT_LABELS[department]}</th>
+                    ))}
+                    <th scope="col" className="px-4 py-3">Tempo total até o Fechamento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!slaRows?.length ? (
+                    <tr>
+                      <td colSpan={7} className="p-0">
+                        <EmptyState title="Nenhum ADR fechado no período (após excluir escalas omitidas e snapshots anteriores à vigência)." />
+                      </td>
+                    </tr>
+                  ) : null}
+                  {slaRows?.map((row) => (
+                    <tr key={`${row.voyageId}::${row.port}`}>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-[var(--app-text-strong)]">{row.vesselName ?? '—'}</div>
+                        <div className="text-xs text-[var(--app-muted)]">{row.voyageNumber ?? '—'}</div>
+                      </td>
+                      <td className="px-4 py-3">{row.port}</td>
+                      <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">{formatDate(row.atd)}</td>
+                      <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">{formatDate(row.deadlineDate)}</td>
+                      {row.departments.map((departmentRow) => (
+                        <td key={departmentRow.department} className="px-4 py-3">
+                          <div className="mb-1">
+                            <Badge tone={departmentRow.state === 'on-time' ? 'green' : departmentRow.state === 'overdue' ? 'red' : 'slate'}>
+                              {departmentRow.state === 'on-time' ? 'No prazo' : departmentRow.state === 'overdue' ? 'Atrasado' : 'Sem prazo'}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-[var(--app-muted)]">
+                            {departmentRow.signedAt
+                              ? `${formatDate(departmentRow.signedAt)} · ${departmentRow.businessDaysElapsed ?? '—'} dia(s) útil(eis)`
+                              : 'Não assinado'}
+                          </div>
+                        </td>
+                      ))}
+                      <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">
+                        {row.elapsedCalendarDaysToClosure !== null ? `${row.elapsedCalendarDaysToClosure} dia(s) corrido(s)` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </Card>
           )}
         </>
       ) : null}
