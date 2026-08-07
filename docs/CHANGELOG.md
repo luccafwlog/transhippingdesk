@@ -4,6 +4,21 @@
 
 ## 2026-08
 
+- **Vigência da tabela de taxas vira informativo:** a vigência da Tabela de
+  Taxas Locais deixa de participar do cálculo — `resolve_local_charge_table_id`
+  resolve por escopo (modo de carga + POD) e por `active`, desempatando entre
+  ativas pela vigência inicial mais recente; inativar passa a ser a única forma
+  de tirar uma tabela do ar. Junto sai a trava do ETA: `review:no_eta` deixa de
+  existir e o cálculo não para mais por falta de ETA da escala. A Data de
+  Referência da Tarifa sobrevive só para resolver a Condição de Cliente (cuja
+  vigência continua valendo), com precedência ETA da escala → ETA da viagem →
+  data de hoje. Em `/taxas-locais`, a vigência ganha avisos no lugar da trava:
+  vencida ou futura em tabela ativa, e "não aplicada" quando outra tabela ativa
+  do mesmo POD e modo de carga vence o desempate. O gate de
+  `ready_for_billing`, que exigia tabela vigente em `CURRENT_DATE` desde a
+  migration `019`, passa a usar o mesmo critério de escopo + `active` — sem
+  isso a trava só mudaria de lugar. Migrations `274` e `275`. *(ADR 0040;
+  supersede parcialmente a decisão 3 da ADR 0038)*
 - **Prazo de Conclusão do ADR — linha do tempo e medição por departamento:** a aba ADR ganha uma Linha do Tempo (ATD da escala unificada, POD canônico com fallback do POL, e o momento do seu registro; o Prazo de Conclusão — 3 dias úteis, segunda a sexta, feriados contam, dia do ATD nunca conta — calculado por uma função pura compartilhada entre tela, alerta e agregado; as 3 assinaturas departamentais com data/hora/assinante e reaberturas com justificativa; Fechamento sem prazo próprio). Sem ATD ou em escala omitida, a linha do tempo fica sem cor — nunca vencida por omissão. Novo alerta `agency_report_deadline_missed` (migration `261`), um por departamento vencido sem assinatura vigente, independente do alerta de pendência pós-ATD existente e fechado junto com o Fechamento; vigência própria não retroage a ADRs anteriores à feature. No fechamento, os marcos são congelados dentro das chaves já existentes de `closed_snapshot` (nenhuma chave de topo nova); o impresso mostra só as datas de assinatura e as reaberturas — nunca o veredito de prazo, cor ou contagem de dias, que ficam só nas telas. Agregado de calibração por (viagem, porto) em `/admin/usuarios` (aba "Prazo do ADR"), somando cumprimento **por departamento**, nunca por pessoa, para o prazo de 3 dias poder ser ajustado com dado real. *(plano arquivado `2026-08-06-adr-prazo-conclusao-linha-do-tempo`; ADR 0039)*
 - **Faturamento: ADR 0038 completa e consolidação de `/faturamento`:** taxa
   local vira valor congelado ancorado na escala do POD, nas 13 etapas do

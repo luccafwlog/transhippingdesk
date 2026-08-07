@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  chargeTableAlerts,
   validateOverrideInput,
   validateTableInput,
   validateTableItemInput,
@@ -109,5 +110,85 @@ describe('validateTableItemInput', () => {
       ok: false,
       error: 'Sort order invalido.',
     })
+  })
+})
+
+describe('chargeTableAlerts', () => {
+  const base = {
+    cargo_mode: 'container' as const,
+    pod: 'BRVIT',
+    valid_from: '2026-01-01',
+    valid_to: null,
+    active: true,
+  }
+  const today = '2026-08-07'
+
+  it('does not warn about a single active table with an open vigência', () => {
+    expect(chargeTableAlerts([{ ...base, id: 1 }], today).size).toBe(0)
+  })
+
+  it('warns that an expired vigência still charges, because it no longer filters', () => {
+    const alerts = chargeTableAlerts([{ ...base, id: 1, valid_to: '2026-06-30' }], today)
+    expect(alerts.get(1)?.map((alert) => alert.label)).toEqual(['Vigência vencida'])
+  })
+
+  it('warns that a future vigência is already in use', () => {
+    const alerts = chargeTableAlerts([{ ...base, id: 1, valid_from: '2026-12-01' }], today)
+    expect(alerts.get(1)?.map((alert) => alert.label)).toEqual(['Vigência futura'])
+  })
+
+  it('stays quiet about the vigência of an inactive table, which never reaches the engine', () => {
+    const alerts = chargeTableAlerts([{ ...base, id: 1, valid_to: '2026-06-30', active: false }], today)
+    expect(alerts.size).toBe(0)
+  })
+
+  it('flags the losing table when two active tables share POD and cargo mode', () => {
+    const alerts = chargeTableAlerts(
+      [
+        { ...base, id: 1, valid_from: '2026-01-01' },
+        { ...base, id: 2, valid_from: '2026-07-01' },
+      ],
+      today,
+    )
+    expect(alerts.get(1)?.map((alert) => alert.label)).toEqual(['Não aplicada'])
+    expect(alerts.has(2)).toBe(false)
+  })
+
+  it('breaks a tie on equal valid_from by the highest id, like the engine does', () => {
+    const alerts = chargeTableAlerts(
+      [
+        { ...base, id: 7 },
+        { ...base, id: 9 },
+      ],
+      today,
+    )
+    expect(alerts.has(9)).toBe(false)
+    expect(alerts.get(7)?.map((alert) => alert.label)).toEqual(['Não aplicada'])
+  })
+
+  it('groups POD aliases the way the database does, so the alert matches the engine', () => {
+    // public.normalize_port_code (migration 063) dobra BRVIT/BRVIX/VITORIA em
+    // BRVIT — o motor veria uma tabela sombreando a outra.
+    const alerts = chargeTableAlerts(
+      [
+        { ...base, id: 1, pod: 'BRVIT', valid_from: '2026-01-01' },
+        { ...base, id: 2, pod: 'Vitoria, Brazil', valid_from: '2026-07-01' },
+      ],
+      today,
+    )
+    expect(alerts.get(1)?.map((alert) => alert.label)).toEqual(['Não aplicada'])
+    expect(alerts.has(2)).toBe(false)
+  })
+
+  it('does not treat different PODs or cargo modes as the same scope', () => {
+    const alerts = chargeTableAlerts(
+      [
+        { ...base, id: 1 },
+        { ...base, id: 2, pod: 'BRSSA' },
+        { ...base, id: 3, cargo_mode: 'carga_solta' as const },
+      ],
+      today,
+    )
+    expect(alerts.size).toBe(0)
   })
 })

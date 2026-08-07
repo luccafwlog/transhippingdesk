@@ -1,6 +1,8 @@
 # 0038 — Taxa Local é valor congelado na emissão, ancorado na escala do POD
 
-Status: aceito — 2026-08-06
+Status: aceito — 2026-08-06 (decisão 3 supersedida parcialmente pela
+[ADR 0040](./0040-vigencia-da-tabela-de-taxas-e-informativa.md) em 2026-08-07;
+ver nota editorial ao final)
 
 ## Contexto
 
@@ -264,3 +266,17 @@ confirmação com a operação de que ninguém imprime Demurrage a partir de
 `/faturamento` não foi feita antes de remover esse caminho (etapa 12). Ambos
 documentados em `docs/RASTREABILIDADE.md` e `docs/modules/faturamento.md`
 respectivamente.
+
+## Nota editorial — 2026-08-07 (decisão 3 supersedida parcialmente)
+
+A [ADR 0040](./0040-vigencia-da-tabela-de-taxas-e-informativa.md) removeu a
+trava que a decisão 3 criou: a vigência da Tabela de Taxas Locais deixou de
+filtrar o cálculo (a tabela é resolvida por escopo + `active`) e a ETA deixou de
+ser pré-requisito — `review:no_eta` não existe mais. A Data de Referência da
+Tarifa continua existindo, agora só para resolver a Condição de Cliente, com
+precedência ETA da escala → `voyages.eta` → data de hoje.
+
+O gap conhecido registrado na nota editorial anterior — "a taxa de preenchimento
+real da ETA por escala não foi verificada contra produção" — foi o que motivou a
+0040. As demais decisões desta ADR permanecem íntegras, em especial a 2
+(congelamento na emissão) e a 5 (vigência da Condição de Cliente).

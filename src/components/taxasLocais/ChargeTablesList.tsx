@@ -3,6 +3,7 @@ import { Ban, ChevronDown, ChevronUp, Pencil, Plus, Save, Trash2 } from 'lucide-
 import { Badge } from '../ui/Badge'
 import { Card, EmptyState } from '../ui/Card'
 import { formatBRL, formatDate, formatUSD } from '../../lib/utils'
+import { chargeTableAlerts } from '../../pages/taxasLocaisHelpers'
 import type { LocalChargeTableWithItems } from '../../services/charges/chargeTableService'
 
 type ChargeTablesListProps = {
@@ -37,6 +38,9 @@ export function ChargeTablesList({
   deletingTableItem,
 }: ChargeTablesListProps) {
   const [expandedTableId, setExpandedTableId] = useState<number | null>(null)
+  // ADR 0040: a vigência não filtra mais o cálculo, então ela precisa avisar
+  // quando o que está cadastrado não descreve o que o motor faz.
+  const alerts = chargeTableAlerts(tables, new Date().toISOString().slice(0, 10))
 
   return (
     <Card className="overflow-hidden p-0">
@@ -56,7 +60,9 @@ export function ChargeTablesList({
               <th scope="col" className="px-4 py-3">Tabela</th>
               <th scope="col" className="px-4 py-3">Modo</th>
               <th scope="col" className="px-4 py-3">POD</th>
-              <th scope="col" className="px-4 py-3">Vigência</th>
+              <th scope="col" className="px-4 py-3" title="Informativa: não decide qual tabela o cálculo usa (ADR 0040)">
+                Vigência
+              </th>
               <th scope="col" className="px-4 py-3">Status</th>
               <th scope="col" className="px-4 py-3">Itens</th>
               <th scope="col" className="px-4 py-3">Ações</th>
@@ -94,7 +100,16 @@ export function ChargeTablesList({
                     <td className="px-4 py-3">{table.cargo_mode === 'carga_solta' ? 'Carga Solta' : table.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                     <td className="px-4 py-3">{table.pod ?? '-'}</td>
                     <td className="px-4 py-3">
-                      {formatDate(table.valid_from)}{table.valid_to ? ` até ${formatDate(table.valid_to)}` : ' (aberta)'}
+                      <div className="app-table__cell-stack">
+                        <span>
+                          {formatDate(table.valid_from)}{table.valid_to ? ` até ${formatDate(table.valid_to)}` : ' (aberta)'}
+                        </span>
+                        {(alerts.get(table.id) ?? []).map((alert) => (
+                          <Badge key={alert.label} tone={alert.tone} className="w-fit" title={alert.hint}>
+                            {alert.label}
+                          </Badge>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge tone={table.active ? 'green' : 'slate'}>{table.active ? 'Ativa' : 'Inativa'}</Badge>
