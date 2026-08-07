@@ -30,6 +30,16 @@ type Snapshot = {
       atd?: string | null;
       rtw?: number | null;
     } | null;
+    /**
+     * Marcos do Prazo de Conclusão do ADR (ADR 0039), congelados no
+     * fechamento — dados de uso interno (relatório de SLA, Task 5), nunca
+     * impressos. Ausentes em snapshot anterior à Task 4: o impresso não os lê
+     * para renderizar nada, então a ausência não quebra o documento.
+     */
+    unifiedAtd?: string | null;
+    atdRegisteredAt?: string | null;
+    atdSource?: "pod" | "pol" | null;
+    deadlineDate?: string | null;
   };
   sections?: Record<string, unknown>;
   /** Resoluções de seção do ADR fechado; a Observação de cada seção vive aqui. */
@@ -316,6 +326,26 @@ function Section({
   );
 }
 
+type DepartmentReopeningLike = {
+  changed_at: string | null;
+  changed_by: string | null;
+  justification: string | null;
+};
+
+// Reaberturas congeladas no fechamento (ADR 0039, Task 4): ausentes em
+// snapshot anterior à Task 4 — `[]` degrada para "sem reabertura", não quebra.
+function asReopenings(value: unknown): DepartmentReopeningLike[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const record = asRecord(item);
+    return {
+      changed_at: (record.changed_at as string | null | undefined) ?? null,
+      changed_by: (record.changed_by as string | null | undefined) ?? null,
+      justification: (record.justification as string | null | undefined) ?? null,
+    };
+  });
+}
+
 function asDepartmentSignoffRows(value: unknown) {
   if (!Array.isArray(value)) return null;
   return value.map((item) => {
@@ -324,6 +354,7 @@ function asDepartmentSignoffRows(value: unknown) {
       department: String(record.department ?? ""),
       signed_by: (record.signed_by as string | null | undefined) ?? null,
       signed_at: (record.signed_at as string | null | undefined) ?? null,
+      reopenings: asReopenings(record.reopenings),
     };
   });
 }
@@ -341,10 +372,19 @@ function DepartmentSignoffsSection({
   rows,
   actorNames,
 }: {
-  rows: Array<{ department: string; signed_by: string | null; signed_at: string | null }>;
+  rows: Array<{
+    department: string;
+    signed_by: string | null;
+    signed_at: string | null;
+    reopenings: DepartmentReopeningLike[];
+  }>;
   actorNames: Record<string, string>;
 }) {
   const byDepartment = new Map(rows.map((row) => [row.department, row]));
+  // Alguma reabertura registrada em algum departamento? Só então a coluna
+  // extra é impressa — snapshot sem reabertura nenhuma mantém a tabela
+  // enxuta, igual ao comportamento anterior à Task 4.
+  const hasAnyReopening = rows.some((row) => row.reopenings.length > 0);
 
   return (
     <section className="agency-report-document__section">
@@ -358,17 +398,41 @@ function DepartmentSignoffsSection({
             <th scope="col">Departamento</th>
             <th scope="col">Assinante</th>
             <th scope="col">Data</th>
+            {hasAnyReopening ? <th scope="col">Reaberturas</th> : null}
           </tr>
         </thead>
         <tbody>
           {DEPARTMENTS.map((department) => {
             const row = byDepartment.get(department);
             const name = (row?.signed_by && actorNames[row.signed_by]) || null;
+            const reopenings = row?.reopenings ?? [];
             return (
               <tr key={department}>
                 <th scope="row">{AGENCY_REPORT_DEPARTMENT_LABELS[department]}</th>
                 <td>{row?.signed_at ? (name ?? "—") : "Não assinado"}</td>
                 <td>{row?.signed_at ? formatDate(row.signed_at) : "—"}</td>
+                {hasAnyReopening ? (
+                  <td>
+                    {reopenings.length ? (
+                      <ul className="agency-report-document__reopenings">
+                        {reopenings.map((reopening, index) => {
+                          const reopenName =
+                            (reopening.changed_by && actorNames[reopening.changed_by]) ||
+                            reopening.changed_by ||
+                            "—";
+                          return (
+                            <li key={index}>
+                              {formatDate(reopening.changed_at)} — {reopenName}
+                              {reopening.justification ? `: ${reopening.justification}` : ""}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                ) : null}
               </tr>
             );
           })}

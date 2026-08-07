@@ -5,7 +5,9 @@ import { AgencyReportDocument } from './AgencyReportDocument'
 import { Info, MetricPanel } from '../shared/VoyageSectionCards'
 import { SignoffControl } from './SignoffControl'
 import { DepartmentSignoffControl } from './DepartmentSignoffControl'
+import { AgencyReportTimeline } from './AgencyReportTimeline'
 import {
+  useAgencyReportDepartmentSignoffEvents,
   useAgencyReportDerived,
   useAgencyReportOwn,
   useAgencyReportSignoffEvents,
@@ -21,6 +23,7 @@ import {
   AGENCY_REPORT_SECTION_ORDER,
   AGENCY_REPORT_DEPARTMENT_LABELS,
   buildContainerTypeMatrix,
+  filterDepartmentReopeningEvents,
   groupEmptyEmbarkBookings,
   MATRIX_CATEGORY_LABELS,
   groupVehiclesByBrand,
@@ -30,6 +33,7 @@ import {
   type AgencyReportSignoffEvent,
   type SignoffState,
 } from '../../services/agencyDepartureReport'
+import { calculateAgencyReportDeadlineDate } from '../../services/agencyReportDeadline'
 import type { AgencyReportDepartmentKey, Json } from '../../types/database'
 import type { AdrEscalaPod } from '../../services/voyageSummaries'
 import { formatBRL, formatDate } from '../../lib/utils'
@@ -229,6 +233,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port)
   const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port)
+  const { data: departmentSignoffEvents } = useAgencyReportDepartmentSignoffEvents(voyageId, port)
   const { effectiveRole, isAdmin } = useAuth()
   const signoffMutation = useSetAgencyReportSignoff()
   const departmentSignoffMutation = useSetAgencyReportDepartmentSignoff()
@@ -348,8 +353,45 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   }
   const signedDepartmentsCount = DEPARTMENTS.filter(isDepartmentSigned).length
 
+  // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback) —
+  // distinto de data?.schedule?.atd (POD-only), usado pela Linha do Tempo do
+  // ADR e, abaixo, pela própria seção Escala.
+  const unifiedAtd = data?.unifiedAtd?.atd ?? null
+  const deadlineDate = unifiedAtd ? calculateAgencyReportDeadlineDate(unifiedAtd) : null
+
+  // Reaberturas por departamento (com justificativa) — o predicado de
+  // "o que é reabertura" vem de filterDepartmentReopeningEvents
+  // (agencyDepartureReport.ts), a mesma regra usada por
+  // buildDepartmentTimelineRows (AgencyReportTimeline.tsx); só o projeto após
+  // o filtro difere aqui, porque o snapshot precisa apenas de (data, autor,
+  // justificativa) em vez das linhas completas da Linha do Tempo (estado de
+  // prazo incluso). Task 4 do ADR 0039: os marcos do fechamento vão dentro de
+  // `departmentSignoffs`, chave de topo já liberada pela allowlist de
+  // close_agency_departure_report — nenhuma chave nova é adicionada.
+  const departmentReopenings = (department: AgencyReportDepartmentKey) =>
+    filterDepartmentReopeningEvents(departmentSignoffEvents ?? [], department)
+      .map((event) => ({
+        changed_at: event.changed_at,
+        changed_by: event.changed_by,
+        justification: event.justification,
+      }))
+
   const snapshot = {
-    header: { carrierName, voyageLabel, port, terminal: ownData?.terminal ?? null, schedule: data?.schedule ?? null },
+    header: {
+      carrierName,
+      voyageLabel,
+      port,
+      terminal: ownData?.terminal ?? null,
+      schedule: data?.schedule ?? null,
+      // ADR 0039: marcos do Prazo de Conclusão congelados no fechamento —
+      // usados por Task 5 (relatório agregado de SLA) para recalcular
+      // cumprimento/atraso históricos sem reconsultar audit_logs. Não são
+      // impressos (AgencyReportDocument.tsx mostra só datas de assinatura).
+      unifiedAtd,
+      atdRegisteredAt: data?.unifiedAtd?.atdRegisteredAt ?? null,
+      atdSource: data?.unifiedAtd?.atdSource ?? null,
+      deadlineDate,
+    },
     sections: {
       cargaDescarregada: dischargeMatrix,
       cargaSolta: data?.cargaSolta ?? null,
@@ -374,10 +416,19 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     // Task 5 do ADR 2026-07-31: chave de topo irmã de `signoffs` — o impresso
     // fecha com os três sign-offs departamentais. Task 9 libera esta chave na
     // validação de fechamento (allowlist em close_agency_departure_report).
-    departmentSignoffs: ownData?.departmentSignoffs ?? [],
+    // ADR 0039 (Task 4): cada linha ganha `reopenings` — reaberturas com
+    // justificativa, mesmo dado impresso na Linha do Tempo, agora congelado
+    // no snapshot para o relatório de SLA (Task 5) e para o impresso mostrar
+    // a história de reabertura sem veredito de prazo.
+    departmentSignoffs: (ownData?.departmentSignoffs ?? []).map((row) => ({
+      ...row,
+      reopenings: departmentReopenings(row.department),
+    })),
   }
   const closedSnapshot = ownData?.closed_snapshot as typeof snapshot | null
   const isClosed = ownData?.status === 'closed' && closedSnapshot
+
+  const isOmittedEscala = pods.find((entry) => entry.pod === port)?.omitted ?? false
 
   return (
     <div className="grid gap-4">
@@ -402,6 +453,19 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       {!isLoading && !error ? <>
         {isClosed ? <>
           <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)} por {ownData?.closed_by_name ?? ownData?.closed_by ?? '—'}</span><div className="flex gap-2"><Button variant="secondary" onClick={() => setPrintOpen(true)}>Imprimir</Button>{isAdmin ? <Button variant="primary" onClick={() => setReopenOpen(true)}>Reabrir</Button> : null}</div></div>
+          <AgencyReportTimeline
+            atd={closedSnapshot.header?.unifiedAtd ?? unifiedAtd}
+            atdSource={data?.unifiedAtd?.atdSource ?? null}
+            atdRegisteredAt={data?.unifiedAtd?.atdRegisteredAt ?? null}
+            deadline={closedSnapshot.header?.deadlineDate ?? deadlineDate}
+            omitted={isOmittedEscala}
+            now={new Date()}
+            departmentSignoffs={closedSnapshot.departmentSignoffs ?? ownData?.departmentSignoffs ?? []}
+            departmentEvents={departmentSignoffEvents ?? []}
+            actorNames={actorNames}
+            closedAt={ownData?.closed_at ?? null}
+            closedByName={ownData?.closed_by_name ?? ownData?.closed_by ?? null}
+          />
           <AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} />
           <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} /></Modal>
           <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><Button variant="primary" className="mt-3" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</Button></Modal>
@@ -409,7 +473,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <div className="app-panel app-panel--padded grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold text-[var(--app-muted)]" style={{ fontVariantNumeric: 'tabular-nums' }}>{signedDepartmentsCount}/3 departamentos assinados</div>
-            <Button variant="primary" disabled={signedDepartmentsCount !== 3 || closeMutation.isPending || !port} title={signedDepartmentsCount !== 3 ? 'Assine os 3 departamentos para fechar o ADR.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot: snapshot as unknown as Json }, { onError: (error) => showToast(error instanceof Error ? error.message : 'Falha ao fechar o ADR.', 'error') }) }}>Fechar ADR</Button>
+            <Button variant="primary" disabled={signedDepartmentsCount !== 3 || !departmentSignoffEvents || closeMutation.isPending || !port} title={signedDepartmentsCount !== 3 ? 'Assine os 3 departamentos para fechar o ADR.' : !departmentSignoffEvents ? 'Aguardando o histórico de reaberturas.' : undefined} onClick={() => { if (port) closeMutation.mutate({ voyageId, port, snapshot: snapshot as unknown as Json }, { onError: (error) => showToast(error instanceof Error ? error.message : 'Falha ao fechar o ADR.', 'error') }) }}>Fechar ADR</Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {DEPARTMENTS.map((department) => (
@@ -428,6 +492,20 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </div>
 
+        <AgencyReportTimeline
+          atd={unifiedAtd}
+          atdSource={data?.unifiedAtd?.atdSource ?? null}
+          atdRegisteredAt={data?.unifiedAtd?.atdRegisteredAt ?? null}
+          deadline={deadlineDate}
+          omitted={isOmittedEscala}
+          now={new Date()}
+          departmentSignoffs={ownData?.departmentSignoffs ?? []}
+          departmentEvents={departmentSignoffEvents ?? []}
+          actorNames={actorNames}
+          closedAt={ownData?.closed_at ?? null}
+          closedByName={ownData?.closed_by_name ?? ownData?.closed_by ?? null}
+        />
+
         {/* A Escala não é uma fase do ciclo: é o assunto do relatório. Uma
             faixa "Escala" só produziria um h2 seguido de um h3 com o mesmo
             nome, então a seção abre a aba sozinha (ADR 0036). */}
@@ -436,7 +514,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation}
           >
-            <Hero value={`${formatDate(data?.schedule?.atb)} → ${formatDate(data?.schedule?.atd)}`} unit="ATB → ATD" />
+            <Hero value={`${formatDate(data?.schedule?.atb)} → ${formatDate(unifiedAtd)}`} unit="ATB → ATD" />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               <Info label="Armador" value={carrierName} />
               <Info label="Navio / viagem" value={voyageLabel} />
@@ -447,7 +525,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               </label>
               <Info label="ATA" value={formatDate(data?.schedule?.ata)} />
               <Info label="ATB" value={formatDate(data?.schedule?.atb)} />
-              <Info label="ATD" value={formatDate(data?.schedule?.atd)} />
+              <Info label="ATD" value={formatDate(unifiedAtd)} />
               <Info label="Restow" value={String(data?.schedule?.rtw ?? 0)} />
             </div>
         </ReportSection>

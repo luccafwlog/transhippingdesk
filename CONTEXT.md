@@ -118,8 +118,9 @@ Data e hora efetivas em que a embarcação atracou na escala. É distinta de ATA
 que registra a chegada, e de ETB, que registra a previsão de atracação.
 
 **ATD (Actual Time of Departure)**
-Data e hora efetivas em que a embarcação saiu da escala. É distinta de ETD,
-que permanece a previsão de saída.
+Data efetiva em que a embarcação saiu da escala, registrada sem hora. É distinta
+de ETD, que permanece a previsão de saída. Marca o início da contagem do Prazo
+de Conclusão do ADR.
 
 **Estado da Escala**
 Estado operacional derivado das datas reais, não um status manual independente.
@@ -427,6 +428,80 @@ consulta para aprovar pagamentos — mudanças posteriores na origem não altera
 relatório fechado. Reabrir exige justificativa auditada e novo fechamento. O
 Financeiro não possui ato próprio de aprovação do ADR; o fechamento é o marco.
 O ADR fechado é imprimível pelo navegador.
+
+**Linha do Tempo do ADR** *(ADR 0039)*
+Sequência datada dos marcos de conclusão de um ADR: a saída do navio (ATD) e o
+momento em que ela foi registrada no sistema, o vencimento do Prazo de Conclusão,
+os três Sign-offs Departamentais — com as reaberturas de assinatura e as suas
+justificativas —, e o Fechamento. É **exibição derivada** como o resto do ADR:
+nenhum marco nasce nela; ela lê datas que os próprios atos já registram. Serve
+para responder, por escala, quem assinou quando e se o Prazo de Conclusão foi
+cumprido.
+
+Exibir a reabertura ao lado da assinatura é o que separa demora de zelo: um
+departamento que assinou no prazo e reabriu para corrigir aparece com a causa do
+seu atraso à vista, em vez de indistinguível de quem simplesmente demorou.
+Exibir o momento do registro do ATD, por sua vez, é o que explica o ADR que nasce
+vencido — a causa é o lançamento tardio da saída, não uma falha do departamento.
+
+No ADR fechado, o impresso mostra **as datas de assinatura**, que são evidência
+de quem validou o quê e quando, mas não o veredito de prazo: cumprimento e
+atraso são medida interna da agência e vivem só nas telas.
+
+Sem ATD não há marco zero: o ADR de escala cujo navio ainda não saiu tem linha do
+tempo, mas não tem prazo nem cor. Assinar antes da saída é permitido e fica
+registrado como tal; quando o ATD chega, essas assinaturas já contam como
+cumpridas. Escala omitida nunca tem prazo — o navio não atracou, não houve saída
+—, e o seu ADR fica fora da medição em definitivo, nem cumprido nem descumprido.
+
+- **Related:** Prazo de Conclusão do ADR, Sign-off Departamental, Fechamento do ADR, ATD, Omissão de Escala
+
+**Prazo de Conclusão do ADR** *(ADR 0039)*
+Compromisso interno de que cada departamento assina a sua parte do ADR até três
+dias úteis depois da saída do navio. A contagem começa na **data real do ATD da
+escala unificada** — a saída do navio do porto brasileiro, o fato que encerra a
+escala —, não no momento em que o ATD foi registrado no sistema: navio que
+saiu na segunda e teve o ATD lançado na quarta já chega ao lançamento com dois
+dias consumidos, e um ADR pode nascer com o prazo vencido. O prazo vence no fim
+do terceiro dia útil após o ATD e é contado em dias, sem hora — a hora da saída
+não é considerada. O dia do ATD não conta, mesmo quando é dia útil. Quando a
+escala tem também um ATD do POL e as duas datas divergem, o relógio segue a data
+operacional da escala; a divergência continua exposta, mas não move o prazo.
+
+**Dia útil**, para este prazo, é de segunda a sexta: sábado e domingo não são
+contados. Feriados contam como dia útil — o prazo não conhece calendário de
+feriados, nacional ou portuário. Navio que sai na segunda vence na quinta; navio
+que sai no sábado começa a contar na segunda e vence na quarta.
+
+São três prazos independentes, um por departamento, todos com a mesma
+data-limite; o prazo de um departamento é cumprido pelo seu Sign-off
+Departamental. O Fechamento do ADR é marco de conclusão do relatório, mas não
+tem prazo próprio, porque não pertence a nenhum departamento.
+
+O cumprimento é medido pela **assinatura que vale agora**, não pela primeira que
+existiu. Um departamento que reabre a própria assinatura para corrigir algo volta
+a estar em contagem e fica fora do prazo se reassinar depois da data-limite; os
+outros dois permanecem em dia, porque reabrir o ADR não apaga as assinaturas
+alheias. O atraso é sempre do departamento que reabriu a sua própria.
+
+O compromisso **não retroage**: só escalas cujo ATD é posterior ao início da
+vigência são medidas. ADRs anteriores não ganham cumprimento calculado nem
+entram no agregado, ainda que o dado das suas assinaturas exista — a operação
+que os assinou não conhecia o prazo.
+
+O cumprimento é atributo do **departamento**, nunca da pessoa: o nome de quem
+assinou continua visível em cada ADR, mas a medição agregada não soma por
+usuário. Quem clica no botão é quem estava disponível, não necessariamente quem
+produziu o dado que faltava.
+
+O vencimento sem assinatura gera **alerta próprio**, um por departamento em
+falta. Ele não substitui o alerta de pendência do ADR: os dois convivem porque
+dizem coisas diferentes — um lembra que há trabalho a fazer desde que o ATD foi
+lançado, o outro afirma que o compromisso foi descumprido.
+
+- **Related:** Linha do Tempo do ADR, Sign-off Departamental, ATD
+- **Distinto de:** o alerta de pendência do ADR, que sinaliza seção não
+  resolvida a partir do lançamento do ATD e não conhece data-limite.
 
 **Número de Escala do Mercante**
 Identificador criado no sistema federal Mercante para uma escala do navio. Uma

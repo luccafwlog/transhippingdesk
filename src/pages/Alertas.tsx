@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { acknowledgeAlert, closeAlert, detectAgencyReportPending, formatAgencyReportAlertEntity, listAlerts, type AlertStatusFilter } from '../services/alerts'
+import { acknowledgeAlert, closeAlert, detectAgencyReportDeadlineMissed, detectAgencyReportPending, formatAgencyReportAlertEntity, listAlerts, type AlertStatusFilter } from '../services/alerts'
 
 const STATUS_LABELS: Record<string, { label: string; tone: 'yellow' | 'blue' | 'slate' }> = {
   open: { label: 'Aberto', tone: 'yellow' },
@@ -29,6 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
   portal_email_suprimido: 'Portal do Cliente — email suprimido',
   portal_abuso_login: 'Portal do Cliente — abuso de login',
   agency_report_section_pending: 'ADR — seção pendente',
+  agency_report_deadline_missed: 'ADR — prazo vencido',
 }
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -51,6 +52,9 @@ export function Alertas() {
 
   useEffect(() => {
     void detectAgencyReportPending()
+      .then(() => queryClient.invalidateQueries({ queryKey: ['alerts'] }))
+      .catch(() => {})
+    void detectAgencyReportDeadlineMissed()
       .then(() => queryClient.invalidateQueries({ queryKey: ['alerts'] }))
       .catch(() => {})
   }, [queryClient])

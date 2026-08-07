@@ -1,0 +1,132 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  calculateAgencyReportDeadlineDate,
+  countBusinessDaysBetween,
+  deriveAgencyReportDeadlineState,
+} from '../agencyReportDeadline'
+
+describe('calculateAgencyReportDeadlineDate', () => {
+  it('ATD na segunda: prazo vence na quinta (ter, qua, qui)', () => {
+    // 2026-08-03 é segunda-feira.
+    expect(calculateAgencyReportDeadlineDate('2026-08-03')).toBe('2026-08-06')
+  })
+
+  it('ATD na sexta: prazo vence na quarta seguinte (fim de semana nao conta)', () => {
+    // 2026-08-07 é sexta-feira.
+    expect(calculateAgencyReportDeadlineDate('2026-08-07')).toBe('2026-08-12')
+  })
+
+  it('ATD no sabado: prazo vence na quarta (conta a partir da segunda seguinte)', () => {
+    // 2026-08-08 é sabado.
+    expect(calculateAgencyReportDeadlineDate('2026-08-08')).toBe('2026-08-12')
+  })
+
+  it('retorna null para ATD em formato invalido', () => {
+    expect(calculateAgencyReportDeadlineDate('08/03/2026')).toBeNull()
+    expect(calculateAgencyReportDeadlineDate('not-a-date')).toBeNull()
+  })
+})
+
+describe('deriveAgencyReportDeadlineState', () => {
+  it('ATD ausente: sem prazo', () => {
+    expect(
+      deriveAgencyReportDeadlineState({ atd: null, omitted: false, signedAt: null, now: '2026-08-06T12:00:00Z' }),
+    ).toBe('no-deadline')
+  })
+
+  it('escala omitida: sem prazo mesmo com ATD presente', () => {
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03',
+        omitted: true,
+        signedAt: null,
+        now: '2026-08-06T12:00:00Z',
+      }),
+    ).toBe('no-deadline')
+  })
+
+  it('assinatura anterior ao ATD conta como no prazo assim que o ATD existe', () => {
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03',
+        omitted: false,
+        signedAt: '2026-07-30T09:00:00Z',
+        now: '2026-08-06T12:00:00Z',
+      }),
+    ).toBe('on-time')
+  })
+
+  it('assinado exatamente no dia do prazo: no prazo (limite inclusivo)', () => {
+    // ATD 2026-08-03 (segunda) -> prazo 2026-08-06 (quinta).
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03',
+        omitted: false,
+        signedAt: '2026-08-06T23:59:00Z',
+        now: '2026-08-06T23:59:00Z',
+      }),
+    ).toBe('on-time')
+  })
+
+  it('assinado um dia apos o prazo: vencido', () => {
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03',
+        omitted: false,
+        signedAt: '2026-08-07T08:00:00Z',
+        now: '2026-08-07T08:00:00Z',
+      }),
+    ).toBe('overdue')
+  })
+
+  it('nao assinado e "agora" ainda dentro do prazo: no prazo', () => {
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03',
+        omitted: false,
+        signedAt: null,
+        now: '2026-08-06T10:00:00Z',
+      }),
+    ).toBe('on-time')
+  })
+
+  it('ADR nascido vencido: ATD registrado depois que o prazo ja passou, sem assinatura', () => {
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03',
+        omitted: false,
+        signedAt: null,
+        now: '2026-08-10T10:00:00Z',
+      }),
+    ).toBe('overdue')
+  })
+})
+
+describe('countBusinessDaysBetween', () => {
+  it('conta os dias uteis entre segunda e quinta da mesma semana', () => {
+    // 2026-08-03 (seg) -> 2026-08-06 (qui): ter, qua, qui = 3 dias uteis.
+    expect(countBusinessDaysBetween('2026-08-03', '2026-08-06')).toBe(3)
+  })
+
+  it('fim de semana nao conta, mesmo quando o alvo cai num sabado', () => {
+    // 2026-08-03 (seg) -> 2026-08-08 (sab): ter, qua, qui, sex = 4 dias
+    // uteis; sabado (o proprio alvo) e domingo nao contam. Regressao do
+    // bug em que um helper "pula direto para o proximo dia util" faria o
+    // cursor ultrapassar um alvo em fim de semana antes de parar.
+    expect(countBusinessDaysBetween('2026-08-03', '2026-08-08')).toBe(4)
+  })
+
+  it('alvo no mesmo dia da partida: zero dias uteis', () => {
+    expect(countBusinessDaysBetween('2026-08-03', '2026-08-03')).toBe(0)
+  })
+
+  it('alvo anterior a partida: zero dias uteis (curto-circuito)', () => {
+    expect(countBusinessDaysBetween('2026-08-06', '2026-08-03')).toBe(0)
+  })
+
+  it('retorna null para data em formato invalido', () => {
+    expect(countBusinessDaysBetween('03/08/2026', '2026-08-06')).toBeNull()
+    expect(countBusinessDaysBetween('2026-08-03', 'not-a-date')).toBeNull()
+  })
+})

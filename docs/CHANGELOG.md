@@ -4,6 +4,7 @@
 
 ## 2026-08
 
+- **Prazo de Conclusão do ADR — linha do tempo e medição por departamento:** a aba ADR ganha uma Linha do Tempo (ATD da escala unificada, POD canônico com fallback do POL, e o momento do seu registro; o Prazo de Conclusão — 3 dias úteis, segunda a sexta, feriados contam, dia do ATD nunca conta — calculado por uma função pura compartilhada entre tela, alerta e agregado; as 3 assinaturas departamentais com data/hora/assinante e reaberturas com justificativa; Fechamento sem prazo próprio). Sem ATD ou em escala omitida, a linha do tempo fica sem cor — nunca vencida por omissão. Novo alerta `agency_report_deadline_missed` (migration `261`), um por departamento vencido sem assinatura vigente, independente do alerta de pendência pós-ATD existente e fechado junto com o Fechamento; vigência própria não retroage a ADRs anteriores à feature. No fechamento, os marcos são congelados dentro das chaves já existentes de `closed_snapshot` (nenhuma chave de topo nova); o impresso mostra só as datas de assinatura e as reaberturas — nunca o veredito de prazo, cor ou contagem de dias, que ficam só nas telas. Agregado de calibração por (viagem, porto) em `/admin/usuarios` (aba "Prazo do ADR"), somando cumprimento **por departamento**, nunca por pessoa, para o prazo de 3 dias poder ser ajustado com dado real. *(plano arquivado `2026-08-06-adr-prazo-conclusao-linha-do-tempo`; ADR 0039)*
 - **Faturamento: ADR 0038 completa e consolidação de `/faturamento`:** taxa
   local vira valor congelado ancorado na escala do POD, nas 13 etapas do
   plano. Fatura consolidada congela `invoice_items` na consolidação, não só a
@@ -83,3 +84,7 @@
 - Alertas de vencimento do dashboard por dias de calendário.
 
 > Planos e specs completos em [archive/plans/](archive/plans/) e [archive/specs/](archive/specs/).
+## 2026-08-07
+
+- Consolida a implementação do ADR 0039, as correções da revisão da PR 503 e
+  a documentação da rota `/perfil` em uma única entrega pronta para `main`.

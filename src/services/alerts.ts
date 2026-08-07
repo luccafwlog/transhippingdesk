@@ -103,3 +103,8 @@ export async function detectAgencyReportPending(): Promise<void> {
   const { error } = await supabase.rpc('detect_agency_report_pending')
   if (error) throw error
 }
+
+export async function detectAgencyReportDeadlineMissed(): Promise<void> {
+  const { error } = await supabase.rpc('detect_agency_report_deadline_missed')
+  if (error) throw error
+}

@@ -380,6 +380,84 @@ it("imprime snapshot legado sem departmentSignoffs sem lançar e sem bloco de as
   expect(screen.queryByRole("table", { name: "Assinaturas departamentais" })).toBeNull();
 });
 
+// Task 4 do ADR 0039: reabertura com justificativa entra no impresso (pedido
+// explícito do usuário), mas nenhum marco de prazo — deadline, veredito
+// (no prazo/atrasado) ou contagem de dias — pode sair no papel (ADR 0039:
+// "cumprimento e atraso são medida interna da agência e vivem só nas telas").
+it("imprime a reabertura departamental com justificativa e nenhum marco de prazo", () => {
+  render(
+    <AgencyReportDocument
+      actorNames={{ "user-ops": "Beto Operações" }}
+      snapshot={{
+        header: {
+          carrierName: "Armador teste",
+          voyageLabel: "NAVIO TESTE / 01E",
+          port: "BRVIX",
+          schedule: { atd: "2026-07-20" },
+          unifiedAtd: "2026-07-20",
+          atdRegisteredAt: "2026-07-20T18:00:00Z",
+          atdSource: "pod",
+          deadlineDate: "2026-07-23",
+        },
+        sections: {},
+        occurrences: [],
+        signoffs: [],
+        departmentSignoffs: [
+          {
+            department: "operacoes",
+            signed_by: "user-ops",
+            signed_at: "2026-07-24",
+            reopenings: [
+              {
+                changed_at: "2026-07-22T10:00:00Z",
+                changed_by: "user-ops",
+                justification: "Reaberto para corrigir a contagem de containers.",
+              },
+            ],
+          },
+        ],
+      }}
+    />,
+  );
+
+  const signoffTable = screen.getByRole("table", { name: "Assinaturas departamentais" });
+  expect(signoffTable.textContent).toContain("Beto Operações");
+  expect(signoffTable.textContent).toContain("Reaberto para corrigir a contagem de containers.");
+
+  // Nenhum veredito, cor ou contagem de dias de prazo sai no papel — só datas
+  // de assinatura (e, agora, a reabertura com justificativa).
+  expect(screen.queryByText("2026-07-23")).toBeNull();
+  expect(screen.queryByText("23/07/2026")).toBeNull();
+  expect(screen.queryByText(/no prazo/i)).toBeNull();
+  expect(screen.queryByText(/atrasad/i)).toBeNull();
+  expect(screen.queryByText(/vencido/i)).toBeNull();
+  expect(screen.queryByText(/dias? decorrido/i)).toBeNull();
+  expect(screen.queryByText(/prazo de conclus/i)).toBeNull();
+});
+
+// Snapshot fechado ANTES da Task 4 nunca gravou `reopenings` por linha: o
+// impresso precisa sair sem lançar e sem coluna de reaberturas.
+it("imprime departmentSignoffs legado sem `reopenings` sem lançar e sem coluna de reaberturas", () => {
+  expect(() =>
+    render(
+      <AgencyReportDocument
+        actorNames={{ "user-doc": "Ana Documentação" }}
+        snapshot={{
+          header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+          sections: {},
+          occurrences: [],
+          signoffs: [],
+          departmentSignoffs: [
+            { department: "documentacao", signed_by: "user-doc", signed_at: "2026-07-20" },
+          ],
+        }}
+      />,
+    ),
+  ).not.toThrow();
+
+  expect(screen.queryByRole("columnheader", { name: "Reaberturas" })).toBeNull();
+});
+
 // Task 1 do ADR 2026-07-31: carga solta em transbordo, separada da própria da
 // escala; precisa aparecer no impresso, não só na aba.
 it("imprime a carga solta em transbordo separada da própria da escala", () => {
