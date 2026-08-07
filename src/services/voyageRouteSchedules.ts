@@ -197,6 +197,10 @@ export type VoyageUnifiedAtd = {
 // diferente (a projeção de várias colunas de uma vez). Consulta focada, por
 // voyage+port, ao contrário de listVoyagePodSchedules/listVoyagePolSchedules
 // (que trazem todos os campos de todas as entidades de uma leva).
+// ponytail: ao contrário de hydratePodSchedules/projectVoyageEscalaSchedules,
+// não checa o soft-delete `deleted` do POD — um POD removido do planejamento
+// ainda pode vencer aqui. Upgrade: filtrar como as demais leituras fazem, se
+// isso se mostrar um problema real (POD deletado raramente carrega ATD útil).
 export async function getVoyageUnifiedAtd(voyageId: number, port: string): Promise<VoyageUnifiedAtd> {
   const podEntityId = buildVoyagePodEntityId(voyageId, port)
   const polEntityId = buildVoyagePolEntityId(voyageId, port)
