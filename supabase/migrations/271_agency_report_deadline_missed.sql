@@ -28,7 +28,8 @@
 --    aqui comparado contra a data do ATD, nao contra o changed_at do
 --    audit_log — e o ATD, nao o registro do ATD, que e o T0 do prazo).
 INSERT INTO public.agency_report_pending_baselines (baseline_key, captured_at)
-VALUES ('agency_report_deadline_missed', clock_timestamp());
+VALUES ('agency_report_deadline_missed', clock_timestamp())
+ON CONFLICT (baseline_key) DO NOTHING;
 
 -- 2) Dia util em SQL: espelha calculateAgencyReportDeadlineDate (TypeScript,
 --    Task 1). Segunda a sexta contam, sabado e domingo nao, feriados contam
