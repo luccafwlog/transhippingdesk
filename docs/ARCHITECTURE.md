@@ -406,6 +406,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/line-up-tv/display` | Display protegido para TV |
 | `/chegadas-saidas` | Programação exibida no Portal |
 | `/admin/usuarios` | Administração de usuários: criação com senha definida pelo admin, edição de e-mail/senha, setor, ativação e auditoria |
+| `/perfil` | Perfil do usuário interno: nome, e-mail e troca da própria senha |
 
 ### Redirecionamentos de compatibilidade
 
