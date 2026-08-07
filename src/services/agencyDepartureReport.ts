@@ -260,6 +260,18 @@ export async function listDepartmentSignoffEvents(voyageId: number, port: string
   }))
 }
 
+// Regra única de "o que conta como reabertura" (new_value='false', ver
+// comentário acima) — usada tanto pela Linha do Tempo do ADR
+// (AgencyReportTimeline.tsx) quanto pelo congelamento no snapshot de
+// fechamento (VoyageAgencyReportTab.tsx), para as duas leituras nunca
+// divergirem se o critério mudar.
+export function filterDepartmentReopeningEvents(
+  events: AgencyReportDepartmentSignoffEvent[],
+  department: AgencyReportDepartmentKey,
+): AgencyReportDepartmentSignoffEvent[] {
+  return events.filter((event) => event.department === department && event.new_value === 'false')
+}
+
 export async function addOccurrence(input: {
   voyageId: number
   port: string

@@ -23,6 +23,7 @@ import {
   AGENCY_REPORT_SECTION_ORDER,
   AGENCY_REPORT_DEPARTMENT_LABELS,
   buildContainerTypeMatrix,
+  filterDepartmentReopeningEvents,
   groupEmptyEmbarkBookings,
   MATRIX_CATEGORY_LABELS,
   groupVehiclesByBrand,
@@ -358,16 +359,17 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const unifiedAtd = data?.unifiedAtd?.atd ?? null
   const deadlineDate = unifiedAtd ? calculateAgencyReportDeadlineDate(unifiedAtd) : null
 
-  // Reaberturas por departamento (new_value='false', com justificativa) —
-  // mesmo filtro de buildDepartmentTimelineRows (AgencyReportTimeline.tsx),
-  // duplicado aqui porque o snapshot precisa apenas de (data, autor,
+  // Reaberturas por departamento (com justificativa) — o predicado de
+  // "o que é reabertura" vem de filterDepartmentReopeningEvents
+  // (agencyDepartureReport.ts), a mesma regra usada por
+  // buildDepartmentTimelineRows (AgencyReportTimeline.tsx); só o projeto após
+  // o filtro difere aqui, porque o snapshot precisa apenas de (data, autor,
   // justificativa) em vez das linhas completas da Linha do Tempo (estado de
   // prazo incluso). Task 4 do ADR 0039: os marcos do fechamento vão dentro de
   // `departmentSignoffs`, chave de topo já liberada pela allowlist de
   // close_agency_departure_report — nenhuma chave nova é adicionada.
   const departmentReopenings = (department: AgencyReportDepartmentKey) =>
-    (departmentSignoffEvents ?? [])
-      .filter((event) => event.department === department && event.new_value === 'false')
+    filterDepartmentReopeningEvents(departmentSignoffEvents ?? [], department)
       .map((event) => ({
         changed_at: event.changed_at,
         changed_by: event.changed_by,

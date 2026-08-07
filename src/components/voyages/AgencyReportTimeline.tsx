@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { ReactNode } from 'react'
 import { deriveAgencyReportDeadlineState, type AgencyReportDeadlineState } from '../../services/agencyReportDeadline'
-import { AGENCY_REPORT_DEPARTMENT_LABELS, type AgencyReportDepartmentSignoffEvent } from '../../services/agencyDepartureReport'
+import { AGENCY_REPORT_DEPARTMENT_LABELS, filterDepartmentReopeningEvents, type AgencyReportDepartmentSignoffEvent } from '../../services/agencyDepartureReport'
 import type { AgencyReportDepartmentKey, AgencyReportDepartmentSignoff } from '../../types/database'
 import { formatDate } from '../../lib/utils'
 
@@ -66,8 +66,7 @@ export function buildDepartmentTimelineRows({
     const signedAt = signoff?.signed_at ?? null
     const state = deriveAgencyReportDeadlineState({ atd, omitted, signedAt, now })
 
-    const reopenings = departmentEvents
-      .filter((event) => event.department === department && event.new_value === 'false')
+    const reopenings = filterDepartmentReopeningEvents(departmentEvents, department)
       .map((event): DepartmentTimelineReopening => ({
         changedAt: event.changed_at,
         changedByName: (event.changed_by && actorNames[event.changed_by]) ?? event.changed_by,
