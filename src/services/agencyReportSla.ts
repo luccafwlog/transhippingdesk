@@ -195,7 +195,7 @@ function countBusinessDaysToCalendarDays(fromDateOnly: string, toDateOnlyValue: 
  * (VoyageAgencyReportTab.tsx) mantém o ADR de uma escala omitida legível
  * mesmo com dados lançados. Por isso este agregado confere `omitted`
  * explicitamente, em vez de confiar no proxy do ATD — mesma decisão que
- * detect_agency_report_deadline_missed (migration 261) já tomou no lado SQL.
+ * detect_agency_report_deadline_missed (migration 271) já tomou no lado SQL.
  */
 export function isEscalaOmitted(
   escalasByVoyage: Map<number, VoyageEscalaSchedule[]>,

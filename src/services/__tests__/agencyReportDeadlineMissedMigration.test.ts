@@ -3,11 +3,11 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/261_agency_report_deadline_missed.sql'),
+  resolve(process.cwd(), 'supabase/migrations/271_agency_report_deadline_missed.sql'),
   'utf8',
 )
 
-describe('migration 261 — vencimento do Prazo de Conclusão do ADR (ADR 0039)', () => {
+describe('migration 271 — vencimento do Prazo de Conclusão do ADR (ADR 0039)', () => {
   it('grava a vigência do compromisso e não retroage', () => {
     expect(sql).toContain("VALUES ('agency_report_deadline_missed', clock_timestamp())")
     expect(sql).toMatch(/atd >= \(\s*SELECT captured_at::DATE/)
