@@ -94,6 +94,19 @@ describe('mapClosedReportToSlaRow', () => {
     const row = mapClosedReportToSlaRow(closedReport())!
     expect(row.elapsedCalendarDaysToClosure).toBe(8) // 2026-02-02 -> 2026-02-10
   })
+
+  it('não classifica departamento sem assinatura como no prazo', () => {
+    const row = mapClosedReportToSlaRow(closedReport({
+      closed_snapshot: {
+        header: { unifiedAtd: '2026-02-02', deadlineDate: '2026-02-05' },
+        departmentSignoffs: [],
+      },
+    }))!
+    const operacoes = row.departments.find((d) => d.department === 'operacoes')!
+    expect(operacoes.signedAt).toBeNull()
+    expect(operacoes.state).not.toBe('on-time')
+    expect(summarizeAgencyReportSlaByDepartment([row])[0].total).toBe(0)
+  })
 })
 
 describe('isEscalaOmitted', () => {

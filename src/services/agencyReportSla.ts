@@ -136,16 +136,12 @@ export function mapClosedReportToSlaRow(row: ClosedAgencyReportListItem): Agency
   const departments: AgencyReportSlaDepartmentRow[] = DEPARTMENT_ORDER.map((department) => {
     const signoff = signoffsByDepartment.get(department)
     const signedAt = signoff?.signed_at ?? null
-    // Defensivo: fechar exige os 3 departamentos assinados
-    // (close_agency_departure_report), então signedAt deveria sempre existir
-    // aqui. Se faltar mesmo assim, mede o veredito contra o próprio ATD (pior
-    // caso: aparece como no prazo/atrasado igual ao instante do ATD).
-    const state = deriveAgencyReportDeadlineState({
+    const state = signedAt ? deriveAgencyReportDeadlineState({
       atd,
       omitted: false, // linhas omitidas já são excluídas antes de chegar aqui (ver excludeOmittedRows).
       signedAt,
-      now: signedAt ?? atd,
-    })
+      now: signedAt,
+    }) : 'no-deadline'
     const businessDaysElapsed = signedAt ? countBusinessDaysBetween(atd, toDateOnly(signedAt) ?? atd) : null
 
     return {

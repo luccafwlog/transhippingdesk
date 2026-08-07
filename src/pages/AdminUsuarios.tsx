@@ -529,7 +529,7 @@ export function AdminUsuarios() {
                 <tbody>
                   {!slaRows?.length ? (
                     <tr>
-                      <td colSpan={7} className="p-0">
+                      <td colSpan={8} className="p-0">
                         <EmptyState title="Nenhum ADR fechado no período (após excluir escalas omitidas e snapshots anteriores à vigência)." />
                       </td>
                     </tr>
