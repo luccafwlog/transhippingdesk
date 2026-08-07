@@ -152,6 +152,6 @@ que o snapshot existe (ADR 0027).
 
 ## Implementação
 
-Planejada em [`docs/plans/2026-08-06-adr-prazo-conclusao-linha-do-tempo.md`](../plans/2026-08-06-adr-prazo-conclusao-linha-do-tempo.md).
+Implementada — plano executado em [`docs/archive/plans/2026-08-06-adr-prazo-conclusao-linha-do-tempo.md`](../archive/plans/2026-08-06-adr-prazo-conclusao-linha-do-tempo.md).
 Termos em `CONTEXT.md`: **Linha do Tempo do ADR** e **Prazo de Conclusão do
 ADR**; verbete **ATD** corrigido para "data efetiva, registrada sem hora".

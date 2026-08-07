@@ -20,11 +20,11 @@ tela, o alerta e o agregado, para que as três superfícies nunca discordem.
 
 **Files:** `src/services/agencyReportDeadline.ts` (novo), teste correspondente.
 
-- [ ] Calcular o vencimento a partir de uma data de ATD (`YYYY-MM-DD`): três dias
+- [x] Calcular o vencimento a partir de uma data de ATD (`YYYY-MM-DD`): três dias
       úteis, seg–sex, feriados contam, dia do ATD não conta.
-- [ ] Derivar o estado por departamento — sem prazo (ATD ausente ou escala
+- [x] Derivar o estado por departamento — sem prazo (ATD ausente ou escala
       omitida), no prazo, vencido — a partir do ATD e do `signed_at` vigente.
-- [ ] Cobrir as bordas discutidas: ATD de sexta e de sábado, assinatura anterior
+- [x] Cobrir as bordas discutidas: ATD de sexta e de sábado, assinatura anterior
       ao ATD, ATD lançado depois do vencimento (ADR nascido vencido).
 
 ### Task 2: Linha do tempo na aba ADR
@@ -33,12 +33,12 @@ tela, o alerta e o agregado, para que as três superfícies nunca discordem.
 `src/components/voyages/VoyageAgencyReportTab.tsx`,
 `src/services/agencyDepartureReport.ts`, testes.
 
-- [ ] Exibir os marcos: saída do navio (ATD) com o momento do seu registro,
+- [x] Exibir os marcos: saída do navio (ATD) com o momento do seu registro,
       vencimento, as três assinaturas departamentais (data, hora e assinante) e o
       Fechamento sem semáforo próprio.
-- [ ] Exibir reaberturas de assinatura com a justificativa, lidas de
+- [x] Exibir reaberturas de assinatura com a justificativa, lidas de
       `audit_logs` (`agency_departure_report_department_signoff`).
-- [ ] Tratar ausência de prazo: "aguardando a saída do navio" e escala omitida,
+- [x] Tratar ausência de prazo: "aguardando a saída do navio" e escala omitida,
       ambos sem cor.
 
 ### Task 3: Marca de vigência e alerta de vencimento
@@ -46,12 +46,12 @@ tela, o alerta e o agregado, para que as três superfícies nunca discordem.
 **Files:** migration sequencial nova, `src/services/alerts.ts`,
 `src/pages/Alertas.tsx`, testes de migration.
 
-- [ ] Gravar a vigência do compromisso em `agency_report_pending_baselines`
+- [x] Gravar a vigência do compromisso em `agency_report_pending_baselines`
       (mesmo mecanismo das migrations `214`/`251`); ATD anterior não é medido.
-- [ ] Criar `detect_agency_report_deadline_missed()`: um alerta por departamento
+- [x] Criar `detect_agency_report_deadline_missed()`: um alerta por departamento
       vencido sem assinatura, deduplicado por `(viagem, porto, departamento)`,
       sem substituir `agency_report_section_pending`.
-- [ ] Fechar os alertas de vencimento junto com o Fechamento do ADR, como
+- [x] Fechar os alertas de vencimento junto com o Fechamento do ADR, como
       `close_agency_departure_report` já faz com os de pendência.
 
 ### Task 4: Snapshot e impresso
@@ -76,9 +76,9 @@ tela, o alerta e o agregado, para que as três superfícies nunca discordem.
 
 ### Task 6: Gates e publicação
 
-- [ ] Rodar testes focados, `npm run typecheck`, lint dos arquivos alterados,
+- [x] Rodar testes focados, `npm run typecheck`, lint dos arquivos alterados,
       `npm run docs:check`, `npm test`, `npm run build` e `git diff --check`.
-- [ ] Atualizar `docs/ARCHITECTURE.md` e `docs/RASTREABILIDADE.md` com a nova
+- [x] Atualizar `docs/ARCHITECTURE.md` e `docs/RASTREABILIDADE.md` com a nova
       superfície e a RPC de detecção.
-- [ ] Mover este plano para `docs/archive/plans/` e remover a linha de
+- [x] Mover este plano para `docs/archive/plans/` e remover a linha de
       `docs/plans/README.md` no mesmo change que conclui a execução.

@@ -429,7 +429,7 @@ relatório fechado. Reabrir exige justificativa auditada e novo fechamento. O
 Financeiro não possui ato próprio de aprovação do ADR; o fechamento é o marco.
 O ADR fechado é imprimível pelo navegador.
 
-**Linha do Tempo do ADR** *(ADR 0039 — decidida, ainda não implementada)*
+**Linha do Tempo do ADR** *(ADR 0039)*
 Sequência datada dos marcos de conclusão de um ADR: a saída do navio (ATD) e o
 momento em que ela foi registrada no sistema, o vencimento do Prazo de Conclusão,
 os três Sign-offs Departamentais — com as reaberturas de assinatura e as suas
@@ -456,7 +456,7 @@ cumpridas. Escala omitida nunca tem prazo — o navio não atracou, não houve s
 
 - **Related:** Prazo de Conclusão do ADR, Sign-off Departamental, Fechamento do ADR, ATD, Omissão de Escala
 
-**Prazo de Conclusão do ADR** *(ADR 0039 — decidida, ainda não implementada)*
+**Prazo de Conclusão do ADR** *(ADR 0039)*
 Compromisso interno de que cada departamento assina a sua parte do ADR até três
 dias úteis depois da saída do navio. A contagem começa na **data real do ATD da
 escala unificada** — a saída do navio do porto brasileiro, o fato que encerra a
