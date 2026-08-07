@@ -155,7 +155,7 @@ muda é passar a existir também um número antes, para conferência.
   linha cujo valor depende de um B/L que não está na planilha: quem confere
   precisa saber que aquele rateio tem uma contraparte.
 - A aba **Validação** de `/faturamento` ganha o papel que hoje não tem. O
-  diagnóstico do [plano de execução](../plans/2026-08-06-faturamento-ajuste-completo.md)
+  diagnóstico do [plano de execução](../archive/plans/2026-08-06-faturamento-ajuste-completo.md)
   registrou que ela "promete uma conferência que a tela não faz"; com a fase
   provisória, passa a haver o que conferir. A Etapa 4 daquele plano (renomear
   "Validação") deve ser reavaliada à luz disto.
@@ -192,10 +192,6 @@ muda é passar a existir também um número antes, para conferência.
 
 ## Notas de implementação
 
-Nenhuma das decisões acima está implementada. Os verbetes correspondentes no
-`CONTEXT.md` carregam marcador explícito de "decidida e ainda não implementada"
-para o glossário não ser lido como descrição do motor.
-
 O cálculo provisório da decisão 8 encaixa em `confirmBlFreightImport`
 (`src/services/blFreightImport.ts`) como passo pós-commit best-effort e
 idempotente — mesmo padrão de `applyBapliePhysicalFlags`, que já roda ali. E
@@ -222,3 +218,49 @@ default de cobrar emitiria fatura errada direto ao cliente.
 A taxa de preenchimento de `movement_to` nos dados reais continua valendo a
 verificação, mas deixou de ser risco de desenho — mede apenas quanto trabalho
 manual a regra vai gerar, não se ela funciona.
+
+## Nota editorial — 2026-08-06 (implementação completa)
+
+Todas as 13 etapas de `docs/archive/plans/2026-08-06-faturamento-ajuste-completo.md`
+foram entregues nesta sessão (migrations `261`–`269`):
+
+- **Decisão 1 (achado 3):** `create_local_consolidated_invoice_core` congela
+  `invoice_items` na consolidação (migration `261`); faturas individuais já
+  congelavam desde a `025`.
+- **Decisão 2 (achado 6):** `calculate_bl_local_charges` recusa recalcular B/L
+  com `financial_status IN ('invoiced','partially_paid','paid')` (migration
+  `262`).
+- **Decisão 8 (achados 8 e 11):** promoção automática `calculated →
+  ready_for_billing` removida (migration `263`); cálculo provisório passa a
+  rodar no import, antes do CE Mercante — que continua exigido só para emitir.
+- **Decisão 7 (achado 1):** situações que cobravam zero em silêncio agora
+  param e sinalizam `review_required` (migration `264`).
+- **Achados 8 e 10 (isenção de veículo):** exige `movement_to` com prova
+  positiva de LCL/CFS; motor parou de escrever `container_load_type` por
+  conta própria (migration `265`) — corrige um bug real que isentava 100% dos
+  B/Ls com veículo.
+- **Decisão 3 (achado 4):** data de referência da tarifa passa a ser a ETA da
+  escala do POD, não `uploaded_at` do lote (migration `266`).
+- **Decisão 5 (achado 5):** Condições de Cliente sobrepostas viram restrição
+  de exclusão no banco (migration `267`).
+- **Decisão 6 (achado 7):** taxa local em USD converte para BRL na emissão
+  pelo ROE vigente, sem Recálculo Diário (migration `268`); a mesma migration
+  corrigiu um bug pré-existente de emissão automática sem checar CE Mercante
+  (`trg_emit_invoice_on_bl_ready`, removido).
+- **Achado 9:** o último rateio de container compartilhado absorve a
+  diferença de arredondamento, para a soma das partes fechar o valor cheio do
+  item (migration `269`).
+- **Etapa 12 (consolidação de abas):** aba Pendências (subconjunto literal da
+  Validação) e aba Demurrage (duplicava `/demurrage`) removidas de
+  `/faturamento`; nota editorial correspondente na
+  [ADR 0008](0008-demurrage-integrado-sem-unificar-persistencia.md).
+
+Os marcadores "decidida e ainda não implementada" foram removidos dos
+verbetes correspondentes no `CONTEXT.md`. Gaps conhecidos, deixados como tal
+por decisão explícita nesta sessão (sem acesso a banco de produção ou à
+operação para confirmar premissas): a taxa de preenchimento real da ETA por
+escala (decisão 3) não foi verificada contra produção antes de aplicar; a
+confirmação com a operação de que ninguém imprime Demurrage a partir de
+`/faturamento` não foi feita antes de remover esse caminho (etapa 12). Ambos
+documentados em `docs/RASTREABILIDADE.md` e `docs/modules/faturamento.md`
+respectivamente.

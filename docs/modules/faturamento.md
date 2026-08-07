@@ -43,17 +43,21 @@ Ao montar, a página chama `detect_overdue_invoices` em fire-and-forget e
 invalida invoices, alertas financeiros e contagem operacional em caso de
 sucesso.
 
-### Validação e pendências
+### Validação
 
 - `src/components/billing/ValidacaoTab.tsx` orquestra consultas, mutações,
   invalidações e estado da fila operacional de taxas locais e Granito.
   `src/components/billing/ValidacaoControls.tsx` contém filtros, pipeline e
   ações em lote; `src/components/billing/ValidacaoOperationsTable.tsx` renderiza
   seleção, detalhes, conciliação e emissão individual.
-- `src/components/billing/PendenciasFaturamentoTab.tsx` mostra B/Ls
-  `review_required` e recalcula toda a lista carregada.
-- `src/components/billing/PendenciasTable.tsx` renderiza inicialmente 100 linhas
-  e revela novos lotes de 100.
+- **Etapa 12 do plano de faturamento (ADR 0038):** a aba Pendências foi
+  removida — era subconjunto literal da Validação (mesma fonte
+  `useLocalChargeOperations`, mesmo limite 1200, só `chargeStatus=review_required`
+  fixo, sem seleção múltipla nem emissão individual). `?tab=pendencias` agora
+  cai na Validação com esse filtro pré-aplicado (`ValidacaoTab`'s
+  `initialChargeStatus`). O botão "Recalcular todas em revisão" no passo 2 do
+  funil (`ValidacaoControls.tsx`) cobre o único recurso que a aba antiga tinha
+  de exclusivo — recalcular sem selecionar manualmente.
 
 ### Modal de invoice consolidada
 
@@ -77,9 +81,20 @@ isolada em `src/components/billing/consolidatedInvoiceSelection.ts`.
 
 ### Demurrage
 
-`src/components/billing/DemurrageInvoicesSection.tsx` carrega a lista e o
-detalhe de `demurrage_invoices`, exibe métricas e imprime o documento de
-Demurrage. A criação e gestão continuam em `/demurrage`.
+**Etapa 12 do plano de faturamento (ADR 0038; nota editorial em
+[ADR 0008](../adr/0008-demurrage-integrado-sem-unificar-persistencia.md)):** a
+aba Demurrage (lista, modal de detalhe e impressão) foi removida por duplicar
+`/demurrage` sem os filtros e a impressão de lá. `src/components/billing/DemurrageMetricsStrip.tsx`
+mostra só as quatro métricas agregadas (faturas, em aberto, saldo BRL, total
+USD) na aba Faturas, com link para `/demurrage`, onde a criação e gestão
+continuam. `?tab=demurrage` redireciona para `/demurrage`
+(`<Navigate to="/demurrage" replace />`, chamado só depois de todos os hooks
+do componente para não violar as Regras dos Hooks entre a renderização normal
+e a que redireciona). **Gap conhecido:** o plano pedia confirmar com a
+operação que ninguém imprime Demurrage a partir de `/faturamento` antes de
+remover esse caminho — essa confirmação não foi feita nesta sessão (sem
+acesso à operação); se alguém dependia da impressão a partir daqui, o caminho
+agora é abrir `/demurrage` diretamente.
 
 ### Histórico de reconciliação
 
@@ -134,7 +149,7 @@ impressão e chama `window.print()`; o nome sugerido é calculado por
 | Receivables consolidáveis | `queryKeys.billingLedger.consolidatableReceivables(filters)` | `useConsolidatableReceivables` |
 | Refunds | `['invoice-refunds', invoiceId]` | `useInvoiceRefunds` |
 | Alertas | `['financial-alerts']` | `Faturamento` |
-| Demurrage agregado | `['demurrage-invoices', 'faturamento']` | `DemurrageInvoicesSection` |
+| Demurrage agregado (métricas) | `['demurrage-invoices', 'faturamento-strip']` | `DemurrageMetricsStrip` |
 | Histórico | `['reconciliation-history', filters]` | `ReconciliationHistoryTable` |
 
 `useLedgerInvalidation` invalida `billingLedger.all()`, `invoices.all()`,
@@ -264,9 +279,28 @@ Não há evidência de Runtime registrada neste documento.
   B/Ls e depois chama `create_invoice_from_bls_with_ledger` por cliente. Entre
   as duas etapas pode haver sucesso parcial; a RPC
   `mark_bl_ready_and_create_invoice` é usada no detalhe/revisão de um B/L.
-- **Breakdown derivado.** Itens de consolidada não são snapshot completo em
-  `invoice_items`; mudanças posteriores em `charge_calculations` podem causar
-  fallback agregado, sem alterar o subtotal ledger.
+- **Breakdown congelado na consolidação (migration `261`).** Desde a etapa 1 do
+  plano de faturamento (ADR 0038, achado 3), `create_local_consolidated_invoice_core`
+  grava o snapshot em `invoice_items` no momento da consolidação — linha por
+  item quando a soma reconcilia com o saldo do B/L, senão uma linha agregada
+  (mesma regra que antes só existia ao vivo). Consolidadas emitidas antes da
+  migration foram backfilled (`snapshot_payload.backfilled=true`); a
+  reconstrução ao vivo em `get_consolidated_invoice_item_breakdown` e no CTE de
+  `portal_invoice_details` continua existindo só como rede de segurança.
+- **Taxa local em USD converte na emissão (migration `268`).** Etapa 11 do
+  plano de faturamento (ADR 0038, decisão 6, achado 7): linha em USD deixou
+  de bloquear o faturamento. `create_invoice_from_bls_core` e
+  `create_local_consolidated_invoice_core` convertem para BRL pelo ROE
+  vigente em `exchange_rate_reference` no momento da emissão/consolidação,
+  congelado no `snapshot_payload` do item (`roe`, `roe_effective_date`) e
+  exibido como nota no documento impresso e no modal de detalhe. Sem ROE
+  configurado, a emissão falha com mensagem explícita em vez de congelar
+  valor zerado. A mesma migration removeu o trigger
+  `trg_emit_invoice_on_bl_ready` (bug pré-existente: emitia fatura
+  automaticamente em qualquer transição para `ready_for_billing`, inclusive
+  pelo botão manual, sem checar CE Mercante) — `mark_bl_ready_for_billing`
+  passou a chamar `sync_local_charge_receivable` diretamente para manter o
+  ledger atualizado sem esse efeito colateral.
 - **PIX tem dois autores.** A migration
   `074_ledger_invoice_pix_payload.sql` mantém payload por trigger para
   invoices locais. `createInvoiceFromBls` ainda executa `persistPixPayload`

@@ -29,9 +29,6 @@ export async function tryAutoIssueInvoice({
 
     const cargoMode = (bl as { cargo_mode?: string | null } | null)?.cargo_mode ?? 'container'
     const ceMercante = (bl as { ce_mercante?: string | null } | null)?.ce_mercante?.trim() ?? ''
-    if ((cargoMode === 'container' || cargoMode === '') && !ceMercante) {
-      return { status: 'blocked', message: 'Aguardando cadastro do CE Mercante para calcular taxas (ADR 0020).' }
-    }
 
     const calculation = await calculateBlLocalCharges(blId, { actorId, recalculate: true })
 
@@ -45,6 +42,13 @@ export async function tryAutoIssueInvoice({
 
     if (Number(calculation.total_brl ?? 0) <= 0 && Number(calculation.total_usd ?? 0) <= 0) {
       return { status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.', calculation }
+    }
+
+    // Etapa 4 do plano de faturamento (ADR 0038, achado 11): o CE Mercante deixou
+    // de ser exigido para calcular (o cálculo provisório já rodou no import ou
+    // acima), mas continua exigido para emitir — a fatura precisa do documento.
+    if ((cargoMode === 'container' || cargoMode === '') && !ceMercante) {
+      return { status: 'blocked', message: 'Aguardando cadastro do CE Mercante para emitir a fatura (ADR 0020).', calculation }
     }
 
     const invoiceResult = await markBlReadyAndCreateInvoice({

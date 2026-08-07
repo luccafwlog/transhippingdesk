@@ -663,10 +663,18 @@ async function hydrateGraniteInvoiceBls(result: InvoiceDetail, invoiceId: number
   result.bls = mapGraniteInvoiceBls(invoiceId, graniteLinks ?? [])
 }
 
-// Consolidated ledger invoices have no invoice_items/invoice_bls; render them
-// from invoice_receivable_links so the existing PDF/print path works unchanged.
+// Consolidated ledger invoices have no invoice_bls, and (before migration 261)
+// had no invoice_items either — both were rendered from invoice_receivable_links
+// so the existing PDF/print path worked unchanged. Migration 261 (etapa 1 do
+// plano de faturamento, ADR 0038 achado 3) now freezes invoice_items at
+// consolidation time, so for any consolidada created after it result.items
+// already comes populated from list_invoice_details and only the BL summary
+// (still sourced from invoice_bls, which consolidadas never populate) needs
+// reconstructing here. The live item breakdown stays as a safety net for the
+// rare consolidada that predates the backfill.
 async function hydrateConsolidatedInvoiceDetails(result: InvoiceDetail, invoiceId: number): Promise<void> {
-  if (!result.invoice || result.items.length !== 0) return
+  if (!result.invoice) return
+  if (result.bls.length !== 0 && result.items.length !== 0) return
 
   const { data: links, error: linksError } = await supabase
     .from('invoice_receivable_links')
@@ -677,37 +685,42 @@ async function hydrateConsolidatedInvoiceDetails(result: InvoiceDetail, invoiceI
   if (linksError || !links || links.length === 0) return
 
   const consolidatedLinks = links
-  const voyageIds = extractConsolidatedVoyageIds(consolidatedLinks)
-  let voyageMap = new Map<number, { voyage_number: string | null; vessel_name: string | null }>()
-  if (voyageIds.length > 0) {
-    const { data: voyages } = await supabase
-      .from('voyages')
-      .select('id, voyage_number, vessel:vessels(name)')
-      .in('id', voyageIds)
-      .overrideTypes<ConsolidatedVoyage[], { merge: false }>()
-    voyageMap = createConsolidatedVoyageMap(voyages ?? [])
+
+  if (result.bls.length === 0) {
+    const voyageIds = extractConsolidatedVoyageIds(consolidatedLinks)
+    let voyageMap = new Map<number, { voyage_number: string | null; vessel_name: string | null }>()
+    if (voyageIds.length > 0) {
+      const { data: voyages } = await supabase
+        .from('voyages')
+        .select('id, voyage_number, vessel:vessels(name)')
+        .in('id', voyageIds)
+        .overrideTypes<ConsolidatedVoyage[], { merge: false }>()
+      voyageMap = createConsolidatedVoyageMap(voyages ?? [])
+    }
+
+    result.bls = mapConsolidatedInvoiceBls(invoiceId, consolidatedLinks, voyageMap)
   }
 
-  result.bls = mapConsolidatedInvoiceBls(invoiceId, consolidatedLinks, voyageMap)
+  if (result.items.length === 0) {
+    // Detail each BL with its individual charges (THD, Drop-Off, etc.) reconstructed
+    // from charge_calculations at read-time. charge_calculations/charge_table_items are
+    // admin-only under RLS, so we go through a SECURITY DEFINER function scoped to this
+    // invoice. The ledger subtotal_brl remains the source of truth for the invoice total,
+    // so we only show the breakdown when it reconciles with the subtotal; otherwise
+    // (e.g. partial settlement) we fall back to a single aggregated line for that BL.
+    const { data: breakdown } = await supabase.rpc('get_consolidated_invoice_item_breakdown', { p_invoice_id: invoiceId })
 
-  // Detail each BL with its individual charges (THD, Drop-Off, etc.) reconstructed
-  // from charge_calculations at read-time. charge_calculations/charge_table_items are
-  // admin-only under RLS, so we go through a SECURITY DEFINER function scoped to this
-  // invoice. The ledger subtotal_brl remains the source of truth for the invoice total,
-  // so we only show the breakdown when it reconciles with the subtotal; otherwise
-  // (e.g. partial settlement) we fall back to a single aggregated line for that BL.
-  const { data: breakdown } = await supabase.rpc('get_consolidated_invoice_item_breakdown', { p_invoice_id: invoiceId })
+    const parsedBreakdown = z.array(consolidatedBreakdownRowSchema).safeParse(breakdown ?? [])
+    if (!parsedBreakdown.success) {
+      reportBestEffortFailure('listInvoiceDetails breakdown parse', parsedBreakdown.error, { invoiceId })
+    }
 
-  const parsedBreakdown = z.array(consolidatedBreakdownRowSchema).safeParse(breakdown ?? [])
-  if (!parsedBreakdown.success) {
-    reportBestEffortFailure('listInvoiceDetails breakdown parse', parsedBreakdown.error, { invoiceId })
+    result.items = buildConsolidatedInvoiceItems(
+      invoiceId,
+      consolidatedLinks,
+      groupConsolidatedBreakdown(parsedBreakdown.success ? parsedBreakdown.data : []),
+    )
   }
-
-  result.items = buildConsolidatedInvoiceItems(
-    invoiceId,
-    consolidatedLinks,
-    groupConsolidatedBreakdown(parsedBreakdown.success ? parsedBreakdown.data : []),
-  )
 }
 
 async function backfillInvoicePixPayload(result: InvoiceDetail, invoiceId: number): Promise<void> {

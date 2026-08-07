@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FilePlus2 } from 'lucide-react'
 import { ConsolidatedInvoiceModal } from '../components/billing/ConsolidatedInvoiceModal'
 import { ValidacaoTab } from '../components/billing/ValidacaoTab'
 import { FinancialAlertsPanel } from '../components/billing/FinancialAlertsPanel'
-import { DemurrageInvoicesSection } from '../components/billing/DemurrageInvoicesSection'
-import { PendenciasFaturamentoTab } from '../components/billing/PendenciasFaturamentoTab'
+import { DemurrageMetricsStrip } from '../components/billing/DemurrageMetricsStrip'
 import { InvoiceFiltersBar } from '../components/billing/InvoiceFiltersBar'
 import { FILTER_KEYS, type Filters } from '../components/billing/invoiceFilters'
 import { InvoicesTable } from '../components/billing/InvoicesTable'
@@ -59,15 +58,18 @@ export function Faturamento() {
   const [customerFilterLabel, setCustomerFilterLabel] = useState(searchParams.get('customerName') ?? '')
   const [filterResetKey, setFilterResetKey] = useState(0)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(Number(searchParams.get('invoice') ?? '') || null)
-  const [activeTab, setActiveTab] = useState<'validacao' | 'pendencias' | 'invoices' | 'demurrage'>(
-    searchParams.get('tab') === 'demurrage'
-      ? 'demurrage'
-      : searchParams.get('tab') === 'validacao'
-        ? 'validacao'
-        : searchParams.get('tab') === 'pendencias'
-          ? 'pendencias'
-          : 'invoices'
+  // Etapa 12 do plano de faturamento: as abas Pendências e Demurrage saíram.
+  // Pendências era subconjunto literal da Validação (mesma fonte, mesmo
+  // limite, só chargeStatus=review_required fixo) — quem vinha de
+  // ?tab=pendencias cai na Validação com esse filtro pré-aplicado.
+  // Demurrage duplicava /demurrage sem os filtros e a impressão de lá —
+  // quem vinha de ?tab=demurrage é redirecionado para o módulo real.
+  const requestedTab = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState<'validacao' | 'invoices'>(
+    requestedTab === 'validacao' || requestedTab === 'pendencias' ? 'validacao' : 'invoices'
   )
+  const validacaoInitialChargeStatus = requestedTab === 'pendencias' ? 'review_required' : undefined
+
   const [exporting, setExporting] = useState(false)
   const [consolidatedOpen, setConsolidatedOpen] = useState(false)
 
@@ -198,6 +200,13 @@ export function Faturamento() {
     }
   }
 
+  // Precisa vir depois de todos os hooks acima (Regras dos Hooks): a
+  // contagem/ordem de chamadas tem que ser igual em toda renderização deste
+  // componente, inclusive na que redireciona.
+  if (requestedTab === 'demurrage') {
+    return <Navigate to="/demurrage" replace />
+  }
+
   return (
     <main className="billing-page">
       <PageHeader
@@ -222,22 +231,15 @@ export function Faturamento() {
       <div className="billing-page__tabs mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Módulos de faturamento">
         <TabButton active={activeTab === 'invoices'} label="Faturas" onClick={() => setActiveTab('invoices')} />
         <TabButton active={activeTab === 'validacao'} label="Validação" onClick={() => setActiveTab('validacao')} />
-        <TabButton active={activeTab === 'pendencias'} label="Pendências" onClick={() => setActiveTab('pendencias')} />
-        <TabButton active={activeTab === 'demurrage'} label="Demurrage" onClick={() => setActiveTab('demurrage')} />
       </div>
 
       {activeTab === 'validacao' ? (
-        <ValidacaoTab userId={user?.id ?? null} />
+        <ValidacaoTab userId={user?.id ?? null} initialChargeStatus={validacaoInitialChargeStatus} />
       ) : null}
-
-      {activeTab === 'pendencias' ? (
-        <PendenciasFaturamentoTab userId={user?.id ?? null} />
-      ) : null}
-
-      <DemurrageInvoicesSection active={activeTab === 'demurrage'} />
 
       {activeTab === 'invoices' ? (
         <>
+          <DemurrageMetricsStrip />
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="app-panel__title">Faturas</h2>
             <Button variant="secondary" loading={exporting} onClick={() => void handleExport()}>

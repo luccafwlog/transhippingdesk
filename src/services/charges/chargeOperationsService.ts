@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../../lib/utils'
 import { classifyDbError } from '../../lib/errors'
+import { isBlFinanciallyLocked } from '../../lib/chargeStatus'
 
 const OPERATIONAL_PAGE_SIZE = 1000
 
@@ -85,6 +86,7 @@ export type LocalChargeOperationalRow = {
   pod: string | null
   charge_status: string | null
   financial_status: string | null
+  ce_mercante: string | null
   review_status: string | null
   notes: string | null
   customer_reconciliation_status: string | null
@@ -125,8 +127,28 @@ export async function calculateBlLocalCharges(
   options?: {
     actorId?: string | null
     recalculate?: boolean
+    // Etapa 2 do plano de faturamento (ADR 0038, achado 6, revisão de performance):
+    // permite ao chamador que já tem o financial_status em mãos (ex.: lote da
+    // Validação, que já carregou operationsRows) pular a consulta de pre-flight
+    // abaixo. Chamadores sem esse dado (recalculo individual da Revisao) continuam
+    // protegidos pela consulta.
+    knownFinancialStatus?: string | null
   },
 ) {
+  // Etapa 2 do plano de faturamento (ADR 0038, achado 6): trava aqui, no unico
+  // ponto de entrada do app para esta RPC, para cobrir todo chamador atual
+  // (lote da Validacao e recalculo individual da Revisao) mesmo antes de a
+  // trava equivalente existir tambem no banco (migration pendente de aplicar).
+  let financialStatus = options?.knownFinancialStatus
+  if (financialStatus === undefined) {
+    const { data: bl, error: blError } = await supabase.from('bls').select('financial_status').eq('id', blId).maybeSingle()
+    if (blError) throw blError
+    financialStatus = bl?.financial_status
+  }
+  if (isBlFinanciallyLocked(financialStatus)) {
+    throw new Error(`B/L ${blId} ja foi faturado (status financeiro=${financialStatus}); recalculo bloqueado.`)
+  }
+
   const { data, error } = await supabase.rpc('calculate_bl_local_charges', {
     p_bl_id: blId,
     ...(options?.actorId == null ? {} : { p_actor: options.actorId }),
@@ -216,6 +238,7 @@ async function loadBlOperationalRows(
         pod,
         charge_status,
         financial_status,
+        ce_mercante,
         review_status,
         notes,
         customer_reconciliation_status,
@@ -448,6 +471,7 @@ async function loadGraniteOperationalRows(
     pod: row.discharge_port,
     charge_status: row.charge_status,
     financial_status: row.charge_status === 'invoiced' ? 'invoiced' : null,
+    ce_mercante: null,
     // granito não passa pelo gate de revisão de BL comum (workflow próprio).
     review_status: null,
     notes: null,
@@ -564,7 +588,238 @@ export async function calculateLocalChargesBatch(
     recalculate?: boolean
   },
 ) {
-  return runBatch(blIds, (blId) => calculateBlLocalCharges(blId, options))
+  // Uma unica consulta para todo o lote em vez de uma por B/L dentro de
+  // calculateBlLocalCharges (runBatch e sequencial, entao a versao antiga
+  // dobrava os round trips do lote).
+  const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
+  const { data: bls, error } = await supabase.from('bls').select('id, financial_status').in('id', normalizedIds)
+  if (error) throw error
+  const financialStatusById = new Map((bls ?? []).map((bl) => [bl.id, bl.financial_status] as const))
+
+  return runBatch(blIds, (blId) => {
+    // Achado 6 da review da PR 501: NAO usar `?? null` aqui. Um lookup miss
+    // (blId ausente no Map, inclusive por diferenca de normalizacao entre
+    // blId cru e normalizedIds) virava `null`, e o guard em
+    // calculateBlLocalCharges so faz a consulta de pre-flight quando
+    // `financialStatus === undefined` -- null !== undefined, entao a trava de
+    // recalculo de B/L faturado era pulada silenciosamente. Mantendo
+    // `undefined` no miss, o guard cai no fallback e busca o status real.
+    const normalizedBlId = blId.trim().toUpperCase()
+    const knownFinancialStatus = financialStatusById.get(normalizedBlId)
+    return calculateBlLocalCharges(blId, { ...options, knownFinancialStatus })
+  })
+}
+
+export type LocalChargeConferenceRow = {
+  bl_id: string
+  customer_name: string
+  pod: string
+  charge_name: string
+  application_basis: string | null
+  quantity: number
+  unit_value_brl: number | null
+  total_value_brl: number
+  price_origin: 'Tabela padrão' | 'Condição de Cliente'
+  shared_containers: string
+}
+
+// Etapa 5 do plano de faturamento: planilha de conferência do cálculo
+// provisório, por B/L e por item — a decisão 8 do ADR 0038 só faz sentido com
+// isso, senão o operador não tem como validar o número antes do CE. Marca
+// container compartilhado (application_basis='container_distinct_voyage')
+// com quantos B/Ls da viagem dividem cada container, para o rateio ser
+// conferível mesmo quando o B/L que completa o container ainda não chegou.
+export async function buildLocalChargeConferenceRows(blIds: string[]): Promise<LocalChargeConferenceRow[]> {
+  const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
+  if (normalizedIds.length === 0) return []
+
+  const { data: bls, error: blsError } = await supabase
+    .from('bls')
+    .select('id, pod, voyage_id, customer:customers(name)')
+    .in('id', normalizedIds)
+  if (blsError) throw blsError
+  const blMap = new Map(
+    (bls ?? []).map((bl) => [
+      bl.id as string,
+      { pod: bl.pod as string | null, voyageId: bl.voyage_id as number | null, customerName: (bl.customer as { name: string | null } | null)?.name ?? null },
+    ]),
+  )
+
+  const { data: calcs, error: calcsError } = await supabase
+    .from('charge_calculations')
+    .select('bl_id, quantity, unit_value_brl, total_value_brl, override_applied, calculation_key, charge_item:charge_table_items(name, application_basis)')
+    .in('bl_id', normalizedIds)
+    .in('status', ['calculated', 'reviewed', 'ready_for_billing'])
+    .gt('total_value_brl', 0)
+  if (calcsError) throw calcsError
+
+  const { data: blContainers, error: blContainersError } = await supabase
+    .from('bl_containers')
+    .select('bl_id, container_number')
+    .in('bl_id', normalizedIds)
+  if (blContainersError) throw blContainersError
+
+  const containersByBl = new Map<string, string[]>()
+  for (const row of blContainers ?? []) {
+    const containerNumber = (row.container_number ?? '').trim().toUpperCase()
+    if (!containerNumber) continue
+    const list = containersByBl.get(row.bl_id as string) ?? []
+    list.push(containerNumber)
+    containersByBl.set(row.bl_id as string, list)
+  }
+
+  const voyageIds = Array.from(new Set(Array.from(blMap.values()).map((bl) => bl.voyageId).filter((v): v is number => v != null)))
+  const shareByVoyageContainer = new Map<string, number>()
+  if (voyageIds.length > 0) {
+    // Achado 7 da review da PR 501: busca os B/Ls da viagem primeiro (com
+    // cargo_mode e voyage_id vindos direto da tabela `bls`, sem depender do
+    // formato de uma relacao aninhada bl_containers->bls que pode virar
+    // objeto ou array conforme o cliente) e so entao os containers desses
+    // B/Ls. Isso permite: (1) filtrar cargo_mode='container' -- o share_count
+    // do motor so considera B/Ls de container --, e (2) contar bl_id DISTINCT
+    // por voyage+container, em vez de linhas cruas de bl_containers (que
+    // duplicariam a contagem se um B/L tivesse a mesma linha de container
+    // repetida). A chave usa sempre o voyage_id numerico vindo de `bls`,
+    // nunca um valor de relacao que pudesse vir undefined.
+    const { data: voyageBls, error: voyageBlsError } = await supabase
+      .from('bls')
+      .select('id, voyage_id')
+      .in('voyage_id', voyageIds)
+      .eq('cargo_mode', 'container')
+    if (voyageBlsError) throw voyageBlsError
+
+    const voyageIdByBlId = new Map((voyageBls ?? []).map((bl) => [bl.id as string, bl.voyage_id as number]))
+    const containerBlIds = Array.from(voyageIdByBlId.keys())
+
+    if (containerBlIds.length > 0) {
+      const { data: voyageContainers, error: voyageContainersError } = await supabase
+        .from('bl_containers')
+        .select('bl_id, container_number')
+        .in('bl_id', containerBlIds)
+      if (voyageContainersError) throw voyageContainersError
+
+      const blIdsByVoyageContainer = new Map<string, Set<string>>()
+      for (const row of voyageContainers ?? []) {
+        const blId = row.bl_id as string
+        const voyageId = voyageIdByBlId.get(blId)
+        const containerNumber = (row.container_number ?? '').trim().toUpperCase()
+        if (voyageId == null || !containerNumber) continue
+        const key = `${voyageId}:${containerNumber}`
+        const blIdSet = blIdsByVoyageContainer.get(key) ?? new Set<string>()
+        blIdSet.add(blId)
+        blIdsByVoyageContainer.set(key, blIdSet)
+      }
+      for (const [key, blIdSet] of blIdsByVoyageContainer) {
+        shareByVoyageContainer.set(key, blIdSet.size)
+      }
+    }
+  }
+
+  return (calcs ?? []).map((row) => {
+    const bl = blMap.get(row.bl_id as string)
+    const chargeItem = row.charge_item as { name: string | null; application_basis: string | null } | null
+    const containers = containersByBl.get(row.bl_id as string) ?? []
+    const sharedLabel =
+      chargeItem?.application_basis === 'container_distinct_voyage'
+        ? containers
+            .map((containerNumber) => ({
+              containerNumber,
+              count: shareByVoyageContainer.get(`${bl?.voyageId}:${containerNumber}`) ?? 1,
+            }))
+            .filter((c) => c.count > 1)
+            .map((c) => `${c.containerNumber} (${c.count} B/Ls)`)
+            .join('; ')
+        : ''
+
+    return {
+      bl_id: row.bl_id as string,
+      customer_name: bl?.customerName ?? '',
+      pod: bl?.pod ?? '',
+      charge_name: chargeItem?.name ?? (row.calculation_key as string | null) ?? 'Linha de taxa',
+      application_basis: chargeItem?.application_basis ?? null,
+      quantity: Number(row.quantity ?? 0),
+      unit_value_brl: row.unit_value_brl == null ? null : Number(row.unit_value_brl),
+      total_value_brl: Number(row.total_value_brl ?? 0),
+      price_origin: row.override_applied ? 'Condição de Cliente' : 'Tabela padrão',
+      shared_containers: sharedLabel,
+    }
+  })
+}
+
+// Etapa 4 do plano de faturamento (ADR 0038, achado 11): cálculo provisório
+// logo após o import de B/L, antes do CE Mercante. Calcula os B/Ls importados
+// e os "irmãos" — B/Ls da mesma viagem que compartilham container com eles —
+// porque a quantidade de THD de um container compartilhado depende de quantos
+// B/Ls o dividem; importar um novo B/L nesse container muda a quantidade dos
+// que já estavam calculados. B/L com fatura emitida nunca é recalculado (cai
+// no aviso de container compartilhado que já existe). Só container (fronteira
+// da ADR 0020); carga solta e granito seguem seus fluxos próprios. Best-effort
+// e idempotente, no mesmo padrão de applyBapliePhysicalFlags — chame depois
+// dele, pois as flags IMO/OOG definem o perfil de carga usado no cálculo.
+export async function calculateProvisionalLocalCharges(
+  voyageId: number,
+  blIds: string[],
+  actorId: string | null,
+): Promise<{ calculated: number }> {
+  const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
+  if (normalizedIds.length === 0) return { calculated: 0 }
+
+  const { data: targetBls, error: targetError } = await supabase
+    .from('bls')
+    .select('id, cargo_mode, financial_status')
+    .in('id', normalizedIds)
+  if (targetError) throw targetError
+
+  const containerBlIds = (targetBls ?? [])
+    .filter((bl) => (bl.cargo_mode ?? 'container') === 'container' && !isBlFinanciallyLocked(bl.financial_status))
+    .map((bl) => bl.id)
+  if (containerBlIds.length === 0) return { calculated: 0 }
+
+  const { data: containers, error: containersError } = await supabase
+    .from('bl_containers')
+    .select('container_number')
+    .in('bl_id', containerBlIds)
+  if (containersError) throw containersError
+
+  const containerNumbers = Array.from(
+    new Set((containers ?? []).map((c) => (c.container_number ?? '').trim().toUpperCase()).filter(Boolean)),
+  )
+
+  let siblingIds: string[] = []
+  if (containerNumbers.length > 0) {
+    const containerNumberSet = new Set(containerNumbers)
+    // Achado 2 da review da PR 501: compara container_number normalizado
+    // (UPPER(TRIM(...))) em memoria, em vez de `.in('container_number', ...)`
+    // com os valores ja normalizados contra a coluna crua do banco -- isso
+    // deixava de casar irmaos com espaco/caixa diferentes do que o motor usa
+    // em outros pontos (ex.: calculate_bl_local_charges). Busca todos os
+    // containers da viagem e filtra pelo Set normalizado no cliente.
+    const { data: voyageContainers, error: siblingError } = await supabase
+      .from('bl_containers')
+      .select('bl_id, container_number, bl:bls!inner(voyage_id, cargo_mode, financial_status, charge_status)')
+      .eq('bl.voyage_id', voyageId)
+    if (siblingError) throw siblingError
+    siblingIds = (voyageContainers ?? [])
+      .filter((row) => {
+        const containerNumber = (row.container_number ?? '').trim().toUpperCase()
+        if (!containerNumberSet.has(containerNumber)) return false
+        const bl = row.bl as { cargo_mode: string | null; financial_status: string | null; charge_status: string | null } | null
+        // Achado 2 da review da PR 501: exclui tambem irmaos ja
+        // ready_for_billing, nao so os financeiramente travados -- senao um
+        // novo B/L no mesmo container reverte silenciosamente um irmao ja
+        // pronto para faturar de volta para calculated/review_required.
+        return (
+          (bl?.cargo_mode ?? 'container') === 'container' &&
+          !isBlFinanciallyLocked(bl?.financial_status) &&
+          bl?.charge_status !== 'ready_for_billing'
+        )
+      })
+      .map((row) => row.bl_id as string)
+  }
+
+  const allIds = Array.from(new Set([...containerBlIds, ...siblingIds]))
+  const results = await Promise.allSettled(allIds.map((id) => calculateBlLocalCharges(id, { actorId, recalculate: true })))
+  return { calculated: results.filter((r) => r.status === 'fulfilled').length }
 }
 
 export async function markLocalChargesReviewedBatch(blIds: string[], actorId?: string | null) {

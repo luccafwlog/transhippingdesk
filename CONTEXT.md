@@ -583,10 +583,6 @@ origem mantém seu ciclo de vida próprio.
 Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
 específicas do cliente.
 
-> A descrição a seguir é a **decidida em 2026-08-06 e ainda não implementada**.
-> Hoje não existe cálculo provisório: para B/L de container nada é calculado
-> antes do CE, e o CE dispara cálculo, emissão e publicação em cadeia única.
-
 O cálculo tem **duas fases**:
 
 - **Provisória** — importar o B/L calcula as taxas com o que ele tem naquele
@@ -656,9 +652,6 @@ vence. Condição de Cliente é acordo negociado, e conflito precisa aparecer.
 - **Related:** Item de Taxa, Cliente, Tarifa de Demurrage
 
 **Data de Referência da Tarifa**
-> Decidida em 2026-08-06 e **ainda não implementada**: o motor resolve a tarifa
-> pela data de upload do B/L. Enquanto o código não mudar, este verbete descreve
-> a intenção, não o comportamento.
 
 Data que determina qual Tabela de Taxas Locais e qual Condição de Cliente valem
 para um B/L: a **ETA da escala do POD**. Ancorar na escala garante que todos os
@@ -713,9 +706,6 @@ antes de qualquer fatura existir.
 - **Related:** Isenção de Taxas Locais, Taxas Locais
 
 **Isenção de Taxas Locais**
-> Decidida em 2026-08-06 e **ainda não implementada**: hoje o motor isenta todo
-> B/L de container que tenha veículo, sem checar o Movimento. Este verbete
-> descreve a intenção.
 
 Dispensa de cobrança de taxas locais para carga de veículos **em LCL**, cujas
 taxas foram pagas na origem. Depende de duas condições, não de uma: haver
@@ -729,9 +719,6 @@ apenas inferíveis do valor zero.
 - **Related:** Movimento (FCL/LCL), Taxas Locais
 
 **Taxa Local em Dólar**
-> Decidida em 2026-08-06 e **ainda não implementada**: hoje uma linha em USD
-> trava o B/L com o impedimento "exigem ajuste manual", e não existe tela onde
-> fazer esse ajuste.
 
 Item de Taxa cadastrado em USD — como a Booking Cancelation Fee. Converte-se em
 BRL **na emissão da fatura**, pelo ROE vigente naquele momento, e o valor
