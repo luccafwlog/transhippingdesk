@@ -59,3 +59,7 @@
 - Alertas de vencimento do dashboard por dias de calendário.
 
 > Planos e specs completos em [archive/plans/](archive/plans/) e [archive/specs/](archive/specs/).
+## 2026-08-07
+
+- Consolida a implementação do ADR 0039, as correções da revisão da PR 503 e
+  a documentação da rota `/perfil` em uma única entrega pronta para `main`.

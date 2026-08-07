@@ -46,6 +46,10 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   independente do de pendência; marcos congelados no `closed_snapshot`
   (impresso mostra só datas de assinatura, nunca o veredito); agregado de
   calibração por departamento em `/admin/usuarios`. ADR 0039; migration `261`.
+- [`2026-08-07-adr-0039-correcoes-pr503`](2026-08-07-adr-0039-correcoes-pr503.md)
+  — correções da revisão pós-implementação: SLA sem assinatura, autores de
+  reabertura, timeline fechada, carregamento antes do fechamento, escalas
+  deletadas e `colSpan` do agregado.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.
