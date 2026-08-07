@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-describe('rate reference date from pod eta migration (266)', () => {
+// Registro histórico: as asserções abaixo descrevem o conteúdo da migration
+// 266, não o comportamento atual do motor. A ADR 0040 (migration 274) removeu
+// a trava do ETA e a resolução da tabela por vigência — o comportamento vigente
+// está em `chargeTableValidityInformationalMigration.test.ts`.
+describe('rate reference date from pod eta migration (266, supersedida pela 274)', () => {
   const sql = readFileSync(
     resolve(process.cwd(), 'supabase/migrations/266_rate_reference_date_from_pod_eta.sql'),
     'utf8',

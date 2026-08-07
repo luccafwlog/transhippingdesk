@@ -42,7 +42,11 @@ estado local. A renderização é dividida em:
   `src/components/taxasLocais/ChargeTableItemFormCard.tsx`: formulários
   recolhíveis de tabela e item;
 - `src/components/taxasLocais/ChargeTablesList.tsx`: lista de
-  `charge_tables`, com expansão dos `charge_table_items`;
+  `charge_tables`, com expansão dos `charge_table_items` e os avisos de
+  vigência da ADR 0040 (`chargeTableAlerts`): "Vigência vencida" e "Vigência
+  futura" em tabela ativa (o período não filtra o cálculo, então segue sendo
+  aplicada) e "Não aplicada" quando outra tabela ativa do mesmo POD e modo de
+  carga vence o desempate;
 - edição, ativação/inativação, criação e exclusão de item;
 - estados de carregamento, erro e vazio produzidos por
   `useLocalChargeTables`.
@@ -98,7 +102,7 @@ Os formulários e defaults vivem em
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
 | `/taxas-locais` · filtrar/listar tabelas | Capacidade `charge_tables`; filtros opcionais | `TaxasLocais` → `ChargeTablesTab` → `ChargeTablesList` | `useLocalChargeTables` → `listLocalChargeTables` | `SELECT charge_tables` com `charge_table_items` | Query `queryKeys.charges.tables(filters)`; itens são ordenados por `sort_order` e nome | Erro Supabase vira estado de erro da lista | **Código:** `src/pages/TaxasLocais.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/components/taxasLocais/ChargeTablesList.tsx`, `src/services/charges/chargeTableService.ts` |
-| `/taxas-locais` · criar/editar tabela | Nome, POD e `valid_from`; vigência final não anterior à inicial | `ChargeTableFormCard` → `handleSaveTable` | `validateTableInput` → `useSaveChargeTable` → `saveChargeTable` | `INSERT` ou `UPDATE charge_tables` | Invalida `queryKeys.charges.tables()` | Toast “Falha ao salvar tabela”; erro de constraint/RLS é propagado | **Código:** `src/components/taxasLocais/ChargeTableFormCard.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/pages/taxasLocaisHelpers.ts`, `src/hooks/useLocalCharges.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
+| `/taxas-locais` · criar/editar tabela | Nome, POD e `valid_from`; vigência final não anterior à inicial (a vigência é informativa — ADR 0040 — e o formulário diz isso; a lista sinaliza vigência vencida/futura e tabela ativa não aplicada por outra do mesmo escopo) | `ChargeTableFormCard` → `handleSaveTable` | `validateTableInput` → `useSaveChargeTable` → `saveChargeTable` | `INSERT` ou `UPDATE charge_tables` | Invalida `queryKeys.charges.tables()` | Toast “Falha ao salvar tabela”; erro de constraint/RLS é propagado | **Código:** `src/components/taxasLocais/ChargeTableFormCard.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/pages/taxasLocaisHelpers.ts`, `src/hooks/useLocalCharges.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
 | `/taxas-locais` · ativar/inativar tabela | Tabela existente | `ChargeTablesList` → `handleToggleTableActive` | `useSetChargeTableActive` → `setChargeTableActive` | `UPDATE charge_tables.active` | Invalida `queryKeys.charges.tables()` | Toast de falha; não recalcula B/Ls já existentes | **Código:** `src/components/taxasLocais/ChargeTablesList.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` |
 | `/taxas-locais` · adicionar/editar item | Tabela, nome, valor não negativo e `sort_order` inteiro não negativo | `ChargeTableItemFormCard` → `handleSaveTableItem` | `validateTableItemInput` → `useSaveChargeTableItem` → `saveChargeTableItem` | `INSERT` ou `UPDATE charge_table_items` | Invalida `charges.tables()`, `bls.manualChargeItems('')` e `charges.overrideItems()` | Toast de falha; constraints de moeda/base/perfil podem rejeitar | **Código:** `src/components/taxasLocais/ChargeTableItemFormCard.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/services/charges/chargeTableService.ts` · **Teste:** `src/pages/__tests__/taxasLocaisHelpers.test.ts` |
 | `/taxas-locais` · excluir item | Confirmação; item sem bloqueio referencial | `ChargeTablesList` → `handleDeleteTableItem` | `useDeleteChargeTableItem` → `deleteChargeTableItem` | `DELETE charge_table_items` | Mesmas invalidações do save de item | Mensagem informa possível vínculo com cálculos | **Código:** `src/components/taxasLocais/ChargeTablesList.tsx`, `src/components/taxasLocais/ChargeTablesTab.tsx`, `src/hooks/useLocalCharges.ts` |
@@ -155,7 +159,11 @@ Definidas em `src/services/queryKeys.ts`:
 
 ### Persistência e ownership
 
-- `charge_tables` possui escopo, vigência e ativação da tabela.
+- `charge_tables` possui escopo, vigência e ativação da tabela. A vigência é
+  informativa (ADR 0040): `resolve_local_charge_table_id` (migration `274`)
+  resolve por `cargo_mode` + POD normalizado + `active`, e desempata entre
+  ativas por `valid_from DESC, id DESC`. Inativar é a única forma de tirar uma
+  tabela do cálculo.
 - `charge_table_items` possui categoria, base de aplicação, perfil, moeda e
   valor unitário; `manual_only` separa itens automáticos dos adicionáveis.
 - `customer_rate_overrides` possui a substituição por cliente/item/vigência.

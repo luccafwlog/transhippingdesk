@@ -76,6 +76,11 @@ export function ChargeTableFormCard({ tableForm, setTableForm, onSave, saving }:
             <option value="0">Nao</option>
           </Select>
         </Field>
+        <div className="md:col-span-2 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-xs text-[var(--app-muted)]">
+          A vigência é informativa (ADR 0040): não decide qual tabela o cálculo
+          de taxas usa. O motor aplica a tabela <strong>ativa</strong> do mesmo
+          POD e modo de carga — para tirar uma tabela do ar, inative-a.
+        </div>
         <Field label="Vigencia inicial">
           <Input
             type="date"

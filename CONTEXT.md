@@ -689,9 +689,16 @@ taxa de container compartilhado.
 
 **Tabela de Taxas Locais**
 Cadastro que define quais taxas locais existem e quanto custam, por POD e por
-modo de carga, com vigência temporal. É a fonte de verdade dos valores padrão —
-o sistema não tem preço embutido em código. Tem a mesma natureza da Tarifa de
-Demurrage: condições cadastradas e valores correspondentes.
+modo de carga. É a fonte de verdade dos valores padrão — o sistema não tem preço
+embutido em código. Tem a mesma natureza da Tarifa de Demurrage: condições
+cadastradas e valores correspondentes.
+
+**A vigência da tabela é informativa** e não participa do cálculo (ADR 0040): o
+motor aplica a tabela **ativa** do mesmo POD e modo de carga, e a única forma de
+tirar uma tabela do ar é inativá-la. Se houver mais de uma ativa no mesmo
+escopo, vence a de vigência inicial mais recente e a tela avisa que a outra não
+está sendo aplicada. Um período vencido ou futuro em tabela ativa também vira
+aviso, nunca exclusão.
 
 - **Synonyms / avoid:** "tabela de preços", "tarifa local"
 - **Related:** Item de Taxa, Condição de Cliente, Tarifa de Demurrage
@@ -728,19 +735,19 @@ vence. Condição de Cliente é acordo negociado, e conflito precisa aparecer.
 
 **Data de Referência da Tarifa**
 
-Data que determina qual Tabela de Taxas Locais e qual Condição de Cliente valem
-para um B/L: a **ETA da escala do POD**. Ancorar na escala garante que todos os
-B/Ls do mesmo navio, no mesmo porto, sejam cobrados pela mesma tarifa — a taxa
-local é cobrança de chegada, e "mesmo navio, preços diferentes" não é defensável
-perante o cliente.
+Data que determina qual **Condição de Cliente** vale para um B/L. Precedência:
+**ETA da escala do POD** → ETA geral da viagem → data de hoje. Ancorar na escala
+faz com que todos os B/Ls do mesmo navio, no mesmo porto, caiam na mesma
+condição negociada; os degraus seguintes existem para que a falta de uma data
+operacional nunca impeça o cálculo (ADR 0040).
 
-Não é a ATA: o CE Mercante — que dispara o cálculo — é cadastrado dias antes da
-atracação, então a fatura já foi emitida quando a ATA passa a existir. Não é
-a data de importação do B/L, que é fato administrativo e não comercial.
+**Não determina qual Tabela de Taxas Locais vale** — essa escolha é por escopo e
+por tabela ativa, sem data. Antes da ADR 0040 a data escolhia as duas coisas, e
+sua ausência parava o cálculo inteiro.
 
-Difere deliberadamente do Demurrage, que resolve a tarifa pela vigência do dia
-do cálculo: demurrage é cobrança por container e por dia, intrinsecamente
-individual, então não produz a comparação "mesmo navio, preços diferentes".
+Não é a ATA: o CE Mercante é cadastrado dias antes da atracação, então a fatura
+já foi emitida quando a ATA passa a existir. Não é a data de importação do B/L,
+que é fato administrativo e não comercial.
 
 - **Related:** Tabela de Taxas Locais, Condição de Cliente, Escala
 
