@@ -59,8 +59,8 @@ tela, o alerta e o agregado, para que as três superfícies nunca discordem.
 **Files:** `src/components/voyages/VoyageAgencyReportTab.tsx`,
 `src/components/voyages/AgencyReportDocument.tsx`, testes.
 
-- [ ] Incluir os marcos no `closed_snapshot` no fechamento.
-- [ ] Imprimir apenas as datas de assinatura; nenhum veredito de prazo, cor ou
+- [x] Incluir os marcos no `closed_snapshot` no fechamento.
+- [x] Imprimir apenas as datas de assinatura; nenhum veredito de prazo, cor ou
       contagem de dias no documento.
 
 ### Task 5: Agregado em Administração

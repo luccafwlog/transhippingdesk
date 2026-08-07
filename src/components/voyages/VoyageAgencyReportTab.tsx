@@ -352,8 +352,44 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   }
   const signedDepartmentsCount = DEPARTMENTS.filter(isDepartmentSigned).length
 
+  // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback) —
+  // distinto de data?.schedule?.atd (POD-only), usado pela Linha do Tempo do
+  // ADR e, abaixo, pela própria seção Escala.
+  const unifiedAtd = data?.unifiedAtd?.atd ?? null
+  const deadlineDate = unifiedAtd ? calculateAgencyReportDeadlineDate(unifiedAtd) : null
+
+  // Reaberturas por departamento (new_value='false', com justificativa) —
+  // mesmo filtro de buildDepartmentTimelineRows (AgencyReportTimeline.tsx),
+  // duplicado aqui porque o snapshot precisa apenas de (data, autor,
+  // justificativa) em vez das linhas completas da Linha do Tempo (estado de
+  // prazo incluso). Task 4 do ADR 0039: os marcos do fechamento vão dentro de
+  // `departmentSignoffs`, chave de topo já liberada pela allowlist de
+  // close_agency_departure_report — nenhuma chave nova é adicionada.
+  const departmentReopenings = (department: AgencyReportDepartmentKey) =>
+    (departmentSignoffEvents ?? [])
+      .filter((event) => event.department === department && event.new_value === 'false')
+      .map((event) => ({
+        changed_at: event.changed_at,
+        changed_by: event.changed_by,
+        justification: event.justification,
+      }))
+
   const snapshot = {
-    header: { carrierName, voyageLabel, port, terminal: ownData?.terminal ?? null, schedule: data?.schedule ?? null },
+    header: {
+      carrierName,
+      voyageLabel,
+      port,
+      terminal: ownData?.terminal ?? null,
+      schedule: data?.schedule ?? null,
+      // ADR 0039: marcos do Prazo de Conclusão congelados no fechamento —
+      // usados por Task 5 (relatório agregado de SLA) para recalcular
+      // cumprimento/atraso históricos sem reconsultar audit_logs. Não são
+      // impressos (AgencyReportDocument.tsx mostra só datas de assinatura).
+      unifiedAtd,
+      atdRegisteredAt: data?.unifiedAtd?.atdRegisteredAt ?? null,
+      atdSource: data?.unifiedAtd?.atdSource ?? null,
+      deadlineDate,
+    },
     sections: {
       cargaDescarregada: dischargeMatrix,
       cargaSolta: data?.cargaSolta ?? null,
@@ -378,17 +414,19 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     // Task 5 do ADR 2026-07-31: chave de topo irmã de `signoffs` — o impresso
     // fecha com os três sign-offs departamentais. Task 9 libera esta chave na
     // validação de fechamento (allowlist em close_agency_departure_report).
-    departmentSignoffs: ownData?.departmentSignoffs ?? [],
+    // ADR 0039 (Task 4): cada linha ganha `reopenings` — reaberturas com
+    // justificativa, mesmo dado impresso na Linha do Tempo, agora congelado
+    // no snapshot para o relatório de SLA (Task 5) e para o impresso mostrar
+    // a história de reabertura sem veredito de prazo.
+    departmentSignoffs: (ownData?.departmentSignoffs ?? []).map((row) => ({
+      ...row,
+      reopenings: departmentReopenings(row.department),
+    })),
   }
   const closedSnapshot = ownData?.closed_snapshot as typeof snapshot | null
   const isClosed = ownData?.status === 'closed' && closedSnapshot
 
-  // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback) —
-  // distinto de data?.schedule?.atd (POD-only), usado pela Linha do Tempo do
-  // ADR e, abaixo, pela própria seção Escala.
   const isOmittedEscala = pods.find((entry) => entry.pod === port)?.omitted ?? false
-  const unifiedAtd = data?.unifiedAtd?.atd ?? null
-  const deadlineDate = unifiedAtd ? calculateAgencyReportDeadlineDate(unifiedAtd) : null
 
   return (
     <div className="grid gap-4">

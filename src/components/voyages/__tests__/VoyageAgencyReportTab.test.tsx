@@ -255,6 +255,64 @@ it('fecha o ADR apenas quando os 3 departamentos assinaram e envia o snapshot ex
   expect.objectContaining({ onError: expect.any(Function) }))
 })
 
+// ADR 0039, Task 4: os marcos do Prazo de Conclusão (ATD unificado, sua
+// fonte/registro e o prazo calculado) e as reaberturas por departamento
+// precisam sair congelados no snapshot de fechamento — Task 5 (relatório de
+// SLA) depende deles para não reconsultar audit_logs.
+it('congela o ATD unificado, o prazo calculado e as reaberturas departamentais no snapshot de fechamento', () => {
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [],
+      storage: { containers: 0, days: 0 }, operation: {},
+      schedule: { atb: '2026-07-19', atd: '2026-07-20' },
+      unifiedAtd: { atd: '2026-07-20', atdSource: 'pod', atdRegisteredAt: '2026-07-20T18:00:00Z' },
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      terminal: 'TVV',
+      signoffs: allSectionsSignoffs(),
+      departmentSignoffs: allDepartmentsSigned(),
+      occurrences: [],
+    },
+  })
+  useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({
+    data: [
+      { id: 1, department: 'operacoes', old_value: 'true', new_value: 'false', justification: 'Correção necessária', changed_by: 'user-1', changed_at: '2026-07-21T10:00:00Z' },
+      { id: 2, department: 'operacoes', old_value: 'false', new_value: 'true', justification: null, changed_by: 'user-1', changed_at: '2026-07-21T11:00:00Z' },
+    ],
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
+  expect(closeMutateMock).toHaveBeenCalledWith(expect.objectContaining({
+    snapshot: expect.objectContaining({
+      header: expect.objectContaining({
+        unifiedAtd: '2026-07-20',
+        atdSource: 'pod',
+        atdRegisteredAt: '2026-07-20T18:00:00Z',
+        deadlineDate: expect.any(String),
+      }),
+      departmentSignoffs: expect.arrayContaining([
+        expect.objectContaining({
+          department: 'operacoes',
+          reopenings: [
+            { changed_at: '2026-07-21T10:00:00Z', changed_by: 'user-1', justification: 'Correção necessária' },
+          ],
+        }),
+        expect.objectContaining({ department: 'documentacao', reopenings: [] }),
+      ]),
+    }),
+  }), expect.anything())
+
+  // Mock de módulo persiste entre `it`s — devolve ao default para não vazar
+  // reaberturas para os testes seguintes.
+  useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
+})
+
 it('mantém Fechar ADR desabilitado enquanto faltar algum departamento', () => {
   useAgencyReportOwnMock.mockReturnValue({
     data: {
