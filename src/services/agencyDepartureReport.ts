@@ -17,7 +17,7 @@ import { extractErrorText } from '../lib/errors'
 import { computeStorageTotals } from './vaziosExportOperations'
 import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
-import { buildVoyagePodEntityId, listVoyagePodSchedules } from './voyageRouteSchedules'
+import { buildVoyagePodEntityId, getVoyageUnifiedAtd, listVoyagePodSchedules } from './voyageRouteSchedules'
 import { normalizePortCode } from './portCode'
 
 // Seis seções assináveis (ADR 0036). 'operacao_patio' foi absorvida por
@@ -223,6 +223,53 @@ export async function listSignoffEvents(voyageId: number, port: string) {
     changed_by: row.changed_by,
     changed_at: row.changed_at,
   }))
+}
+
+export type AgencyReportDepartmentSignoffEvent = {
+  id: number
+  department: AgencyReportDepartmentKey
+  old_value: string | null
+  new_value: string | null
+  justification: string | null
+  changed_by: string | null
+  changed_at: string | null
+}
+
+// Mesmo padrão de listSignoffEvents (audit_logs reaproveitado como trilha),
+// para o sign-off departamental (ADR 0029/0039): entity_id
+// "{voyageId}::{PORT}::{department}", gravado pela migration 223. Cada linha
+// com new_value='false' é uma reabertura com justificativa (Linha do Tempo do
+// ADR); new_value='true' é a (re)assinatura, sem justificativa.
+export async function listDepartmentSignoffEvents(voyageId: number, port: string) {
+  const prefix = `${voyageId}::${port.toUpperCase()}::`
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')
+    .eq('entity_type', 'agency_departure_report_department_signoff')
+    .like('entity_id', `${prefix}%`)
+    .order('changed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row): AgencyReportDepartmentSignoffEvent => ({
+    id: row.id,
+    department: row.entity_id.slice(prefix.length) as AgencyReportDepartmentKey,
+    old_value: row.old_value,
+    new_value: row.new_value,
+    justification: row.justification,
+    changed_by: row.changed_by,
+    changed_at: row.changed_at,
+  }))
+}
+
+// Regra única de "o que conta como reabertura" (new_value='false', ver
+// comentário acima) — usada tanto pela Linha do Tempo do ADR
+// (AgencyReportTimeline.tsx) quanto pelo congelamento no snapshot de
+// fechamento (VoyageAgencyReportTab.tsx), para as duas leituras nunca
+// divergirem se o critério mudar.
+export function filterDepartmentReopeningEvents(
+  events: AgencyReportDepartmentSignoffEvent[],
+  department: AgencyReportDepartmentKey,
+): AgencyReportDepartmentSignoffEvent[] {
+  return events.filter((event) => event.department === department && event.new_value === 'false')
 }
 
 export async function addOccurrence(input: {
@@ -530,6 +577,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
 
   const [
     schedules,
+    unifiedAtd,
     escalaPorts,
     vehiclesRes,
     vaziosImpRes,
@@ -544,6 +592,10 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     transshipmentVehiclesRes,
   ] = await Promise.all([
     listVoyagePodSchedules([entityId]),
+    // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback) para
+    // a Escala e a Linha do Tempo do ADR — `schedules`/`schedule.atd` acima
+    // continua POD-only (ATA/ATB/RTW não têm fallback POL).
+    getVoyageUnifiedAtd(voyageId, port),
     // Task 10 (ADR 2026-07-31): conjunto de escalas BR válidas da viagem, para
     // distinguir "dado órfão" (porto que não é escala nenhuma) de "dado da
     // escala vizinha" (porto válido, só que não é este).
@@ -867,6 +919,10 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
 
   return {
     schedule: schedules.get(entityId) ?? null,
+    // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback), com
+    // o momento do seu registro — consumido pela Escala e pela Linha do Tempo
+    // do ADR. Distinto de `schedule.atd`, que fica POD-only.
+    unifiedAtd,
     vehicles,
     vaziosExp,
     vaziosImp,

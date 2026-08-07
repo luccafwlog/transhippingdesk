@@ -38,6 +38,14 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   assinaturas departamentais; granito casa por porto normalizado; porto do
   Embarque de Vazios vira seleção entre escalas; cálculo da linha de
   serviço unificado. ADR 0035 (blocos 2–4); migration `249`.
+- [`2026-08-06-adr-prazo-conclusao-linha-do-tempo`](2026-08-06-adr-prazo-conclusao-linha-do-tempo.md)
+  — Linha do Tempo do ADR (ATD unificado e seu registro, prazo, as 3
+  assinaturas departamentais com reaberturas/justificativa, Fechamento sem
+  prazo próprio); Prazo de Conclusão de 3 dias úteis por departamento (função
+  pura compartilhada entre tela, alerta e agregado); alerta de vencimento
+  independente do de pendência; marcos congelados no `closed_snapshot`
+  (impresso mostra só datas de assinatura, nunca o veredito); agregado de
+  calibração por departamento em `/admin/usuarios`. ADR 0039; migration `261`.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

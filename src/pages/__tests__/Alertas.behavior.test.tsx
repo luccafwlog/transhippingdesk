@@ -22,6 +22,7 @@ vi.mock('../../services/alerts', () => ({
   acknowledgeAlert: vi.fn(),
   closeAlert: vi.fn(),
   detectAgencyReportPending: vi.fn().mockResolvedValue(undefined),
+  detectAgencyReportDeadlineMissed: vi.fn().mockResolvedValue(undefined),
   listAlerts: vi.fn(),
 }))
 

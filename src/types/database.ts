@@ -4254,6 +4254,10 @@ export type Database = {
           role: string
         }[]
       }
+      agency_report_deadline_date: {
+        Args: { p_atd: string }
+        Returns: string
+      }
       agency_report_department_label: {
         Args: { p_department: string }
         Returns: string
@@ -4495,6 +4499,7 @@ export type Database = {
         Args: { p_booking_id: string }
         Returns: undefined
       }
+      detect_agency_report_deadline_missed: { Args: never; Returns: number }
       detect_agency_report_pending: { Args: never; Returns: number }
       detect_overdue_invoices: { Args: never; Returns: number }
       ensure_agency_departure_report: {

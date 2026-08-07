@@ -14,6 +14,10 @@ vi.mock('../../services/agencyDepartureReport', () => ({
   reopenReport: mocks.reopenReport,
   setSignoff: vi.fn(),
   setTerminal: vi.fn(),
+  // Task 5 do ADR 0039: useAgencyReport.ts agora importa agencyReportSla.ts,
+  // que lê AGENCY_REPORT_DEPARTMENT_LABELS no escopo do módulo (Object.keys
+  // eager) — sem este export o import falha antes mesmo de rodar o teste.
+  AGENCY_REPORT_DEPARTMENT_LABELS: { operacoes: 'Operações', documentacao: 'Documentação', equipamentos: 'Equipamentos' },
 }))
 
 vi.mock('@tanstack/react-query', () => ({

@@ -9,6 +9,7 @@ vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
 
 import {
   deriveAutomaticVoyagePodCeStatus,
+  getVoyageUnifiedAtd,
   listVoyagePodSchedules,
   listVoyagePolSchedules,
   projectVoyageEscalaSchedules,
@@ -295,6 +296,72 @@ describe('projectVoyageEscalaSchedules', () => {
     })
 
     expect(escalas).toMatchObject([{ port: 'BRSSZ', temImportacao: false, temExportacao: false }])
+  })
+})
+
+// ADR 0039 (T0 do Prazo de Conclusao do ADR): mesma precedencia POD-canonico/
+// POL-fallback de mergeEscalaField, mas numa consulta focada por voyage+port
+// (Task 2 do plano da linha do tempo). O mock casa o entity_type do primeiro
+// .eq() ao valor POD/POL passado em cada resposta.
+function mockUnifiedAtdAuditLogs(responses: {
+  pod?: { new_value: string | null; changed_at: string | null } | null
+  pol?: { new_value: string | null; changed_at: string | null } | null
+}) {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn((_field: string, entityType: string) => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            order: vi.fn(() => ({
+              limit: vi.fn(() => ({
+                maybeSingle: vi.fn(async () => ({
+                  data: entityType === 'voyage_pod_schedule' ? responses.pod ?? null : responses.pol ?? null,
+                  error: null,
+                })),
+              })),
+            })),
+          })),
+        })),
+      })),
+    })),
+  }
+}
+
+describe('getVoyageUnifiedAtd', () => {
+  it('POD com atd: POD vence, com o changed_at do proprio POD', async () => {
+    fromMock.mockReturnValue(mockUnifiedAtdAuditLogs({
+      pod: { new_value: '2026-08-06', changed_at: '2026-08-06T18:00:00Z' },
+      pol: { new_value: '2026-08-05', changed_at: '2026-08-05T09:00:00Z' },
+    }))
+
+    expect(await getVoyageUnifiedAtd(12, 'BRSSZ')).toEqual({
+      atd: '2026-08-06',
+      atdSource: 'pod',
+      atdRegisteredAt: '2026-08-06T18:00:00Z',
+    })
+  })
+
+  it('POD sem atd e POL com atd: POL vence por fallback', async () => {
+    fromMock.mockReturnValue(mockUnifiedAtdAuditLogs({
+      pod: { new_value: null, changed_at: null },
+      pol: { new_value: '2026-08-05', changed_at: '2026-08-05T09:00:00Z' },
+    }))
+
+    expect(await getVoyageUnifiedAtd(12, 'BRSSZ')).toEqual({
+      atd: '2026-08-05',
+      atdSource: 'pol',
+      atdRegisteredAt: '2026-08-05T09:00:00Z',
+    })
+  })
+
+  it('nem POD nem POL tem atd: sem ATD, sem fonte', async () => {
+    fromMock.mockReturnValue(mockUnifiedAtdAuditLogs({ pod: null, pol: null }))
+
+    expect(await getVoyageUnifiedAtd(12, 'BRSSZ')).toEqual({
+      atd: null,
+      atdSource: null,
+      atdRegisteredAt: null,
+    })
   })
 })
 
