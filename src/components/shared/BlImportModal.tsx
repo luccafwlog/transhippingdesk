@@ -129,6 +129,7 @@ export function BlImportModal({
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
+        queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation'] }),
       ])
       showToast(
         `Importacao de B/L concluida: ${importableCount} B/L(s), ${preview.summary.blockedCount} bloqueado(s).`,

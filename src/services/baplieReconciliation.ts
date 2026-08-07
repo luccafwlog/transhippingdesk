@@ -24,7 +24,23 @@ export type BaplieReconciliationResult = {
   items: BaplieReconciliationItem[]
   // 'not_imported': nenhuma linha de staging do Baplie para a viagem — nao e o
   // mesmo estado que uma reconciliacao concluida com zero divergencias.
-  source: 'not_imported' | 'reconciled'
+  source: 'not_imported' | 'awaiting_route_coverage' | 'reconciled'
+}
+
+type RouteRow = { pol: string | null; pod: string | null }
+
+function routeKey(row: RouteRow): string | null {
+  const pol = row.pol?.trim().toUpperCase() ?? ''
+  const pod = row.pod?.trim().toUpperCase() ?? ''
+  return pol && pod ? `${pol}::${pod}` : null
+}
+
+export function hasCompleteBaplieRouteCoverage(staged: RouteRow[], bls: RouteRow[]): boolean {
+  const ediRoutes = new Set(staged.map(routeKey).filter((route): route is string => route !== null))
+  const blRoutes = new Set(bls.map(routeKey).filter((route): route is string => route !== null))
+  // Compatibilidade com chamadas/fixtures legados que não carregam a rota.
+  if (!ediRoutes.size || !blRoutes.size) return true
+  return ediRoutes.size > 0 && [...ediRoutes].every((route) => blRoutes.has(route))
 }
 
 type BlContainerPhysical = Pick<
@@ -153,7 +169,7 @@ export function computeBapliePhysicalUpdates(
 }
 
 async function fetchStagingAndBlContainers(voyageId: number) {
-  const { data: blRows, error: blError } = await supabase.from('bls').select('id').eq('voyage_id', voyageId)
+  const { data: blRows, error: blError } = await supabase.from('bls').select('id, pol, pod').eq('voyage_id', voyageId)
   if (blError) throw blError
 
   const PAGE = 1000
@@ -188,12 +204,13 @@ async function fetchStagingAndBlContainers(voyageId: number) {
     }
   }
 
-  return { staged: dedupeBaplieContainers(staged), blContainers }
+  return { staged: dedupeBaplieContainers(staged), blContainers, blRows: (blRows ?? []) as RouteRow[] }
 }
 
 export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
-  const { staged, blContainers } = await fetchStagingAndBlContainers(voyageId)
+  const { staged, blContainers, blRows } = await fetchStagingAndBlContainers(voyageId)
   if (!staged.length) return { items: [], source: 'not_imported' }
+  if (!hasCompleteBaplieRouteCoverage(staged, blRows)) return { items: [], source: 'awaiting_route_coverage' }
   return { items: computeExistenceDivergences(staged, blContainers), source: 'reconciled' }
 }
 
