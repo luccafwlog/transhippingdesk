@@ -767,7 +767,7 @@ it('sobrescrever a Observação não pede justificativa e chama a RPC de Observa
   const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
   const observationField = within(veiculosSection).getByLabelText('Observação — Veículos')
   fireEvent.change(observationField, { target: { value: 'Nota atualizada' } })
-  fireEvent.blur(observationField)
+  fireEvent.click(within(veiculosSection).getByRole('button', { name: 'Salvar observação' }))
 
   expect(screen.queryByLabelText('Justificativa')).toBeNull()
   expect(observationMutateMock).toHaveBeenCalledWith({

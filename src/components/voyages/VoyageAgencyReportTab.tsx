@@ -127,6 +127,7 @@ function SectionObservation({
   onChange?: (section: AgencyReportSection, observation: string) => void
 }) {
   const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(observation ?? '')
   const text = observation?.trim() ?? ''
 
   if (!text && !canEdit) return null
@@ -158,14 +159,12 @@ function SectionObservation({
       <textarea
         key={`${section}:${observation ?? ''}`}
         aria-label={`Observação — ${title}`}
-        defaultValue={observation ?? ''}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
         autoFocus={editing}
         className="min-h-16 rounded border border-[var(--app-border)] bg-transparent p-2 text-sm"
-        onBlur={(event) => {
-          if (event.target.value !== (observation ?? '')) onChange?.(section, event.target.value)
-          if (!event.target.value.trim()) setEditing(false)
-        }}
       />
+      <Button type="button" variant="primary" className="app-btn--sm justify-self-start" disabled={draft === (observation ?? '')} onClick={() => { onChange?.(section, draft); setEditing(false) }}>Salvar observação</Button>
     </label>
   )
 }
@@ -492,6 +491,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           </div>
         </div>
 
+        <div className="order-last">
         <AgencyReportTimeline
           atd={unifiedAtd}
           atdSource={data?.unifiedAtd?.atdSource ?? null}
@@ -505,6 +505,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           closedAt={ownData?.closed_at ?? null}
           closedByName={ownData?.closed_by_name ?? ownData?.closed_by ?? null}
         />
+        </div>
 
         {/* A Escala não é uma fase do ciclo: é o assunto do relatório. Uma
             faixa "Escala" só produziria um h2 seguido de um h3 com o mesmo
@@ -514,7 +515,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation}
           >
-            <Hero value={`${formatDate(data?.schedule?.atb)} → ${formatDate(unifiedAtd)}`} unit="ATB → ATD" />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               <Info label="Armador" value={carrierName} />
               <Info label="Navio / viagem" value={voyageLabel} />

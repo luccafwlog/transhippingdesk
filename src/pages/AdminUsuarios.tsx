@@ -171,7 +171,7 @@ export function AdminUsuarios() {
             onClick={() => setTab(t)}
             className={`app-tab capitalize ${tab === t ? 'app-tab--active' : ''}`}
           >
-            {t === 'usuários' ? 'Usuários' : t === 'logs' ? 'Log de Ações' : t === 'métricas' ? 'Métricas' : 'Prazo do ADR'}
+            {t === 'usuários' ? 'Usuários' : t === 'logs' ? 'Log de Ações' : t === 'métricas' ? 'Métricas' : 'Relatório SLA ADR'}
           </button>
         ))}
       </div>

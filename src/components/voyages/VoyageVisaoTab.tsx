@@ -83,7 +83,7 @@ export function VoyageVisaoTab({
   const timelineEvents = useMemo(
     () =>
       buildVoyageTimeline({
-        importBatches: importBatches.map((batch) => ({ ...batch, routes: routesByBatchId.get(batch.id) })),
+        importBatches: (timelineSources?.importBatches ?? importBatches).map((batch) => ({ ...batch, routes: routesByBatchId.get(batch.id) })),
         scheduleEvents: timelineSources?.scheduleEvents,
         auditEvents: timelineSources?.auditEvents,
         resolutions: timelineSources?.resolutions,

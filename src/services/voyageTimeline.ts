@@ -22,6 +22,7 @@ export type VoyageBaplieImportEvent = {
   imported_at: string | null
   container_count: number | null
 }
+export type VoyageImportBatchEvent = { id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; total_bls?: number | null; ce_master?: string | null }
 
 /**
  * Fontes da linha do tempo de uma viagem: eventos de escala (audit_logs,
@@ -35,9 +36,10 @@ export async function fetchVoyageTimelineSources(
   auditEvents: VoyageAuditEvent[]
   resolutions: VoyageResolutionEvent[]
   baplieImports: VoyageBaplieImportEvent[]
+  importBatches: VoyageImportBatchEvent[]
   actorNames: Record<string, string>
 }> {
-  const [scheduleRes, auditRes, resolutionRes, baplieRes] = await Promise.all([
+  const [scheduleRes, auditRes, resolutionRes, baplieRes, importsRes] = await Promise.all([
     supabase
       .from('audit_logs')
       .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, justification, changed_at')
@@ -64,12 +66,14 @@ export async function fetchVoyageTimelineSources(
       .eq('voyage_id', voyageId)
       .order('imported_at', { ascending: true })
       .limit(1),
+    supabase.from('import_batches').select('id, filename, cargo_mode, uploaded_at, total_bls, ce_master').eq('voyage_id', voyageId).order('uploaded_at', { ascending: false }),
   ])
 
   if (scheduleRes.error) throw scheduleRes.error
   if (auditRes.error) throw auditRes.error
   if (resolutionRes.error) throw resolutionRes.error
   if (baplieRes.error) throw baplieRes.error
+  if (importsRes.error) throw importsRes.error
 
   const actorIds = Array.from(
     new Set([
@@ -101,6 +105,7 @@ export async function fetchVoyageTimelineSources(
       imported_at: String((row as { imported_at?: string | null }).imported_at ?? ''),
       container_count: baplieRes.count ?? null,
     })),
+    importBatches: (importsRes.data ?? []).map((row) => ({ ...row, cargo_mode: row.cargo_mode === 'carga_solta' ? 'carga_solta' : 'container' })) as VoyageImportBatchEvent[],
     actorNames,
   }
 }
