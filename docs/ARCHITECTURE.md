@@ -295,24 +295,6 @@ própria viagem; o snapshot de fechamento é revalidado no banco pela migration
 projeção compartilhada unifica POL/POD/EXP por escala brasileira, e o alerta
 pós-ATD do ADR enxerga também o ATD documental do POL sem retroagir o baseline.
 
-A ADR 0039 (migration `261`) adiciona um Prazo de Conclusão do ADR interno:
-três dias úteis (segunda a sexta, feriados contam, dia do ATD nunca conta)
-contados do ATD da escala unificada, um por departamento (`operacoes`,
-`documentacao`, `equipamentos`). A regra de dia útil é uma função pura em
-`src/services/agencyReportDeadline.ts`, espelhada em SQL por
-`agency_report_deadline_date` para o alerta `detect_agency_report_deadline_missed`
-não poder divergir da tela. Esse alerta é independente do alerta de pendência
-pós-ATD existente (`agency_report_department_pending`) — os dois convivem,
-um por departamento vencido sem assinatura vigente; `close_agency_departure_report`
-fecha ambos no Fechamento do ADR. A aba ADR ganha uma Linha do Tempo
-(`AgencyReportTimeline`) mostrando os marcos (ATD e seu registro, prazo, as 3
-assinaturas com reaberturas e justificativa, Fechamento sem prazo próprio);
-no fechamento, esses marcos são congelados dentro das chaves já existentes de
-`closed_snapshot` (nenhuma chave de topo nova), e o impresso mostra só as
-datas de assinatura — nunca o veredito de prazo. Um agregado de calibração
-por (viagem, porto) vive em `/admin/usuarios` (visibilidade de equipe, não
-financeira), somando cumprimento por departamento, nunca por pessoa.
-
 ### Segurança
 
 - RLS protege tabelas expostas;
@@ -423,7 +405,8 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/line-up-tv` | Administração do Line Up |
 | `/line-up-tv/display` | Display protegido para TV |
 | `/chegadas-saidas` | Programação exibida no Portal |
-| `/admin/usuarios` | Administração de usuários: criação com senha definida pelo admin, edição de e-mail/senha, setor, ativação e auditoria; aba "Prazo do ADR" com o agregado de calibração do Prazo de Conclusão do ADR por departamento |
+| `/admin/usuarios` | Administração de usuários: criação com senha definida pelo admin, edição de e-mail/senha, setor, ativação e auditoria |
+| `/perfil` | Perfil do usuário interno: nome, e-mail e troca da própria senha |
 
 ### Redirecionamentos de compatibilidade
 
