@@ -7,15 +7,19 @@ import {
 } from '../blFreightImport'
 import type { ParsedBLDocument } from '../blParser'
 
-const { mockRpc, mockTryAutoIssueInvoice } = vi.hoisted(() => ({
+const { mockRpc, mockFrom, mockTryAutoIssueInvoice } = vi.hoisted(() => ({
   mockRpc: vi.fn(),
+  mockFrom: vi.fn(() => ({
+    insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { id: 99 }, error: null })) })) })),
+    update: vi.fn(() => ({ in: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) })) })),
+  })),
   mockTryAutoIssueInvoice: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
   supabase: {
     rpc: mockRpc,
-    from: vi.fn(),
+    from: mockFrom,
   },
 }))
 

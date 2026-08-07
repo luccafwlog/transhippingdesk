@@ -299,6 +299,7 @@ export async function confirmBlFreightImport(
   preview: BlFreightImportPreview,
   changedBy: string,
   overrideBilling = false,
+  filename = 'importacao-bl.xlsx',
 ) {
   const payload = preview.rows.flatMap((row) => {
     if (!row.payload) return []
@@ -333,6 +334,31 @@ export async function confirmBlFreightImport(
           changedBy,
         ).catch(() => {})
       })
+  }
+
+  const importedIds = payload.map((bl) => bl.id)
+  if (voyageId != null && importedIds.length > 0) {
+    const { data: batch, error: batchError } = await supabase
+      .from('import_batches')
+      .insert({
+        filename,
+        voyage_id: voyageId,
+        cargo_mode: 'container',
+        uploaded_by: changedBy,
+        status: 'completed',
+        total_bls: importedIds.length,
+        total_containers: null,
+      })
+      .select('id')
+      .single()
+    if (batchError) throw batchError
+
+    const { error: linkError } = await supabase
+      .from('bls')
+      .update({ batch_id: batch.id })
+      .in('id', importedIds)
+      .eq('voyage_id', voyageId)
+    if (linkError) throw linkError
   }
 
   return data

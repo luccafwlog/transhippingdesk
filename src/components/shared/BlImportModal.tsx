@@ -117,7 +117,7 @@ export function BlImportModal({
 
     setSubmitting(true)
     try {
-      await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling)
+      await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling, files[0]?.name)
       try {
         await applyLadenOnBoardAtd({ rows: preview.rows, changedBy: user?.id ?? null })
       } catch {
