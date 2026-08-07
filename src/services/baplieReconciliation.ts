@@ -39,7 +39,8 @@ export function hasCompleteBaplieRouteCoverage(staged: RouteRow[], bls: RouteRow
   const ediRoutes = new Set(staged.map(routeKey).filter((route): route is string => route !== null))
   const blRoutes = new Set(bls.map(routeKey).filter((route): route is string => route !== null))
   // Compatibilidade com chamadas/fixtures legados que não carregam a rota.
-  if (!ediRoutes.size || !blRoutes.size) return true
+  if (!ediRoutes.size) return true
+  if (!blRoutes.size) return false
   return ediRoutes.size > 0 && [...ediRoutes].every((route) => blRoutes.has(route))
 }
 
