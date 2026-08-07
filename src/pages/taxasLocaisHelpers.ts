@@ -106,8 +106,26 @@ export type ChargeTableAlert = {
   hint: string
 }
 
+// Espelha `public.normalize_port_code` (migration 063), não
+// `normalizePortCode` de `src/services/portCode.ts` — os dois divergem de
+// propósito: o de portCode canoniza para LOCODE (`BRVIT` → `BRVIX`), enquanto
+// o do banco dobra as duas grafias em `BRVIT`. É o critério do banco que decide
+// se duas tabelas caem no mesmo escopo, então é ele que o alerta precisa
+// reproduzir; usar o outro agruparia diferente do motor.
+export function normalizeChargeTablePod(value: string | null | undefined) {
+  const normalized = String(value ?? '').trim().toUpperCase()
+  if (!normalized) return ''
+  if (normalized.includes('BRVIT') || normalized.includes('BRVIX') || normalized.includes('VITORIA')) {
+    return 'BRVIT'
+  }
+  if (normalized.includes('BRSSA') || normalized.includes('SALVADOR')) {
+    return 'BRSSA'
+  }
+  return normalized
+}
+
 function scopeKey(table: ChargeTableValidityRow) {
-  return `${table.cargo_mode ?? ''}|${String(table.pod ?? '').trim().toUpperCase()}`
+  return `${table.cargo_mode ?? ''}|${normalizeChargeTablePod(table.pod)}`
 }
 
 // Mesmo desempate do motor (resolve_local_charge_table_id, migration 274):

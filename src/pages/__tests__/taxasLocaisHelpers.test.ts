@@ -166,6 +166,20 @@ describe('chargeTableAlerts', () => {
     expect(alerts.get(7)?.map((alert) => alert.label)).toEqual(['Não aplicada'])
   })
 
+  it('groups POD aliases the way the database does, so the alert matches the engine', () => {
+    // public.normalize_port_code (migration 063) dobra BRVIT/BRVIX/VITORIA em
+    // BRVIT — o motor veria uma tabela sombreando a outra.
+    const alerts = chargeTableAlerts(
+      [
+        { ...base, id: 1, pod: 'BRVIT', valid_from: '2026-01-01' },
+        { ...base, id: 2, pod: 'Vitoria, Brazil', valid_from: '2026-07-01' },
+      ],
+      today,
+    )
+    expect(alerts.get(1)?.map((alert) => alert.label)).toEqual(['Não aplicada'])
+    expect(alerts.has(2)).toBe(false)
+  })
+
   it('does not treat different PODs or cargo modes as the same scope', () => {
     const alerts = chargeTableAlerts(
       [

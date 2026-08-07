@@ -73,6 +73,12 @@ tabelas ativas ficaria invisível.
   o congelamento na emissão (decisão 2 da ADR 0038) é que reproduz o que foi
   cobrado, e agendamento passa a ser a operação manual de inativar uma tabela e
   ativar outra.
+- **A trava tinha um segundo lugar onde morar.** `mark_bl_ready_for_billing`
+  exigia tabela vigente em `CURRENT_DATE` desde a migration `019`. Tirar a
+  vigência só do cálculo faria o B/L calcular e travar depois, ao ser marcado
+  como pronto para faturar. O gate passa a usar o mesmo critério do resolvedor —
+  escopo + `active` (migration `275`). A vigência das Tarifas de Demurrage
+  (`092`/`123`) não foi tocada: continua valendo por decisão própria (ADR 0014).
 - O `review:no_eta` some do funil da Validação. B/Ls que estavam parados nele
   não ganham valor sozinhos — eles não têm linha de cálculo nenhuma — e precisam
   de um recálculo, que a Validação e a ficha do B/L já oferecem. A migration
