@@ -1,7 +1,7 @@
 // Helpers puros para rótulos, métricas e resumos da tela de Viagens.
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
 import { formatDate } from '../lib/utils'
-import { formatMetric, normalizePortName, stripFileExtension } from '../lib/voyageFormat'
+import { formatMetric, formatPortDisplayName, normalizePortName, stripFileExtension } from '../lib/voyageFormat'
 import { normalizePortCode } from './portCode'
 
 export function summarizeContainerTypes(
@@ -150,6 +150,22 @@ export function splitVoyageBls(bls: VoyageBl[] | null | undefined) {
 
 export function countDistinctBatchIds(bls: VoyageBl[] | null | undefined) {
   return new Set((bls ?? []).map((bl) => bl.batch_id).filter((batchId): batchId is number => Number.isInteger(batchId))).size
+}
+
+/** Agrupa B/Ls por batch e rota, preservando a contagem usada pela timeline. */
+export function groupBlsByRoute(bls: VoyageBl[] | null | undefined) {
+  const grouped = new Map<number, Map<string, { pol: string; pod: string; blCount: number }>>()
+  for (const bl of bls ?? []) {
+    if (bl.batch_id == null) continue
+    const pol = formatPortDisplayName(bl.pol?.trim() || '-')
+    const pod = formatPortDisplayName(bl.pod?.trim() || '-')
+    const routes = grouped.get(bl.batch_id) ?? new Map()
+    const key = `${pol}\u0000${pod}`
+    const current = routes.get(key)
+    routes.set(key, { pol, pod, blCount: (current?.blCount ?? 0) + 1 })
+    grouped.set(bl.batch_id, routes)
+  }
+  return new Map(Array.from(grouped, ([batchId, routes]) => [batchId, Array.from(routes.values())]))
 }
 
 /**

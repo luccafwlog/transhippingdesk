@@ -1,22 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ComponentType } from 'react'
-import { Boxes, Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Pencil } from 'lucide-react'
+import { Car, ChevronLeft, ChevronRight, FileSpreadsheet, Mountain, Pencil } from 'lucide-react'
 import { formatDate } from '../../lib/utils'
 import { ESTADO_CONCILIACAO_META } from '../../lib/statusLabels'
 import type { VoyageRailItem } from '../../services/voyageSummaries'
 import { ContainersIcon, VaziosExpIcon, VaziosImpIcon } from '../shared/DomainIcon'
-
-const MODULE_BADGES: Array<{
-  key: keyof VoyageRailItem['modules']
-  label: string
-  icon: ComponentType<{ size?: number; className?: string }>
-}> = [
-  { key: 'container', label: 'Container', icon: Boxes },
-  { key: 'cargaSolta', label: 'Carga solta', icon: FileSpreadsheet },
-  { key: 'veiculos', label: 'Veículos', icon: Car },
-  { key: 'vazios', label: 'Vazios IMP', icon: VaziosImpIcon },
-  { key: 'granito', label: 'Granito', icon: Mountain },
-]
 
 type VoyageRailProps = {
   /** Lista já filtrada e ordenada (a filtragem vive na página / VoyageFilters). */
@@ -49,7 +37,7 @@ function useHorizontalScroller() {
     const onResize = () => sync()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
-  })
+  }, [sync])
 
   const scrollBy = useCallback((direction: -1 | 1) => {
     const el = ref.current
@@ -112,18 +100,7 @@ function ScaleBadges({ modules }: { modules: VoyageRailItem['modules'] }) {
 export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailProps) {
   const { ref, edges, sync, scrollBy } = useHorizontalScroller()
 
-  useLayoutEffect(() => {
-    const resetRailPosition = () => {
-      const element = ref.current
-      if (!element) return
-      element.scrollLeft = 0
-      if (typeof element.scrollTo === 'function') element.scrollTo({ left: 0, behavior: 'auto' })
-      sync()
-    }
-    resetRailPosition()
-    const frame = window.requestAnimationFrame(() => resetRailPosition())
-    return () => window.cancelAnimationFrame(frame)
-  }, [items, selectedId, ref, sync])
+  useLayoutEffect(() => sync(), [items, sync])
 
   if (items.length === 0) {
     return (
@@ -216,17 +193,6 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
                 ) : (
                   <span className="text-xs text-[var(--app-muted-soft)]">Sem escala brasileira prevista</span>
                 )}
-              </div>
-              <div className="hidden">
-                {MODULE_BADGES.filter((module) => item.modules[module.key]).map((module) => (
-                  <span
-                    key={module.key}
-                    className="flex items-center gap-1 text-[var(--app-muted)]"
-                    title={module.label}
-                  >
-                    <module.icon size={13} className="flex-none" />
-                  </span>
-                ))}
               </div>
             </button>
           )

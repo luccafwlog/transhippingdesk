@@ -1,6 +1,7 @@
 import { Info, MetricPanel, MetricSection } from '../shared/VoyageSectionCards'
 import { VoyageImportActions } from '../shared/VoyageImportActions'
 import { formatMetric } from '../../lib/voyageFormat'
+import { countDistinctContainerNumbers } from '../../lib/containerCounts'
 import { summarizeExportByPol } from '../../services/voyageSummaries'
 import type { Voyage } from './voyageCardTypes'
 
@@ -32,9 +33,7 @@ export function VoyageExportacaoTab({
       0,
     ),
     distinctContainers: (voyage.vazios_manifests ?? []).reduce(
-      (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
-      0,
-    ),
+      (sum, manifest) => sum + countDistinctContainerNumbers(manifest.vazios_bookings), 0),
     types: emptyTypes || '-',
   }
 

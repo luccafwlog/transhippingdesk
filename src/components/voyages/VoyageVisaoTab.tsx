@@ -10,10 +10,11 @@ import { useAuth } from '../../hooks/useAuth'
 import { useVoyageTimeline } from '../../hooks/useVoyageTimeline'
 import { formatDate } from '../../lib/utils'
 import { classifyDbError } from '../../lib/errors'
-import { formatMetric, formatPortDisplayName, normalizePortName } from '../../lib/voyageFormat'
+import { formatMetric, normalizePortName } from '../../lib/voyageFormat'
 import { normalizePortCode } from '../../services/portCode'
 import {
   buildVoyageTimeline,
+  groupBlsByRoute,
   type VoyageTimelineEvent,
 } from '../../services/voyageSummaries'
 import { deleteVoyagePodSchedule, type VoyageEscalaDivergence, type VoyageEscalaSchedule } from '../../services/voyageRouteSchedules'
@@ -62,22 +63,7 @@ export function VoyageVisaoTab({
 
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
   // identificar o import na linha do tempo pela rota em vez do nome do arquivo.
-  const routesByBatchId = useMemo(() => {
-    const grouped = new Map<number, Map<string, { pol: string; pod: string; blCount: number }>>()
-    for (const bl of voyage.bls ?? []) {
-      if (bl.batch_id == null) continue
-      const pol = bl.pol?.trim() || '-'
-      const pod = bl.pod?.trim() || '-'
-      const routes = grouped.get(bl.batch_id) ?? new Map()
-      const displayPol = formatPortDisplayName(pol)
-      const displayPod = formatPortDisplayName(pod)
-      const key = `${displayPol}\u0000${displayPod}`
-      const current = routes.get(key)
-      routes.set(key, { pol: displayPol, pod: displayPod, blCount: (current?.blCount ?? 0) + 1 })
-      grouped.set(bl.batch_id, routes)
-    }
-    return new Map(Array.from(grouped, ([batchId, routes]) => [batchId, Array.from(routes.values())]))
-  }, [voyage.bls])
+  const routesByBatchId = useMemo(() => groupBlsByRoute(voyage.bls), [voyage.bls])
 
   const { data: timelineSources } = useVoyageTimeline(voyage.id)
   const timelineEvents = useMemo(
@@ -179,12 +165,10 @@ export function VoyageVisaoTab({
     })
     if (!confirmed) return
     try {
-      if (row.temImportacao) {
-        await deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.port, changedBy: user.id })
-      }
-      if (exportSchedule) {
-        await deleteVoyageExportSchedule(exportSchedule.id)
-      }
+      await Promise.all([
+        row.temImportacao ? deleteVoyagePodSchedule({ voyageId: voyage.id, pod: row.port, changedBy: user.id }) : Promise.resolve(),
+        exportSchedule ? deleteVoyageExportSchedule(exportSchedule.id) : Promise.resolve(),
+      ])
       await afterEscalaAlterada(queryClient, { voyageId: voyage.id })
       showToast('Escala removida do planejamento.', 'success')
     } catch (error) {

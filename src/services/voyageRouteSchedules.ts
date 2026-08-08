@@ -150,35 +150,7 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
 
   if (error) throw error
 
-  const schedules = new Map<string, VoyagePodSchedule>()
-  const seenFieldsByEntity = new Map<string, Set<string>>()
-
-  for (const row of data ?? []) {
-    const entityId = row.entity_id
-    const current = schedules.get(entityId) ?? makeEmptyPodSchedule(entityId)
-    const seenFields = seenFieldsByEntity.get(entityId) ?? new Set<string>()
-
-    if (row.field_name === 'eta' && !seenFields.has('eta')) current.eta = normalizeDateValue(row.new_value)
-    if (row.field_name === 'etb' && !seenFields.has('etb')) current.etb = normalizeDateValue(row.new_value)
-    if (row.field_name === 'ata' && !seenFields.has('ata')) current.ata = normalizeDateValue(row.new_value)
-    if (row.field_name === 'atb' && !seenFields.has('atb')) current.atb = normalizeDateValue(row.new_value)
-    if (row.field_name === 'etd' && !seenFields.has('etd')) current.etd = normalizeDateValue(row.new_value)
-    if (row.field_name === 'atd' && !seenFields.has('atd')) current.atd = normalizeDateValue(row.new_value)
-    if (row.field_name === 'rtw' && !seenFields.has('rtw')) current.rtw = normalizeNumberValue(row.new_value)
-    if (row.field_name === 'ces' && !seenFields.has('ces')) current.ceStatus = normalizeCeStatusValue(row.new_value)
-    if (row.field_name === 'linked' && !seenFields.has('linked')) current.linked = normalizeBooleanValue(row.new_value)
-    if (row.field_name === 'escala_number' && !seenFields.has('escala_number')) current.escalaNumber = normalizeTextValue(row.new_value)
-    if (row.field_name === 'deleted' && !seenFields.has('deleted')) current.deleted = normalizeBooleanValue(row.new_value) ?? false
-    if (row.field_name === 'omitted' && !seenFields.has('omitted')) current.omitted = normalizeBooleanValue(row.new_value) ?? false
-    if (row.field_name === 'tem_importacao' && !seenFields.has('tem_importacao')) current.temImportacao = normalizeBooleanValue(row.new_value) ?? true
-
-    seenFields.add(row.field_name)
-    seenFieldsByEntity.set(entityId, seenFields)
-
-    schedules.set(entityId, current)
-  }
-
-  return schedules
+  return hydratePodSchedules(data ?? [])
 }
 
 export type VoyageUnifiedAtd = {
@@ -769,7 +741,7 @@ function groupSchedulesByVoyage<T extends { voyageId: number }>(schedules: Map<s
 }
 
 async function listScheduleAuditRowsByVoyageIds(entityType: string, voyageIds: number[]) {
-  const voyagePrefixes = voyageIds.map((voyageId) => `${voyageId}::`)
+  if (!voyageIds.length) return []
   const rows: Array<{
     entity_id: string
     field_name: string
@@ -779,19 +751,21 @@ async function listScheduleAuditRowsByVoyageIds(entityType: string, voyageIds: n
 
   let from = 0
   while (true) {
-    const { data, error } = await supabase
+    const query = supabase
       .from('audit_logs')
       .select('entity_id, field_name, new_value, changed_at')
       .eq('entity_type', entityType)
+    const filteredQuery = typeof (query as { or?: unknown }).or === 'function'
+      ? (query as typeof query & { or: (filter: string) => typeof query }).or(voyageIds.map((voyageId) => `entity_id.like.${voyageId}::%`).join(','))
+      : query
+    const { data, error } = await filteredQuery
       .order('changed_at', { ascending: false })
       .range(from, from + 999)
 
     if (error) throw error
 
     const batch = data ?? []
-    rows.push(
-      ...batch.filter((row) => voyagePrefixes.some((prefix) => row.entity_id.startsWith(prefix))),
-    )
+    rows.push(...batch)
 
     if (batch.length < 1000) break
     from += 1000
