@@ -1,177 +1,114 @@
 # Transhipping Desk
 
-Plataforma operacional interna da **Transhipping Agenciamento Marítimo Ltda.** — gestão de viagens, manifestos, faturamento, demurrage e portal do cliente. Em **produção**.
+O **Transhipping Desk** é a plataforma operacional da **Transhipping Agenciamento Marítimo Ltda.** para acompanhar a operação marítima desde o cadastro da viagem até a entrega das informações e documentos ao cliente.
 
-**Stack:** React 19 + TypeScript + Vite · Supabase (PostgreSQL + Auth + Edge Functions) · Firebase Hosting · CI/CD via GitHub Actions.
+O sistema está em produção e combina uma aplicação interna, voltada às equipes da agência, com um Portal do Cliente no mesmo produto.
 
-## Capacidades
+## O produto em uma visão
 
-- **Operação:** viagens, escalas, Baplie EDI, B/Ls CNTR e manifestos breakbulk,
-  containers, veículos RoRo e revisão operacional.
-- **Exportação e cargas especiais:** Granito, vazios de importação e bookings de
-  vazios de exportação.
-- **Comercial e financeiro:** clientes, tabelas de taxas, invoices, ledger
-  local, demurrage, PIX, alertas e relatórios.
-- **Portal do Cliente:** painel, faturas, B/Ls, containers, notificações,
-  disputas, perfil e recuperação de senha.
-- **Suporte operacional:** Line Up TV, programação de chegadas e saídas e
-  administração de usuários internos.
+O centro da operação é a **Viagem**: navio, rota e escalas brasileiras formam a base sobre a qual o sistema organiza cargas, documentos e acontecimentos operacionais.
 
-O mapa completo de módulos, rotas e fluxos está em
-[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+```mermaid
+flowchart LR
+    Voyage["Viagem e escalas"] --> Cargo["B/Ls e cargas"]
+    Cargo --> Review["Revisão operacional"]
+    Voyage --> Adr["ADR por escala"]
+    Voyage --> Exceptions["Omissão, transbordo<br/>e COD"]
+    Review --> Billing["Taxas locais e faturamento"]
+    Cargo --> Demurrage["Demurrage"]
+    Billing --> Pix["Conciliação PIX"]
+    Billing --> Portal["Portal do Cliente"]
+    Demurrage --> Portal
+    Cargo --> Portal
+```
 
-## Início rápido
+A plataforma mantém a separação entre o que é **operacional** e o que é **financeiro**, registra decisões relevantes e usa as mesmas fontes de dados nos módulos que dependem delas. A operação começa na Viagem e evolui por B/L, carga, escalas e eventos; a revisão organiza pendências e autorizações antes que os dados elegíveis avancem para taxas locais e faturamento. O resultado financeiro pode ser acompanhado no ciclo de invoices e confirmado pela Conciliação PIX.
 
-### Pré-requisitos
+O ADR, por exemplo, é uma visão consolidada da escala, não um cadastro paralelo: os dados de carga, veículos, vazios, Granito e overtime nascem nos módulos de origem; no relatório ficam as observações, resoluções e sign-offs departamentais. Da mesma forma, o Portal apresenta ao cliente os dados operacionais e financeiros liberados pela operação interna, respeitando uma sessão e um escopo de acesso próprios.
 
-- Node.js 20 ou superior;
-- projeto Supabase compatível com as migrations do repositório;
-- usuário interno criado no Supabase Auth e vinculado a `user_profiles`.
+## Capacidades atuais
 
-### Instalação
+- **Viagens e escalas:** cadastro e acompanhamento de rotas, previsões e datas reais, publicação de programação no Portal e Line Up TV.
+- **Manifestos e documentos:** importação e tratamento de B/Ls CNTR, carga solta, veículos, CE Mercante e Baplie EDI.
+- **Operação de carga:** containers, vazios de importação, embarque de vazios, depots e Granito.
+- **Exceções operacionais:** omissão de escala, transbordo global da viagem e decisão individual de COD por B/L.
+- **Revisão e rastreabilidade:** cockpit operacional do B/L, reconciliação de cliente, histórico, pendências e gates antes do faturamento.
+- **Agency Departure Report:** um relatório por escala brasileira, com dados consolidados, resolução por seção, sign-off por departamento e prazo de conclusão.
+- **Comercial e financeiro:** clientes, tabelas e overrides de taxas locais, invoices, demurrage, Conciliação PIX e relatórios.
+- **Portal do Cliente:** visão geral, B/Ls, containers, faturas, demurrage, notificações, disputas, perfil e recuperação de senha.
+- **Administração e suporte:** usuários internos, alertas, relatórios, programação de chegadas e saídas e display do Line Up.
 
-```powershell
+O catálogo de módulos e o mapa de rotas estão em [`docs/README.md`](docs/README.md). O glossário que define a linguagem do negócio está em [`CONTEXT.md`](CONTEXT.md).
+
+## Como o sistema é construído
+
+O frontend é uma SPA React/TypeScript com rotas carregadas sob demanda. O Supabase fornece PostgreSQL, Auth e Edge Functions; Firebase Hosting serve o build estático.
+
+- **Frontend:** React 19, TypeScript, Vite, React Router, TanStack Query, Tailwind CSS e Zod.
+- **Dados e segurança:** PostgreSQL no Supabase, RLS, grants e RPCs auditadas. A autorização real está no banco; proteção de rota e visibilidade de controles são apenas UX.
+- **Sessões:** aplicação interna e Portal usam clientes Supabase separados, podendo coexistir no mesmo navegador.
+- **Integrações:** Resend para fluxos de email do Portal, Banco Central para PTAX e Sentry para observabilidade.
+- **Entrega:** GitHub Actions valida pull requests; pushes em `main` constroem e publicam a SPA no Firebase Hosting. Migrations e Edge Functions têm ciclo de deploy próprio no Supabase.
+
+O mapa técnico completo, as fronteiras de autenticação e as fontes de dados por módulo estão em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Rodar localmente
+
+Pré-requisitos: Node.js 20+ e um projeto Supabase compatível com as migrations do repositório.
+
+```bash
 npm ci --legacy-peer-deps
-Copy-Item .env.example .env
+cp .env.example .env
 npm run dev
 ```
 
-Preencha ao menos:
+Para o app subir, o `.env` precisa conter `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. O fluxo completo — banco, usuário interno, Edge Functions e limites do ambiente local — está em [`docs/setup/development.md`](docs/setup/development.md).
 
-```env
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-publica
+## Comandos essenciais
+
+```bash
+npm run dev                 # desenvolvimento local
+npm run docs:check          # links e consistência da documentação
+npm run lint                # ESLint
+npm test                    # testes unitários
+npm run build               # verificação de tipos e build de produção
+npm run test:integration    # integração opt-in com Supabase controlado
 ```
 
-Sem essas variáveis, a aplicação mostra um erro de configuração e não inicia o
-cliente de dados.
+Testes de integração não devem apontar para produção. Os critérios e o escopo da suíte estão em [`docs/setup/testing.md`](docs/setup/testing.md).
 
-### Banco de dados
+## Segurança e operação
 
-Não aplique um intervalo fixo de arquivos manualmente. O diretório usa um único
-esquema de nome: numerado sequencial de três dígitos (`001_…` em diante; ver
-ADR 0016). Compare o histórico remoto com `supabase/migrations/` e aplique todas
-as pendentes por um fluxo controlado do Supabase. O CI da SPA não aplica migrations.
+- O Portal não usa cadastro público nem sessão legada por senha armazenada em tabela; o provisionamento é controlado internamente.
+- RLS e RPCs definem o escopo de dados e as permissões de cada perfil.
+- Migrations devem ser aplicadas de forma controlada no Supabase e não são executadas pelo deploy da SPA.
+- O reset operacional amplo está suspenso; quando necessário, siga [`docs/operations/reset-ambiente.md`](docs/operations/reset-ambiente.md).
+- Antes de alterar schema, autenticação, rotas, integrações ou regras de negócio, consulte [`CLAUDE.md`](CLAUDE.md) e as fontes de verdade listadas nele.
 
-Consulte [`WORKFLOW.md`](./WORKFLOW.md) antes de alterar schema, RLS, funções ou
-grants.
+## Onde encontrar cada coisa
 
-### Usuário interno
-
-Depois de criar o usuário no Supabase Auth:
-
-```sql
-INSERT INTO public.user_profiles (id, role, active)
-VALUES ('<auth-user-uuid>', 'administrativo', true);
-```
-
-Perfis atuais: `administrativo`, `financeiro`, `operacoes` e `documentacao`.
-A autorização real é aplicada no banco por RLS e RPCs; esconder uma rota ou
-botão no navegador é apenas uma barreira de UX.
-
-## Comandos
-
-```powershell
-npm run dev               # servidor Vite
-npm run docs:check        # links, ADRs, rotas e afirmações obsoletas
-npm run lint              # ESLint
-npm test                  # Vitest
-npm run build             # TypeScript + bundle de produção
-npm run test:integration  # Supabase real; opt-in por variáveis de ambiente
-```
-
-Os testes de integração exigem `SUPABASE_RUN_INTEGRATION=1` e as variáveis
-`SUPABASE_*` de [`.env.example`](./.env.example). Use somente um ambiente
-controlado.
-
-## Portal do Cliente
-
-O Portal usa uma sessão própria do Supabase Auth, isolada da sessão interna do
-mesmo navegador. A tela aceita **CNPJ, CPF ou email** como identificador; CNPJ e
-CPF são resolvidos para o email técnico antes de `signInWithPassword`.
-
-Não existe cadastro público nem sessão legada por senha armazenada em tabela.
-O acesso é provisionado internamente a partir da ficha do cliente. A decisão de
-segurança está registrada na
-[ADR 0013](./docs/adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
-
-## Templates de importação
-
-Os modelos públicos ficam em [`public/templates/`](./public/templates/) e são
-servidos pela aplicação:
-
-- base de clientes;
-- CE Mercante;
-- carga solta;
-- veículos;
-- cargas IMO/OOG.
-
-Fixtures técnicas para o fluxo E2E ficam em
-[`test-fixtures/`](./test-fixtures/README.md).
-
-## CI e deploy
-
-O fluxo atual é:
-
-```text
-pull_request
-  -> CI: documentação, lint, build e testes
-
-push em main
-  -> CI + build + Firebase Hosting
-  -> Firebase Hosting
-```
-
-Os workflows vivem em [`.github/workflows/`](./.github/workflows/). Migrations e
-Edge Functions continuam exigindo coordenação com o ambiente Supabase; o deploy
-do frontend não as aplica.
-
-## Segurança operacional
-
-- RLS e RPCs são a fronteira de autorização.
-- Funções privilegiadas seguem default-deny, com exceções pré-login explícitas
-  e documentadas.
-- O Portal e o app interno usam clientes Supabase com chaves de storage
-  distintas.
-- Erros de produção são enviados ao Sentry sem replay ou PII padrão.
-- Uploads de planilha têm limite antes do parsing.
-- Invoices são documentos React preparados para impressão pelo navegador.
-- O reset operacional amplo está suspenso; consulte
-  [`docs/operations/reset-ambiente.md`](./docs/operations/reset-ambiente.md).
+| Necessidade | Documento |
+|---|---|
+| Entender arquitetura, camadas e rotas | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Consultar termos e invariantes do negócio | [`CONTEXT.md`](CONTEXT.md) |
+| Desenvolver localmente | [`docs/setup/development.md`](docs/setup/development.md) |
+| Testar e validar | [`docs/setup/testing.md`](docs/setup/testing.md) |
+| Fazer deploy | [`docs/setup/deploy.md`](docs/setup/deploy.md) |
+| Rastrear uma rota, ação, serviço ou RPC | [`docs/RASTREABILIDADE.md`](docs/RASTREABILIDADE.md) |
+| Ler regras de negócio e segurança | [`docs/operations/`](docs/operations/) |
+| Entender decisões arquiteturais | [`docs/adr/`](docs/adr/) |
+| Ver documentação viva e histórico | [`docs/README.md`](docs/README.md) |
 
 ## Estrutura do repositório
 
-| Caminho | O que é |
+| Caminho | Conteúdo |
 |---|---|
-| [`src/`](./src/) | Código da SPA (React + TypeScript) |
-| [`public/`](./public/) | Assets estáticos servidos como estão (favicons, fontes, branding, templates de importação) |
-| [`supabase/`](./supabase/) | Migrations, Edge Functions e configuração do Supabase |
-| [`scripts/`](./scripts/README.md) | Comandos auxiliares (sync, docs:check, banco local, perf, fontes…) |
-| [`docs/`](./docs/README.md) | Documentação viva (arquitetura, módulos, ADRs) e arquivo histórico |
-| [`test-fixtures/`](./test-fixtures/README.md) | Fixtures técnicas para validação E2E de importações |
-| [`skills/`](./skills/README.md) | Coleção de skills de agente (vendoradas + do projeto), instaladas via `scripts/skills/` |
-| [`.claude/`](./.claude/) | Hooks, settings e skills lidos pelo Claude Code |
-| [`.github/`](./.github/) | Workflows de CI/CD |
-| [`CONTEXT.md`](./CONTEXT.md) | Glossário de domínio — fonte de verdade da linguagem |
-| [`WORKFLOW.md`](./WORKFLOW.md) | Desenvolvimento, migrations, testes e deploy |
-| [`CLAUDE.md`](./CLAUDE.md) / [`AGENTS.md`](./AGENTS.md) | Diretrizes de comportamento para agentes de IA (AGENTS.md aponta para CLAUDE.md) |
+| [`src/`](src/) | Aplicação React, páginas, componentes, hooks, serviços e testes |
+| [`public/`](public/) | Assets estáticos e templates públicos de importação |
+| [`supabase/`](supabase/) | Migrations e Edge Functions |
+| [`docs/`](docs/) | Arquitetura, módulos, operações, ADRs e arquivo histórico |
+| [`scripts/`](scripts/) | Ferramentas de documentação, banco, performance e manutenção |
+| [`.github/`](.github/) | Workflows de CI/CD |
+| [`test-fixtures/`](test-fixtures/) | Fixtures técnicas para testes de importação |
 
-Arquivos de configuração na raiz (`vite.config.ts`, `tsconfig*.json`,
-`eslint.config.js`, `firebase.json`, `.firebaserc`, `.mcp.json`,
-`opencode.json`) precisam ficar lá — as ferramentas os procuram na raiz.
-
-## Documentação
-
-A documentação completa vive em **[`docs/`](docs/README.md)**. Atalhos:
-
-- **[Índice](docs/README.md)** — ponto de entrada e mapa de módulos.
-- **[Arquitetura](docs/ARCHITECTURE.md)** — stack, camadas, modelo de dados, mapa de rotas.
-- **[CONTEXT.md](CONTEXT.md)** — termos de domínio (B/L, Baplie, CE Mercante, demurrage…).
-- **[Módulos](docs/README.md#módulos)** — Faturamento, Viagens, Granito, Manifestos/EDI, Portal, Demurrage, etc.
-- **[Setup](docs/setup/development.md)** · **[Deploy](docs/setup/deploy.md)** · **[Testes](docs/setup/testing.md)**
-- **[Regras de negócio](docs/operations/regras-de-negocio.md)** · **[Segurança](docs/operations/seguranca.md)**
-- **[Roadmap](docs/ROADMAP.md)** · **[ADRs](docs/adr/)** · **[Changelog](docs/CHANGELOG.md)**
-
-## Diretrizes de desenvolvimento
-
-Comportamento de desenvolvimento assistido por IA: **[CLAUDE.md](CLAUDE.md)**. Convenções específicas (parsers, migrations, invoices, React Query) estão nas skills em `.claude/skills/`.
+As diretrizes para desenvolvimento assistido por IA estão em [`CLAUDE.md`](CLAUDE.md); [`AGENTS.md`](AGENTS.md) é um ponteiro para esse arquivo.
