@@ -675,6 +675,7 @@ export function AgencyReportDocument({
               <th>Quantidade</th>
               <th>Unitário</th>
               <th>Total</th>
+              <th>Observação</th>
             </tr>
           </thead>
           <tbody>
@@ -703,6 +704,7 @@ export function AgencyReportDocument({
                 <td>{count(service.quantidade)}</td>
                 <td>{formatBRL(number(service.valor_unitario))}</td>
                 <td>{formatBRL(serviceLineTotal(service))}</td>
+                <td>{String(service.observation ?? "—")}</td>
               </tr>
             ))}
           </tbody>

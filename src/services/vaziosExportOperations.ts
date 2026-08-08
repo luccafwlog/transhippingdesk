@@ -240,6 +240,14 @@ export async function deleteServiceLine(id: string) {
   if (error) throw error;
 }
 
+export async function updateServiceLineObservation(id: string, observation: string) {
+  const { error } = await supabase
+    .from("vazios_export_service_lines")
+    .update({ observation: observation.trim() || null } as never)
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function updateVaziosBooking(
   id: string,
   patch: Partial<VaziosBooking> & Record<string, unknown>,

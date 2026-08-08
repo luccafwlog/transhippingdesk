@@ -15,6 +15,7 @@ import {
   upsertServiceLine,
   upsertVaziosExportOperation,
   deleteServiceLine,
+  updateServiceLineObservation,
   listVaziosBookingsForOperation,
   createManualVaziosBooking,
   updateManualVaziosBooking,
@@ -122,6 +123,8 @@ export function EmbarqueVazios() {
   const [tab, setTab] = useState<Tab>("unidades");
   const [serviceNature, setServiceNature] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [editingServiceObservation, setEditingServiceObservation] = useState<string | null>(null);
+  const [serviceObservationDraft, setServiceObservationDraft] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [line, setLine] = useState({
     serviceId: "",
@@ -460,6 +463,14 @@ export function EmbarqueVazios() {
           selectedService.natureza === "armazenagem" && line.quantidadeManual,
       });
     }, "Linha de serviço lançada.");
+  }
+
+  async function saveServiceObservation(id: string) {
+    await notify(async () => {
+      await updateServiceLineObservation(id, serviceObservationDraft);
+      setEditingServiceObservation(null);
+      await refreshOperationData();
+    }, "Observação da linha atualizada.");
   }
   async function addSuggestedArmazenagemLine(
     need: { depot_id: string; condition: string; quantidade: number },
@@ -1059,6 +1070,7 @@ export function EmbarqueVazios() {
                         <th>Quantidade</th>
                         <th>Unitário</th>
                         <th>Total</th>
+                        <th>Observação</th>
                         <th />
                       </tr>
                     </thead>
@@ -1114,6 +1126,30 @@ export function EmbarqueVazios() {
                                   (item.percentual == null
                                     ? 1
                                     : Number(item.percentual) / 100),
+                              )}
+                            </td>
+                            <td className="min-w-64 whitespace-normal">
+                              {editingServiceObservation === item.id ? (
+                                <div className="grid gap-2">
+                                  <textarea
+                                    aria-label={`Observação — ${item.id}`}
+                                    value={serviceObservationDraft}
+                                    onChange={(event) => setServiceObservationDraft(event.target.value)}
+                                    autoFocus
+                                    className="min-h-16 rounded border border-[var(--app-border)] bg-transparent p-2 text-sm"
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button variant="secondary" className="app-btn--sm" onClick={() => setEditingServiceObservation(null)}>Cancelar</Button>
+                                    <Button className="app-btn--sm" onClick={() => void saveServiceObservation(item.id)}>Salvar</Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="grid gap-1">
+                                  {item.observation ? <span className="whitespace-pre-line text-sm">{item.observation}</span> : <span className="text-sm text-[var(--app-muted)]">Sem observação</span>}
+                                  <button type="button" className="justify-self-start text-xs font-semibold text-[var(--app-muted)] underline underline-offset-4 hover:text-[var(--app-text)]" onClick={() => { setServiceObservationDraft(item.observation ?? ""); setEditingServiceObservation(item.id); }}>
+                                    {item.observation ? "Editar observação" : "Adicionar observação"}
+                                  </button>
+                                </div>
                               )}
                             </td>
                             <td>
