@@ -82,38 +82,39 @@ function ReportSection({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="app-panel__title text-base">{title}</h3>
         {section && state ? (
-          <SignoffControl
-            section={section}
-            state={state}
-            attribution={attribution}
-            departmentLabel={AGENCY_REPORT_DEPARTMENT_LABELS[AGENCY_REPORT_SECTIONS[section]]}
-            canSignoff={Boolean(canSignoff)}
-            events={events ?? []}
-            actorNames={actorNames ?? {}}
-            isPending={isPending}
-            onChange={(nextSection, nextState, justification) => onSignoff?.(nextSection, nextState, justification)}
-          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <SectionObservationAction
+              section={section}
+              title={title}
+              observation={observation}
+              canEdit={Boolean(canSignoff)}
+              onChange={onObservationChange}
+            />
+            <SignoffControl
+              section={section}
+              state={state}
+              attribution={attribution}
+              departmentLabel={AGENCY_REPORT_DEPARTMENT_LABELS[AGENCY_REPORT_SECTIONS[section]]}
+              canSignoff={Boolean(canSignoff)}
+              events={events ?? []}
+              actorNames={actorNames ?? {}}
+              isPending={isPending}
+              onChange={(nextSection, nextState, justification) => onSignoff?.(nextSection, nextState, justification)}
+            />
+          </div>
         ) : null}
       </div>
       {children}
       {section ? (
         <SectionObservation
-          section={section}
-          title={title}
           observation={observation}
-          canEdit={Boolean(canSignoff)}
-          onChange={onObservationChange}
         />
       ) : null}
     </section>
   )
 }
 
-// A observação é conteúdo do relatório, não um campo de formulário sempre
-// aberto (ADR 0036): quando existe texto, ele é lido por todo mundo; quando
-// não existe, só o dono da seção vê o convite para escrever. Quem não pode
-// assinar nunca mais vê um "—" ocupando espaço por uma nota que ninguém deixou.
-function SectionObservation({
+function SectionObservationAction({
   section,
   title,
   observation,
@@ -130,42 +131,71 @@ function SectionObservation({
   const [draft, setDraft] = useState(observation ?? '')
   const text = observation?.trim() ?? ''
 
-  if (!text && !canEdit) return null
+  if (!canEdit) return null
 
-  if (!text && !editing) {
+  if (editing) {
     return (
-      <button
-        type="button"
-        className="justify-self-start text-sm font-semibold text-[var(--app-muted)] underline underline-offset-4 hover:text-[var(--app-text)]"
-        onClick={() => setEditing(true)}
-      >
-        Adicionar observação
-      </button>
-    )
-  }
-
-  if (!canEdit) {
-    return (
-      <div className="grid gap-1 text-sm">
-        <span className="text-xs font-semibold text-[var(--app-muted)]">Observação</span>
-        <p className="whitespace-pre-line text-[var(--app-text)]">{text}</p>
+      <div className="flex w-full flex-wrap items-start justify-end gap-2 sm:w-auto">
+        <textarea
+          key={`${section}:${observation ?? ''}`}
+          aria-label={`Observação — ${title}`}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          autoFocus
+          className="min-h-16 w-full min-w-[18rem] rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-2 text-sm shadow-sm sm:w-80"
+        />
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" className="app-btn--sm" onClick={() => setEditing(false)}>Cancelar</Button>
+          <Button
+            type="button"
+            variant="primary"
+            className="app-btn--sm"
+            disabled={draft === (observation ?? '')}
+            onClick={() => { onChange?.(section, draft); setEditing(false) }}
+          >
+            {text ? 'Salvar alterações' : 'Salvar observação'}
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <label className="grid gap-1 text-sm">
-      <span className="text-xs font-semibold text-[var(--app-muted)]">Observação</span>
-      <textarea
-        key={`${section}:${observation ?? ''}`}
-        aria-label={`Observação — ${title}`}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        autoFocus={editing}
-        className="min-h-16 rounded border border-[var(--app-border)] bg-transparent p-2 text-sm"
-      />
-      <Button type="button" variant="primary" className="app-btn--sm justify-self-start" disabled={draft === (observation ?? '')} onClick={() => { onChange?.(section, draft); setEditing(false) }}>Salvar observação</Button>
-    </label>
+    <Button
+      type="button"
+      variant="secondary"
+      className="app-btn--sm"
+      onClick={() => { setDraft(observation ?? ''); setEditing(true) }}
+    >
+      {text ? 'Editar observação' : 'Adicionar observação'}
+    </Button>
+  )
+}
+
+// A observação é conteúdo do relatório, não um campo de formulário sempre
+// aberto (ADR 0036): quando existe texto, ele é lido por todo mundo; quando
+// não existe, só o dono da seção vê o convite para escrever. Quem não pode
+// assinar nunca mais vê um "—" ocupando espaço por uma nota que ninguém deixou.
+function SectionObservation({
+  observation,
+}: {
+  observation?: string | null
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const text = observation?.trim() ?? ''
+
+  if (!text) return null
+
+  return (
+    <div className="grid gap-1.5 rounded-lg bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <span className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Observação</span>
+      <p className={`whitespace-pre-line text-[var(--app-text)] ${expanded ? '' : 'max-h-24 overflow-hidden'}`}>{text}</p>
+      {text.split('\n').length > 4 ? (
+        <button type="button" className="justify-self-start text-xs font-semibold text-[var(--app-muted)] underline underline-offset-4 hover:text-[var(--app-text)]" onClick={() => setExpanded((value) => !value)}>
+          {expanded ? 'Recolher observação' : 'Ver observação completa'}
+        </button>
+      ) : null}
+    </div>
   )
 }
 

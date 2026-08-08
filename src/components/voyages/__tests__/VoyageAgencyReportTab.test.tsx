@@ -699,6 +699,7 @@ it('mostra o campo de Observação em cada seção, editável só pelo dono', ()
 
   // Dono da seção (Equipamentos → veículos): campo editável, valor preenchido.
   const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
+  fireEvent.click(within(veiculosSection).getByRole('button', { name: 'Editar observação' }))
   const veiculosObservation = within(veiculosSection).getByLabelText('Observação — Veículos') as HTMLTextAreaElement
   expect(veiculosObservation.tagName).toBe('TEXTAREA')
   expect(veiculosObservation.value).toBe('Container avariado no pátio.')
@@ -765,9 +766,10 @@ it('sobrescrever a Observação não pede justificativa e chama a RPC de Observa
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
   const veiculosSection = screen.getByRole('heading', { name: 'Veículos' }).closest('section')!
+  fireEvent.click(within(veiculosSection).getByRole('button', { name: 'Editar observação' }))
   const observationField = within(veiculosSection).getByLabelText('Observação — Veículos')
   fireEvent.change(observationField, { target: { value: 'Nota atualizada' } })
-  fireEvent.click(within(veiculosSection).getByRole('button', { name: 'Salvar observação' }))
+  fireEvent.click(within(veiculosSection).getByRole('button', { name: 'Salvar alterações' }))
 
   expect(screen.queryByLabelText('Justificativa')).toBeNull()
   expect(observationMutateMock).toHaveBeenCalledWith({
