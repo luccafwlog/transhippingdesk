@@ -6,7 +6,6 @@ import type {
   UserProfileRole,
   VaziosBooking,
   VaziosExportOperation,
-  VaziosExportServiceLine,
   VaziosImportacaoContainer,
   Vehicle,
   Json,
@@ -14,7 +13,7 @@ import type {
 import type { AgencyDepartureReport, AgencyReportDepartmentKey, AgencyReportDepartmentSignoff, AgencyReportOccurrence, AgencyReportSignoff } from '../types/database'
 import { supabase } from './supabase'
 import { extractErrorText } from '../lib/errors'
-import { computeStorageTotals } from './vaziosExportOperations'
+import { computeStorageTotals, type VaziosExportServiceLineWithObservation } from './vaziosExportOperations'
 import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, getVoyageUnifiedAtd, listVoyagePodSchedules } from './voyageRouteSchedules'
@@ -758,7 +757,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     orphanVaziosByPort.set(normalized, (orphanVaziosByPort.get(normalized) ?? 0) + count)
   }
 
-  const rawServiceLines = serviceLinesRes.data as VaziosExportServiceLine[]
+  const rawServiceLines = serviceLinesRes.data as VaziosExportServiceLineWithObservation[]
   const serviceIds = [...new Set(rawServiceLines.map((line) => line.service_id))]
   const servicesRes = serviceIds.length
     ? await supabase.from('depot_services').select('id, name, natureza').in('id', serviceIds)

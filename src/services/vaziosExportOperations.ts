@@ -9,6 +9,10 @@ import { diasCobraveis } from "./vaziosCusto";
 
 const OPERATION_BOOKINGS_PAGE_SIZE = 1000;
 
+export type VaziosExportServiceLineWithObservation = VaziosExportServiceLine & {
+  observation: string | null;
+};
+
 export type ManualBookingInput = {
   operationId: string;
   voyageId: number;
@@ -178,7 +182,7 @@ export async function getVaziosExportOperation(
           service: { name: string } | null;
         }>;
         linhas: Array<
-          VaziosExportServiceLine & {
+          VaziosExportServiceLineWithObservation & {
             service: unknown;
             local: unknown;
             destino: unknown;
