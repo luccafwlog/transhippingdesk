@@ -15,8 +15,7 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 ## Specs funcionais vivas
 
 | Spec | Tema |
-|---|---|
-| [`2026-08-05-vehicles-desova-design.md`](./2026-08-05-vehicles-desova-design.md) | Veículos: local de desova e consolidação no ADR |
+|---|---|---|
 
 A spec de design do Agency Departure Report foi executada e preservada no
 [arquivo histórico](../archive/specs/).
