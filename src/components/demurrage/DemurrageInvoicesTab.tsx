@@ -40,31 +40,24 @@ export function DemurrageInvoicesTab({
     <>
       {loading && <Card>Carregando...</Card>}
       {error && <InlineError message="Erro ao carregar faturas." />}
-      <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <span className="font-semibold text-white">{formatResultCount(invoices?.length ?? 0, 'fatura visível', 'faturas visíveis')}</span>
-        <span className="text-xs text-slate-400">Filtros ativos: Status {tabLabel}</span>
-      </div>
       {!loading && !error && !invoices?.length && (
         <EmptyState icon={FileText} title="Nenhuma fatura" description={`Nenhuma fatura com status "${tab}".`} />
       )}
 
       {invoices && invoices.length > 0 && (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="app-table min-w-[1000px] text-left text-sm">
-              <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+        <Card className="overflow-hidden p-0">
+          <div className="billing-table__head flex flex-col gap-1 border-b px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold text-white">{formatResultCount(invoices.length, 'fatura visível', 'faturas visíveis')}</span>
+            <span className="text-xs">Filtros ativos: Status {tabLabel}</span>
+          </div>
+          <div className="app-table-scroll app-table-scroll--sticky">
+            <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
+              <thead>
                 <tr>
-                  <th scope="col" className="py-2">Nº Doc</th>
-                  <th scope="col" className="py-2">BL</th>
-                  <th scope="col" className="py-2">Cliente</th>
-                  <th scope="col" className="py-2">Emissão</th>
-                  <th scope="col" className="py-2">Total USD</th>
-                  <th scope="col" className="py-2">Total BRL</th>
-                  <th scope="col" className="py-2">Status</th>
-                  <th scope="col" className="py-2">Ações</th>
+                  <th scope="col" className="px-4 py-3">Documento / BL</th><th scope="col" className="px-4 py-3">Cliente</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#30363d]">
+              <tbody>
                 {invoices.map((invoice) => {
                   const customer = (invoice as { customer?: { name?: string } }).customer
                   const hasDiscount = (invoice.discount_value ?? 0) > 0
@@ -72,21 +65,18 @@ export function DemurrageInvoicesTab({
                   const disputePast = !invoice.dispute_open && invoice.dispute_status != null
                   return (
                     <tr key={invoice.id}>
-                      <td className="py-2 font-mono text-xs text-white">{invoice.doc_number}</td>
-                      <td className="py-2 text-blue-400">{invoice.bl_id}</td>
-                      <td className="py-2">{customer?.name ?? '—'}</td>
-                      <td className="py-2">{invoice.billed_at ? formatDate(invoice.billed_at) : '—'}</td>
-                      <td className="py-2 font-semibold text-amber-400">{fmtUSD(invoice.total_usd)}</td>
-                      <td className="py-2 font-semibold text-green-400">
-                        {fmtBRL(invoice.current_total_brl)}
+                      <td className="px-4 py-3"><div className="app-table__cell-stack" data-testid="demurrage-invoice-context"><div className="font-semibold text-white">{invoice.doc_number}</div><div className="app-table__cell-value text-blue-400">{invoice.bl_id}</div></div></td>
+                      <td className="px-4 py-3"><div className="app-table__cell-stack"><div className="app-table__cell-value app-table__truncate app-table__truncate--xl" title={customer?.name ?? '—'}>{customer?.name ?? '—'}</div><div className="app-table__cell-meta">{(invoice as { customer?: { cnpj_cpf?: string } }).customer?.cnpj_cpf ?? 'Cliente não identificado'}</div></div></td>
+                      <td className="px-4 py-3">{invoice.billed_at ? formatDate(invoice.billed_at) : <span className="text-slate-500">—</span>}</td>
+                      <td className="px-4 py-3"><div className="app-table__cell-stack" data-testid="demurrage-invoice-financial"><div className="app-table__cell-value app-table__cell-value--financial">USD {fmtUSD(invoice.total_usd)}</div><div className="app-table__cell-meta text-green-400">BRL {fmtBRL(invoice.current_total_brl)}</div>
                         {invoice.roe_source === 'cached' && (
-                          <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 text-xs text-amber-400" title="ROE via cache (BCB offline)">ROE cache</span>
+                          <div className="app-table__cell-meta">ROE via cache</div>
                         )}
-                      </td>
-                      <td className="py-2"><InvoiceStatusBadge status={invoice.status} /></td>
-                      <td className="py-2">
-                        <div className="flex flex-wrap items-center gap-1">
-                          <Button variant="ghost" className="app-btn--sm" onClick={() => onOpenDetail(invoice.id)}>Detalhes</Button>
+                      </div></td>
+                      <td className="px-4 py-3"><InvoiceStatusBadge status={invoice.status} /></td>
+                      <td className="px-4 py-3"><div className="flex flex-wrap items-center gap-2">
+                        <div data-testid="demurrage-invoice-primary-action"><Button variant="secondary" onClick={() => onOpenDetail(invoice.id)}>Detalhes</Button></div>
+                        <div className="flex flex-wrap items-center gap-1" data-testid="demurrage-invoice-secondary-actions">
                           <Button variant="ghost" className={`app-btn--sm ${hasDiscount ? 'text-[var(--app-green)]' : ''}`} onClick={() => onOpenDiscount(invoice)}>Desconto</Button>
                           <Button variant="ghost" className={`app-btn--sm ${disputeActive ? 'text-[var(--app-gold)]' : disputePast ? 'text-[var(--app-muted)]' : ''}`} onClick={() => onOpenDispute(invoice)}>Disputa</Button>
                           {invoice.status === 'issued' && (
@@ -103,7 +93,7 @@ export function DemurrageInvoicesTab({
                               <Button variant="ghost" className="app-btn--sm" onClick={() => onReversePayment(invoice.id)}>Cancelar baixa</Button>
                             </>
                           )}
-                        </div>
+                        </div></div>
                       </td>
                     </tr>
                   )

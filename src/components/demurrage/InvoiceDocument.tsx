@@ -192,7 +192,7 @@ export function InvoiceDocument({ detail, type }: Props) {
       {isInvoice && invoice.pix_payload && (
         <div style={{ display: 'flex', gap: 18, marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb', alignItems: 'flex-start' }}>
           <div style={{ flexShrink: 0 }}>
-            <QRCodeSVG value={invoice.pix_payload} size={90} level="M" />
+            <QRCodeSVG aria-label="QR Code Pix" value={invoice.pix_payload} size={90} level="M" />
           </div>
           <div style={{ flex: 1, fontSize: '12px', color: '#333', lineHeight: 1.6 }}>
             <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: 4 }}>PAGAMENTO VIA PIX</div>

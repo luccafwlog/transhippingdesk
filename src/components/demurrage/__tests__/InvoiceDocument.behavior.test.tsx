@@ -15,6 +15,7 @@ const detail = {
   discount_mode: null,
   due_date: '2026-07-01',
   paid_at: '2026-06-25',
+  pix_payload: '00020101021226880014br.gov.bcb.pix',
   total_usd: 100,
   items: [{
     id: 1, container_number: 'TCLU1234567', container_type: '40GP',
@@ -39,4 +40,12 @@ it('US-048: imprime a fatura de demurrage com numero, BL e cliente', () => {
 it('US-048: imprime o recibo de quitacao quando type=receipt', () => {
   render(<InvoiceDocument detail={detail} type="receipt" />)
   expect(screen.getByText('RECIBO DE QUITAÇÃO DE SOBREESTADIA')).toBeTruthy()
+})
+
+it('US-048: exibe QR Pix e codigo copia e cola na fatura', () => {
+  render(<InvoiceDocument detail={detail} type="invoice" />)
+
+  expect(screen.getByText('PAGAMENTO VIA PIX')).toBeTruthy()
+  expect(screen.getByText(detail.pix_payload!)).toBeTruthy()
+  expect(screen.getByRole('img', { name: /qr code/i })).toBeTruthy()
 })

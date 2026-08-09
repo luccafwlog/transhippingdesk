@@ -437,7 +437,7 @@ export function Demurrage() {
       {reversingPaymentId != null && <DemurragePaymentReversalModal open invoiceId={reversingPaymentId} loading={unpayMutation.isPending} onClose={() => setReversingPaymentId(null)} onSubmit={(reason) => unpayMutation.mutate({ id: reversingPaymentId, reason })} />}
       {viewInvoiceId && invoiceDetail && (
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Quitacao'}>
-          <div className="p-2"><div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} /></div>
+          <div className="p-2"><div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><div className="invoice-print-content"><InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} /></div></div>
         </Modal>
       )}
       {customerReportOpen && customerSummary && <CustomerReportModal open rows={customerSummary} onClose={() => setCustomerReportOpen(false)} />}
