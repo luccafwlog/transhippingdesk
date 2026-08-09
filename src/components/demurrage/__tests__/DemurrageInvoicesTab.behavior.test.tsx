@@ -22,7 +22,7 @@ const invoice = {
 
 it('organiza a linha em pilhas de contexto e separa a acao principal das financeiras', () => {
   render(<DemurrageInvoicesTab
-    tab="issued"
+    tab="emitidas"
     tabLabel="Faturas"
     invoices={[invoice]}
     loading={false}
