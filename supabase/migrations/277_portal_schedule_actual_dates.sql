@@ -34,6 +34,11 @@ AS $$
     WHERE entity_type = 'voyage_pod_schedule'
       AND field_name = 'deleted' AND new_value = 'true'
   ),
+  omitted_pods AS (
+    SELECT entity_id FROM latest
+    WHERE entity_type = 'voyage_pod_schedule'
+      AND field_name = 'omitted' AND new_value = 'true'
+  ),
   pol AS (
     SELECT split_part(entity_id, '::', 1)::bigint AS vid,
            split_part(entity_id, '::', 2) AS port_code,
@@ -56,8 +61,9 @@ AS $$
            l.new_value AS eta
     FROM latest l
     LEFT JOIN deleted_pods d ON d.entity_id = l.entity_id
+    LEFT JOIN omitted_pods o ON o.entity_id = l.entity_id
     WHERE l.entity_type = 'voyage_pod_schedule' AND l.field_name = 'eta'
-      AND l.new_value IS NOT NULL AND d.entity_id IS NULL
+      AND l.new_value IS NOT NULL AND d.entity_id IS NULL AND o.entity_id IS NULL
   ),
   pod_ata AS (
     SELECT split_part(l.entity_id, '::', 1)::bigint AS vid,
@@ -65,8 +71,9 @@ AS $$
            l.new_value AS ata
     FROM latest l
     LEFT JOIN deleted_pods d ON d.entity_id = l.entity_id
+    LEFT JOIN omitted_pods o ON o.entity_id = l.entity_id
     WHERE l.entity_type = 'voyage_pod_schedule' AND l.field_name = 'ata'
-      AND l.new_value IS NOT NULL AND d.entity_id IS NULL
+      AND l.new_value IS NOT NULL AND d.entity_id IS NULL AND o.entity_id IS NULL
   )
   SELECT visible.id, visible.vessel_name, visible.voyage_number, visible.imo,
          pol.port_code, 'pol', pol.etd, pol_atd.atd

@@ -122,10 +122,10 @@ describe('Revisao', () => {
     // grupos sao nomeados pelo consignatario quando nao ha cliente cadastrado
     expect(screen.getByText('AC Comercial')).toBeTruthy()
     expect(screen.getByText('Alma Trading')).toBeTruthy()
-    // os grupos começam recolhidos; os B/Ls só aparecem ao abrir um cliente
-    expect(screen.queryByText('BL1')).toBeNull()
-    expect(screen.queryByText('BL2')).toBeNull()
-    expect(screen.queryByText('BL3')).toBeNull()
+    // A fila inicia expandida para expor imediatamente as ações de cada B/L.
+    expect(screen.getByText('BL1')).toBeTruthy()
+    expect(screen.getByText('BL2')).toBeTruthy()
+    expect(screen.getByText('BL3')).toBeTruthy()
   })
 
   it('vincula em lote todos os B/Ls de um cliente pelo cabecalho do grupo', async () => {
