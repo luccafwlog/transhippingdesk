@@ -3140,6 +3140,7 @@ textarea {
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.03;
+  text-align: center;
   white-space: normal;
   overflow-wrap: anywhere;
   text-overflow: clip;
