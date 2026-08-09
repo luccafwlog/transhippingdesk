@@ -1,5 +1,11 @@
 import * as XLSX from '@e965/xlsx'
 import { describe, expect, it } from 'vitest'
+import { extractEmail } from '../blParser'
+
+it('extrai o primeiro e-mail do bloco do consignatário', () => {
+  expect(extractEmail('ACME LOGISTICS\nEMAIL: Finance@Acme.COM')).toBe('finance@acme.com')
+  expect(extractEmail('ACME LOGISTICS')).toBeNull()
+})
 import { parseBLBuffer, parseBLFile } from '../blParser'
 
 // Fixtures reais de B/L COSCO nao estao versionados no repositorio; estes

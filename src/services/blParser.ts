@@ -35,6 +35,7 @@ export type ParsedBLDocument = {
     shipperBlock: string
     consigneeBlock: string
     consigneeTaxId: string | null
+    consigneeEmail?: string | null
     notifyBlock: string
     alsoNotifyBlock: string
   }
@@ -92,6 +93,7 @@ export async function parseBLBuffer(buffer: ArrayBuffer): Promise<ParsedBLDocume
       shipperBlock: cell(rows, 6, 'A'),
       consigneeBlock: cell(rows, 10, 'A'),
       consigneeTaxId: extractTaxId(cell(rows, 10, 'A')),
+      consigneeEmail: extractEmail(cell(rows, 10, 'A')),
       notifyBlock: cell(rows, 14, 'A'),
       alsoNotifyBlock: cell(rows, 14, 'T'),
     },
@@ -272,6 +274,10 @@ function parseNumber(value: unknown) {
 export function extractTaxId(value: string) {
   const digits = onlyDigits(value)
   return digits.length >= 14 ? digits.slice(0, 14) : digits || null
+}
+
+export function extractEmail(value: string) {
+  return value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase() ?? null
 }
 
 function cell(rows: RawSheetRow[], rowNumber: number, column: string) {

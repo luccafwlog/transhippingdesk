@@ -41,7 +41,8 @@ export function Revisao() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  // A fila inicia recolhida; o conjunto guarda apenas os grupos que o operador abriu.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [savingGroupKey, setSavingGroupKey] = useState<string | null>(null)
   const [savingInlineId, setSavingInlineId] = useState<string | null>(null)
   const [recalcQueue, setRecalcQueue] = useState<RecalcNotice[]>([])
@@ -237,7 +238,7 @@ export function Revisao() {
   }
 
   function toggleGroupCollapsed(key: string) {
-    setCollapsedGroups((current) => {
+    setExpandedGroups((current) => {
       const next = new Set(current)
       if (next.has(key)) next.delete(key)
       else next.add(key)
@@ -475,7 +476,7 @@ export function Revisao() {
             <ReviewGroupBlock
               key={group.key}
               group={group}
-              collapsed={collapsedGroups.has(group.key)}
+              collapsed={!expandedGroups.has(group.key)}
               savingGroup={savingGroupKey === group.key}
               savingInlineId={savingInlineId}
               onToggle={() => toggleGroupCollapsed(group.key)}

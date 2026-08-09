@@ -122,10 +122,10 @@ describe('Revisao', () => {
     // grupos sao nomeados pelo consignatario quando nao ha cliente cadastrado
     expect(screen.getByText('AC Comercial')).toBeTruthy()
     expect(screen.getByText('Alma Trading')).toBeTruthy()
-    // os tres B/Ls aparecem nas linhas
-    expect(screen.getByText('BL1')).toBeTruthy()
-    expect(screen.getByText('BL2')).toBeTruthy()
-    expect(screen.getByText('BL3')).toBeTruthy()
+    // os grupos começam recolhidos; os B/Ls só aparecem ao abrir um cliente
+    expect(screen.queryByText('BL1')).toBeNull()
+    expect(screen.queryByText('BL2')).toBeNull()
+    expect(screen.queryByText('BL3')).toBeNull()
   })
 
   it('vincula em lote todos os B/Ls de um cliente pelo cabecalho do grupo', async () => {
@@ -133,6 +133,7 @@ describe('Revisao', () => {
     renderPage()
 
     // o grupo "AC Comercial" (2 B/Ls) e o primeiro na ordem alfabetica
+    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
     const pickers = screen.getAllByPlaceholderText('Vincular cliente...')
     await user.type(pickers[0], 'Cliente')
     await user.click(screen.getByText('Cliente Modelo'))
