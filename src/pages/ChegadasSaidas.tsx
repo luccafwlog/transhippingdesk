@@ -11,33 +11,10 @@ import { fetchPortalScheduleVoyages, type PortalScheduleVoyage } from '../servic
 import { createOrAttachVoyageFromSchedule } from '../services/voyageFromSchedule'
 import { setVoyageShowOnPortal } from '../services/voyages'
 
-type DateCellValue = {
-  value: string
-  isPast: boolean
-}
-
-function parseDate(value: string): Date | null {
-  if (!value || value === 'X') return null
-  return new Date(`${value}T00:00:00`)
-}
-
-function isPast(value: string) {
-  const date = parseDate(value)
-  if (!date || Number.isNaN(date.getTime())) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return date < today
-}
-
-function dateCellValue(value: string): DateCellValue {
-  return { value, isPast: isPast(value) }
-}
-
-function DateTd({ value }: { value: string }) {
-  const info = dateCellValue(value)
+function DateTd({ value, isActual = false }: { value: string; isActual?: boolean }) {
   const isX = value === 'X'
   return (
-    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : info.isPast ? 'text-[var(--app-blue)] font-semibold' : ''}`}>
+    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'text-[var(--app-blue)] font-semibold' : ''}`}>
       {isX ? 'X' : formatScheduleDate(value)}
     </td>
   )
@@ -341,7 +318,7 @@ export function ChegadasSaidas() {
                   </td>
                   <td className="px-3 py-2.5 text-center border-r border-[var(--app-border)] text-sm">{vessel.voyage}</td>
                   {PORTAL_SCHEDULE_LANES.map((lane) => (
-                    <DateTd key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} />
+                    <DateTd key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} isActual={Boolean(vessel.actualDatesByLabel?.[lane.label])} />
                   ))}
                   {canWrite ? (
                     <td className="px-2 py-2 text-center">
@@ -358,6 +335,10 @@ export function ChegadasSaidas() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-2 text-xs text-[var(--app-muted)]">
+        <span className="text-[var(--app-blue)] font-semibold">Datas em azul</span> = data efetiva confirmada. Datas em preto = data prevista.
       </div>
 
       <div className="mt-6">

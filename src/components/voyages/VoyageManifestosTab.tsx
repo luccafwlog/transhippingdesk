@@ -68,7 +68,7 @@ export function VoyageManifestosTab({
         <div className="mb-3">
           <div className="app-panel__title">Manifestos vinculados</div>
           <div className="app-panel__meta">
-            Uma rota por linha: B/Ls vinculados por POL/POD, ETD por POL, CE Mercante e CE Master quando houver batch.
+            Uma rota por linha: B/Ls vinculados por POL/POD, ATD POL, CE Mercante e CE Master quando houver batch.
           </div>
         </div>
 
@@ -86,7 +86,7 @@ export function VoyageManifestosTab({
               <thead>
                 <tr>
                   <th scope="col" className="px-3 py-2">Rota / Manifesto</th>
-                  <th scope="col" className="px-3 py-2">ETD</th>
+                  <th scope="col" className="px-3 py-2">ATD POL</th>
                   <th scope="col" className="px-3 py-2">B/Ls</th>
                   <th scope="col" className="px-3 py-2">CE Merc.</th>
                   <th scope="col" className="px-3 py-2">CE Master</th>
@@ -108,7 +108,7 @@ export function VoyageManifestosTab({
                         </div>
                         <div className="mt-0.5 text-xs text-[var(--app-muted)]">{row.filenames.join(' · ')}</div>
                       </td>
-                      <td className={`px-3 py-2${departure.isActual ? ' text-green-600 font-medium' : ''}`}>{formatDate(departure.value)}</td>
+                      <td className={`px-3 py-2${departure.isActual ? ' text-[var(--app-blue)] font-medium' : ''}`}>{formatDate(departure.value)}</td>
                       <td className="px-3 py-2">{row.blCount}</td>
                       <td className="px-3 py-2">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
                       <td className="px-3 py-2">
@@ -123,8 +123,8 @@ export function VoyageManifestosTab({
                           <Button
                             variant="secondary"
                             className="app-voyage-icon-btn"
-                            aria-label={`Editar ETD + ATD e CE Master de ${row.routeLabel}`}
-                            title="Editar ETD + ATD e CE Master"
+                            aria-label={`Editar ETD previsto + ATD POL e CE Master de ${row.routeLabel}`}
+                            title="Editar ETD previsto + ATD POL e CE Master"
                             onClick={() =>
                               onEditPol({
                                 voyageId: voyage.id,
@@ -157,6 +157,10 @@ export function VoyageManifestosTab({
             </table>
           </div>
         </div>
+      </div>
+
+      <div className="mt-2 text-xs text-[var(--app-muted)]">
+        <span className="text-[var(--app-blue)] font-semibold">Datas em azul</span> = data efetiva confirmada. Datas em preto = data prevista.
       </div>
 
     </>

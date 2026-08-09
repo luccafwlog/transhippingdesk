@@ -9,6 +9,7 @@ export type PortalScheduleRpcRow = {
   port_code: string
   kind: 'pol' | 'pod'
   date_value: string | null
+  actual_value?: string | null
 }
 
 export type PortalScheduleVoyage = {
@@ -17,6 +18,8 @@ export type PortalScheduleVoyage = {
   voyage: string
   imoNumber: string | null
   datesByLabel: Record<string, string>
+  forecastDatesByLabel?: Record<string, string>
+  actualDatesByLabel?: Record<string, string>
   earliestEta: string | null
 }
 
@@ -32,11 +35,18 @@ export function projectPortalScheduleRows(rows: PortalScheduleRpcRow[]): PortalS
       voyage: row.voyage,
       imoNumber: row.imo_number,
       datesByLabel: {},
+      forecastDatesByLabel: {},
+      actualDatesByLabel: {},
       earliestEta: null,
     }
     const label = LABEL_BY_CODE.get(row.port_code)
     if (label && row.date_value) {
       voyage.datesByLabel[label] = row.date_value
+      voyage.forecastDatesByLabel[label] = row.date_value
+      if (row.actual_value) {
+        voyage.actualDatesByLabel[label] = row.actual_value
+        voyage.datesByLabel[label] = row.actual_value
+      }
       if (row.kind === 'pod' && (voyage.earliestEta === null || row.date_value < voyage.earliestEta)) {
         voyage.earliestEta = row.date_value
       }

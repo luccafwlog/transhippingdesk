@@ -13,6 +13,7 @@ it('define portal_ship_schedule como definer allowlisted a anon', () => {
   expect(sql).toMatch(/SECURITY DEFINER/i)
   expect(sql).toMatch(/SET search_path = public, pg_temp/i)
   expect(sql).toMatch(/show_on_portal/i)
+  expect(sql).toMatch(/actual_value/i)
   expect(sql).toMatch(/status\s*=\s*'active'/i)
   expect(sql).toMatch(/REVOKE\s+ALL[\s\S]*portal_ship_schedule[\s\S]*FROM\s+PUBLIC/i)
   expect(sql).toMatch(/GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.portal_ship_schedule[\s\S]*TO\s+anon/i)

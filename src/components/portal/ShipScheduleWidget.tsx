@@ -2,24 +2,10 @@ import { Ship, Anchor } from 'lucide-react'
 import { usePortalScheduleVoyages } from '../../hooks/usePortalScheduleVoyages'
 import { PORTAL_SCHEDULE_LANES, formatScheduleDate } from '../../services/portalScheduleLanes'
 
-function parseDate(dateStr: string): Date | null {
-  if (!dateStr || dateStr === 'X') return null
-  return new Date(`${dateStr}T00:00:00`)
-}
-
-function isDateInPast(dateStr: string): boolean {
-  const date = parseDate(dateStr)
-  if (!date) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return date < today
-}
-
-function DateCell({ value }: { value: string }) {
+function DateCell({ value, isActual = false }: { value: string; isActual?: boolean }) {
   const isX = value === 'X'
-  const isPast = isDateInPast(value)
   return (
-    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isPast ? 'text-[var(--app-blue-btn)] font-semibold' : 'text-[var(--app-text)]'}`}>
+    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'text-[var(--app-blue-btn)] font-semibold' : 'text-[var(--app-text)]'}`}>
       {isX ? 'X' : formatScheduleDate(value)}
     </td>
   )
@@ -65,7 +51,7 @@ export function ShipScheduleWidget() {
                   {PORTAL_SCHEDULE_LANES.map((lane) => (
                     <th key={lane.label} className="px-3 py-3 text-center text-xs font-bold text-[var(--app-thead-text)] uppercase tracking-wider border-r border-[color-mix(in_srgb,var(--app-thead-text)_20%,transparent)]">
                       <div>{lane.label}</div>
-                      <div className="text-[10px] font-normal opacity-80">{lane.kind === 'pol' ? 'ETD' : 'ETA'}</div>
+                      <div className="text-[10px] font-normal opacity-80">{lane.kind === 'pol' ? 'ATD POL / ETD' : 'ATA / ETA'}</div>
                     </th>
                   ))}
                 </tr>
@@ -93,7 +79,7 @@ export function ShipScheduleWidget() {
                         {vessel.voyage}
                       </td>
                       {PORTAL_SCHEDULE_LANES.map((lane) => (
-                        <DateCell key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} />
+                        <DateCell key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} isActual={Boolean(vessel.actualDatesByLabel?.[lane.label])} />
                       ))}
                     </tr>
                   )
@@ -104,9 +90,8 @@ export function ShipScheduleWidget() {
 
           <div className="bg-[var(--app-surface-muted)] px-4 py-2 text-xs text-[var(--app-muted)] flex flex-wrap items-center justify-between gap-y-1 border-t border-[var(--app-border)]">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span>ETD = Estimated Time of Departure &nbsp; ETA = Estimated Time of Arrival</span>
+              <span className="font-medium"><span className="text-[var(--app-blue-btn)]">Datas em azul</span> = data efetiva confirmada. Datas em preto = data prevista.</span>
               <span className="font-medium">X = Não programado</span>
-              <span className="font-medium"><span className="text-[var(--app-blue-btn)]">Datas em azul</span> = data programada já alcançada</span>
             </div>
             <span className="font-medium">Atualizado conforme os dados publicados.</span>
           </div>

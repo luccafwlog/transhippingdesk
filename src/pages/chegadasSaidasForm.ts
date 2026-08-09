@@ -30,6 +30,6 @@ export function scheduleFormFromVoyage(voyage: PortalScheduleVoyage): ScheduleFo
     vesselName: voyage.vesselName,
     vesselImo: voyage.imoNumber ?? '',
     voyageNumber: voyage.voyage,
-    dates: Object.fromEntries(PORTAL_SCHEDULE_LANES.map((lane) => [lane.label, voyage.datesByLabel[lane.label] ?? ''])),
+    dates: Object.fromEntries(PORTAL_SCHEDULE_LANES.map((lane) => [lane.label, voyage.forecastDatesByLabel?.[lane.label] ?? voyage.datesByLabel[lane.label] ?? ''])),
   }
 }
