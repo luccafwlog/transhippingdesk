@@ -1,6 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { COMPANY } from '../../config/company'
-import type { DemurrageInvoiceDetail } from '../../types/database'
+import type { DemurrageInvoiceDetail, RoeSource } from '../../types/database'
+import { DEMURRAGE_ROE_MARKUP } from '../../services/demurrage/demurrageKpis'
 import { cell, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
@@ -9,6 +10,17 @@ type Props = { detail: DemurrageInvoiceDetail; type: 'invoice' | 'receipt' }
 function fmtDate(s: string | null | undefined) {
   if (!s) return '—'
   return new Date(`${s}T12:00:00`).toLocaleDateString('pt-BR')
+}
+
+function fmtRefDate(s: string | null | undefined) {
+  if (!s) return '—'
+  return new Date(s).toLocaleDateString('pt-BR')
+}
+
+function roeSourceLabel(source: RoeSource | null) {
+  if (source === 'cached') return 'BCB (cache)'
+  if (source === 'manual') return 'Informada manualmente'
+  return 'BCB'
 }
 
 export function InvoiceDocument({ detail, type }: Props) {
@@ -37,6 +49,10 @@ export function InvoiceDocument({ detail, type }: Props) {
       <InvoiceDocTitle uppercase>
         {isInvoice ? 'FATURA DE SOBREESTADIA DE CONTAINER' : 'RECIBO DE QUITAÇÃO DE SOBREESTADIA'}
       </InvoiceDocTitle>
+
+      {roe != null && <p style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', margin: '0 0 12px' }}>
+        Valores calculados em {fmtRefDate(invoice.updated_at)} com PTAX de R$ {fmtBRL(roe / DEMURRAGE_ROE_MARKUP)} (fonte: {roeSourceLabel(invoice.roe_source)})
+      </p>}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>
@@ -75,6 +91,20 @@ export function InvoiceDocument({ detail, type }: Props) {
           {!isInvoice && invoice.paid_at && <tr style={{ background: '#166534', color: 'white' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>DATA DE PAGAMENTO:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.paid_at)}</td></tr>}
         </tbody>
       </table>
+
+      <div style={{ marginTop: 20, fontSize: '12.5px', lineHeight: 1.7 }}>
+        <strong>DETALHES BANCÁRIOS</strong>
+        <div style={{ marginTop: 4 }}>
+          {COMPANY.name}<br />
+          CNPJ {COMPANY.cnpj}<br />
+          BANCO: {COMPANY.bank}<br />
+          AGÊNCIA: {COMPANY.agency}<br />
+          CONTA CORRENTE {COMPANY.account}
+        </div>
+        <div style={{ display: 'inline-block', background: '#F59E0B', fontWeight: 700, padding: '5px 14px', fontSize: '14px', borderRadius: 3, marginTop: 8 }}>
+          {fmtBRL(totalBRL)}
+        </div>
+      </div>
 
       {/* ── PIX section ── */}
       {isInvoice && invoice.pix_payload && (

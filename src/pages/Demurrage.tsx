@@ -451,7 +451,7 @@ export function Demurrage() {
       {viewInvoiceId && invoiceDetail && (
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Quitacao'}>
           <div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={printInvoiceDocument}>Imprimir</Button></div>
-          <div className="invoice-print-content"><InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} /></div>
+          <div className="invoice-print-content"><InvoiceDocument detail={{ ...invoiceDetail.invoice, items: invoiceDetail.items } as unknown as DemurrageInvoiceDetail} type={docType} /></div>
         </Modal>
       )}
       {customerReportOpen && customerSummary && <CustomerReportModal open rows={customerSummary} onClose={() => setCustomerReportOpen(false)} />}
