@@ -41,10 +41,12 @@ export function projectPortalScheduleRows(rows: PortalScheduleRpcRow[]): PortalS
     }
     const label = LABEL_BY_CODE.get(row.port_code)
     if (label && row.date_value) {
+      const forecastDatesByLabel = voyage.forecastDatesByLabel ?? (voyage.forecastDatesByLabel = {})
+      const actualDatesByLabel = voyage.actualDatesByLabel ?? (voyage.actualDatesByLabel = {})
       voyage.datesByLabel[label] = row.date_value
-      voyage.forecastDatesByLabel[label] = row.date_value
+      forecastDatesByLabel[label] = row.date_value
       if (row.actual_value) {
-        voyage.actualDatesByLabel[label] = row.actual_value
+        actualDatesByLabel[label] = row.actual_value
         voyage.datesByLabel[label] = row.actual_value
       }
       if (row.kind === 'pod' && (voyage.earliestEta === null || row.date_value < voyage.earliestEta)) {
