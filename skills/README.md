@@ -254,6 +254,7 @@ skills at session start from their user-level skill dirs, populated from here by
 |---------|----------------|--------------|
 | Claude Code | `~/.claude/skills/` | `.claude/hooks/session-start.sh` (cloud + local) |
 | Codex | `~/.codex/skills/` | your Codex worktree **Script de configuração** (cloud + local) |
+| OpenCode | `./skills/` via `opencode.json` | `/skill-name` in the prompt |
 
 To add or edit a skill, change it here only — never hand-maintain copies in
 `~/.claude/skills`, `~/.codex/skills`, or ZIP bundles.
@@ -278,6 +279,8 @@ node scripts/skills/install-skills.mjs
 ```
 
 Codex then discovers every skill from `~/.codex/skills/` at session start.
+In Codex/T3, use `/skills` to open the skill picker; Codex does not expose each
+skill as a separate `/skill-name` command in the main slash catalog.
 
 ### With OpenCode
 

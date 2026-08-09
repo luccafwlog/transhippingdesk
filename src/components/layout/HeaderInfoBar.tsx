@@ -48,7 +48,6 @@ export function HeaderInfoBar() {
   const userZoneRef = useRef<HTMLDivElement>(null)
 
   const hasDemurrage = alerts.demurrageOverdue > 0
-  const hasGranite = alerts.granitePending > 0
 
   useEffect(() => {
     if (!userMenuOpen) return
@@ -92,18 +91,6 @@ export function HeaderInfoBar() {
             >
               <AlertTriangle size={11} aria-hidden="true" />
               {alerts.demurrageOverdue} demurrage{alerts.demurrageOverdue !== 1 ? 's' : ''} vencido{alerts.demurrageOverdue !== 1 ? 's' : ''}
-            </button>
-          )}
-          {hasDemurrage && hasGranite && (
-            <span className="hib-sep" aria-hidden="true">·</span>
-          )}
-          {hasGranite && (
-            <button
-              type="button"
-              className="hib-alert-btn"
-              onClick={() => navigate('/granito')}
-            >
-              {alerts.granitePending} Granite pendente{alerts.granitePending !== 1 ? 's' : ''}
             </button>
           )}
         </div>
