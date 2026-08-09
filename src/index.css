@@ -3937,8 +3937,14 @@ textarea {
   .app-nav-bar,
   .app-nav-mobile-bar,
   .app-toast-stack,
-  .app-main > *:not(.app-modal-backdrop) {
+  .app-main > *:not(:has(.app-modal-backdrop)) {
     display: none !important;
+  }
+
+  /* O modal é renderizado dentro da página atual, não diretamente sob
+     .app-main. Preserve o ancestral que contém o documento imprimível. */
+  .app-main > *:has(.app-modal-backdrop) {
+    display: block !important;
   }
 
   /* Remove fixed positioning from backdrop — prevents per-page repetition */

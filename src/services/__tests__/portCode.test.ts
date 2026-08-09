@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizePortCode } from '../portCode'
+import { normalizePortCode, portCodeVariants } from '../portCode'
 
 describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
   const cases: Array<[string, string]> = [
@@ -19,5 +19,10 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
     expect(normalizePortCode('SALVADOR')).toBe('BRSSA')
     expect(normalizePortCode('TAICANG')).toBe('CNTAC')
     expect(normalizePortCode('CNSHA')).toBe('CNSHA')
+  })
+
+  it('retorna aliases persistidos para consultas sem duplicar o porto', () => {
+    expect(portCodeVariants('BRVIX')).toEqual(expect.arrayContaining(['BRVIX', 'VITORIA', 'BRVIT']))
+    expect(portCodeVariants('PECEM')).toEqual(expect.arrayContaining(['BRPEC', 'PECEM']))
   })
 })

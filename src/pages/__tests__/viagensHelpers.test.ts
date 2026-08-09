@@ -205,7 +205,7 @@ describe('collectVoyagePorts', () => {
   ]
 
   it('coleta o campo pedido, faz dedup, trim e ordena', () => {
-    expect(collectVoyagePorts(bls, 'pol', null)).toEqual(['brssa', 'BRVIX'])
+    expect(collectVoyagePorts(bls, 'pol', null)).toEqual(['BRSSA', 'BRVIX'])
     expect(collectVoyagePorts(bls, 'pod', null)).toEqual(['CNNBO', 'CNSHG'])
   })
 
@@ -213,7 +213,7 @@ describe('collectVoyagePorts', () => {
     expect(collectVoyagePorts([], 'pol', 'BRVIX')).toEqual(['BRVIX'])
     expect(collectVoyagePorts(null, 'pol', null)).toEqual([])
     // com portos, o fallback é ignorado
-    expect(collectVoyagePorts(bls, 'pol', 'XPTO')).toEqual(['brssa', 'BRVIX'])
+    expect(collectVoyagePorts(bls, 'pol', 'XPTO')).toEqual(['BRSSA', 'BRVIX'])
   })
 
   it('inclui extraPorts (com trim e dedup)', () => {
