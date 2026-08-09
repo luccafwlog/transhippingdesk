@@ -76,6 +76,7 @@ describe('blParser', () => {
     expect(parsed.parties).toEqual({
       shipperBlock: 'SHIPPER EXPORTS LTDA\nRua A, 100',
       consigneeBlock: 'IMPORTADOR BRASIL LTDA\nCNPJ: 12.345.678/0001-95',
+      consigneeEmail: null,
       consigneeTaxId: '12345678000195',
       notifyBlock: 'NOTIFY BRASIL LTDA',
       alsoNotifyBlock: 'ALSO NOTIFY LTDA',

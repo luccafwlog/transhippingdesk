@@ -12,7 +12,7 @@ describe('projectPortalScheduleRows', () => {
     const out = projectPortalScheduleRows(rows)
     expect(out.map((voyage) => voyage.voyageId)).toEqual([1, 2])
     expect(out[0].datesByLabel.QINGDAO).toBe('2026-01-06')
-    expect(out[0].datesByLabel.SALVADOR).toBe('2026-01-22')
+    expect(out[0].datesByLabel.SALVADOR).toBe('2026-01-23')
     expect(out[0].forecastDatesByLabel?.QINGDAO).toBe('2026-01-04')
     expect(out[0].actualDatesByLabel?.QINGDAO).toBe('2026-01-06')
     expect(out[0].datesByLabel.QINGDAO).toBe('2026-01-06')

@@ -144,10 +144,10 @@ describe('VoyageManifestosTab', () => {
       </MemoryRouter>,
     )
 
-    expect(html).toContain('<th scope="col" class="px-3 py-2">ETD</th>')
+    expect(html).toContain('<th scope="col" class="px-3 py-2">ATD POL</th>')
     expect(html).not.toContain('15/07/2026')
     expect(html).toContain('16/07/2026')
-    expect(html).toContain('text-green-600')
+    expect(html).toContain('style="color:#1f7a4d"')
     expect(html).toContain('font-medium')
     expect(html).not.toContain('Gerar EDI Mercante')
   })
