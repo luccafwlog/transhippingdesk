@@ -34,6 +34,7 @@ import { logOperationalEvent } from '../../services/operationalEvents'
 import { formatBRL, formatDate, stripBlPrefix } from '../../lib/utils'
 import { isLedgerInvoicePayable } from '../../pages/faturamentoLedgerPayment'
 import { invoiceStatusLabel, isOpenInvoiceStatus } from '../../pages/faturamentoInvoiceStatus'
+import { printDocumentElement } from '../../lib/printDocument'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -566,10 +567,8 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
           <div className="mb-3 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setPrintOpen(false)}>Fechar</Button>
             <Button onClick={() => {
-              const prev = document.title
-              document.title = buildInvoiceFileBaseName(detailQuery.data!)
-              window.print()
-              document.title = prev
+              const element = document.querySelector<HTMLElement>('.invoice-print-content')
+              if (element) printDocumentElement(element, buildInvoiceFileBaseName(detailQuery.data!))
             }}><Printer size={16} />Imprimir</Button>
           </div>
           <div className="invoice-print-content">

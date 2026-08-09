@@ -144,6 +144,20 @@ export function Demurrage() {
     void queryClient.invalidateQueries({ queryKey: ['demurrage-kpis'] })
   }
 
+  function printInvoiceDocument() {
+    const content = document.querySelector<HTMLElement>('.invoice-print-content')
+    if (!content) return
+    const printWindow = window.open('', '_blank', 'width=900,height=1100')
+    if (!printWindow) {
+      window.print()
+      return
+    }
+    printWindow.document.write(`<!doctype html><html><head><title>Fatura de Demurrage</title><style>@page{size:A4;margin:0}html,body{margin:0;background:#fff}body{font-family:Arial,sans-serif}.invoice-print-content{width:198mm;min-height:281mm;margin:0 auto;padding:8mm;box-sizing:border-box;background:#fff}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}</style></head><body><div class="invoice-print-content">${content.innerHTML}</div></body></html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    window.setTimeout(() => { printWindow.print(); printWindow.close() }, 250)
+  }
+
   function openEditContainer(container: DemurrageContainerListItem) {
     setEditingContainer(container)
     setEditDischarge(container.discharge_date ?? '')
@@ -436,7 +450,7 @@ export function Demurrage() {
       {reversingPaymentId != null && <DemurragePaymentReversalModal open invoiceId={reversingPaymentId} loading={unpayMutation.isPending} onClose={() => setReversingPaymentId(null)} onSubmit={(reason) => unpayMutation.mutate({ id: reversingPaymentId, reason })} />}
       {viewInvoiceId && invoiceDetail && (
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Quitacao'}>
-          <div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div>
+          <div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={printInvoiceDocument}>Imprimir</Button></div>
           <div className="invoice-print-content"><InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} /></div>
         </Modal>
       )}

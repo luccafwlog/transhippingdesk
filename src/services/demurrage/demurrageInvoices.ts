@@ -368,7 +368,12 @@ export async function getInvoiceDetail(invoiceId: number) {
   if (invRes.error) throw invRes.error
   if (itemsRes.error) throw itemsRes.error
   return {
-    invoice: invRes.data!,
+    invoice: {
+      ...invRes.data!,
+      pix_payload: invRes.data!.pix_payload ?? (invRes.data!.current_total_brl && invRes.data!.doc_number
+        ? buildTransshippingPixPayload(invRes.data!.current_total_brl, invRes.data!.doc_number)
+        : null),
+    },
     items: itemsRes.data ?? [],
   }
 }
