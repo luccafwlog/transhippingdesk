@@ -40,7 +40,7 @@ export function InvoiceDocument({ detail, type }: Props) {
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>
-          <tr><td style={labelCell}>Cliente:</td><td style={{ ...cell, fontSize: 13 }}>{customer?.name ?? '—'}{customerAddress.address ? <><br />{customerAddress.address}</> : ''}{customerAddress.city || customerAddress.state || customerAddress.zip ? <><br />{[customerAddress.city, customerAddress.state].filter(Boolean).join(' - ')}{customerAddress.zip ? ` CEP ${customerAddress.zip}` : ''}</> : ''}{customer?.cnpj_cpf ? <><br />CNPJ: {fmtCNPJ(customer.cnpj_cpf)}</> : ''}</td></tr>
+          <tr><td style={labelCell}>Cliente:</td><td style={{ ...cell, fontSize: 13 }}>{customer?.name ?? '—'}{customerAddress?.address ? <><br />{customerAddress.address}</> : ''}{customerAddress?.city || customerAddress?.state || customerAddress?.zip ? <><br />{[customerAddress.city, customerAddress.state].filter(Boolean).join(' - ')}{customerAddress.zip ? ` CEP ${customerAddress.zip}` : ''}</> : ''}{customer?.cnpj_cpf ? <><br />CNPJ: {fmtCNPJ(customer.cnpj_cpf)}</> : ''}</td></tr>
         </tbody>
       </table>
 
