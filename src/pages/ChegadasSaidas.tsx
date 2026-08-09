@@ -14,7 +14,10 @@ import { setVoyageShowOnPortal } from '../services/voyages'
 function DateTd({ value, isActual = false }: { value: string; isActual?: boolean }) {
   const isX = value === 'X'
   return (
-    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'text-[var(--app-blue)] font-semibold' : ''}`}>
+    <td
+      className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'font-semibold' : ''}`}
+      style={isActual ? { color: 'var(--app-blue)' } : undefined}
+    >
       {isX ? 'X' : formatScheduleDate(value)}
     </td>
   )

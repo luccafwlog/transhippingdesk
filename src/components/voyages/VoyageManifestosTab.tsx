@@ -159,10 +159,6 @@ export function VoyageManifestosTab({
         </div>
       </div>
 
-      <div className="mt-2 text-xs text-[var(--app-muted)]">
-        <span className="text-[var(--app-blue)] font-semibold">Datas em azul</span> = data efetiva confirmada. Datas em preto = data prevista.
-      </div>
-
     </>
   )
 }
