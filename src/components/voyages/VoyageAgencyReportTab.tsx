@@ -135,28 +135,29 @@ function SectionObservationAction({
 
   if (editing) {
     return (
-      <div className="flex w-full flex-wrap items-start justify-end gap-2 sm:w-auto">
-        <textarea
-          key={`${section}:${observation ?? ''}`}
-          aria-label={`Observação — ${title}`}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          autoFocus
-          className="min-h-16 w-full min-w-[18rem] rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-2 text-sm shadow-sm sm:w-80"
-        />
-        <div className="flex gap-2">
-          <Button type="button" variant="secondary" className="app-btn--sm" onClick={() => setEditing(false)}>Cancelar</Button>
-          <Button
-            type="button"
-            variant="primary"
-            className="app-btn--sm"
-            disabled={draft === (observation ?? '')}
-            onClick={() => { onChange?.(section, draft); setEditing(false) }}
-          >
-            {text ? 'Salvar alterações' : 'Salvar observação'}
-          </Button>
+      <Modal open onClose={() => setEditing(false)} title={`${text ? 'Editar' : 'Adicionar'} observação — ${title}`}>
+        <div className="grid gap-4">
+          <textarea
+            key={`${section}:${observation ?? ''}`}
+            aria-label={`Observação — ${title}`}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            autoFocus
+            className="min-h-32 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3 text-sm shadow-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setEditing(false)}>Cancelar</Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={draft === (observation ?? '')}
+              onClick={() => { onChange?.(section, draft); setEditing(false) }}
+            >
+              {text ? 'Salvar alterações' : 'Salvar observação'}
+            </Button>
+          </div>
         </div>
-      </div>
+      </Modal>
     )
   }
 

@@ -730,7 +730,8 @@ it('sem observação escrita, só o dono vê o convite para adicionar uma', () =
   expect(within(datasSection).queryByLabelText('Observação — Escala')).toBeNull()
 
   fireEvent.click(invite)
-  expect(within(datasSection).getByLabelText('Observação — Escala')).toBeTruthy()
+  expect(screen.getByRole('dialog', { name: 'Adicionar observação — Escala' })).toBeTruthy()
+  expect(screen.getByLabelText('Observação — Escala')).toBeTruthy()
 })
 
 it('observação escrita por outro departamento é lida por quem não pode editá-la', () => {

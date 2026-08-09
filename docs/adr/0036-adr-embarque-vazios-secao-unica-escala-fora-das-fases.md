@@ -69,8 +69,10 @@ assinatura departamental.
 escrito, ele é exibido como conteúdo do relatório para qualquer leitor. Quando
 não há, apenas o dono da seção vê o convite "Adicionar observação"; quem não
 pode assinar não vê mais um campo vazio nem um "—" anunciando uma nota que
-ninguém deixou. Isso preserva a natureza da 0030 (edição livre do dono, sem
-justificativa nem histórico) e muda só a superfície.
+ninguém deixou. Ao acionar o convite, a edição acontece em um modal pop-up,
+com os comandos "Cancelar" e "Salvar observação" (ou "Salvar alterações"),
+sem expandir um campo dentro da seção. Isso preserva a natureza da 0030
+(edição livre do dono, sem justificativa nem histórico) e muda só a superfície.
 
 **A seção `carga_carregada` chama-se "Carga carregada"**, com o granito como seu
 conteúdo — não como seu nome. Se outra carga de exportação entrar, nada precisa
