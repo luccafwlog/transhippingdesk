@@ -1,0 +1,36 @@
+{
+  "userId": "1d9675f6-5737-4db8-bf6e-ce45414e574b",
+  "generatedAt": "2026-08-09T18:04:25.399Z",
+  "fixturePrefix": "QA-DISPLAY-2026",
+  "fixtureCode": "QAD26",
+  "protectedTables": [
+    "charge_tables",
+    "charge_table_items",
+    "depots",
+    "terminals",
+    "services"
+  ],
+  "externalSideEffectsDisabled": true,
+  "counts": {
+    "voyages": 33,
+    "vessels": 32,
+    "voyage_scales": 0,
+    "customers": 0,
+    "bls": 2,
+    "bl_containers": 3,
+    "baplie_containers": 759,
+    "vehicles": 0,
+    "breakbulk_manifests": 0,
+    "granite_bls": 0,
+    "vazios_bookings": 0,
+    "vazios_importacao_containers": 0,
+    "vazios_export_operations": 0,
+    "invoices": 0,
+    "bl_receivables": 0,
+    "ledger_settlements": 0,
+    "demurrage_invoices": 0,
+    "customer_portal_accounts": 0,
+    "portal_notifications": 0,
+    "audit_logs": 202
+  }
+}

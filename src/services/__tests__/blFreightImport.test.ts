@@ -699,13 +699,13 @@ describe('blFreightImport', () => {
     }
 
     await confirmBlFreightImport(preview, 'user-1', true)
-    const sent = mockRpc.mock.calls[0]?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
+    const sent = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
     expect(sent.find((bl) => bl.id === 'IMPACT')?.override_billing).toBe(true)
     expect(sent.find((bl) => bl.id === 'FREE')?.override_billing).toBe(true)
 
     mockRpc.mockClear()
     await confirmBlFreightImport(preview, 'user-1', false)
-    const sentNoOverride = mockRpc.mock.calls[0]?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
+    const sentNoOverride = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
     // impacting row stays un-applied; the free row still applies
     expect(sentNoOverride.find((bl) => bl.id === 'IMPACT')?.override_billing).toBe(false)
     expect(sentNoOverride.find((bl) => bl.id === 'FREE')?.override_billing).toBe(true)

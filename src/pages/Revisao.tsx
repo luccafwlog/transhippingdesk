@@ -43,6 +43,7 @@ export function Revisao() {
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
   // A fila inicia recolhida; o conjunto guarda apenas os grupos que o operador abriu.
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
   const [savingGroupKey, setSavingGroupKey] = useState<string | null>(null)
   const [savingInlineId, setSavingInlineId] = useState<string | null>(null)
   const [recalcQueue, setRecalcQueue] = useState<RecalcNotice[]>([])
@@ -200,6 +201,10 @@ export function Revisao() {
   }, [data, searchText, reasonFilter])
 
   const groups = useMemo(() => groupReviewItems(filteredData), [filteredData])
+
+  const visibleExpandedGroups = expandedGroups.size > 0
+    ? expandedGroups
+    : new Set(groups.map((group) => group.key))
 
   const allReasons = useMemo(() => {
     if (!data) return []
@@ -476,7 +481,7 @@ export function Revisao() {
             <ReviewGroupBlock
               key={group.key}
               group={group}
-              collapsed={!expandedGroups.has(group.key)}
+              collapsed={!visibleExpandedGroups.has(group.key)}
               savingGroup={savingGroupKey === group.key}
               savingInlineId={savingInlineId}
               onToggle={() => toggleGroupCollapsed(group.key)}

@@ -36,3 +36,15 @@ export function normalizePortCode(value: string | null | undefined) {
 
   return normalized
 }
+
+/** Todas as formas persistidas historicamente para o mesmo porto. */
+export function portCodeVariants(value: string | null | undefined): string[] {
+  const canonical = normalizePortCode(value)
+  if (!canonical) return []
+  const variants = new Set([canonical])
+  for (const [name, code] of PORT_NAME_TO_LOCODE) {
+    if (code === canonical) variants.add(name.toUpperCase())
+  }
+  if (canonical === 'BRVIX') variants.add('BRVIT')
+  return [...variants]
+}

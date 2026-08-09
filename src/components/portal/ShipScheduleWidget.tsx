@@ -93,7 +93,7 @@ export function ShipScheduleWidget() {
               <span className="font-medium"><span className="text-[var(--app-blue-btn)]">Datas em azul</span> = data efetiva confirmada. Datas em preto = data prevista.</span>
               <span className="font-medium">X = Não programado</span>
             </div>
-            <span className="font-medium">Atualizado conforme os dados publicados.</span>
+             <span className="font-medium">A data programada já alcançada aparece em azul. Atualizado conforme os dados publicados.</span>
           </div>
         </>
       )}

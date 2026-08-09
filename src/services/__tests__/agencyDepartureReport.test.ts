@@ -77,6 +77,7 @@ function singleQueryBuilder(data: unknown) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    in: vi.fn(() => builder),
     maybeSingle: vi.fn(() => Promise.resolve({ data, error: null })),
   }
   return builder
@@ -205,8 +206,8 @@ describe('getAgencyReportDerivedData', () => {
     })
 
     expect(breakbulkQuery.eq).toHaveBeenCalledWith('voyage_id', 7)
-    expect(breakbulkQuery.eq).toHaveBeenCalledWith('pod', 'BRSSZ')
     expect(breakbulkQuery.eq).toHaveBeenCalledWith('cargo_mode', 'carga_solta')
+    expect(breakbulkQuery.in).toHaveBeenCalledWith('pod', ['BRSSZ'])
   })
 
   it('restringe veículos ao POD do BL, evitando misturar escalas da mesma viagem', async () => {

@@ -251,18 +251,17 @@ export function collectVoyagePorts(
   fallback: string | null,
   extraPorts: Array<string | { port?: string | null; pol?: string | null; pod?: string | null } | null | undefined> = [],
 ) {
-  const ports = Array.from(
-    new Set(
-      [
-        ...(bls ?? []).map((bl) => bl[field]?.trim() ?? ''),
-        ...extraPorts.map((value) => normalizeCollectedPort(value, field)),
-      ]
-        .filter(Boolean),
-    ),
-  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
+  const ports = Array.from(new Set(
+    [
+      ...(bls ?? []).map((bl) => bl[field]),
+      ...extraPorts.map((value) => normalizeCollectedPort(value, field)),
+    ]
+      .map((value) => normalizePortCode(value))
+      .filter((value): value is string => Boolean(value)),
+  )).sort((left, right) => left.localeCompare(right, 'pt-BR'))
 
   if (!ports.length && fallback) {
-    return [fallback]
+    return [normalizePortCode(fallback) ?? fallback]
   }
 
   return ports
@@ -302,10 +301,15 @@ export function computeAdrEscalaPods(
   podRows: Array<{ pod: string; omitted?: boolean }> | null | undefined,
   closedAdrPorts: Iterable<string> | null | undefined,
 ): AdrEscalaPod[] {
-  const closedSet = new Set(Array.from(closedAdrPorts ?? []).map((port) => normalizePortName(port)))
-  return (podRows ?? [])
-    .filter((row) => !row.omitted || closedSet.has(normalizePortName(row.pod)))
-    .map((row) => ({ pod: row.pod, omitted: Boolean(row.omitted) }))
+  const closedSet = new Set(Array.from(closedAdrPorts ?? []).map((port) => normalizePortCode(port) ?? normalizePortName(port)))
+  const byPort = new Map<string, AdrEscalaPod>()
+  for (const row of podRows ?? []) {
+    const pod = normalizePortCode(row.pod) ?? normalizePortName(row.pod)
+    if (!pod || (row.omitted && !closedSet.has(pod))) continue
+    const current = byPort.get(pod)
+    byPort.set(pod, { pod, omitted: Boolean(current?.omitted || row.omitted) })
+  }
+  return [...byPort.values()]
 }
 
 // --- Estado de Conciliação da Viagem (ver CONTEXT.md) -----------------------

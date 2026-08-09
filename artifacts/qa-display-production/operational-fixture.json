@@ -1,0 +1,179 @@
+{
+  "prefix": "QA-DISPLAY-2026",
+  "createdBy": "lucca.juliatti@fwlog.com.br",
+  "userId": "1d9675f6-5737-4db8-bf6e-ce45414e574b",
+  "customers": [
+    {
+      "id": 1,
+      "cnpj": "QA26000100000101"
+    },
+    {
+      "id": 2,
+      "cnpj": "QA26000100000201"
+    },
+    {
+      "id": 3,
+      "cnpj": "QA26000100000301"
+    },
+    {
+      "id": 4,
+      "cnpj": "QA26000100000401"
+    }
+  ],
+  "voyages": [
+    {
+      "id": 34,
+      "number": "QAD26A"
+    },
+    {
+      "id": 35,
+      "number": "QAD26B"
+    }
+  ],
+  "createdAt": "2026-08-09T18:14:49.160Z",
+  "bls": [
+    {
+      "id": "QAD26-BL-001",
+      "voyage_id": 34,
+      "customer_id": 1,
+      "container_id": 6
+    },
+    {
+      "id": "QAD26-BL-002",
+      "voyage_id": 34,
+      "customer_id": 2,
+      "container_id": 7
+    },
+    {
+      "id": "QAD26-BL-003",
+      "voyage_id": 34,
+      "customer_id": 3,
+      "container_id": 8
+    },
+    {
+      "id": "QAD26-BL-004",
+      "voyage_id": 35,
+      "customer_id": 4,
+      "container_id": 9
+    },
+    {
+      "id": "QAD26-BL-005",
+      "voyage_id": 35,
+      "customer_id": 1,
+      "container_id": 10
+    },
+    {
+      "id": "QAD26-BL-006",
+      "voyage_id": 35,
+      "customer_id": 2,
+      "container_id": 11
+    }
+  ],
+  "vehicles": [
+    {
+      "id": 1,
+      "chassis": "QAD26-CH-001",
+      "bl_id": "QAD26-BL-001"
+    },
+    {
+      "id": 2,
+      "chassis": "QAD26-CH-002",
+      "bl_id": "QAD26-BL-001"
+    },
+    {
+      "id": 3,
+      "chassis": "QAD26-CH-003",
+      "bl_id": "QAD26-BL-004"
+    }
+  ],
+  "granite": [
+    {
+      "id": "a8bcee21-18e1-4a13-a2fe-ed46a80bb3ae",
+      "bl_number": "QAD26-GR-001"
+    },
+    {
+      "id": "738597b3-5e0f-4e16-b1cf-8f8a7850bcb0",
+      "bl_number": "QAD26-GR-002"
+    }
+  ],
+  "emptyContainers": {
+    "total": 3,
+    "replaced": true,
+    "manifest_id": "bd74c8f9-f33e-429e-8032-f323951ac3a5",
+    "operation_id": "f3a8a71f-a328-40ef-bfe1-91c9bccb5ede",
+    "depotCode": "TCVV"
+  },
+  "demurrage": {
+    "doc_number": "QAD26-DEM-001",
+    "reused": true
+  },
+  "localInvoice": {
+    "reused": true
+  },
+  "portalAccounts": [
+    {
+      "customerId": 1,
+      "account": {
+        "id": 1,
+        "active": false,
+        "created_at": "2026-08-09T18:07:13.163593+00:00",
+        "created_by": null,
+        "login_cnpj": null,
+        "updated_at": "2026-08-09T18:14:51.680995+00:00",
+        "customer_id": 1,
+        "auth_user_id": null,
+        "portal_email": null,
+        "contact_email": "portal-1@example.invalid",
+        "last_login_at": null
+      }
+    },
+    {
+      "customerId": 2,
+      "account": {
+        "id": 2,
+        "active": false,
+        "created_at": "2026-08-09T18:07:13.473217+00:00",
+        "created_by": null,
+        "login_cnpj": null,
+        "updated_at": "2026-08-09T18:14:51.760638+00:00",
+        "customer_id": 2,
+        "auth_user_id": null,
+        "portal_email": null,
+        "contact_email": "portal-2@example.invalid",
+        "last_login_at": null
+      }
+    },
+    {
+      "customerId": 3,
+      "account": {
+        "id": 3,
+        "active": false,
+        "created_at": "2026-08-09T18:07:13.6362+00:00",
+        "created_by": null,
+        "login_cnpj": null,
+        "updated_at": "2026-08-09T18:14:51.825422+00:00",
+        "customer_id": 3,
+        "auth_user_id": null,
+        "portal_email": null,
+        "contact_email": "portal-3@example.invalid",
+        "last_login_at": null
+      }
+    },
+    {
+      "customerId": 4,
+      "account": {
+        "id": 4,
+        "active": false,
+        "created_at": "2026-08-09T18:07:13.753274+00:00",
+        "created_by": null,
+        "login_cnpj": null,
+        "updated_at": "2026-08-09T18:14:51.889185+00:00",
+        "customer_id": 4,
+        "auth_user_id": null,
+        "portal_email": null,
+        "contact_email": "portal-4@example.invalid",
+        "last_login_at": null
+      }
+    }
+  ]
+}

@@ -1,17 +1,13 @@
 import { QRCodeSVG } from 'qrcode.react'
 import type { DemurrageInvoiceDetail, RoeSource } from '../../types/database'
-import { COMPANY } from '../../config/company'
 import { DEMURRAGE_ROE_MARKUP } from '../../services/demurrage/demurrageKpis'
-import { cell, documentRoot, fmtBRL, labelCell } from '../shared/invoiceFormat'
-import { InvoiceClientBlock, InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
+import { cell, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
+import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
-type Props = {
-  detail: DemurrageInvoiceDetail
-  type: 'invoice' | 'receipt'
-}
+type Props = { detail: DemurrageInvoiceDetail; type: 'invoice' | 'receipt' }
 
 function fmtUSD(v: number) {
-  return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `US$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function fmtDate(s: string | null | undefined) {
@@ -24,7 +20,7 @@ function fmtRefDate(s: string | null | undefined) {
   return new Date(s).toLocaleDateString('pt-BR')
 }
 
-function roeSourceLabel(source: RoeSource | null): string {
+function roeSourceLabel(source: RoeSource | null) {
   if (source === 'cached') return 'BCB (cache)'
   if (source === 'manual') return 'Informada manualmente'
   return 'BCB'
@@ -33,160 +29,67 @@ function roeSourceLabel(source: RoeSource | null): string {
 export function InvoiceDocument({ detail, type }: Props) {
   const { items, customer, bl, ...invoice } = detail
   const isInvoice = type === 'invoice'
-
-  const vessel = bl?.voyage?.vessel?.name ?? '—'
-  const voyageNumber = bl?.voyage?.voyage_number ?? '—'
-  const containerList = items.map((i) => i.container_number).join(', ')
-
   const roe = invoice.current_roe ?? invoice.roe ?? null
   const roeValue = roe ?? 1
+  const vesselVoyage = `${bl?.voyage?.vessel?.name ?? ''} ${bl?.voyage?.voyage_number ?? ''}`.trim() || '—'
+  const containers = items.map((item) => item.container_number).join(', ') || '—'
+  const itemsWithBRL = items.map((item) => ({ ...item, subtotal_brl: item.subtotal_usd * roeValue }))
+  const rawTotalBRL = itemsWithBRL.reduce((sum, item) => sum + item.subtotal_brl, 0)
 
-  // Per-row BRL = subtotal_usd × roe
-  const itemsWithBRL = items.map((item) => ({
-    ...item,
-    subtotal_brl: item.subtotal_usd * roeValue,
-  }))
-
-  const rawTotalBRL = itemsWithBRL.reduce((s, i) => s + i.subtotal_brl, 0)
-
-  // Desconto sempre em USD, antes da conversão (ADR 0014): o valor fixo está em
-  // dólares e é convertido a BRL pelo ROE; o percentual incide sobre o total.
-  let discountAmt = 0
+  let discountBRL = 0
   if (invoice.discount_value && invoice.discount_value > 0) {
-    if (invoice.discount_mode === 'percent') {
-      discountAmt = rawTotalBRL * (invoice.discount_value / 100)
-    } else {
-      discountAmt = invoice.discount_value * roeValue
-    }
+    discountBRL = invoice.discount_mode === 'percent'
+      ? rawTotalBRL * (invoice.discount_value / 100)
+      : invoice.discount_value * roeValue
   }
-
-  const totalBRL = invoice.current_total_brl ?? Math.max(0, rawTotalBRL - discountAmt)
+  const totalBRL = invoice.current_total_brl ?? Math.max(0, rawTotalBRL - discountBRL)
   const hasDiscount = (invoice.discount_value ?? 0) > 0
 
   return (
     <div style={documentRoot}>
-
-      <InvoiceDocHeader logoSrc="/branding/tr-logo.png" docNumber={invoice.doc_number} />
-
-      <InvoiceDocTitle>
+      <InvoiceDocHeader logoSrc="/branding/transhipping-logo-cropped.png" docNumber={invoice.doc_number} />
+      <InvoiceDocTitle uppercase>
         {isInvoice ? 'FATURA DE SOBREESTADIA DE CONTAINER' : 'RECIBO DE QUITAÇÃO DE SOBREESTADIA'}
       </InvoiceDocTitle>
 
-      {roe != null && (
-        <p style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', margin: '0 0 12px' }}>
-          Valores calculados em {fmtRefDate(invoice.updated_at)} com PTAX de R$ {fmtBRL(roe / DEMURRAGE_ROE_MARKUP)}
-          {' '}(fonte: {roeSourceLabel(invoice.roe_source)})
-        </p>
-      )}
-
-      <InvoiceClientBlock name={customer?.name} cnpjCpf={customer?.cnpj_cpf} />
-      <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '0 0 0' }} />
-
-      {/* ── Shipment info ── */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>
-          {[
-            ['BL', invoice.bl_id],
-            ['Container(s)', containerList || '—'],
-            ['Navio/Voy:', `${vessel} ${voyageNumber}`],
-            ['From:', bl?.pol ?? '—'],
-            ['To:', bl?.pod ?? '—'],
-          ].map(([label, value]) => (
-            <tr key={label}>
-              <td style={labelCell}>{label}</td>
-              <td style={cell}>{value}</td>
-            </tr>
-          ))}
+          <tr><td style={labelCell}>Cliente:</td><td style={cell}>{customer?.name ?? '—'}{customer?.cnpj_cpf ? <><br />CNPJ: {fmtCNPJ(customer.cnpj_cpf)}</> : ''}</td></tr>
+          <tr><td style={labelCell}>B/L:</td><td style={{ ...cell, color: '#1A2744', fontWeight: 600 }}>{invoice.bl_id}</td></tr>
+          <tr><td style={labelCell}>Containers:</td><td style={cell}>{containers}</td></tr>
+          <tr><td style={labelCell}>Navio/Voy.:</td><td style={cell}>{vesselVoyage}</td></tr>
+          <tr><td style={labelCell}>Origem / Destino:</td><td style={cell}>{bl?.pol ?? '—'} → {bl?.pod ?? '—'}</td></tr>
+          {roe != null && <tr><td style={labelCell}>Câmbio aplicado:</td><td style={cell}>ROE {roe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} — PTAX de R$ {fmtBRL(roe / DEMURRAGE_ROE_MARKUP)} ({roeSourceLabel(invoice.roe_source)}), em {fmtRefDate(invoice.updated_at)}</td></tr>}
+          <tr><td style={labelCell}>Emitida em:</td><td style={cell}>{fmtRefDate(invoice.created_at)}</td></tr>
         </tbody>
       </table>
 
-      {/* ── ROE badge ── */}
-      {roe && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-          <div style={{ background: '#F59E0B', padding: '5px 18px', display: 'flex', gap: 24, fontWeight: 700, borderRadius: 3, fontSize: '13px' }}>
-            <span>ROE</span>
-            <span>{roe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Items table ── */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, fontSize: '12px' }}>
-        <thead>
-          <tr style={{ background: '#1A2744', color: 'white' }}>
-            {['CONTAINER', 'TIPO', 'DIAS 1º PER.', 'USD/Dia', 'DIAS 2º PER.', 'USD/Dia', 'DESCARGA', 'RETORNO', 'LÍQUIDO'].map((h) => (
-              <th scope="col" key={h} style={{ padding: '9px 8px', textAlign: h === 'CONTAINER' ? 'left' : 'center', fontWeight: 600, fontSize: '11px' }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
+      <table style={{ width: '100%', borderCollapse: 'collapse', margin: '16px 0', fontSize: '12px' }}>
+        <thead><tr style={{ background: '#1A2744', color: 'white' }}>
+          {['Descrição', 'Qtd', 'Unit. BRL', 'Total BRL'].map((header) => <th scope="col" key={header} style={{ padding: '9px 7px', textAlign: header === 'Descrição' ? 'left' : 'right' }}>{header}</th>)}
+        </tr></thead>
         <tbody>
           {itemsWithBRL.map((item, idx) => (
-            <tr key={item.id} style={{ background: idx % 2 === 0 ? '#f9fafb' : 'white', borderBottom: '1px solid #e5e7eb' }}>
-              <td style={{ padding: '8px', fontWeight: 600 }}>{item.container_number}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{item.container_type}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{item.days_p1}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{fmtUSD(item.rate_p1_usd)}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{item.days_p2}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{fmtUSD(item.rate_p2_usd)}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{fmtDate(item.discharge_date)}</td>
-              <td style={{ padding: '8px', textAlign: 'center' }}>{fmtDate(item.return_date)}</td>
-              <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.subtotal_brl)}</td>
+            <tr key={item.id} style={{ background: idx % 2 === 0 ? '#f9fafb' : 'white', borderBottom: '1px solid #eee' }}>
+              <td style={{ padding: '8px 7px' }}>
+                <strong>{item.container_number} — {item.container_type}</strong>
+                <div style={{ fontSize: '10px', color: '#6b7280' }}>{item.days_p1} dias 1º período × {fmtUSD(item.rate_p1_usd)}; {item.days_p2} dias 2º período × {fmtUSD(item.rate_p2_usd)}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280' }}>Descarga: {fmtDate(item.discharge_date)} · Retorno: {fmtDate(item.return_date)}</div>
+              </td>
+              <td style={{ padding: '8px 7px', textAlign: 'right' }}>{item.days_p1 + item.days_p2} dias</td>
+              <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.subtotal_brl / Math.max(1, item.days_p1 + item.days_p2))}</td>
+              <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.subtotal_brl)}</td>
             </tr>
           ))}
-
-          {hasDiscount && (
-            <>
-              <tr style={{ background: '#F59E0B' }}>
-                <td colSpan={8} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>SUBTOTAL:</td>
-                <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>{fmtBRL(rawTotalBRL)}</td>
-              </tr>
-              <tr style={{ background: '#f0fdf4' }}>
-                <td colSpan={8} style={{ padding: '8px 10px', textAlign: 'right' }}>
-                  DESCONTO {invoice.discount_mode === 'percent' ? `(${invoice.discount_value}%)` : 'FIXO'}
-                  {invoice.discount_type ? ` — ${invoice.discount_type}` : ''}:
-                </td>
-                <td style={{ padding: '8px 10px', textAlign: 'right', color: '#166534' }}>- {fmtBRL(discountAmt)}</td>
-              </tr>
-            </>
-          )}
-
-          <tr style={{ background: '#F59E0B' }}>
-            <td colSpan={8} style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700 }}>
-              {hasDiscount ? 'TOTAL FINAL:' : 'TOTAL:'}
-            </td>
-            <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700 }}>{fmtBRL(totalBRL)}</td>
-          </tr>
-
-          {isInvoice && invoice.due_date && (
-            <tr style={{ background: '#1A2744', color: 'white' }}>
-              <td colSpan={8} style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600 }}>VENCIMENTO DIA</td>
-              <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.due_date)}</td>
-            </tr>
-          )}
-
-          {!isInvoice && invoice.paid_at && (
-            <tr style={{ background: '#166534', color: 'white' }}>
-              <td colSpan={8} style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600 }}>DATA DE PAGAMENTO:</td>
-              <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.paid_at)}</td>
-            </tr>
-          )}
+          {hasDiscount && <>
+            <tr style={{ background: '#f0f4fa' }}><td colSpan={3} style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600 }}>Subtotal:</td><td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(rawTotalBRL)}</td></tr>
+            <tr style={{ background: '#f0fdf4' }}><td colSpan={3} style={{ padding: '7px 12px', textAlign: 'right' }}>Desconto {invoice.discount_mode === 'percent' ? `(${invoice.discount_value}%)` : 'fixo'}{invoice.discount_type ? ` — ${invoice.discount_type}` : ''}:</td><td style={{ padding: '7px 12px', textAlign: 'right', color: '#166534' }}>- {fmtBRL(discountBRL)}</td></tr>
+          </>}
+          <tr style={{ background: '#F59E0B' }}><td colSpan={3} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>TOTAL:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>{fmtBRL(totalBRL)}</td></tr>
+          {isInvoice && invoice.due_date && <tr style={{ background: '#1A2744', color: 'white' }}><td colSpan={3} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>Vencimento:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.due_date)}</td></tr>}
+          {!isInvoice && invoice.paid_at && <tr style={{ background: '#166534', color: 'white' }}><td colSpan={3} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>Data de pagamento:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.paid_at)}</td></tr>}
         </tbody>
       </table>
-
-      {/* ── Bank details ── */}
-      <div style={{ marginTop: 20, fontSize: '12.5px', lineHeight: 1.7 }}>
-        <strong>DETALHES BANCÁRIOS</strong>
-        <div style={{ marginTop: 4 }}>
-          {COMPANY.name}<br />
-          CNPJ {COMPANY.cnpj}<br />
-          BANCO: {COMPANY.bank}<br />
-          AGÊNCIA: {COMPANY.agency}<br />
-          CONTA CORRENTE {COMPANY.account}
-        </div>
-        <div style={{ display: 'inline-block', background: '#F59E0B', fontWeight: 700, padding: '5px 14px', fontSize: '14px', borderRadius: 3, marginTop: 8 }}>
-          {fmtBRL(totalBRL)}
-        </div>
-      </div>
 
       {/* ── PIX section ── */}
       {isInvoice && invoice.pix_payload && (

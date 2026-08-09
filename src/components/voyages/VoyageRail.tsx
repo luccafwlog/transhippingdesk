@@ -102,6 +102,12 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
 
   useLayoutEffect(() => sync(), [items, sync])
 
+  useLayoutEffect(() => {
+    if (ref.current && typeof ref.current.scrollTo === 'function') {
+      ref.current.scrollTo({ left: 0, behavior: 'auto' })
+    }
+  }, [ref])
+
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-5 text-sm text-[var(--app-muted)]">
