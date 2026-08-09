@@ -336,7 +336,7 @@ export async function cancelDemurrageInvoice(invoiceId: number): Promise<void> {
 export async function listDemurrageInvoices(filters?: DemurrageInvoiceFilters): Promise<DemurrageInvoiceListItem[]> {
   let query = supabase
     .from('demurrage_invoices')
-    .select(`*, customer:customers(id,name,cnpj_cpf), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`)
+    .select(`*, customer:customers(id,name,cnpj_cpf,address,city,state,zip), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`)
     .order('created_at', { ascending: false })
 
   if (filters?.status) query = query.eq('status', filters.status)
@@ -354,7 +354,7 @@ export async function getInvoiceDetail(invoiceId: number) {
   const [invRes, itemsRes] = await Promise.all([
     supabase
       .from('demurrage_invoices')
-      .select(`*, customer:customers(id,name,cnpj_cpf), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`)
+      .select(`*, customer:customers(id,name,cnpj_cpf,address,city,state,zip), bl:bls(id,pol,pod,voyage:voyages(id,voyage_number,vessel:vessels(id,name)))`)
       .eq('id', invoiceId)
       .single()
       .overrideTypes<DemurrageInvoiceListItem, { merge: false }>(),

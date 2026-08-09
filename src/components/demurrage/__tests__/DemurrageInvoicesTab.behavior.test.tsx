@@ -28,16 +28,10 @@ it('organiza a linha em pilhas de contexto e separa a acao principal das finance
     loading={false}
     error={null}
     onOpenDetail={vi.fn()}
-    onOpenDiscount={vi.fn()}
-    onOpenDispute={vi.fn()}
-    onOpenPayment={vi.fn()}
-    onOpenDocument={vi.fn()}
-    onCancel={vi.fn()}
-    onReversePayment={vi.fn()}
   />)
 
   expect(screen.getByTestId('demurrage-invoice-context')).toBeTruthy()
   expect(screen.getByTestId('demurrage-invoice-financial')).toBeTruthy()
   expect(screen.getByTestId('demurrage-invoice-primary-action')).toBeTruthy()
-  expect(screen.getByTestId('demurrage-invoice-secondary-actions')).toBeTruthy()
+  expect(screen.queryByTestId('demurrage-invoice-secondary-actions')).toBeNull()
 })

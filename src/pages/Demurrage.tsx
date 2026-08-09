@@ -378,12 +378,6 @@ export function Demurrage() {
           loading={invoicesLoading}
           error={invoicesError}
           onOpenDetail={setDetailInvoiceId}
-          onOpenDiscount={openDiscount}
-          onOpenDispute={openDispute}
-          onOpenPayment={setPayingId}
-          onOpenDocument={(invoiceId, type) => { setViewInvoiceId(invoiceId); setDocType(type) }}
-          onCancel={(invoiceId) => void handleCancelInvoice(invoiceId)}
-          onReversePayment={setReversingPaymentId}
         />
       )}
 
@@ -411,7 +405,12 @@ export function Demurrage() {
       <Modal open={detailInvoiceId != null} onClose={() => setDetailInvoiceId(null)} title="Detalhes da invoice">
         {breakdownDetail ? (
           <div className="p-4">
-            <div className="mb-3 flex items-center justify-between"><div className="text-sm text-slate-400">{breakdownDetail.invoice.doc_number} — {fmtUSD(breakdownDetail.invoice.total_usd)}</div></div>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><div className="font-semibold text-[var(--app-text-strong)]">{breakdownDetail.invoice.doc_number}</div><div className="text-sm text-slate-400">{breakdownDetail.invoice.bl_id} — {fmtUSD(breakdownDetail.invoice.total_usd)}</div></div><div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => { setDetailInvoiceId(null); openDiscount(breakdownDetail.invoice as DemurrageInvoice) }}>Desconto</Button>
+              <Button variant="secondary" onClick={() => { setDetailInvoiceId(null); openDispute(breakdownDetail.invoice as DemurrageInvoice) }}>Disputa</Button>
+              {breakdownDetail.invoice.status === 'issued' && <><Button variant="secondary" onClick={() => { setDetailInvoiceId(null); setPayingId(breakdownDetail.invoice.id) }}>Registrar Pgto</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('invoice') }}>Fatura</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); void handleCancelInvoice(breakdownDetail.invoice.id) }}>Cancelar</Button></>}
+              {breakdownDetail.invoice.status === 'paid' && <><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('receipt') }}>Recibo</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('invoice') }}>Fatura</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setReversingPaymentId(breakdownDetail.invoice.id) }}>Cancelar baixa</Button></>}
+            </div></div>
             <div className="overflow-x-auto">
               <table className="app-table app-table--compact min-w-[700px] text-left text-sm">
                 <thead className="bg-[#0d1117] text-xs uppercase text-slate-500"><tr><th scope="col" className="py-2">Container</th><th scope="col" className="py-2">Tipo</th><th scope="col" className="py-2">Descarga</th><th scope="col" className="py-2">Devolução</th><th scope="col" className="py-2">Dias</th><th scope="col" className="py-2">Free</th><th scope="col" className="py-2">P1</th><th scope="col" className="py-2">P2</th><th scope="col" className="py-2">Subtotal</th></tr></thead>
@@ -437,7 +436,8 @@ export function Demurrage() {
       {reversingPaymentId != null && <DemurragePaymentReversalModal open invoiceId={reversingPaymentId} loading={unpayMutation.isPending} onClose={() => setReversingPaymentId(null)} onSubmit={(reason) => unpayMutation.mutate({ id: reversingPaymentId, reason })} />}
       {viewInvoiceId && invoiceDetail && (
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Quitacao'}>
-          <div className="p-2"><div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><div className="invoice-print-content"><InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} /></div></div>
+          <div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div>
+          <div className="invoice-print-content"><InvoiceDocument detail={invoiceDetail as unknown as DemurrageInvoiceDetail} type={docType} /></div>
         </Modal>
       )}
       {customerReportOpen && customerSummary && <CustomerReportModal open rows={customerSummary} onClose={() => setCustomerReportOpen(false)} />}
