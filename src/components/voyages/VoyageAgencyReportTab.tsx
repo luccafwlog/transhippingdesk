@@ -37,6 +37,7 @@ import { calculateAgencyReportDeadlineDate } from '../../services/agencyReportDe
 import type { AgencyReportDepartmentKey, Json } from '../../types/database'
 import type { AdrEscalaPod } from '../../services/voyageSummaries'
 import { formatBRL, formatDate } from '../../lib/utils'
+import { normalizePortCode } from '../../services/portCode'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../ui/Toast'
 
@@ -258,7 +259,8 @@ function OrphanDataWarning({ entries, label }: { entries: Array<{ port: string; 
 
 export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {
   const { showToast } = useToast()
-  const initialPort = initialEscala && pods.some((entry) => entry.pod === initialEscala) ? initialEscala : (pods[0]?.pod ?? null)
+  const initialPortCode = normalizePortCode(initialEscala)
+  const initialPort = initialPortCode && pods.some((entry) => normalizePortCode(entry.pod) === initialPortCode) ? initialPortCode : (normalizePortCode(pods[0]?.pod) ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port)

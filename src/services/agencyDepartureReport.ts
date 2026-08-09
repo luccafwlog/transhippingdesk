@@ -17,7 +17,7 @@ import { computeStorageTotals, type VaziosExportServiceLineWithObservation } fro
 import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, getVoyageUnifiedAtd, listVoyagePodSchedules } from './voyageRouteSchedules'
-import { normalizePortCode } from './portCode'
+import { normalizePortCode, portCodeVariants } from './portCode'
 
 // Seis seções assináveis (ADR 0036). 'operacao_patio' foi absorvida por
 // 'vazios_embarcados' — Embarque de Vazios é UM agregado por escala
@@ -488,7 +488,7 @@ async function listTransshipmentBlIds(voyageId: number, port: string): Promise<s
     .from('voyage_omissions')
     .select('id')
     .eq('voyage_id', voyageId)
-    .eq('discharge_pod', port)
+    .in('discharge_pod', portCodeVariants(port))
   if (omissionsRes.error) throw omissionsRes.error
   const omissionIds = (omissionsRes.data ?? []).map((row) => row.id)
   if (!omissionIds.length) return []
@@ -617,7 +617,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
         .from('vazios_importacao_containers')
         .select('container_type, natureza, pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
         .eq('manifest.voyage_id', voyageId)
-        .eq('pod', port)
+        .in('pod', portCodeVariants(port))
         .range(from, to),
     ),
     // Task 6 (ADR 2026-07-31): não filtra loading_port no banco — B/Ls
@@ -637,7 +637,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
         .from('baplie_containers')
         .select('container_number, size_type, status, is_imo, pod')
         .eq('voyage_id', voyageId)
-        .eq('pod', port)
+        .in('pod', portCodeVariants(port))
         .range(from, to),
     ),
     fetchAllRows((from, to) =>
@@ -652,7 +652,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .from('vazios_export_operations')
       .select('*')
       .eq('voyage_id', voyageId)
-      .eq('embark_port', port)
+      .in('embark_port', portCodeVariants(port))
       .maybeSingle(),
     // Task 10 (ADR 2026-07-31): todas as operações de Embarque de Vazios da
     // viagem, sem filtrar embark_port — igual em espírito ao Task 6 do
@@ -665,7 +665,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       .from('bls')
       .select(BREAKBULK_SELECT)
       .eq('voyage_id', voyageId)
-      .eq('pod', port)
+      .in('pod', portCodeVariants(port))
       .eq('cargo_mode', 'carga_solta'),
     // Carga em transbordo (Task 1 do ADR 2026-07-31): mesmas três consultas,
     // agora restritas aos B/Ls de transshipmentBlIds, sem filtrar por bls.pod
