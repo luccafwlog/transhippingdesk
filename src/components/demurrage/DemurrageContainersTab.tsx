@@ -7,6 +7,7 @@ import { DemurrageStatusBadge } from './DemurrageBadges'
 import { effectiveDemurrage, fmtUSD } from '../../services/demurrage/demurragePresentation'
 import { formatResultCount } from '../../lib/operationalState'
 import { formatDate } from '../../lib/utils'
+import { extractErrorText } from '../../lib/errors'
 import type { DemurrageContainerListItem } from '../../types/database'
 
 type Props = {
@@ -43,7 +44,7 @@ export function DemurrageContainersTab({
       </Card>
 
       {loading && <Card>Carregando...</Card>}
-      {error && <InlineError message="Erro ao carregar containers." />}
+      {error && <InlineError message={`Erro ao carregar containers: ${extractErrorText(error)}`} />}
 
       <div className="mb-3 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span className="font-semibold text-white">{formatResultCount(filtered.length, 'container visível', 'containers visíveis')}</span>
