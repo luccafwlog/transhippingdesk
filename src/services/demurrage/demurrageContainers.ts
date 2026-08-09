@@ -27,6 +27,16 @@ type DemurrageRateSourceRow = {
 export async function listDemurrageContainers(filters?: DemurrageContainerFilters): Promise<DemurrageContainerListItem[]> {
   await ensureDemurrageRatesLoaded()
 
+  const { data: activeInvoiceItems, error: invoiceItemsError } = await supabase
+    .from('demurrage_invoice_items')
+    .select('container_id, invoice:demurrage_invoices!inner(status)')
+    .in('invoice.status', ['issued', 'paid'])
+  if (invoiceItemsError) throw invoiceItemsError
+
+  const invoicedContainerIds = [...new Set((activeInvoiceItems ?? [])
+    .map((item) => item.container_id)
+    .filter((id): id is number => typeof id === 'number'))]
+
   let query = supabase
     .from('bl_containers')
     .select(`
@@ -40,10 +50,14 @@ export async function listDemurrageContainers(filters?: DemurrageContainerFilter
       )
     `)
     .not('discharge_date', 'is', null)
-    // Operacional (ADR 0014): containers ainda fora (overdue) e devolvidos com
-    // demurrage. Os 'returned' dentro do free time são excluídos no frontend.
-    .in('demurrage_status', ['overdue', 'returned'])
     .order('discharge_date', { ascending: false })
+
+  // Além do status operacional, preserva a rastreabilidade de containers que
+  // já foram congelados em uma fatura ativa. Isso evita que a fatura exista,
+  // mas seu container desapareça após uma atualização posterior do B/L.
+  query = invoicedContainerIds.length > 0
+    ? query.or(`demurrage_status.in.(overdue,returned),id.in.(${invoicedContainerIds.join(',')})`)
+    : query.in('demurrage_status', ['overdue', 'returned'])
 
   if (filters?.blId) query = query.eq('bl_id', filters.blId)
 
