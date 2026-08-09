@@ -392,6 +392,7 @@ export function Demurrage() {
           loading={invoicesLoading}
           error={invoicesError}
           onOpenDetail={setDetailInvoiceId}
+          onOpenDocument={(invoiceId, type) => { setViewInvoiceId(invoiceId); setDocType(type) }}
         />
       )}
 

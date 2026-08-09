@@ -14,6 +14,7 @@ type Props = {
   loading: boolean
   error: unknown
   onOpenDetail: (invoiceId: number) => void
+  onOpenDocument: (invoiceId: number, type: 'invoice' | 'receipt') => void
 }
 
 export function DemurrageInvoicesTab({
@@ -23,6 +24,7 @@ export function DemurrageInvoicesTab({
   loading,
   error,
   onOpenDetail,
+  onOpenDocument,
 }: Props) {
   return (
     <>
@@ -59,7 +61,7 @@ export function DemurrageInvoicesTab({
                         )}
                       </div></td>
                       <td className="px-4 py-3"><InvoiceStatusBadge status={invoice.status} /></td>
-                      <td className="px-4 py-3"><div data-testid="demurrage-invoice-primary-action"><Button variant="secondary" onClick={() => onOpenDetail(invoice.id)}>Detalhes</Button></div>
+                      <td className="px-4 py-3"><div data-testid="demurrage-invoice-primary-action" className="flex flex-wrap items-center gap-2"><Button variant="secondary" onClick={() => onOpenDetail(invoice.id)}>Detalhes</Button>{tab === 'issued' && <Button variant="ghost" onClick={() => onOpenDocument(invoice.id, 'invoice')}>Fatura</Button>}</div>
                       </td>
                     </tr>
                   )
