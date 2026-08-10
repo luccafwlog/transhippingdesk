@@ -23,6 +23,7 @@ import { formatDate } from '../lib/utils'
 import { deleteVehicles } from '../services/vehicles'
 import { importVehicleRows, parseVehicleImportFile, type ParsedVehicleImport } from '../services/vehicleImport'
 import { setContainerUnpackingLocation } from '../services/vaziosNatureza'
+import { exportVehicleWorkbook } from '../services/exports'
 import { listVoyageEscalaSchedulesByVoyageIds } from '../services/voyageRouteSchedules'
 import { buildVoyageRailItems, type VoyageRailModuleStats } from '../services/voyageSummaries'
 import { VoyageRail } from '../components/voyages/VoyageRail'
@@ -36,6 +37,7 @@ export function Veiculos() {
   const canEditVehicles = can('veiculos_edit')
   const canDeleteVehicles = isAdmin
   const [deleting, setDeleting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [unpackingLocations, setUnpackingLocations] = useState<Record<number, string>>({})
   const [savingContainerId, setSavingContainerId] = useState<number | null>(null)
   const [focusedContainerId, setFocusedContainerId] = useState<number | null>(null)
@@ -191,6 +193,19 @@ export function Veiculos() {
     }
   }
 
+  async function handleExport() {
+    if (!data?.rows.length) return
+    setExporting(true)
+    try {
+      await exportVehicleWorkbook(data.rows)
+      showToast('Exportação de veículos concluída.', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao exportar veículos.', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   async function invalidateAfterDelete() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
@@ -284,12 +299,17 @@ export function Veiculos() {
       <PageHeader
         title="Veículos"
         description="Gestão e importação de veículos vinculados a viagem, containers e BLs."
-        action={canEditVehicles ? (
+        action={(
+          <div className="flex flex-wrap gap-2">
+            {voyageId ? <Button variant="secondary" loading={exporting} disabled={!data?.rows.length} onClick={() => void handleExport()}><Download size={16} /> Exportar Excel</Button> : null}
+            {canEditVehicles ? (
           <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <Upload size={16} />
             Importar Veículos
           </Button>
-        ) : null}
+            ) : null}
+          </div>
+        )}
       />
 
       <section className="mb-5 min-w-0">

@@ -1,5 +1,5 @@
 import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '../lib/containerCounts'
-import type { BLListItem, ContainerListItem, CustomerListItem, VaziosImportacaoContainerListItem } from '../types/database'
+import type { BLListItem, ContainerListItem, CustomerListItem, VehicleListItem, VaziosImportacaoContainerListItem } from '../types/database'
 import type { BaplieContainer } from '../types/database'
 import type { LocalChargeConferenceRow, LocalChargeOperationalRow } from './charges/chargeOperationsService'
 import { downloadCsv } from '../lib/csv'
@@ -135,6 +135,25 @@ export async function exportContainerWorkbook(rows: ContainerListItem[]) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Containers')
   XLSX.writeFile(workbook, `containers-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportVehicleWorkbook(rows: VehicleListItem[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    Chassi: row.chassis,
+    Marca: row.brand ?? '',
+    Modelo: row.model ?? '',
+    'Peso (kg)': row.weight_kg ?? '',
+    Cubagem: row.cbm ?? '',
+    Container: row.container?.container_number ?? '',
+    'Tipo Container': row.container?.type ?? '',
+    Lacre: row.container?.seal_number ?? '',
+    BL: row.bl?.id ?? '',
+    'Local desova': (row.container as (typeof row.container & { unpacking_location?: string | null }) | null)?.unpacking_location ?? '',
+  }))
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Veiculos')
+  XLSX.writeFile(workbook, `veiculos-${makeTimestamp()}.xlsx`)
 }
 
 export async function exportInvoicesWorkbook(rows: InvoiceListRow[]) {
