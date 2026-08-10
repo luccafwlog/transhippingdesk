@@ -36,6 +36,9 @@ vi.mock('@tanstack/react-query', () => ({
     if (queryKey[0] === 'vazios-bookings' && queryKey[1] === 'operation-options') {
       return { data: { rows: mocks.vaziosRows }, isLoading: false, error: null }
     }
+    if (queryKey[0] === 'vehicles-voyage-card-schedules') {
+      return { data: new Map(), isLoading: false, error: null }
+    }
     if (queryKey[0] === 'vazios-cost-catalog') {
       return { data: { depots: new Map([['d1', { id: 'd1', free_time_days: 2 }]]), services: [{ id: 's1', depot_id: 'd1', name: 'Bundle Composition', calc_type: 'quantidade', rate_brl: 30, subject_to_overtime: false, active: true, valid_from: '2026-01-01', valid_to: null }] }, isLoading: false, error: null }
     }
@@ -52,6 +55,7 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 vi.mock('../../hooks/useVehicles', () => ({
   useVehicleOptions: () => ({ data: { voyages: [{ id: 7, voyage_number: '14N', vessel: { name: 'GREEN SANTOS' } }] } }),
+  useVoyageVehicleStats: () => ({ data: { byVoyageId: {} } }),
   useVehicles: () => ({
     data: {
       rows: [{
