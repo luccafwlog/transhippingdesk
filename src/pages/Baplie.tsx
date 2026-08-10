@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Download } from 'lucide-react'
@@ -27,6 +27,8 @@ import {
 } from '../services/vaziosImportacaoImport'
 import type { BaplieContainer } from '../types/database'
 import { formatDate } from '../lib/utils'
+import { listVoyageEscalaSchedulesByVoyageIds, type VoyageEscalaSchedule } from '../services/voyageRouteSchedules'
+import { buildBaplieVoyageCards, type BaplieVoyageCardInput } from '../services/baplieVoyageCards'
 
 export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -38,6 +40,50 @@ export function Baplie() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+
+  const { data: voyageRows = [], isLoading: voyagesLoading } = useQuery({
+    queryKey: ['baplie-voyage-cards'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('voyages')
+        .select('id, voyage_number, vessel:vessels(name, carrier:carriers(name))')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as Array<{
+        id: number
+        voyage_number: string
+        vessel: { name: string | null; carrier: { name: string | null } | null } | null
+      }>
+    },
+  })
+  const { data: baplieVoyageIds = [] } = useQuery({
+    queryKey: ['baplie-voyage-card-staging'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('baplie_containers').select('voyage_id').not('voyage_id', 'is', null)
+      if (error) throw error
+      return Array.from(new Set((data ?? []).map((row) => Number(row.voyage_id))))
+    },
+  })
+  const voyageIds = useMemo(() => voyageRows.map((voyage) => voyage.id), [voyageRows])
+  const { data: schedulesByVoyage = new Map() } = useQuery({
+    queryKey: ['baplie-voyage-card-schedules', voyageIds],
+    enabled: voyageIds.length > 0,
+    queryFn: () => listVoyageEscalaSchedulesByVoyageIds(voyageIds),
+  })
+  const voyageCards = useMemo(() => buildBaplieVoyageCards(voyageRows.map((voyage): BaplieVoyageCardInput => ({
+    id: voyage.id,
+    voyageNumber: voyage.voyage_number,
+    vesselName: voyage.vessel?.name ?? null,
+    carrierName: voyage.vessel?.carrier?.name ?? null,
+    hasBaplie: baplieVoyageIds.includes(voyage.id),
+    escalas: (schedulesByVoyage.get(voyage.id) ?? []).map((escala: VoyageEscalaSchedule) => ({
+      port: escala.port,
+      eta: escala.eta,
+      etd: escala.etd,
+      atd: escala.atd,
+      deleted: escala.deleted,
+    })),
+  }))), [baplieVoyageIds, schedulesByVoyage, voyageRows])
 
   // Limpa a confirmação ao trocar de viagem — ajuste durante o render.
   const [prevVoyageId, setPrevVoyageId] = useState(voyageId)
@@ -172,6 +218,13 @@ export function Baplie() {
         description="Gestão centralizada do arquivo Baplie EDI por viagem."
       />
 
+      <VoyageCardsSection
+        cards={voyageCards}
+        loading={voyagesLoading}
+        selectedVoyageId={voyageId}
+        onSelect={(id) => handleVoyageChange(String(id))}
+      />
+
       <Card className="mb-5">
         <VoyageCombobox
           clearable
@@ -263,6 +316,72 @@ export function Baplie() {
         initialVoyageId={voyageId}
       />
     </>
+  )
+}
+
+function VoyageCardsSection({
+  cards,
+  loading,
+  selectedVoyageId,
+  onSelect,
+}: {
+  cards: ReturnType<typeof buildBaplieVoyageCards>
+  loading: boolean
+  selectedVoyageId: string
+  onSelect: (id: number) => void
+}) {
+  return (
+    <section className="mb-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Ordenado por próxima escala</div>
+          <h2 className="mt-1 text-lg font-semibold text-white">Navios e viagens</h2>
+        </div>
+        <div className="text-xs text-slate-500">{cards.length} viagem(ns)</div>
+      </div>
+      {loading ? (
+        <Card><div className="py-4 text-center text-sm text-slate-400">Carregando viagens...</div></Card>
+      ) : cards.length === 0 ? (
+        <Card><div className="py-4 text-center text-sm text-slate-400">Nenhuma viagem cadastrada.</div></Card>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {cards.map((card) => {
+            const selected = selectedVoyageId === String(card.id)
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => onSelect(card.id)}
+                aria-pressed={selected}
+                className={`min-h-[148px] rounded-2xl border p-4 text-left transition-colors ${selected ? 'border-blue-400 bg-blue-500/10' : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:border-blue-400/60 hover:bg-[var(--app-surface-raised)]'}`}
+              >
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                  <span className={`h-2 w-2 rounded-full ${card.hasBaplie ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  {card.carrierName ?? 'Armador não informado'}
+                </div>
+                <div className="mt-2 truncate text-base font-semibold text-white">
+                  {card.vesselName ?? 'Navio não informado'} / {card.voyageNumber}
+                </div>
+                <div className="mt-2 text-xs text-slate-400">
+                  {card.hasBaplie ? 'Baplie importado' : 'Baplie não importado'}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {card.escalas.slice(0, 4).map((escala) => {
+                    const date = escala.eta ?? escala.etd ?? escala.atd
+                    return (
+                      <span key={`${card.id}-${escala.port}`} className="rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-1 text-[11px] text-slate-300">
+                        {escala.port}{date ? ` · ${formatDate(date)}` : ''}
+                      </span>
+                    )
+                  })}
+                  {card.escalas.length > 4 ? <span className="px-1 py-1 text-[11px] text-slate-500">+{card.escalas.length - 4}</span> : null}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }
 
