@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AlertTriangle, Pencil } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { formatDate } from '../../lib/utils'
@@ -104,9 +104,10 @@ export function VoyageManifestosTab({
                           <span className="rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--app-muted)]">
                             {row.modeLabel}
                           </span>
-                          <span className="font-semibold text-[var(--app-text-strong)]">{row.routeLabel}</span>
+                          <Link className="font-semibold text-[var(--app-blue)] hover:underline" to={`/manifestos?voyage=${voyage.id}&pol=${encodeURIComponent(row.pol)}&pod=${encodeURIComponent(row.pod)}`}>
+                            {row.routeLabel}
+                          </Link>
                         </div>
-                        <div className="mt-0.5 text-xs text-[var(--app-muted)]">{row.filenames.join(' · ')}</div>
                       </td>
                       <td className={`px-3 py-2${departure.isActual ? ' text-[var(--app-blue)] font-medium' : ''}`}>{formatDate(departure.value)}</td>
                       <td className="px-3 py-2">{row.blCount}</td>

@@ -149,6 +149,8 @@ describe('VoyageManifestosTab', () => {
     expect(html).toContain('16/07/2026')
     expect(html).toContain('style="color:#1f7a4d"')
     expect(html).toContain('font-medium')
+    expect(html).toContain('href="/manifestos?voyage=14&amp;pol=CNTAC&amp;pod=BRVIX"')
+    expect(html).not.toContain('Rota derivada dos B/Ls')
     expect(html).not.toContain('Gerar EDI Mercante')
   })
 })
