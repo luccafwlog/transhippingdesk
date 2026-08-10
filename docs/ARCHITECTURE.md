@@ -212,9 +212,17 @@ Portal e conciliação.
 
 Invoices são componentes React preparados para impressão. Cabeçalho, título,
 cliente e rodapé compartilhados vivem em
-`src/components/shared/InvoiceDocumentKit.tsx`; regras de impressão vivem em
-`src/index.css`. A geração do arquivo é feita pelo diálogo de impressão do
-navegador via `window.print()`.
+`src/components/shared/InvoiceDocumentKit.tsx`; a paleta e os estilos de tabela
+(navy `#1A2744` no cabeçalho, zebra clara, barra de total âmbar `#F59E0B`,
+faixa clara de agrupamento) vivem em `src/components/shared/invoiceFormat.ts`;
+regras de impressão vivem em `src/index.css`. A geração do arquivo é feita pelo
+diálogo de impressão do navegador via `window.print()`.
+
+A fatura de taxas locais é o modelo visual dos documentos imprimíveis: a
+fatura/recibo de Demurrage e o impresso do Agency Departure Report
+(`src/components/voyages/AgencyReportDocument.tsx`) consomem os mesmos tokens —
+Arial 13px sobre branco, mesmos cabeçalhos, barras e rodapé. Documento novo
+reusa o kit em vez de criar CSS próprio.
 
 ## Programação de navios
 

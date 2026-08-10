@@ -1,4 +1,4 @@
-import { cell, fmtCNPJ, labelCell, longDate } from './invoiceFormat'
+import { cell, DOC_NAVY, fmtCNPJ, labelCell, longDate } from './invoiceFormat'
 
 // Blocos JSX compartilhados pelos documentos imprimíveis de fatura
 // (billing/InvoiceDocumentLocal e demurrage/InvoiceDocument). Extraídos para
@@ -8,7 +8,9 @@ import { cell, fmtCNPJ, labelCell, longDate } from './invoiceFormat'
 // (4 vs 9 colunas; layouts de PIX distintos). Helpers de formatação ficam em
 // invoiceFormat.ts (regra react-refresh/only-export-components).
 
-export function InvoiceDocHeader({ logoSrc, docNumber }: { logoSrc: string; docNumber: string }) {
+// `numberPrefix` existe porque nem todo documento é numerado como fatura: o
+// impresso do ADR identifica a escala ("ADR · BRVIX"), sem "Nº".
+export function InvoiceDocHeader({ logoSrc, docNumber, numberPrefix = 'Nº ' }: { logoSrc: string; docNumber: string; numberPrefix?: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
       <img
@@ -17,7 +19,7 @@ export function InvoiceDocHeader({ logoSrc, docNumber }: { logoSrc: string; docN
         style={{ height: 52 }}
         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
       />
-      <div style={{ fontSize: '14px', fontWeight: 700, color: '#1A2744' }}>Nº {docNumber}</div>
+      <div style={{ fontSize: '14px', fontWeight: 700, color: DOC_NAVY }}>{numberPrefix}{docNumber}</div>
     </div>
   )
 }

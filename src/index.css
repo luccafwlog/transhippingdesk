@@ -3984,6 +3984,17 @@ textarea {
     max-height: none !important;
   }
 
+  /* O ADR fechado aparece duas vezes na página (pré-visualização na aba e
+     cópia dentro do modal de impressão). Sem isto, o documento sairia
+     duplicado no papel. */
+  body:has(.app-modal-backdrop) .agency-report-print-content {
+    display: none !important;
+  }
+
+  body:has(.app-modal-backdrop) .app-modal .agency-report-print-content {
+    display: block !important;
+  }
+
   .invoice-print-content,
   .agency-report-print-content {
     max-width: 198mm !important;
@@ -3996,17 +4007,12 @@ textarea {
   }
 }
 
-.agency-report-document__header { display: flex; justify-content: space-between; border-bottom: 2px solid #152238; padding-bottom: 8px; color: #152238; }
-.agency-report-document__facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
-.agency-report-document__facts div { border: 1px solid #cdc8bc; padding: 6px; }
-.agency-report-document__facts dt { color: #5a5549; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.agency-report-document__facts dd { margin: 2px 0 0; }
-.agency-report-document__section { break-inside: avoid; border-top: 1px solid #cdc8bc; padding: 10px 0; }
-.agency-report-document__section h2 { color: #152238; font-size: 14px; margin: 0 0 4px; }
-.agency-report-document__section p, .agency-report-document__section ul { font-size: 12px; margin: 0; }
-.agency-report-document__table { border-collapse: collapse; font-size: 12px; margin: 6px 0; width: 100%; }
-.agency-report-document__table th, .agency-report-document__table td { border: 1px solid #cdc8bc; padding: 5px 6px; text-align: left; }
-.agency-report-document__table thead { background: #eef1f5; }
+/* O impresso do ADR (AgencyReportDocument.tsx) usa a mesma linguagem visual das
+   faturas — estilos inline vindos de src/components/shared/invoiceFormat.ts.
+   O bloco .agency-report-document__* que existia aqui (paleta própria, bege e
+   grade cheia) foi removido; as classes que sobraram no JSX são só ganchos de
+   teste. As regras de @media print acima continuam valendo pelo
+   .agency-report-print-content. */
 
 /* ─── Breadcrumb ─────────────────────────────────────────────────────────── */
 .app-breadcrumb {

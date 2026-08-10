@@ -13,9 +13,10 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 
 ## Planos ativos
 
+Nenhum plano ativo.
+
 | Plano | Tema | Status |
 |---|---|---|
-| [`2026-08-08-impresso-adr-linguagem-visual-fatura.md`](./2026-08-08-impresso-adr-linguagem-visual-fatura.md) | Impresso do ADR alinhado à linguagem visual da Fatura | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
