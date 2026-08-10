@@ -530,6 +530,9 @@ it('exibe o autor resolvido e o documento estruturado quando o ADR está fechado
 
   expect(screen.getByRole('status').textContent).toContain('Fechado em')
   expect(screen.getByRole('status').textContent).toContain('Lucca F.')
+  // O documento estruturado vive apenas no modal de impressão desde
+  // `Show ADR document only in print modal`; a aba fechada não o renderiza inline.
+  fireEvent.click(screen.getByRole('button', { name: 'Imprimir' }))
   expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
 })
 
@@ -845,6 +848,8 @@ it('escala omitida com ADR fechado continua acessível: abre pelo deep-link e re
 
   expect(screen.getByRole('button', { name: /BRSSA/ }).getAttribute('aria-pressed')).toBe('true')
   expect(screen.getByRole('status').textContent).toContain('Fechado em')
+  // Idem: o snapshot fechado é renderizado dentro do modal de impressão.
+  fireEvent.click(screen.getByRole('button', { name: 'Imprimir' }))
   expect(screen.getByRole('table', { name: 'Matriz de descarga' })).toBeTruthy()
 })
 
