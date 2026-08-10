@@ -1,9 +1,25 @@
+import { Fragment } from "react";
 import { formatBRL, formatDate } from "../../lib/utils";
 import {
   InvoiceDocFooter,
   InvoiceDocHeader,
   InvoiceDocTitle,
 } from "../shared/InvoiceDocumentKit";
+import {
+  cell,
+  dataCell,
+  dataHeadCell,
+  dataHeadRow,
+  dataNumberCell,
+  dataTable,
+  dataTotalCell,
+  dataTotalRow,
+  DOC_MUTED,
+  documentRoot,
+  groupBar,
+  labelCell,
+  zebraRow,
+} from "../shared/invoiceFormat";
 import {
   AGENCY_REPORT_DEPARTMENT_LABELS,
   agencyReportSectionLabel,
@@ -99,7 +115,7 @@ function ton(value: unknown) {
 }
 
 function Empty() {
-  return <p>—</p>;
+  return <p style={{ fontSize: "12px", margin: "6px 0 0" }}>—</p>;
 }
 
 function MetricsTable({
@@ -110,12 +126,15 @@ function MetricsTable({
   metrics: Metric[];
 }) {
   return (
-    <table className="agency-report-document__table" aria-label={label}>
+    <table
+      aria-label={label}
+      style={{ width: "100%", borderCollapse: "collapse", margin: "6px 0 12px" }}
+    >
       <tbody>
         {metrics.map(([name, value]) => (
           <tr key={name}>
-            <th scope="row">{name}</th>
-            <td>
+            <th scope="row" style={{ ...labelCell, textAlign: "left" }}>{name}</th>
+            <td style={cell}>
               {value === null || value === undefined || value === ""
                 ? "—"
                 : value}
@@ -160,25 +179,24 @@ function OperatedListingTable({
   const total = combos.reduce((sum, combo) => sum + combo.quantity, 0);
 
   return (
-    <table className="agency-report-document__table" aria-label={label}>
+    <table aria-label={label} style={dataTable}>
       <thead>
-        <tr>
-          <th scope="col">Tipo</th>
-          <th scope="col">Natureza</th>
-          <th scope="col">Quantidade</th>
+        <tr style={dataHeadRow}>
+          <th scope="col" style={dataHeadCell}>Tipo</th>
+          <th scope="col" style={dataHeadCell}>Natureza</th>
+          <th scope="col" style={{ ...dataHeadCell, textAlign: "right" }}>Quantidade</th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <th scope="row">Total</th>
-          <td>—</td>
-          <td>{count(total)}</td>
+        <tr style={dataTotalRow}>
+          <th scope="row" colSpan={2} style={dataTotalCell}>TOTAL:</th>
+          <td style={dataTotalCell}>{count(total)}</td>
         </tr>
-        {combos.map((combo) => (
-          <tr key={`${combo.type}:${combo.category}`}>
-            <th scope="row">{combo.type}</th>
-            <td>{MATRIX_CATEGORY_LABELS[combo.category] ?? combo.category.replaceAll("_", " ")}</td>
-            <td>{count(combo.quantity)}</td>
+        {combos.map((combo, index) => (
+          <tr key={`${combo.type}:${combo.category}`} style={zebraRow(index)}>
+            <th scope="row" style={dataCell}>{combo.type}</th>
+            <td style={dataCell}>{MATRIX_CATEGORY_LABELS[combo.category] ?? combo.category.replaceAll("_", " ")}</td>
+            <td style={dataNumberCell}>{count(combo.quantity)}</td>
           </tr>
         ))}
       </tbody>
@@ -220,28 +238,26 @@ function EmptyEmbarkTable({
   const total = rows.reduce((sum, row) => sum + row.quantity, 0);
 
   return (
-    <table className="agency-report-document__table" aria-label={label}>
+    <table aria-label={label} style={dataTable}>
       <thead>
-        <tr>
-          <th scope="col">Tipo</th>
-          <th scope="col">Condição</th>
-          <th scope="col">Local</th>
-          <th scope="col">Quantidade</th>
+        <tr style={dataHeadRow}>
+          <th scope="col" style={dataHeadCell}>Tipo</th>
+          <th scope="col" style={dataHeadCell}>Condição</th>
+          <th scope="col" style={dataHeadCell}>Local</th>
+          <th scope="col" style={{ ...dataHeadCell, textAlign: "right" }}>Quantidade</th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <th scope="row">Total</th>
-          <td>—</td>
-          <td>—</td>
-          <td>{count(total)}</td>
+        <tr style={dataTotalRow}>
+          <th scope="row" colSpan={3} style={dataTotalCell}>TOTAL:</th>
+          <td style={dataTotalCell}>{count(total)}</td>
         </tr>
         {rows.map((row, index) => (
-          <tr key={`${row.type}:${row.condition}:${row.localLabel}:${index}`}>
-            <th scope="row">{row.type}</th>
-            <td>{row.condition}</td>
-            <td>{row.localLabel}</td>
-            <td>{count(row.quantity)}</td>
+          <tr key={`${row.type}:${row.condition}:${row.localLabel}:${index}`} style={zebraRow(index)}>
+            <th scope="row" style={dataCell}>{row.type}</th>
+            <td style={dataCell}>{row.condition}</td>
+            <td style={dataCell}>{row.localLabel}</td>
+            <td style={dataNumberCell}>{count(row.quantity)}</td>
           </tr>
         ))}
       </tbody>
@@ -280,7 +296,10 @@ function ResolutionLine({
 }) {
   const { label, attribution } = resolutionFor(section, signoffs, actorNames);
   return (
-    <p className="agency-report-document__resolution">
+    <p
+      className="agency-report-document__resolution"
+      style={{ fontSize: "11px", color: DOC_MUTED, margin: "6px 0 0" }}
+    >
       <strong>{label}</strong>
       {attribution ? ` — ${attribution}` : ""}
     </p>
@@ -312,8 +331,8 @@ function Section({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="agency-report-document__section">
-      <h2>{title}</h2>
+    <section className="agency-report-document__section" style={{ breakInside: "avoid" }}>
+      <h2 style={groupBar}>{title}</h2>
       {hasData ? children : null}
       {section && showResolution ? (
         <ResolutionLine
@@ -387,18 +406,15 @@ function DepartmentSignoffsSection({
   const hasAnyReopening = rows.some((row) => row.reopenings.length > 0);
 
   return (
-    <section className="agency-report-document__section">
-      <h2>Assinaturas departamentais</h2>
-      <table
-        className="agency-report-document__table"
-        aria-label="Assinaturas departamentais"
-      >
+    <section className="agency-report-document__section" style={{ breakInside: "avoid" }}>
+      <h2 style={groupBar}>Assinaturas departamentais</h2>
+      <table aria-label="Assinaturas departamentais" style={dataTable}>
         <thead>
-          <tr>
-            <th scope="col">Departamento</th>
-            <th scope="col">Assinante</th>
-            <th scope="col">Data</th>
-            {hasAnyReopening ? <th scope="col">Reaberturas</th> : null}
+          <tr style={dataHeadRow}>
+            <th scope="col" style={dataHeadCell}>Departamento</th>
+            <th scope="col" style={dataHeadCell}>Assinante</th>
+            <th scope="col" style={dataHeadCell}>Data</th>
+            {hasAnyReopening ? <th scope="col" style={dataHeadCell}>Reaberturas</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -407,14 +423,14 @@ function DepartmentSignoffsSection({
             const name = (row?.signed_by && actorNames[row.signed_by]) || null;
             const reopenings = row?.reopenings ?? [];
             return (
-              <tr key={department}>
-                <th scope="row">{AGENCY_REPORT_DEPARTMENT_LABELS[department]}</th>
-                <td>{row?.signed_at ? (name ?? "—") : "Não assinado"}</td>
-                <td>{row?.signed_at ? formatDate(row.signed_at) : "—"}</td>
+              <tr key={department} style={zebraRow(DEPARTMENTS.indexOf(department))}>
+                <th scope="row" style={{ ...dataCell, fontWeight: 700 }}>{AGENCY_REPORT_DEPARTMENT_LABELS[department]}</th>
+                <td style={dataCell}>{row?.signed_at ? (name ?? "—") : "Não assinado"}</td>
+                <td style={dataCell}>{row?.signed_at ? formatDate(row.signed_at) : "—"}</td>
                 {hasAnyReopening ? (
-                  <td>
+                  <td style={dataCell}>
                     {reopenings.length ? (
-                      <ul className="agency-report-document__reopenings">
+                      <ul style={{ margin: 0, paddingLeft: 16 }}>
                         {reopenings.map((reopening, index) => {
                           const reopenName =
                             (reopening.changed_by && actorNames[reopening.changed_by]) ||
@@ -524,46 +540,42 @@ export function AgencyReportDocument({
     <article
       className="agency-report-print-content"
       aria-label="Agency Departure Report fechado"
+      style={documentRoot}
     >
       <InvoiceDocHeader
-        logoSrc="/branding/tr-logo.png"
+        logoSrc="/branding/transhipping-logo-cropped.png"
         docNumber={`ADR · ${header.port ?? "—"}`}
+        numberPrefix=""
       />
       <InvoiceDocTitle uppercase>Agency Departure Report</InvoiceDocTitle>
-      <dl className="agency-report-document__facts">
-        <div>
-          <dt>Armador</dt>
-          <dd>{header.carrierName ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Navio / viagem</dt>
-          <dd>{header.voyageLabel ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Porto</dt>
-          <dd>{header.port ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Terminal</dt>
-          <dd>{header.terminal ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>ATA</dt>
-          <dd>{formatDate(schedule.ata)}</dd>
-        </div>
-        <div>
-          <dt>ATB</dt>
-          <dd>{formatDate(schedule.atb)}</dd>
-        </div>
-        <div>
-          <dt>ATD</dt>
-          <dd>{formatDate(schedule.atd)}</dd>
-        </div>
-        <div>
-          <dt>Restow</dt>
-          <dd>{count(schedule.rtw)}</dd>
-        </div>
-      </dl>
+      {/* Fatos da escala no bloco de metadados da fatura (labelCell/cell),
+          dois pares por linha para caber o mesmo conteúdo do antigo grid. */}
+      <table
+        aria-label="Escala"
+        style={{ width: "100%", borderCollapse: "collapse", marginBottom: 12 }}
+      >
+        <tbody>
+          {([
+            [["Armador", header.carrierName ?? "—"], ["Navio / viagem", header.voyageLabel ?? "—"]],
+            [["Porto", header.port ?? "—"], ["Terminal", header.terminal ?? "—"]],
+            [["ATA", formatDate(schedule.ata)], ["ATB", formatDate(schedule.atb)]],
+            [["ATD", formatDate(schedule.atd)], ["Restow", count(schedule.rtw)]],
+          ] as Array<Array<[string, string]>>).map((pairs) => (
+            <tr key={pairs[0][0]}>
+              {pairs.map(([name, value], index) => (
+                <Fragment key={name}>
+                  {index === 0 ? (
+                    <th scope="row" style={{ ...labelCell, textAlign: "left" }}>{name}</th>
+                  ) : (
+                    <td style={{ ...labelCell, textAlign: "left" }}>{name}</td>
+                  )}
+                  <td style={cell}>{value}</td>
+                </Fragment>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <Section title="Escala" {...section("datas")} hasData={false} />
       <Section
@@ -613,17 +625,14 @@ export function AgencyReportDocument({
         <OperatedListingTable label="Vazios descarregados" combos={vaziosDescarregadosCombos} />
       </Section>
       <Section title="Container com veículo" {...section("veiculos")} hasData={vehicles.length > 0}>
-        <table
-          className="agency-report-document__table"
-          aria-label="Container com veículo"
-        >
+        <table aria-label="Container com veículo" style={dataTable}>
           <thead>
-            <tr>
-              <th scope="col">Marca</th>
-              <th scope="col">B/Ls</th>
-              <th scope="col">VINs</th>
-              <th scope="col">VINs em transbordo</th>
-              <th scope="col">Local de desova</th>
+            <tr style={dataHeadRow}>
+              <th scope="col" style={dataHeadCell}>Marca</th>
+              <th scope="col" style={{ ...dataHeadCell, textAlign: "right" }}>B/Ls</th>
+              <th scope="col" style={{ ...dataHeadCell, textAlign: "right" }}>VINs</th>
+              <th scope="col" style={{ ...dataHeadCell, textAlign: "right" }}>VINs em transbordo</th>
+              <th scope="col" style={dataHeadCell}>Local de desova</th>
             </tr>
           </thead>
           <tbody>
@@ -633,12 +642,12 @@ export function AgencyReportDocument({
                 ? vehicleLocations[brand].join(", ")
                 : "—";
               return (
-                <tr key={`${brand}-${index}`}>
-                  <th scope="row">{brand}</th>
-                  <td>{count(vehicle.blCount)}</td>
-                  <td>{count(vehicle.vinCount)}</td>
-                  <td>{number(vehicle.transshipmentVinCount) ? count(vehicle.transshipmentVinCount) : "—"}</td>
-                  <td>{locations || "—"}</td>
+                <tr key={`${brand}-${index}`} style={zebraRow(index)}>
+                  <th scope="row" style={dataCell}>{brand}</th>
+                  <td style={dataNumberCell}>{count(vehicle.blCount)}</td>
+                  <td style={dataNumberCell}>{count(vehicle.vinCount)}</td>
+                  <td style={dataNumberCell}>{number(vehicle.transshipmentVinCount) ? count(vehicle.transshipmentVinCount) : "—"}</td>
+                  <td style={dataCell}>{locations || "—"}</td>
                 </tr>
               );
             })}
@@ -662,51 +671,58 @@ export function AgencyReportDocument({
         />
       </Section>
       <Section title="Linhas de serviço do embarque" {...section("vazios_embarcados")} hasData={serviceLines.length > 0}>
-        <table
-          className="agency-report-document__table"
-          aria-label="Linhas de serviço"
-        >
+        <table aria-label="Linhas de serviço" style={dataTable}>
           <thead>
-            <tr>
-              <th>Serviço</th>
-              <th>Local</th>
-              <th>Rota</th>
-              <th>Tipo</th>
-              <th>Quantidade</th>
-              <th>Unitário</th>
-              <th>Total</th>
-              <th>Observação</th>
+            <tr style={dataHeadRow}>
+              <th style={dataHeadCell}>Serviço</th>
+              <th style={dataHeadCell}>Local</th>
+              <th style={dataHeadCell}>Rota</th>
+              <th style={dataHeadCell}>Tipo</th>
+              <th style={{ ...dataHeadCell, textAlign: "right" }}>Quantidade</th>
+              <th style={{ ...dataHeadCell, textAlign: "right" }}>Unitário</th>
+              <th style={{ ...dataHeadCell, textAlign: "right" }}>Total</th>
+              <th style={dataHeadCell}>Observação</th>
             </tr>
           </thead>
           <tbody>
             {serviceLines.map((service, index) => (
-              <tr key={String(service.id ?? index)}>
-                <th>
+              <tr key={String(service.id ?? index)} style={zebraRow(index)}>
+                <th style={dataCell}>
                   {String(
                     asRecord(service.service).name ??
                       service.service_id ??
                       "—",
                   )}
                 </th>
-                <td>
+                <td style={dataCell}>
                   {String(
                     asRecord(service.local).name ?? service.local_id ?? "—",
                   )}
                 </td>
-                <td>
+                <td style={dataCell}>
                   {String(
                     asRecord(service.destino).name ??
                       service.destino_id ??
                       "—",
                   )}
                 </td>
-                <td>{String(service.container_type ?? "—")}</td>
-                <td>{count(service.quantidade)}</td>
-                <td>{formatBRL(number(service.valor_unitario))}</td>
-                <td>{formatBRL(serviceLineTotal(service))}</td>
-                <td>{String(service.observation ?? "—")}</td>
+                <td style={dataCell}>{String(service.container_type ?? "—")}</td>
+                <td style={dataNumberCell}>{count(service.quantidade)}</td>
+                <td style={dataNumberCell}>{formatBRL(number(service.valor_unitario))}</td>
+                <td style={dataNumberCell}>{formatBRL(serviceLineTotal(service))}</td>
+                <td style={dataCell}>{String(service.observation ?? "—")}</td>
               </tr>
             ))}
+            {/* Barra de total no padrão da fatura: soma das linhas impressas —
+                não lê `costs.total`, para o rodapé nunca divergir do que saiu
+                impresso acima. */}
+            <tr style={dataTotalRow}>
+              <th colSpan={6} style={dataTotalCell}>TOTAL:</th>
+              <td style={dataTotalCell}>
+                {formatBRL(serviceLines.reduce((sum, service) => sum + serviceLineTotal(service), 0))}
+              </td>
+              <td style={dataTotalCell} />
+            </tr>
           </tbody>
         </table>
       </Section>
@@ -715,29 +731,26 @@ export function AgencyReportDocument({
         {...section("vazios_embarcados")}
         hasData={vaziosUnidadesComPeriodo.length > 0}
       >
-        <table
-          className="agency-report-document__table"
-          aria-label="Unidades que geraram armazenagem"
-        >
+        <table aria-label="Unidades que geraram armazenagem" style={dataTable}>
           <thead>
-            <tr>
-              <th>Container</th>
-              <th>Tipo</th>
-              <th>Local</th>
-              <th>Condição</th>
-              <th>Entrada</th>
-              <th>Saída</th>
+            <tr style={dataHeadRow}>
+              <th style={dataHeadCell}>Container</th>
+              <th style={dataHeadCell}>Tipo</th>
+              <th style={dataHeadCell}>Local</th>
+              <th style={dataHeadCell}>Condição</th>
+              <th style={dataHeadCell}>Entrada</th>
+              <th style={dataHeadCell}>Saída</th>
             </tr>
           </thead>
           <tbody>
             {vaziosUnidadesComPeriodo.map((unit, index) => (
-              <tr key={String(unit.id ?? index)}>
-                <th>{String(unit.container_number ?? "—")}</th>
-                <td>{String(unit.container_type ?? "—")}</td>
-                <td>{String(asRecord(unit.local).name ?? asRecord(unit.local).code ?? unit.local_id ?? "—")}</td>
-                <td>{String(unit.condition ?? "—")}</td>
-                <td>{formatDate(unit.hand_in_date as string | null)}</td>
-                <td>{formatDate(unit.hand_out_date as string | null)}</td>
+              <tr key={String(unit.id ?? index)} style={zebraRow(index)}>
+                <th style={dataCell}>{String(unit.container_number ?? "—")}</th>
+                <td style={dataCell}>{String(unit.container_type ?? "—")}</td>
+                <td style={dataCell}>{String(asRecord(unit.local).name ?? asRecord(unit.local).code ?? unit.local_id ?? "—")}</td>
+                <td style={dataCell}>{String(unit.condition ?? "—")}</td>
+                <td style={dataCell}>{formatDate(unit.hand_in_date as string | null)}</td>
+                <td style={dataCell}>{formatDate(unit.hand_out_date as string | null)}</td>
               </tr>
             ))}
           </tbody>
@@ -767,7 +780,7 @@ export function AgencyReportDocument({
       ) : null}
       <Section title="Observações por seção">
         {observations.length ? (
-          <ul>
+          <ul style={{ fontSize: "12px", margin: "6px 0 0", paddingLeft: 18 }}>
             {observations.map((signoff, index) => (
               <li key={String(signoff.id ?? signoff.section ?? index)}>
                 <strong>

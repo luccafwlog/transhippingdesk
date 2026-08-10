@@ -2,7 +2,7 @@ import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { InvoiceDetail } from '../../services/billing'
 import { formatDate, stripBlPrefix } from '../../lib/utils'
-import { cell, describeUsdConversionNote, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
+import { cell, dataTotalCell, dataTotalRow, describeUsdConversionNote, DOC_BORDER, DOC_GROUP, DOC_MUTED, DOC_NAVY, DOC_SUBTOTAL, documentRoot, fmtBRL, fmtCNPJ, labelCell, zebraRow } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Props = { detail: InvoiceDetail }
@@ -51,7 +51,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
           </tr>
           <tr>
             <td style={labelCell}>B/Ls:</td>
-            <td style={{ ...cell, color: '#1A2744', fontWeight: 600 }}>{blIds}</td>
+            <td style={{ ...cell, color: DOC_NAVY, fontWeight: 600 }}>{blIds}</td>
           </tr>
           <tr>
             <td style={labelCell}>Navio/Voy.:</td>
@@ -67,7 +67,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
       {/* Items table */}
       <table style={{ width: '100%', borderCollapse: 'collapse', margin: '16px 0', fontSize: '12px' }}>
         <thead>
-          <tr style={{ background: '#1A2744', color: 'white' }}>
+          <tr style={{ background: DOC_NAVY, color: 'white' }}>
             <th scope="col" style={{ padding: '9px 7px', textAlign: 'left' }}>Descrição</th>
             <th scope="col" style={{ padding: '9px 7px', textAlign: 'center' }}>Qtd</th>
             <th scope="col" style={{ padding: '9px 7px', textAlign: 'right' }}>Unit. BRL</th>
@@ -83,19 +83,18 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                 const route = `${blMeta.pol ?? ''} → ${blMeta.pod ?? ''}`.trim().replace(/^→\s*/, '').replace(/\s*→$/, '')
                 return (
                   <React.Fragment key={blId}>
-                    <tr style={{ background: '#e8edf5' }}>
-                      <td colSpan={4} style={{ padding: '6px 8px', fontWeight: 700, color: '#1A2744', fontSize: '11px' }}>
+                    <tr style={{ background: DOC_GROUP }}>
+                      <td colSpan={4} style={{ padding: '6px 8px', fontWeight: 700, color: DOC_NAVY, fontSize: '11px' }}>
                         B/L {blId}{route && route !== '→' ? ` — ${route}` : ''}
                       </td>
                     </tr>
                     {blItems.map((item) => {
-                      const bg = (itemFlatIndex.get(item.id) ?? 0) % 2 === 0 ? '#f9fafb' : 'white'
                       const usdNote = describeUsdConversionNote(item)
                       return (
-                        <tr key={item.id} style={{ background: bg, borderBottom: '1px solid #eee' }}>
+                        <tr key={item.id} style={zebraRow(itemFlatIndex.get(item.id) ?? 0)}>
                           <td style={{ padding: '8px 8px 8px 16px' }}>
                             {stripBlPrefix(item.description, item.bl_id)}
-                            {usdNote && <div style={{ fontSize: '10px', color: '#6b7280' }}>{usdNote}</div>}
+                            {usdNote && <div style={{ fontSize: '10px', color: DOC_MUTED }}>{usdNote}</div>}
                           </td>
                           <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
@@ -103,11 +102,11 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                         </tr>
                       )
                     })}
-                    <tr style={{ background: '#f0f4fa', borderBottom: '2px solid #c8d4e8' }}>
-                      <td colSpan={3} style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: '#1A2744' }}>
+                    <tr style={{ background: DOC_SUBTOTAL, borderBottom: '2px solid #c8d4e8' }}>
+                      <td colSpan={3} style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: DOC_NAVY }}>
                         Subtotal {blId}:
                       </td>
-                      <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: '#1A2744' }}>
+                      <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 600, color: DOC_NAVY }}>
                         {fmtBRL(subtotal)}
                       </td>
                     </tr>
@@ -117,10 +116,10 @@ export function InvoiceDocumentLocal({ detail }: Props) {
             : items.map((item, idx) => {
                 const usdNote = describeUsdConversionNote(item)
                 return (
-                  <tr key={item.id} style={{ background: idx % 2 === 0 ? '#f9fafb' : 'white', borderBottom: '1px solid #eee' }}>
+                  <tr key={item.id} style={zebraRow(idx)}>
                     <td style={{ padding: '8px 7px' }}>
                       {stripBlPrefix(item.description, item.bl_id)}
-                      {usdNote && <div style={{ fontSize: '10px', color: '#6b7280' }}>{usdNote}</div>}
+                      {usdNote && <div style={{ fontSize: '10px', color: DOC_MUTED }}>{usdNote}</div>}
                     </td>
                     <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
                     <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
@@ -128,16 +127,16 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                   </tr>
                 )
               })}
-          <tr style={{ background: '#F59E0B' }}>
-            <td colSpan={3} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>TOTAL:</td>
-            <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>{fmtBRL(invoice.total_brl)}</td>
+          <tr style={dataTotalRow}>
+            <td colSpan={3} style={dataTotalCell}>TOTAL:</td>
+            <td style={dataTotalCell}>{fmtBRL(invoice.total_brl)}</td>
           </tr>
         </tbody>
       </table>
 
       {/* PIX */}
       {invoice.pix_payload && (
-        <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb' }}>
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${DOC_BORDER}` }}>
           <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
             <div style={{ flexShrink: 0 }}>
               <QRCodeSVG value={invoice.pix_payload} size={90} level="M" />
@@ -151,7 +150,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
           </div>
           {/* Código em linha única e em largura total: a seleção (manual no PDF ou por
               clique na tela) copia a string exata, sem quebras que corrompam o payload. */}
-          <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, letterSpacing: '0.05em', margin: '10px 0 3px' }}>PIX COPIA E COLA</div>
+          <div style={{ fontSize: '10px', color: DOC_MUTED, fontWeight: 600, letterSpacing: '0.05em', margin: '10px 0 3px' }}>PIX COPIA E COLA</div>
           <span
             onClick={(event) => {
               const selection = window.getSelection()

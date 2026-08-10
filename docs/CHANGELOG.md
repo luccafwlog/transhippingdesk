@@ -4,6 +4,21 @@
 
 ## 2026-08
 
+- **Impresso do ADR padronizado na fatura:** o documento impresso do Agency
+  Departure Report passa a usar a mesma linguagem visual da fatura de taxas
+  locais — Arial 13px sobre branco, cabeçalho com a logo e identificação da
+  escala, título centralizado com régua, fatos da escala no bloco de metadados
+  (rótulo/valor), tabelas com cabeçalho navy `#1A2744` e texto branco, zebra
+  `#f9fafb`, barra de total âmbar `#F59E0B` no fim de cada listagem (antes o
+  total vinha no topo) e faixa clara `#e8edf5` como título de seção. A paleta e
+  os estilos de tabela viraram tokens em
+  `src/components/shared/invoiceFormat.ts`, consumidos pelos três documentos
+  (taxas locais, Demurrage e ADR); o bloco CSS próprio do ADR
+  (`agency-report-document__*`, paleta bege com grade cheia) saiu de
+  `src/index.css`. Junto, correção de impressão: com o modal aberto, a
+  pré-visualização do ADR na aba deixa de sair impressa em duplicidade.
+  Mudança só de apresentação — snapshot, RPCs e cálculos intactos.
+  *(plano arquivado `2026-08-08-impresso-adr-linguagem-visual-fatura`)*
 - **Vigência da tabela de taxas vira informativo:** a vigência da Tabela de
   Taxas Locais deixa de participar do cálculo — `resolve_local_charge_table_id`
   resolve por escopo (modo de carga + POD) e por `active`, desempatando entre

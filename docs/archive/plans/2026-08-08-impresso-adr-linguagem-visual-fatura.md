@@ -14,25 +14,25 @@
 
 **Files:** `src/components/voyages/AgencyReportDocument.tsx`, `src/index.css`.
 
-- [ ] Substituir o `dl.agency-report-document__facts` por tabela `labelCell`/`cell`, mantendo a ordem (armador, navio/viagem, porto, terminal, ATA/ATB/ATD, restow).
-- [ ] Remover as regras `agency-report-document__facts` de `src/index.css`.
+- [x] Substituir o `dl.agency-report-document__facts` por tabela `labelCell`/`cell`, mantendo a ordem (armador, navio/viagem, porto, terminal, ATA/ATB/ATD, restow).
+- [x] Remover as regras `agency-report-document__facts` de `src/index.css`.
 
 ### Task 2: Tabelas de conteúdo no padrão da fatura
 
 **Files:** `src/components/voyages/AgencyReportDocument.tsx`, `src/index.css`.
 
-- [ ] Aplicar cabeçalho navy `#1A2744` com texto branco e zebra `#f9fafb` nas tabelas de conteúdo (carga solta, granito, matriz de descarga, vazios descarregados, container com veículo, embarque de vazios, linhas de serviço, anexo, storage).
-- [ ] Alinhar seções ao separador padrão dos documentos do kit e remover o bloco `agency-report-document__*` de `src/index.css`.
-- [ ] Preservar resolução de seção (estado/autor/data), observações e assinaturas departamentais com o mesmo vocabulário visual; sem bloco PIX nem pagamento.
+- [x] Aplicar cabeçalho navy `#1A2744` com texto branco e zebra `#f9fafb` nas tabelas de conteúdo (carga solta, granito, matriz de descarga, vazios descarregados, container com veículo, embarque de vazios, linhas de serviço, anexo, storage).
+- [x] Alinhar seções ao separador padrão dos documentos do kit e remover o bloco `agency-report-document__*` de `src/index.css`.
+- [x] Preservar resolução de seção (estado/autor/data), observações e assinaturas departamentais com o mesmo vocabulário visual; sem bloco PIX nem pagamento.
 
 ### Task 3: Testes de contrato do impresso
 
 **Files:** `src/components/voyages/__tests__/AgencyReportDocument.test.tsx`.
 
-- [ ] Atualizar seletores/estrutura esperada para a nova marcação (tabelas `labelCell`/`cell`, header navy, zebra).
-- [ ] Cobrir ao menos: fatos da escala, resolução de seção, observações e assinaturas departamentais.
+- [x] Atualizar seletores/estrutura esperada para a nova marcação (tabelas `labelCell`/`cell`, header navy, zebra).
+- [x] Cobrir ao menos: fatos da escala, resolução de seção, observações e assinaturas departamentais.
 
 ### Task 4: Gates e publicação
 
-- [ ] Rodar testes focados, `npm run typecheck`, lint dos arquivos alterados, `npm run docs:check`, `npm test`, `npm run build` e `git diff --check`.
-- [ ] Commitar em `main` e fazer push para `origin/main`.
+- [x] Rodar testes focados, `npm run typecheck`, lint dos arquivos alterados, `npm run docs:check`, `npm test`, `npm run build` e `git diff --check`.
+- [x] Commitar em `main` e fazer push para `origin/main`.
