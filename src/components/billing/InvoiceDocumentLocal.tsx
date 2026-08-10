@@ -89,7 +89,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
                       </td>
                     </tr>
                     {blItems.map((item) => {
-                                            const usdNote = describeUsdConversionNote(item)
+                      const usdNote = describeUsdConversionNote(item)
                       return (
                         <tr key={item.id} style={zebraRow(itemFlatIndex.get(item.id) ?? 0)}>
                           <td style={{ padding: '8px 8px 8px 16px' }}>

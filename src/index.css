@@ -3986,12 +3986,14 @@ textarea {
 
   /* O ADR fechado aparece duas vezes na página (pré-visualização na aba e
      cópia dentro do modal de impressão). Sem isto, o documento sairia
-     duplicado no papel. */
-  body:has(.app-modal-backdrop) .agency-report-print-content {
+     duplicado no papel. Escopado a quando o modal aberto É o de impressão
+     (contém .agency-report-print-content) — outros modais, como o de
+     reabertura do ADR, não devem esconder a pré-visualização da aba. */
+  body:has(.app-modal-backdrop .agency-report-print-content) .agency-report-print-content {
     display: none !important;
   }
 
-  body:has(.app-modal-backdrop) .app-modal .agency-report-print-content {
+  body:has(.app-modal-backdrop .agency-report-print-content) .app-modal .agency-report-print-content {
     display: block !important;
   }
 

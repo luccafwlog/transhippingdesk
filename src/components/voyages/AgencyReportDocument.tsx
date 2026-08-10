@@ -562,9 +562,13 @@ export function AgencyReportDocument({
             [["ATD", formatDate(schedule.atd)], ["Restow", count(schedule.rtw)]],
           ] as Array<Array<[string, string]>>).map((pairs) => (
             <tr key={pairs[0][0]}>
-              {pairs.map(([name, value]) => (
+              {pairs.map(([name, value], index) => (
                 <Fragment key={name}>
-                  <th scope="row" style={{ ...labelCell, textAlign: "left" }}>{name}</th>
+                  {index === 0 ? (
+                    <th scope="row" style={{ ...labelCell, textAlign: "left" }}>{name}</th>
+                  ) : (
+                    <td style={{ ...labelCell, textAlign: "left" }}>{name}</td>
+                  )}
                   <td style={cell}>{value}</td>
                 </Fragment>
               ))}
