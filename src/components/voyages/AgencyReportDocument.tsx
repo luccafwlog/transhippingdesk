@@ -188,6 +188,10 @@ function OperatedListingTable({
         </tr>
       </thead>
       <tbody>
+        <tr style={dataTotalRow}>
+          <th scope="row" colSpan={2} style={dataTotalCell}>TOTAL:</th>
+          <td style={dataTotalCell}>{count(total)}</td>
+        </tr>
         {combos.map((combo, index) => (
           <tr key={`${combo.type}:${combo.category}`} style={zebraRow(index)}>
             <th scope="row" style={dataCell}>{combo.type}</th>
@@ -195,10 +199,6 @@ function OperatedListingTable({
             <td style={dataNumberCell}>{count(combo.quantity)}</td>
           </tr>
         ))}
-        <tr style={dataTotalRow}>
-          <th scope="row" colSpan={2} style={dataTotalCell}>TOTAL:</th>
-          <td style={dataTotalCell}>{count(total)}</td>
-        </tr>
       </tbody>
     </table>
   );
@@ -248,6 +248,10 @@ function EmptyEmbarkTable({
         </tr>
       </thead>
       <tbody>
+        <tr style={dataTotalRow}>
+          <th scope="row" colSpan={3} style={dataTotalCell}>TOTAL:</th>
+          <td style={dataTotalCell}>{count(total)}</td>
+        </tr>
         {rows.map((row, index) => (
           <tr key={`${row.type}:${row.condition}:${row.localLabel}:${index}`} style={zebraRow(index)}>
             <th scope="row" style={dataCell}>{row.type}</th>
@@ -256,10 +260,6 @@ function EmptyEmbarkTable({
             <td style={dataNumberCell}>{count(row.quantity)}</td>
           </tr>
         ))}
-        <tr style={dataTotalRow}>
-          <th scope="row" colSpan={3} style={dataTotalCell}>TOTAL:</th>
-          <td style={dataTotalCell}>{count(total)}</td>
-        </tr>
       </tbody>
     </table>
   );

@@ -508,9 +508,10 @@ it("imprime snapshot legado sem cargaSolta.transshipment sem lançar", () => {
 });
 
 // Plano 2026-08-08: o impresso do ADR usa a linguagem visual da fatura de
-// taxas locais — cabeçalho de tabela navy com texto branco, zebra nas linhas e
-// barra de total âmbar no fim da tabela (nunca no topo, como era antes).
-it("imprime as tabelas no padrão visual da fatura (cabeçalho navy, zebra e barra de total no fim)", () => {
+// taxas locais — cabeçalho de tabela navy com texto branco e zebra nas linhas.
+// A barra de total âmbar da listagem do operado (ADR 0035, CONTEXT.md) fica no
+// topo da tabela, como já era antes do plano.
+it("imprime as tabelas no padrão visual da fatura (cabeçalho navy, zebra e barra de total no topo)", () => {
   render(
     <AgencyReportDocument
       snapshot={{
@@ -549,11 +550,12 @@ it("imprime as tabelas no padrão visual da fatura (cabeçalho navy, zebra e bar
   expect(head.style.color).toBe("white");
 
   const bodyRows = [...table.querySelectorAll("tbody tr")] as HTMLElement[];
-  expect(bodyRows[0].style.background).toBe(rgb(DOC_ZEBRA));
+  expect(bodyRows[1].style.background).toBe(rgb(DOC_ZEBRA));
 
-  const totalRow = bodyRows[bodyRows.length - 1];
+  // Total no topo — ADR 0035 e CONTEXT.md exigem o total antes das combinações.
+  const totalRow = bodyRows[0];
   expect(totalRow.style.background).toBe(rgb(DOC_ACCENT));
   expect(totalRow.textContent).toContain("TOTAL:");
-  // 3 + 1 = 4 unidades operadas, somadas na barra final.
+  // 3 + 1 = 4 unidades operadas, somadas na barra do topo.
   expect(totalRow.textContent).toContain("4");
 });
