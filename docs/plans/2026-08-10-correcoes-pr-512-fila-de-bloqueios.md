@@ -201,6 +201,11 @@ Três defeitos independentes e pequenos:
 - **Achado 9** — o aviso de truncamento em 1200 linhas é calculado sobre
   `displayedRows.length` (pós-filtro) em vez da contagem bruta da query
   (`ValidacaoControls.tsx:36`). Uma fila truncada com filtro ativo não avisa nada.
+  **Atenção — a contagem crua não basta para Granito:** `loadGraniteOperationalRows`
+  pagina até `limit` e só **depois** aplica `voyageId` em memória
+  (`src/services/charges/chargeOperationsService.ts:438-441`). Se a fonte bater o
+  teto mas a viagem escolhida retiver menos de 1200 linhas, `>= 1200` dá falso e
+  o resultado daquela viagem pode estar incompleto sem aviso nenhum.
 - **Achado 10** — `colSpan={11}` contra 10 `<th>` (a coluna *Motivo* substituiu
   "Por que nao fatura?", saldo zero): coluna fantasma nas linhas de carregamento,
   vazio e expandida (`ValidacaoOperationsTable.tsx:85`).
@@ -215,12 +220,25 @@ Três defeitos independentes e pequenos:
 - Escolher um `blockCode` resolvido (`faturado`, `isento`, `pronto`) liga
   `includeResolved` automaticamente em `updateOpsFilter` — o operador pediu
   aquele conjunto, não precisa marcar duas caixas.
-- `ValidacaoControls` recebe `totalRowCount` (contagem crua de `operationsRows`)
-  além de `blockedCount`; o aviso de teto usa `totalRowCount >= 1200`.
+- O aviso de teto passa a ser dirigido por uma **flag de truncamento apurada
+  antes de qualquer filtro client-side**, não por contagem de linhas. Duas saídas
+  aceitáveis, nesta ordem de preferência:
+  1. `listLocalChargeOperations` passa a devolver
+     `{ rows, truncated }`, com `truncated` marcado por cada loader quando a
+     paginação bate o `limit` — em `loadGraniteOperationalRows`, **antes** do
+     `filter` de `voyageId`. Muda a forma do retorno, então ajustar
+     `useLocalChargeOperations` e os chamadores no mesmo passo.
+  2. Mover o predicado de viagem para dentro da query de `granite_bls`
+     (embed com `!inner` em `granite_manifests`/`voyages` e `.eq('manifest.voyage.id', …)`),
+     eliminando o filtro em memória. **Verificar antes de adotar** — se o
+     PostgREST não filtrar o pai como esperado, cair na saída 1.
+- `ValidacaoControls` recebe `truncated: boolean` além de `blockedCount`.
 - `colSpan={10}` nas três células que hoje usam 11.
 
-- [ ] **Step 1: Escrever o teste que falha** para o aviso de teto com filtro
-      ativo e para o auto-`includeResolved`.
+- [ ] **Step 1: Escrever o teste que falha** para o auto-`includeResolved` e para
+      o aviso de teto em **dois** casos: filtro de motivo ativo reduzindo a
+      grade, e fila de Granito que bate o teto mas cujo filtro de viagem deixa
+      menos de 1200 linhas visíveis (o caso que a contagem de linhas não pega).
 - [ ] **Step 2: Rodar e ver falhar.**
 - [ ] **Step 3: Implementar** (o `colSpan` é one-liner e não pede teste próprio).
 - [ ] **Step 4: Rodar e ver passar.**
