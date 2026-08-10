@@ -40,7 +40,7 @@ import {
 } from '../services/demurrage/demurrageKpis'
 import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
 import { EMPTY_DISCOUNT, EMPTY_DISPUTE, type DiscountForm, type DisputeForm } from '../services/demurrage/demurrageForms'
-import { effectiveDemurrage, fmtBRL, fmtUSD, groupByBl, lastBusinessDayISO } from '../services/demurrage/demurragePresentation'
+import { effectiveDemurrage, fmtBRL, fmtUSD, groupByBl, isPtaxWarningEligible, lastBusinessDayISO } from '../services/demurrage/demurragePresentation'
 import { reverseDemurragePayment } from '../services/reconciliacao'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
@@ -137,6 +137,7 @@ export function Demurrage() {
 
   const recalcStale =
     (kpis?.issuedInvoicesTotalBrl ?? 0) > 0 &&
+    isPtaxWarningEligible() &&
     (latestRecalcDate == null || latestRecalcDate < lastBusinessDayISO())
 
   function invalidateInvoices() {

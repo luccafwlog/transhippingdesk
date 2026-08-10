@@ -79,6 +79,7 @@ vi.mock('../../services/demurrage/demurragePresentation', () => ({
     return grouped
   },
   lastBusinessDayISO: () => '2026-07-17',
+  isPtaxWarningEligible: () => true,
 }))
 vi.mock('../../services/reconciliacao', () => ({ reverseDemurragePayment: mocks.reversePayment }))
 vi.mock('../../services/supabase', () => ({ supabase: {} }))

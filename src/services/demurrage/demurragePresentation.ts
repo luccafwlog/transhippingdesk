@@ -17,6 +17,10 @@ export function lastBusinessDayISO(): string {
   return date.toISOString().slice(0, 10)
 }
 
+export function isPtaxWarningEligible(date = new Date()): boolean {
+  return date.getHours() >= 14
+}
+
 export function fmtBRL(value: number | null | undefined) {
   // ponytail: canonical Intl currency spacing may differ from the former print formatter.
   return value == null ? '---' : formatBRL(value)
