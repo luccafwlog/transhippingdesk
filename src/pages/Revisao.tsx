@@ -202,9 +202,7 @@ export function Revisao() {
 
   const groups = useMemo(() => groupReviewItems(filteredData), [filteredData])
 
-  const visibleExpandedGroups = expandedGroups.size > 0
-    ? expandedGroups
-    : new Set(groups.map((group) => group.key))
+  const visibleExpandedGroups = expandedGroups
 
   const allReasons = useMemo(() => {
     if (!data) return []

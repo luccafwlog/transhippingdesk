@@ -117,15 +117,17 @@ afterEach(() => {
 })
 
 describe('Revisao', () => {
-  it('agrupa os B/Ls por cliente/consignatario', () => {
+  it('agrupa os B/Ls por cliente/consignatario e inicia os processos recolhidos', () => {
     renderPage()
     // grupos sao nomeados pelo consignatario quando nao ha cliente cadastrado
     expect(screen.getByText('AC Comercial')).toBeTruthy()
     expect(screen.getByText('Alma Trading')).toBeTruthy()
     // A fila inicia expandida para expor imediatamente as ações de cada B/L.
-    expect(screen.getByText('BL1')).toBeTruthy()
-    expect(screen.getByText('BL2')).toBeTruthy()
-    expect(screen.getByText('BL3')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /AC Comercial/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getByRole('button', { name: /Alma Trading/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('BL1')).toBeNull()
+    expect(screen.queryByText('BL2')).toBeNull()
+    expect(screen.queryByText('BL3')).toBeNull()
   })
 
   it('vincula em lote todos os B/Ls de um cliente pelo cabecalho do grupo', async () => {
@@ -156,6 +158,7 @@ describe('Revisao', () => {
     vi.mocked(createCustomer).mockResolvedValue({ id: 321, name: 'Novo Cliente', cnpj_cpf: '11222333000181' } as never)
     renderPage()
 
+    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
     await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
     const nome = screen.getByLabelText('Nome')
     await user.clear(nome)
@@ -178,6 +181,7 @@ describe('Revisao', () => {
     const user = userEvent.setup()
     renderPage()
 
+    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
     await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
     await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
     await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
@@ -196,6 +200,7 @@ describe('Revisao', () => {
     const user = userEvent.setup()
     renderPage()
 
+    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
     await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
     await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
     await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
