@@ -17,7 +17,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 |---|---|---|
 | [`2026-08-08-impresso-adr-linguagem-visual-fatura.md`](./2026-08-08-impresso-adr-linguagem-visual-fatura.md) | Impresso do ADR alinhado à linguagem visual da Fatura | TODO |
 | [`2026-08-10-validacao-fila-de-bloqueios.md`](./2026-08-10-validacao-fila-de-bloqueios.md) | Validação do Faturamento reduzida a uma fila de três bloqueios | TODO |
-| [`2026-08-10-ce-mercante-granito.md`](./2026-08-10-ce-mercante-granito.md) | CE Mercante como confirmador do cálculo também no Granito | BLOCKED (depende de confirmar com a operação que Granito emite CE de exportação) |
+| [`2026-08-10-ce-mercante-granito.md`](./2026-08-10-ce-mercante-granito.md) | CE Mercante como confirmador do cálculo também no Granito | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

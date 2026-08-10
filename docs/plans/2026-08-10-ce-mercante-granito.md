@@ -14,27 +14,29 @@ o faturamento do granito, como já faz para os B/Ls da tabela `bls`.
 
 ---
 
-## Apuração obrigatória antes de começar
+## Premissa — confirmada em 2026-08-10
 
-Este plano parte de uma premissa que **ainda não foi confirmada com quem opera**:
+- [x] **Step 0: Confirmar com a operação que a carga de exportação emite CE
+      Mercante.** Confirmado: **carga de exportação emite CE, exceto Embarque de
+      Vazios.**
 
-> A operação de Granito emite CE Mercante.
+A objeção que travava este plano era que Granito é carga de exportação e a
+definição de CE Mercante no CONTEXT.md descreve um documento de importação
+("bloqueia a visibilidade no Portal", "gatilho do cálculo de Taxas Locais do B/L
+de container"). A confirmação mostra que o defeito era **da definição no
+glossário**, não do desenho: o Mercante registra CE nos dois sentidos, e a
+entrada do CONTEXT.md nunca cobriu a exportação.
 
-Granito é **carga de exportação** (CONTEXT.md), e a definição atual de CE
-Mercante no glossário descreve um documento de importação — "sua ausência pode
-bloquear a visibilidade no Portal", "gatilho do cálculo de Taxas Locais do B/L de
-container". O Mercante registra CE para manifesto de exportação também, então a
-definição do glossário pode simplesmente estar incompleta — mas isso precisa ser
-verificado, não assumido.
+**A exceção não altera o escopo deste plano.** Embarque de Vazios não tem
+nenhuma superfície de faturamento — não gera invoice nem recebível, e não é um
+`cargo_mode` de `bls`. As Linhas de Serviço do Embarque são o **custo** que a
+agência paga ao depot, não uma cobrança ao cliente; o módulo nunca aparece na
+Validação e nunca precisaria de CE. A exceção é fato de glossário, e entra na
+redação da Task 5.
 
-**Se a apuração falhar** (granito não tem CE na prática), este plano é
-descartado e o granito mantém um ato de confirmação próprio. Não implementar
-antes da resposta: uma coluna que o operador nunca consegue preencher deixa todo
-o granito parado.
-
-- [ ] **Step 0: Confirmar com a operação de Granito** que existe CE Mercante
-      para a carga de exportação, e em que momento do fluxo ele fica disponível.
-      Registrar a resposta neste arquivo antes de seguir.
+Ainda em aberto, mas não bloqueante — **conferir durante a Task 3**: em que
+momento do fluxo de exportação o CE de Granito fica disponível. Isso decide o
+tamanho do backlog de granito sem CE no dia do deploy, não se o plano é viável.
 
 ---
 
@@ -144,8 +146,11 @@ anterior como ponte) deixa de ser necessária para o fluxo normal.
 
 **CONTEXT.md — corrigir a entrada "CE Mercante":** hoje ela descreve o documento
 só em termos de importação e de B/L de container. Passa a dizer que o CE é
-registrado no Mercante para os dois sentidos e que é o confirmador do cálculo em
-todos os modos de carga — container, carga solta e granito.
+registrado no Mercante nos dois sentidos e que é o confirmador do cálculo em
+todos os modos de carga — container, carga solta e granito —, com a exceção
+confirmada pela operação: **Embarque de Vazios não emite CE**. Registrar também
+por que a exceção não cria buraco: Embarque de Vazios é módulo de custo (o que a
+agência paga ao depot), não de cobrança, e não tem faturamento a confirmar.
 
 **ADR 0042** registra a ampliação e a reversão do faturamento automático de
 granito por clique.
@@ -167,9 +172,8 @@ granito por clique.
 
 ## Riscos
 
-- **Premissa não confirmada** (Step 0). É o risco dominante: se granito não tem
-  CE, a coluna trava o módulo inteiro.
-- **Granito deixa de faturar sozinho.** Conferir o backlog de granito sem CE
+- **Granito deixa de faturar sozinho.** Passa a ser o risco dominante, agora que
+  a premissa está confirmada. Conferir o backlog de granito sem CE
   antes do deploy; o efeito aparece como atraso de faturamento na primeira
   semana.
 - **`src/types/database.ts` é protegido** pelo hook do repositório; a
