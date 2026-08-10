@@ -618,7 +618,6 @@ function ContainerList({ containers, filters }: { containers: BaplieContainer[];
               <th scope="col" className="px-4 py-3">POL</th>
               <th scope="col" className="px-4 py-3">POD</th>
               <th scope="col" className="px-4 py-3">Slot</th>
-              <th scope="col" className="px-4 py-3">B/L ref.</th>
               <th scope="col" className="px-4 py-3">Perfil</th>
             </tr>
           </thead>
@@ -635,7 +634,6 @@ function ContainerList({ containers, filters }: { containers: BaplieContainer[];
                 <td className="px-4 py-3">{c.pol ?? '-'}</td>
                 <td className="px-4 py-3">{c.pod ?? '-'}</td>
                 <td className="px-4 py-3">{c.slot ?? '-'}</td>
-                <td className="px-4 py-3">{c.bl_ref ?? '-'}</td>
                 <td className="px-4 py-3">
                   {c.is_imo ? (
                     <Badge tone="red">IMO</Badge>

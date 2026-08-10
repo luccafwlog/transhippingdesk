@@ -1,12 +1,12 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, Trash2, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { MetricCard } from '../components/ui/MetricCard'
 import { FilterBar } from '../components/ui/FilterBar'
-import { Field, Input } from '../components/ui/Input'
+import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
 import { PreviewBox } from '../components/ui/PreviewBox'
@@ -18,11 +18,14 @@ import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { usePageFilters } from '../hooks/usePageFilters'
-import { useVehicleOptions, useVehicles, type VehiclePageFilters } from '../hooks/useVehicles'
+import { useVehicleOptions, useVehicles, useVoyageVehicleStats, type VehiclePageFilters } from '../hooks/useVehicles'
 import { formatDate } from '../lib/utils'
 import { deleteVehicles } from '../services/vehicles'
 import { importVehicleRows, parseVehicleImportFile, type ParsedVehicleImport } from '../services/vehicleImport'
 import { setContainerUnpackingLocation } from '../services/vaziosNatureza'
+import { listVoyageEscalaSchedulesByVoyageIds } from '../services/voyageRouteSchedules'
+import { buildVoyageRailItems, type VoyageRailModuleStats } from '../services/voyageSummaries'
+import { VoyageRail } from '../components/voyages/VoyageRail'
 
 export function Veiculos() {
   const [searchParams] = useSearchParams()
@@ -69,6 +72,33 @@ export function Veiculos() {
   } | null>(null)
 
   const allVoyageOptions = useMemo(() => options?.voyages ?? [], [options?.voyages])
+  const voyageIds = useMemo(() => allVoyageOptions.map((voyage) => voyage.id), [allVoyageOptions])
+  const { data: voyageVehicleStats } = useVoyageVehicleStats(voyageIds)
+  const { data: escalaSchedulesByVoyage = new Map() } = useQuery({
+    queryKey: ['vehicles-voyage-card-schedules', voyageIds],
+    enabled: voyageIds.length > 0,
+    queryFn: () => listVoyageEscalaSchedulesByVoyageIds(voyageIds),
+  })
+  const voyageRailItems = useMemo(() => {
+    const moduleStats = new Map<number, VoyageRailModuleStats>()
+    for (const voyage of allVoyageOptions) {
+      const stats = voyageVehicleStats?.byVoyageId[voyage.id]
+      moduleStats.set(voyage.id, {
+        hasVehicles: (stats?.totalVehicles ?? 0) > 0,
+        vehicleContainerNumbers: stats?.containerNumbers ?? [],
+      })
+    }
+    return buildVoyageRailItems(
+      allVoyageOptions.map((voyage) => ({
+        id: voyage.id,
+        voyage_number: voyage.voyage_number,
+        status: 'active',
+        vessel: { name: voyage.vessel?.name ?? 'Navio', carrier: null },
+      })),
+      escalaSchedulesByVoyage,
+      moduleStats,
+    )
+  }, [allVoyageOptions, escalaSchedulesByVoyage, voyageVehicleStats])
 
   // Ajustes de estado durante o render (sem useEffect): cada condição se
   // auto-falsifica após o setState, convergindo em um re-render.
@@ -262,6 +292,14 @@ export function Veiculos() {
         ) : null}
       />
 
+      <section className="mb-5 min-w-0">
+        <VoyageRail
+          items={voyageRailItems}
+          selectedId={selectedVoyageId ? Number(selectedVoyageId) : null}
+          onSelect={(id) => setSelectedVoyageId(String(id))}
+        />
+      </section>
+
       <Card className="mb-5">
         <div className="grid gap-4 md:grid-cols-2">
           <VoyageCombobox
@@ -322,13 +360,22 @@ export function Veiculos() {
             <Input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} />
           </Field>
           <Field label="Filtro por marca">
-            <Input value={filters.brand} onChange={(event) => updateFilter('brand', event.target.value)} />
+            <Select value={filters.brand} onChange={(event) => updateFilter('brand', event.target.value)}>
+              <option value="">Todas</option>
+              {(data?.vehiclesByBrand ?? []).map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+            </Select>
           </Field>
           <Field label="Filtro por modelo">
-            <Input value={filters.model} onChange={(event) => updateFilter('model', event.target.value)} />
+            <Select value={filters.model} onChange={(event) => updateFilter('model', event.target.value)}>
+              <option value="">Todos</option>
+              {(data?.vehiclesByModel ?? []).map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+            </Select>
           </Field>
           <Field label="Filtro por tipo de container">
-            <Input value={filters.containerType} onChange={(event) => updateFilter('containerType', event.target.value)} />
+            <Select value={filters.containerType} onChange={(event) => updateFilter('containerType', event.target.value)}>
+              <option value="">Todos</option>
+              {(data?.vehiclesByContainerType ?? []).map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+            </Select>
           </Field>
           <Field label="Filtro por lacre">
             <Input value={filters.seal} onChange={(event) => updateFilter('seal', event.target.value)} />
@@ -340,7 +387,10 @@ export function Veiculos() {
             <Input value={filters.bl} onChange={(event) => updateFilter('bl', event.target.value)} />
           </Field>
           <Field label="Filtro por local de desova">
-            <Input value={filters.unpackingLocation} onChange={(event) => updateFilter('unpackingLocation', event.target.value)} />
+            <Select value={filters.unpackingLocation} onChange={(event) => updateFilter('unpackingLocation', event.target.value)}>
+              <option value="">Todos</option>
+              {(data?.unpackingLocations ?? []).map((item) => <option key={item.label} value={item.label}>{item.label}</option>)}
+            </Select>
           </Field>
         </div>
       </FilterBar>
@@ -424,7 +474,11 @@ export function Veiculos() {
                   <td className="px-4 py-3">{row.container?.container_number ?? '-'}</td>
                   <td className="px-4 py-3">{row.container?.type ?? '-'}</td>
                   <td className="px-4 py-3">{row.container?.seal_number ?? '-'}</td>
-                  <td className="px-4 py-3">{row.bl?.id ?? '-'}</td>
+                  <td className="px-4 py-3">
+                    {row.bl?.id ? (
+                      <Link className="app-table__action" to={`/manifestos/${row.bl.id}`}>{row.bl.id}</Link>
+                    ) : '-'}
+                  </td>
                   <td className="px-4 py-3">
                     {row.container ? (
                       <div className="grid gap-1">

@@ -153,7 +153,7 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
       while (true) {
         const { data, error } = await supabase
           .from('vehicles')
-          .select('id, brand, weight_kg, cbm, container:bl_containers(id, container_number, type), bl:bls(id)')
+          .select('id, brand, model, weight_kg, cbm, container:bl_containers(id, container_number, type, unpacking_location), bl:bls(id)')
           .eq('voyage_id', voyageId!)
           .order('id', { ascending: true })
           .range(from, from + batchSize - 1)
@@ -173,15 +173,23 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
   const stats = useMemo(() => {
     const all = statsQuery.data ?? []
     const brandMap = new Map<string, number>()
+    const modelMap = new Map<string, number>()
     const vehicleTypeMap = new Map<string, number>()
+    const unpackingLocationMap = new Map<string, number>()
     const containerTypeMap = new Map<string, Set<string>>()
 
     for (const row of all) {
       const brand = String(row.brand ?? '').trim() || 'Nao informado'
       brandMap.set(brand, (brandMap.get(brand) ?? 0) + 1)
 
+      const model = String(row.model ?? '').trim() || 'Nao informado'
+      modelMap.set(model, (modelMap.get(model) ?? 0) + 1)
+
       const containerType = String(row.container?.type ?? '').trim() || 'Nao informado'
       vehicleTypeMap.set(containerType, (vehicleTypeMap.get(containerType) ?? 0) + 1)
+
+      const unpackingLocation = String((row.container as (typeof row.container & { unpacking_location?: string | null }) | null)?.unpacking_location ?? '').trim() || 'Nao informado'
+      unpackingLocationMap.set(unpackingLocation, (unpackingLocationMap.get(unpackingLocation) ?? 0) + 1)
 
       const containerNumber = String(row.container?.container_number ?? '').trim().toUpperCase()
       const currentSet = containerTypeMap.get(containerType) ?? new Set<string>()
@@ -197,7 +205,13 @@ export function useVehicles(voyageId: number | null, filters: VehiclePageFilters
       vehiclesByBrand: Array.from(brandMap.entries())
         .map(([label, count]) => ({ label, count }))
         .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'pt-BR')),
+      vehiclesByModel: Array.from(modelMap.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'pt-BR')),
       vehiclesByContainerType: Array.from(vehicleTypeMap.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'pt-BR')),
+      unpackingLocations: Array.from(unpackingLocationMap.entries())
         .map(([label, count]) => ({ label, count }))
         .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'pt-BR')),
       containersByContainerType: Array.from(containerTypeMap.entries())
