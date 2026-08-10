@@ -548,10 +548,13 @@ it('no estado fechado renderiza o documento e oculta controles/seções editáve
 
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
 
-  expect(screen.getByRole('heading', { name: 'Matriz de descarga' })).toBeTruthy()
+  expect(screen.queryByRole('heading', { name: 'Matriz de descarga' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Fechar ADR' })).toBeNull()
   expect(screen.queryByRole('textbox')).toBeNull()
-  expect(screen.getByRole('button', { name: 'Imprimir' })).toBeTruthy()
+  const printButton = screen.getByRole('button', { name: 'Imprimir' })
+  expect(printButton).toBeTruthy()
+  fireEvent.click(printButton)
+  expect(screen.getByRole('heading', { name: 'Matriz de descarga' })).toBeTruthy()
 })
 
 it('exibe Reabrir do ADR somente para administradores e exige justificativa não vazia', () => {
