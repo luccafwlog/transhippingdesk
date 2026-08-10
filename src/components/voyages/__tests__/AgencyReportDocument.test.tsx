@@ -4,6 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { AgencyReportDocument } from "../AgencyReportDocument";
 import { formatBRL } from "../../../lib/utils";
+import { DOC_ACCENT, DOC_NAVY, DOC_ZEBRA } from "../../shared/invoiceFormat";
 
 afterEach(cleanup);
 
@@ -504,4 +505,57 @@ it("imprime snapshot legado sem cargaSolta.transshipment sem lançar", () => {
   ).not.toThrow();
 
   expect(screen.queryByRole("table", { name: "Carga solta em transbordo" })).toBeNull();
+});
+
+// Plano 2026-08-08: o impresso do ADR usa a linguagem visual da fatura de
+// taxas locais — cabeçalho de tabela navy com texto branco e zebra nas linhas.
+// A barra de total âmbar da listagem do operado (ADR 0035, CONTEXT.md) fica no
+// topo da tabela, como já era antes do plano.
+it("imprime as tabelas no padrão visual da fatura (cabeçalho navy, zebra e barra de total no topo)", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: {
+          carrierName: "Armador teste",
+          voyageLabel: "NAVIO TESTE / 01E",
+          port: "BRVIX",
+          terminal: "TVV",
+          schedule: { ata: "2026-07-19", atb: "2026-07-19", atd: "2026-07-20", rtw: 2 },
+        },
+        sections: {
+          cargaDescarregada: {
+            rows: { "40HC": { carga_geral: 3 }, "20DC": { imo: 1 } },
+            totals: { carga_geral: 3, imo: 1 },
+          },
+        },
+        occurrences: [],
+        signoffs: [],
+      }}
+    />,
+  );
+
+  // Fatos da escala no bloco de metadados do kit (labelCell/cell).
+  const facts = screen.getByRole("table", { name: "Escala" });
+  expect(facts.textContent).toContain("Armador teste");
+  expect(facts.textContent).toContain("TVV");
+
+  // jsdom normaliza a cor inline para rgb() — o teste compara pelo mesmo token
+  // da fatura, convertido, em vez de fixar a string do navegador.
+  const rgb = (hex: string) =>
+    `rgb(${[1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16)).join(", ")})`;
+
+  const table = screen.getByRole("table", { name: "Matriz de descarga" });
+  const head = table.querySelector("thead tr") as HTMLElement;
+  expect(head.style.background).toBe(rgb(DOC_NAVY));
+  expect(head.style.color).toBe("white");
+
+  const bodyRows = [...table.querySelectorAll("tbody tr")] as HTMLElement[];
+  expect(bodyRows[1].style.background).toBe(rgb(DOC_ZEBRA));
+
+  // Total no topo — ADR 0035 e CONTEXT.md exigem o total antes das combinações.
+  const totalRow = bodyRows[0];
+  expect(totalRow.style.background).toBe(rgb(DOC_ACCENT));
+  expect(totalRow.textContent).toContain("TOTAL:");
+  // 3 + 1 = 4 unidades operadas, somadas na barra do topo.
+  expect(totalRow.textContent).toContain("4");
 });

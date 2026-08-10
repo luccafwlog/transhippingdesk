@@ -62,10 +62,41 @@ export function describeInvoiceItemsFreezeNote(invoice: { invoice_type?: string 
   return `Itens automáticos (Origem: Auto) refletem o cálculo do B/L congelado na emissão (${formatDate(invoice.issued_at)}) e não mudam com recálculos posteriores. Itens manuais podem ter sido lançados depois da emissão — veja a coluna Origem.`
 }
 
-export const cell: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid #e5e7eb' }
+// Paleta única dos documentos imprimíveis (fatura de taxas locais, fatura/recibo
+// de Demurrage e Agency Departure Report). A fatura de taxas locais é o modelo:
+// barra de cabeçalho navy com texto branco, zebra clara nas linhas, barra de
+// total âmbar e faixa clara para agrupar blocos. Quem imprimir um documento novo
+// consome estes tokens em vez de repetir hex solto.
+export const DOC_NAVY = '#1A2744'
+export const DOC_ACCENT = '#F59E0B'
+export const DOC_BORDER = '#e5e7eb'
+export const DOC_ROW_RULE = '#eee'
+export const DOC_ZEBRA = '#f9fafb'
+export const DOC_GROUP = '#e8edf5'
+export const DOC_SUBTOTAL = '#f0f4fa'
+export const DOC_MUTED = '#6b7280'
+
+export const cell: React.CSSProperties = { padding: '8px 10px', borderBottom: `1px solid ${DOC_BORDER}` }
 export const labelCell: React.CSSProperties = { ...cell, fontWeight: 700, width: 130, whiteSpace: 'nowrap' }
 
 export const documentRoot: React.CSSProperties = { fontFamily: 'Arial, sans-serif', fontSize: '13px', color: '#111', background: 'white' }
+
+// Tabela de itens no padrão da fatura: cabeçalho navy, zebra e barra de total.
+export const dataTable: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', margin: '6px 0 12px', fontSize: '12px' }
+export const dataHeadRow: React.CSSProperties = { background: DOC_NAVY, color: 'white' }
+export const dataHeadCell: React.CSSProperties = { padding: '9px 7px', textAlign: 'left', fontWeight: 600 }
+export const dataCell: React.CSSProperties = { padding: '8px 7px', textAlign: 'left', fontWeight: 400 }
+export const dataNumberCell: React.CSSProperties = { ...dataCell, textAlign: 'right' }
+export const dataTotalRow: React.CSSProperties = { background: DOC_ACCENT, fontWeight: 700 }
+export const dataTotalCell: React.CSSProperties = { padding: '9px 12px', textAlign: 'right', fontWeight: 700 }
+
+export function zebraRow(index: number): React.CSSProperties {
+  return { background: index % 2 === 0 ? DOC_ZEBRA : 'white', borderBottom: `1px solid ${DOC_ROW_RULE}` }
+}
+
+// Faixa que agrupa um bloco do documento — a mesma da linha "B/L …" da fatura
+// consolidada, reaproveitada como título de seção no impresso do ADR.
+export const groupBar: React.CSSProperties = { background: DOC_GROUP, color: DOC_NAVY, fontWeight: 700, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '6px 8px', margin: '16px 0 0' }
 
 // Nome padronizado do arquivo de fatura de taxas locais (sem extensao):
 // "NumeroFatura - FATURA TAXAS LOCAIS - PrimeiroNomeCliente - BL(s)".

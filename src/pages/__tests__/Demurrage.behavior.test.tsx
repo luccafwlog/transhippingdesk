@@ -178,6 +178,9 @@ const invoiceDetail = {
 
 const detailResponse = { invoice: invoiceDetail, items: invoiceDetail.items }
 
+const paidInvoiceDetail = { ...invoiceDetail, id: 22, doc_number: 'DEM-002', status: 'paid', paid_at: '2026-07-12' }
+const paidDetailResponse = { invoice: paidInvoiceDetail, items: paidInvoiceDetail.items }
+
 const customerSummary = [{
   customer_id: 7,
   customer_name: 'Cliente Teste',
@@ -217,7 +220,7 @@ describe('Demurrage page behaviours', () => {
     mocks.listInvoices.mockImplementation(({ status }: { status: string }) => Promise.resolve(
       status === 'issued' ? [issuedInvoice] : status === 'paid' ? [paidInvoice] : [],
     ))
-    mocks.getInvoiceDetail.mockResolvedValue(detailResponse)
+    mocks.getInvoiceDetail.mockImplementation((id: number) => Promise.resolve(id === 22 ? paidDetailResponse : detailResponse))
     mocks.markPaid.mockResolvedValue(undefined)
     mocks.cancelInvoice.mockResolvedValue(undefined)
     mocks.updateInvoice.mockResolvedValue(undefined)
@@ -298,6 +301,8 @@ describe('Demurrage page behaviours', () => {
     expect(mocks.getInvoiceDetail).toHaveBeenCalledWith(21)
     await user.click(screen.getByRole('button', { name: 'Fechar modal' }))
 
+    await user.click(screen.getByRole('button', { name: 'Detalhes' }))
+    await screen.findByRole('dialog', { name: 'Detalhes da invoice' })
     await user.click(screen.getByRole('button', { name: 'Desconto' }))
     const discountDialog = screen.getByRole('dialog', { name: 'Desconto' })
     await user.selectOptions(within(discountDialog).getByLabelText('Tipo de desconto'), 'comercial')
@@ -315,6 +320,8 @@ describe('Demurrage page behaviours', () => {
     expect(mocks.recomputeDiscountedBrl).toHaveBeenCalledWith(21)
     expect(screen.queryByRole('dialog', { name: 'Desconto' })).toBeNull()
 
+    await user.click(screen.getByRole('button', { name: 'Detalhes' }))
+    await screen.findByRole('dialog', { name: 'Detalhes da invoice' })
     await user.click(screen.getByRole('button', { name: 'Disputa' }))
     await user.click(screen.getByRole('checkbox', { name: 'Disputa em aberto' }))
     await user.type(screen.getByLabelText('Assunto'), 'Contestação')
@@ -331,6 +338,8 @@ describe('Demurrage page behaviours', () => {
     }))
     expect(screen.queryByRole('dialog', { name: 'Disputa' })).toBeNull()
 
+    await user.click(screen.getByRole('button', { name: 'Detalhes' }))
+    await screen.findByRole('dialog', { name: 'Detalhes da invoice' })
     await user.click(screen.getByRole('button', { name: 'Registrar Pgto' }))
     const paymentDate = screen.getByLabelText('Data do pagamento')
     await user.clear(paymentDate)
@@ -340,6 +349,8 @@ describe('Demurrage page behaviours', () => {
     expect(mocks.fetchRoe).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog', { name: 'Registrar Pagamento' })).toBeNull()
 
+    await user.click(screen.getByRole('button', { name: 'Detalhes' }))
+    await screen.findByRole('dialog', { name: 'Detalhes da invoice' })
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
     await waitFor(() => expect(mocks.cancelInvoice.mock.calls.at(-1)?.[0]).toBe(21))
     expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({
@@ -356,6 +367,8 @@ describe('Demurrage page behaviours', () => {
 
     await user.click(screen.getByRole('button', { name: 'Pagas' }))
     await screen.findByText('DEM-002')
+    await user.click(screen.getByRole('button', { name: 'Detalhes' }))
+    expect(await screen.findByRole('dialog', { name: 'Detalhes da invoice' })).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Cancelar baixa' }))
     await user.type(screen.getByLabelText(/Justificativa para cancelar a baixa/), 'PIX duplicado')
     const reversal = screen.getByRole('dialog', { name: /Cancelar baixa de Demurrage/ })
