@@ -583,6 +583,7 @@ type VoyageTimelineInput = {
   voyageStatus?: string | null
   ceCoverage?: { filled: number; total: number } | null
   actorNames?: Record<string, string> | null
+  actorDepartments?: Record<string, string> | null
 }
 
 const TIMELINE_SCHEDULE_DATE_LABELS: Record<string, string> = { etd: 'ETD', eta: 'ETA', etb: 'ETB', ata: 'ATA', atd: 'ATD' }
@@ -631,6 +632,7 @@ export function buildVoyageTimeline({
   voyageStatus,
   ceCoverage,
   actorNames,
+  actorDepartments,
 }: {
   importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; total_bls?: number | null; ce_master?: string | null }> | null
   scheduleEvents?: TimelineAuditEvent[] | null
@@ -641,11 +643,12 @@ export function buildVoyageTimeline({
   voyageStatus?: string | null
   ceCoverage?: { filled: number; total: number } | null
   actorNames?: Record<string, string> | null
+  actorDepartments?: Record<string, string> | null
 }): VoyageTimelineEvent[] {
   const imports = buildImportTimeline(importBatches)
   const events = [...imports.events]
   const appendActor = (detail: string, changedBy: string | null | undefined) =>
-    appendTimelineActor(detail, changedBy, actorNames)
+    appendTimelineActor(detail, changedBy, actorNames, actorDepartments)
   events.push(...buildCeCoverageTimeline(ceCoverage, imports.latestImportAt))
 
   events.push(...buildBaplieTimeline(baplieImports, openDivergenceCount))
@@ -937,10 +940,13 @@ function appendTimelineActor(
   detail: string,
   changedBy: string | null | undefined,
   actorNames: Record<string, string> | null | undefined,
+  actorDepartments: Record<string, string> | null | undefined,
 ) {
   const actor = String(changedBy ?? '').trim()
   if (!actor) return detail
   const name = actorNames?.[actor]?.trim()
+  const department = actorDepartments?.[actor]?.trim()
+  if (name && department) return `${detail} · por ${name} (${department})`
   if (name) return `${detail} · por ${name}`
   return isUuid(actor) ? detail : `${detail} · por ${actor}`
 }

@@ -38,6 +38,7 @@ export async function fetchVoyageTimelineSources(
   baplieImports: VoyageBaplieImportEvent[]
   importBatches: VoyageImportBatchEvent[]
   actorNames: Record<string, string>
+  actorDepartments: Record<string, string>
 }> {
   const [scheduleRes, auditRes, resolutionRes, baplieRes, importsRes] = await Promise.all([
     supabase
@@ -82,18 +83,21 @@ export async function fetchVoyageTimelineSources(
     ].filter(Boolean)),
   ) as string[]
   const actorNames: Record<string, string> = {}
+  const actorDepartments: Record<string, string> = {}
 
   if (actorIds.length) {
     const { data: profiles, error: profilesError } = await supabase
       .from('user_profiles')
-      .select('id, full_name')
+      .select('id, full_name, role')
       .in('id', actorIds)
     if (profilesError) throw profilesError
 
     for (const profile of profiles ?? []) {
-      const row = profile as { id: string; full_name: string | null }
+      const row = profile as { id: string; full_name: string | null; role: string | null }
       const name = String(row.full_name ?? '').trim()
       if (name) actorNames[row.id] = name
+      const department = TIMELINE_ROLE_LABELS[row.role ?? '']
+      if (department) actorDepartments[row.id] = department
     }
   }
 
@@ -107,5 +111,16 @@ export async function fetchVoyageTimelineSources(
     })),
     importBatches: (importsRes.data ?? []).map((row) => ({ ...row, cargo_mode: row.cargo_mode === 'carga_solta' ? 'carga_solta' : 'container' })) as VoyageImportBatchEvent[],
     actorNames,
+    actorDepartments,
   }
+}
+
+const TIMELINE_ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrativo',
+  operator: 'Documentação',
+  administrativo: 'Administrativo',
+  financeiro: 'Financeiro',
+  operacoes: 'Operações',
+  documentacao: 'Documentação',
+  equipamentos: 'Equipamentos',
 }

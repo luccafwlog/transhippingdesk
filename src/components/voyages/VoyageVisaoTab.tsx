@@ -78,6 +78,7 @@ export function VoyageVisaoTab({
         voyageStatus: voyage.status,
         ceCoverage,
         actorNames: timelineSources?.actorNames,
+        actorDepartments: timelineSources?.actorDepartments,
       }),
     [ceCoverage, divergenceCount, importBatches, routesByBatchId, timelineSources, voyage.status],
   )

@@ -25,10 +25,12 @@ import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions } fro
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { countDistinctContainerNumbers } from '../lib/containerCounts'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
+import { formatPortDisplayName } from '../lib/voyageFormat'
 
 export function Manifestos() {
   const [searchParams] = useSearchParams()
   const initialVoyage = searchParams.get('voyage') ?? ''
+  const initialPol = searchParams.get('pol') ?? ''
   const initialPod = searchParams.get('pod') ?? ''
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -40,7 +42,7 @@ export function Manifestos() {
     search: '',
     voyageId: initialVoyage,
     cargoMode: 'container',
-    pol: '',
+    pol: initialPol,
     pod: initialPod,
     reviewStatus: '',
     financialStatus: '',
@@ -241,7 +243,7 @@ export function Manifestos() {
               <option value="">Todos</option>
               {portOptions?.pols.map((pol) => (
                 <option key={pol} value={pol}>
-                  {pol}
+                  {formatPortDisplayName(pol)}
                 </option>
               ))}
             </Select>
@@ -251,7 +253,7 @@ export function Manifestos() {
               <option value="">Todos</option>
               {portOptions?.pods.map((pod) => (
                 <option key={pod} value={pod}>
-                  {pod}
+                  {formatPortDisplayName(pod)}
                 </option>
               ))}
             </Select>

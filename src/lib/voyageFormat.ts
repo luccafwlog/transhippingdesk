@@ -6,6 +6,7 @@ export function formatPortDisplayName(port: string | null | undefined) {
   const normalized = normalizePortName(port)
 
   const portNames: Record<string, string> = {
+    CNNGB: 'NINGBO',
     CNNBO: 'NINGBO',
     CNNSA: 'NANSHA',
     CNSHG: 'SHANGHAI',

@@ -80,4 +80,18 @@ describe('fallback de importação de B/L', () => {
     expect(event?.title).toContain('BRVIX')
     expect(event?.detail).toContain('CNTR')
   })
+
+  it('mostra nome e setor do usuário que alterou o evento', () => {
+    const events = buildVoyageTimeline({
+      actorNames: { 'user-1': 'Ana Ribeiro' },
+      actorDepartments: { 'user-1': 'Operações' },
+      auditEvents: [{
+        entity_type: 'voyage', entity_id: '2', field_name: 'status',
+        old_value: null, new_value: 'planning', changed_by: 'user-1',
+        changed_at: '2026-07-16T12:00:00Z',
+      }],
+    })
+
+    expect(events[0].detail).toContain('por Ana Ribeiro (Operações)')
+  })
 })

@@ -82,3 +82,16 @@ it('nao oferece importacao de Manifesto CNTR nem geracao de EDI Mercante', () =>
   expect(screen.queryAllByRole('button', { name: 'Importar Manifesto CNTR' })).toHaveLength(0)
   expect(screen.queryAllByRole('button', { name: 'Gerar EDI Mercante' })).toHaveLength(0)
 })
+
+it('aplica o POL recebido na URL junto com viagem e POD', () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/manifestos?voyage=7&pol=CNTAC&pod=BRVIX']}>
+        <Manifestos />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  expect(useBlsMock.mock.calls.at(-1)?.[0]).toMatchObject({ voyageId: '7', pol: 'CNTAC', pod: 'BRVIX' })
+})
