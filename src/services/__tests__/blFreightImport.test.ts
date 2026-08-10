@@ -592,6 +592,12 @@ describe('blFreightImport', () => {
       p_bls: [preview.rows[0]?.payload],
       p_changed_by: 'user-1',
     })
+    expect(preview.rows[0]?.payload).toMatchObject({
+      customer_id: null,
+      customer_reconciliation_status: 'missing_customer',
+      manifest_customer_cnpj_cpf: '12345678000195',
+      manifest_customer_name: 'IMPORTADOR LTDA',
+    })
     expect(mockTryAutoIssueInvoice).not.toHaveBeenCalled()
   })
 

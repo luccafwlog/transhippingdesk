@@ -9,7 +9,6 @@ import { applyBapliePhysicalFlags } from './baplieReconciliation'
 import { calculateProvisionalLocalCharges } from './charges/chargeOperationsService'
 import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
-import { addCustomerEmail, createCustomer } from './customers'
 
 export type BlFreightImportDiff = {
   field: string
@@ -312,52 +311,13 @@ export async function confirmBlFreightImport(
     throw new Error('Nenhum B/L liberado para importar.')
   }
 
-  // Completa o cadastro do cliente a partir do consignatário do B/L antes da
-  // gravação transacional. Um mesmo CNPJ no lote gera apenas um cliente.
-  const createdByDocument = new Map<string, number>()
-  for (const bl of payload) {
-    if (bl.customer_reconciliation_status === 'matched_document' || !bl.manifest_customer_cnpj_cpf || !bl.manifest_customer_name) continue
-    const document = onlyDigits(bl.manifest_customer_cnpj_cpf)
-    if (document.length !== 11 && document.length !== 14) continue
-    let customerId = createdByDocument.get(document)
-    if (!customerId) {
-      const customer = await createCustomer({
-        cnpjCpf: document,
-        name: bl.manifest_customer_name,
-        contacts: bl.manifest_customer_email
-          ? [{ name: 'Contato do B/L', email: bl.manifest_customer_email, purpose: 'financeiro', is_primary: true }]
-          : [],
-      })
-      customerId = customer.id
-      createdByDocument.set(document, customerId)
-    }
-    bl.customer_id = customerId
-    bl.customer_reconciliation_status = 'matched_document'
-    bl.customer_reconciliation_notes = 'Cliente criado automaticamente por CNPJ/CPF do B/L.'
-    bl.billing_hold_reason = null
-  }
-
+  // Mantém os dados extraídos do B/L para a revisão oferecer como sugestão;
+  // o cadastro e a vinculação só ocorrem após confirmação do usuário.
   const { data, error } = await supabase.rpc('import_bl_freight_transactional', {
     p_bls: payload,
     p_changed_by: changedBy,
   })
   if (error) throw error
-
-  // Para clientes já encontrados, o e-mail do B/L complementa os contatos
-  // sem duplicar endereço existente.
-  const emailTargets = new Map<number, string>()
-  for (const bl of payload) {
-    if (bl.customer_id && bl.manifest_customer_email) emailTargets.set(bl.customer_id, bl.manifest_customer_email)
-  }
-  for (const [customerId, email] of emailTargets) {
-    const { data: contacts, error: contactsError } = await supabase
-      .from('customer_contacts')
-      .select('email')
-      .eq('customer_id', customerId)
-    if (contactsError) throw contactsError
-    const exists = (contacts ?? []).some((contact) => String(contact.email ?? '').trim().toLowerCase() === email.toLowerCase())
-    if (!exists) await addCustomerEmail(customerId, email)
-  }
 
   // B/L nascido DEPOIS do Baplie (fluxo B/L-primário): aplica as flags físicas
   // soberanas do Baplie (IMO/OOG) aos containers recém-criados, fechando o gap
