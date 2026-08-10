@@ -76,6 +76,7 @@ export type LocalChargeOperationalFilters = {
   pod?: string
   voyageId?: number | null
   chargeStatus?: '' | 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
+  includeResolved?: boolean
   limit?: number
 }
 
@@ -259,7 +260,7 @@ async function loadBlOperationalRows(
     if (filters?.cargoMode === 'container' || filters?.cargoMode === 'carga_solta') {
       query = query.eq('cargo_mode', filters.cargoMode)
     }
-    query = query.or('financial_status.is.null,financial_status.neq.invoiced')
+    if (!filters?.includeResolved) query = query.or('financial_status.is.null,financial_status.neq.invoiced')
     if (filters?.pod) {
       const pod = sanitizeLikeTerm(filters.pod)
       if (pod) query = query.ilike('pod', `%${pod}%`)
@@ -409,7 +410,7 @@ async function loadGraniteOperationalRows(
         customer:customers!granite_bls_client_id_fkey(id,name,cnpj_cpf)
       `,
       )
-      .neq('charge_status', 'invoiced')
+      .neq('charge_status', filters?.includeResolved ? '__never__' : 'invoiced')
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
@@ -822,13 +823,6 @@ export async function calculateProvisionalLocalCharges(
   return { calculated: results.filter((r) => r.status === 'fulfilled').length }
 }
 
-export async function markLocalChargesReviewedBatch(blIds: string[], actorId?: string | null) {
-  return runBatch(blIds, (blId) => markBlChargesReviewed(blId, actorId))
-}
-
-export async function markLocalChargesReadyBatch(blIds: string[], actorId?: string | null) {
-  return runBatch(blIds, (blId) => markBlReadyForBilling(blId, actorId))
-}
 function normalizeCalculationResult(data: unknown): LocalChargeCalculationResult {
   const payload = (data ?? {}) as Record<string, unknown>
   return {

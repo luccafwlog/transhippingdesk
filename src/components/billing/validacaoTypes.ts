@@ -3,9 +3,10 @@ export type OpsFilters = {
   cargoMode: '' | 'container' | 'carga_solta' | 'granito'
   pod: string
   voyageId: string
-  chargeStatus: '' | 'review_required' | 'ready_for_billing' | 'exempt'
+  blockCode: '' | BillingBlockCode
+  includeResolved: boolean
 }
 
-export type PipelineStep = 'reconciliation' | 'review' | 'ready_for_billing'
+export type BillingBlockCode = 'sem_cliente' | 'calculo_incompleto' | 'aguardando_ce' | 'faturado' | 'isento'
 
-export type BatchOperation = 'recalculate' | 'review' | 'ready'
+export type BatchOperation = 'recalculate'

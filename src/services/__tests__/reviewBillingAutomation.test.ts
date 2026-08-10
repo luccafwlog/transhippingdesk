@@ -16,6 +16,9 @@ vi.mock('../operationalEvents', () => ({
   logOperationalEvent: mockLogOperationalEvent,
 }))
 
+const { mockCreateAlert } = vi.hoisted(() => ({ mockCreateAlert: vi.fn() }))
+vi.mock('../alerts', () => ({ createAlert: mockCreateAlert }))
+
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
 }))
@@ -233,9 +236,10 @@ describe('maybeAutoBillAfterCeMercante', () => {
     expect(mockLogOperationalEvent).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'bl_auto_billing_failed', entityId: 'BL1', changedBy: 'user-1' }),
     )
+    expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed', entityType: 'bl', entityId: 'BL1', message: 'ledger failed' }))
   })
 
-  it('nao registra evento quando o bloqueio e de negocio (sem valor faturavel)', async () => {
+  it('alerta quando a emissao falha por ausencia de valor faturavel', async () => {
     mockBl({})
     mockedCalculate.mockResolvedValueOnce({
       bl_id: 'BL1',
@@ -253,6 +257,6 @@ describe('maybeAutoBillAfterCeMercante', () => {
 
     expect(result).toMatchObject({ status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.' })
     expect(result).not.toHaveProperty('unexpected')
-    expect(mockLogOperationalEvent).not.toHaveBeenCalled()
+    expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed', entityId: 'BL1' }))
   })
 })

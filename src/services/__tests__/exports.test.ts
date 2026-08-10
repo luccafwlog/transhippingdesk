@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { exportVaziosImportacaoWorkbook } from '../exports'
+import { exportLocalChargeConferenceWorkbook, exportVaziosImportacaoWorkbook } from '../exports'
 import type { VaziosImportacaoContainerListItem } from '../../types/database'
 
 const { jsonToSheet, bookAppendSheet, writeFile } = vi.hoisted(() => ({
@@ -64,5 +64,16 @@ describe('exportVaziosImportacaoWorkbook', () => {
     ])
     expect(bookAppendSheet).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'VaziosImportacao')
     expect(writeFile).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^vazios-importacao-\d+\.xlsx$/))
+  })
+})
+
+describe('exportLocalChargeConferenceWorkbook', () => {
+  it('preserva o escopo e exporta as colunas da conferência em xlsx', async () => {
+    await exportLocalChargeConferenceWorkbook([{
+      bl_id: 'BL-1', customer_name: 'Cliente', pod: 'BRSSA', charge_name: 'THD', application_basis: 'bl', quantity: 1,
+      unit_value_brl: 10, total_value_brl: 10, price_origin: 'Tabela padrão', shared_containers: '',
+    }], '1 B/L selecionado')
+    expect(jsonToSheet).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ Escopo: '1 B/L selecionado' }), expect.objectContaining({ 'B/L': 'BL-1' })]))
+    expect(writeFile).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^conferencia-taxas-locais-\d+\.xlsx$/))
   })
 })

@@ -1,455 +1,84 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useToast } from '../ui/Toast'
-import {
-  useBatchCalculateLocalCharges,
-  useBatchMarkLocalChargesReady,
-  useBatchMarkLocalChargesReviewed,
-  useCustomerReconciliationQueue,
-  useApproveCustomerReconciliation,
-  useRejectCustomerReconciliation,
-  useLocalChargeOperations,
-} from '../../hooks/useLocalCharges'
-import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
+import { useBatchCalculateLocalCharges, useCustomerReconciliationQueue, useApproveCustomerReconciliation, useRejectCustomerReconciliation, useLocalChargeOperations } from '../../hooks/useLocalCharges'
 import { queryKeys } from '../../services/queryKeys'
-import { isChargeReady } from '../../lib/chargeStatus'
-import { createInvoiceFromBls } from '../../services/billing'
-import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
-import { isAwaitingCeMercante, isBlLockedForRecalc, isPendingBillingReview } from './validacaoPipeline'
+import { issueOperationalInvoice } from '../../services/graniteBillingWorkflow'
+import { getBillingBlock, isBlLockedForRecalc } from './validacaoPipeline'
 import { ValidacaoControls } from './ValidacaoControls'
 import { ValidacaoOperationsTable } from './ValidacaoOperationsTable'
-import type { BatchOperation, OpsFilters, PipelineStep } from './validacaoTypes'
+import type { LocalChargeOperationalRow } from '../../services/charges/chargeOperationsService'
+import type { BillingBlockCode, BatchOperation, OpsFilters } from './validacaoTypes'
 
-export function ValidacaoTab({
-  userId,
-  initialChargeStatus,
-}: {
-  userId: string | null
-  // Etapa 12 do plano de faturamento: a aba Pendências foi removida — quem
-  // chegava lá via ?tab=pendencias cai aqui com esse filtro pré-aplicado,
-  // reproduzindo exatamente o recorte que a aba antiga mostrava.
-  initialChargeStatus?: OpsFilters['chargeStatus']
-}) {
+export function ValidacaoTab({ userId, initialBlockCode }: { userId: string | null; initialBlockCode?: BillingBlockCode }) {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
-  const [reconciliationFilter, setReconciliationFilter] = useState(false)
-  const [reviewFilter, setReviewFilter] = useState(false)
-  const [opsFilters, setOpsFilters] = useState<OpsFilters>({
-    search: '',
-    cargoMode: '',
-    pod: '',
-    voyageId: '',
-    chargeStatus: initialChargeStatus ?? '',
-  })
+  const [opsFilters, setOpsFilters] = useState<OpsFilters>({ search: '', cargoMode: '', pod: '', voyageId: '', blockCode: initialBlockCode ?? '', includeResolved: false })
   const [selectedOpsRows, setSelectedOpsRows] = useState<string[]>([])
   const [exportingOps, setExportingOps] = useState(false)
   const [exportingConference, setExportingConference] = useState(false)
-
-  const {
-    data: operationsRows,
-    isLoading: operationsLoading,
-    error: operationsError,
-  } = useLocalChargeOperations({
-    search: opsFilters.search,
-    cargoMode: opsFilters.cargoMode,
-    pod: opsFilters.pod,
-    voyageId: opsFilters.voyageId ? Number(opsFilters.voyageId) : null,
-    chargeStatus: opsFilters.chargeStatus,
-    limit: 1200,
-  })
+  const { data: operationsRows, isLoading: operationsLoading, error: operationsError } = useLocalChargeOperations({ search: opsFilters.search, cargoMode: opsFilters.cargoMode, pod: opsFilters.pod, voyageId: opsFilters.voyageId ? Number(opsFilters.voyageId) : null, includeResolved: opsFilters.includeResolved, limit: 1200 })
   const batchCalculateMutation = useBatchCalculateLocalCharges()
-  const batchReviewedMutation = useBatchMarkLocalChargesReviewed()
-  const batchReadyMutation = useBatchMarkLocalChargesReady()
   const { data: reconciliationQueue } = useCustomerReconciliationQueue('pending', 50)
   const approveReconciliationMutation = useApproveCustomerReconciliation()
   const rejectReconciliationMutation = useRejectCustomerReconciliation()
 
-  const operationsSummary = useMemo(() => {
-    const rows = operationsRows ?? []
-    const readyRows = rows.filter((row) => isChargeReady(row.charge_status))
-    const readyInvoiced = readyRows.filter((row) => row.financial_status === 'invoiced').length
-    // Etapa 6 do plano de faturamento (ADR 0038, decisão 8): desde que o
-    // trigger de promoção automática saiu (migration 263), 'calculated' é
-    // genuinamente a fase provisória — calculado, ainda sem confirmação
-    // explícita. "Aguardando CE" é o motivo mais comum de um B/L de container
-    // ficar provisório: já calculado, cliente reconciliado, mas sem CE
-    // Mercante para emitir (reviewBillingAutomation.ts só bloqueia a emissão).
-    const provisionalRows = rows.filter((row) => row.charge_status === 'calculated')
-    const awaitingCeRows = rows.filter(isAwaitingCeMercante)
-    return {
-      total: rows.length,
-      provisional: provisionalRows.length,
-      awaitingCe: awaitingCeRows.length,
-      reviewPending: rows.filter(isPendingBillingReview).length,
-      // Achado 5 da review da PR 501: pendencia REAL de revisao, para o botao
-      // "Recalcular todas em revisao" -- nao o bucket amplo de
-      // isPendingBillingReview (que inclui not_calculated/calculated
-      // provisorios sem nenhuma pendencia desde a migration 263).
-      reviewPendencyCount: rows.filter((row) => row.charge_status === 'review_required').length,
-      ready: readyRows.length,
-      readyInvoiced,
-      readyPendingInvoice: Math.max(readyRows.length - readyInvoiced, 0),
-      reconciliationPending: rows.filter((row) => !isCustomerReconciliationResolved(row.customer_reconciliation_status)).length,
-      blocked: rows.filter((row) => Boolean(row.billing_hold_reason)).length,
-      totalBrl: rows.reduce((sum, row) => sum + Number(row.totals.total_brl ?? 0), 0),
-      totalUsd: rows.reduce((sum, row) => sum + Number(row.totals.total_usd ?? 0), 0),
-    }
-  }, [operationsRows])
-
   const displayedRows = useMemo(() => {
-    const rows = operationsRows ?? []
-    if (reconciliationFilter) {
-      return rows.filter((row) => !isCustomerReconciliationResolved(row.customer_reconciliation_status))
-    }
-    if (reviewFilter) {
-      return rows.filter(isPendingBillingReview)
-    }
-    return rows
-  }, [operationsRows, reconciliationFilter, reviewFilter])
-
-  const pipelineBottleneck = useMemo<PipelineStep | null>(() => {
-    if (operationsSummary.reconciliationPending > 0) return 'reconciliation'
-    if (operationsSummary.reviewPending > 0) return 'review'
-    if (operationsSummary.ready > 0) return 'ready_for_billing'
-    return null
-  }, [operationsSummary])
-
-  const areAllOpsRowsSelected = useMemo(() => {
-    if (displayedRows.length === 0) return false
-    return displayedRows.every((row) => selectedOpsRows.includes(row.id))
-  }, [displayedRows, selectedOpsRows])
+    return (operationsRows ?? []).filter((row) => {
+      const block = getBillingBlock(row)
+      if (!opsFilters.includeResolved && (block.code === 'faturado' || block.code === 'isento')) return false
+      return !opsFilters.blockCode || block.code === opsFilters.blockCode
+    })
+  }, [operationsRows, opsFilters.blockCode, opsFilters.includeResolved])
+  const selectedRows = useMemo(() => new Set(selectedOpsRows), [selectedOpsRows])
+  const areAllOpsRowsSelected = displayedRows.length > 0 && displayedRows.every((row) => selectedRows.has(row.id))
 
   function updateOpsFilter<K extends keyof OpsFilters>(field: K, value: OpsFilters[K]) {
     setOpsFilters((current) => ({ ...current, [field]: value }))
     setSelectedOpsRows([])
-    setReconciliationFilter(false)
-    setReviewFilter(false)
   }
+  function toggleOpsRow(blId: string) { setSelectedOpsRows((current) => current.includes(blId) ? current.filter((id) => id !== blId) : [...current, blId]) }
+  function toggleAllOpsRows() { setSelectedOpsRows(areAllOpsRowsSelected ? [] : displayedRows.map((row) => row.id)) }
 
-  function handlePipelineStep(step: PipelineStep) {
-    // Passo funciona como toggle: clicar no passo já ativo limpa o filtro. Um
-    // único filtro por vez — os três mecanismos convergem aqui (#317).
-    const isActive =
-      (step === 'reconciliation' && reconciliationFilter) ||
-      (step === 'review' && reviewFilter) ||
-      (step === 'ready_for_billing' && opsFilters.chargeStatus === 'ready_for_billing')
-    setReconciliationFilter(!isActive && step === 'reconciliation')
-    setReviewFilter(!isActive && step === 'review')
-    setOpsFilters((f) => ({ ...f, chargeStatus: !isActive && step === 'ready_for_billing' ? step : '' }))
+  async function runBatchOperation(action: BatchOperation, explicitIds?: string[]) {
+    const ids = explicitIds ?? selectedOpsRows
+    if (!ids.length) return
+    const invoiced = new Set((operationsRows ?? []).filter((row) => ids.includes(row.id) && isBlLockedForRecalc(row.financial_status)).map((row) => row.id))
+    const eligible = ids.filter((id) => !invoiced.has(id))
+    if (!eligible.length) return
+    const result = await batchCalculateMutation.mutateAsync({ blIds: eligible, actorId: userId, recalculate: action === 'recalculate' })
+    showToast(`${result.successCount} B/L(s) recalculado(s).${result.errorCount ? ` ${result.errorCount} falharam.` : ''}`, result.errorCount ? 'info' : 'success')
     setSelectedOpsRows([])
-    setExpandedBlId(null)
-  }
-
-  function toggleOpsRow(blId: string) {
-    setSelectedOpsRows((current) => {
-      if (current.includes(blId)) {
-        return current.filter((value) => value !== blId)
-      }
-      return [...current, blId]
-    })
-  }
-
-  function toggleAllOpsRows() {
-    if (!displayedRows.length) {
-      setSelectedOpsRows([])
-      return
-    }
-    if (areAllOpsRowsSelected) {
-      setSelectedOpsRows([])
-      return
-    }
-    setSelectedOpsRows(displayedRows.map((row) => row.id))
   }
 
   async function handleExportOperations() {
-    const rows = operationsRows ?? []
-    if (!rows.length) {
-      showToast('Não há dados para exportar com os filtros atuais.', 'info')
-      return
-    }
-
+    if (!displayedRows.length) return showToast('Não há dados para exportar com os filtros atuais.', 'info')
     setExportingOps(true)
-    try {
-      const { exportLocalChargeOperationsWorkbook } = await import('../../services/exports')
-      await exportLocalChargeOperationsWorkbook(rows)
-      showToast(`Exportação concluída com ${rows.length} B/L(s).`, 'success')
-    } catch {
-      showToast('Falha ao exportar operação de taxas locais.', 'error')
-    } finally {
-      setExportingOps(false)
-    }
+    try { const { exportLocalChargeOperationsWorkbook } = await import('../../services/exports'); await exportLocalChargeOperationsWorkbook(displayedRows); showToast(`Exportação concluída com ${displayedRows.length} B/L(s).`, 'success') } catch { showToast('Falha ao exportar operação de taxas locais.', 'error') } finally { setExportingOps(false) }
   }
-
-  // Etapa 5 do plano de faturamento: exporta a planilha de conferência do
-  // cálculo provisório. Escopo explícito: seleção quando houver, senão as
-  // linhas filtradas atuais — nunca "tudo" sem o operador saber o que pegou.
   async function handleExportConference() {
-    const scopeIds = selectedOpsRows.length > 0 ? selectedOpsRows : displayedRows.map((row) => row.id)
-    if (scopeIds.length === 0) {
-      showToast('Não há B/Ls para exportar com o filtro/seleção atual.', 'info')
-      return
-    }
-
+    const scope = selectedOpsRows.length ? selectedOpsRows : displayedRows.map((row) => row.id)
+    if (!scope.length) return showToast('Não há B/Ls para exportar com o filtro/seleção atual.', 'info')
     setExportingConference(true)
     try {
       const { buildLocalChargeConferenceRows } = await import('../../services/charges/chargeOperationsService')
-      const { exportLocalChargeConferenceCsv } = await import('../../services/exports')
-      const rows = await buildLocalChargeConferenceRows(scopeIds)
-      if (rows.length === 0) {
-        showToast('Nenhuma linha de taxa calculada para os B/Ls do escopo atual.', 'info')
-        return
-      }
-      const scopeLabel =
-        selectedOpsRows.length > 0 ? `${scopeIds.length} B/L(s) selecionado(s)` : `${scopeIds.length} B/L(s) filtrado(s)`
-      exportLocalChargeConferenceCsv(rows, scopeLabel)
+      const { exportLocalChargeConferenceWorkbook } = await import('../../services/exports')
+      const rows = await buildLocalChargeConferenceRows(scope)
+      await exportLocalChargeConferenceWorkbook(rows, selectedOpsRows.length ? `${scope.length} B/L(s) selecionado(s)` : `${scope.length} B/L(s) filtrado(s)`)
       showToast(`Planilha de conferência exportada com ${rows.length} linha(s).`, 'success')
-    } catch {
-      showToast('Falha ao exportar planilha de conferência.', 'error')
-    } finally {
-      setExportingConference(false)
-    }
+    } catch { showToast('Falha ao exportar planilha de conferência.', 'error') } finally { setExportingConference(false) }
   }
-
-  async function runBatchOperation(action: BatchOperation, explicitIds?: string[]) {
-    const allIds = explicitIds ?? selectedOpsRows
-    if (allIds.length === 0) {
-      showToast('Selecione ao menos um B/L para executar acao em lote.', 'error')
-      return
-    }
-
-    const financialStatusById = new Map((operationsRows ?? []).map((row) => [row.id, row.financial_status] as const))
-    const cargoModeById = new Map((operationsRows ?? []).map((row) => [row.id, row.cargo_mode] as const))
-    const allLocalIds = allIds.filter((id) => cargoModeById.get(id) !== 'granito')
-    const graniteIds = allIds.filter((id) => cargoModeById.get(id) === 'granito')
-
-    // B/L ja faturado nunca e recalculado (etapa 2 do plano de faturamento):
-    // pula em vez de deixar o RPC recusar como erro generico, e reporta quanto pulou.
-    const invoicedIds =
-      action === 'recalculate' ? allLocalIds.filter((id) => isBlLockedForRecalc(financialStatusById.get(id))) : []
-    const localIds = allLocalIds.filter((id) => !invoicedIds.includes(id))
-
-    try {
-      const actorId = userId
-      const emptyResult = { total: 0, successCount: 0, errorCount: 0, errors: [] as Array<{ blId: string; message: string }> }
-
-      let localResult = emptyResult
-      if (localIds.length > 0) {
-        localResult =
-          action === 'recalculate'
-            ? await batchCalculateMutation.mutateAsync({ blIds: localIds, actorId, recalculate: true })
-            : action === 'review'
-              ? await batchReviewedMutation.mutateAsync({ blIds: localIds, actorId })
-              : await batchReadyMutation.mutateAsync({ blIds: localIds, actorId })
-      }
-
-      const graniteResult = graniteIds.length > 0 ? await runGraniteBatch(graniteIds, action) : emptyResult
-
-      const total = localResult.total + graniteResult.total
-      const successCount = localResult.successCount + graniteResult.successCount
-      const errorCount = localResult.errorCount + graniteResult.errorCount
-      const firstError = [...localResult.errors, ...graniteResult.errors][0]
-
-      if (invoicedIds.length > 0) {
-        showToast(
-          `${successCount} recalculado(s), ${invoicedIds.length} ignorado(s) (ja faturados)` +
-            (errorCount > 0 && firstError ? `, ${errorCount} falharam. Primeiro erro em ${firstError.blId}: ${firstError.message}` : '.'),
-          errorCount > 0 ? 'info' : 'success',
-        )
-      } else if (errorCount > 0 && firstError) {
-        showToast(
-          `Processamento parcial: ${successCount}/${total}. Primeiro erro em ${firstError.blId}: ${firstError.message}`,
-          'info',
-        )
-      } else if (total > 0) {
-        showToast(`Processamento concluido para ${successCount} B/L(s).`, 'success')
-      }
-
-      if (graniteResult.successCount > 0) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() })
-      }
-
-      if (action === 'ready' && localResult.successCount > 0) {
-        const failedIds = new Set(localResult.errors.map((e) => e.blId))
-        const readyBls = (operationsRows ?? []).filter(
-          (row) =>
-            localIds.includes(row.id) &&
-            !failedIds.has(row.id) &&
-            row.cargo_mode !== 'granito' &&
-            row.financial_status !== 'invoiced',
-        )
-        const readyByCustomer = new Map<number, typeof readyBls>()
-        const missingCustomer = readyBls.filter((bl) => !bl.customer?.id).length
-        for (const bl of readyBls) {
-          if (!bl.customer?.id) continue
-          const current = readyByCustomer.get(bl.customer.id) ?? []
-          current.push(bl)
-          readyByCustomer.set(bl.customer.id, current)
-        }
-
-        let invoiced = 0
-        const invoiceErrors: Array<{ blId: string; message: string }> = []
-        for (const [customerId, bls] of readyByCustomer.entries()) {
-          try {
-            const result = await createInvoiceFromBls({
-              blIds: bls.map((bl) => bl.id),
-              customerId,
-              issueNow: true,
-              actorId: userId,
-            })
-            invoiced += Number((result as { bl_count?: number }).bl_count ?? bls.length)
-          } catch (error) {
-            invoiceErrors.push({
-              blId: bls[0]?.id ?? '-',
-              message: error instanceof Error ? error.message : 'Falha ao gerar invoice automatica.',
-            })
-          }
-        }
-        if (invoiced > 0) {
-          showToast(`${invoiced} B/L(s) faturado(s) automaticamente.`, 'success')
-        }
-        const missing = Math.max(readyBls.length - invoiced, 0)
-        if (missing > 0) {
-          const firstInvoiceError = invoiceErrors[0]
-          const reason = firstInvoiceError
-            ? ` Primeiro erro em ${firstInvoiceError.blId}: ${firstInvoiceError.message}`
-            : missingCustomer > 0
-              ? ` ${missingCustomer} B/L(s) sem cliente vinculado.`
-              : ''
-          showToast(`${missing} B/L(s) ficaram em pronto faturar sem invoice automatica.${reason}`, 'info')
-        }
-      }
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
-      ])
-      if (!explicitIds) setSelectedOpsRows([])
-    } catch {
-      showToast('Falha ao executar processamento em lote.', 'error')
-    }
+  async function handleIssueSingleInvoice(row: LocalChargeOperationalRow) {
+    if (!row.customer?.id) return showToast('Nao ha cliente vinculado para emitir esta fatura.', 'error')
+    try { await issueOperationalInvoice({ blId: row.id, cargoMode: row.cargo_mode, customerId: row.customer.id, actorId: userId }); await queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }); showToast(`Fatura emitida para ${row.id}.`, 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao emitir fatura individual.', 'error') }
   }
+  async function handleRecalculateRow(row: LocalChargeOperationalRow) { try { await runBatchOperation('recalculate', [row.id]) } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao recalcular B/L.', 'error') } }
+  async function handleApproveQueueItem(queueId: number, customerId?: number | null) { if (!customerId) return showToast('Não há cliente vinculado para aprovação automática.', 'error'); try { await approveReconciliationMutation.mutateAsync({ queueId, customerId, actorId: userId }); showToast('Reconciliação aprovada.', 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliação.', 'error') } }
+  async function handleRejectQueueItem(queueId: number) { try { await rejectReconciliationMutation.mutateAsync({ queueId, actorId: userId }); showToast('Reconciliação rejeitada.', 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliação.', 'error') } }
 
-  // Etapa 12 do plano de faturamento: recalcula todo o passo "Em revisao" do
-  // funil sem exigir selecao manual — reusa runBatchOperation (lote parcial,
-  // pula ja faturados, reporta contagem e primeiro erro) com a lista
-  // derivada do mesmo predicado que alimenta a contagem do passo 2.
-  async function handleRecalculateAllInReview() {
-    // Achado 5 da review da PR 501: recalcula so quem tem pendencia real de
-    // revisao (charge_status === 'review_required'), nao todo o bucket amplo
-    // "aguardando faturamento" -- que inclui B/Ls not_calculated/calculated
-    // sem pendencia alguma e poderia disparar recalculo em massa desnecessario.
-    const ids = (operationsRows ?? []).filter((row) => row.charge_status === 'review_required').map((row) => row.id)
-    if (ids.length === 0) {
-      showToast('Não há B/Ls em revisão para recalcular.', 'info')
-      return
-    }
-    await runBatchOperation('recalculate', ids)
-  }
-
-  async function handleIssueSingleInvoice(row: { id: string; customer?: { id: number | null } | null }) {
-    if (!row.customer?.id) {
-      showToast('Nao ha cliente vinculado para emitir esta fatura.', 'error')
-      return
-    }
-
-    try {
-      await createInvoiceFromBls({
-        blIds: [row.id],
-        customerId: row.customer.id,
-        issueNow: true,
-        actorId: userId,
-      })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() }),
-      ])
-      showToast(`Fatura emitida para ${row.id}.`, 'success')
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao emitir fatura individual.', 'error')
-    }
-  }
-
-  async function handleApproveQueueItem(queueId: number, customerId?: number | null) {
-    if (!customerId) {
-      showToast('Não há cliente vinculado para aprovação automática. Revise o cadastro antes.', 'error')
-      return
-    }
-
-    try {
-      await approveReconciliationMutation.mutateAsync({
-        queueId,
-        customerId,
-        actorId: userId,
-      })
-      showToast('Reconciliação aprovada.', 'success')
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliação.', 'error')
-    }
-  }
-
-  async function handleRejectQueueItem(queueId: number) {
-    try {
-      await rejectReconciliationMutation.mutateAsync({
-        queueId,
-        actorId: userId,
-      })
-      showToast('Reconciliação rejeitada.', 'success')
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliação.', 'error')
-    }
-  }
-
-  return (
-    <>
-      <ValidacaoControls
-        filters={opsFilters}
-        selectedCount={selectedOpsRows.length}
-        operationsLoading={operationsLoading}
-        provisional={operationsSummary.provisional}
-        awaitingCe={operationsSummary.awaitingCe}
-        reconciliationPending={operationsSummary.reconciliationPending}
-        reviewPending={operationsSummary.reviewPending}
-        reviewPendencyCount={operationsSummary.reviewPendencyCount}
-        ready={operationsSummary.ready}
-        readyInvoiced={operationsSummary.readyInvoiced}
-        readyPendingInvoice={operationsSummary.readyPendingInvoice}
-        pipelineBottleneck={pipelineBottleneck}
-        reconciliationFilter={reconciliationFilter}
-        reviewFilter={reviewFilter}
-        calculatePending={batchCalculateMutation.isPending}
-        reviewPendingMutation={batchReviewedMutation.isPending}
-        readyPendingMutation={batchReadyMutation.isPending}
-        exporting={exportingOps}
-        exportingConference={exportingConference}
-        onUpdateFilter={updateOpsFilter}
-        onPipelineStep={handlePipelineStep}
-        onRunBatchOperation={(action) => void runBatchOperation(action)}
-        onRecalculateAllInReview={() => void handleRecalculateAllInReview()}
-        onExport={() => void handleExportOperations()}
-        onExportConference={() => void handleExportConference()}
-      />
-      <ValidacaoOperationsTable
-        rows={displayedRows}
-        isLoading={operationsLoading}
-        hasError={Boolean(operationsError)}
-        selectedRowIds={selectedOpsRows}
-        areAllRowsSelected={areAllOpsRowsSelected}
-        expandedBlId={expandedBlId}
-        reconciliationQueue={reconciliationQueue ?? []}
-        approvePending={approveReconciliationMutation.isPending}
-        rejectPending={rejectReconciliationMutation.isPending}
-        onToggleAllRows={toggleAllOpsRows}
-        onToggleRow={toggleOpsRow}
-        onToggleExpandedRow={(blId) => setExpandedBlId((current) => (current === blId ? null : blId))}
-        onIssueSingleInvoice={(row) => void handleIssueSingleInvoice(row)}
-        onApproveQueueItem={(queueId, customerId) => void handleApproveQueueItem(queueId, customerId)}
-        onRejectQueueItem={(queueId) => void handleRejectQueueItem(queueId)}
-      />
-    </>
-  )
+  return <>
+    <ValidacaoControls filters={opsFilters} blockedCount={displayedRows.length} selectedCount={selectedOpsRows.length} operationsLoading={operationsLoading} calculatePending={batchCalculateMutation.isPending} exporting={exportingOps} exportingConference={exportingConference} onUpdateFilter={updateOpsFilter} onRunBatchOperation={(action) => void runBatchOperation(action)} onExport={() => void handleExportOperations()} onExportConference={() => void handleExportConference()} />
+    <ValidacaoOperationsTable rows={displayedRows} isLoading={operationsLoading} hasError={Boolean(operationsError)} selectedRowIds={selectedOpsRows} areAllRowsSelected={areAllOpsRowsSelected} expandedBlId={expandedBlId} reconciliationQueue={reconciliationQueue ?? []} approvePending={approveReconciliationMutation.isPending} rejectPending={rejectReconciliationMutation.isPending} onToggleAllRows={toggleAllOpsRows} onToggleRow={toggleOpsRow} onToggleExpandedRow={(id) => setExpandedBlId((current) => current === id ? null : id)} onIssueSingleInvoice={(row) => void handleIssueSingleInvoice(row)} onRecalculateRow={(row) => void handleRecalculateRow(row)} onApproveQueueItem={(id, customerId) => void handleApproveQueueItem(id, customerId)} onRejectQueueItem={(id) => void handleRejectQueueItem(id)} />
+  </>
 }

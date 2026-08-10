@@ -1,6 +1,7 @@
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import { extractReviewReasons } from '../../hooks/useReview'
 import { isBlFinanciallyLocked } from '../../lib/chargeStatus'
+import type { BillingBlockCode } from './validacaoTypes'
 
 // B/L reconciliado que ainda não é faturável: preso entre a conciliação de cliente
 // e o "pronto faturar" (gate de revisão pendente, taxa em revisão ou apenas
@@ -27,6 +28,67 @@ export function getBillingBlockReason(row: {
   customer_reconciliation_status: string | null
   customer_reconciliation_notes: string | null
   charge_exemption_reason: string | null
+  ce_mercante?: string | null
+  cargo_mode?: string | null
+  customer?: { id: number | null } | null
+  totals: { total_brl: number; line_count: number; review_required_count: number }
+}) {
+  return getBillingBlock(row).detail
+}
+
+export function getBillingBlock(row: {
+  charge_status: string | null
+  financial_status: string | null
+  review_status: string | null
+  notes: string | null
+  billing_hold_reason: string | null
+  customer_reconciliation_status: string | null
+  customer_reconciliation_notes: string | null
+  charge_exemption_reason: string | null
+  ce_mercante?: string | null
+  cargo_mode?: string | null
+  customer?: { id: number | null } | null
+  totals: { total_brl: number; line_count: number; review_required_count: number }
+}): { code: BillingBlockCode; label: string; detail: string } {
+  if (row.financial_status === 'invoiced') return { code: 'faturado', label: 'Faturado', detail: 'Fatura ja emitida.' }
+  if (row.charge_status === 'exempt') return { code: 'isento', label: 'Isento', detail: row.charge_exemption_reason ?? 'B/L isento de taxas locais.' }
+  if (!row.customer?.id || !isCustomerReconciliationResolved(row.customer_reconciliation_status)) {
+    return {
+      code: 'sem_cliente',
+      label: 'Sem cliente vinculado',
+      detail: row.billing_hold_reason ?? row.customer_reconciliation_notes ?? 'Cliente nao vinculado.',
+    }
+  }
+  const hasCalculationIssue = row.review_status === 'pending_review' || row.totals.review_required_count > 0 || row.totals.line_count === 0 || Number(row.totals.total_brl ?? 0) <= 0
+  if (hasCalculationIssue) {
+    const reasons = extractReviewReasons(row.notes)
+    return {
+      code: 'calculo_incompleto',
+      label: 'Cálculo incompleto',
+      detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Ha linhas de taxa com revisao pendente.' : 'Sem linhas de taxa calculadas.'),
+    }
+  }
+  if (!row.ce_mercante?.trim() && (row.cargo_mode ?? 'container') !== 'granito') {
+    return { code: 'aguardando_ce', label: 'Aguardando CE Mercante', detail: 'Aguardando cadastro do CE Mercante para emitir a fatura.' }
+  }
+  if (row.billing_hold_reason) {
+    return { code: 'calculo_incompleto', label: 'Cálculo incompleto', detail: row.billing_hold_reason }
+  }
+  return { code: 'aguardando_ce', label: 'Aguardando CE Mercante', detail: 'Pronto para emissão individual.' }
+}
+
+/* legacy callers use the detail-only API */
+export function getLegacyBillingBlockReason(row: {
+  charge_status: string | null
+  financial_status: string | null
+  review_status: string | null
+  notes: string | null
+  billing_hold_reason: string | null
+  customer_reconciliation_status: string | null
+  customer_reconciliation_notes: string | null
+  charge_exemption_reason: string | null
+  ce_mercante?: string | null
+  cargo_mode?: string | null
   customer?: { id: number | null } | null
   totals: { total_brl: number; line_count: number; review_required_count: number }
 }) {

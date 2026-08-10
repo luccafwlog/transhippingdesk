@@ -4,6 +4,7 @@ import {
   type LocalChargeCalculationResult,
 } from './charges/chargeOperationsService'
 import { logOperationalEvent } from './operationalEvents'
+import { createAlert } from './alerts'
 import { supabase } from './supabase'
 
 export type ReviewBillingAutomationResult =
@@ -101,7 +102,13 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
   }
 
   const result = await tryAutoIssueInvoice({ blId: bl.id, customerId: bl.customer_id, actorId })
-  if (result.status === 'blocked' && result.unexpected) {
+  if (result.status === 'blocked' && (result.unexpected || result.message === 'B/L sem valor faturavel apos recalculo.')) {
+    await createAlert({
+      type: 'billing_auto_issue_failed',
+      entityType: 'bl',
+      entityId: bl.id,
+      message: result.message,
+    })
     await logOperationalEvent({
       code: 'bl_auto_billing_failed',
       message: result.message,

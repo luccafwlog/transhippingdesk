@@ -9,7 +9,7 @@ import { formatBRL, formatDate } from '../../lib/utils'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import type { LocalChargeOperationalRow } from '../../services/charges/chargeOperationsService'
-import { getBillingBlockReason } from './validacaoPipeline'
+import { getBillingBlock } from './validacaoPipeline'
 
 type ReconciliationQueueItem = {
   id: number
@@ -35,6 +35,7 @@ export function ValidacaoOperationsTable({
   onToggleRow,
   onToggleExpandedRow,
   onIssueSingleInvoice,
+  onRecalculateRow,
   onApproveQueueItem,
   onRejectQueueItem,
 }: {
@@ -51,6 +52,7 @@ export function ValidacaoOperationsTable({
   onToggleRow: (blId: string) => void
   onToggleExpandedRow: (blId: string) => void
   onIssueSingleInvoice: (row: LocalChargeOperationalRow) => void
+  onRecalculateRow?: (row: LocalChargeOperationalRow) => void
   onApproveQueueItem: (queueId: number, customerId?: number | null) => void
   onRejectQueueItem: (queueId: number) => void
 }) {
@@ -67,27 +69,27 @@ export function ValidacaoOperationsTable({
                 </button>
               </th>
               <th scope="col" className="px-4 py-3">B/L</th>
+              <th scope="col" className="px-4 py-3">Motivo</th>
               <th scope="col" className="px-4 py-3">Modo</th>
               <th scope="col" className="px-4 py-3">Navio/Viagem</th>
               <th scope="col" className="px-4 py-3">Status</th>
               <th scope="col" className="px-4 py-3">Cliente</th>
               <th scope="col" className="px-4 py-3">Reconcil.</th>
               <th scope="col" className="px-4 py-3">Subtotal BRL</th>
-              <th scope="col" className="px-4 py-3">Por que nao fatura?</th>
               <th scope="col" className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={10}>
+                <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={11}>
                   Carregando operação...
                 </td>
               </tr>
             ) : null}
             {!isLoading && rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-0">
+                <td colSpan={11} className="p-0">
                   <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
                 </td>
               </tr>
@@ -96,7 +98,7 @@ export function ValidacaoOperationsTable({
               const isExpanded = expandedBlId === row.id
               const reconciliationPending = !isCustomerReconciliationResolved(row.customer_reconciliation_status)
               const queueItem = reconciliationPending ? (reconciliationQueue.find((q) => q.bl_id === row.id) ?? null) : null
-              const blockReason = getBillingBlockReason(row)
+              const block = getBillingBlock(row)
               const canIssueSingleInvoice = isChargeReady(row.charge_status) && row.financial_status !== 'invoiced' && Boolean(row.customer?.id)
               return (
                 <Fragment key={row.id}>
@@ -113,6 +115,7 @@ export function ValidacaoOperationsTable({
                       </button>
                     </td>
                     <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.id}</td>
+                    <td className="px-4 py-3"><div className="max-w-[360px] whitespace-normal"><Badge tone={block.code === 'aguardando_ce' ? 'slate' : block.code === 'sem_cliente' ? 'yellow' : block.code === 'calculo_incompleto' ? 'red' : 'blue'}>{block.label}</Badge><div className="mt-1 text-xs text-[var(--app-muted)]">{block.detail}</div></div></td>
                     <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                     <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
                     <td className="px-4 py-3">{renderChargeStatus(row.charge_status, row.financial_status)}</td>
@@ -120,12 +123,10 @@ export function ValidacaoOperationsTable({
                     <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
                     <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
                     <td className="px-4 py-3">
-                      <div className="max-w-[420px] whitespace-normal text-sm leading-snug text-[var(--app-text-strong)]">
-                        {blockReason}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        <Button variant="ghost" onClick={() => onRecalculateRow?.(row)} disabled={row.financial_status === 'invoiced'}>
+                          Recalcular
+                        </Button>
                         {canIssueSingleInvoice ? (
                           <Button variant="secondary" onClick={() => onIssueSingleInvoice(row)}>
                             Emitir
@@ -146,13 +147,13 @@ export function ValidacaoOperationsTable({
                   </tr>
                   {isExpanded ? (
                     <tr key={`${row.id}-detail`} className="bg-[var(--app-surface-muted)]">
-                      <td colSpan={10} className="px-6 py-4">
+                      <td colSpan={11} className="px-6 py-4">
                         <div className="grid gap-4 xl:grid-cols-2">
                           <div className="grid gap-3">
-                            {blockReason ? (
+                            {block.detail ? (
                               <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                                 <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">Por que não fatura?</div>
-                                <div className="mt-0.5">{blockReason}</div>
+                                <div className="mt-0.5">{block.detail}</div>
                               </div>
                             ) : null}
                             <div className="app-metric-tile__label">Detalhes</div>
