@@ -6,7 +6,7 @@ import { exportBaplieWorkbook } from '../services/exports'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
-import { Field, Input } from '../components/ui/Input'
+import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
@@ -27,8 +27,9 @@ import {
 } from '../services/vaziosImportacaoImport'
 import type { BaplieContainer } from '../types/database'
 import { formatDate } from '../lib/utils'
-import { listVoyageEscalaSchedulesByVoyageIds, type VoyageEscalaSchedule } from '../services/voyageRouteSchedules'
-import { buildBaplieVoyageCards, type BaplieVoyageCardInput } from '../services/baplieVoyageCards'
+import { listVoyageEscalaSchedulesByVoyageIds } from '../services/voyageRouteSchedules'
+import { buildVoyageRailItems, type VoyageRailItem } from '../services/voyageSummaries'
+import { VoyageRail } from '../components/voyages/VoyageRail'
 
 export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -40,6 +41,7 @@ export function Baplie() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [containerFilters, setContainerFilters] = useState<ContainerFilters>(EMPTY_CONTAINER_FILTERS)
 
   const { data: voyageRows = [], isLoading: voyagesLoading } = useQuery({
     queryKey: ['baplie-voyage-cards'],
@@ -70,20 +72,24 @@ export function Baplie() {
     enabled: voyageIds.length > 0,
     queryFn: () => listVoyageEscalaSchedulesByVoyageIds(voyageIds),
   })
-  const voyageCards = useMemo(() => buildBaplieVoyageCards(voyageRows.map((voyage): BaplieVoyageCardInput => ({
-    id: voyage.id,
-    voyageNumber: voyage.voyage_number,
-    vesselName: voyage.vessel?.name ?? null,
-    carrierName: voyage.vessel?.carrier?.name ?? null,
-    hasBaplie: baplieVoyageIds.includes(voyage.id),
-    escalas: (schedulesByVoyage.get(voyage.id) ?? []).map((escala: VoyageEscalaSchedule) => ({
-      port: escala.port,
-      eta: escala.eta,
-      etd: escala.etd,
-      atd: escala.atd,
-      deleted: escala.deleted,
-    })),
-  }))), [baplieVoyageIds, schedulesByVoyage, voyageRows])
+  const voyageCards = useMemo(() => {
+    const items = buildVoyageRailItems(
+      voyageRows.map((voyage) => ({
+        id: voyage.id,
+        voyage_number: voyage.voyage_number,
+        status: 'active',
+        vessel: {
+          name: voyage.vessel?.name ?? 'Navio não informado',
+          carrier: voyage.vessel?.carrier ? { name: voyage.vessel.carrier.name ?? '' } : null,
+        },
+      })),
+      schedulesByVoyage,
+    )
+    return items.map((item): VoyageRailItem => ({
+      ...item,
+      modules: { ...item.modules, container: baplieVoyageIds.includes(item.id) },
+    }))
+  }, [baplieVoyageIds, schedulesByVoyage, voyageRows])
 
   // Limpa a confirmação ao trocar de viagem — ajuste durante o render.
   const [prevVoyageId, setPrevVoyageId] = useState(voyageId)
@@ -216,14 +222,25 @@ export function Baplie() {
       <PageHeader
         title="Baplie EDI"
         description="Gestão centralizada do arquivo Baplie EDI por viagem."
+        action={voyageId && containers.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" loading={exporting} onClick={handleExport}><Download size={16} /> Exportar Baplie EDI</Button>
+            {isAdmin ? <Button variant="secondary" onClick={() => setUploadOpen(true)}><Upload size={16} /> Reimportar Baplie EDI</Button> : null}
+          </div>
+        ) : null}
       />
 
-      <VoyageCardsSection
-        cards={voyageCards}
-        loading={voyagesLoading}
-        selectedVoyageId={voyageId}
-        onSelect={(id) => handleVoyageChange(String(id))}
-      />
+      <section className="mb-5 min-w-0">
+        {voyagesLoading ? (
+          <Card><div className="py-4 text-center text-sm text-slate-400">Carregando viagens...</div></Card>
+        ) : (
+          <VoyageRail
+            items={voyageCards}
+            selectedId={voyageId ? Number(voyageId) : null}
+            onSelect={(id) => handleVoyageChange(String(id))}
+          />
+        )}
+      </section>
 
       <Card className="mb-5">
         <VoyageCombobox
@@ -276,20 +293,8 @@ export function Baplie() {
             </Card>
           ) : null}
 
-          <ContainerList containers={containers} />
-
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="secondary" loading={exporting} onClick={handleExport}>
-              <Download size={16} />
-              Exportar Baplie EDI
-            </Button>
-            {isAdmin ? (
-              <Button variant="secondary" onClick={() => setUploadOpen(true)}>
-                <Upload size={16} />
-                Reimportar Baplie EDI
-              </Button>
-            ) : null}
-          </div>
+          <ContainerFiltersBar containers={containers} filters={containerFilters} onChange={setContainerFilters} />
+          <ContainerList containers={containers} filters={containerFilters} />
         </>
       )}
 
@@ -316,72 +321,6 @@ export function Baplie() {
         initialVoyageId={voyageId}
       />
     </>
-  )
-}
-
-function VoyageCardsSection({
-  cards,
-  loading,
-  selectedVoyageId,
-  onSelect,
-}: {
-  cards: ReturnType<typeof buildBaplieVoyageCards>
-  loading: boolean
-  selectedVoyageId: string
-  onSelect: (id: number) => void
-}) {
-  return (
-    <section className="mb-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Ordenado por próxima escala</div>
-          <h2 className="mt-1 text-lg font-semibold text-white">Navios e viagens</h2>
-        </div>
-        <div className="text-xs text-slate-500">{cards.length} viagem(ns)</div>
-      </div>
-      {loading ? (
-        <Card><div className="py-4 text-center text-sm text-slate-400">Carregando viagens...</div></Card>
-      ) : cards.length === 0 ? (
-        <Card><div className="py-4 text-center text-sm text-slate-400">Nenhuma viagem cadastrada.</div></Card>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map((card) => {
-            const selected = selectedVoyageId === String(card.id)
-            return (
-              <button
-                key={card.id}
-                type="button"
-                onClick={() => onSelect(card.id)}
-                aria-pressed={selected}
-                className={`min-h-[148px] rounded-2xl border p-4 text-left transition-colors ${selected ? 'border-blue-400 bg-blue-500/10' : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:border-blue-400/60 hover:bg-[var(--app-surface-raised)]'}`}
-              >
-                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.12em] text-slate-500">
-                  <span className={`h-2 w-2 rounded-full ${card.hasBaplie ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                  {card.carrierName ?? 'Armador não informado'}
-                </div>
-                <div className="mt-2 truncate text-base font-semibold text-white">
-                  {card.vesselName ?? 'Navio não informado'} / {card.voyageNumber}
-                </div>
-                <div className="mt-2 text-xs text-slate-400">
-                  {card.hasBaplie ? 'Baplie importado' : 'Baplie não importado'}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {card.escalas.slice(0, 4).map((escala) => {
-                    const date = escala.eta ?? escala.etd ?? escala.atd
-                    return (
-                      <span key={`${card.id}-${escala.port}`} className="rounded-full border border-slate-500/30 bg-slate-500/10 px-2.5 py-1 text-[11px] text-slate-300">
-                        {escala.port}{date ? ` · ${formatDate(date)}` : ''}
-                      </span>
-                    )
-                  })}
-                  {card.escalas.length > 4 ? <span className="px-1 py-1 text-[11px] text-slate-500">+{card.escalas.length - 4}</span> : null}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </section>
   )
 }
 
@@ -592,17 +531,82 @@ function ReconciliacaoSection({ items }: { items: BaplieReconciliationItem[] }) 
   )
 }
 
-function ContainerList({ containers }: { containers: BaplieContainer[] }) {
+type ContainerFilters = {
+  container: string
+  status: string
+  type: string
+  pol: string
+  pod: string
+  slot: string
+  profile: string
+}
+
+const EMPTY_CONTAINER_FILTERS: ContainerFilters = {
+  container: '', status: '', type: '', pol: '', pod: '', slot: '', profile: '',
+}
+
+function ContainerFiltersBar({
+  containers,
+  filters,
+  onChange,
+}: {
+  containers: BaplieContainer[]
+  filters: ContainerFilters
+  onChange: (filters: ContainerFilters) => void
+}) {
+  const options = (field: keyof BaplieContainer) => Array.from(new Set(containers.map((container) => String(container[field] ?? '').trim()).filter(Boolean))).sort()
+  const update = (field: keyof ContainerFilters, value: string) => onChange({ ...filters, [field]: value })
+  return (
+    <Card className="mb-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-white">Filtros de containers</div>
+        <Button variant="ghost" onClick={() => onChange(EMPTY_CONTAINER_FILTERS)}>Limpar filtros</Button>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Field label="Container"><Input value={filters.container} onChange={(event) => update('container', event.target.value)} placeholder="Buscar container" /></Field>
+        <Field label="Status"><Select value={filters.status} onChange={(event) => update('status', event.target.value)}><option value="">Todos</option><option value="full">Cheio</option><option value="empty">Vazio</option></Select></Field>
+        <Field label="Tipo"><Select value={filters.type} onChange={(event) => update('type', event.target.value)}><option value="">Todos</option>{options('size_type').map((value) => <option key={value} value={value}>{value}</option>)}</Select></Field>
+        <Field label="POL"><Select value={filters.pol} onChange={(event) => update('pol', event.target.value)}><option value="">Todos</option>{options('pol').map((value) => <option key={value} value={value}>{value}</option>)}</Select></Field>
+        <Field label="POD"><Select value={filters.pod} onChange={(event) => update('pod', event.target.value)}><option value="">Todos</option>{options('pod').map((value) => <option key={value} value={value}>{value}</option>)}</Select></Field>
+        <Field label="Slot"><Input value={filters.slot} onChange={(event) => update('slot', event.target.value)} placeholder="Buscar slot" /></Field>
+        <Field label="Perfil"><Select value={filters.profile} onChange={(event) => update('profile', event.target.value)}><option value="">Todos</option><option value="imo">IMO</option><option value="oog">OOG</option><option value="standard">Padrão</option></Select></Field>
+      </div>
+    </Card>
+  )
+}
+
+function filterBaplieContainers(containers: BaplieContainer[], filters: ContainerFilters) {
+  const normalized = (value: string) => value.trim().toLowerCase()
+  return containers.filter((container) => {
+    const profile = container.is_imo ? 'imo' : container.is_oog ? 'oog' : 'standard'
+    return normalized(container.container_number).includes(normalized(filters.container))
+      && (!filters.status || container.status === filters.status)
+      && (!filters.type || container.size_type === filters.type)
+      && (!filters.pol || container.pol === filters.pol)
+      && (!filters.pod || container.pod === filters.pod)
+      && normalized(container.slot ?? '').includes(normalized(filters.slot))
+      && (!filters.profile || profile === filters.profile)
+  })
+}
+
+function ContainerList({ containers, filters }: { containers: BaplieContainer[]; filters: ContainerFilters }) {
   const [page, setPage] = useState(1)
   const pageSize = 20
-  const totalPages = Math.max(1, Math.ceil(containers.length / pageSize))
-  const paginated = containers.slice((page - 1) * pageSize, page * pageSize)
+  const filtered = useMemo(() => filterBaplieContainers(containers, filters), [containers, filters])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const filterKey = JSON.stringify(filters)
+  const [previousFilterKey, setPreviousFilterKey] = useState(filterKey)
+  if (filterKey !== previousFilterKey) {
+    setPreviousFilterKey(filterKey)
+    setPage(1)
+  }
 
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[#30363d] px-4 py-3">
         <div className="text-sm font-semibold text-white">Containers em staging</div>
-        <div className="text-xs text-slate-500 mt-0.5">{containers.length} container(s) importado(s) do arquivo EDI</div>
+        <div className="text-xs text-slate-500 mt-0.5">{filtered.length} de {containers.length} container(s) importado(s) do arquivo EDI</div>
       </div>
       <div className="app-table-scroll">
         <table className="app-table app-table--compact min-w-[760px] text-left text-sm whitespace-nowrap">
@@ -650,9 +654,9 @@ function ContainerList({ containers }: { containers: BaplieContainer[] }) {
         <TableFooterPagination
           page={page}
           pageSize={pageSize}
-          totalCount={containers.length}
+          totalCount={filtered.length}
           totalPages={totalPages}
-          countLabel={`${containers.length} containers`}
+          countLabel={`${filtered.length} containers`}
           onPageChange={setPage}
         />
       ) : null}
