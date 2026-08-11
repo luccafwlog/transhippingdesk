@@ -69,7 +69,7 @@ export function ReviewDrawer({
     setTotalWeightKg(item.total_weight_kg ? String(item.total_weight_kg) : '')
     setTotalCbm(item.total_cbm ? String(item.total_cbm) : '')
     setNotes(item.notes ?? '')
-    setSelectedCustomerId(item.customer_id ?? null)
+    setSelectedCustomerId(item.customer_id ?? (item.source === 'granite' ? item.suggested_client_id ?? null : null))
     setCustomerSearch('')
     const manifestName = item.source === 'bl' ? (item.manifest_customer_name ?? null) : null
     const manifestCnpj = item.source === 'bl' ? (item.manifest_customer_cnpj_cpf ?? null) : null
@@ -300,6 +300,11 @@ export function ReviewDrawer({
           ) : null}
 
           <Card className="grid gap-4 bg-[#0d1117]">
+            {item.source === 'granite' && item.suggested_customer?.name ? (
+              <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
+                Sugestao por nome: <strong>{item.suggested_customer.name}</strong>. Confirme manualmente para criar o vinculo.
+              </div>
+            ) : null}
             <div className="font-semibold text-white">Vinculação de cliente</div>
             <Field label="Buscar cliente por nome ou CNPJ">
               <div className="relative">

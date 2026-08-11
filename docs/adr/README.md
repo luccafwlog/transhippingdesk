@@ -47,6 +47,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0040](./0040-vigencia-da-tabela-de-taxas-e-informativa.md) | A vigência da Tabela de Taxas Locais é informativa, não trava do cálculo | aceito | **Supersede parcialmente a 0038** (decisão 3): a tabela passa a ser resolvida por escopo + `active`, sem vigência, e a ETA deixa de ser pré-requisito do cálculo (`review:no_eta` removido); preserva as decisões 2 (congelamento na emissão) e 5 (vigência da Condição de Cliente) da 0038; alinha a taxa local ao critério que a 0014 já usava no Demurrage; implementada na migration `274` |
 | [0041](./0041-validacao-fila-de-bloqueios-ce-como-confirmacao.md) | Validação como fila de bloqueios derivados; CE Mercante confirma o cálculo | aceito | Retira aprovação/marcação em lote da tela e envia falhas de emissão para Alertas |
 | [0042](./0042-ce-mercante-confirma-calculo-em-todos-os-modos.md) | CE Mercante confirma o cálculo de container, carga solta e Granito | aceito | Estende a 0020 e remove o clique manual de pronto para faturar do Granito |
+| [0042](./0042-vinculo-de-cliente-somente-por-documento.md) | Vínculo automático de cliente somente por CPF/CNPJ exato; match por nome é sugestão | aceito | Implementada nas migrations `280`–`283`; sugestões exigem confirmação humana |
 
 ## Convenção
 

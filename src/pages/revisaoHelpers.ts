@@ -100,6 +100,8 @@ export function groupNeedsEmail(group: ReviewGroup) {
   return Boolean(linked) && groupHasReviewReason(group, /cliente sem e-mail cadastrado/i)
 }
 
+// Mantidos por compatibilidade com consumidores legados; a fila principal nao
+// os usa para decidir faturamento ou vinculo.
 export function groupNeedsPortal(group: ReviewGroup) {
   const linked = getGroupLinkedItem(group)
   return Boolean(linked) && groupHasReviewReason(group, /acesso ao portal nao provisionado/i)

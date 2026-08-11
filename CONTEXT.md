@@ -637,10 +637,10 @@ jurídica, CPF para pessoa física. Match por nome, por nome canônico ou por
 similaridade é sugestão, nunca vínculo. Matching automático incerto deve
 permanecer pendente de decisão humana.
 
-O código diverge desta regra hoje — a importação grava `customer_id` a partir de
-match por nome. O achado está registrado em
-`docs/archive/audits/2026-08-11-vinculo-de-cliente-por-nome.md` e a correção
-ainda não foi executada.
+Match por nome é persistido separadamente como sugestão (`suggested_customer_id`
+ou `suggested_client_id`) e aparece na fila de revisão. Só a confirmação humana
+preenche o vínculo; faturamento considera exclusivamente `customer_id` e
+`client_id`. Ver ADR 0042 e migrations `280`–`283`.
 
 **Cliente**
 Pessoa jurídica ou física responsável por cargas e cobranças no sistema.

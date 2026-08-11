@@ -416,3 +416,9 @@ atinge consumidores que hoje usam `customer_id IS NOT NULL` como proxy de
 - Mudar os níveis de matching de `findMatchedCustomer`; o fuzzy continua útil
   como sugestão e não é ajustado aqui.
 - Cadastro automático de cliente novo a partir do manifesto.
+# Plano executado
+
+Implementação concluída na PR 518. As etapas foram executadas nos commits da
+branch, com migrations `280`–`283`, testes de contrato e documentação/ADR
+atualizados. A aplicação do backfill exige executar primeiro as consultas de
+impacto somente-leitura descritas na migration 283.

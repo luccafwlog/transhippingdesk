@@ -8,6 +8,11 @@
   o cadastro; CEs preenchidos são únicos por B/L, resolvidos por viagem e
   auditados pela RPC. *(ADR 0042)*
 
+- **Vínculo de cliente por documento:** CPF/CNPJ exato é o único vínculo
+  automático; match por nome vira sugestão visível na fila de revisão para
+  B/Ls de container, carga solta e Granito. Sugestões ficam em colunas próprias,
+  não liberam faturamento, e o backfill preserva faturados e decisões humanas.
+  *(ADR 0042; migrations 280–283)*
 - **Correções da fila de bloqueios de faturamento:** restaura o fluxo de Granito, corrige a classificação de B/L pronto, toasts, invalidações e truncamento da fila. *(PR #512)*
 
 - **Validação do Faturamento vira fila de bloqueios:** a aba passa a derivar

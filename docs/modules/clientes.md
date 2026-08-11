@@ -8,6 +8,15 @@ O módulo mantém o cadastro mestre de clientes, seus contatos, o vínculo com B
 
 `clientes.md` é dono do ciclo cadastral e do adaptador interno de provisionamento. Autenticação, sessão e autosserviço externos pertencem a [Portal do Cliente](portal-cliente.md); reconciliação manual e gate de faturamento pertencem a [Operação e suporte](operacao-suporte.md).
 
+## Reconciliação de cliente em B/L e Granito
+
+CPF/CNPJ exato, normalizado para dígitos, pode preencher automaticamente o
+cliente. Match por nome nunca preenche `customer_id` ou `client_id`: fica em
+`bls.suggested_customer_id` ou `granite_bls.suggested_client_id`, aparece como
+“Sugerido” na fila `/revisao` e exige confirmação humana. O faturamento ignora
+as colunas de sugestão. O backfill preserva faturados e decisões manuais; suas
+consultas de impacto devem ser executadas em somente-leitura antes da aplicação.
+
 Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/components/customers/CustomerTable.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/components/customers/ImportBaseModal.tsx`, `src/components/customers/customerCreateForm.ts`, `src/pages/ClienteFicha.tsx`, `src/components/clientes/FichaTabs.tsx`, `src/components/clientes/fichaTabConfig.ts`, `src/components/clientes/VisaoGeralTab.tsx`, `src/components/clientes/CadastroContatosTab.tsx`, `src/components/clientes/OperacionalTab.tsx`, `src/components/clientes/FinanceiroTab.tsx`, `src/components/clientes/HistoricoTab.tsx`, `src/hooks/useCustomers.ts`, `src/hooks/useCustomerFicha.ts`, `src/services/customers.ts`, `src/services/customerFicha.ts`, `src/services/portalProvisioning.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts` e `supabase/migrations/129_review_gate_hardening.sql`.
 
 ## Anatomia das telas
