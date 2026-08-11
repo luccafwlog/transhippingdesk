@@ -343,7 +343,8 @@ export function ReviewDrawer({
 
             {selectedCustomerId ? (
               <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
-                Cliente selecionado: {item.customer ? `${item.customer.name} (${formatCnpjCpf(item.customer.cnpj_cpf)})` : selectedCustomerDisplay ?? 'Cliente'}.
+                <div>Cliente selecionado para vinculação.</div>
+                <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpjCpf(item.customer.cnpj_cpf)})` : selectedCustomerDisplay ?? 'Cliente'}.</div>
               </div>
             ) : null}
 
