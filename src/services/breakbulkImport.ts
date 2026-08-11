@@ -1,5 +1,5 @@
-import { chunkArray, onlyDigits } from '../lib/utils'
-import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
+import { chunkArray } from '../lib/utils'
+import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
 import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { supabase } from './supabase'
 import type { Json } from '../types/database'
@@ -64,22 +64,11 @@ export async function importBreakbulkManifest({
       },
       customerMaps,
     )
-    const matchedCustomer = customerMatch?.customer ?? null
-    const customerId = matchedCustomer?.id ?? null
-    const reconciliationStatus =
-      customerId && customerMatch?.matchType === 'document'
-        ? 'matched_document'
-        : customerId && customerMatch?.matchType === 'name'
-          ? 'matched_name'
-          : 'missing_customer'
+    const link = resolveCustomerLink(customerMatch)
     const reviewReasons = new Set<string>()
 
-    if (!customerId) {
+    if (!link.customerId) {
       reviewReasons.add('Cliente nao vinculado automaticamente')
-    }
-
-    if (onlyDigits(bl.cnpj_cpf) && customerMatch?.matchType === 'name') {
-      reviewReasons.add('Cliente vinculado por nome; validar CNPJ')
     }
 
     return [
@@ -93,21 +82,17 @@ export async function importBreakbulkManifest({
         bb_packages_total: bl.bb_packages_total,
         bb_weight_ton: bl.bb_weight_ton,
         shipper: bl.shipper,
-        consignee: matchedCustomer?.name ?? bl.consignee,
+        consignee: customerMatch?.matchType === 'document' ? customerMatch.customer.name : bl.consignee,
         notify_party: bl.notify_party,
-        customer_id: customerId,
+        customer_id: link.customerId,
+        suggested_customer_id: link.suggestedCustomerId,
         manifest_customer_cnpj_cpf: bl.cnpj_cpf,
         manifest_customer_name: bl.consignee,
         manifest_customer_email: null,
-        customer_reconciliation_status: reconciliationStatus,
-        customer_reconciliation_notes:
-          reconciliationStatus === 'matched_document'
-            ? 'Cliente reconciliado automaticamente por CNPJ/CPF.'
-            : reconciliationStatus === 'matched_name'
-              ? 'Cliente sugerido por nome; validar documento.'
-              : 'Cliente nao encontrado na base cadastral.',
+        customer_reconciliation_status: link.status,
+        customer_reconciliation_notes: link.notes,
         billing_hold_reason:
-          reconciliationStatus === 'matched_document' ? null : 'Aguardando reconciliacao de cliente antes do faturamento.',
+          link.status === 'matched_document' ? null : 'Aguardando reconciliacao de cliente antes do faturamento.',
         pol: bl.pol,
         pod: bl.pod,
         cargo_description:

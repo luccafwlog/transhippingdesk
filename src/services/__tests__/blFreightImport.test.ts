@@ -248,7 +248,8 @@ describe('blFreightImport', () => {
     })
 
     expect(preview.rows[0].payload).toMatchObject({
-      customer_id: 43,
+      customer_id: null,
+      suggested_customer_id: 43,
       customer_reconciliation_status: 'matched_name',
       customer_reconciliation_notes: 'Cliente sugerido por nome; validar documento.',
       billing_hold_reason: 'Aguardando reconciliacao de cliente antes do faturamento.',
@@ -275,7 +276,8 @@ describe('blFreightImport', () => {
     expect(preview.rows[0].payload).toMatchObject({
       consignee: 'QA IMPORTADORA LTDA',
       consignee_block: 'QA IMPORTADORA LTDA RUA X, 100\nSANTOS - SP',
-      customer_id: 44,
+      customer_id: null,
+      suggested_customer_id: 44,
       customer_reconciliation_status: 'matched_name',
     })
   })
