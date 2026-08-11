@@ -74,6 +74,15 @@ ou mudança exploratória.
 
 ## 3. Modelo de evidência
 
+### Fixture QA de exibição
+
+Os scripts em `scripts/qa-display-production/` usam o prefixo
+`QA-DISPLAY-2026`/`QAD26`. A fixture é composta por etapas independentes:
+ADR e exceções, cenários financeiros, Portal/PIX e validação/limpeza seletiva.
+Nenhuma etapa deve ser executada contra produção sem inventário, usuário,
+catálogo de IDs e autorização explícita. `cleanup-fixture.mjs` permanece em
+dry-run por padrão e não pode remover tabelas protegidas.
+
 Para cada fluxo:
 
 ```text
