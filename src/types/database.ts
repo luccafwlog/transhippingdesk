@@ -2172,6 +2172,7 @@ export type Database = {
           booking_number: string | null
           cargo_readiness_date: string | null
           charge_status: string
+          ce_mercante: string | null
           charter: string | null
           client_id: number | null
           consignee_name: string | null
@@ -2204,6 +2205,7 @@ export type Database = {
           booking_number?: string | null
           cargo_readiness_date?: string | null
           charge_status?: string
+          ce_mercante?: string | null
           charter?: string | null
           client_id?: number | null
           consignee_name?: string | null
@@ -2236,6 +2238,7 @@ export type Database = {
           booking_number?: string | null
           cargo_readiness_date?: string | null
           charge_status?: string
+          ce_mercante?: string | null
           charter?: string | null
           client_id?: number | null
           consignee_name?: string | null
