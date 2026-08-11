@@ -16,6 +16,9 @@ vi.mock('../operationalEvents', () => ({
   logOperationalEvent: mockLogOperationalEvent,
 }))
 
+const { mockCreateAlert } = vi.hoisted(() => ({ mockCreateAlert: vi.fn() }))
+vi.mock('../alerts', () => ({ createAlert: mockCreateAlert }))
+
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
 }))
@@ -76,6 +79,7 @@ describe('tryAutoIssueInvoice', () => {
 
     expect(result).toEqual({
       status: 'blocked',
+      reason: 'awaiting_flow',
       message: 'Aguardando cadastro do CE Mercante para emitir a fatura (ADR 0020).',
       calculation: expect.objectContaining({ bl_id: 'BL1' }),
     })
@@ -112,6 +116,7 @@ describe('tryAutoIssueInvoice', () => {
 
     expect(result).toEqual({
       status: 'blocked',
+      reason: 'awaiting_flow',
       message: 'Peso BB ausente.',
       calculation: {
         bl_id: 'BL1',
@@ -145,6 +150,7 @@ describe('tryAutoIssueInvoice', () => {
 
     expect(result).toEqual({
       status: 'blocked',
+      reason: 'no_billable_value',
       message: 'B/L sem valor faturavel apos recalculo.',
       calculation: {
         bl_id: 'BL1',
@@ -166,7 +172,7 @@ describe('tryAutoIssueInvoice', () => {
 
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
-    expect(result).toEqual({ status: 'blocked', message: 'ledger failed', unexpected: true })
+    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', message: 'ledger failed', unexpected: true })
   })
 
   it('nao exige CE Mercante para carga solta', async () => {
@@ -229,13 +235,14 @@ describe('maybeAutoBillAfterCeMercante', () => {
 
     const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
 
-    expect(result).toEqual({ status: 'blocked', message: 'ledger failed', unexpected: true })
+    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', message: 'ledger failed', unexpected: true })
     expect(mockLogOperationalEvent).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'bl_auto_billing_failed', entityId: 'BL1', changedBy: 'user-1' }),
     )
+    expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed', entityType: 'bl', entityId: 'BL1', message: 'ledger failed' }))
   })
 
-  it('nao registra evento quando o bloqueio e de negocio (sem valor faturavel)', async () => {
+  it('alerta quando a emissao falha por ausencia de valor faturavel', async () => {
     mockBl({})
     mockedCalculate.mockResolvedValueOnce({
       bl_id: 'BL1',
@@ -251,8 +258,8 @@ describe('maybeAutoBillAfterCeMercante', () => {
 
     const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
 
-    expect(result).toMatchObject({ status: 'blocked', message: 'B/L sem valor faturavel apos recalculo.' })
+    expect(result).toMatchObject({ status: 'blocked', reason: 'no_billable_value', message: 'B/L sem valor faturavel apos recalculo.' })
     expect(result).not.toHaveProperty('unexpected')
-    expect(mockLogOperationalEvent).not.toHaveBeenCalled()
+    expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed', entityId: 'BL1' }))
   })
 })

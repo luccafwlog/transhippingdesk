@@ -241,7 +241,26 @@ export async function exportLocalChargeOperationsWorkbook(rows: LocalChargeOpera
 // Etapa 5 do plano de faturamento: planilha de conferência do cálculo
 // provisório (docs/plans/2026-08-06-faturamento-ajuste-completo.md). CSV, não
 // XLSX — é o consumidor de downloadCsv (src/lib/csv.ts), que existia sem uso.
-export function exportLocalChargeConferenceCsv(rows: LocalChargeConferenceRow[], scopeLabel: string) {
+  export async function exportLocalChargeConferenceWorkbook(rows: LocalChargeConferenceRow[], scopeLabel: string) {
+    const XLSX = await import('@e965/xlsx')
+    const exportRows = rows.map((row) => ({
+      'B/L': row.bl_id,
+      Cliente: row.customer_name,
+      POD: row.pod,
+      Item: row.charge_name,
+      'Base de Aplicação': row.application_basis ?? '',
+      Quantidade: row.quantity,
+      'Valor Unitário BRL': row.unit_value_brl == null ? '' : row.unit_value_brl,
+      'Valor Total BRL': row.total_value_brl,
+      'Origem do Preço': row.price_origin,
+      'Container Compartilhado': row.shared_containers,
+    }))
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, [{ Escopo: scopeLabel }, ...exportRows]), 'Conferência')
+    XLSX.writeFile(workbook, `conferencia-taxas-locais-${makeTimestamp()}.xlsx`)
+  }
+
+  export function exportLocalChargeConferenceCsv(rows: LocalChargeConferenceRow[], scopeLabel: string) {
   const extractedAt = new Date().toLocaleString('pt-BR')
   const headers = ['B/L', 'Cliente', 'POD', 'Item', 'Base de Aplicação', 'Quantidade', 'Valor Unitário BRL', 'Valor Total BRL', 'Origem do Preço', 'Container Compartilhado']
   const noteRow = [`Conferência de cálculo provisório — extraída em ${extractedAt} — escopo: ${scopeLabel}. O valor final sai no CE.`, '', '', '', '', '', '', '', '', '']

@@ -8,7 +8,6 @@ import {
   listLocalChargePendencies,
   listLocalChargeOperationalRows,
   markBlReadyForBilling,
-  markLocalChargesReviewedBatch,
 } from '../charges/chargeOperationsService'
 import { listLocalChargeTables } from '../charges/chargeTableService'
 
@@ -124,21 +123,6 @@ describe('localCharges service', () => {
     })
     expect(mockRpc).toHaveBeenCalledTimes(3)
     expect(mockFrom).toHaveBeenCalledTimes(1)
-  })
-
-  it('aprova revisao por B/L e isola uma falha sem falso sucesso', async () => {
-    mockRpc
-      .mockResolvedValueOnce({ data: { status: 'reviewed' }, error: null })
-      .mockResolvedValueOnce({ data: null, error: new Error('linha ainda pendente') })
-
-    const result = await markLocalChargesReviewedBatch(['BL1', 'BL2'], 'user-1')
-
-    expect(result).toEqual({
-      total: 2,
-      successCount: 1,
-      errorCount: 1,
-      errors: [{ blId: 'BL2', message: 'linha ainda pendente' }],
-    })
   })
 
   it('retorna linhas de taxa via list_bl_local_charge_lines', async () => {

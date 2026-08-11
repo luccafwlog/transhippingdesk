@@ -76,6 +76,7 @@ export type LocalChargeOperationalFilters = {
   pod?: string
   voyageId?: number | null
   chargeStatus?: '' | 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
+  includeResolved?: boolean
   limit?: number
 }
 
@@ -122,6 +123,8 @@ export type LocalChargeOperationalRow = {
     last_event_message: string | null
   }
 }
+
+export type LocalChargeOperationalRowsResult = { rows: LocalChargeOperationalRow[]; truncated: boolean }
 export async function calculateBlLocalCharges(
   blId: string,
   options?: {
@@ -207,23 +210,30 @@ export async function listLocalChargePendencies(limit = 100) {
 export async function listLocalChargeOperationalRows(
   filters?: LocalChargeOperationalFilters,
 ): Promise<LocalChargeOperationalRow[]> {
+  return (await listLocalChargeOperationalRowsWithMeta(filters)).rows
+}
+
+export async function listLocalChargeOperationalRowsWithMeta(
+  filters?: LocalChargeOperationalFilters,
+): Promise<LocalChargeOperationalRowsResult> {
   const cargoMode = filters?.cargoMode ?? ''
   const wantBls = cargoMode === '' || cargoMode === 'container' || cargoMode === 'carga_solta'
   const wantGranite = cargoMode === '' || cargoMode === 'granito'
 
   const [blRows, graniteRows] = await Promise.all([
-    wantBls ? loadBlOperationalRows(filters) : Promise.resolve([] as LocalChargeOperationalRow[]),
-    wantGranite ? loadGraniteOperationalRows(filters) : Promise.resolve([] as LocalChargeOperationalRow[]),
+    wantBls ? loadBlOperationalRows(filters) : Promise.resolve({ rows: [], truncated: false } as LocalChargeOperationalRowsResult),
+    wantGranite ? loadGraniteOperationalRows(filters) : Promise.resolve({ rows: [], truncated: false } as LocalChargeOperationalRowsResult),
   ])
 
-  return [...blRows, ...graniteRows]
+  return { rows: [...blRows.rows, ...graniteRows.rows], truncated: blRows.truncated || graniteRows.truncated }
 }
 
 async function loadBlOperationalRows(
   filters?: LocalChargeOperationalFilters,
-): Promise<LocalChargeOperationalRow[]> {
+): Promise<LocalChargeOperationalRowsResult> {
   const limit = Math.max(50, Math.min(5000, Number(filters?.limit ?? 400)))
   const rows: LocalChargeOperationalRow[] = []
+  let truncated = false
 
   // Pagina internamente a fila operacional para nao ocultar B/Ls em volumes maiores.
   for (let offset = 0; offset < limit; offset += OPERATIONAL_PAGE_SIZE) {
@@ -259,7 +269,7 @@ async function loadBlOperationalRows(
     if (filters?.cargoMode === 'container' || filters?.cargoMode === 'carga_solta') {
       query = query.eq('cargo_mode', filters.cargoMode)
     }
-    query = query.or('financial_status.is.null,financial_status.neq.invoiced')
+    if (!filters?.includeResolved) query = query.or('financial_status.is.null,financial_status.neq.invoiced')
     if (filters?.pod) {
       const pod = sanitizeLikeTerm(filters.pod)
       if (pod) query = query.ilike('pod', `%${pod}%`)
@@ -283,9 +293,10 @@ async function loadBlOperationalRows(
     const pageRows = blRows ?? []
     rows.push(...pageRows)
     if (pageRows.length < pageSize) break
+    if (offset + pageSize >= limit) truncated = true
   }
 
-  if (rows.length === 0) return []
+  if (rows.length === 0) return { rows: [], truncated }
 
   const blIds = rows.map((row) => row.id)
 
@@ -347,7 +358,7 @@ async function loadBlOperationalRows(
     })
   }
 
-  return rows.map((row) => ({
+  return { rows: rows.map((row) => ({
     ...row,
     totals: totalsMap.get(row.id) ?? { total_brl: 0, total_usd: 0, line_count: 0, review_required_count: 0 },
     trail:
@@ -357,7 +368,7 @@ async function loadBlOperationalRows(
         last_event_field: null,
         last_event_message: null,
       },
-  }))
+  })), truncated }
 }
 
 type GraniteOperationalRaw = {
@@ -379,7 +390,7 @@ type GraniteOperationalRaw = {
 
 async function loadGraniteOperationalRows(
   filters?: LocalChargeOperationalFilters,
-): Promise<LocalChargeOperationalRow[]> {
+): Promise<LocalChargeOperationalRowsResult> {
   const limit = Math.max(50, Math.min(5000, Number(filters?.limit ?? 400)))
 
   // Mapeia o filtro de chargeStatus do mundo bls para o domínio enxuto de granite_bls.
@@ -387,10 +398,11 @@ async function loadGraniteOperationalRows(
   // Filtros bls que não existem em granite (review_required, reviewed, exempt) eliminam o resultado.
   const requested = filters?.chargeStatus ?? ''
   if (requested === 'review_required' || requested === 'reviewed' || requested === 'exempt') {
-    return []
+    return { rows: [], truncated: false }
   }
 
   let granRows: GraniteOperationalRaw[] = []
+  let truncated = false
 
   // Pagina internamente a fila de Granito para manter cobertura em listas grandes.
   for (let offset = 0; offset < limit; offset += OPERATIONAL_PAGE_SIZE) {
@@ -409,7 +421,7 @@ async function loadGraniteOperationalRows(
         customer:customers!granite_bls_client_id_fkey(id,name,cnpj_cpf)
       `,
       )
-      .neq('charge_status', 'invoiced')
+      .neq('charge_status', filters?.includeResolved ? '__never__' : 'invoiced')
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
@@ -433,6 +445,7 @@ async function loadGraniteOperationalRows(
     const pageRows = data ?? []
     granRows = [...granRows, ...pageRows]
     if (pageRows.length < pageSize) break
+    if (offset + pageSize >= limit) truncated = true
   }
 
   // Filtro por viagem em granite_bls passa pelo manifest.voyage (lookup client-side).
@@ -440,7 +453,7 @@ async function loadGraniteOperationalRows(
     granRows = granRows.filter((row) => row.manifest?.voyage?.id === filters.voyageId)
   }
 
-  if (granRows.length === 0) return []
+  if (granRows.length === 0) return { rows: [], truncated }
 
   const graniteIds = granRows.map((row) => row.id)
   const { data: chargeRows, error: chargeErr } = await supabase
@@ -464,7 +477,7 @@ async function loadGraniteOperationalRows(
     totalsMap.set(blId, current)
   }
 
-  return granRows.map((row) => ({
+  return { rows: granRows.map((row) => ({
     id: row.id,
     cargo_mode: 'granito' as const,
     pol: row.loading_port,
@@ -497,7 +510,7 @@ async function loadGraniteOperationalRows(
       : null,
     totals: totalsMap.get(row.id) ?? { total_brl: 0, total_usd: 0, line_count: 0, review_required_count: 0 },
     trail: { last_event_at: null, last_event_by: null, last_event_field: null, last_event_message: null },
-  }))
+  })), truncated }
 }
 
 export async function addManualBlCharge(
@@ -822,13 +835,6 @@ export async function calculateProvisionalLocalCharges(
   return { calculated: results.filter((r) => r.status === 'fulfilled').length }
 }
 
-export async function markLocalChargesReviewedBatch(blIds: string[], actorId?: string | null) {
-  return runBatch(blIds, (blId) => markBlChargesReviewed(blId, actorId))
-}
-
-export async function markLocalChargesReadyBatch(blIds: string[], actorId?: string | null) {
-  return runBatch(blIds, (blId) => markBlReadyForBilling(blId, actorId))
-}
 function normalizeCalculationResult(data: unknown): LocalChargeCalculationResult {
   const payload = (data ?? {}) as Record<string, unknown>
   return {

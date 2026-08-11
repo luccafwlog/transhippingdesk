@@ -3,6 +3,13 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Correções da fila de bloqueios de faturamento:** restaura o fluxo de Granito, corrige a classificação de B/L pronto, toasts, invalidações e truncamento da fila. *(PR #512)*
+
+- **Validação do Faturamento vira fila de bloqueios:** a aba passa a derivar
+  três causas fechadas (cliente, cálculo e CE Mercante), remove o funil e os
+  atos de aprovação/marcação em lote, mantém recálculo e emissão por linha,
+  exporta a conferência em XLSX e registra falhas de emissão automática em
+  Alertas. *(ADR 0041; plano arquivado `2026-08-10-validacao-fila-de-bloqueios`)*
 
 - **Impresso do ADR padronizado na fatura:** o documento impresso do Agency
   Departure Report passa a usar a mesma linguagem visual da fatura de taxas

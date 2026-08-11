@@ -4,10 +4,8 @@ import {
   addManualBlCharge,
   calculateBlLocalCharges,
   calculateLocalChargesBatch,
-  listLocalChargeOperationalRows,
+  listLocalChargeOperationalRowsWithMeta,
   deleteManualBlCharge,
-  markLocalChargesReadyBatch,
-  markLocalChargesReviewedBatch,
   listManualChargeItemsForBl,
   markBlChargesReviewed,
   markBlReadyForBilling,
@@ -228,11 +226,12 @@ export function useLocalChargeOperations(filters?: {
   pod?: string
   voyageId?: number | null
   chargeStatus?: '' | 'not_calculated' | 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt'
+  includeResolved?: boolean
   limit?: number
 }) {
   return useQuery({
     queryKey: queryKeys.charges.operations(filters),
-    queryFn: () => listLocalChargeOperationalRows(filters),
+    queryFn: () => listLocalChargeOperationalRowsWithMeta(filters),
   })
 }
 export function useCustomerReconciliationQueue(status?: '' | 'pending' | 'approved' | 'rejected', limit = 200) {
@@ -305,41 +304,6 @@ export function useBatchCalculateLocalCharges() {
         actorId: payload.actorId ?? null,
         recalculate: payload.recalculate ?? true,
       }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail('') }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.all() }),
-      ])
-    },
-  })
-}
-
-export function useBatchMarkLocalChargesReviewed() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (payload: { blIds: string[]; actorId?: string | null }) =>
-      markLocalChargesReviewedBatch(payload.blIds, payload.actorId ?? null),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.charges.pendencies() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail('') }),
-      ])
-    },
-  })
-}
-
-export function useBatchMarkLocalChargesReady() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (payload: { blIds: string[]; actorId?: string | null }) =>
-      markLocalChargesReadyBatch(payload.blIds, payload.actorId ?? null),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }),

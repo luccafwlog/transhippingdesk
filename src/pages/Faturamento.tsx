@@ -68,7 +68,7 @@ export function Faturamento() {
   const [activeTab, setActiveTab] = useState<'validacao' | 'invoices'>(
     requestedTab === 'validacao' || requestedTab === 'pendencias' ? 'validacao' : 'invoices'
   )
-  const validacaoInitialChargeStatus = requestedTab === 'pendencias' ? 'review_required' : undefined
+  const validacaoInitialBlockCode = requestedTab === 'pendencias' ? 'calculo_incompleto' : undefined
 
   const [exporting, setExporting] = useState(false)
   const [consolidatedOpen, setConsolidatedOpen] = useState(false)
@@ -234,7 +234,7 @@ export function Faturamento() {
       </div>
 
       {activeTab === 'validacao' ? (
-        <ValidacaoTab userId={user?.id ?? null} initialChargeStatus={validacaoInitialChargeStatus} />
+        <ValidacaoTab userId={user?.id ?? null} initialBlockCode={validacaoInitialBlockCode} />
       ) : null}
 
       {activeTab === 'invoices' ? (
