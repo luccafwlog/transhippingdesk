@@ -5,6 +5,7 @@ const base = { customer_reconciliation_status: 'matched_document', financial_sta
 describe('billing blocks', () => {
   it('classifica container calculado sem CE como aguardando_ce', () => expect(getBillingBlock(base).code).toBe('aguardando_ce'))
   it('classifica carga solta sem CE como pronta', () => expect(getBillingBlock({ ...base, cargo_mode: 'carga_solta' }).code).toBe('pronto'))
+  it('classifica Granito calculado sem CE como aguardando_ce', () => expect(getBillingBlock({ ...base, cargo_mode: 'granito' }).code).toBe('aguardando_ce'))
   it('prioriza causa estrutural sobre hold livre', () => expect(getBillingBlock({ ...base, customer: null, billing_hold_reason: 'texto livre' }).code).toBe('sem_cliente'))
   it('mantem o detalhe na API legada', () => expect(getBillingBlockReason({ ...base, review_status: 'pending_review', notes: 'Pendencias de importacao: Portal' })).toContain('Revis'))
   it('separa faturado e isento', () => { expect(getBillingBlock({ ...base, financial_status: 'invoiced' }).code).toBe('faturado'); expect(getBillingBlock({ ...base, charge_status: 'exempt' }).code).toBe('isento') })

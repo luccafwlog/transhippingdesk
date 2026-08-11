@@ -69,7 +69,7 @@ export function getBillingBlock(row: {
     }
   }
   const mode = row.cargo_mode ?? 'container'
-  if (!row.ce_mercante?.trim() && (mode === 'container' || mode === '')) {
+  if (!row.ce_mercante?.trim() && (mode === 'container' || mode === '' || mode === 'granito')) {
     return { code: 'aguardando_ce', label: 'Aguardando CE Mercante', detail: 'Aguardando cadastro do CE Mercante para emitir a fatura.' }
   }
   if (row.billing_hold_reason) {
@@ -127,7 +127,7 @@ export function isAwaitingCeMercante(row: {
   customer_reconciliation_status: string | null
 }) {
   return (
-    (row.cargo_mode ?? 'container') === 'container' &&
+    ((row.cargo_mode ?? 'container') === 'container' || row.cargo_mode === 'granito') &&
     (row.financial_status ?? 'pending') === 'pending' &&
     !row.ce_mercante?.trim() &&
     // Achado 9 da review da PR 501: sem isto o card "Aguardando CE" contava
