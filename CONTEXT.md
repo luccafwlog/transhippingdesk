@@ -599,10 +599,14 @@ Container com dimensões fora do padrão ISO.
 ## Mercante
 
 **CE Mercante**
-Conhecimento Eletrônico registrado por B/L no sistema Mercante. Sua ausência
-pode bloquear a visibilidade de dados e documentos no Portal do Cliente. Seu
-cadastro no sistema é o gatilho do cálculo automático de Taxas Locais do B/L
-de container: nada é calculado nem faturado antes do CE Mercante existir.
+Conhecimento Eletrônico registrado por B/L no sistema Mercante, nos sentidos de
+importação e exportação. Sua ausência pode bloquear a visibilidade de dados e
+documentos no Portal do Cliente. Seu cadastro é o confirmador do cálculo e o
+gatilho da emissão de Taxas Locais para B/Ls de container, carga solta e Granito:
+nada é faturado nesses modos antes do CE Mercante existir. A relação CE × B/L
+é 1:1: um número de CE não pode ser usado por mais de um B/L. Embarque de
+Vazios é a exceção operacional: não emite CE porque é módulo de custo pago pela
+agência ao depot, sem invoice ou recebível de cliente.
 
 **CE Master**
 Conhecimento agrupador por rota da viagem (POL/POD). Quando existe batch de
@@ -659,7 +663,7 @@ Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
 específicas do cliente.
 
 **Motivo de Bloqueio de Faturamento**
-*Pronto para emitir* é um código resolvido, fora da fila padrão, e não um bloqueio; Granito mantém temporariamente a marcação manual como ponte até o CE de Granito.
+*Pronto para emitir* é um código resolvido, fora da fila padrão, e não um bloqueio.
 Categoria fechada que responde por que um B/L ainda não virou fatura. São três,
 e nenhuma é status marcado por alguém: *Sem cliente vinculado*, *Cálculo
 incompleto* e *Aguardando CE Mercante*. A confirmação do cálculo é o cadastro do

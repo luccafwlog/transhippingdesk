@@ -10,7 +10,6 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
-| [`2026-08-10-ce-mercante-granito.md`](./2026-08-10-ce-mercante-granito.md) | CE Mercante como confirmador do cálculo também no Granito | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
