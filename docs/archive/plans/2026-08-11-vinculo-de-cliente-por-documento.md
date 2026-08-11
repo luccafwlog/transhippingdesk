@@ -422,3 +422,13 @@ Implementação concluída na PR 518. As etapas foram executadas nos commits da
 branch, com migrations `280`–`283`, testes de contrato e documentação/ADR
 atualizados. A aplicação do backfill exige executar primeiro as consultas de
 impacto somente-leitura descritas na migration 283.
+
+## Fechamento operacional
+
+O código e as migrations foram publicados na branch da PR. Após o merge, a
+sequência operacional é: aplicar as migrations, executar as consultas de
+impacto em somente-leitura, registrar as contagens e então deixar a migration
+283 realizar o backfill. A regeneração de `src/types/database.ts` também deve
+ser feita contra o schema já migrado; não foi fabricada localmente porque o
+Supabase/Docker não estava disponível e as migrations não devem ser aplicadas
+antes do merge.
