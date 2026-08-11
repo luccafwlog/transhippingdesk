@@ -11,7 +11,7 @@ import type { AuditLog, BL, BLDetail, BLListItem, ContainerListItem } from '../t
 
 const blSelect = `
   *,
-  customer:customers(id, cnpj_cpf, name),
+  customer:customers!bls_customer_id_fkey(id, cnpj_cpf, name),
   voyage:voyages(id, voyage_number, eta, ata, status, vessel:vessels(id, name, imo, carrier:carriers(id, name, scac))),
   bl_containers(id, bl_id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_oog, is_imo, imo_class, un_number, created_at),
   bl_freight_lines(bl_id, seq, description, category, mercante_code, currency, amount, payment),
@@ -228,7 +228,7 @@ export function useBlDetail(blId?: string) {
         .select(
           `
           *,
-          customer:customers(*),
+          customer:customers!bls_customer_id_fkey(*),
           voyage:voyages(*, vessel:vessels(*, carrier:carriers(*))),
           bl_containers(*),
           bl_freight_lines(*),

@@ -31,8 +31,10 @@ export type ReviewQueueItem = (BL & {
   notes?: string | null
   updated_at?: string | null
   customer_id?: number | null
+  suggested_client_id?: number | null
   manifest_customer_cnpj_cpf?: string | null
   customer?: ReviewCustomer | null
+  suggested_customer?: ReviewCustomer | null
   voyage?: { vessel?: { name?: string | null } | null; voyage_number?: string | null } | null
   charge_status?: string | null
   review_reasons?: string[]
@@ -48,7 +50,7 @@ export function useReviewQueue() {
           .from('bls')
           .select(
             `*,
-            customer:customers(id, cnpj_cpf, name, customer_contacts(email)),
+            customer:customers!bls_customer_id_fkey(id, cnpj_cpf, name, customer_contacts(email)),
             voyage:voyages(id, voyage_number, vessel:vessels(id, name, carrier:carriers(id, name))),
             bl_containers(id, container_number, is_imo, is_oog)`,
           )
@@ -59,8 +61,9 @@ export function useReviewQueue() {
         supabase
           .from('granite_bls')
           .select(
-            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status,
-            customer:customers(id, cnpj_cpf, name, customer_contacts(email)),
+            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, suggested_client_id, charge_status,
+            customer:customers!granite_bls_client_id_fkey(id, cnpj_cpf, name, customer_contacts(email)),
+            suggested_customer:customers!granite_bls_suggested_client_id_fkey(id, cnpj_cpf, name),
             manifest:granite_manifests(voyage:voyages(id, voyage_number, vessel:vessels(id, name)))`,
           )
           .is('client_id', null)
@@ -83,7 +86,7 @@ export function useReviewQueue() {
         // ainda retornamos a fila de granito sem metadados de viagem.
         const fallback = await supabase
           .from('granite_bls')
-          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status, customer:customers(id, cnpj_cpf, name, customer_contacts(email))')
+          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, suggested_client_id, charge_status, customer:customers!granite_bls_client_id_fkey(id, cnpj_cpf, name, customer_contacts(email)), suggested_customer:customers!granite_bls_suggested_client_id_fkey(id, cnpj_cpf, name)')
           .is('client_id', null)
           .order('created_at', { ascending: false })
           .range(0, 499)
@@ -110,8 +113,10 @@ export function useReviewQueue() {
         vessel_voyage: string | null
         created_at: string | null
         client_id: number | null
+        suggested_client_id: number | null
         charge_status: string | null
         customer: ReviewCustomer | null
+        suggested_customer: ReviewCustomer | null
         manifest?: { voyage: { id: number; voyage_number: string; vessel: { id: number; name: string } | null } | null } | null
       }>
 
@@ -127,13 +132,18 @@ export function useReviewQueue() {
         notes: null,
         updated_at: row.created_at,
         customer_id: row.client_id,
+        suggested_client_id: row.suggested_client_id,
         manifest_customer_cnpj_cpf: row.shipper_cnpj,
         charge_status: row.charge_status,
         customer: row.customer,
+        suggested_customer: row.suggested_customer,
         voyage: row.manifest?.voyage
           ? { vessel: row.manifest.voyage.vessel, voyage_number: row.manifest.voyage.voyage_number }
           : null,
-        review_reasons: ['Cliente nao vinculado (Granito)'],
+        review_reasons: [
+          'Cliente nao vinculado (Granito)',
+          ...(row.suggested_customer?.name ? [`Sugerido: ${row.suggested_customer.name}`] : []),
+        ],
         source: 'granite' as const,
       }))
 

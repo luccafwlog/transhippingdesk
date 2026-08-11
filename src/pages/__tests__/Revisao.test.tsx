@@ -34,7 +34,7 @@ vi.mock('../../services/reviewBillingAutomation', () => ({
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
 import { addCustomerEmail, createCustomer } from '../../services/customers'
-import { applyInlineBlReviewFix, saveBlReview } from '../../services/review'
+import { applyInlineBlReviewFix, saveBlReview, saveGraniteBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
 
@@ -42,6 +42,7 @@ const mockedUseReviewQueue = vi.mocked(useReviewQueue)
 const mockedUseCustomerLookup = vi.mocked(useCustomerLookup)
 const mockedApplyInlineBlReviewFix = vi.mocked(applyInlineBlReviewFix)
 const mockedSaveBlReview = vi.mocked(saveBlReview)
+const mockedSaveGraniteBlReview = vi.mocked(saveGraniteBlReview)
 const mockedTryIssueInvoice = vi.mocked(tryAutoIssueInvoice)
 const mockedAddCustomerEmail = vi.mocked(addCustomerEmail)
 
@@ -225,6 +226,26 @@ describe('Revisao', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar e-mail' }))
 
     await waitFor(() => expect(mockedAddCustomerEmail).toHaveBeenCalledWith(7, 'novo@cliente.com'))
+  })
+
+  it('exibe sugestao de Granito sem trata-la como vinculo automatico', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [{
+        id: 'granite-1', source: 'granite', bl_number: 'G-001', client_id: null,
+        suggested_client_id: 42, suggested_customer: { id: 42, name: 'Cliente Sugerido', cnpj_cpf: '11222333000181' },
+        customer: null, review_reasons: ['Cliente nao vinculado (Granito)', 'Sugerido: Cliente Sugerido'],
+      }], isLoading: false, error: null,
+    } as never)
+    renderPage()
+
+    expect(screen.getAllByText('Sugerido: Cliente Sugerido').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Vinculado')).toBeNull()
+    await user.click(screen.getByRole('button', { name: /G-001/ }))
+    await user.click(screen.getByRole('button', { name: /Corrigir/ }))
+    await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
+
+    expect(mockedSaveGraniteBlReview).not.toHaveBeenCalled()
   })
 
 })

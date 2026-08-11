@@ -28,7 +28,15 @@ vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: mock
 vi.mock('../../services/graniteImport', () => ({ parseGraniteManifestFile: mocks.parse, importGraniteManifest: mocks.importManifest }))
 vi.mock('../../services/graniteCharges', () => ({ listGraniteBls: vi.fn(), calculateGraniteBlCharges: vi.fn() }))
 vi.mock('../../services/billing', () => ({ createInvoiceFromGraniteBls: vi.fn() }))
-vi.mock('../../services/customerReconciliation', () => ({ loadCustomerMaps: mocks.loadMaps, findMatchedCustomer: mocks.findMatch }))
+vi.mock('../../services/customerReconciliation', () => ({
+  loadCustomerMaps: mocks.loadMaps,
+  findMatchedCustomer: mocks.findMatch,
+  resolveCustomerLink: (match: { customer?: { id: number }; matchType?: string } | null) => match?.matchType === 'document'
+    ? { customerId: match.customer?.id ?? null, suggestedCustomerId: null, status: 'matched_document', notes: '' }
+    : match?.matchType === 'name'
+      ? { customerId: null, suggestedCustomerId: match.customer?.id ?? null, status: 'matched_name', notes: '' }
+      : { customerId: null, suggestedCustomerId: null, status: 'missing_customer', notes: '' },
+}))
 
 import { Granite } from '../Granite'
 
@@ -42,6 +50,7 @@ function bl(overrides: Record<string, unknown> = {}) {
     final_m3: null,
     phase: null,
     clientId: null,
+    suggestedClientId: null,
     reconciliationStatus: 'missing_cnpj',
     ...overrides,
   }
@@ -124,7 +133,7 @@ it('US-079: importar com pendencias chama importGraniteManifest e reporta a pend
 it('US-078: resolver o CNPJ no preview reconcilia o B/L pendente', async () => {
   const user = userEvent.setup()
   mocks.parse.mockResolvedValue({ vesselVoyage: 'NAVIO/14', bls: [bl()], rowErrors: [] })
-  mocks.findMatch.mockReturnValue({ customer: { id: 99, name: 'Granito SA' } })
+  mocks.findMatch.mockReturnValue({ customer: { id: 99, name: 'Granito SA' }, matchType: 'document' })
   renderGranite()
 
   await user.click(screen.getByRole('button', { name: /Importar Planilha COSCO/ }))

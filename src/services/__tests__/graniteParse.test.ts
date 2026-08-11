@@ -4,6 +4,7 @@ import { jsonToBuffer } from './testWorkbook'
 vi.mock('../customerReconciliation', () => ({
   loadCustomerMaps: vi.fn(() => Promise.resolve({})),
   findMatchedCustomer: vi.fn(() => null),
+  resolveCustomerLink: vi.fn(() => ({ customerId: null, suggestedCustomerId: null, status: 'missing_customer', notes: 'Cliente nao encontrado na base cadastral.' })),
 }))
 vi.mock('../supabase', () => ({ supabase: { from: vi.fn() } }))
 

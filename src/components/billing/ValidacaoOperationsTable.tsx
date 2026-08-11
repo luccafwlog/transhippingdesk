@@ -300,7 +300,7 @@ function renderChargeStatus(status: string | null, financialStatus?: string | nu
 function renderReconciliationStatus(status: string | null) {
   if (status === 'reconciled') return <Badge tone="green">Reconciliado</Badge>
   if (status === 'matched_document') return <Badge tone="blue">Match CNPJ</Badge>
-  if (status === 'matched_name') return <Badge tone="yellow">Match nome</Badge>
+  if (status === 'matched_name') return <Badge tone="yellow">Sugestao por nome</Badge>
   if (status === 'rejected') return <Badge tone="red">Rejeitado</Badge>
   return <Badge tone="yellow">Pendente</Badge>
 }

@@ -520,7 +520,8 @@ fonte de Frete & Despesas do BL, da data de emissão e da data de embarque na
 origem. A operação de container não depende da importação de Manifesto.
 
 **Razão Social do Consignatário**
-Nome empresarial curto exibido em tabelas e usado na reconciliação por nome. É
+Nome empresarial curto exibido em tabelas e usado como sugestão na reconciliação
+de cliente — nunca como vínculo, que só se estabelece por documento exato. É
 extraído até a natureza jurídica, incluindo combinações como `LTDA EPP`, e não
 inclui endereço, telefone, CEP, cidade ou país. Quando nenhuma natureza jurídica
 é reconhecida, corresponde à primeira linha não vazia do bloco do consignatário.
@@ -630,8 +631,16 @@ Etapa humana para resolver cliente, CE, peso, inconsistências de cálculo e
 outros dados que impedem o avanço seguro.
 
 **Reconciliação de Cliente**
-Vínculo confirmado entre o consignatário importado e o cadastro de Cliente.
-Matching automático incerto deve permanecer pendente de decisão humana.
+Vínculo confirmado entre o consignatário importado e o cadastro de Cliente. O
+vínculo só pode ser estabelecido por documento exato — CNPJ para pessoa
+jurídica, CPF para pessoa física. Match por nome, por nome canônico ou por
+similaridade é sugestão, nunca vínculo. Matching automático incerto deve
+permanecer pendente de decisão humana.
+
+Match por nome é persistido separadamente como sugestão (`suggested_customer_id`
+ou `suggested_client_id`) e aparece na fila de revisão. Só a confirmação humana
+preenche o vínculo; faturamento considera exclusivamente `customer_id` e
+`client_id`. Ver ADR 0043 e migrations `284`–`287`.
 
 **Cliente**
 Pessoa jurídica ou física responsável por cargas e cobranças no sistema.

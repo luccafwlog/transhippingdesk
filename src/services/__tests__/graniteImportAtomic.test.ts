@@ -46,7 +46,8 @@ const manifest: ParsedGraniteManifest = {
     cargo_readiness_date: '2026-06-22',
     phase: 'READY',
     clientId: 7,
-    reconciliationStatus: 'matched',
+        reconciliationStatus: 'matched',
+        suggestedClientId: null,
   }],
 }
 

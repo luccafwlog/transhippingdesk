@@ -195,7 +195,7 @@ export async function listLocalChargePendencies(limit = 100) {
       charges_calculated_at,
       created_at,
       voyage:voyages(voyage_number,vessel:vessels(name)),
-      customer:customers(name)
+      customer:customers!bls_customer_id_fkey(name)
     `,
     )
     .in('charge_status', ['review_required', 'not_calculated'])
@@ -260,7 +260,7 @@ async function loadBlOperationalRows(
         charges_reviewed_at,
         created_at,
         voyage:voyages(id,voyage_number,vessel:vessels(name)),
-        customer:customers(id,name,cnpj_cpf)
+        customer:customers!bls_customer_id_fkey(id,name,cnpj_cpf)
       `,
       )
       .order('created_at', { ascending: false })
@@ -652,7 +652,7 @@ export async function buildLocalChargeConferenceRows(blIds: string[]): Promise<L
 
   const { data: bls, error: blsError } = await supabase
     .from('bls')
-    .select('id, pod, voyage_id, customer:customers(name)')
+    .select('id, pod, voyage_id, customer:customers!bls_customer_id_fkey(name)')
     .in('id', normalizedIds)
   if (blsError) throw blsError
   const blMap = new Map(

@@ -11,7 +11,6 @@ import { formatResultCount } from '../../lib/operationalState'
 import {
   getGroupLinkedItem,
   groupNeedsEmail,
-  needsCeMercante,
   needsCustomerLink,
   needsWeightFix,
   type ReviewGroup,
@@ -128,14 +127,10 @@ export function ReviewGroupBlock({
                           </Badge>
                         ))}
                       </div>
-                      {item.source === 'bl' && needsCeMercante(item) ? (
-                        <InlineFieldEditor
-                          type="text"
-                          placeholder="CE Mercante"
-                          initial={item.ce_mercante ?? ''}
-                          saving={savingInlineId === item.id}
-                          onSave={(value) => onInlineField(item, 'ce_mercante', value)}
-                        />
+                      {item.source === 'granite' && item.suggested_customer?.name ? (
+                        <div className="text-xs text-yellow-200">
+                          Sugerido: <strong>{item.suggested_customer.name}</strong> — confirme em Corrigir
+                        </div>
                       ) : null}
                       {item.source === 'bl' && needsWeightFix(item) ? (
                         <div className="grid max-w-xs gap-1">
