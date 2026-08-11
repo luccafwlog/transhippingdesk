@@ -32,6 +32,8 @@ seleção do operador.
 
 ## Alternativas consideradas
 
+**Nota editorial — 2026-08-10:** a decisão 2 continua valendo; a marcação manual de "pronto para faturar" de **Granito** permanece na tela como ponte até que o CE de Granito exista, pois `create_invoice_from_granite_bls` exige `charge_status = 'ready_for_billing'`. A fila também expõe `pronto` fora da vista padrão.
+
 - Manter o funil e expor `charge_status`: rejeitado, pois o campo é detalhe do
   motor e não representa o bloqueio que o operador precisa resolver.
 - Criar uma tabela de falhas: rejeitado; `alerts` já é a superfície operacional

@@ -4,7 +4,7 @@ import {
   addManualBlCharge,
   calculateBlLocalCharges,
   calculateLocalChargesBatch,
-  listLocalChargeOperationalRows,
+  listLocalChargeOperationalRowsWithMeta,
   deleteManualBlCharge,
   listManualChargeItemsForBl,
   markBlChargesReviewed,
@@ -231,7 +231,7 @@ export function useLocalChargeOperations(filters?: {
 }) {
   return useQuery({
     queryKey: queryKeys.charges.operations(filters),
-    queryFn: () => listLocalChargeOperationalRows(filters),
+    queryFn: () => listLocalChargeOperationalRowsWithMeta(filters),
   })
 }
 export function useCustomerReconciliationQueue(status?: '' | 'pending' | 'approved' | 'rejected', limit = 200) {

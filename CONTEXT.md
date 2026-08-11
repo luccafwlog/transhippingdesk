@@ -659,6 +659,7 @@ Cobranças ligadas ao B/L, calculadas por tabelas, itens e eventuais regras
 específicas do cliente.
 
 **Motivo de Bloqueio de Faturamento**
+*Pronto para emitir* é um código resolvido, fora da fila padrão, e não um bloqueio; Granito mantém temporariamente a marcação manual como ponte até o CE de Granito.
 Categoria fechada que responde por que um B/L ainda não virou fatura. São três,
 e nenhuma é status marcado por alguém: *Sem cliente vinculado*, *Cálculo
 incompleto* e *Aguardando CE Mercante*. A confirmação do cálculo é o cadastro do

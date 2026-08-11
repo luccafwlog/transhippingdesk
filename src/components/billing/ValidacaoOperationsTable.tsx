@@ -9,7 +9,7 @@ import { formatBRL, formatDate } from '../../lib/utils'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import type { LocalChargeOperationalRow } from '../../services/charges/chargeOperationsService'
-import { getBillingBlock } from './validacaoPipeline'
+import { getBillingBlock, isBlLockedForRecalc } from './validacaoPipeline'
 
 type ReconciliationQueueItem = {
   id: number
@@ -36,6 +36,7 @@ export function ValidacaoOperationsTable({
   onToggleExpandedRow,
   onIssueSingleInvoice,
   onRecalculateRow,
+  onReadyGranite,
   onApproveQueueItem,
   onRejectQueueItem,
 }: {
@@ -53,6 +54,7 @@ export function ValidacaoOperationsTable({
   onToggleExpandedRow: (blId: string) => void
   onIssueSingleInvoice: (row: LocalChargeOperationalRow) => void
   onRecalculateRow?: (row: LocalChargeOperationalRow) => void
+  onReadyGranite?: (row: LocalChargeOperationalRow) => void
   onApproveQueueItem: (queueId: number, customerId?: number | null) => void
   onRejectQueueItem: (queueId: number) => void
 }) {
@@ -82,14 +84,14 @@ export function ValidacaoOperationsTable({
           <tbody>
             {isLoading ? (
               <tr>
-                <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={11}>
+                <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={10}>
                   Carregando operação...
                 </td>
               </tr>
             ) : null}
             {!isLoading && rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="p-0">
+                <td colSpan={10} className="p-0">
                   <EmptyState title="Nenhum B/L encontrado." description="Ajuste os filtros de viagem ou status." />
                 </td>
               </tr>
@@ -100,6 +102,7 @@ export function ValidacaoOperationsTable({
               const queueItem = reconciliationPending ? (reconciliationQueue.find((q) => q.bl_id === row.id) ?? null) : null
               const block = getBillingBlock(row)
               const canIssueSingleInvoice = isChargeReady(row.charge_status) && row.financial_status !== 'invoiced' && Boolean(row.customer?.id)
+              const canMarkGraniteReady = row.cargo_mode === 'granito' && row.charge_status === 'calculated' && row.totals.line_count > 0 && row.customer_reconciliation_status === 'reconciled'
               return (
                 <Fragment key={row.id}>
                   <tr className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>
@@ -124,9 +127,10 @@ export function ValidacaoOperationsTable({
                     <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" onClick={() => onRecalculateRow?.(row)} disabled={row.financial_status === 'invoiced'}>
+                        <Button variant="ghost" onClick={() => onRecalculateRow?.(row)} disabled={isBlLockedForRecalc(row.financial_status)} title={isBlLockedForRecalc(row.financial_status) ? 'B/L já faturado ou financeiramente bloqueado.' : undefined}>
                           Recalcular
                         </Button>
+                        {canMarkGraniteReady ? <Button variant="ghost" onClick={() => onReadyGranite?.(row)}>Marcar pronto p/ faturar</Button> : null}
                         {canIssueSingleInvoice ? (
                           <Button variant="secondary" onClick={() => onIssueSingleInvoice(row)}>
                             Emitir
@@ -147,7 +151,7 @@ export function ValidacaoOperationsTable({
                   </tr>
                   {isExpanded ? (
                     <tr key={`${row.id}-detail`} className="bg-[var(--app-surface-muted)]">
-                      <td colSpan={11} className="px-6 py-4">
+                      <td colSpan={10} className="px-6 py-4">
                         <div className="grid gap-4 xl:grid-cols-2">
                           <div className="grid gap-3">
                             {block.detail ? (

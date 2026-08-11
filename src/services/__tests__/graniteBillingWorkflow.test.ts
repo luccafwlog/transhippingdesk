@@ -98,22 +98,15 @@ describe('Granite billing workflow', () => {
     expect(mocks.createGranite).not.toHaveBeenCalled()
   })
 
-  it.skip('reports Granite review as unsupported instead of a false success', async () => {
+  it('marks Granite as ready when requested', async () => {
     const workflow = await loadWorkflow()
     expect(workflow).not.toBeNull()
 
-    const result = await workflow!.runGraniteBatch(['GR-1', 'GR-2'], 'review' as never)
+    const result = await workflow!.runGraniteBatch(['GR-1', 'GR-2'], 'ready')
 
-    expect(result).toEqual({
-      total: 2,
-      successCount: 0,
-      errorCount: 2,
-      errors: [
-        { blId: 'GR-1', message: 'Revisão em lote não é suportada para Granito.' },
-        { blId: 'GR-2', message: 'Revisão em lote não é suportada para Granito.' },
-      ],
-    })
+    expect(result).toEqual({ total: 2, successCount: 2, errorCount: 0, errors: [] })
     expect(mocks.calculate).not.toHaveBeenCalled()
-    expect(mocks.markReady).not.toHaveBeenCalled()
+    expect(mocks.markReady).toHaveBeenNthCalledWith(1, 'GR-1')
+    expect(mocks.markReady).toHaveBeenNthCalledWith(2, 'GR-2')
   })
 })

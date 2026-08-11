@@ -14,12 +14,15 @@ export async function issueOperationalInvoice(input: { blId: string; cargoMode: 
   return createInvoiceFromBls({ blIds: [input.blId], customerId: input.customerId, issueNow: true, actorId: input.actorId ?? null })
 }
 
-export async function runGraniteBatch(ids: string[], _action: 'recalculate') {
-  void _action
+export async function runGraniteBatch(ids: string[], action: 'recalculate' | 'ready') {
   const errors: Array<{ blId: string; message: string }> = []
   let successCount = 0
   for (const id of ids) {
-    try { await calculateGraniteBlCharges(id); successCount += 1 } catch (error) { errors.push({ blId: id, message: error instanceof Error ? error.message : 'Erro inesperado no processamento Granito.' }) }
+    try {
+      if (action === 'recalculate') await calculateGraniteBlCharges(id)
+      else await markGraniteBlReady(id)
+      successCount += 1
+    } catch (error) { errors.push({ blId: id, message: error instanceof Error ? error.message : 'Erro inesperado no processamento Granito.' }) }
   }
   return { total: ids.length, successCount, errorCount: errors.length, errors }
 }
