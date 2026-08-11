@@ -521,7 +521,7 @@ origem. A operação de container não depende da importação de Manifesto.
 
 **Razão Social do Consignatário**
 Nome empresarial curto exibido em tabelas e usado como sugestão na reconciliação
-de cliente — nunca como vínculo, que só se estabelece por CNPJ. É
+de cliente — nunca como vínculo, que só se estabelece por documento exato. É
 extraído até a natureza jurídica, incluindo combinações como `LTDA EPP`, e não
 inclui endereço, telefone, CEP, cidade ou país. Quando nenhuma natureza jurídica
 é reconhecida, corresponde à primeira linha não vazia do bloco do consignatário.
