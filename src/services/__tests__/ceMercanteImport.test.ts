@@ -96,6 +96,67 @@ describe('ceMercanteImport', () => {
     expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', null)
   })
 
+  it('resolve o numero do B/L de Granito para UUID e grava pela RPC auditavel', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table !== 'granite_bls') throw new Error(`Tabela nao mockada: ${table}`)
+      return {
+        select: () => ({
+          in: async () => ({ data: [{ id: 'uuid-gr1', bl_number: 'GR1', manifest: { voyage_id: 7 } }], error: null }),
+        }),
+      }
+    })
+    mockRpc.mockResolvedValue({ data: 'inserted', error: null })
+
+    const result = await importCeMercanteRows(
+      [{ rowNumber: 2, bl_id: 'GR1', ce_mercante: '122605051526081' }],
+      { changedBy: 'user-1', target: 'granite', voyageId: 7 },
+    )
+
+    expect(result).toMatchObject({ processed: 1, updated: 1, errorCount: 0 })
+    expect(mockRpc).toHaveBeenCalledWith('apply_granite_ce_mercante_update', {
+      p_bl_id: 'uuid-gr1', p_new_ce: '122605051526081', p_changed_by: 'user-1',
+    })
+    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('uuid-gr1', 'user-1', 'granite')
+  })
+
+  it('conta CE de Granito unchanged sem incrementar updated', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table !== 'granite_bls') throw new Error(`Tabela nao mockada: ${table}`)
+      return {
+        select: () => ({
+          in: async () => ({ data: [{ id: 'uuid-gr1', bl_number: 'GR1', manifest: { voyage_id: 7 } }], error: null }),
+        }),
+      }
+    })
+    mockRpc.mockResolvedValue({ data: 'unchanged', error: null })
+    const result = await importCeMercanteRows(
+      [{ rowNumber: 2, bl_id: 'GR1', ce_mercante: '122605051526081' }],
+      { changedBy: null, target: 'granite', voyageId: 7 },
+    )
+    expect(result).toMatchObject({ processed: 1, updated: 0, unchanged: 1, overwritten: 0, errorCount: 0 })
+  })
+
+  it('reporta B/L de Granito inexistente e ambiguo sem derrubar o lote', async () => {
+    mockFrom.mockImplementation(() => ({
+      select: () => ({
+        in: async () => ({ data: [
+          { id: 'uuid-a', bl_number: 'AMB', manifest: { voyage_id: 7 } },
+          { id: 'uuid-b', bl_number: 'AMB', manifest: { voyage_id: 7 } },
+        ], error: null }),
+      }),
+    }))
+    const result = await importCeMercanteRows([
+      { rowNumber: 2, bl_id: 'MISSING', ce_mercante: '122605051526081' },
+      { rowNumber: 3, bl_id: 'AMB', ce_mercante: '122605051526082' },
+    ], { changedBy: null, target: 'granite', voyageId: 7 })
+    expect(result.errorCount).toBe(2)
+    expect(result.errors.map((error) => error.message)).toEqual(expect.arrayContaining([
+      'B/L MISSING nao encontrado no manifesto de granito.',
+      'B/L AMB ambiguo: mais de um B/L no manifesto de granito.',
+    ]))
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
   it('separa BLs de outra viagem sem antecipar o erro de BL inexistente', async () => {
     mockFrom.mockImplementation(() => ({
       select: () => ({

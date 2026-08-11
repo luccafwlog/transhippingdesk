@@ -373,7 +373,9 @@ async function loadBlOperationalRows(
 
 type GraniteOperationalRaw = {
   id: string
+  bl_number: string | null
   charge_status: string | null
+  ce_mercante: string | null
   loading_port: string | null
   discharge_port: string | null
   client_id: number | null
@@ -412,7 +414,9 @@ async function loadGraniteOperationalRows(
       .select(
         `
         id,
+        bl_number,
         charge_status,
+        ce_mercante,
         loading_port,
         discharge_port,
         client_id,
@@ -484,7 +488,7 @@ async function loadGraniteOperationalRows(
     pod: row.discharge_port,
     charge_status: row.charge_status,
     financial_status: row.charge_status === 'invoiced' ? 'invoiced' : null,
-    ce_mercante: null,
+    ce_mercante: row.ce_mercante,
     // granito não passa pelo gate de revisão de BL comum (workflow próprio).
     review_status: null,
     notes: null,

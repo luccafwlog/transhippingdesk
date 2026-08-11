@@ -4,20 +4,23 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   parse: vi.fn(),
+  parseEdi: vi.fn(),
   partition: vi.fn(),
+  importRows: vi.fn(),
+  invalidateQueries: vi.fn(),
   showToast: vi.fn(),
 }))
 
-vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }))
+vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }) }))
 vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' } }) }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
 vi.mock('../../../services/ceMercanteImport', () => ({
   parseCeMercanteFile: mocks.parse,
   partitionRowsByVoyage: mocks.partition,
-  importCeMercanteRows: vi.fn(),
+  importCeMercanteRows: mocks.importRows,
   importCeMercanteEdi: vi.fn(),
 }))
-vi.mock('../../../services/ceMercanteEdiParser', () => ({ parseCeMercanteEdiFile: vi.fn() }))
+vi.mock('../../../services/ceMercanteEdiParser', () => ({ parseCeMercanteEdiFile: mocks.parseEdi }))
 
 import { CeMercanteImportModal } from '../CeMercanteImportModal'
 
@@ -39,4 +42,27 @@ it('exclui do preview o BL de outra viagem e mostra erro bloqueante', async () =
   await waitFor(() => expect(mocks.partition).toHaveBeenCalledWith([row], 7))
   expect(screen.getByText('Linha 2: B/L BL-OUTRA pertence a outra viagem')).toBeTruthy()
   expect((screen.getByRole('button', { name: 'Confirmar importação' }) as HTMLButtonElement).disabled).toBe(true)
+})
+
+it('invalida caches e informa parcialidade no EDI de Granito', async () => {
+  mocks.parseEdi.mockResolvedValue({
+    rows: [{ lineNumber: 1, bl_id: 'GR1', ce_mercante: '122605051526081' }],
+    rowErrors: [],
+  })
+  mocks.importRows.mockResolvedValue({
+    processed: 1,
+    updated: 1,
+    overwritten: 0,
+    unchanged: 0,
+    errorCount: 1,
+    errors: [{ row: 2, bl_id: 'GR2', message: 'B/L GR2 nao encontrado no manifesto de granito.' }],
+  })
+  const { container } = render(<CeMercanteImportModal open target="granite" onClose={vi.fn()} />)
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['edi'], 'ce.edi')] },
+  })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar importação' })).toBeTruthy())
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar importação' }))
+  await waitFor(() => expect(mocks.invalidateQueries).toHaveBeenCalled())
+  expect(mocks.showToast).toHaveBeenCalledWith('Importacao parcial: 1 gravado(s), 1 pendencia(s).', 'error')
 })

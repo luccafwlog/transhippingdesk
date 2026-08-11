@@ -10,6 +10,7 @@ type OperationalEventCode =
   | 'invoice_cancel_blocked'
   | 'bl_auto_billing_failed'
   | 'ce_reimport_already_invoiced'
+  | 'granite_reimport_already_invoiced'
 
 type LogOperationalEventInput = {
   code: OperationalEventCode

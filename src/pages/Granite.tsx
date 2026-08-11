@@ -10,6 +10,7 @@ import { PreviewBox } from '../components/ui/PreviewBox'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
+import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
 import { PAGE_SIZES, usePageFilters } from '../hooks/usePageFilters'
@@ -20,7 +21,7 @@ import {
   type ReconciliationStatus,
 } from '../services/graniteImport'
 import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCharges'
-import { createInvoiceFromGraniteBls } from '../services/billing'
+import { calculateAndIssueGraniteInvoice } from '../services/graniteBillingWorkflow'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { onlyDigits } from '../lib/utils'
 import { loadCustomerMaps, findMatchedCustomer } from '../services/customerReconciliation'
@@ -50,6 +51,7 @@ export function Granite() {
   })
 
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
   const [file, setFile] = useState<File | null>(null)
   const [manifest, setManifest] = useState<ParsedGraniteManifest | null>(null)
@@ -130,17 +132,28 @@ export function Granite() {
     }
   }
 
-  async function handleCalculateCharges(blId: string, clientId: number | null) {
+  async function handleCalculateCharges(blId: string, clientId: number | null, ceMercante: string | null) {
     try {
+      if (clientId && user && ceMercante?.trim()) {
+        await calculateAndIssueGraniteInvoice({ blId, customerId: clientId, actorId: user.id })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+          queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+          queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+        ])
+        showToast('CE Mercante confirmado: taxas calculadas e fatura emitida.', 'success')
+        return
+      }
+
       const lines = await calculateGraniteBlCharges(blId)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
       if (clientId && user) {
-        await createInvoiceFromGraniteBls({ graniteBlIds: [blId], customerId: clientId, actorId: user.id })
-        await queryClient.invalidateQueries({ queryKey: ['invoices'] })
-        showToast('Taxas calculadas e fatura emitida automaticamente.', 'success')
+        setChargeLines(lines)
+        setChargeBlId(blId)
+        showToast('Taxas calculadas. A emissão aguarda o CE Mercante.', 'info')
       } else {
         setChargeLines(lines)
         setChargeBlId(blId)
@@ -182,10 +195,16 @@ export function Granite() {
               Tabela de Taxas — Granito
             </Link>
             {canWrite ? (
-              <Button onClick={() => setUploadOpen(true)}>
-                <Upload size={16} />
-                Importar Planilha COSCO
-              </Button>
+              <>
+                <Button variant="secondary" onClick={() => setCeMercanteOpen(true)}>
+                  <Upload size={16} />
+                  Importar CE Mercante
+                </Button>
+                <Button onClick={() => setUploadOpen(true)}>
+                  <Upload size={16} />
+                  Importar Planilha COSCO
+                </Button>
+              </>
             ) : null}
           </div>
         }
@@ -290,7 +309,7 @@ export function Granite() {
                     {canWrite ? (
                       <button
                         className="app-table__action mr-2"
-                        onClick={() => handleCalculateCharges(bl.id, (bl as { client_id?: number | null }).client_id ?? null)}
+                        onClick={() => handleCalculateCharges(bl.id, (bl as { client_id?: number | null }).client_id ?? null, bl.ce_mercante)}
                       >
                         Calcular taxas
                       </button>
@@ -458,6 +477,13 @@ export function Granite() {
           </div>
         </div>
       </Modal>
+
+      <CeMercanteImportModal
+        open={ceMercanteOpen && canWrite}
+        target="granite"
+        lockedVoyageId={filters.voyageId ? Number(filters.voyageId) : undefined}
+        onClose={() => setCeMercanteOpen(false)}
+      />
     </>
   )
 }

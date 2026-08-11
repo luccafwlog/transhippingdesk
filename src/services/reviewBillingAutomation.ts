@@ -6,6 +6,7 @@ import {
 import { logOperationalEvent } from './operationalEvents'
 import { createAlert } from './alerts'
 import { supabase } from './supabase'
+import { calculateAndIssueGraniteInvoice } from './graniteBillingWorkflow'
 
 export type ReviewBillingAutomationResult =
   | { status: 'invoiced'; invoiceResult: unknown }
@@ -69,7 +70,39 @@ export async function tryAutoIssueInvoice({
   }
 }
 
-export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string | null) {
+// `blId` is always the target table primary key: bls.id or granite_bls.id.
+// Granite callers resolve the imported bl_number before entering this contract.
+export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string | null, target: 'bls' | 'granite' = 'bls') {
+  if (target === 'granite') {
+    const { data, error } = await supabase
+      .from('granite_bls')
+      .select('id, client_id, ce_mercante, charge_status')
+      .eq('id', blId)
+      .single()
+    if (error) throw error
+
+    const bl = data as { id: string; client_id: number | null; ce_mercante: string | null; charge_status: string | null } | null
+    if (!bl?.client_id) return null
+    if (!bl.ce_mercante?.trim()) return { status: 'blocked', reason: 'awaiting_flow', message: 'Aguardando cadastro do CE Mercante para emitir a fatura.' } as const
+    if (bl.charge_status === 'invoiced') return null
+
+    try {
+      const result = await calculateAndIssueGraniteInvoice({ blId: bl.id, customerId: bl.client_id, actorId })
+      return { status: 'invoiced', invoiceResult: result.invoice } as const
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao gerar invoice automatica de Granito.'
+      await createAlert({ type: 'billing_auto_issue_failed', entityType: 'granite_bl', entityId: bl.id, message })
+      await logOperationalEvent({
+        code: 'bl_auto_billing_failed',
+        message,
+        changedBy: actorId,
+        entityId: bl.id,
+        context: { source: 'ce_auto_billing', cargo_mode: 'granito' },
+      })
+      return { status: 'blocked', reason: 'rpc_error', message, unexpected: true } as const
+    }
+  }
+
   const { data, error } = await supabase
     .from('bls')
     .select('id, customer_id, customer_reconciliation_status, cargo_mode, financial_status')
