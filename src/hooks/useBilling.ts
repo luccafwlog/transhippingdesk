@@ -8,6 +8,7 @@ import {
   listInvoiceLinksByBls,
   listInvoices,
   registerInvoicePayment,
+  updateInvoiceDueDate,
   type InvoiceFilters,
 } from '../services/billing'
 import { queryKeys } from '../services/queryKeys'
@@ -98,6 +99,22 @@ export function useCancelInvoice() {
         queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.all() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.customers.detail() }),
+      ])
+    },
+  })
+}
+
+export function useUpdateInvoiceDueDate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateInvoiceDueDate,
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(variables.invoiceId) }),
+        queryClient.invalidateQueries({ queryKey: ['financial-alerts'] }),
+        queryClient.invalidateQueries({ queryKey: ['op-count'] }),
       ])
     },
   })

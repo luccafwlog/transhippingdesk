@@ -74,6 +74,15 @@ ou mudança exploratória.
 
 ## 3. Modelo de evidência
 
+### Fixture QA de exibição
+
+Os scripts em `scripts/qa-display-production/` usam o prefixo
+`QA-DISPLAY-2026`/`QAD26`. A fixture é composta por etapas independentes:
+ADR e exceções, cenários financeiros, Portal/PIX e validação/limpeza seletiva.
+Nenhuma etapa deve ser executada contra produção sem inventário, usuário,
+catálogo de IDs e autorização explícita. `cleanup-fixture.mjs` permanece em
+dry-run por padrão e não pode remover tabelas protegidas.
+
 Para cada fluxo:
 
 ```text
@@ -88,6 +97,33 @@ Resultado observado:
 Evidência:
 Limpeza:
 ```
+
+### Ordem da fixture QA de exibição
+
+Quando houver ambiente Supabase controlado e autorização explícita, a ordem é
+obrigatória:
+
+1. `create-operational.mjs` — cria ou reutiliza os dados operacionais e grava o
+   catálogo completo, incluindo `invoices`, `receivables` e `created`;
+2. `create-adr-scenarios.mjs` — exige duas B/Ls com o POD omitido antes de
+   chamar omissão, transbordo ou COD;
+3. `create-financial-scenarios.mjs` — usa cinco B/Ls distintas (BL-002 a
+   BL-006), prepara cliente e estado financeiro antes de cada emissão, exige
+   receivables e monta itens de Demurrage;
+4. `create-portal-scenarios.mjs` — lê quatro invoices do catálogo antes de
+   qualquer upsert e preserva email/CNPJ existentes;
+5. `validate-fixture.mjs`;
+6. `cleanup-fixture.mjs --dry-run`.
+
+Todos os scripts falham antes da primeira mutação quando uma pré-condição não
+está satisfeita. PIX com `pix_extract` usa exatamente o saldo aberto; valores
+parciais ou excedentes usam `manual`. Uma conta Portal só pode ser marcada como
+ativa quando possui `auth_user_id`; a fixture técnica, por si só, não cria Auth,
+convite ou email.
+
+O cleanup destrutivo exige uma execução separada em banco descartável. Ele usa
+somente entradas `created: true`, valida IDs por tabela e aborta na primeira
+resposta de erro do Supabase. Nunca executar essa etapa em produção.
 
 Falha encontrada deve incluir rota, entidade, mensagem visível, console/rede
 quando relevante e condição para reprodução.

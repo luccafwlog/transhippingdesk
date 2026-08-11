@@ -8,6 +8,30 @@
 
 **Tech Stack:** TypeScript/Node.js, Supabase client/RPCs existentes, importadores do projeto, Vitest para checks puros e consultas SQL somente leitura para inventário.
 
+## Correções PR #514 e ordem executável
+
+As fases 3–6 usam `scripts/qa-display-production/fixture-catalog.mjs` como
+contrato único. O catálogo é carregado e salvo entre processos na ordem abaixo;
+cada fase falha antes da primeira mutação quando suas pré-condições não podem
+ser comprovadas:
+
+```powershell
+node scripts/qa-display-production/create-operational.mjs
+node scripts/qa-display-production/create-adr-scenarios.mjs
+node scripts/qa-display-production/create-financial-scenarios.mjs
+node scripts/qa-display-production/create-portal-scenarios.mjs
+node scripts/qa-display-production/validate-fixture.mjs
+node scripts/qa-display-production/cleanup-fixture.mjs
+```
+
+`cleanup-fixture.mjs` é dry-run por padrão. A remoção exige a flag explícita
+`--destructive`, deve ocorrer somente em ambiente descartável e só remove
+entradas marcadas `created: true`. O Portal preserva `contact_email` e
+`login_cnpj`; contas sem `auth_user_id` permanecem inativas. `pix_extract` usa
+o saldo aberto exato, enquanto pagamentos parciais/excedentes usam `manual`.
+O artefato JSON só é considerado atualizado depois de todas as fases acima
+terem sido executadas contra o Supabase controlado.
+
 ## Global Constraints
 
 - Nunca alterar tabelas de taxas locais, depots, terminais ou serviços.
@@ -126,4 +150,3 @@
 - [ ] **Step 5: Execute validação contra produção** e gerar relatório com evidências, sem executar limpeza até solicitação separada.
 - [ ] **Step 6: Run required verification** com `npm run docs:check`, `npm run lint`, `npm test` e `npm run build`.
 - [ ] **Step 7: Commit** com `git add scripts/qa-display-production docs/archive/reports && git commit -m "chore: validate production QA fixture and add selective cleanup"`.
-

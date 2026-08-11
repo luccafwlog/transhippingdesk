@@ -49,10 +49,11 @@ export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containe
   baplieStatus?: BaplieStatus
 }) {
   if (!active) return null
+  const effectiveDisposition: BlDisposition = disposition ?? 'transshipment'
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      {omission && disposition ? (
-        <BlTransshipmentCard omission={omission} disposition={disposition} saving={savingDisposition ?? false} onCod={onCod} onRestore={onRestore} />
+      {omission ? (
+        <BlTransshipmentCard omission={omission} disposition={effectiveDisposition} saving={savingDisposition ?? false} onCod={onCod} onRestore={onRestore} />
       ) : null}
       <Card>
         <h3 className="mb-3 text-sm font-semibold">Viagem &amp; Escala</h3>

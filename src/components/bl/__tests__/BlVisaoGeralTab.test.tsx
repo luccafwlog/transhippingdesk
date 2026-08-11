@@ -2,7 +2,7 @@
 
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { BlVisaoGeralTab, type BaplieStatus } from '../BlVisaoGeralTab'
 
 const baseBl = {
@@ -19,6 +19,7 @@ const baseBl = {
 
 const containerSummary = { distinct: 0, imo: 0, oog: 0 }
 const breakbulkSummary = { machines: 0, packages: 0, packagesTotal: 0, weightTon: 0, cbm: 0 }
+const omittedVoyage = { id: 9, voyageId: 7, omittedPod: 'BRSSA', dischargePod: 'BRVIX', reason: null, onwardVesselName: null, onwardCarrier: null, onwardVoyageNumber: null, onwardEtd: null, onwardEta: null }
 
 function renderTab(baplieStatus: BaplieStatus) {
   render(
@@ -63,5 +64,27 @@ describe('BlVisaoGeralTab — status do Baplie', () => {
   it('mostra contagem de divergencias quando reconciliado com achados', () => {
     renderTab({ state: 'reconciled', divergenceCount: 3 })
     expect(screen.getByText('3 divergência(s) Baplie')).toBeTruthy()
+  })
+})
+
+describe('BlVisaoGeralTab — transbordo e COD', () => {
+  it('mostra a ação Marcar COD quando existe omissão sem disposição persistida', () => {
+    render(
+      <MemoryRouter>
+        <BlVisaoGeralTab
+          active
+          bl={baseBl}
+          cockpit={{ omission: omittedVoyage, transshipment: null } as never}
+          omission={omittedVoyage}
+          isContainerMode
+          containerSummary={containerSummary}
+          breakbulkSummary={breakbulkSummary}
+          onCod={vi.fn()}
+          baplieStatus={{ state: 'not_imported', divergenceCount: 0 }}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Transbordo / COD')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Marcar COD/ })).toBeTruthy()
   })
 })

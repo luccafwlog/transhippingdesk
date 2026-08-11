@@ -22,6 +22,7 @@ import {
   isConsolidatedInvoice,
   listInvoices,
   registerInvoicePayment,
+  updateInvoiceDueDate,
 } from '../billing'
 import { buildInvoiceFileBaseName } from '../../components/shared/invoiceFormat'
 import type { InvoiceDetail, InvoiceFilters } from '../billing'
@@ -372,6 +373,20 @@ describe('registerInvoicePayment', () => {
     await expect(
       registerInvoicePayment({ invoiceId: 9, amountBrl: 10, paymentMethod: 'pix' }),
     ).rejects.toThrow('pagamento falhou')
+  })
+})
+
+describe('updateInvoiceDueDate', () => {
+  it('chama o RPC de vencimento com invoice, data e ator', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null })
+
+    await updateInvoiceDueDate({ invoiceId: 4, dueDate: '2026-08-01', actorId: 'user-1' })
+
+    expect(supabaseMocks.rpc).toHaveBeenCalledWith('update_invoice_due_date', {
+      p_invoice_id: 4,
+      p_due_date: '2026-08-01',
+      p_actor: 'user-1',
+    })
   })
 })
 

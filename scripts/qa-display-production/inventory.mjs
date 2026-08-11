@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { EXTERNAL_SIDE_EFFECTS_DISABLED, FIXTURE_CODE, FIXTURE_PREFIX, PROTECTED_TABLES, assertFixtureConfig } from './fixture-config.mjs'
+import { isMain } from './fixture-runtime.mjs'
 
 const TABLES = [
   'voyages', 'vessels', 'voyage_scales', 'customers', 'bls', 'bl_containers',
@@ -31,18 +32,19 @@ export async function createInventory(client) {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (isMain(import.meta.url, process.argv[1])) {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
   if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY are required')
   const client = createClient(url, key, { auth: { persistSession: false } })
-  const { data: session, error: authError } = await client.auth.signInWithPassword({
-    email: process.env.SUPABASE_INTEGRATION_EMAIL,
-    password: process.env.SUPABASE_INTEGRATION_PASSWORD,
-  })
-  if (authError) throw authError
+  let userId = null
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data: session, error: authError } = await client.auth.signInWithPassword({ email: process.env.SUPABASE_INTEGRATION_EMAIL, password: process.env.SUPABASE_INTEGRATION_PASSWORD })
+    if (authError) throw authError
+    userId = session.user.id
+  }
   const inventory = await createInventory(client)
   await fs.mkdir('artifacts/qa-display-production', { recursive: true })
-  await fs.writeFile('artifacts/qa-display-production/inventory.json', `${JSON.stringify({ userId: session.user.id, ...inventory }, null, 2)}\n`)
-  console.log(JSON.stringify({ ...inventory, userId: session.user.id }, null, 2))
+  await fs.writeFile('artifacts/qa-display-production/inventory.json', `${JSON.stringify({ userId, ...inventory }, null, 2)}\n`)
+  console.log(JSON.stringify({ ...inventory, userId }, null, 2))
 }
