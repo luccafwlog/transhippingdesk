@@ -17,6 +17,7 @@ O status atual do produto vive em [`../ROADMAP.md`](../ROADMAP.md).
 |---|---|---|
 | [`2026-08-10-validacao-fila-de-bloqueios.md`](./2026-08-10-validacao-fila-de-bloqueios.md) | Validação do Faturamento reduzida a uma fila de três bloqueios | TODO |
 | [`2026-08-10-ce-mercante-granito.md`](./2026-08-10-ce-mercante-granito.md) | CE Mercante como confirmador do cálculo também no Granito | TODO |
+| [`2026-08-10-correcoes-pr-512-fila-de-bloqueios.md`](./2026-08-10-correcoes-pr-512-fila-de-bloqueios.md) | Correções dos 14 achados da revisão da PR #512 | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
