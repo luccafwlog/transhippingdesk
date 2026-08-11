@@ -1,6 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { onlyDigits, toNumber } from '../lib/utils'
-import { findMatchedCustomer, loadCustomerMaps } from './customerReconciliation'
+import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
@@ -35,9 +35,9 @@ const HEADER_MAP: Record<string, string> = {
   'fase': 'phase',
 }
 
-export type ReconciliationStatus = 'matched' | 'missing_cnpj' | 'not_found'
+export type ReconciliationStatus = 'matched' | 'suggested_name' | 'missing_cnpj' | 'not_found'
 
-type ParsedGraniteBl = {
+export type ParsedGraniteBl = {
   rowNumber: number
   sequence: number | null
   booking_number: string | null
@@ -65,6 +65,7 @@ type ParsedGraniteBl = {
   cargo_readiness_date: string | null
   phase: string | null
   clientId: number | null
+  suggestedClientId: number | null
   reconciliationStatus: ReconciliationStatus
 }
 
@@ -116,16 +117,19 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
     const shipperName = String(mapped['shipper_name'] ?? '').trim() || null
 
     let clientId: number | null = null
+    let suggestedClientId: number | null = null
     let reconciliationStatus: ReconciliationStatus = 'missing_cnpj'
 
-    if (cnpjDigits) {
+    if (cnpjDigits || shipperName) {
       const match = findMatchedCustomer({ cnpjCpf: cnpjRaw, consignee: shipperName ?? '' }, customerMaps)
-      if (match) {
-        clientId = match.customer.id
-        reconciliationStatus = 'matched'
-      } else {
-        reconciliationStatus = 'not_found'
-      }
+      const link = resolveCustomerLink(match)
+      clientId = link.customerId
+      suggestedClientId = link.suggestedCustomerId
+      reconciliationStatus = link.status === 'matched_document'
+        ? 'matched'
+        : link.status === 'matched_name'
+          ? 'suggested_name'
+          : cnpjDigits ? 'not_found' : 'missing_cnpj'
     }
 
     bls.push({
@@ -159,6 +163,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       cargo_readiness_date: parseDateBR(String(mapped['cargo_readiness_date'] ?? '')),
       phase: String(mapped['phase'] ?? '').trim() || null,
       clientId,
+      suggestedClientId,
       reconciliationStatus,
     })
   })
@@ -201,6 +206,7 @@ export async function importGraniteManifest({
     .filter((bl) => allowPending || bl.clientId !== null)
     .map((bl) => ({
       client_id: bl.clientId,
+      suggested_client_id: bl.suggestedClientId,
       sequence: bl.sequence,
       booking_number: bl.booking_number,
       bl_number: bl.bl_number,
