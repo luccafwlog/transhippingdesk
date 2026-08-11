@@ -50,6 +50,7 @@ export function ReviewDrawer({
   const [notes, setNotes] = useState('')
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
+  const [selectedCustomerDisplay, setSelectedCustomerDisplay] = useState<string | null>(null)
   const [newCustomerName, setNewCustomerName] = useState('')
   const [newCustomerCnpj, setNewCustomerCnpj] = useState('')
   const [newCustomerEmail, setNewCustomerEmail] = useState('')
@@ -70,6 +71,7 @@ export function ReviewDrawer({
     setTotalCbm(item.total_cbm ? String(item.total_cbm) : '')
     setNotes(item.notes ?? '')
     setSelectedCustomerId(item.customer_id ?? null)
+    setSelectedCustomerDisplay(item.customer ? `${item.customer.name} (${formatCnpjCpf(item.customer.cnpj_cpf)})` : null)
     setCustomerSearch('')
     const manifestName = item.source === 'bl' ? (item.manifest_customer_name ?? null) : null
     const manifestCnpj = item.source === 'bl' ? (item.manifest_customer_cnpj_cpf ?? null) : null
@@ -97,6 +99,7 @@ export function ReviewDrawer({
         : []
       const customer = await createCustomer({ cnpjCpf: newCustomerCnpj, name: newCustomerName, contacts })
       setSelectedCustomerId(customer.id)
+      setSelectedCustomerDisplay(`${customer.name} (${formatCnpjCpf(customer.cnpj_cpf)})`)
       setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
       showToast('Cliente criado e pronto para vinculação. Clique em "Marcar como revisado" para concluir.', 'success')
@@ -112,6 +115,7 @@ export function ReviewDrawer({
 
         if (existing) {
           setSelectedCustomerId(existing.id)
+          setSelectedCustomerDisplay(`${existing.name} (${formatCnpjCpf(existing.cnpj_cpf)})`)
           setCustomerSearch(`${existing.name} ${formatCnpjCpf(existing.cnpj_cpf)}`)
           showToast('Cliente já existia e foi selecionado para vinculação.', 'success')
           return
@@ -326,6 +330,7 @@ export function ReviewDrawer({
                     }`}
                     onClick={() => {
                       setSelectedCustomerId(customer.id)
+                      setSelectedCustomerDisplay(`${customer.name} (${formatCnpjCpf(customer.cnpj_cpf)})`)
                       setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
                     }}
                   >
@@ -338,7 +343,7 @@ export function ReviewDrawer({
 
             {selectedCustomerId ? (
               <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
-                Cliente selecionado: {item.customer?.name ?? 'Cliente'} ({item.customer ? formatCnpjCpf(item.customer.cnpj_cpf) : 'documento pendente'}).
+                Cliente selecionado: {item.customer ? `${item.customer.name} (${formatCnpjCpf(item.customer.cnpj_cpf)})` : selectedCustomerDisplay ?? 'Cliente'}.
               </div>
             ) : null}
 
