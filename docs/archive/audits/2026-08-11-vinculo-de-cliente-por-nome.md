@@ -4,8 +4,9 @@
 **Origem:** auditoria de alertas e notificações, ao levantar os motivos de
 `review_status = 'pending_review'`.
 **Regra de domínio (definida pelo responsável do produto nesta data):** o
-Cliente só pode ser vinculado a um B/L **exclusivamente por CNPJ**. Match por
-nome não vincula.
+Cliente só pode ser vinculado a um B/L **por documento exato** — CNPJ para
+pessoa jurídica, CPF para pessoa física, que o cadastro guarda na mesma coluna
+`cnpj_cpf`. Match por nome não vincula, em nenhuma de suas formas.
 
 Este documento é um registro histórico do achado. A correção não foi executada
 nesta mudança.

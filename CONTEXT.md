@@ -632,7 +632,8 @@ outros dados que impedem o avanço seguro.
 
 **Reconciliação de Cliente**
 Vínculo confirmado entre o consignatário importado e o cadastro de Cliente. O
-vínculo só pode ser estabelecido por CNPJ: match por nome, canônico ou por
+vínculo só pode ser estabelecido por documento exato — CNPJ para pessoa
+jurídica, CPF para pessoa física. Match por nome, por nome canônico ou por
 similaridade é sugestão, nunca vínculo. Matching automático incerto deve
 permanecer pendente de decisão humana.
 
