@@ -10,7 +10,10 @@ export async function calculateAndIssueGraniteInvoice(input: { blId: string; cus
 }
 
 export async function issueOperationalInvoice(input: { blId: string; cargoMode: string | null; customerId: number; actorId?: string | null }) {
-  if (input.cargoMode === 'granito') return createInvoiceFromGraniteBls({ graniteBlIds: [input.blId], customerId: input.customerId, actorId: input.actorId ?? null })
+  if (input.cargoMode === 'granito') {
+    const result = await calculateAndIssueGraniteInvoice({ blId: input.blId, customerId: input.customerId, actorId: input.actorId ?? null })
+    return result.invoice
+  }
   return createInvoiceFromBls({ blIds: [input.blId], customerId: input.customerId, issueNow: true, actorId: input.actorId ?? null })
 }
 

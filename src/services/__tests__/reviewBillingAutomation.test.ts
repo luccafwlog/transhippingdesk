@@ -19,6 +19,9 @@ vi.mock('../operationalEvents', () => ({
 const { mockCreateAlert } = vi.hoisted(() => ({ mockCreateAlert: vi.fn() }))
 vi.mock('../alerts', () => ({ createAlert: mockCreateAlert }))
 
+const { mockCalculateAndIssueGraniteInvoice } = vi.hoisted(() => ({ mockCalculateAndIssueGraniteInvoice: vi.fn() }))
+vi.mock('../graniteBillingWorkflow', () => ({ calculateAndIssueGraniteInvoice: mockCalculateAndIssueGraniteInvoice }))
+
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
 }))
@@ -60,6 +63,7 @@ beforeEach(() => {
     reason: '',
   })
   mockedCreateInvoice.mockResolvedValue({ invoice_id: 55 })
+  mockCalculateAndIssueGraniteInvoice.mockResolvedValue({ lines: [], invoice: { invoice_id: 77 } })
 })
 
 describe('tryAutoIssueInvoice', () => {
@@ -261,5 +265,41 @@ describe('maybeAutoBillAfterCeMercante', () => {
     expect(result).toMatchObject({ status: 'blocked', reason: 'no_billable_value', message: 'B/L sem valor faturavel apos recalculo.' })
     expect(result).not.toHaveProperty('unexpected')
     expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed', entityId: 'BL1' }))
+  })
+
+  it('calcula e emite Granito quando o CE e cadastrado', async () => {
+    mockFrom.mockImplementation(() => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { id: 'GR1', client_id: 99, ce_mercante: '122605051526081', charge_status: 'calculated' },
+            error: null,
+          }),
+        }),
+      }),
+    }))
+
+    const result = await maybeAutoBillAfterCeMercante('GR1', 'user-1', 'granite')
+
+    expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 77 } })
+    expect(mockCalculateAndIssueGraniteInvoice).toHaveBeenCalledWith({ blId: 'GR1', customerId: 99, actorId: 'user-1' })
+  })
+
+  it('mantem Granito bloqueado sem CE', async () => {
+    mockFrom.mockImplementation(() => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { id: 'GR1', client_id: 99, ce_mercante: null, charge_status: 'calculated' },
+            error: null,
+          }),
+        }),
+      }),
+    }))
+
+    const result = await maybeAutoBillAfterCeMercante('GR1', 'user-1', 'granite')
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'awaiting_flow' })
+    expect(mockCalculateAndIssueGraniteInvoice).not.toHaveBeenCalled()
   })
 })
