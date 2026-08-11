@@ -4502,6 +4502,10 @@ export type Database = {
       detect_agency_report_deadline_missed: { Args: never; Returns: number }
       detect_agency_report_pending: { Args: never; Returns: number }
       detect_overdue_invoices: { Args: never; Returns: number }
+      update_invoice_due_date: {
+        Args: { p_actor?: string; p_due_date: string; p_invoice_id: number }
+        Returns: Json
+      }
       ensure_agency_departure_report: {
         Args: { p_port: string; p_voyage_id: number }
         Returns: string

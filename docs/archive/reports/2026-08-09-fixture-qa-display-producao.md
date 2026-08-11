@@ -16,6 +16,9 @@ criados pela fixture.
 
 ## Evidência local
 
+- A correção PR #514 adiciona `fixture-catalog.mjs`, normalização fail-closed,
+  validação de contagens, fake compartilhado com contratos RPC e guardas antes
+  de mutações.
 - `create-adr-scenarios.test.mjs`: contrato dos RPCs de omissão, transbordo e COD.
 - `create-financial-scenarios.test.mjs`: estados financeiros sintéticos e TXIDs
   `QAD26-TEST`.
@@ -23,4 +26,9 @@ criados pela fixture.
   sem expor a senha.
 - `cleanup-fixture.test.mjs`: guardas de catálogo, isolamento e dry-run.
 
-Não há evidência de execução em produção neste relatório.
+Os testes focados dos scripts corrigidos passam localmente. A execução contra
+Supabase controlado não foi realizada nesta sessão: não há credenciais
+`SUPABASE_*` configuradas e o artefato operacional existente ainda precisa ser
+regenerado pela ordem documentada para registrar IDs de invoices e receivables.
+O teste de catálogo que lê esse artefato permanece como evidência explícita
+dessa pendência; nenhum ID foi inventado e nenhum cleanup destrutivo foi feito.

@@ -891,6 +891,21 @@ export async function cancelInvoice(input: {
   return (data ?? {}) as Json
 }
 
+export async function updateInvoiceDueDate(input: {
+  invoiceId: number
+  dueDate: string
+  actorId?: string | null
+}) {
+  const { data, error } = await supabase.rpc('update_invoice_due_date', {
+    p_invoice_id: input.invoiceId,
+    p_due_date: input.dueDate,
+    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
+  })
+
+  if (error) throw error
+  return (data ?? {}) as Json
+}
+
 export async function addManualInvoiceCharge(input: {
   invoiceId: number
   description: string

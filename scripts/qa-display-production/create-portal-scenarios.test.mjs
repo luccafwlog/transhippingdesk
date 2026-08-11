@@ -15,7 +15,7 @@ test('creates portal account states and PIX reconciliation scenarios without ret
   const result = await createPortalScenarios(client, {
     prefix: 'QA-DISPLAY-2026', userId: '00000000-0000-0000-0000-000000000001',
     customers: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
-    invoiceIds: [41, 42, 43, 44],
+    invoices: [{ id: 41 }, { id: 42 }, { id: 43 }, { id: 44 }],
   })
 
   assert.deepEqual(result.reconciliations.map((item) => item.status), ['exact', 'partial', 'overpaid', 'reverted'])

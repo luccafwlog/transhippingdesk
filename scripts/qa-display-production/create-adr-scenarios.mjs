@@ -6,6 +6,7 @@ function requireFixture(fixture) {
   if (!fixture.userId) throw new Error('fixture userId is required')
   if (!fixture.voyages?.[0]?.id) throw new Error('fixture requires a voyage')
   if (!fixture.bls?.[0]?.id) throw new Error('fixture requires B/Ls')
+  if (fixture.voyages.some((voyage) => !['completed', 'active', 'pending'].includes(voyage.status ?? 'active'))) throw new Error('fixture contains an unsupported voyage status')
 }
 
 async function callRpc(client, name, payload) {
@@ -14,11 +15,26 @@ async function callRpc(client, name, payload) {
   return result?.data ?? null
 }
 
+async function loadOmissionTargets(client, fixture, omissionPod) {
+  const declared = fixture.bls.filter((bl) => bl.pod === omissionPod)
+  if (typeof client?.from !== 'function') return declared
+  const result = await client.from('bls').select('id,pod').eq('voyage_id', fixture.voyages[0].id).eq('pod', omissionPod)
+  if (result.error) throw result.error
+  const ids = new Set((result.data ?? []).map((bl) => bl.id))
+  const targets = declared.filter((bl) => ids.has(bl.id))
+  if (targets.length < 2) throw new Error(`database does not contain two fixture B/Ls with POD ${omissionPod}`)
+  return targets
+}
+
 export async function createAdrScenarios(client, fixture) {
   requireFixture(fixture)
   const voyageId = fixture.voyages[0].id
-  const transshipmentBlId = fixture.bls[0].id
-  const codBlId = fixture.bls[1]?.id ?? 'QAD26-BL-002'
+  const omissionPod = 'SALVADOR'
+  const omissionTargets = await loadOmissionTargets(client, fixture, omissionPod)
+  if (omissionTargets.length < 2) throw new Error(`fixture requires at least two B/Ls with POD ${omissionPod}`)
+  const [transshipmentBl, codBl] = omissionTargets
+  const transshipmentBlId = transshipmentBl.id
+  const codBlId = codBl.id
 
   const omissionId = await callRpc(client, 'omit_voyage_escala', {
     p_voyage_id: voyageId,
@@ -50,5 +66,24 @@ export async function createAdrScenarios(client, fixture) {
     p_changed_by: fixture.userId,
   })
 
-  return { omissionId, voyageId, transshipmentBlId, codBlId }
+  const result = { omissionId, voyageId, transshipmentBlId, codBlId }
+  if (typeof client?.from === 'function') {
+    const links = await client.from('bl_transshipments').select('id,bl_id').in('bl_id', [transshipmentBlId, codBlId]).eq('omission_id', omissionId)
+    if (links.error) throw links.error
+    for (const link of links.data ?? []) {
+      if (link.bl_id === transshipmentBlId) result.transshipmentId = link.id
+      if (link.bl_id === codBlId) result.codId = link.id
+    }
+  }
+  return result
+}
+
+if ((await import('./fixture-runtime.mjs')).isMain(import.meta.url, process.argv[1])) {
+  const { authClient, readCatalog, writeCatalog } = await import('./fixture-runtime.mjs')
+  const { client, userId } = await authClient()
+  const catalog = await readCatalog()
+  catalog.userId = userId
+  catalog.adr = await createAdrScenarios(client, catalog)
+  await writeCatalog(catalog)
+  console.log(JSON.stringify(catalog.adr, null, 2))
 }

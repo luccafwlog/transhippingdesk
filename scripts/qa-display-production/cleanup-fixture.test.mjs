@@ -18,3 +18,11 @@ test('dry-run returns dependency order without deleting anything', async () => {
   assert.ok(result.operations.findIndex((item) => item.table === 'bls') > result.operations.findIndex((item) => item.table === 'bl_containers'))
   assert.deepEqual(calls, [])
 })
+
+test('accepts only textual synthetic ids or non-text ids explicitly present in the loaded catalog', async () => {
+  const { isSyntheticId } = await import('./cleanup-fixture.mjs')
+  assert.equal(isSyntheticId('QAD26-BL-001'), true)
+  assert.equal(isSyntheticId(123, new Set([123])), true)
+  assert.equal(isSyntheticId(123, new Set([456])), false)
+  assert.equal(isSyntheticId('a8bcee21-18e1-4a13-a2fe-ed46a80bb3ae', new Set(['a8bcee21-18e1-4a13-a2fe-ed46a80bb3ae'])), true)
+})
