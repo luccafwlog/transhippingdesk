@@ -10,6 +10,7 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
+| [`2026-08-11-vinculo-de-cliente-por-documento.md`](./2026-08-11-vinculo-de-cliente-por-documento.md) | Vínculo de Cliente somente por documento exato; match por nome vira sugestão | TODO |
 | [`2026-08-10-ce-mercante-granito.md`](./2026-08-10-ce-mercante-granito.md) | CE Mercante como confirmador do cálculo também no Granito | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).

@@ -73,6 +73,14 @@ O dano é anterior ao faturamento e não é coberto por esse gate:
 
 ## Correção necessária
 
+> **Nota editorial (2026-08-11):** o esboço abaixo virou plano vivo em
+> [`docs/plans/2026-08-11-vinculo-de-cliente-por-documento.md`](../../plans/2026-08-11-vinculo-de-cliente-por-documento.md),
+> que é a versão executável e corrige dois pontos deste esboço: o par
+> `manifest_customer_name` / `manifest_customer_cnpj_cpf` **não** serve de
+> estacionamento para a sugestão (guarda texto de manifesto, não id de cliente,
+> e não existe em `granite_bls`), e a fila de granito depende do filtro
+> `.is('client_id', null)` em `src/hooks/useReview.ts:66`.
+
 Ainda não executada. O ponto de correção é o compartilhado, não cada call site:
 
 - `findMatchedCustomer` deve deixar de produzir vínculo por nome, ou os callers
