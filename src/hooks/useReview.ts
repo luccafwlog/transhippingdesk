@@ -31,8 +31,10 @@ export type ReviewQueueItem = (BL & {
   notes?: string | null
   updated_at?: string | null
   customer_id?: number | null
+  suggested_client_id?: number | null
   manifest_customer_cnpj_cpf?: string | null
   customer?: ReviewCustomer | null
+  suggested_customer?: ReviewCustomer | null
   voyage?: { vessel?: { name?: string | null } | null; voyage_number?: string | null } | null
   charge_status?: string | null
   review_reasons?: string[]
@@ -111,8 +113,10 @@ export function useReviewQueue() {
         vessel_voyage: string | null
         created_at: string | null
         client_id: number | null
+        suggested_client_id: number | null
         charge_status: string | null
         customer: ReviewCustomer | null
+        suggested_customer: ReviewCustomer | null
         manifest?: { voyage: { id: number; voyage_number: string; vessel: { id: number; name: string } | null } | null } | null
       }>
 
@@ -128,13 +132,18 @@ export function useReviewQueue() {
         notes: null,
         updated_at: row.created_at,
         customer_id: row.client_id,
+        suggested_client_id: row.suggested_client_id,
         manifest_customer_cnpj_cpf: row.shipper_cnpj,
         charge_status: row.charge_status,
         customer: row.customer,
+        suggested_customer: row.suggested_customer,
         voyage: row.manifest?.voyage
           ? { vessel: row.manifest.voyage.vessel, voyage_number: row.manifest.voyage.voyage_number }
           : null,
-        review_reasons: ['Cliente nao vinculado (Granito)'],
+        review_reasons: [
+          'Cliente nao vinculado (Granito)',
+          ...(row.suggested_customer?.name ? [`Sugerido: ${row.suggested_customer.name}`] : []),
+        ],
         source: 'granite' as const,
       }))
 

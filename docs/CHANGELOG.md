@@ -3,6 +3,11 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Vínculo de cliente por documento:** CPF/CNPJ exato é o único vínculo
+  automático; match por nome vira sugestão visível na fila de revisão para
+  B/Ls de container, carga solta e Granito. Sugestões ficam em colunas próprias,
+  não liberam faturamento, e o backfill preserva faturados e decisões humanas.
+  *(ADR 0042; migrations 280–283)*
 - **Correções da fila de bloqueios de faturamento:** restaura o fluxo de Granito, corrige a classificação de B/L pronto, toasts, invalidações e truncamento da fila. *(PR #512)*
 
 - **Validação do Faturamento vira fila de bloqueios:** a aba passa a derivar
