@@ -33,7 +33,7 @@ Quinze achados. Dois deles mudam a leitura do sistema:
    já descreve o vocabulário completo do sistema que não existe.
 
 O restante são consequências previsíveis de um modelo central com dez colunas
-que atende quatorze tipos de alerta produzidos por seis mecanismos diferentes.
+que atende quatorze tipos de alerta produzidos por sete mecanismos diferentes.
 
 | # | Achado | Categoria | Impacto | Esforço | Risco | Confiança | Evidência |
 |---|---|---|---|---|---|---|---|
@@ -112,7 +112,7 @@ Indicador Operacional — descrevendo um sistema que não foi construído.
 
 ## 2. Mapa completo dos geradores atuais
 
-**14 tipos vivos, 25 sites de `INSERT`, 6 mecanismos de origem distintos.**
+**14 tipos vivos, 25 sites de `INSERT`, 7 mecanismos de origem distintos.**
 "Fecha sozinho" indica se existe rotina que devolve o alerta a `closed` sem ação
 humana.
 
@@ -143,9 +143,10 @@ que perpetua a ilusão de que o tipo existe. **Teste**
 
 **Distribuição dos mecanismos:** dos 14 tipos vivos, **2 dependem de o usuário
 abrir `/alertas`**, **1 depende de abrir `/faturamento`**, **2 rodam em
-`pg_cron`**, **3 vivem em Edge Functions**, **1 é trigger** e **2 nascem no
-navegador**. Não existe um mecanismo único de detecção — existem seis, com
-garantias de entrega completamente diferentes.
+`pg_cron`**, **3 vivem em Edge Functions**, **1 é trigger**, **2 nascem no
+navegador** e **3 são produzidos por RPCs do Portal**. Não existe um mecanismo
+único de detecção — existem sete, com garantias de entrega completamente
+diferentes.
 
 ---
 
@@ -197,7 +198,7 @@ separa o indicador legítimo da pendência disfarçada de indicador.
 | Demurrage correndo | `src/components/clientes/VisaoGeralTab.tsx:48` | **Indicador** | Correto |
 | Portal não ativo (por cliente) | `VisaoGeralTab.tsx:38` | **Duplicado** de `portal_pendencia_geral` | Duas fontes de verdade que podem discordar |
 | Reconciliação de cliente pendente | `VisaoGeralTab.tsx:35` | **Pendência** | Sem registro, sem prazo |
-| Invoices vencidas (por cliente) | `VisaoGeralTab.tsx:42` | **Duplicado** de `invoice_overdue` | Dado o A-01, é hoje a **única** superfície que funciona |
+| Invoices vencidas (por cliente) | `VisaoGeralTab.tsx:42` | **Duplicado** de `invoice_overdue` | A visão do cliente funciona como resumo; `/faturamento` também lê o status e exibe a métrica `Vencidas` e os badges da tabela |
 | Disputas abertas (por cliente) | `VisaoGeralTab.tsx:44` | **Duplicado** de `portal_dispute_opened` | Idem |
 | Vigência de tabela vencida/futura | `src/pages/taxasLocaisHelpers.ts:163,170` | **Pendência de cadastro** | Só quem abre `/taxas-locais` vê; ADR 0040 tornou a vigência informativa, o que aumenta a chance de tabela errada ativa |
 | Duas tabelas ativas no mesmo escopo | `src/pages/taxasLocaisHelpers.ts` (~135) | **Pendência crítica de cadastro** | Erro de precificação silencioso |
@@ -301,20 +302,21 @@ FASE 3 — modelo (depende de 2)
               └─ depende de 12
  16. A-14  decidir e documentar o ciclo de vida do deadline_missed
 
-FASE 4 — ADR 0034 (depende de 3)
- 17. Extrair alertEntityLink() para módulo compartilhado
- 18. Tabela de Notificação Interna + RLS por destinatário
- 19. Regra de Destinatários + ponto único de fan-out
-              └─ depende de 12/13: o fan-out roteia POR department
- 20. Sino no header + Eco de Tratamento
-              └─ depende de 15: ecos só existem se ack/close forem rastreáveis
+FASE 4 — ADR 0034 (independente do modelo de atributos; pode avançar após a Fase 0)
+  17. Extrair alertEntityLink() para módulo compartilhado
+  18. Tabela de Notificação Interna + RLS por destinatário
+  19. Regra de Destinatários + ponto único de fan-out
+  20. Sino no header + Eco de Tratamento
+               └─ depende de 15: ecos só existem se ack/close forem rastreáveis
 ```
 
 **Dependências críticas:**
 
-- **12 antes de 19** — a Regra de Destinatários roteia por `department`; sem o
-  campo, o fan-out volta a ser regra espalhada pelos produtores, que é
-  exatamente o que a ADR 0034 §3 rejeita.
+- **19 não depende de 12/13** — a Regra de Destinatários pode declarar a
+  audiência por tipo de Evento Notificável no ponto único de fan-out, como
+  determina a ADR 0034 §3. Os produtores existentes não precisam conhecer a
+  audiência, e `department`/backfill permanecem uma melhoria posterior para
+  filtro e roteamento do próprio Alerta.
 - **A-01 antes de A-05** — não faz sentido escrever a rotina de fecho de um
   alerta que hoje não nasce.
 - **A-06 antes de `dedupe_key`** — duas convenções de `entity_id` para o mesmo
