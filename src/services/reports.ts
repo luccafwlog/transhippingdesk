@@ -60,7 +60,7 @@ export async function fetchOperationalReport(filters: OperationalReportFilters):
       `
       id, pol, pod, cargo_mode, review_status, financial_status,
       total_weight_kg, total_cbm, created_at, voyage_id,
-      customer:customers(id, name, cnpj_cpf),
+      customer:customers!bls_customer_id_fkey(id, name, cnpj_cpf),
       voyage:voyages(id, voyage_number, vessel:vessels(id, name, carrier:carriers(id, name))),
       bl_containers(id, container_number)
     `,
@@ -227,7 +227,7 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
     .from('bls')
     .select(
       `id, customer_id, total_weight_kg, total_cbm, created_at,
-       customer:customers(id, name, cnpj_cpf)`,
+       customer:customers!bls_customer_id_fkey(id, name, cnpj_cpf)`,
     )
     .not('customer_id', 'is', null)
     .limit(REPORT_ROW_LIMIT * 2)
@@ -352,7 +352,7 @@ export async function fetchOperationalReportForExport(filters: OperationalReport
       `
       id, pol, pod, cargo_mode, review_status, financial_status,
       total_weight_kg, total_cbm, created_at, voyage_id,
-      customer:customers(id, name, cnpj_cpf),
+      customer:customers!bls_customer_id_fkey(id, name, cnpj_cpf),
       voyage:voyages(id, voyage_number, vessel:vessels(id, name, carrier:carriers(id, name))),
       bl_containers(id, container_number)
     `,

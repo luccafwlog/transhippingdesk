@@ -111,7 +111,7 @@ export async function listGraniteBls(filters: {
   let query = supabase
     .from('granite_bls')
     .select(
-      `*, manifest:granite_manifests(id, vessel_voyage, voyage_id, voyage:voyages(id, voyage_number, vessel:vessels(id, name))), customer:customers(id, name)`,
+      `*, manifest:granite_manifests(id, vessel_voyage, voyage_id, voyage:voyages(id, voyage_number, vessel:vessels(id, name))), customer:customers!granite_bls_client_id_fkey(id, name)`,
       { count: 'exact' },
     )
     .range(from, to)

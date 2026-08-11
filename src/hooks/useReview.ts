@@ -48,7 +48,7 @@ export function useReviewQueue() {
           .from('bls')
           .select(
             `*,
-            customer:customers(id, cnpj_cpf, name, customer_contacts(email)),
+            customer:customers!bls_customer_id_fkey(id, cnpj_cpf, name, customer_contacts(email)),
             voyage:voyages(id, voyage_number, vessel:vessels(id, name, carrier:carriers(id, name))),
             bl_containers(id, container_number, is_imo, is_oog)`,
           )
@@ -60,7 +60,7 @@ export function useReviewQueue() {
           .from('granite_bls')
           .select(
             `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status,
-            customer:customers(id, cnpj_cpf, name, customer_contacts(email)),
+            customer:customers!granite_bls_client_id_fkey(id, cnpj_cpf, name, customer_contacts(email)),
             manifest:granite_manifests(voyage:voyages(id, voyage_number, vessel:vessels(id, name)))`,
           )
           .is('client_id', null)
@@ -83,7 +83,7 @@ export function useReviewQueue() {
         // ainda retornamos a fila de granito sem metadados de viagem.
         const fallback = await supabase
           .from('granite_bls')
-          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status, customer:customers(id, cnpj_cpf, name, customer_contacts(email))')
+          .select('id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status, customer:customers!granite_bls_client_id_fkey(id, cnpj_cpf, name, customer_contacts(email))')
           .is('client_id', null)
           .order('created_at', { ascending: false })
           .range(0, 499)
