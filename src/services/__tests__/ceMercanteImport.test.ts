@@ -96,6 +96,35 @@ describe('ceMercanteImport', () => {
     expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', null)
   })
 
+  it('grava CE de um B/L existente somente em granite_bls', async () => {
+    const update = vi.fn(() => ({
+      eq: vi.fn(() => ({
+        select: vi.fn(() => ({
+          single: async () => ({ data: { id: 'GR1' }, error: null }),
+        })),
+      })),
+    }))
+    mockFrom.mockImplementation((table: string) => {
+      if (table !== 'granite_bls') throw new Error(`Tabela nao mockada: ${table}`)
+      return {
+        select: () => ({
+          in: async () => ({ data: [{ id: 'GR1' }], error: null }),
+        }),
+        update,
+      }
+    })
+
+    const result = await importCeMercanteRows(
+      [{ rowNumber: 2, bl_id: 'GR1', ce_mercante: '122605051526081' }],
+      { changedBy: 'user-1', target: 'granite' },
+    )
+
+    expect(result).toMatchObject({ processed: 1, updated: 1, errorCount: 0 })
+    expect(update).toHaveBeenCalledWith({ ce_mercante: '122605051526081' })
+    expect(mockRpc).not.toHaveBeenCalled()
+    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('GR1', 'user-1', 'granite')
+  })
+
   it('separa BLs de outra viagem sem antecipar o erro de BL inexistente', async () => {
     mockFrom.mockImplementation(() => ({
       select: () => ({

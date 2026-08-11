@@ -49,15 +49,26 @@ export type CeMercanteImportResult = {
   }>
 }
 
+export type CeMercanteImportTarget = 'bls' | 'granite'
+
 export async function partitionRowsByVoyage<T extends { bl_id: string; rowNumber?: number; lineNumber?: number }>(
   rows: T[],
   voyageId: number,
+  target: CeMercanteImportTarget = 'bls',
 ): Promise<{ rows: T[]; blocked: Array<{ row: number; bl_id: string; message: string }> }> {
   const voyageByBl = new Map<string, number | null>()
   for (const chunk of chunkArray(Array.from(new Set(rows.map((row) => row.bl_id))), 400)) {
-    const { data, error } = await supabase.from('bls').select('id, voyage_id').in('id', chunk)
+    const query = target === 'granite'
+      ? supabase.from('granite_bls').select('id, manifest:granite_manifests!inner(voyage_id)').in('id', chunk)
+      : supabase.from('bls').select('id, voyage_id').in('id', chunk)
+    const { data, error } = await query
     if (error) throw error
-    for (const bl of data ?? []) voyageByBl.set(String(bl.id), bl.voyage_id)
+    for (const bl of data ?? []) {
+      const voyage = target === 'granite'
+        ? (bl as { manifest?: { voyage_id?: number | null } | null }).manifest?.voyage_id ?? null
+        : (bl as { voyage_id?: number | null }).voyage_id ?? null
+      voyageByBl.set(String(bl.id), voyage)
+    }
   }
 
   const blocked: Array<{ row: number; bl_id: string; message: string }> = []
@@ -90,14 +101,15 @@ export async function parseCeMercanteBuffer(buffer: ArrayBuffer): Promise<Parsed
 
 export async function importCeMercanteRows(
   rows: CeMercanteRow[],
-  options: { changedBy: string | null } = { changedBy: null },
+  options: { changedBy: string | null; target?: CeMercanteImportTarget } = { changedBy: null },
 ): Promise<CeMercanteImportResult> {
+  const target = options.target ?? 'bls'
   const errors: CeMercanteImportResult['errors'] = []
   const existingBlIds = new Set<string>()
   const uniqueBlIds = Array.from(new Set(rows.map((row) => row.bl_id)))
 
   for (const chunk of chunkArray(uniqueBlIds, 400)) {
-    const { data, error } = await supabase.from('bls').select('id').in('id', chunk)
+    const { data, error } = await supabase.from(target === 'granite' ? 'granite_bls' : 'bls').select('id').in('id', chunk)
     if (error) throw error
 
     for (const row of data ?? []) {
@@ -123,11 +135,13 @@ export async function importCeMercanteRows(
   let inserted = 0
 
   for (const row of validRows) {
-    const { data, error } = await supabase.rpc('apply_ce_mercante_update', {
-      p_bl_id: row.bl_id,
-      p_new_ce: row.ce_mercante,
-      p_changed_by: options.changedBy,
-    })
+    const { data, error } = target === 'granite'
+      ? await supabase.from('granite_bls').update({ ce_mercante: row.ce_mercante }).eq('id', row.bl_id).select('id').single()
+      : await supabase.rpc('apply_ce_mercante_update', {
+        p_bl_id: row.bl_id,
+        p_new_ce: row.ce_mercante,
+        p_changed_by: options.changedBy,
+      })
 
     if (error) {
       errors.push({
@@ -138,7 +152,7 @@ export async function importCeMercanteRows(
       continue
     }
 
-    switch (data) {
+    switch (target === 'granite' ? 'updated' : data) {
       case 'overwritten':
         overwritten += 1
         break
@@ -149,7 +163,10 @@ export async function importCeMercanteRows(
         inserted += 1
         break
     }
-    void maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy).catch(() => {})
+    const automation = target === 'granite'
+      ? maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy, target)
+      : maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy)
+    void automation.catch(() => {})
   }
 
   return {

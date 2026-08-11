@@ -15,6 +15,7 @@ import {
   type CeMercanteEdiImportResult,
   type CeMercanteImportResult,
   type ParsedCeMercanteFile,
+  type CeMercanteImportTarget,
 } from '../../services/ceMercanteImport'
 import {
   parseCeMercanteEdiFile,
@@ -27,10 +28,12 @@ export function CeMercanteImportModal({
   open,
   onClose,
   lockedVoyageId,
+  target = 'bls',
 }: {
   open: boolean
   onClose: () => void
   lockedVoyageId?: number
+  target?: CeMercanteImportTarget
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -70,7 +73,9 @@ export function CeMercanteImportModal({
         if (lockedVoyageId == null) {
           setPreview(parsed)
         } else {
-          const partition = await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+          const partition = target === 'bls'
+            ? await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+            : await partitionRowsByVoyage(parsed.rows, lockedVoyageId, target)
           setPreview({
             rows: partition.rows,
             rowErrors: [
@@ -84,7 +89,9 @@ export function CeMercanteImportModal({
         if (lockedVoyageId == null) {
           setEdiPreview(parsed)
         } else {
-          const partition = await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+          const partition = target === 'bls'
+            ? await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+            : await partitionRowsByVoyage(parsed.rows, lockedVoyageId, target)
           setEdiPreview({
             ...parsed,
             rows: partition.rows,
@@ -119,7 +126,7 @@ export function CeMercanteImportModal({
 
     setSubmitting(true)
     try {
-      const result = await importCeMercanteRows(preview.rows, { changedBy: user?.id ?? null })
+      const result = await importCeMercanteRows(preview.rows, { changedBy: user?.id ?? null, target })
       const totalErrors = preview.rowErrors.length + result.errorCount
       setReport(result)
 
@@ -148,6 +155,29 @@ export function CeMercanteImportModal({
     setSubmitting(true)
     setEdiErrors(null)
     try {
+      if (target === 'granite') {
+        const result = await importCeMercanteRows(
+          ediPreview.rows.map((row) => ({
+            rowNumber: row.lineNumber,
+            bl_id: row.bl_id,
+            ce_mercante: row.ce_mercante,
+          })),
+          { changedBy: user?.id ?? null, target },
+        )
+        if (result.errorCount > 0) {
+          setEdiErrors({
+            ok: false,
+            errors: result.errors.map((error) => ({ bl_id: error.bl_id, ce: undefined, message: error.message })),
+          })
+          showToast(`Importacao bloqueada: ${result.errorCount} pendencia(s).`, 'error')
+          return
+        }
+        await invalidateBls()
+        showToast(`CE Mercante cadastrado em ${result.updated} B/L(s) de Granito.`, 'success')
+        resetAndClose()
+        return
+      }
+
       const result = await importCeMercanteEdi(ediPreview.rows, { changedBy: user?.id ?? null })
 
       if (result.ok) {
@@ -173,10 +203,18 @@ export function CeMercanteImportModal({
   }
 
   function invalidateBls() {
-    return Promise.all([
+    const invalidations = [
       queryClient.invalidateQueries({ queryKey: ['bls'] }),
       queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
-    ])
+    ]
+    if (target === 'granite') {
+      invalidations.push(
+        queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+        queryClient.invalidateQueries({ queryKey: ['charges'] }),
+      )
+    }
+    return Promise.all(invalidations)
   }
 
   function resetAndClose() {
