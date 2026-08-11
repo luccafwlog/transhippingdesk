@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { canonicalizeName, findMatchedCustomer, type CustomerMaps } from '../customerReconciliation'
+import { canonicalizeName, findMatchedCustomer, resolveCustomerLink, type CustomerMaps } from '../customerReconciliation'
 
 vi.mock('../supabase', () => ({
   supabase: { from: vi.fn(), rpc: vi.fn() },
@@ -29,6 +29,33 @@ function makeMaps(): CustomerMaps {
 }
 
 describe('customerReconciliation', () => {
+  it('traduz match por documento em vinculo sem sugestao', () => {
+    expect(resolveCustomerLink({ customer: { id: 1, name: 'CLIENTE ALFA LTDA' }, matchType: 'document' })).toEqual({
+      customerId: 1,
+      suggestedCustomerId: null,
+      status: 'matched_document',
+      notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+    })
+  })
+
+  it('traduz match por nome em sugestao sem vinculo', () => {
+    expect(resolveCustomerLink({ customer: { id: 2, name: 'CLIENTE BETA S/A' }, matchType: 'name' })).toEqual({
+      customerId: null,
+      suggestedCustomerId: 2,
+      status: 'matched_name',
+      notes: 'Cliente sugerido por nome; validar documento.',
+    })
+  })
+
+  it('traduz ausencia de match em pendencia sem vinculo ou sugestao', () => {
+    expect(resolveCustomerLink(null)).toEqual({
+      customerId: null,
+      suggestedCustomerId: null,
+      status: 'missing_customer',
+      notes: 'Cliente nao encontrado na base cadastral.',
+    })
+  })
+
   it('prioriza match por documento', () => {
     const match = findMatchedCustomer(
       {
