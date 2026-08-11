@@ -4,7 +4,7 @@ import { canonicalizeVesselName } from '../lib/vesselAlias'
 import { extractConsigneeShortName } from '../lib/consigneeName'
 import type { BL, BLContainer, BlFreightLine } from '../types/database'
 import { extractTaxId, type ParsedBLDocument } from './blParser'
-import { findMatchedCustomer, loadCustomerMaps, type CustomerMaps } from './customerReconciliation'
+import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink, type CustomerMaps } from './customerReconciliation'
 import { applyBapliePhysicalFlags } from './baplieReconciliation'
 import { calculateProvisionalLocalCharges } from './charges/chargeOperationsService'
 import { normalizePortCode } from './portCode'
@@ -56,6 +56,7 @@ export type BlFreightRpcPayload = {
   id: string
   voyage_id: number | null
   customer_id: number | null
+  suggested_customer_id: number | null
   customer_reconciliation_status: BL['customer_reconciliation_status']
   customer_reconciliation_notes: string | null
   billing_hold_reason: string | null
@@ -392,6 +393,7 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     voyage_id: voyageId,
     // Resolved from the consignee document/name during preview (see buildBlFreightPreview).
     customer_id: null,
+    suggested_customer_id: null,
     customer_reconciliation_status: 'missing_customer',
     customer_reconciliation_notes: 'Cliente nao encontrado na base cadastral.',
     billing_hold_reason: CUSTOMER_RECONCILIATION_HOLD_REASON,
@@ -453,20 +455,12 @@ function applyCustomerReconciliation(
   payload: BlFreightRpcPayload,
   match: ReturnType<typeof findMatchedCustomer>,
 ) {
-  const status: BL['customer_reconciliation_status'] = match?.matchType === 'document'
-    ? 'matched_document'
-    : match?.matchType === 'name'
-      ? 'matched_name'
-      : 'missing_customer'
-
-  payload.customer_id = match?.customer.id ?? null
-  payload.customer_reconciliation_status = status
-  payload.customer_reconciliation_notes = status === 'matched_document'
-    ? 'Cliente reconciliado automaticamente por CNPJ/CPF.'
-    : status === 'matched_name'
-      ? 'Cliente sugerido por nome; validar documento.'
-      : 'Cliente nao encontrado na base cadastral.'
-  payload.billing_hold_reason = status === 'matched_document' ? null : CUSTOMER_RECONCILIATION_HOLD_REASON
+  const link = resolveCustomerLink(match)
+  payload.customer_id = link.customerId
+  payload.suggested_customer_id = link.suggestedCustomerId
+  payload.customer_reconciliation_status = link.status
+  payload.customer_reconciliation_notes = link.notes
+  payload.billing_hold_reason = link.status === 'matched_document' ? null : CUSTOMER_RECONCILIATION_HOLD_REASON
 }
 
 function preserveExistingContainerPhysicalAttributes(payload: BlFreightRpcPayload, existing: ExistingBl) {
