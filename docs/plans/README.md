@@ -11,7 +11,6 @@ Quando um plano é totalmente executado, ele é movido para
 | Plano | Tema | Status |
 |---|---|---|
 | [`2026-08-10-ce-mercante-granito.md`](./2026-08-10-ce-mercante-granito.md) | CE Mercante como confirmador do cálculo também no Granito | TODO |
-| [`2026-08-10-correcoes-pr-512-fila-de-bloqueios.md`](./2026-08-10-correcoes-pr-512-fila-de-bloqueios.md) | Correções dos 14 achados da revisão da PR #512 | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
