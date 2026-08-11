@@ -163,6 +163,40 @@ export function findMatchedCustomer(
 
 // Status que encerram a fila de reconciliação de cliente (decisão tomada,
 // automática por documento ou humana).
+export type CustomerLink = {
+  customerId: number | null
+  suggestedCustomerId: number | null
+  status: 'matched_document' | 'matched_name' | 'missing_customer'
+  notes: string
+}
+
+export function resolveCustomerLink(match: CustomerMatchResult | null): CustomerLink {
+  if (match?.matchType === 'document') {
+    return {
+      customerId: match.customer.id,
+      suggestedCustomerId: null,
+      status: 'matched_document',
+      notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+    }
+  }
+
+  if (match?.matchType === 'name') {
+    return {
+      customerId: null,
+      suggestedCustomerId: match.customer.id,
+      status: 'matched_name',
+      notes: 'Cliente sugerido por nome; validar documento.',
+    }
+  }
+
+  return {
+    customerId: null,
+    suggestedCustomerId: null,
+    status: 'missing_customer',
+    notes: 'Cliente nao encontrado na base cadastral.',
+  }
+}
+
 export function isCustomerReconciliationResolved(status: string | null | undefined) {
   return status === 'matched_document' || status === 'reconciled'
 }
