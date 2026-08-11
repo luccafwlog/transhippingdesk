@@ -5,7 +5,8 @@
 ## 2026-08
 - **CE Mercante confirma o faturamento do Granito:** Granito passa a importar
   CE para `granite_bls`, aguardar CE na Validação e emitir automaticamente após
-  o cadastro; CEs preenchidos são únicos por B/L. *(ADR 0042)*
+  o cadastro; CEs preenchidos são únicos por B/L, resolvidos por viagem e
+  auditados pela RPC. *(ADR 0042)*
 
 - **Correções da fila de bloqueios de faturamento:** restaura o fluxo de Granito, corrige a classificação de B/L pronto, toasts, invalidações e truncamento da fila. *(PR #512)*
 

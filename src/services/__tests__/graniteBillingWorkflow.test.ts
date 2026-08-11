@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   markReady: vi.fn(),
   createGranite: vi.fn(),
   createLocal: vi.fn(),
+  from: vi.fn(),
+  restoreStatus: vi.fn(),
+  logOperationalEvent: vi.fn(),
 }))
 
 vi.mock('../graniteCharges', () => ({
@@ -17,6 +20,8 @@ vi.mock('../billing', () => ({
   createInvoiceFromGraniteBls: mocks.createGranite,
   createInvoiceFromBls: mocks.createLocal,
 }))
+vi.mock('../supabase', () => ({ supabase: { from: mocks.from } }))
+vi.mock('../operationalEvents', () => ({ logOperationalEvent: mocks.logOperationalEvent }))
 
 const workflowModulePath = '../graniteBillingWorkflow'
 
@@ -34,6 +39,11 @@ beforeEach(() => {
   mocks.markReady.mockResolvedValue(undefined)
   mocks.createGranite.mockResolvedValue({ invoice_id: 10 })
   mocks.createLocal.mockResolvedValue({ invoice_id: 20 })
+  mocks.restoreStatus.mockResolvedValue({ error: null })
+  mocks.from.mockImplementation((table: string) => {
+    if (table === 'granite_bls') return { select: () => ({ eq: () => ({ single: async () => ({ data: { charge_status: 'calculated' }, error: null }) }) }), update: (payload: unknown) => ({ eq: async () => { mocks.restoreStatus(payload); return mocks.restoreStatus() } }) }
+    return { select: () => ({ eq: () => ({ in: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }
+  })
 })
 
 describe('Granite billing workflow', () => {
@@ -108,5 +118,26 @@ describe('Granite billing workflow', () => {
     expect(mocks.calculate).not.toHaveBeenCalled()
     expect(mocks.markReady).toHaveBeenNthCalledWith(1, 'GR-1')
     expect(mocks.markReady).toHaveBeenNthCalledWith(2, 'GR-2')
+  })
+
+  it('nao recalcula nem chama RPC para B/L ja faturado', async () => {
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'granite_bls') return { select: () => ({ eq: () => ({ single: async () => ({ data: { charge_status: 'invoiced' }, error: null }) }) }) }
+      return { select: () => ({ eq: () => ({ in: () => ({ maybeSingle: async () => ({ data: { invoice_id: 99 }, error: null }) }) }) }) }
+    })
+    const workflow = await loadWorkflow()
+    const result = await workflow!.calculateAndIssueGraniteInvoice({ blId: 'GR-1', customerId: 7, actorId: 'user-1' })
+    expect(result).toMatchObject({ skipped: true, invoice: null })
+    expect(mocks.calculate).not.toHaveBeenCalled()
+    expect(mocks.markReady).not.toHaveBeenCalled()
+    expect(mocks.createGranite).not.toHaveBeenCalled()
+    expect(mocks.logOperationalEvent).toHaveBeenCalledWith(expect.objectContaining({ code: 'granite_reimport_already_invoiced' }))
+  })
+
+  it('restaura o status anterior se a RPC de invoice falhar', async () => {
+    mocks.createGranite.mockRejectedValue(new Error('PT409'))
+    const workflow = await loadWorkflow()
+    await expect(workflow!.calculateAndIssueGraniteInvoice({ blId: 'GR-1', customerId: 7, actorId: 'user-1' })).rejects.toThrow('PT409')
+    expect(mocks.restoreStatus).toHaveBeenCalledWith({ charge_status: 'calculated' })
   })
 })

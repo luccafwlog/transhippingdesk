@@ -4285,6 +4285,10 @@ export type Database = {
         Args: { p_bl_id: string; p_changed_by: string; p_new_ce: string }
         Returns: string
       }
+      apply_granite_ce_mercante_update: {
+        Args: { p_bl_id: string; p_changed_by: string; p_new_ce: string }
+        Returns: string
+      }
       approve_customer_reconciliation: {
         Args: {
           p_actor?: string
@@ -5434,6 +5438,12 @@ type AppFunctionOverrides = {
   apply_ce_mercante_update: FunctionWithArgs<
     'apply_ce_mercante_update',
     Omit<Database['public']['Functions']['apply_ce_mercante_update']['Args'], 'p_changed_by'> & {
+      p_changed_by: string | null
+    }
+  >
+  apply_granite_ce_mercante_update: FunctionWithArgs<
+    'apply_granite_ce_mercante_update',
+    Omit<Database['public']['Functions']['apply_granite_ce_mercante_update']['Args'], 'p_changed_by'> & {
       p_changed_by: string | null
     }
   >

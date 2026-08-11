@@ -126,7 +126,7 @@ export function CeMercanteImportModal({
 
     setSubmitting(true)
     try {
-      const result = await importCeMercanteRows(preview.rows, { changedBy: user?.id ?? null, target })
+      const result = await importCeMercanteRows(preview.rows, { changedBy: user?.id ?? null, target, voyageId: lockedVoyageId })
       const totalErrors = preview.rowErrors.length + result.errorCount
       setReport(result)
 
@@ -162,14 +162,15 @@ export function CeMercanteImportModal({
             bl_id: row.bl_id,
             ce_mercante: row.ce_mercante,
           })),
-          { changedBy: user?.id ?? null, target },
+          { changedBy: user?.id ?? null, target, voyageId: lockedVoyageId },
         )
         if (result.errorCount > 0) {
           setEdiErrors({
             ok: false,
             errors: result.errors.map((error) => ({ bl_id: error.bl_id, ce: undefined, message: error.message })),
           })
-          showToast(`Importacao bloqueada: ${result.errorCount} pendencia(s).`, 'error')
+          await invalidateBls()
+          showToast(`Importacao parcial: ${result.updated} gravado(s), ${result.errorCount} pendencia(s).`, 'error')
           return
         }
         await invalidateBls()

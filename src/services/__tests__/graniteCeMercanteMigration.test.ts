@@ -16,3 +16,16 @@ describe('granite CE Mercante migration (280)', () => {
     expect(sql).toContain('WHERE ce_mercante IS NOT NULL AND btrim(ce_mercante) <>')
   })
 })
+
+describe('granite CE Mercante audit RPC (281)', () => {
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/281_granite_ce_mercante_audit_rpc.sql'), 'utf8')
+
+  it('expõe RPC com discriminador, auditoria e grant restrito', () => {
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.apply_granite_ce_mercante_update/i)
+    expect(sql).toMatch(/RETURN 'unchanged'/i)
+    expect(sql).toMatch(/RETURN 'overwritten'/i)
+    expect(sql).toMatch(/INSERT INTO public\.audit_logs/i)
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.apply_granite_ce_mercante_update/i)
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.apply_granite_ce_mercante_update[\s\S]*authenticated/i)
+  })
+})

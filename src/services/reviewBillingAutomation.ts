@@ -70,6 +70,8 @@ export async function tryAutoIssueInvoice({
   }
 }
 
+// `blId` is always the target table primary key: bls.id or granite_bls.id.
+// Granite callers resolve the imported bl_number before entering this contract.
 export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string | null, target: 'bls' | 'granite' = 'bls') {
   if (target === 'granite') {
     const { data, error } = await supabase

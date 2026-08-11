@@ -19,8 +19,10 @@ agregada. Para taxas locais, o saldo canônico é o ledger por recebível; a tab
   `ready_for_billing`.
 - Para B/Ls de container, carga solta e Granito, emissão automática de taxas
   locais só nasce após o cadastro do CE Mercante (ADRs 0020 e 0042) e continua
-  respeitando reconciliação de cliente, revisão e holds. Embarque de Vazios não
-  emite CE nem possui faturamento de cliente.
+  respeitando reconciliação de cliente, revisão e holds. Granito sem CE fica em
+  “Aguardando CE Mercante”; a exceção manual é a emissão individual “Emitir”,
+  que mantém os mesmos gates. Embarque de Vazios não emite CE nem possui
+  faturamento de cliente.
 - [Reconciliação PIX](reconciliacao-pix.md) é dona do upload, matching,
   confirmação por TXID e estorno a partir do histórico.
 - Demurrage aparece na mesma experiência, mas permanece em
