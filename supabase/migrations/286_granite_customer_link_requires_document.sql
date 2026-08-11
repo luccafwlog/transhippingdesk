@@ -1,4 +1,4 @@
--- 282: separa sugestao por nome do vinculo confirmado no Granito.
+-- 286: separa sugestao por nome do vinculo confirmado no Granito.
 -- Rollback: restaurar as funcoes 136/148 e remover a coluna sugerida por
 -- migration posterior, com conferencia dos dados antes de qualquer rollback.
 
@@ -27,6 +27,10 @@ CREATE INDEX IF NOT EXISTS idx_granite_bls_suggested_client_id
 ALTER FUNCTION public.import_granite_manifest_transactional(
   BIGINT, TEXT, TEXT, TEXT, INTEGER, NUMERIC, UUID, JSONB
 ) RENAME TO import_granite_manifest_transactional_legacy_136;
+
+REVOKE ALL ON FUNCTION public.import_granite_manifest_transactional_legacy_136(
+  BIGINT, TEXT, TEXT, TEXT, INTEGER, NUMERIC, UUID, JSONB
+) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.import_granite_manifest_transactional(
   p_voyage_id BIGINT,
@@ -72,6 +76,8 @@ GRANT EXECUTE ON FUNCTION public.import_granite_manifest_transactional(
 
 ALTER FUNCTION public.save_granite_bl_review(UUID, BIGINT, UUID)
   RENAME TO save_granite_bl_review_legacy_148;
+
+REVOKE ALL ON FUNCTION public.save_granite_bl_review_legacy_148(UUID, BIGINT, UUID) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.save_granite_bl_review(
   p_granite_bl_id UUID,

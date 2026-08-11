@@ -1,4 +1,4 @@
--- 280: separa sugestao por nome do vinculo confirmado por documento.
+-- 284: separa sugestao por nome do vinculo confirmado por documento.
 -- Rollback: remover a coluna sugerida e restaurar as funcoes 205/025/approve
 -- a partir do historico versionado, somente em banco descartavel.
 
@@ -126,12 +126,13 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.sync_customer_reconciliation_queue_for_bl(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.sync_customer_reconciliation_queue_for_bl(TEXT) TO authenticated;
 
 -- Keep the large, already-tested import implementation as an internal delegate;
 -- this wrapper adds the new column without changing its atomic return contract.
 ALTER FUNCTION public.import_bl_freight_transactional(jsonb, uuid)
   RENAME TO import_bl_freight_transactional_legacy_205;
+
+REVOKE ALL ON FUNCTION public.import_bl_freight_transactional_legacy_205(jsonb, uuid) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.import_bl_freight_transactional(p_bls jsonb, p_changed_by uuid)
 RETURNS jsonb
@@ -152,7 +153,7 @@ BEGIN
       WHEN b.customer_reconciliation_status = 'matched_name' THEN regexp_replace(
         COALESCE(b.notes, ''),
         'Cliente vinculado por nome[^\n]*',
-        'Pendencias de importacao: Cliente nao vinculado',
+        'Cliente nao vinculado',
         'ig'
       )
       ELSE b.notes

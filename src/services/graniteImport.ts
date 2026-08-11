@@ -203,7 +203,7 @@ export async function importGraniteManifest({
   const vesselVoyage = manifest.vesselVoyage || manifest.bls[0]?.vessel_voyage || filename
 
   const blRows = manifest.bls
-    .filter((bl) => allowPending || bl.clientId !== null)
+    .filter((bl) => allowPending || bl.clientId !== null || bl.suggestedClientId !== null)
     .map((bl) => ({
       client_id: bl.clientId,
       suggested_client_id: bl.suggestedClientId,
@@ -240,7 +240,7 @@ export async function importGraniteManifest({
     p_vessel_voyage: vesselVoyage,
     p_loading_port: manifest.bls[0]?.loading_port ?? null,
     p_discharge_port: manifest.bls[0]?.discharge_port ?? null,
-    p_total_bls: blRows.length,
+    p_total_bls: manifest.bls.length,
     p_total_weight_kg: totalWeightKg,
     p_uploaded_by: uploadedBy,
     p_bls: blRows,

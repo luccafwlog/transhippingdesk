@@ -418,6 +418,6 @@ domínio verificado.
 | Fluxo | Código/RPC | Contrato | Evidência |
 |---|---|---|---|
 | Importar container e carga solta | `customerReconciliation`, `blFreightImport`, `breakbulkImport` | Documento exato vincula; nome grava sugestão | testes de importação |
-| Importar Granito | `graniteImport`, `import_granite_manifest_transactional` | `client_id` só por documento; nome em `suggested_client_id` | testes de parser e migration 282 |
+| Importar Granito | `graniteImport`, `import_granite_manifest_transactional` | `client_id` só por documento; nome em `suggested_client_id` | testes de parser e migration 286 |
 | Revisão humana | `useReviewQueue`, `ReviewDrawer`, `saveGraniteBlReview` | Sugestão visível; confirmação explícita cria o vínculo | `Revisao.test.tsx` |
-| Faturamento e legado | gates existentes; migration 283 | Só IDs legítimos faturam; backfill preserva faturados/decisões | `backfillNameLinkedCustomersMigration.test.ts` |
+| Faturamento e legado | gates existentes; migration 287 | Só IDs legítimos faturam; backfill preserva faturados/decisões | `backfillNameLinkedCustomersMigration.test.ts` |

@@ -228,7 +228,7 @@ describe('Revisao', () => {
     await waitFor(() => expect(mockedAddCustomerEmail).toHaveBeenCalledWith(7, 'novo@cliente.com'))
   })
 
-  it('exibe sugestao de Granito sem trata-la como vinculo e permite confirmar', async () => {
+  it('exibe sugestao de Granito sem trata-la como vinculo automatico', async () => {
     const user = userEvent.setup()
     mockedUseReviewQueue.mockReturnValue({
       data: [{
@@ -237,7 +237,6 @@ describe('Revisao', () => {
         customer: null, review_reasons: ['Cliente nao vinculado (Granito)', 'Sugerido: Cliente Sugerido'],
       }], isLoading: false, error: null,
     } as never)
-    mockedSaveGraniteBlReview.mockResolvedValue(undefined)
     renderPage()
 
     expect(screen.getAllByText('Sugerido: Cliente Sugerido').length).toBeGreaterThan(0)
@@ -246,9 +245,7 @@ describe('Revisao', () => {
     await user.click(screen.getByRole('button', { name: /Corrigir/ }))
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
-    await waitFor(() => expect(mockedSaveGraniteBlReview).toHaveBeenCalledWith({
-      graniteBlId: 'granite-1', clientId: 42, changedBy: 'user-1',
-    }))
+    expect(mockedSaveGraniteBlReview).not.toHaveBeenCalled()
   })
 
 })

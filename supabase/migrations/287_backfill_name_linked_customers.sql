@@ -1,7 +1,7 @@
--- Migration 283: devolver para revisao os vinculos automaticos feitos por nome.
+-- Migration 287: devolver para revisao os vinculos automaticos feitos por nome.
 --
 -- Diagnostico somente-leitura recomendado antes de aplicar este arquivo:
---   SELECT count(*) FROM public.bls
+--   SELECT count(*) FROM public.bls AS b
 --   WHERE customer_reconciliation_status = 'matched_name'
 --     AND customer_id IS NOT NULL AND suggested_customer_id IS NULL
 --     AND COALESCE(financial_status, 'pending') <> 'invoiced';
@@ -27,7 +27,8 @@ BEGIN
     WHERE b.customer_reconciliation_status = 'matched_name'
       AND b.customer_id IS NOT NULL
       AND b.suggested_customer_id IS NULL
-      AND COALESCE(b.financial_status, 'pending') <> 'invoiced'
+      AND COALESCE(b.financial_status, 'pending') NOT IN ('invoiced', 'paid')
+      AND NOT EXISTS (SELECT 1 FROM public.invoice_bls i WHERE i.bl_id = b.id)
   LOOP
     UPDATE public.bls
     SET suggested_customer_id = v_bl.customer_id,
@@ -38,7 +39,8 @@ BEGIN
       AND customer_reconciliation_status = 'matched_name'
       AND customer_id = v_bl.customer_id
       AND suggested_customer_id IS NULL
-      AND COALESCE(financial_status, 'pending') <> 'invoiced';
+      AND COALESCE(financial_status, 'pending') NOT IN ('invoiced', 'paid')
+      AND NOT EXISTS (SELECT 1 FROM public.invoice_bls i WHERE i.bl_id = b.id);
 
     PERFORM public.sync_customer_reconciliation_queue_for_bl(v_bl.id);
   END LOOP;
@@ -67,7 +69,7 @@ BEGIN
         SELECT 1 FROM public.invoice_granite_bls AS i
         WHERE i.granite_bl_id = g.id
       )
-      AND COALESCE(g.charge_status, 'not_calculated') <> 'invoiced'
+      AND COALESCE(g.charge_status, 'not_calculated') NOT IN ('invoiced', 'paid')
   LOOP
     UPDATE public.granite_bls
     SET suggested_client_id = v_granite.client_id,
@@ -75,7 +77,7 @@ BEGIN
     WHERE id = v_granite.id
       AND client_id = v_granite.client_id
       AND suggested_client_id IS NULL
-      AND COALESCE(charge_status, 'not_calculated') <> 'invoiced'
+      AND COALESCE(charge_status, 'not_calculated') NOT IN ('invoiced', 'paid')
       AND NOT EXISTS (
         SELECT 1 FROM public.invoice_granite_bls AS i
         WHERE i.granite_bl_id = v_granite.id

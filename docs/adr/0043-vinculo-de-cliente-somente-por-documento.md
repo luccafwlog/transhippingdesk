@@ -1,8 +1,8 @@
-# ADR 0042 — Vínculo de cliente somente por documento
+# ADR 0043 — Vínculo de cliente somente por documento
 
 ## Status
 
-Aceito e implementado nas migrations `280`–`283`.
+Aceito e implementado nas migrations `284`–`287`.
 
 ## Decisão
 
@@ -13,7 +13,7 @@ vínculo após confirmação humana na fila de revisão.
 
 As duas FKs para `customers` são qualificadas nos embeds PostgREST. O
 faturamento continua lendo apenas `customer_id`/`client_id`; sugestões não
-liberam cobrança. O backfill 283 exclui faturados e decisões humanas e pode ser
+liberam cobrança. O backfill 287 exclui faturados e decisões humanas e pode ser
 reexecutado sem mover a mesma linha novamente.
 
 ## Consequências

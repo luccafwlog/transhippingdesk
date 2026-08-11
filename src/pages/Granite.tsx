@@ -448,7 +448,7 @@ export function Granite() {
                           <span className="app-table__truncate app-table__truncate--lg">{bl.shipper_name ?? '-'}</span>
                         </td>
                         <td className="px-3 py-2">
-                          {bl.reconciliationStatus === 'missing_cnpj' ? (
+                          {bl.reconciliationStatus !== 'matched' ? (
                             <Input
                               placeholder="Digite o CNPJ"
                               className="w-40 text-xs"

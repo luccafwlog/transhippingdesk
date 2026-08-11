@@ -640,7 +640,7 @@ permanecer pendente de decisão humana.
 Match por nome é persistido separadamente como sugestão (`suggested_customer_id`
 ou `suggested_client_id`) e aparece na fila de revisão. Só a confirmação humana
 preenche o vínculo; faturamento considera exclusivamente `customer_id` e
-`client_id`. Ver ADR 0042 e migrations `280`–`283`.
+`client_id`. Ver ADR 0043 e migrations `284`–`287`.
 
 **Cliente**
 Pessoa jurídica ou física responsável por cargas e cobranças no sistema.

@@ -12,7 +12,7 @@
   automático; match por nome vira sugestão visível na fila de revisão para
   B/Ls de container, carga solta e Granito. Sugestões ficam em colunas próprias,
   não liberam faturamento, e o backfill preserva faturados e decisões humanas.
-  *(ADR 0042; migrations 280–283)*
+  *(ADR 0043; migrations 284–287)*
 - **Correções da fila de bloqueios de faturamento:** restaura o fluxo de Granito, corrige a classificação de B/L pronto, toasts, invalidações e truncamento da fila. *(PR #512)*
 
 - **Validação do Faturamento vira fila de bloqueios:** a aba passa a derivar

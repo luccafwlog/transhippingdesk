@@ -61,7 +61,7 @@ export function useReviewQueue() {
         supabase
           .from('granite_bls')
           .select(
-            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, charge_status,
+            `id, bl_number, shipper_name, shipper_cnpj, discharge_port, loading_port, vessel_voyage, created_at, client_id, suggested_client_id, charge_status,
             customer:customers!granite_bls_client_id_fkey(id, cnpj_cpf, name, customer_contacts(email)),
             suggested_customer:customers!granite_bls_suggested_client_id_fkey(id, cnpj_cpf, name),
             manifest:granite_manifests(voyage:voyages(id, voyage_number, vessel:vessels(id, name)))`,
