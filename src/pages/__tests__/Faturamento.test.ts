@@ -41,6 +41,7 @@ vi.mock('../../hooks/useBls', () => ({
 vi.mock('../../hooks/useBilling', () => ({
   useBillingCustomers: () => ({ data: [] }),
   useCancelInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateInvoiceDueDate: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
   useInvoices: () => ({ data: { rows: [], count: 0 }, isLoading: false, error: null }),
   useRegisterInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
