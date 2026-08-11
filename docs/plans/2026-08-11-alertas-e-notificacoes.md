@@ -18,6 +18,40 @@ Fechamento automático só quando a condição é verificável (saldo zerou, ass
 existe, endereço mudou). Onde encerrar exige julgamento, o fechamento continua
 manual, por decisão e não por omissão.
 
+## Critérios de decisão por evento
+
+Todo evento candidato responde às seis perguntas abaixo. Nenhuma pode ficar em
+branco: resposta ausente vira decisão por omissão na implementação.
+
+1. **Alerta, notificação ou ambos?** Alerta é item na fila `/alertas`, que espera
+   ser tratado. Notificação é aviso ativo (sino), que interrompe. São coisas
+   diferentes e um evento pode ser só uma delas.
+2. **Departamento ou global?** O destinatário, gravado em `alerts.assigned_to`
+   (item E3). Global só quando o evento não tem dono único — não como fuga de
+   decidir.
+3. **Como fecha — e reabre?** Automático por condição verificável, ou manual por
+   decisão. Se a condição volta a valer, reabre o mesmo item ou cria outro.
+4. **Qual é a unidade?** Por B/L, por cliente, por viagem, por fatura, por
+   transação. Decide se o evento produz um item ou centenas: A3 é por cliente e
+   A4 é por viagem exatamente por isso, e A5 foi recusado por não ter unidade que
+   sobrevivesse ao volume.
+5. **Gravidade — crítico ou normal?** Alimenta a lista única consolidada por E1.
+   Sem decisão por evento, o E1 centraliza uma lista que continua sendo só do
+   Portal.
+6. **Detecção — trigger ou cron?** Instantânea no banco, ou varredura agendada e
+   com qual frequência. Não é detalhe de implementação: sem detecção
+   independente da tela, o fato não existe enquanto ninguém olha — é o problema
+   que o item E2 corrige.
+
+Duas regras valem para todos e não são debatidas caso a caso:
+
+- **Destino.** Toda pendência aponta para a tela onde a ação acontece. Pendência
+  sem destino é beco sem saída.
+- **Sem escalonamento por tempo.** Nenhum evento vira crítico por envelhecer. O
+  único com relógio próprio é o prazo do ADR, que já tem regra explícita
+  (migration 271). Escalonamento genérico antes de existir volume é máquina sem
+  uso.
+
 ## Dependência externa
 
 O item **A3 (cliente sem e-mail)** depende da correção registrada em
