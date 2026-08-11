@@ -23,7 +23,7 @@ import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCh
 import { createInvoiceFromGraniteBls } from '../services/billing'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { onlyDigits } from '../lib/utils'
-import { loadCustomerMaps, findMatchedCustomer } from '../services/customerReconciliation'
+import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../services/customerReconciliation'
 
 type Filters = {
   search: string
@@ -92,9 +92,18 @@ export function Granite() {
     const maps = await loadCustomerMaps()
     const bl = manifest.bls[rowIndex]
     const match = findMatchedCustomer({ cnpjCpf: cnpj, consignee: bl.shipper_name ?? '' }, maps)
-    if (match) {
+    const link = resolveCustomerLink(match)
+    if (link.status !== 'missing_customer') {
       const updated = manifest.bls.map((b, i) =>
-        i === rowIndex ? { ...b, shipper_cnpj: cnpj, clientId: match.customer.id, reconciliationStatus: 'matched' as ReconciliationStatus } : b,
+        i === rowIndex
+          ? {
+              ...b,
+              shipper_cnpj: cnpj,
+              clientId: link.customerId,
+              suggestedClientId: link.suggestedCustomerId,
+              reconciliationStatus: link.status === 'matched_document' ? 'matched' as ReconciliationStatus : 'suggested_name' as ReconciliationStatus,
+            }
+          : b,
       )
       setManifest({ ...manifest, bls: updated })
     }
@@ -474,6 +483,7 @@ function ChargeStatusBadge({ status }: { status: string }) {
 function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
   switch (status) {
     case 'matched': return <span className="app-badge app-badge--green">✓ OK</span>
+    case 'suggested_name': return <span className="app-badge app-badge--yellow">Sugestão</span>
     case 'missing_cnpj': return <span className="app-badge app-badge--yellow">⚠ CNPJ</span>
     case 'not_found': return <span className="app-badge app-badge--red">✗ Não cad.</span>
   }
