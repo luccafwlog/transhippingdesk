@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { supabasePortal } from '../services/supabase'
+import { normalizeCnpj } from '../lib/cnpj'
 
 export function PortalForgotPassword() {
   const [cnpj, setCnpj] = useState('')
@@ -17,9 +18,12 @@ export function PortalForgotPassword() {
     setSubmitting(true)
 
     try {
-      const { error: resetError } = await supabasePortal.functions.invoke('portal-password-recovery', { body: { cnpj } })
+      const { data, error: resetError } = await supabasePortal.functions.invoke('portal-password-recovery', { body: { cnpj } })
       if (resetError) throw resetError
-      setSent(true)
+      setSent(data?.account_found === true && data?.email_sent === true)
+      if (data?.account_found === null) setError('Não foi possível verificar o CNPJ agora. Aguarde alguns minutos e tente novamente.')
+      else if (data?.account_found !== true) setError('Não existe uma conta do Portal vinculada a este CNPJ.')
+      else if (data?.email_sent !== true) setError('Existe uma conta vinculada, mas não foi possível enviar o email de recuperação. Solicite atendimento à Transhipping.')
     } catch (err: unknown) {
       void err
       setError('Se o CNPJ informado estiver cadastrado, enviaremos um link para redefinir sua senha.')
@@ -35,11 +39,11 @@ export function PortalForgotPassword() {
           <div className="app-auth__brand">
             <img alt="Transhipping" className="app-auth__logo app-auth__logo--on-light" src="/branding/transhipping-logo.png" />
             <div>
-              <h1 className="app-auth__title">Email enviado</h1>
+              <h1 className="app-auth__title">Conta encontrada</h1>
             </div>
           </div>
           <p className="text-sm text-[var(--app-muted)]">
-            Se o CNPJ informado estiver cadastrado, voce recebera um link para redefinir sua senha.
+            Existe uma conta do Portal vinculada ao CNPJ informado. Enviamos um link para redefinir sua senha ao email cadastrado.
           </p>
           <div className="mt-4 text-center">
             <Link to="/portal/login" className="text-sm text-[var(--app-link)] hover:underline">
@@ -70,8 +74,8 @@ export function PortalForgotPassword() {
               inputMode="numeric"
               autoComplete="username"
               value={cnpj}
-              onChange={(event) => setCnpj(event.target.value)}
-              placeholder="00.000.000/0000-00"
+              onChange={(event) => setCnpj(normalizeCnpj(event.target.value))}
+              placeholder="00000000000000"
             />
           </Field>
 
