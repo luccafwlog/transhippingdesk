@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({
-  functions: { invoke: vi.fn(() => Promise.resolve({ data: { message: 'ok' }, error: null })) },
+  functions: { invoke: vi.fn(() => Promise.resolve({ data: { account_found: true, email_sent: true }, error: null })) },
 }))
 
 vi.mock('../../services/supabase', () => ({ supabasePortal: { auth, functions: auth.functions } }))
@@ -30,7 +30,7 @@ it('US-155: solicita recuperacao e confirma o envio do link', async () => {
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
 
-  await waitFor(() => expect(screen.getByText('Email enviado')).toBeTruthy())
+  await waitFor(() => expect(screen.getByText('Conta encontrada')).toBeTruthy())
   expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-recovery', { body: { cnpj: '12.345.678/0001-95' } })
 })
 
