@@ -1,5 +1,18 @@
 # Fixture QA de Exibição em Produção Implementation Plan
 
+> **Nota editorial (2026-08-12) — plano encerrado, execução não realizada.**
+> Os artefatos de engenharia (Tasks 1–6, passos 1–4 e 6) estão no repositório em
+> `scripts/qa-display-production/`. Os passos "Step 5: Execute against
+> production" nunca foram executados: não havia credenciais `SUPABASE_*` e, três
+> dias depois, criar cadastros sintéticos na base em uso passou a ser uma
+> decisão operacional de custo próprio, fora do escopo deste plano.
+> O `artifacts/qa-display-production/operational-fixture.json` — resultado
+> parcial de 2026-08-09, sem `invoices` nem `receivables` — foi removido, e o
+> teste que fixava essa pendência (`fixture-catalog.test.mjs`) foi substituído
+> por um teste de contrato real do `normalizeCatalog`. Reexecutar a fixture é
+> possível a qualquer momento pela ordem documentada abaixo; nada aqui é
+> pré-requisito de outro trabalho.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Criar em produção uma fixture sintética completa para testar a exibição operacional, financeira e do Portal, sem modificar cadastros protegidos nem executar efeitos externos reais.

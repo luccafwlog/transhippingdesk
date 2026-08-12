@@ -3,6 +3,17 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Controles de vencimento e COD:** administrador pode ajustar o vencimento de
+  uma invoice aberta (RPC `update_invoice_due_date`, migration `282`), com o
+  detector de atraso mantido como única rotina que transiciona para `overdue`;
+  a ação Transbordo/COD do B/L passa a aparecer sempre que existe omissão, ainda
+  sem disposição persistida. *(plano `2026-08-11-billing-adr-controls`)*
+
+- **Fixture QA de exibição encerrada como engenharia:** os scripts
+  `scripts/qa-display-production/` seguem disponíveis, a execução contra
+  produção não foi realizada e o catálogo parcial saiu do repositório.
+  *(plano `2026-08-09-fixture-qa-display-producao`)*
+
 - **Desempenho de carregamento:** removidos canais Realtime sem consumidor,
   pré-carregados os chunks das rotas durante a autenticação, adicionados
   preconnects externos, índice linear do Line Up e orçamento de bundle alinhado.

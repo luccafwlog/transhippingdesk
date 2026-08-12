@@ -50,6 +50,18 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   — correções da revisão pós-implementação: SLA sem assinatura, autores de
   reabertura, timeline fechada, carregamento antes do fechamento, escalas
   deletadas e `colSpan` do agregado.
+- [`2026-08-09-fixture-qa-display-producao`](2026-08-09-fixture-qa-display-producao.md)
+  — scripts idempotentes da fixture sintética `QA-DISPLAY-2026`/`QAD26`
+  (inventário, criadores operacional/ADR/financeiro/Portal, validação e limpeza
+  seletiva em dry-run). **Encerrado com a engenharia concluída e a execução
+  contra produção não realizada:** os "Step 5" de cada task dependiam de
+  credenciais que nunca foram configuradas. Os scripts seguem utilizáveis;
+  o artefato parcial de 2026-08-09 foi removido do repositório.
+- [`2026-08-11-billing-adr-controls`](2026-08-11-billing-adr-controls.md)
+  — vencimento de invoice aberta editável por administrador (RPC
+  `update_invoice_due_date`, migration `282`, detector de atraso preservado como
+  única rotina que transiciona para `overdue`) e ação Transbordo/COD alcançável
+  no B/L quando existe omissão sem disposição persistida.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

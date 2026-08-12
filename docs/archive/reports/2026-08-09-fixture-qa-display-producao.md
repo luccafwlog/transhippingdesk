@@ -32,3 +32,12 @@ Supabase controlado não foi realizada nesta sessão: não há credenciais
 regenerado pela ordem documentada para registrar IDs de invoices e receivables.
 O teste de catálogo que lê esse artefato permanece como evidência explícita
 dessa pendência; nenhum ID foi inventado e nenhum cleanup destrutivo foi feito.
+
+## Nota editorial (2026-08-12)
+
+O plano foi encerrado sem executar a fixture contra produção e movido para
+`docs/archive/plans/`. O artefato parcial `operational-fixture.json` saiu do
+repositório e o teste que fixava a pendência foi substituído por um teste de
+contrato do `normalizeCatalog`, que já não depende de nenhum arquivo em disco.
+`create-operational.mjs` continua gravando o artefato no mesmo caminho quando a
+fixture for reexecutada; o caminho passou a ser ignorado pelo git.

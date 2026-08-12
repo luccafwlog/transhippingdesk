@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import fs from 'node:fs/promises'
 
-test('rejects the legacy committed artifact until phase 6 rewrites missing financial ids', async () => {
+test('rejects an entry without an id and names the offending path', async () => {
   const { normalizeCatalog } = await import('./fixture-catalog.mjs')
-  const artifact = JSON.parse(await fs.readFile(new URL('../../artifacts/qa-display-production/operational-fixture.json', import.meta.url)))
-  assert.throws(() => normalizeCatalog(artifact), /missing id/)
+  assert.throws(() => normalizeCatalog({ prefix: 'QA-DISPLAY-2026', invoices: [{ id: 9 }, { doc_number: 'QAD26-INV-002' }] }), /missing id at invoices\[\]\.id/)
+  assert.throws(() => normalizeCatalog({ prefix: 'QA-DISPLAY-2026', localInvoice: {} }), /missing id at localInvoice\.id\/invoice_id/)
+  assert.throws(() => normalizeCatalog({ prefix: 'QA-DISPLAY-2026', customers: [{ id: '' }] }), /missing id at customers\[\]\.id/)
 })
 
 test('normalizes every supported key in a complete catalog', async () => {

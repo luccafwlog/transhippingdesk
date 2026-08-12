@@ -33,6 +33,9 @@ supabase/.temp
 *.sw?
 .claude/worktrees/
 
+# Catálogo da fixture QA de exibição (gerado por scripts/qa-display-production)
+artifacts/qa-display-production/operational-fixture.json
+
 # Playwright MCP artifacts (design-audit skill)
 .playwright-mcp/
 .worktrees/
