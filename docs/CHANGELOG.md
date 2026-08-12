@@ -3,6 +3,10 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Desempenho de carregamento:** removidos canais Realtime sem consumidor,
+  pré-carregados os chunks das rotas durante a autenticação, adicionados
+  preconnects externos, índice linear do Line Up e orçamento de bundle alinhado.
+
 - **CE Mercante confirma o faturamento do Granito:** Granito passa a importar
   CE para `granite_bls`, aguardar CE na Validação e emitir automaticamente após
   o cadastro; CEs preenchidos são únicos por B/L, resolvidos por viagem e
