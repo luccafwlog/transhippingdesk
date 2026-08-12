@@ -294,7 +294,9 @@ export async function fetchROE(): Promise<FetchROEResult> {
     const roe = parseFloat((ptax * DEMURRAGE_ROE_MARKUP).toFixed(4))
     const effectiveDate = String(json.value[0].dataHoraCotacao).slice(0, 10)
     saveROECache(roe, ptax, effectiveDate)
-    await persistExchangeRateReference({ ptax, roe, effectiveDate })
+    // The header is a read-only, best-effort indicator. Do not make every
+    // authenticated page wait for the audit persistence RPC to finish.
+    void persistExchangeRateReference({ ptax, roe, effectiveDate })
     return { roe, ptax, effectiveDate, offline: false, cachedAt: null, source: 'bcb_live' }
   } catch (error) {
     const cached = loadCachedROE()

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 
@@ -17,6 +17,14 @@ export type OperationalCounts = {
  */
 export function useOperationalCounts(): OperationalCounts {
   const queryClient = useQueryClient()
+  const [enabled, setEnabled] = useState(false)
+
+  useEffect(() => {
+    // Navigation should not compete with five badge-count requests. Let the
+    // route paint first, then hydrate the non-critical indicators.
+    const timer = window.setTimeout(() => setEnabled(true), 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     const channel = supabase
@@ -38,6 +46,7 @@ export function useOperationalCounts(): OperationalCounts {
       if (error) return 0
       return count ?? 0
     },
+    enabled,
     staleTime: 60_000,
   })
 
@@ -51,6 +60,7 @@ export function useOperationalCounts(): OperationalCounts {
       if (error) return 0
       return count ?? 0
     },
+    enabled,
     staleTime: 60_000,
   })
 
@@ -64,6 +74,7 @@ export function useOperationalCounts(): OperationalCounts {
       if (error) return 0
       return count ?? 0
     },
+    enabled,
     staleTime: 60_000,
   })
 
@@ -77,6 +88,7 @@ export function useOperationalCounts(): OperationalCounts {
       if (error) return 0
       return count ?? 0
     },
+    enabled,
     staleTime: 60_000,
   })
 
@@ -90,6 +102,7 @@ export function useOperationalCounts(): OperationalCounts {
       if (error) return 0
       return count ?? 0
     },
+    enabled,
     staleTime: 60_000,
   })
 
