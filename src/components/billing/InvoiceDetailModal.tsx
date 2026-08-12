@@ -293,7 +293,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
           {detailQuery.data?.invoice ? (
             <>
               <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={handlePrintInvoice}>
+                <Button variant="secondary" onClick={() => handlePrintInvoice()}>
                   <Printer size={16} />Imprimir PDF
                 </Button>
                 {['paid', 'covered'].includes(detailQuery.data.invoice.status ?? '') ? (
