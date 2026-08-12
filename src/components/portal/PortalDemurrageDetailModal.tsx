@@ -6,6 +6,7 @@ import { portalInvoiceStatusLabel } from '../../lib/portalInvoiceStatus'
 import { formatBRL, formatDate } from '../../lib/utils'
 import type { PortalDemurrageInvoiceDetail } from '../../services/portalBilling'
 import { PortalPixPaymentBlock } from './PortalPixPaymentBlock'
+import { Button } from '../ui/Button'
 
 type PortalDemurrageDetailModalProps = {
   open: boolean
@@ -13,6 +14,7 @@ type PortalDemurrageDetailModalProps = {
   detail: PortalDemurrageInvoiceDetail | undefined
   loading: boolean
   onClose: () => void
+  onPrint: () => void
 }
 
 export function PortalDemurrageDetailModal({
@@ -21,6 +23,7 @@ export function PortalDemurrageDetailModal({
   detail,
   loading,
   onClose,
+  onPrint,
 }: PortalDemurrageDetailModalProps) {
   const invoice = detail?.invoice
 
@@ -32,6 +35,7 @@ export function PortalDemurrageDetailModal({
           const invoice = detail.invoice
           return (
             <>
+            {invoice.status === 'paid' ? <div className="flex justify-end"><Button variant="secondary" onClick={onPrint}>Imprimir recibo</Button></div> : null}
             <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
               <MetricCard label="Status" value={portalInvoiceStatusLabel(invoice.status)} />
               <MetricCard label="Total USD" value={`$ ${Number(invoice.total_usd).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />

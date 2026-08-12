@@ -5,14 +5,16 @@ import { formatDate, stripBlPrefix } from '../../lib/utils'
 import { cell, dataTotalCell, dataTotalRow, describeUsdConversionNote, DOC_BORDER, DOC_GROUP, DOC_MUTED, DOC_NAVY, DOC_SUBTOTAL, documentRoot, fmtBRL, fmtCNPJ, labelCell, zebraRow } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
-type Props = { detail: InvoiceDetail }
+type Props = { detail: InvoiceDetail; type?: 'invoice' | 'receipt' }
 
-export function InvoiceDocumentLocal({ detail }: Props) {
+export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
   const { invoice, bls, items } = detail
   if (!invoice) return null
 
   const isConsolidated = bls.length >= 2
-  const title = isConsolidated ? 'FATURA CONSOLIDADA DE TAXAS LOCAIS' : 'FATURA DE TAXAS LOCAIS'
+  const title = type === 'receipt'
+    ? (isConsolidated ? 'RECIBO CONSOLIDADO DE TAXAS LOCAIS' : 'RECIBO DE TAXAS LOCAIS')
+    : (isConsolidated ? 'FATURA CONSOLIDADA DE TAXAS LOCAIS' : 'FATURA DE TAXAS LOCAIS')
 
   const blIds = bls.map((b) => b.bl_id).join(', ') || '—'
 
@@ -135,7 +137,7 @@ export function InvoiceDocumentLocal({ detail }: Props) {
       </table>
 
       {/* PIX */}
-      {invoice.pix_payload && (
+      {type === 'invoice' && invoice.pix_payload && (
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${DOC_BORDER}` }}>
           <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
             <div style={{ flexShrink: 0 }}>

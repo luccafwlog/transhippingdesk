@@ -39,7 +39,7 @@ it('US-048: imprime a fatura de demurrage com numero, BL e cliente', () => {
 
 it('US-048: imprime o recibo de quitacao quando type=receipt', () => {
   render(<InvoiceDocument detail={detail} type="receipt" />)
-  expect(screen.getByText('RECIBO DE QUITAÇÃO DE SOBREESTADIA')).toBeTruthy()
+  expect(screen.getByText('RECIBO DE SOBREESTADIA DE CONTAINER')).toBeTruthy()
 })
 
 it('US-048: exibe QR Pix e codigo copia e cola na fatura', () => {

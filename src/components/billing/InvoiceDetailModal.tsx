@@ -64,6 +64,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const queryClient = useQueryClient()
 
   const [printOpen, setPrintOpen] = useState(false)
+  const [printType, setPrintType] = useState<'invoice' | 'receipt'>('invoice')
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix')
   const [paymentDate, setPaymentDate] = useState('')
@@ -277,8 +278,9 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     }
   }
 
-  function handlePrintInvoice() {
+  function handlePrintInvoice(type: 'invoice' | 'receipt' = 'invoice') {
     if (!detailQuery.data) return
+    setPrintType(type)
     setPrintOpen(true)
   }
 
@@ -294,6 +296,11 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                 <Button variant="secondary" onClick={handlePrintInvoice}>
                   <Printer size={16} />Imprimir PDF
                 </Button>
+                {['paid', 'covered'].includes(detailQuery.data.invoice.status ?? '') ? (
+                  <Button variant="secondary" onClick={() => handlePrintInvoice('receipt')}>
+                    <Printer size={16} />Imprimir recibo
+                  </Button>
+                ) : null}
               </div>
               <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                 <MetricCard label="Status" value={statusLabel(detailQuery.data.invoice.status)} />
@@ -599,7 +606,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
       </Modal>
 
       {printOpen && detailQuery.data && (
-        <Modal open onClose={() => setPrintOpen(false)} title={`Imprimir ${detailQuery.data.invoice?.invoice_number ?? ''}`}>
+        <Modal open onClose={() => setPrintOpen(false)} title={`${printType === 'receipt' ? 'Recibo' : 'Imprimir'} ${detailQuery.data.invoice?.invoice_number ?? ''}`}>
           <div className="mb-3 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setPrintOpen(false)}>Fechar</Button>
             <Button onClick={() => {
@@ -608,7 +615,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
             }}><Printer size={16} />Imprimir</Button>
           </div>
           <div className="invoice-print-content">
-            <InvoiceDocumentLocal detail={detailQuery.data} />
+            <InvoiceDocumentLocal detail={detailQuery.data} type={printType} />
           </div>
         </Modal>
       )}

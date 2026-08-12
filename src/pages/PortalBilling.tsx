@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
+import { InvoiceDocument as DemurrageInvoiceDocument } from '../components/demurrage/InvoiceDocument'
 import { PortalConsolidatedModal } from '../components/portal/PortalConsolidatedModal'
 import { DisputeModal } from '../components/portal/DisputeModal'
 import { PortalDemurrageDetailModal } from '../components/portal/PortalDemurrageDetailModal'
@@ -80,6 +81,8 @@ export function PortalBilling() {
   const [disputeInvoiceId, setDisputeInvoiceId] = useState<number | null>(null)
   const [disputeDocNumber, setDisputeDocNumber] = useState('')
   const [printOpen, setPrintOpen] = useState(false)
+  const [receiptOpen, setReceiptOpen] = useState(false)
+  const [demurragePrintOpen, setDemurragePrintOpen] = useState(false)
   const [localFilters, setLocalFilters] = useState<Filters>(EMPTY_PORTAL_BILLING_FILTERS)
   const [demFilters, setDemFilters] = useState<Filters>(EMPTY_PORTAL_BILLING_FILTERS)
 
@@ -259,6 +262,7 @@ export function PortalBilling() {
         onClose={() => setSelectedInvoiceId(null)}
         onObsolete={() => void handleObsolete()}
         onPrint={() => setPrintOpen(true)}
+        onPrintReceipt={() => setReceiptOpen(true)}
       />
       {printOpen && detailQuery.data?.invoice ? (
         <Modal open onClose={() => setPrintOpen(false)} title={`Imprimir ${detailQuery.data.invoice.invoice_number ?? ''}`}>
@@ -288,7 +292,35 @@ export function PortalBilling() {
         detail={demurrageDetailQuery.data}
         loading={demurrageDetailQuery.isLoading}
         onClose={() => setSelectedDemurrageId(null)}
+        onPrint={() => setDemurragePrintOpen(true)}
       />
+      {demurragePrintOpen && demurrageDetailQuery.data?.invoice ? (
+        <Modal open onClose={() => setDemurragePrintOpen(false)} title={`Recibo ${demurrageDetailQuery.data.invoice.doc_number}`}>
+          <div className="mb-3 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDemurragePrintOpen(false)}>Fechar</Button>
+            <Button onClick={() => window.print()}><Printer size={16} />Imprimir</Button>
+          </div>
+          <div className="invoice-print-content">
+            <DemurrageInvoiceDocument
+              detail={{
+                ...demurrageDetailQuery.data,
+                customer: { name: demurrageDetailQuery.data.invoice.customer_name, cnpj_cpf: demurrageDetailQuery.data.invoice.customer_cnpj_cpf },
+                bl: { pol: demurrageDetailQuery.data.invoice.pol, pod: demurrageDetailQuery.data.invoice.pod, voyage: { voyage_number: demurrageDetailQuery.data.invoice.voyage_number, vessel: { name: demurrageDetailQuery.data.invoice.vessel_name } } },
+              } as never}
+              type="receipt"
+            />
+          </div>
+        </Modal>
+      ) : null}
+      {receiptOpen && detailQuery.data?.invoice ? (
+        <Modal open onClose={() => setReceiptOpen(false)} title={`Recibo ${detailQuery.data.invoice.invoice_number ?? ''}`}>
+          <div className="mb-3 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setReceiptOpen(false)}>Fechar</Button>
+            <Button onClick={() => window.print()}><Printer size={16} />Imprimir</Button>
+          </div>
+          <div className="invoice-print-content"><InvoiceDocumentLocal detail={detailQuery.data} type="receipt" /></div>
+        </Modal>
+      ) : null}
     </>
   )
 }

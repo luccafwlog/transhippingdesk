@@ -34,9 +34,10 @@ export function InvoiceDocument({ detail, type }: Props) {
   return (
     <div style={documentRoot}>
       <InvoiceDocHeader logoSrc="/branding/transhipping-logo-cropped.png" docNumber={invoice.doc_number} />
-      <InvoiceDocTitle uppercase>
+      {!isInvoice && <InvoiceDocTitle uppercase>RECIBO DE SOBREESTADIA DE CONTAINER</InvoiceDocTitle>}
+      {isInvoice && <InvoiceDocTitle uppercase>
         {isInvoice ? 'FATURA DE SOBREESTADIA DE CONTAINER' : 'RECIBO DE QUITAÇÃO DE SOBREESTADIA'}
-      </InvoiceDocTitle>
+      </InvoiceDocTitle>}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>
@@ -72,7 +73,7 @@ export function InvoiceDocument({ detail, type }: Props) {
           </>}
           <tr style={{ background: '#F59E0B' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>TOTAL:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>{fmtBRL(totalBRL)}</td></tr>
           {isInvoice && invoice.due_date && <tr style={{ background: '#1A2744', color: 'white' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>VENCIMENTO DIA</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.due_date)}</td></tr>}
-          {!isInvoice && invoice.paid_at && <tr style={{ background: '#166534', color: 'white' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>DATA DE PAGAMENTO:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.paid_at)}</td></tr>}
+          {false && invoice.paid_at && <tr style={{ background: '#166534', color: 'white' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>DATA DE PAGAMENTO:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.paid_at)}</td></tr>}
         </tbody>
       </table>
 
@@ -98,7 +99,7 @@ export function InvoiceDocument({ detail, type }: Props) {
       <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 30, paddingTop: 14, fontSize: 13, lineHeight: 1.45 }}><strong>Recebedor:</strong><div style={{ display: 'inline-block', verticalAlign: 'top', marginLeft: 80 }}>{COMPANY.name.toUpperCase()}<br />CNPJ: {COMPANY.cnpj}</div></div>
 
       {/* ── Receipt PAGO stamp ── */}
-      {!isInvoice && (
+      {false && (
         <div style={{ textAlign: 'center', margin: '20px 0', fontSize: '32px', fontWeight: 900, color: '#166534', border: '4px solid #166534', borderRadius: 8, padding: '8px 0', letterSpacing: 8 }}>
           PAGO
         </div>

@@ -19,6 +19,7 @@ type PortalInvoiceDetailModalProps = {
   onClose: () => void
   onObsolete: () => void
   onPrint: () => void
+  onPrintReceipt: () => void
 }
 
 export function PortalInvoiceDetailModal({
@@ -32,6 +33,7 @@ export function PortalInvoiceDetailModal({
   onClose,
   onObsolete,
   onPrint,
+  onPrintReceipt,
 }: PortalInvoiceDetailModalProps) {
   const invoice = detail?.invoice
 
@@ -53,6 +55,9 @@ export function PortalInvoiceDetailModal({
                 <Printer size={16} />
                 Imprimir PDF
               </Button>
+              {invoice.status === 'paid' || invoice.status === 'covered' ? (
+                <Button variant="secondary" onClick={onPrintReceipt}>Imprimir recibo</Button>
+              ) : null}
             </div>
             <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
               <MetricCard label="Status" value={portalInvoiceStatusLabel(invoice.status)} />
