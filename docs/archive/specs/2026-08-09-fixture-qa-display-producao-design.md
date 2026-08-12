@@ -1,5 +1,11 @@
 # Fixture QA de Exibição em Produção — Design
 
+> **Nota editorial (2026-08-12).** O plano derivado desta spec
+> ([`../plans/2026-08-09-fixture-qa-display-producao.md`](../plans/2026-08-09-fixture-qa-display-producao.md))
+> foi encerrado com os scripts entregues em `scripts/qa-display-production/` e a
+> execução contra produção nunca realizada. Os critérios de validação abaixo
+> descrevem, portanto, uma verificação prevista e não observada.
+
 ## Objetivo
 
 Criar uma massa sintética identificável para testar a disposição atual das

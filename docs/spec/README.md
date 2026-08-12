@@ -15,10 +15,12 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 ## Specs funcionais vivas
 
 | Spec | Tema |
-|---|---|---|
+|---|---|
 
-A spec de design do Agency Departure Report foi executada e preservada no
-[arquivo histórico](../archive/specs/).
+Nenhuma no momento: todas as specs funcionais aprovadas até aqui tiveram seus
+planos concluídos e estão preservadas no
+[arquivo histórico](../archive/specs/). A spec comportamental abaixo é
+permanente e não entra nesta tabela.
 
 ## Behavioral Specification
 
