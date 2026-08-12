@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { supabasePortal } from '../services/supabase'
+import { normalizeCnpj } from '../lib/cnpj'
 
 export function PortalForgotPassword() {
   const [cnpj, setCnpj] = useState('')
@@ -73,8 +74,8 @@ export function PortalForgotPassword() {
               inputMode="numeric"
               autoComplete="username"
               value={cnpj}
-              onChange={(event) => setCnpj(event.target.value)}
-              placeholder="00.000.000/0000-00"
+              onChange={(event) => setCnpj(normalizeCnpj(event.target.value))}
+              placeholder="00000000000000"
             />
           </Field>
 

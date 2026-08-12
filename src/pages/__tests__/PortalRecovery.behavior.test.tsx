@@ -27,11 +27,11 @@ it('US-155: solicita recuperacao e confirma o envio do link', async () => {
     </MemoryRouter>,
   )
 
-  await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
+  await user.type(screen.getByPlaceholderText('00000000000000'), '12.345.678/0001-95')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
 
   await waitFor(() => expect(screen.getByText('Conta encontrada')).toBeTruthy())
-  expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-recovery', { body: { cnpj: '12.345.678/0001-95' } })
+  expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-recovery', { body: { cnpj: '12345678000195' } })
 })
 
 it('US-156: link invalido sem tokens mostra erro', () => {
