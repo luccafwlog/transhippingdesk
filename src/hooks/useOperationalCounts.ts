@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 
 export type OperationalCounts = {
@@ -16,7 +16,6 @@ export type OperationalCounts = {
  * Em caso de erro retorna 0 em todos os campos para não quebrar o layout.
  */
 export function useOperationalCounts(): OperationalCounts {
-  const queryClient = useQueryClient()
   const [enabled, setEnabled] = useState(false)
 
   useEffect(() => {
@@ -26,15 +25,8 @@ export function useOperationalCounts(): OperationalCounts {
     return () => window.clearTimeout(timer)
   }, [])
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('op-counts-alerts-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['op-count', 'open-alerts'] })
-      })
-      .subscribe()
-    return () => { void supabase.removeChannel(channel) }
-  }, [queryClient])
+  // ponytail: refresh is governed by staleTime; re-enable Realtime only after
+  // alerts is explicitly added to supabase_realtime.
 
   const pendingReview = useQuery({
     queryKey: ['op-count', 'pending-review'],

@@ -20,7 +20,22 @@ function resolveCommitSha() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      name: 'inject-external-preconnects',
+      transformIndexHtml(html: string) {
+        const origins = [process.env.VITE_SUPABASE_URL, 'https://olinda.bcb.gov.br']
+          .filter(Boolean)
+          .map((value) => new URL(value!).origin)
+        const links = [...new Set(origins)]
+          .map((origin) => `<link rel="preconnect" href="${origin}" crossorigin>`)
+          .join('\n    ')
+        return html.replace('<head>', `<head>\n    ${links}`)
+      },
+    },
+  ],
   server: {
     proxy: {
       // Proxy dev-only usado pela skill design-audit: aponte VITE_SUPABASE_URL

@@ -10,7 +10,6 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
-| [2026-08-12-correcao-lentidao-carregamento-paginas](2026-08-12-correcao-lentidao-carregamento-paginas.md) | Performance — Realtime órfão e load frio das rotas | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

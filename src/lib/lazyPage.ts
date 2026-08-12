@@ -1,4 +1,4 @@
-import { lazy, type ComponentType } from 'react'
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
 
 type LazyPageStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
@@ -64,5 +64,15 @@ export function lazyPage<T extends Record<string, unknown>, K extends keyof T & 
   loader: () => Promise<T>,
   exportName: K,
 ) {
-  return lazy(createLazyPageLoader(loader, exportName))
+  let promise: ReturnType<typeof createLazyPageLoader<T, K>> | undefined
+  const load = () => {
+    promise ??= createLazyPageLoader(loader, exportName)()
+    return promise.catch((error) => {
+      promise = undefined
+      throw error
+    })
+  }
+  const component = lazy(load) as LazyExoticComponent<ComponentType> & { preload: () => Promise<unknown> }
+  component.preload = load
+  return component
 }

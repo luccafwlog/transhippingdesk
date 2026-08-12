@@ -6,6 +6,7 @@ import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
 import { PortalLayout } from './components/layout/PortalLayout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { lazyPage } from './lib/lazyPage'
+import { matchRoutePreload, type RoutePreloadTable } from './lib/routePreload'
 
 const Login = lazyPage(() => import('./pages/Login'), 'Login')
 const PortalLogin = lazyPage(() => import('./pages/PortalLogin'), 'PortalLogin')
@@ -68,6 +69,29 @@ function DocumentTitle() {
   return null
 }
 
+const routePreloads: RoutePreloadTable = [
+  ['/portal/login', PortalLogin.preload], ['/portal/esqueci-senha', PortalForgotPassword.preload],
+  ['/portal/recuperar-senha', PortalResetPassword.preload], ['/portal/ativar', PortalAtivacao.preload],
+  ['/portal', PortalDashboard.preload], ['/portal/billing', PortalBilling.preload], ['/portal/operacao', PortalOperacao.preload],
+  ['/portal/perfil', PortalProfile.preload], ['/login', Login.preload], ['/line-up-tv/display', LineUpTVDisplay.preload],
+  ['/painel', Painel.preload], ['/viagens/:voyageId', Viagens.preload], ['/viagens', Viagens.preload],
+  ['/manifestos/:blId', BlDetalhe.preload], ['/manifestos', Manifestos.preload], ['/containers', Containers.preload],
+  ['/carga-solta', CargaSolta.preload], ['/veiculos', Veiculos.preload], ['/revisao', Revisao.preload],
+  ['/clientes/portal', ClientesPortal.preload], ['/clientes/:cnpj', ClienteFicha.preload], ['/clientes', Clientes.preload],
+  ['/taxas-locais', TaxasLocais.preload], ['/faturamento', Faturamento.preload], ['/alertas', Alertas.preload],
+  ['/relatorios', Relatorios.preload], ['/demurrage', Demurrage.preload], ['/reconciliacao', Reconciliacao.preload],
+  ['/granito/taxas', GraniteRates.preload], ['/granito', Granite.preload], ['/demurrage/taxas', DemurrageRates.preload],
+  ['/embarquevazios/depots', DepotCadastro.preload], ['/embarquevazios', EmbarqueVazios.preload],
+  ['/vazios-importacao', VaziosImportacao.preload], ['/baplie', BaplieEDI.preload], ['/chegadas-saidas', ChegadasSaidas.preload],
+  ['/perfil', Profile.preload], ['/admin/usuarios', AdminUsuarios.preload],
+]
+
+function RoutePreloader() {
+  const { pathname } = useLocation()
+  useEffect(() => { void matchRoutePreload(pathname, routePreloads)?.() }, [pathname])
+  return null
+}
+
 // O app é o mesmo SPA servido em dois domínios: `portal.<dominio>` é exclusivo
 // do Portal do Cliente; qualquer outro host (raiz, web.app, localhost) é o
 // sistema interno. Em host de Portal, rotas internas e a raiz caem em /portal.
@@ -77,6 +101,7 @@ export default function App() {
   return (
     <>
       <DocumentTitle />
+      <RoutePreloader />
       <Routes>
       <Route path="/portal/login" element={withSuspense(<PortalLogin />)} />
       <Route path="/portal/esqueci-senha" element={withSuspense(<PortalForgotPassword />)} />

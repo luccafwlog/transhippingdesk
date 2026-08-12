@@ -154,18 +154,17 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       }
 
       const routeContainerIds = new Set(Array.from(distinctContainers.values()).map((container) => container.id))
+      const containerKeyById = new Map(
+        Array.from(distinctContainers.entries()).map(([containerKey, container]) => [container.id, containerKey]),
+      )
       const routeVehicles = voyageVehicles.filter(
         (vehicle) => routeBlIds.has(vehicle.bl_id) || routeContainerIds.has(vehicle.container_id),
       )
 
       const vehicleContainerKeys = new Set<string>()
       for (const vehicle of routeVehicles) {
-        for (const [containerKey, container] of distinctContainers.entries()) {
-          if (container.id === vehicle.container_id) {
-            vehicleContainerKeys.add(containerKey)
-            break
-          }
-        }
+        const containerKey = containerKeyById.get(vehicle.container_id)
+        if (containerKey) vehicleContainerKeys.add(containerKey)
       }
 
       const totalContainers = distinctContainers.size

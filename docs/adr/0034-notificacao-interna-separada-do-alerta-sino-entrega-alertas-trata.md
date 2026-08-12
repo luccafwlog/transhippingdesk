@@ -151,6 +151,8 @@ abrir o painel.
 - **Realtime:** `useOperationalCounts` já assina `postgres_changes` em
   `alerts`; a contagem de não lidas do sino é decisão de implementação
   (realtime ou polling, como o Portal faz a 30s) e não é fixada aqui.
+- **Nota editorial (2026-08-12):** a assinatura existia no cliente, mas `alerts`
+  nunca entrou na publication `supabase_realtime`; ela foi removida na PR #526.
 - **Glossário:** `CONTEXT.md` ganha a seção "Alertas e notificações"; o termo
   "Notificação In-App" passa a "Notificação In-App do Portal" para não competir
   com a Notificação Interna.
