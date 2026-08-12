@@ -62,7 +62,7 @@ para de manter o canal aberto, que é o que dispara o poll contínuo do WAL.
 `supabase/functions/` a assina. Publication sem consumidor é custo puro.
 
 **Arquivos:**
-- Criar: `supabase/migrations/288_drop_orphan_realtime_publication.sql`
+- Criar: `supabase/migrations/289_drop_orphan_realtime_publication.sql`
 - Modificar/criar: `src/services/__tests__/realtimePublicationMigration.test.ts`
 
 - [ ] Usar a skill `supabase-migration` antes de escrever o SQL.
