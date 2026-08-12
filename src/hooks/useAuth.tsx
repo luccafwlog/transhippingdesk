@@ -5,6 +5,10 @@ import { supabase } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
 import type { UserProfile, UserProfileRole } from '../types/database'
 
+export function shouldHydrateProfile(nextUserId: string | null, hydratedUserId: string | null): boolean {
+  return nextUserId !== null && nextUserId !== hydratedUserId
+}
+
 export type Permission =
   | 'admin_panel'
   | 'manage_users'
@@ -117,6 +121,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let mounted = true
+    let hydratedUserId: string | null = null
     const fallbackTimer = window.setTimeout(() => {
       if (mounted) {
         setLoading(false)
@@ -135,9 +140,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setSession(nextSession)
 
       try {
-        if (nextSession?.user) {
-          setProfile(await loadProfile(nextSession.user.id))
-        } else {
+        const nextUserId = nextSession?.user?.id ?? null
+        if (shouldHydrateProfile(nextUserId, hydratedUserId)) {
+          const nextProfile = await loadProfile(nextSession!.user.id)
+          hydratedUserId = nextUserId
+          setProfile(nextProfile)
+        } else if (!nextUserId) {
+          hydratedUserId = null
           setProfile(null)
         }
       } catch {
