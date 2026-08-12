@@ -38,6 +38,9 @@ export function InvoiceDocument({ detail, type }: Props) {
       {isInvoice && <InvoiceDocTitle uppercase>
         {isInvoice ? 'FATURA DE SOBREESTADIA DE CONTAINER' : 'RECIBO DE QUITAÇÃO DE SOBREESTADIA'}
       </InvoiceDocTitle>}
+      {!isInvoice && invoice.paid_at ? (
+        <div style={{ margin: '0 0 12px', textAlign: 'center', fontWeight: 700 }}>PAGO EM: {fmtDate(invoice.paid_at)}</div>
+      ) : null}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
         <tbody>

@@ -12,6 +12,11 @@ export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
   if (!invoice) return null
 
   const isConsolidated = bls.length >= 2
+  const paymentDate = [...(detail.payments ?? [])]
+    .map((payment) => payment.paid_at)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? null
   const title = type === 'receipt'
     ? (isConsolidated ? 'RECIBO CONSOLIDADO DE TAXAS LOCAIS' : 'RECIBO DE TAXAS LOCAIS')
     : (isConsolidated ? 'FATURA CONSOLIDADA DE TAXAS LOCAIS' : 'FATURA DE TAXAS LOCAIS')
@@ -40,6 +45,10 @@ export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
       <InvoiceDocHeader logoSrc="/branding/transhipping-logo-cropped.png" docNumber={invoice.invoice_number ?? `INV-${invoice.id}`} />
 
       <InvoiceDocTitle uppercase>{title}</InvoiceDocTitle>
+
+      {type === 'receipt' && paymentDate ? (
+        <div style={{ margin: '0 0 12px', textAlign: 'center', fontWeight: 700 }}>Pago em {formatDate(paymentDate)}</div>
+      ) : null}
 
       {/* Metadata */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, RotateCcw, Upload } from 'lucide-react'
+import { Printer, RefreshCw, RotateCcw, Upload } from 'lucide-react'
 import type { DragEvent } from 'react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -370,12 +370,19 @@ export function Reconciliacao() {
           {demurrageDetailQuery.isLoading ? (
             <div className="p-4 text-sm text-slate-400">Carregando...</div>
           ) : demurrageDetailQuery.data ? (
-            <div className="invoice-print-content">
-              <DemurrageInvoiceDoc
-                detail={demurrageDetailQuery.data as unknown as DemurrageInvoiceDetail}
-                type="receipt"
-              />
-            </div>
+            <>
+              <div className="mb-3 flex justify-end">
+                {demurrageDetailQuery.data.invoice.status === 'paid' ? (
+                  <Button onClick={() => window.print()}><Printer size={16} />Imprimir recibo</Button>
+                ) : null}
+              </div>
+              <div className="invoice-print-content">
+                <DemurrageInvoiceDoc
+                  detail={demurrageDetailQuery.data as unknown as DemurrageInvoiceDetail}
+                  type="receipt"
+                />
+              </div>
+            </>
           ) : (
             <div className="p-4 text-sm text-slate-400">Falha ao carregar.</div>
           )}

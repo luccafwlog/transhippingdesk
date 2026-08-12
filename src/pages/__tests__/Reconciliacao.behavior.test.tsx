@@ -33,7 +33,7 @@ vi.mock('../../components/ui/Toast', () => ({
 }))
 vi.mock('../../components/billing/InvoiceDetailModal', () => ({
   InvoiceDetailModal: ({ invoiceId, paymentId }: { invoiceId: number | null; paymentId: number | null }) =>
-    invoiceId ? <div>Detalhe local {invoiceId}/{paymentId}</div> : null,
+    invoiceId ? <div>Detalhe local {invoiceId}/{paymentId}<button>Imprimir recibo</button></div> : null,
 }))
 vi.mock('../../components/billing/ReconciliationHistoryTable', () => ({
   ReconciliationHistoryTable: ({
@@ -113,7 +113,7 @@ describe('Reconciliacao PIX user behaviours', () => {
     })
     mocks.reverseDemurrage.mockResolvedValue(undefined)
     mocks.getDemurrageDetail.mockResolvedValue({
-      invoice: { id: 31, doc_number: 'DEM-31' },
+      invoice: { id: 31, doc_number: 'DEM-31', status: 'paid', paid_at: '2026-06-25' },
       items: [],
     })
   })
@@ -150,9 +150,11 @@ describe('Reconciliacao PIX user behaviours', () => {
 
     await user.click(screen.getByRole('button', { name: 'Abrir local' }))
     expect(screen.getByText('Detalhe local 11/21')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Imprimir recibo' }).length).toBeGreaterThan(0)
 
     await user.click(screen.getByRole('button', { name: 'Abrir demurrage' }))
     expect(await screen.findByText('Recibo demurrage')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Imprimir recibo' }).length).toBeGreaterThan(0)
     const reverseButton = screen.getByRole('button', { name: 'Cancelar baixa' })
     expect((reverseButton as HTMLButtonElement).disabled).toBe(true)
 
