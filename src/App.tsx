@@ -69,6 +69,17 @@ function DocumentTitle() {
   return null
 }
 
+// O app é o mesmo SPA servido em dois domínios: `portal.<dominio>` é exclusivo
+// do Portal do Cliente; qualquer outro host (raiz, web.app, localhost) é o
+// sistema interno. Em host de Portal, rotas internas e a raiz caem em /portal.
+const isPortalHost = typeof window !== 'undefined' && window.location.hostname.startsWith('portal.')
+
+// Rota-padrão para quem cai em "/" ou num caminho sem correspondência: a
+// própria árvore de <Routes> redireciona esses casos para o dashboard de
+// cada host (Navigate), então pré-carregamos o mesmo chunk aqui para que o
+// import() comece em paralelo com a resolução de sessão, e não depois dela.
+const defaultPreload = isPortalHost ? PortalDashboard.preload : Painel.preload
+
 const routePreloads: RoutePreloadTable = [
   ['/portal/login', PortalLogin.preload], ['/portal/esqueci-senha', PortalForgotPassword.preload],
   ['/portal/recuperar-senha', PortalResetPassword.preload], ['/portal/ativar', PortalAtivacao.preload],
@@ -84,18 +95,16 @@ const routePreloads: RoutePreloadTable = [
   ['/embarquevazios/depots', DepotCadastro.preload], ['/embarquevazios', EmbarqueVazios.preload],
   ['/vazios-importacao', VaziosImportacao.preload], ['/baplie', BaplieEDI.preload], ['/chegadas-saidas', ChegadasSaidas.preload],
   ['/perfil', Profile.preload], ['/admin/usuarios', AdminUsuarios.preload],
+  ['/', defaultPreload], ['*', defaultPreload],
 ]
 
 function RoutePreloader() {
   const { pathname } = useLocation()
-  useEffect(() => { void matchRoutePreload(pathname, routePreloads)?.() }, [pathname])
+  useEffect(() => {
+    matchRoutePreload(pathname, routePreloads)?.().catch(() => {})
+  }, [pathname])
   return null
 }
-
-// O app é o mesmo SPA servido em dois domínios: `portal.<dominio>` é exclusivo
-// do Portal do Cliente; qualquer outro host (raiz, web.app, localhost) é o
-// sistema interno. Em host de Portal, rotas internas e a raiz caem em /portal.
-const isPortalHost = typeof window !== 'undefined' && window.location.hostname.startsWith('portal.')
 
 export default function App() {
   return (

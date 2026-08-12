@@ -64,7 +64,7 @@ export function lazyPage<T extends Record<string, unknown>, K extends keyof T & 
   loader: () => Promise<T>,
   exportName: K,
 ) {
-  let promise: ReturnType<typeof createLazyPageLoader<T, K>> | undefined
+  let promise: Promise<{ default: ComponentType }> | undefined
   const load = () => {
     promise ??= createLazyPageLoader(loader, exportName)()
     return promise.catch((error) => {
