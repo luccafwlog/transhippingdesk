@@ -46,9 +46,6 @@ export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
 
       <InvoiceDocTitle uppercase>{title}</InvoiceDocTitle>
 
-      {type === 'receipt' && paymentDate ? (
-        <div style={{ margin: '0 0 12px', textAlign: 'center', fontWeight: 700 }}>Pago em {formatDate(paymentDate)}</div>
-      ) : null}
 
       {/* Metadata */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
@@ -142,6 +139,11 @@ export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
             <td colSpan={3} style={dataTotalCell}>TOTAL:</td>
             <td style={dataTotalCell}>{fmtBRL(invoice.total_brl)}</td>
           </tr>
+          {type === 'receipt' && paymentDate ? (
+            <tr>
+              <td colSpan={4} style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>Pago em {formatDate(paymentDate)}</td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
 
