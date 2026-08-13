@@ -303,10 +303,22 @@ própria viagem; o snapshot de fechamento é revalidado no banco pela migration
 projeção compartilhada unifica POL/POD/EXP por escala brasileira, e o alerta
 pós-ATD do ADR enxerga também o ATD documental do POL sem retroagir o baseline.
 
+A migration `290` (ADR 0044) corrige o eixo de leitura de `014`/`020`/`066`/
+`111`: 13 tabelas financeiras (`charge_tables`, `invoices`, `payments`, o
+ledger de recebíveis etc.) tinham `SELECT` restrito a `is_admin()`, um
+resquício do modelo antigo admin/operator. Agora usam `is_active_read_user()`
+como qualquer dado interno — a restrição por departamento é sobre escrita, não
+sobre leitura. A mesma migration cria `can_edit_local_charges()` e alinha o
+`INSERT`/`UPDATE`/`DELETE` de `charge_tables`/`charge_table_items`/
+`customer_rate_overrides` à permissão `charge_tables`/`charge_overrides` de
+`roleHasPermission`, que já incluía Documentação sem a RLS correspondente.
+
 ### Segurança
 
 - RLS protege tabelas expostas;
-- helpers como `is_active_user()` e `is_admin()` sustentam policies;
+- helpers como `is_active_user()`, `is_active_read_user()` e `is_admin()`
+  sustentam policies — leitura de dado interno usa `is_active_read_user()`
+  (inclui Equipamentos), nunca `is_active_user()` (211);
 - operações financeiras e destrutivas usam RPCs ou policies restritas;
 - funções privilegiadas têm `search_path` controlado e grants explícitos;
 - `anon` segue default-deny, exceto funções pré-autenticação documentadas;

@@ -107,6 +107,7 @@ describe('Taxas Locais user behaviours', () => {
         setCargoModeFilter={vi.fn()}
         podFilter=""
         setPodFilter={vi.fn()}
+        canEdit
       />,
     )
 
@@ -131,6 +132,7 @@ describe('Taxas Locais user behaviours', () => {
         setCargoModeFilter={vi.fn()}
         podFilter=""
         setPodFilter={vi.fn()}
+        canEdit
       />,
     )
 
@@ -156,6 +158,7 @@ describe('Taxas Locais user behaviours', () => {
         setCargoModeFilter={vi.fn()}
         podFilter=""
         setPodFilter={vi.fn()}
+        canEdit
       />,
     )
 
@@ -181,6 +184,7 @@ describe('Taxas Locais user behaviours', () => {
         setCargoModeFilter={vi.fn()}
         podFilter=""
         setPodFilter={vi.fn()}
+        canEdit
       />,
     )
 
@@ -191,5 +195,37 @@ describe('Taxas Locais user behaviours', () => {
     await user.click(screen.getByRole('button', { name: 'Excluir override' }))
     expect(mocks.confirm).toHaveBeenCalled()
     expect(mocks.deleteOverride).toHaveBeenCalledWith(20)
+  })
+
+  it('mostra a tabela de tabelas sem controles de escrita quando canEdit e falso', () => {
+    render(
+      <ChargeTablesTab
+        cargoModeFilter=""
+        setCargoModeFilter={vi.fn()}
+        podFilter=""
+        setPodFilter={vi.fn()}
+        canEdit={false}
+      />,
+    )
+
+    expect(screen.getByText('Tabela Vitória')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Nova tabela / Novo item' })).toBeNull()
+    expect(screen.queryByLabelText('Editar tabela')).toBeNull()
+  })
+
+  it('mostra os overrides sem formulario nem acoes de escrita quando canEdit e falso', () => {
+    render(
+      <ChargeOverridesTab
+        cargoModeFilter=""
+        setCargoModeFilter={vi.fn()}
+        podFilter=""
+        setPodFilter={vi.fn()}
+        canEdit={false}
+      />,
+    )
+
+    expect(screen.getByText('Cliente A')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Criar override' })).toBeNull()
+    expect(screen.queryByLabelText('Editar override')).toBeNull()
   })
 })

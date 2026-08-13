@@ -1,8 +1,9 @@
 # Plano — leitura global interna por departamento
 
-Status: TODO
+Status: DONE — executado em 2026-08-13 na mesma PR desta auditoria (migration
+`290`, ADR 0044).
 
-Origem: [`docs/archive/audits/2026-08-13-rbac-departamentos-visualizacao.md`](../archive/audits/2026-08-13-rbac-departamentos-visualizacao.md)
+Origem: [`docs/archive/audits/2026-08-13-rbac-departamentos-visualizacao.md`](../audits/2026-08-13-rbac-departamentos-visualizacao.md)
 
 ## Objetivo
 
@@ -14,16 +15,16 @@ pode alterar.
 Não-objetivos: mexer no RBAC do Portal do Cliente; afrouxar qualquer escrita;
 mudar a matriz de `roleHasPermission`, que já está alinhada ao `CONTEXT.md`.
 
-## Etapa 1 — abrir a leitura financeira no banco (P0)
+## Etapa 1 — abrir a leitura financeira no banco (P0) e alinhar a escrita de Taxas Locais (P0b)
 
 Migration nova `290_financial_reads_by_department.sql`, revertendo o eixo de
-leitura de `014`, `020`, `066` e `111` e preservando integralmente o eixo de
-escrita.
+leitura de `014`, `020`, `066` e `111`, em duas seções.
 
-Para cada uma das 13 tabelas — `charge_tables`, `charge_table_items`,
-`customer_rate_overrides`, `charge_calculations`, `invoices`, `invoice_items`,
-`payments`, `invoice_bls`, `bl_receivables`, `invoice_receivable_links`,
-`ledger_settlements`, `invoice_lifecycle_events`, `invoice_refunds`:
+**Seção 1 — leitura.** Para cada uma das 13 tabelas — `charge_tables`,
+`charge_table_items`, `customer_rate_overrides`, `charge_calculations`,
+`invoices`, `invoice_items`, `payments`, `invoice_bls`, `bl_receivables`,
+`invoice_receivable_links`, `ledger_settlements`, `invoice_lifecycle_events`,
+`invoice_refunds`:
 
 1. `DROP POLICY IF EXISTS <t>_select_admin ON public.<t>`;
 2. `CREATE POLICY <t>_select_read ON public.<t> FOR SELECT TO authenticated
@@ -33,11 +34,23 @@ Usar `is_active_read_user()`, **não** `is_active_user()`: a segunda exclui
 `equipamentos` desde `211:11-21`, e `CONTEXT.md:1243-1246` dá a Equipamentos
 leitura no restante do sistema.
 
-Não tocar em nenhuma policy de `INSERT`/`UPDATE`/`DELETE`: elas continuam em
-`is_admin()` e são o que impede escrita indevida.
+Não tocar em nenhuma policy de `INSERT`/`UPDATE`/`DELETE` de `invoices`,
+`payments`, `demurrage_*` etc. — continuam em `is_admin()`.
+
+**Seção 2 — escrita de Taxas Locais (Achado P0b).** `charge_tables`,
+`charge_table_items` e `customer_rate_overrides` têm `INSERT`/`UPDATE`/`DELETE`
+presos a `is_admin()` desde `010_rls_by_role.sql`, um resquício do modelo
+antigo admin/operator nunca revisitado. `roleHasPermission` já concede
+`charge_tables`/`charge_overrides` a `documentacao`; sem corrigir a RLS, a
+Etapa 2 exporia formulários que sempre falham com `42501` ao salvar — pior do
+que a tela vazia atual. Uma função `can_edit_local_charges()`, no padrão de
+`can_edit_voyages()`/`can_edit_customers()` (`215:9-45`), com
+`role IN ('admin', 'administrativo', 'operator', 'documentacao')`, substitui
+`is_admin()` no `INSERT`/`UPDATE`/`DELETE` dessas três tabelas apenas.
 
 O cabeçalho da migration deve declarar que substitui o eixo de leitura de 014 e
-apontar para esta auditoria, conforme a `supabase-migration` skill.
+alinha a escrita de Taxas Locais, apontando para esta auditoria, conforme a
+`supabase-migration` skill.
 
 ## Etapa 2 — separar ver de gerenciar em Taxas Locais (P1)
 
@@ -71,31 +84,56 @@ o administrador precisa ver ao trocar o setor de alguém.
 
 Trocar `isAdmin` pela permissão correspondente, que o banco já concede:
 
-- `Viagens.tsx:187`, `VoyageCard.tsx:309`, `VoyageVisaoTab.tsx:189,263` →
-  `can('voyages_edit')`. Propagar como prop nos dois componentes, que hoje
-  recebem/leem `isAdmin`.
-- `Baplie.tsx:228,263` → usar `canImportVazios`, já calculado em `:39`.
+- `Viagens.tsx:187` (Nova Viagem), `VoyageVisaoTab.tsx:189,263` (escala,
+  omitir POD) → `can('voyages_edit')`. `voyages_insert_active`/
+  `voyages_update_active` (`010`) já usam `is_active_user()` — qualquer
+  perfil ativo não-Equipamentos — e `omit_voyage_escala` (`215:166-181`) só
+  exige `is_active_user()`, então o gate `voyages_edit` na UI é só o que
+  restringe visualmente a administrativo/operacoes/documentacao; o banco não
+  rejeita.
+- `VoyageCard.tsx:309` — **não** trocar o bloco inteiro. Editar e Cancelar
+  viagem vão para `can('voyages_edit')` (a policy de `UPDATE` de `voyages` é
+  `is_active_user()`); Excluir viagem **mantém** `isAdmin`, porque
+  `voyages_delete_admin` (`010`) exige `is_admin()` — um gate de escrita mais
+  largo aqui deixaria Operações/Documentação verem o botão e receberem
+  `42501`.
+- `Baplie.tsx:228,263` (Reimportar/Importar Baplie EDI) → `can('manifests_upload')`,
+  **não** `canImportVazios`. `canImportVazios` (`:39`) é `effectiveRole !==
+  'equipamentos'`, que inclui `financeiro` e `operacoes` — nenhum dos dois
+  tem `manifests_upload` em `roleHasPermission`. `canImportVazios` continua
+  reservado ao seu uso atual em `:281` (gate de Vazios dentro do fluxo
+  Baplie), que este plano não altera.
 - `Demurrage.tsx:330` → mostrar o link "Tarifas" para todos; a página de
   tarifas já protege a escrita sozinha.
 - `Clientes.tsx:151` → incluir `equipamentos` em `canSeePortalQueue`.
 
 Manter `isAdmin` onde o gate é exclusão em massa (`Containers.tsx`,
-`Manifestos.tsx`) e reabertura de ADR — são destrutivos e o banco também os
-restringe.
+`Manifestos.tsx`), exclusão de viagem e reabertura de ADR — são destrutivos e
+o banco também os restringe a `is_admin()`.
 
 ## Etapa 5 — testes
 
 1. **Contrato SQL** — `src/services/__tests__/financialReadsByDepartmentMigration.test.ts`,
    no padrão dos testes de migration existentes: a `290` dropa os 13
-   `_select_admin` financeiros, cria os `_select_read` com
-   `is_active_read_user()` e **não** contém nenhum `FOR INSERT`, `FOR UPDATE`
-   ou `FOR DELETE`.
+   `_select_admin` financeiros e cria os `_select_read` com
+   `is_active_read_user()`; separadamente, confirma que `charge_tables`,
+   `charge_table_items` e `customer_rate_overrides` trocam `INSERT`/`UPDATE`/
+   `DELETE` de `is_admin()` para `can_edit_local_charges()`, e que nenhuma
+   outra tabela financeira ganha policy de escrita nova.
 2. **Comportamento** — teste de `TaxasLocais` provando que as duas abas
    renderizam com `can` sempre `false`, e que os controles de escrita somem.
 3. **Corrigir o teste vacuamente verde** —
-   `src/integration/supabase.integration.test.ts:164` passa a exigir
-   `expect(invoices.data).not.toHaveLength(0)` além de `error === null`; sem
-   isso a regressão volta silenciosa.
+   `src/integration/supabase.integration.test.ts:164` (`RLS financeiro
+   permite leitura e bloqueia mutacao para operador`) precisa de uma fatura
+   garantida antes de trocar para a sessão do operador — a fixture de
+   `validation_seed.sql` não insere nenhuma, e o teste roda antes do teste
+   opcional de billing flow que criaria uma. Duas opções: mover este teste
+   para depois de `billingFlowTest` e reaproveitar a fatura que ele cria, ou
+   inserir uma fatura própria no `beforeAll`/setup deste teste com o cliente
+   `client` (papel privilegiado) antes de logar como operador. Só então
+   `expect(invoices.data).not.toHaveLength(0)` distingue "RLS filtrou" de
+   "tabela vazia" — sem isso a asserção pode falhar por ausência de dado, não
+   por regressão de RLS, ou (no estado atual) passar vacuamente.
 4. Estender `roleHasPermission.test.ts` só se a Etapa 4 alterar a matriz — a
    princípio não altera.
 

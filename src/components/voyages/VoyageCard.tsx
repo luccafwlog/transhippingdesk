@@ -129,7 +129,8 @@ export function VoyageCard({
 }: VoyageCardProps) {
   const [activeTab, setActiveTab] = useState<VoyageTabKey>(initialTab)
   const [omitTarget, setOmitTarget] = useState<string | null>(null)
-  const { isAdmin, user } = useAuth()
+  const { isAdmin, user, can } = useAuth()
+  const canEditVoyages = can('voyages_edit')
 
   const vehicleStats = vehicleStatsProp ?? DEFAULT_VEHICLE_STATS
   const vaziosImpStats = vaziosImpStatsProp ?? DEFAULT_VAZIOS_IMP_STATS
@@ -306,30 +307,38 @@ export function VoyageCard({
             </div>
           </div>
 
-          {isAdmin ? (
+          {canEditVoyages || isAdmin ? (
             <div className="flex items-center gap-2 self-start">
-              <Button variant="ghost" className="app-voyage-action-icon" onClick={() => onEditVoyage(voyage.id)}>
-                <Pencil size={15} />
-                Editar
-              </Button>
-              <Button
-                variant="ghost"
-                className="app-voyage-action-icon app-voyage-action-icon--danger"
-                onClick={() => onCancelVoyage(voyage.id)}
-                disabled={voyage.status === 'cancelled'}
-              >
-                <Ban size={15} />
-                Cancelar viagem
-              </Button>
-              <Button
-                variant="ghost"
-                className="app-voyage-action-icon app-voyage-action-icon--danger"
-                onClick={() => onDeleteVoyage(voyage.id)}
-                aria-label="Excluir viagem"
-                title="Excluir viagem"
-              >
-                <Trash2 size={15} />
-              </Button>
+              {canEditVoyages ? (
+                <>
+                  <Button variant="ghost" className="app-voyage-action-icon" onClick={() => onEditVoyage(voyage.id)}>
+                    <Pencil size={15} />
+                    Editar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="app-voyage-action-icon app-voyage-action-icon--danger"
+                    onClick={() => onCancelVoyage(voyage.id)}
+                    disabled={voyage.status === 'cancelled'}
+                  >
+                    <Ban size={15} />
+                    Cancelar viagem
+                  </Button>
+                </>
+              ) : null}
+              {isAdmin ? (
+                // deleteVoyage faz DELETE real em voyages, cuja policy exige
+                // is_admin() (010_rls_by_role) — nao alinhar com voyages_edit.
+                <Button
+                  variant="ghost"
+                  className="app-voyage-action-icon app-voyage-action-icon--danger"
+                  onClick={() => onDeleteVoyage(voyage.id)}
+                  aria-label="Excluir viagem"
+                  title="Excluir viagem"
+                >
+                  <Trash2 size={15} />
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </div>

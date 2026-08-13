@@ -53,7 +53,8 @@ export function Viagens() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const { isAdmin, user } = useAuth()
+  const { user, can } = useAuth()
+  const canEditVoyages = can('voyages_edit')
   const confirm = useConfirm()
   const { data, isLoading, error } = useVoyages()
   const [open, setOpen] = useState(false)
@@ -184,7 +185,7 @@ export function Viagens() {
         title="Viagens"
         description="Cadastro de navio/viagem com planejamento de escalas e visão separada entre operação de importação e exportação."
         action={
-          isAdmin ? (
+          canEditVoyages ? (
             <Button onClick={() => setOpen(true)}>
               <Plus size={16} />
               Nova Viagem

@@ -10,7 +10,6 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
-| [2026-08-13-rbac-leitura-global-por-departamento](2026-08-13-rbac-leitura-global-por-departamento.md) | RBAC: leitura global interna; departamento restringe escrita | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

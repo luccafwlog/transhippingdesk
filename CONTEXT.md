@@ -1230,9 +1230,12 @@ pendências ou atividade relevante. Financeiro consulta no sistema e Operações
 não recebe pendências do Portal.
 
 **Visualização global interna**
-Capacidade do perfil Financeiro de abrir todas as telas e consultar todos os
-registros, sem autorização para alterar dados. A única escrita do Financeiro é
-a conciliação de pagamentos.
+Todo perfil interno ativo (Administrativo, Financeiro, Operações, Documentação,
+Equipamentos) abre todas as telas e consulta todos os registros, inclusive
+dados financeiros e de tarifação. A restrição por departamento é sobre o que
+cada perfil pode **alterar**, não sobre o que pode ver — RLS 42501 é a resposta
+esperada para uma escrita fora do escopo do perfil, nunca para uma leitura. A
+única escrita do Financeiro é a conciliação de pagamentos.
 
 **Escopo de Operações**
 Perfil com ações completas em Viagens e leitura operacional de B/Ls, containers,
@@ -1240,15 +1243,17 @@ veículos e manifestos vinculados. Não pode subir, editar ou excluir B/Ls, nem
 alterar Clientes, Portal ou Financeiro.
 
 **Escopo de Equipamentos**
-Perfil com ações completas em Vazios de Exportação (VAZIOS EXP) e Veículos,
-além do Sign-off Departamental das suas seções do ADR (veículos e embarque de
-vazios). Leitura no restante do sistema. Não altera Clientes,
+Perfil com ações completas em Vazios de Exportação (VAZIOS EXP), Veículos e
+Depots, além do Sign-off Departamental das suas seções do ADR (veículos e
+embarque de vazios). Leitura no restante do sistema. Não altera Clientes,
 Portal ou Financeiro.
 
 **Escopo de Documentação**
 Perfil com todas as ações de negócio, incluindo Clientes, Portal, B/Ls, Viagens,
 Faturamento, taxas, invoices e alertas, exceto conciliação de pagamentos. Não
-administra usuários internos, perfis ou permissões.
+administra usuários internos, perfis ou permissões, nem o cadastro de Depots —
+essa edição fica reservada a Equipamentos (dono operacional de VAZIOS EXP) e
+Administrativo.
 
 **Usuário interno atual**
 No escopo atual existe apenas `lucca.juliatti@fwlog.com.br`, com papel

@@ -81,12 +81,43 @@ describe('TaxasLocais', () => {
     expect(html).not.toContain('Recalcular pendencias')
   })
 
-  it('abre overrides quando essa e a unica capacidade disponivel', () => {
+  it('mostra as duas abas mesmo sem nenhuma permissao de escrita (visualizacao e global)', () => {
+    authState.capabilities = new Set()
+
+    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
+
+    expect(html).toContain('Tabelas')
+    expect(html).toContain('Overrides')
+    expect(html).not.toContain('Nova tabela / Novo item')
+  })
+
+  it('esconde os controles de escrita da aba Tabelas para quem so tem charge_overrides', () => {
     authState.capabilities = new Set(['charge_overrides'])
 
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
+    expect(html).not.toContain('Nova tabela / Novo item')
+  })
+
+  it('abre a aba Overrides com o formulario de escrita quando charge_overrides esta presente', () => {
+    authState.capabilities = new Set(['charge_overrides'])
+
+    const html = renderToStaticMarkup(
+      React.createElement(MemoryRouter, { initialEntries: ['/taxas-locais?tab=overrides'] }, React.createElement(TaxasLocais)),
+    )
+
     expect(html).toContain('Overrides por cliente')
     expect(html).toContain('Novo override')
+  })
+
+  it('mostra a aba Overrides sem formulario de escrita para quem so tem charge_tables', () => {
+    authState.capabilities = new Set(['charge_tables'])
+
+    const html = renderToStaticMarkup(
+      React.createElement(MemoryRouter, { initialEntries: ['/taxas-locais?tab=overrides'] }, React.createElement(TaxasLocais)),
+    )
+
+    expect(html).toContain('Overrides por cliente')
+    expect(html).not.toContain('Novo override')
   })
 })

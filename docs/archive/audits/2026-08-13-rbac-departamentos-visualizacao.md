@@ -96,9 +96,34 @@ afirma `RLS financeiro permite leitura` e valida apenas
 `042_rls_module_hardening.sql:16-17` diz "demurrage_invoices: alinha ao padrão
 de invoices (014). **SELECT: qualquer ativo**". Quem escreveu 042 já entendia
 014 como leitura aberta — e criou `demurrage_invoices_select_active` com
-`is_active_user()`. Demurrage é legível por todos os papéis não-Equipamentos;
-Faturamento não. A inconsistência entre os dois módulos financeiros é
-acidental.
+`is_active_user()`. `211_equipamentos_rbac_hardening.sql` depois varreu toda
+policy permissiva cujo `qual` contém `is_active_user()` — inclusive essa — e a
+reescreveu para `is_active_read_user()` (`211:82-155`), que também inclui
+Equipamentos. Resultado: Demurrage é legível por **todos** os papéis, inclusive
+Equipamentos; Faturamento continua travado em `is_admin()`. A inconsistência
+entre os dois módulos financeiros é acidental.
+
+## Achado P0b — escrita de Taxas Locais também presa a `is_admin()`
+
+**Evidência: Código** (`supabase/migrations/010_rls_by_role.sql:100-104,155-166`)
+
+`charge_tables`, `charge_table_items` e `customer_rate_overrides` entraram no
+grupo `admin_only_tables` de `010_rls_by_role.sql` desde o modelo antigo
+admin/operator, e nenhuma migration posterior tocou o INSERT/UPDATE/DELETE
+delas. `roleHasPermission` (`useAuth.tsx:41-46`) já concede as permissões
+`charge_tables` e `charge_overrides` a `documentacao`, e `CONTEXT.md:1249-1252`
+inclui "taxas" no escopo de negócio de Documentação — mas a RLS nunca foi
+alinhada. Hoje, mesmo com a UI liberando os formulários, `saveChargeTable`,
+`saveChargeTableItem`, `saveCustomerRateOverride` e as três operações de
+exclusão (`chargeTableService.ts`, `chargeRateService.ts`) falham com `42501`
+para qualquer papel que não seja `administrativo`.
+
+Isso é anterior a esta auditoria — não é causado pelo P0 — mas a correção do
+P0 o torna visível: sem também corrigir a escrita, Financeiro/Operações
+passam a ver a aba de Taxas Locais (depois do Achado P1) com formulários que
+sempre falham ao salvar, uma regressão de UX pior do que a tela vazia atual
+para quem tenta editar. A correção de leitura e a de escrita precisam andar
+juntas.
 
 ## Achado P1 — Taxas Locais usa permissão de escrita como gate de leitura
 
@@ -164,7 +189,7 @@ Leitura (`✓` = enxerga, `∅` = tela/lista vazia):
 | Painel, Viagens, Alertas | ✓ | ✓ | ✓ | ✓ | ✓ |
 | B/Ls, Containers, Veículos, Manifestos | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Granito, VAZIOS EXP/IMP, Depots | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Demurrage (faturas) | ✓ | ✓ | ✓ | ✓ | ∅ (`is_active_user`) |
+| Demurrage (faturas) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Taxas Locais** | ✓ | ∅ (aba + RLS) | ∅ (aba + RLS) | ∅ (RLS) | ∅ (aba + RLS) |
 | **Faturamento / Relatórios / Conciliação** | ✓ | ∅ | ∅ | ∅ | ∅ |
 | **Ficha do Cliente → Financeiro** | ✓ | ∅ | ∅ | ∅ | ∅ |

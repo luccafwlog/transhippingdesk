@@ -35,8 +35,9 @@ export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
   const voyageId = searchParams.get('voyage') ?? ''
   const { showToast } = useToast()
-  const { effectiveRole, user, isAdmin } = useAuth()
+  const { effectiveRole, user, can } = useAuth()
   const canImportVazios = effectiveRole !== 'equipamentos'
+  const canUploadManifests = can('manifests_upload')
   const queryClient = useQueryClient()
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
@@ -225,7 +226,7 @@ export function Baplie() {
         action={voyageId && containers.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" loading={exporting} onClick={handleExport}><Download size={16} /> Exportar Baplie EDI</Button>
-            {isAdmin ? <Button variant="secondary" onClick={() => setUploadOpen(true)}><Upload size={16} /> Reimportar Baplie EDI</Button> : null}
+            {canUploadManifests ? <Button variant="secondary" onClick={() => setUploadOpen(true)}><Upload size={16} /> Reimportar Baplie EDI</Button> : null}
           </div>
         ) : null}
       />
@@ -260,7 +261,7 @@ export function Baplie() {
           <div className="py-6 text-center text-sm text-slate-400">Carregando...</div>
         </Card>
       ) : !hasStaging ? (
-        <StateA canImport={isAdmin} onUpload={() => setUploadOpen(true)} />
+        <StateA canImport={canUploadManifests} onUpload={() => setUploadOpen(true)} />
       ) : (
         <>
           <StatsSection
@@ -335,7 +336,7 @@ function StateA({ canImport, onUpload }: { canImport: boolean; onUpload: () => v
             Importar Baplie EDI
           </Button>
         ) : (
-          <div className="text-sm text-amber-200">A importacao Baplie exige perfil administrativo.</div>
+          <div className="text-sm text-amber-200">A importação Baplie exige a permissão de upload de manifestos.</div>
         )}
       </div>
     </Card>

@@ -67,9 +67,9 @@ export const PROFILE_LABELS: Record<UserProfileRole, string> = {
 export const MANAGED_PROFILES: UserProfileRole[] = ['administrativo', 'financeiro', 'operacoes', 'documentacao', 'equipamentos']
 
 export const PROFILE_SCOPES: Record<string, string> = {
-  administrativo: 'Acesso global a todos os módulos e configurações.',
-  financeiro: 'Visualização completa + edição em Taxas Locais (Tabelas/Overrides), Demurrage, Faturamento e Conciliação.',
-  operacoes: 'Cadastro de Viagens, upload de manifestos e planilha IMO.',
-  documentacao: 'Acesso amplo ao sistema, exceto tela Admin e configurações administrativas.',
-  equipamentos: 'Leitura geral + edição restrita a Vazios (EXP) e Veículos, incluindo o sign-off das suas seções no ADR.',
+  administrativo: 'Visualização e edição completas em todos os módulos e configurações.',
+  financeiro: 'Visualização completa de todos os módulos. Única edição: conciliação de pagamentos.',
+  operacoes: 'Visualização completa de todos os módulos. Única edição: cadastro de Viagens.',
+  documentacao: 'Visualização completa de todos os módulos. Edição de todas as ações de negócio (Clientes, Portal, B/Ls, Viagens, Taxas Locais, Faturamento), exceto conciliação de pagamentos e administração de usuários.',
+  equipamentos: 'Visualização completa de todos os módulos. Edição restrita a Vazios (EXP), Veículos e Depots, incluindo o sign-off das suas seções no ADR.',
 }

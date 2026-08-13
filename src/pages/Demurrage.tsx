@@ -8,7 +8,6 @@ import { Field, Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
-import { useAuth } from '../hooks/useAuth'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { CustomerReportModal } from '../components/demurrage/CustomerReportModal'
 import { DemurrageContainersTab } from '../components/demurrage/DemurrageContainersTab'
@@ -63,7 +62,6 @@ export function Demurrage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { isAdmin } = useAuth()
   const [tab, setTab] = useState<DemurrageTab>('containers')
   // ?busca= permite que alertas de demurrage abram a página já filtrada.
   const [searchParams] = useSearchParams()
@@ -327,11 +325,9 @@ export function Demurrage() {
         description="Rastreamento e faturamento de sobreestadia de containers"
         action={
           <>
-            {isAdmin && (
-              <Link to="/demurrage/taxas">
-                <Button variant="secondary"><DollarSign size={15} />Tarifas</Button>
-              </Link>
-            )}
+            <Link to="/demurrage/taxas">
+              <Button variant="secondary"><DollarSign size={15} />Tarifas</Button>
+            </Link>
             <Button variant="secondary" onClick={() => setImportOpen(true)}><Upload size={15} />Importar Datas</Button>
             <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}><DollarSign size={15} />Informar PTAX</Button>
           </>
