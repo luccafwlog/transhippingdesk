@@ -16,7 +16,9 @@ type PortalAuthContextValue = {
   refreshOverview: () => Promise<void>
 }
 
-const PortalAuthContext = createContext<PortalAuthContextValue | null>(null)
+// Exportado para `usePortalScope`, que precisa ler a sessao do Cliente sem
+// lancar quando ela nao existe (modo Inspecao e testes isolados).
+export const PortalAuthContext = createContext<PortalAuthContextValue | null>(null)
 
 function isPortalSessionError(error: unknown) {
   const code = typeof error === 'object' && error ? String((error as { code?: string }).code ?? '') : ''
