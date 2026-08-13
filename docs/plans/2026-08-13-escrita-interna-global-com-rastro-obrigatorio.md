@@ -88,8 +88,14 @@ SET search_path = public, pg_temp AS $$
   END;
 $$;
 
+-- Dois comandos, não um. `ADD COLUMN ... DEFAULT <expr>` avalia a expressão
+-- UMA vez e grava o resultado em todas as linhas existentes (attmissingval,
+-- PG 11+) — com `current_actor_role()` sendo STABLE, toda a história herdaria
+-- o papel de quem rodou a migration. Adicionar sem default e só então
+-- declarar o default preserva `NULL` no passado e avalia por INSERT no futuro.
+ALTER TABLE public.audit_logs ADD COLUMN actor_role TEXT;
 ALTER TABLE public.audit_logs
-  ADD COLUMN actor_role TEXT DEFAULT public.current_actor_role();
+  ALTER COLUMN actor_role SET DEFAULT public.current_actor_role();
 ```
 
 `NULL` volta a significar uma coisa só — identidade sem perfil ativo, anomalia
@@ -107,8 +113,18 @@ Volume limitado por desenho:
 - `UPDATE` → uma linha **por campo alterado** (formato atual de `audit_logs`)
 - `DELETE` → **uma** linha, `field_name = 'excluido'`
 
-`entity_type` = `TG_TABLE_NAME`; `entity_id` = a chave primária;
+`entity_type` = `TG_TABLE_NAME`; `entity_id` = a chave primária **convertida
+para texto** (`bls.id` é `TEXT`, `granite_bls.id` é `UUID`, o resto é `BIGINT`);
 `changed_by` = `auth.uid()`; `actor_role` cai no `DEFAULT`.
+
+**A função precisa ser `SECURITY DEFINER`.** A policy `audit_logs_insert_self`
+exige `is_active_user() AND changed_by = auth.uid()` (`014:41`, endurecida em
+`096:34`). Um trigger rodando como o chamador seria rejeitado em dois casos
+previsíveis: escrita de `service_role` (sem `auth.uid()` — exatamente o ator
+`sistema` que 1.1 introduz) e, na janela entre a 294 e a 295, qualquer escrita
+legítima de Equipamentos, que `is_active_user()` ainda exclui — quebraria
+VAZIOS EXP e Veículos em produção. Além do mais, o registro de auditoria não
+pode ser recusável pelo próprio autor do ato.
 
 ### 1.3 A quem o trigger é aplicado — critério de grão
 
@@ -422,6 +438,20 @@ negando. Corrigir para asserir linhas, não ausência de erro — foi essa asser
 vazia que deixou o furo original passar.
 
 ---
+
+## Pendências antes de executar
+
+| # | Pendência | Bloqueia |
+|---|---|---|
+| 1 | Aval da regra de desambiguação de exclusão (as três RPCs de linha manual seguem abertas) | Etapa 2 |
+| 2 | Autorização para regenerar `src/types/database.ts`, protegido por `.claude/hooks/protect-files.sh` — a coluna `actor_role` e as seis funções dropadas mudam os tipos gerados | Etapas 1 e 3 |
+| 3 | Confirmar o próximo número livre de migration; `293` está reservada por trabalho paralelo ainda não mergeado | Etapas 1 e 2 |
+| 4 | Medir o volume de `UPDATE` em `charge_calculations` num recálculo real de viagem cheia antes de ligar o trigger nela — é a única tabela da lista que uma ação humana altera em massa | Etapa 1 |
+
+A pendência 4 tem saída conhecida se o volume assustar: manter
+`charge_calculations` fora do trigger e cobrir a recalculação pelo evento de
+`import_batches`, que já registra o lote — mesma lógica de grão aplicada às
+demais tabelas filhas.
 
 ## Ordem e risco
 
