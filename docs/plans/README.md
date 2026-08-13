@@ -10,7 +10,6 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
-| [2026-08-12-remediacao-seguranca-portal](2026-08-12-remediacao-seguranca-portal.md) | Segurança do Portal do Cliente — remediação da auditoria de 2026-08-12 | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

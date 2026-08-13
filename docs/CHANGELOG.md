@@ -3,6 +3,15 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Remediação de segurança do Portal do Cliente:** `import_manifest_transactional`
+  ganha guarda de identidade (sessão interna ativa + `p_uploaded_by = auth.uid()`,
+  migration `290`), `/portal/esqueci-senha` deixa de enumerar CNPJs cadastrados,
+  o token de reset/ativação é removido da URL e da telemetria, o CORS do
+  `portal-invite-activate` passa a usar a allowlist, e o grant residual a
+  `anon` em `portal_invoice_details` é revogado. *(plano arquivado
+  `2026-08-12-remediacao-seguranca-portal`; origem: auditoria
+  `security-audit-portal-2026-08-12`)*
+
 - **Controles de vencimento e COD:** administrador pode ajustar o vencimento de
   uma invoice aberta (RPC `update_invoice_due_date`, migration `282`), com o
   detector de atraso mantido como única rotina que transiciona para `overdue`;

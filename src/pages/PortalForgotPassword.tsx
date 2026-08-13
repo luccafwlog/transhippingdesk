@@ -20,10 +20,8 @@ export function PortalForgotPassword() {
     try {
       const { data, error: resetError } = await supabasePortal.functions.invoke('portal-password-recovery', { body: { cnpj } })
       if (resetError) throw resetError
-      setSent(data?.account_found === true && data?.email_sent === true)
-      if (data?.account_found === null) setError('Não foi possível verificar o CNPJ agora. Aguarde alguns minutos e tente novamente.')
-      else if (data?.account_found !== true) setError('Não existe uma conta do Portal vinculada a este CNPJ.')
-      else if (data?.email_sent !== true) setError('Existe uma conta vinculada, mas não foi possível enviar o email de recuperação. Solicite atendimento à Transhipping.')
+      if (data?.rate_limited === true) setError('Não foi possível verificar o CNPJ agora. Aguarde alguns minutos e tente novamente.')
+      else setSent(true)
     } catch (err: unknown) {
       void err
       setError('Se o CNPJ informado estiver cadastrado, enviaremos um link para redefinir sua senha.')
@@ -39,11 +37,11 @@ export function PortalForgotPassword() {
           <div className="app-auth__brand">
             <img alt="Transhipping" className="app-auth__logo app-auth__logo--on-light" src="/branding/transhipping-logo.png" />
             <div>
-              <h1 className="app-auth__title">Conta encontrada</h1>
+              <h1 className="app-auth__title">Solicitação recebida</h1>
             </div>
           </div>
           <p className="text-sm text-[var(--app-muted)]">
-            Existe uma conta do Portal vinculada ao CNPJ informado. Enviamos um link para redefinir sua senha ao email cadastrado.
+            Se houver uma conta do Portal para este CNPJ, enviamos um link de redefinição ao email cadastrado.
           </p>
           <div className="mt-4 text-center">
             <Link to="/portal/login" className="text-sm text-[var(--app-link)] hover:underline">

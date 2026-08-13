@@ -25,6 +25,16 @@ export function scrubPii(text: string): string {
     .replace(BARE_CPF_RE, '[digits11]')
 }
 
+// httpContextIntegration (default do @sentry/browser) grava event.request.url
+// = location.href no preprocessEvent, que roda ANTES do beforeSend. Telas do
+// Portal recebem token de reset/ativacao na query string; nenhuma query do
+// Portal e necessaria para diagnostico, entao a query inteira e removida em
+// vez de manter uma lista de nomes sensiveis, que envelhece mal.
+export function redactUrlQueryString(url: string): string {
+  const queryIndex = url.indexOf('?')
+  return queryIndex === -1 ? url : url.slice(0, queryIndex)
+}
+
 export function scrubEventValue(value: unknown, depth = 0): unknown {
   if (typeof value === 'string') return scrubPii(value)
   if (value == null || typeof value !== 'object') return value
@@ -58,6 +68,10 @@ export function initTelemetry(): void {
       event.breadcrumbs?.forEach((breadcrumb) => {
         if (breadcrumb.message) breadcrumb.message = scrubPii(breadcrumb.message)
       })
+      if (event.request) {
+        if (event.request.url) event.request.url = redactUrlQueryString(event.request.url)
+        if (event.request.headers?.Referer) event.request.headers.Referer = redactUrlQueryString(event.request.headers.Referer)
+      }
       return event
     },
   })

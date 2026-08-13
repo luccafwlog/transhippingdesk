@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { reportBestEffortFailure, scrubEventValue, scrubPii } from '../telemetry'
+import { redactUrlQueryString, reportBestEffortFailure, scrubEventValue, scrubPii } from '../telemetry'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -59,6 +59,23 @@ describe('scrubPii', () => {
   it('preserva texto sem PII', () => {
     const message = 'Erro no job 12345 para id 550e8400-e29b-41d4-a716-446655440000'
     expect(scrubPii(message)).toBe(message)
+  })
+})
+
+describe('redactUrlQueryString', () => {
+  // Achado 3.3 (auditoria 2026-08-12): httpContextIntegration grava
+  // event.request.url = location.href antes do beforeSend rodar; telas de
+  // reset/ativacao do Portal carregam o token na query string.
+  it('remove a query string de uma URL com token', () => {
+    expect(redactUrlQueryString('https://portal.transhippingdesk.com.br/portal/recuperar-senha?token=SEGREDO')).toBe(
+      'https://portal.transhippingdesk.com.br/portal/recuperar-senha',
+    )
+  })
+
+  it('preserva URL sem query string', () => {
+    expect(redactUrlQueryString('https://portal.transhippingdesk.com.br/portal/login')).toBe(
+      'https://portal.transhippingdesk.com.br/portal/login',
+    )
   })
 })
 
