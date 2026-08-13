@@ -106,6 +106,7 @@ DECLARE
   v_def TEXT;
   v_core TEXT;
   v_core_args TEXT;
+  v_core_types TEXT;
 BEGIN
   FOR r IN SELECT * FROM (VALUES
     ('portal_list_invoices()'::regprocedure, 'portal_list_invoices', '()'),
@@ -126,6 +127,16 @@ BEGIN
       WHEN r.fn_name = 'portal_list_notifications' THEN 'p_customer_id BIGINT, p_limit INTEGER'
       ELSE 'p_customer_id BIGINT'
     END;
+    -- ponytail: kept as a second CASE (not derived from v_core_args by
+    -- stripping names) so the REVOKE's type list is visibly tied to each
+    -- function's real core signature; the earlier bug here was a blanket
+    -- "BIGINT, BIGINT" that silently didn't match portal_list_notifications'
+    -- (BIGINT, INTEGER) core, only surfacing when the migration ran for real.
+    v_core_types := CASE
+      WHEN r.fn_name IN ('portal_invoice_details', 'portal_get_demurrage_invoice_detail') THEN 'BIGINT, BIGINT'
+      WHEN r.fn_name = 'portal_list_notifications' THEN 'BIGINT, INTEGER'
+      ELSE 'BIGINT'
+    END;
     v_core := regexp_replace(v_def,
       'CREATE OR REPLACE FUNCTION public\.' || r.fn_name || '\([^)]*\)',
       'CREATE FUNCTION public._' || r.fn_name || '_core(' || v_core_args || ')', 1, 1);
@@ -133,7 +144,7 @@ BEGIN
     v_core := replace(v_core, 'public.current_portal_customer_id()', 'p_customer_id');
     v_core := replace(v_core, 'v_customer_id', 'p_customer_id');
     EXECUTE v_core;
-    EXECUTE format('REVOKE ALL ON FUNCTION public._%I_core(%s) FROM PUBLIC, anon, authenticated', r.fn_name, CASE WHEN r.fn_args = '()' THEN 'BIGINT' ELSE 'BIGINT, BIGINT' END);
+    EXECUTE format('REVOKE ALL ON FUNCTION public._%I_core(%s) FROM PUBLIC, anon, authenticated', r.fn_name, v_core_types);
   END LOOP;
 END;
 $migration$;
@@ -167,7 +178,7 @@ END;
 $migration$;
 
 CREATE OR REPLACE FUNCTION public.portal_list_invoices()
-RETURNS TABLE(id BIGINT, invoice_number TEXT, issued_at TIMESTAMPTZ, due_date DATE, total_brl NUMERIC, total_paid_brl NUMERIC, balance_brl NUMERIC, status TEXT, invoice_type TEXT, vessels TEXT[], voyages TEXT[], pods TEXT[])
+RETURNS TABLE(id BIGINT, invoice_number TEXT, issued_at TIMESTAMPTZ, due_date DATE, total_brl NUMERIC, total_paid_brl NUMERIC, balance_brl NUMERIC, status TEXT, invoice_type TEXT, vessels TEXT[], voyages TEXT[], vessel_voyages TEXT[], bls TEXT[], pods TEXT[])
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN RETURN QUERY SELECT * FROM public._portal_list_invoices_core(public.current_portal_customer_id()); END; $$;
 CREATE OR REPLACE FUNCTION public.portal_invoice_details(p_invoice_id BIGINT) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN RETURN public._portal_invoice_details_core(public.current_portal_customer_id(), p_invoice_id); END; $$;
 CREATE OR REPLACE FUNCTION public.portal_list_demurrage_invoices() RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN RETURN public._portal_list_demurrage_invoices_core(public.current_portal_customer_id()); END; $$;
@@ -236,10 +247,10 @@ DO $provisioning$
 DECLARE v_def TEXT;
 BEGIN
   v_def := pg_get_functiondef('public.portal_list_provisioning_console_legacy(bigint)'::regprocedure);
-  v_def := replace(v_def, 'CREATE OR REPLACE FUNCTION public.portal_list_provisioning_console_legacy(p_customer_id bigint DEFAULT NULL)', 'CREATE FUNCTION public.portal_list_provisioning_console(p_customer_id BIGINT DEFAULT NULL)');
+  v_def := replace(v_def, 'CREATE OR REPLACE FUNCTION public.portal_list_provisioning_console_legacy(p_customer_id bigint DEFAULT NULL::bigint)', 'CREATE FUNCTION public.portal_list_provisioning_console(p_customer_id BIGINT DEFAULT NULL)');
   v_def := replace(v_def, 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'');', 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'',''equipamentos'',''operacoes'');');
   v_def := replace(v_def, 'v_role NOT IN (''administrativo'',''documentacao'',''financeiro'',''operacoes'')', 'v_role NOT IN (''administrativo'',''documentacao'',''financeiro'',''operacoes'',''equipamentos'')');
-  v_def := replace(v_def, '  PERFORM public.portal_repair_missing_accounts();', '  IF v_role <> ''equipamentos'' THEN\n    PERFORM public.portal_repair_missing_accounts();\n  END IF;');
+  v_def := replace(v_def, '  PERFORM public.portal_repair_missing_accounts();', '  IF v_role <> ''equipamentos'' THEN PERFORM public.portal_repair_missing_accounts(); END IF;');
   EXECUTE v_def;
 
   v_def := pg_get_functiondef('public.portal_list_provisioning_events_legacy(bigint,integer)'::regprocedure);
