@@ -61,11 +61,18 @@ pelas telas internas — só reprojetado na linguagem do Portal.
 
 **Com uma exceção que precisa de decisão explícita na ADR.** `portal_get_profile`
 devolve `customer_portal_accounts.contact_email`, e essa tabela tem RLS restrita
-a `is_admin()` desde `041` — a migration `291` não a tocou. No console de
-provisionamento o contato é mascarado para `operacoes` e negado aos demais
-(`196`/`198`). Abrir a aba Perfil da inspeção sob `is_active_read_user()`
-entregaria esse campo a todo perfil ativo, o que é uma ampliação real de
-superfície, não uma reprojeção.
+a `is_admin()` desde `041` — a migration `291` não a tocou. Abrir a inspeção sob
+`is_active_read_user()` entrega esse campo a todo perfil ativo, o que é uma
+ampliação real de superfície, não uma reprojeção.
+
+Dois esclarecimentos que a primeira redação embaralhava:
+
+- O que o console anula para quem não tem acesso completo é o `recovery_email`
+  (`198:68`) — **coluna distinta** do `contact_email`, e anulada, não mascarada.
+- A exposição não fica contida na aba Perfil: `portal_get_session_overview_v2`
+  já projeta `contact_email` (`115:178`), e é esse payload que
+  `portal_open_inspection` devolve. O campo chega junto com a abertura da
+  inspeção, antes de qualquer aba ser aberta.
 
 **Decisão 9: expor, como o cliente vê.** Mascarar contradiria o propósito da
 ferramenta — um operador que vê `j***@empresa.com` numa tela que promete mostrar
@@ -214,8 +221,9 @@ Para cada RPC de leitura escopada por cliente, três passos:
 **A forma da delegação depende do tipo de retorno** — não existe uma linha
 única que sirva para as nove. `RETURN QUERY SELECT * FROM ...` só vale para as
 que retornam `TABLE`; para `jsonb` e `int` a delegação é
-`RETURN public._portal_<x>_core(...)`. Cinco das nove retornam `jsonb` e uma
-retorna `int`, então a forma minoritária é a do `RETURN QUERY`.
+`RETURN public._portal_<x>_core(...)`. **Seis das nove retornam `jsonb`, uma
+retorna `int` e só duas retornam `TABLE`** — a forma do `RETURN QUERY` é a
+exceção, não a regra.
 
 Os invólucros **não** podem ficar em `SECURITY INVOKER` (o default): o núcleo
 tem `EXECUTE` revogado de `authenticated`, e um invólucro invoker falharia com
@@ -233,7 +241,7 @@ vigente** — é dela que o corpo deve ser copiado, não da migration de origem:
 | `portal_list_consolidatable_receivables()` | `123` | `TABLE` | Consolidação |
 | `portal_list_operation_bls()` | `202` | `jsonb` | Operação |
 | `portal_get_profile()` | `116` | `jsonb` | Perfil |
-| `portal_list_notifications(int)` | `119` | `TABLE` | Sino |
+| `portal_list_notifications(int)` | `119` | `jsonb` | Sino |
 | `portal_notification_unread_count()` | `116` | `int` | Badge do sino |
 
 Copiar da migration de origem em vez da vigente é o erro mais caro possível
@@ -250,6 +258,12 @@ chama `current_portal_customer_id()`. Trocar `v_customer_id` no corpo externo
 não resolve nada — a aba "BLs e Containers" levantaria `28000` na inspeção. O
 par núcleo/invólucro precisa ser aplicado à **função aninhada**, com a externa
 repassando o `p_customer_id` recebido.
+
+E as duas metades vêm de migrations diferentes: a `202` apenas **renomeia** a
+função definida em `123:28` para `_without_transshipment` (`202:4-5`) e cria uma
+externa nova (`202:10`). O corpo da externa se copia da `202`; o da aninhada, da
+`123`. A tabela acima registra `202` porque é onde está a assinatura pública —
+seguir só ela perderia o corpo que de fato consulta os BLs.
 
 **`portal_get_current_roe()` também precisa de par.** A versão anterior deste
 plano a dispensava por "não ser escopada por cliente" — o valor de ROE de fato
@@ -535,29 +549,65 @@ uma hora, vai colar esse print num ticket.
 ### 3.5 Abrir o console de provisionamento a Equipamentos
 
 Consequência da decisão 11, e a única parte deste plano que mexe fora da
-Inspeção. `portal_list_provisioning_console` (`196`/`197`) tem dois gates:
+Inspeção. São **três** objetos a tratar, não um.
+
+**Definição vigente: `198:48`, não `196`/`197`.** A `198` reescreveu a função
+para acrescentar o self-heal e removeu o `STABLE`. Partir de `197` reverteria a
+`198` silenciosamente — o mesmo erro que a coluna "Definição vigente" da 1.4
+existe para evitar.
+
+**a) `portal_list_provisioning_console` — o gate de papel.** Hoje (`198:52-54`):
 
 ```sql
 v_full_access BOOLEAN := v_role IN ('administrativo','documentacao','financeiro');
 IF v_role IS NULL OR v_role NOT IN ('administrativo','documentacao','financeiro','operacoes') THEN
 ```
 
-`equipamentos` entra na segunda lista, com **acesso completo** — a mesma
-projeção dos três primeiros. Acesso reduzido faria Equipamentos ver o painel sem
-os dados que o botão de inspeção acompanha, o que é pior do que não ver.
+`equipamentos` entra nas **duas** listas: passa o gate e recebe acesso completo.
+Acesso reduzido faria Equipamentos ver o painel sem os dados que o botão de
+inspeção acompanha, o que é pior do que não ver.
 
-A alteração vai na mesma migration `292`, com a justificativa no cabeçalho, e as
-ações de provisionamento continuam gated como estão hoje: isto abre leitura, não
-escrita — a linha da ADR 0044.
+**b) O self-heal, que é escrita.** `198:58` faz
+`PERFORM public.portal_repair_missing_accounts()`, e essa função insere em
+`customer_portal_accounts` (`198:14`) e em `portal_provisioning_events`
+(`198:29`). Ou seja: **ler o console grava**. Dizer "isto abre leitura, não
+escrita" seria falso, e daria a Equipamentos — cujo isolamento de escrita a
+`211` endureceu de propósito — o poder de disparar criação de contas de Portal.
+
+Correção: o `PERFORM` passa a ser condicionado aos papéis que já o disparavam
+hoje. Equipamentos lê o console sem acionar o reparo. As linhas que o self-heal
+cria são as mesmas independentemente de quem o dispara, então nada se perde: o
+primeiro dos outros quatro papéis a abrir a fila repara igual.
+
+**c) `portal_list_provisioning_events` — o histórico.** `196:44-48` nega quem
+não estiver em `('administrativo','documentacao','financeiro')` — nem
+`operacoes` entra. E `PortalReviewPanel.tsx:31` chama
+`usePortalEvents(row.customer_id, !isOperations)`: para `equipamentos`,
+`isOperations` é `false`, então a query é habilitada e a RPC levanta `42501` a
+cada linha expandida. Abrir (a) sem tratar (c) troca "painel invisível" por
+"painel que dá erro".
+
+Correção: `equipamentos` entra também no gate de `portal_list_provisioning_events`
+e a flag do hook deixa de ser `!isOperations` e passa a nomear os papéis que
+enxergam histórico.
+
+A alteração vai na mesma migration `292`, com a justificativa no cabeçalho.
+
+**Ampliação de superfície a registrar**, no mesmo padrão que a decisão 9 exige:
+acesso completo no console entrega a Equipamentos `recovery_email`,
+`recovery_email_source`, `latest_delivery_status`, `exception_reason`,
+`shared_email_count` e `candidates` — este último uma lista de emails de
+contatos do cliente (`198:68-91`). Não é dado do Portal reprojetado; é dado de
+provisionamento que hoje três papéis veem. Precisa estar na ADR, não implícito.
 
 **Inconsistência que fica de pé, e precisa de decisão sua em algum momento:**
-`operacoes` continua com `v_full_access = false`, recebendo situação resumida e
-os booleanos `has_open_invoice`/`has_active_process`
-(`docs/ARCHITECTURE.md:438`), e `usePortalEvents` esconde o histórico dele
-(`PortalReviewPanel.tsx:28`). Isso contradiz o mesmo princípio que a decisão 11
-aplica — "todos os departamentos têm visualização sobre o sistema inteiro; o que
-muda é o que podem editar". Recomendo alinhar Operações no mesmo change; não
-fiz aqui porque é a projeção de outra tela e você não decidiu sobre ela.
+com Equipamentos em acesso completo, `operacoes` vira o **único** perfil com
+`v_full_access = false`, recebendo situação resumida e os booleanos
+`has_open_invoice`/`has_active_process` (`docs/ARCHITECTURE.md:450`), e sem
+histórico. Isso contradiz o mesmo princípio que a decisão 11 aplica — "todos os
+departamentos têm visualização sobre o sistema inteiro; o que muda é o que podem
+editar". Recomendo alinhar Operações no mesmo change; não fiz aqui porque é a
+projeção de outra tela e você não decidiu sobre ela.
 
 ## Etapa 4 — Testes (P0, junto da etapa 1)
 
@@ -645,7 +695,7 @@ só aparece em uso real.
 | `CONTEXT.md` | Entrada **Inspeção do Portal** na seção do Portal (antes de *Conta de Portal*), distinguindo-a de Provisionamento e de recuperação assistida |
 | `docs/modules/portal-cliente.md` | Catálogo de ações da inspeção; o par núcleo/invólucro; a exceção; reforço da nota de `ALTER DEFAULT PRIVILEGES` (:225) |
 | `docs/RASTREABILIDADE.md` | Rota, componentes, hooks, serviços, RPCs e testes novos |
-| `docs/ARCHITECTURE.md` | Rota nova; nota de que `PortalLayout` serve dois hosts e dois modos; console de provisionamento agora inclui `equipamentos` (:438) |
+| `docs/ARCHITECTURE.md` | Rota nova; nota de que `PortalLayout` serve dois hosts e dois modos; console de provisionamento agora inclui `equipamentos` (:450) |
 | `docs/plans/README.md` | Linha deste plano; remover ao concluir |
 | `docs/CHANGELOG.md` | Entrega, ao concluir |
 
@@ -682,9 +732,9 @@ Verificação antes de concluir: `npm run docs:check`, `npm run lint`, `npm test
   inspeção como parâmetro das `portal_inspect_*`.
 - **Divergência silenciosa por `CREATE OR REPLACE` futuro.** Alguém pode, mais
   tarde, editar o corpo de `portal_<x>` inline em vez de mexer no núcleo,
-  quebrando a paridade. Mitigado pelo teste de estrutura da 4.1(2), que roda em
-  todo PR; o teste de igualdade de resultado só roda com o harness de integração
-  ligado.
+  quebrando a paridade. Mitigado pelo teste de estrutura da 4.1(1), que roda em
+  todo PR; o de igualdade de resultado — 4.1(2) — só roda com o harness de
+  integração ligado.
 - **Núcleo construído a partir da migration errada.** A paridade garante que as
   duas portas concordem, não que estejam certas: um núcleo copiado da migration
   de origem em vez da vigente passa em todos os testes de paridade e mostra ao
