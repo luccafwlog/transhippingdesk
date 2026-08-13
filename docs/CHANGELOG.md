@@ -24,6 +24,21 @@
     `portal_invoice_details`, para o grant residual não voltar a ser
     reintroduzido silenciosamente por uma futura edição da função.
 
+- **Leitura interna volta a ser global; departamento só restringe escrita
+  (ADR 0044):** migration `291` corrige `014`/`020`/`066`/`111`, que haviam
+  restringido o `SELECT` de 13 tabelas financeiras (`charge_tables`,
+  `invoices`, `payments`, ledger de recebíveis etc.) a `is_admin()` — um
+  resquício do modelo antigo admin/operator. Taxas Locais, Faturamento,
+  Relatórios, Conciliação PIX e a aba Financeiro da Ficha do Cliente voltam a
+  funcionar para Financeiro, Operações, Documentação e Equipamentos.
+  `charge_tables`/`charge_table_items`/`customer_rate_overrides` também
+  ganham `can_edit_local_charges()` no INSERT/UPDATE/DELETE, alinhando a RLS à
+  permissão que Documentação já tinha no frontend. `/taxas-locais` separa
+  visualização (sempre visível) de edição; `PROFILE_SCOPES` corrigido; gates
+  de escrita de Viagens e Baplie alinhados a `voyages_edit`/`manifests_upload`
+  em vez de `isAdmin`. *(plano `2026-08-13-rbac-leitura-global-por-departamento`,
+  auditoria `2026-08-13-rbac-departamentos-visualizacao`)*
+
 - **Spec comportamental na edição `2026-08-12`:** rebuild diferencial contra as
   migrations `001`–`289`, 42 rotas, 103 RPCs e 12 Edge Functions — 36 linhas
   novas (ADR, provisionamento e autenticação do Portal, `admin-users`, cadastro

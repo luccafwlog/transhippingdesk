@@ -12,7 +12,7 @@ const { confirm, deletePod, deleteExport } = vi.hoisted(() => ({
 
 vi.mock('../../ui/ConfirmDialog', () => ({ useConfirm: () => confirm }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
-vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'admin-1' } }) }))
+vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'admin-1' }, can: () => true }) }))
 vi.mock('../../../hooks/useVoyageTimeline', () => ({ useVoyageTimeline: () => ({ data: undefined }) }))
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),

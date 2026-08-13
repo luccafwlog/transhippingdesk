@@ -25,7 +25,8 @@ export function ChargeOverridesTab({
   podFilter,
   setPodFilter,
   initialCustomerSearch = '',
-}: ChargeFilterProps & { initialCustomerSearch?: string }) {
+  canEdit,
+}: ChargeFilterProps & { initialCustomerSearch?: string; canEdit: boolean }) {
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [overrideCustomerSearch, setOverrideCustomerSearch] = useState(initialCustomerSearch)
@@ -135,82 +136,84 @@ export function ChargeOverridesTab({
         </div>
       </FilterBar>
 
-      <Card className="mb-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="app-panel__title">{overrideForm.id ? 'Editar override' : 'Novo override'}</h2>
-          {overrideForm.id ? (
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={() => setOverrideForm(EMPTY_OVERRIDE_FORM)}
-            >
-              <X size={15} />
-              Cancelar edição
+      {canEdit ? (
+        <Card className="mb-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="app-panel__title">{overrideForm.id ? 'Editar override' : 'Novo override'}</h2>
+            {overrideForm.id ? (
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setOverrideForm(EMPTY_OVERRIDE_FORM)}
+              >
+                <X size={15} />
+                Cancelar edição
+              </Button>
+            ) : null}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="Cliente">
+              <Select
+                value={overrideForm.customerId}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, customerId: event.target.value }))}
+              >
+                <option value="">Selecione</option>
+                {(overrideCustomers ?? []).map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name} ({customer.cnpj_cpf})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Item de taxa">
+              <Select
+                value={overrideForm.chargeItemId}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, chargeItemId: event.target.value }))}
+              >
+                <option value="">Selecione</option>
+                {(overrideChargeItems ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.charge_table?.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} | {item.charge_table?.pod ?? '-'} | {item.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Valor override">
+              <Input
+                value={overrideForm.overrideValue}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, overrideValue: event.target.value }))}
+                placeholder="Ex: 1500.00"
+              />
+            </Field>
+            <Field label="Vigencia inicial">
+              <Input
+                type="date"
+                value={overrideForm.validFrom}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, validFrom: event.target.value }))}
+              />
+            </Field>
+            <Field label="Vigencia final">
+              <Input
+                type="date"
+                value={overrideForm.validTo}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, validTo: event.target.value }))}
+              />
+            </Field>
+            <Field label="Observações">
+              <Textarea
+                value={overrideForm.notes}
+                onChange={(event) => setOverrideForm((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+            </Field>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button type="button" onClick={handleSaveOverride} loading={overrideSaving || saveOverrideMutation.isPending}>
+              <Save size={15} />
+              {overrideForm.id ? 'Salvar override' : 'Criar override'}
             </Button>
-          ) : null}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Field label="Cliente">
-            <Select
-              value={overrideForm.customerId}
-              onChange={(event) => setOverrideForm((prev) => ({ ...prev, customerId: event.target.value }))}
-            >
-              <option value="">Selecione</option>
-              {(overrideCustomers ?? []).map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name} ({customer.cnpj_cpf})
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Item de taxa">
-            <Select
-              value={overrideForm.chargeItemId}
-              onChange={(event) => setOverrideForm((prev) => ({ ...prev, chargeItemId: event.target.value }))}
-            >
-              <option value="">Selecione</option>
-              {(overrideChargeItems ?? []).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.charge_table?.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} | {item.charge_table?.pod ?? '-'} | {item.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Valor override">
-            <Input
-              value={overrideForm.overrideValue}
-              onChange={(event) => setOverrideForm((prev) => ({ ...prev, overrideValue: event.target.value }))}
-              placeholder="Ex: 1500.00"
-            />
-          </Field>
-          <Field label="Vigencia inicial">
-            <Input
-              type="date"
-              value={overrideForm.validFrom}
-              onChange={(event) => setOverrideForm((prev) => ({ ...prev, validFrom: event.target.value }))}
-            />
-          </Field>
-          <Field label="Vigencia final">
-            <Input
-              type="date"
-              value={overrideForm.validTo}
-              onChange={(event) => setOverrideForm((prev) => ({ ...prev, validTo: event.target.value }))}
-            />
-          </Field>
-          <Field label="Observações">
-            <Textarea
-              value={overrideForm.notes}
-              onChange={(event) => setOverrideForm((prev) => ({ ...prev, notes: event.target.value }))}
-            />
-          </Field>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Button type="button" onClick={handleSaveOverride} loading={overrideSaving || saveOverrideMutation.isPending}>
-            <Save size={15} />
-            {overrideForm.id ? 'Salvar override' : 'Criar override'}
-          </Button>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="overflow-hidden p-0">
         {overridesError ? <InlineError message="Falha ao consultar overrides." /> : null}
@@ -225,20 +228,20 @@ export function ChargeOverridesTab({
                 <th scope="col" className="px-4 py-3">Valor base</th>
                 <th scope="col" className="px-4 py-3">Override</th>
                 <th scope="col" className="px-4 py-3">Obs</th>
-                <th scope="col" className="px-4 py-3">Ações</th>
+                {canEdit ? <th scope="col" className="px-4 py-3">Ações</th> : null}
               </tr>
             </thead>
             <tbody>
               {overridesLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>
+                  <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={canEdit ? 8 : 7}>
                     Carregando overrides...
                   </td>
                 </tr>
               ) : null}
               {!overridesLoading && (overrideRows?.length ?? 0) === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-0">
+                  <td colSpan={canEdit ? 8 : 7} className="p-0">
                     <EmptyState title="Nenhum override encontrado." />
                   </td>
                 </tr>
@@ -289,29 +292,31 @@ export function ChargeOverridesTab({
                       {currency === 'USD' ? formatUSD(Number(row.override_value ?? 0)) : formatBRL(Number(row.override_value ?? 0))}
                     </td>
                     <td className="px-4 py-3">{row.notes ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="app-table__icon-button"
-                          type="button"
-                          onClick={() => handleEditOverride(row.id)}
-                          aria-label="Editar override"
-                          title="Editar override"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          className="app-table__icon-button app-table__icon-button--danger"
-                          type="button"
-                          onClick={() => handleDeleteOverride(row.id)}
-                          aria-label="Excluir override"
-                          title="Excluir override"
-                          disabled={overrideDeletingId === row.id}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                    {canEdit ? (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="app-table__icon-button"
+                            type="button"
+                            onClick={() => handleEditOverride(row.id)}
+                            aria-label="Editar override"
+                            title="Editar override"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            className="app-table__icon-button app-table__icon-button--danger"
+                            type="button"
+                            onClick={() => handleDeleteOverride(row.id)}
+                            aria-label="Excluir override"
+                            title="Excluir override"
+                            disabled={overrideDeletingId === row.id}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 )
               })}

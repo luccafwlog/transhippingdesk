@@ -148,7 +148,7 @@ export function Clientes() {
   const [importingBase, setImportingBase] = useState(false)
   const { data, isLoading, error } = useCustomers(filters)
   const { data: summary } = useCustomerSummary(filters)
-  const canSeePortalQueue = ['administrativo', 'documentacao', 'financeiro', 'operacoes'].includes(effectiveRole ?? '')
+  const canSeePortalQueue = ['administrativo', 'documentacao', 'financeiro', 'operacoes', 'equipamentos'].includes(effectiveRole ?? '')
   const { data: portalRows } = usePortalProvisioning(canSeePortalQueue)
   const awaitingPortalAnalysis = canSeePortalQueue
     ? (portalRows?.filter((row) => row.provisioning_decision === 'aguardando_analise').length ?? null)

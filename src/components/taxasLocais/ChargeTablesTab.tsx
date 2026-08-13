@@ -33,7 +33,8 @@ export function ChargeTablesTab({
   setCargoModeFilter,
   podFilter,
   setPodFilter,
-}: ChargeFilterProps) {
+  canEdit,
+}: ChargeFilterProps & { canEdit: boolean }) {
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [formsOpen, setFormsOpen] = useState(false)
@@ -225,14 +226,16 @@ export function ChargeTablesTab({
         </div>
       </FilterBar>
 
-      <div className="mb-5 flex justify-end">
-        <Button type="button" variant={formsOpen ? 'secondary' : 'primary'} onClick={() => setFormsOpen((open) => !open)}>
-          <Plus size={15} />
-          {formsOpen ? 'Ocultar formulários' : 'Nova tabela / Novo item'}
-        </Button>
-      </div>
+      {canEdit ? (
+        <div className="mb-5 flex justify-end">
+          <Button type="button" variant={formsOpen ? 'secondary' : 'primary'} onClick={() => setFormsOpen((open) => !open)}>
+            <Plus size={15} />
+            {formsOpen ? 'Ocultar formulários' : 'Nova tabela / Novo item'}
+          </Button>
+        </div>
+      ) : null}
 
-      {formsOpen ? (
+      {canEdit && formsOpen ? (
         <div className="mb-5 grid gap-5 xl:grid-cols-2">
           <ChargeTableFormCard
             tableForm={tableForm}
@@ -257,6 +260,7 @@ export function ChargeTablesTab({
         tableCount={tableSummary.tables}
         filterDescription={tableFilterDescription}
         emptyState={tableEmptyState}
+        canEdit={canEdit}
         onEditTable={handleEditTable}
         onPrepareTableItem={handlePrepareTableItem}
         onToggleTableActive={handleToggleTableActive}

@@ -42,7 +42,7 @@ vi.mock('../../hooks/useViagemSchedulesAndStats', () => ({
     exportSchedulesData: new Map(),
   }),
 }))
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAdmin: false, user: null }) }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAdmin: false, user: null, can: () => false }) }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../services/supabase', () => ({ supabase: { from: vi.fn() } }))
 

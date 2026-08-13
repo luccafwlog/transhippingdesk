@@ -48,6 +48,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0041](./0041-validacao-fila-de-bloqueios-ce-como-confirmacao.md) | Validação como fila de bloqueios derivados; CE Mercante confirma o cálculo | aceito | Retira aprovação/marcação em lote da tela e envia falhas de emissão para Alertas |
 | [0042](./0042-ce-mercante-confirma-calculo-em-todos-os-modos.md) | CE Mercante confirma o cálculo de container, carga solta e Granito | aceito | Estende a 0020 e remove o clique manual de pronto para faturar do Granito |
 | [0043](./0043-vinculo-de-cliente-somente-por-documento.md) | Vínculo automático de cliente somente por CPF/CNPJ exato; match por nome é sugestão | aceito | Implementada nas migrations `284`–`287`; sugestões exigem confirmação humana |
+| [0044](./0044-leitura-interna-global-departamento-restringe-escrita.md) | Leitura interna é global; departamento restringe escrita | aceito | Corrige o eixo de leitura de `014`/`020`/`066`/`111` (migration `291`); estende a 0004 |
 
 ## Convenção
 

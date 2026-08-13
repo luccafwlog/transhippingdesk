@@ -62,6 +62,15 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   `update_invoice_due_date`, migration `282`, detector de atraso preservado como
   única rotina que transiciona para `overdue`) e ação Transbordo/COD alcançável
   no B/L quando existe omissão sem disposição persistida.
+- [`2026-08-13-rbac-leitura-global-por-departamento`](2026-08-13-rbac-leitura-global-por-departamento.md)
+  — corrige o eixo de leitura de `014`/`020`/`066`/`111`, que restringia 13
+  tabelas financeiras a `is_admin()`: migration `291` libera SELECT para todo
+  perfil interno ativo (`is_active_read_user()`) e alinha INSERT/UPDATE/DELETE
+  de `charge_tables`/`charge_table_items`/`customer_rate_overrides` à
+  permissão `charge_tables`/`charge_overrides` já concedida a Documentação.
+  Taxas Locais separa visualização (sempre visível) de edição (`canEdit`);
+  `PROFILE_SCOPES` corrigido; gates de escrita de Viagens/Baplie alinhados a
+  `voyages_edit`/`manifests_upload` em vez de `isAdmin`. ADR 0044.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

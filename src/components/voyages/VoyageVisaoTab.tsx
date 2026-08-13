@@ -58,7 +58,8 @@ export function VoyageVisaoTab({
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { user } = useAuth()
+  const { user, can } = useAuth()
+  const canEditVoyages = can('voyages_edit')
   const [timelineOpen, setTimelineOpen] = useState(true)
 
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
@@ -186,7 +187,7 @@ export function VoyageVisaoTab({
     <MetricSection
       title="Planejamento por escala"
       compact
-      actions={isAdmin ? (
+      actions={canEditVoyages ? (
         <Button variant="secondary" className="app-btn--sm" onClick={() => onEditEscala(buildEscalaModalData(null))}>
           <Plus size={15} />
           Adicionar escala
@@ -252,36 +253,39 @@ export function VoyageVisaoTab({
                       <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            className="app-voyage-icon-btn"
-                            aria-label={`Editar planejamento da escala ${row.port}`}
-                            onClick={() => onEditEscala(buildEscalaModalData(row))}
-                          >
-                            <Pencil size={15} />
-                          </Button>
+                          {canEditVoyages ? (
+                            <Button
+                              variant="secondary"
+                              className="app-voyage-icon-btn"
+                              aria-label={`Editar planejamento da escala ${row.port}`}
+                              onClick={() => onEditEscala(buildEscalaModalData(row))}
+                            >
+                              <Pencil size={15} />
+                            </Button>
+                          ) : null}
+                          {canEditVoyages && row.temImportacao && !row.omitted ? (
+                            <Button
+                              variant="secondary"
+                              className="app-voyage-icon-btn"
+                              aria-label={`Omitir escala do POD ${row.port}`}
+                              title={`Omitir escala do POD ${row.port}`}
+                              onClick={() => onOmitPod(row.port)}
+                            >
+                              <AlertTriangle size={15} />
+                            </Button>
+                          ) : null}
                           {isAdmin ? (
-                            <>
-                              {row.temImportacao && !row.omitted ? (
-                                <Button
-                                  variant="secondary"
-                                  className="app-voyage-icon-btn"
-                                  aria-label={`Omitir escala do POD ${row.port}`}
-                                  title={`Omitir escala do POD ${row.port}`}
-                                  onClick={() => onOmitPod(row.port)}
-                                >
-                                  <AlertTriangle size={15} />
-                                </Button>
-                              ) : null}
-                              <Button
-                                variant="danger"
-                                className="app-voyage-icon-btn"
-                                aria-label={`Excluir escala ${row.port}`}
-                                onClick={() => handleDeleteEscala(row)}
-                              >
-                                <Trash2 size={15} />
-                              </Button>
-                            </>
+                            // handleDeleteEscala pode chamar deleteVoyageExportSchedule,
+                            // cuja policy de DELETE exige is_admin() (091). Nao trocar
+                            // por canEditVoyages sem tambem alinhar a RLS.
+                            <Button
+                              variant="danger"
+                              className="app-voyage-icon-btn"
+                              aria-label={`Excluir escala ${row.port}`}
+                              onClick={() => handleDeleteEscala(row)}
+                            >
+                              <Trash2 size={15} />
+                            </Button>
                           ) : null}
                         </div>
                       </td>

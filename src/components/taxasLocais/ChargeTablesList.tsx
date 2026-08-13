@@ -13,6 +13,7 @@ type ChargeTablesListProps = {
   tableCount: number
   filterDescription: string
   emptyState: { title: string; description: string }
+  canEdit: boolean
   onEditTable: (id: number) => void
   onPrepareTableItem: (tableId: number) => void
   onToggleTableActive: (id: number, current: boolean | null) => void
@@ -29,6 +30,7 @@ export function ChargeTablesList({
   tableCount,
   filterDescription,
   emptyState,
+  canEdit,
   onEditTable,
   onPrepareTableItem,
   onToggleTableActive,
@@ -41,6 +43,7 @@ export function ChargeTablesList({
   // ADR 0040: a vigência não filtra mais o cálculo, então ela precisa avisar
   // quando o que está cadastrado não descreve o que o motor faz.
   const alerts = chargeTableAlerts(tables, new Date().toISOString().slice(0, 10))
+  const columnCount = canEdit ? 8 : 7
 
   return (
     <Card className="overflow-hidden p-0">
@@ -65,14 +68,14 @@ export function ChargeTablesList({
               </th>
               <th scope="col" className="px-4 py-3">Status</th>
               <th scope="col" className="px-4 py-3">Itens</th>
-              <th scope="col" className="px-4 py-3">Ações</th>
+              {canEdit ? <th scope="col" className="px-4 py-3">Ações</th> : null}
               <th scope="col" className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {tablesLoading ? (
               <tr>
-                <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>
+                <td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={columnCount}>
                   Carregando tabelas...
                 </td>
               </tr>
@@ -80,7 +83,7 @@ export function ChargeTablesList({
 
             {!tablesLoading && tables.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-0">
+                <td colSpan={columnCount} className="p-0">
                   <EmptyState title={emptyState.title} description={emptyState.description} />
                 </td>
               </tr>
@@ -120,26 +123,28 @@ export function ChargeTablesList({
                         {manualCount > 0 ? <Badge tone="yellow">{manualCount} manual</Badge> : null}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button className="app-table__icon-button" type="button" onClick={() => onEditTable(table.id)} aria-label="Editar tabela" title="Editar tabela">
-                          <Pencil size={13} />
-                        </button>
-                        <button className="app-table__icon-button" type="button" onClick={() => onPrepareTableItem(table.id)} aria-label="Novo item nesta tabela" title="Novo item nesta tabela">
-                          <Plus size={13} />
-                        </button>
-                        <button
-                          className={`app-table__icon-button ${table.active ? 'app-table__icon-button--danger' : ''}`}
-                          type="button"
-                          onClick={() => onToggleTableActive(table.id, table.active)}
-                          aria-label={table.active ? 'Inativar tabela' : 'Ativar tabela'}
-                          title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
-                          disabled={togglingTableActive}
-                        >
-                          {table.active ? <Ban size={13} /> : <Save size={13} />}
-                        </button>
-                      </div>
-                    </td>
+                    {canEdit ? (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button className="app-table__icon-button" type="button" onClick={() => onEditTable(table.id)} aria-label="Editar tabela" title="Editar tabela">
+                            <Pencil size={13} />
+                          </button>
+                          <button className="app-table__icon-button" type="button" onClick={() => onPrepareTableItem(table.id)} aria-label="Novo item nesta tabela" title="Novo item nesta tabela">
+                            <Plus size={13} />
+                          </button>
+                          <button
+                            className={`app-table__icon-button ${table.active ? 'app-table__icon-button--danger' : ''}`}
+                            type="button"
+                            onClick={() => onToggleTableActive(table.id, table.active)}
+                            aria-label={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                            title={table.active ? 'Inativar tabela' : 'Ativar tabela'}
+                            disabled={togglingTableActive}
+                          >
+                            {table.active ? <Ban size={13} /> : <Save size={13} />}
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3">
                       <button
                         className="app-table__icon-button"
@@ -155,7 +160,7 @@ export function ChargeTablesList({
                   </tr>
                   {isExpanded ? (
                     <tr id={panelId} key={`${table.id}-items`} className="bg-[var(--app-surface-muted)]">
-                      <td colSpan={8} className="px-6 py-3">
+                      <td colSpan={columnCount} className="px-6 py-3">
                         {table.charge_table_items.length === 0 ? (
                           <div className="py-4 text-center text-sm text-[var(--app-muted)]">Nenhum item cadastrado nesta tabela.</div>
                         ) : (
@@ -168,7 +173,7 @@ export function ChargeTablesList({
                                 <th scope="col" className="py-2 pr-4">Moeda</th>
                                 <th scope="col" className="py-2 pr-4 text-right">Valor</th>
                                 <th scope="col" className="py-2 pr-4">Tipo</th>
-                                <th scope="col" className="py-2"></th>
+                                {canEdit ? <th scope="col" className="py-2"></th> : null}
                               </tr>
                             </thead>
                             <tbody>
@@ -187,22 +192,24 @@ export function ChargeTablesList({
                                   <td className="py-2 pr-4">
                                     {item.manual_only ? <Badge tone="yellow">Manual</Badge> : <Badge tone="blue">Auto</Badge>}
                                   </td>
-                                  <td className="py-2">
-                                    <div className="flex items-center gap-1">
-                                      <button className="app-table__icon-button" type="button" onClick={() => onEditTableItem(table.id, item.id)} title="Editar item">
-                                        <Pencil size={13} />
-                                      </button>
-                                      <button
-                                        className="app-table__icon-button app-table__icon-button--danger"
-                                        type="button"
-                                        onClick={() => onDeleteTableItem(item.id)}
-                                        disabled={deletingTableItem}
-                                        title="Excluir item"
-                                      >
-                                        <Trash2 size={13} />
-                                      </button>
-                                    </div>
-                                  </td>
+                                  {canEdit ? (
+                                    <td className="py-2">
+                                      <div className="flex items-center gap-1">
+                                        <button className="app-table__icon-button" type="button" onClick={() => onEditTableItem(table.id, item.id)} title="Editar item">
+                                          <Pencil size={13} />
+                                        </button>
+                                        <button
+                                          className="app-table__icon-button app-table__icon-button--danger"
+                                          type="button"
+                                          onClick={() => onDeleteTableItem(item.id)}
+                                          disabled={deletingTableItem}
+                                          title="Excluir item"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  ) : null}
                                 </tr>
                               ))}
                             </tbody>

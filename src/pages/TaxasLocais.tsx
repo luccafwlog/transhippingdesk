@@ -9,6 +9,9 @@ import type { CargoModeFilter, LocalChargeTab } from '../components/taxasLocais/
 
 export function TaxasLocais() {
   const { can } = useAuth()
+  // Visualização é global para todo perfil interno ativo; `can(...)` só
+  // decide o que pode ser alterado (docs/archive/audits/2026-08-13-rbac-
+  // departamentos-visualizacao.md, Achado P1).
   const canManageTables = can('charge_tables')
   const canManageOverrides = can('charge_overrides')
   const [searchParams] = useSearchParams()
@@ -16,8 +19,6 @@ export function TaxasLocais() {
   const [tab, setTab] = useState<LocalChargeTab>(searchParams.get('tab') === 'overrides' ? 'overrides' : 'tabelas')
   const [cargoModeFilter, setCargoModeFilter] = useState<CargoModeFilter>('')
   const [podFilter, setPodFilter] = useState('')
-  const activeTab: LocalChargeTab =
-    tab === 'tabelas' && canManageTables ? 'tabelas' : canManageOverrides ? 'overrides' : 'tabelas'
 
   return (
     <>
@@ -27,26 +28,28 @@ export function TaxasLocais() {
       />
 
       <div className="mb-5 flex flex-wrap gap-2" role="tablist">
-        {canManageTables ? <TabButton active={activeTab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} /> : null}
-        {canManageOverrides ? <TabButton active={activeTab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} /> : null}
+        <TabButton active={tab === 'tabelas'} label="Tabelas" onClick={() => setTab('tabelas')} />
+        <TabButton active={tab === 'overrides'} label="Overrides" onClick={() => setTab('overrides')} />
       </div>
 
-      {activeTab === 'tabelas' && canManageTables ? (
+      {tab === 'tabelas' ? (
         <ChargeTablesTab
           cargoModeFilter={cargoModeFilter}
           setCargoModeFilter={setCargoModeFilter}
           podFilter={podFilter}
           setPodFilter={setPodFilter}
+          canEdit={canManageTables}
         />
       ) : null}
 
-      {activeTab === 'overrides' && canManageOverrides ? (
+      {tab === 'overrides' ? (
         <ChargeOverridesTab
           cargoModeFilter={cargoModeFilter}
           setCargoModeFilter={setCargoModeFilter}
           podFilter={podFilter}
           setPodFilter={setPodFilter}
           initialCustomerSearch={initialCustomerSearch}
+          canEdit={canManageOverrides}
         />
       ) : null}
     </>

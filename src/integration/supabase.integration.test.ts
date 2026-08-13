@@ -21,8 +21,12 @@ type IntegrationEnv = {
 let client: SupabaseClient<Database>
 let env: IntegrationEnv
 let userId: string
-const operatorRlsTest = hasOperatorCredentials() ? it : it.skip
 const billingFlowTest = hasBillingFixtures() ? it : it.skip
+// Ler `invoices` sem uma fatura garantida nao prova nada: RLS filtrando e
+// tabela vazia devolvem o mesmo `[]`. Por isso este teste tambem exige
+// fixtures de billing, para criar uma fatura conhecida antes de trocar para
+// a sessao do operador (achado da auditoria RBAC 2026-08-13).
+const operatorRlsTest = hasOperatorCredentials() && hasBillingFixtures() ? it : it.skip
 
 describeIntegration('supabase integration - hardening gate', () => {
   beforeAll(async () => {
@@ -148,30 +152,84 @@ describeIntegration('supabase integration - hardening gate', () => {
   })
 
   operatorRlsTest('RLS financeiro permite leitura e bloqueia mutacao para operador', async () => {
-    const operatorClient = createClient<Database>(env.url, env.anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    const blIds = env.billingBlIds ?? []
+    expect(blIds.length).toBeGreaterThan(0)
+    const marker = `it-operator-read-${Date.now()}`
+    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-    const login = await operatorClient.auth.signInWithPassword({
-      email: String(env.operatorEmail),
-      password: String(env.operatorPassword),
-    })
+    // Cria uma fatura conhecida com o cliente privilegiado antes de trocar
+    // para a sessao do operador: sem isso, `invoices.select()` vazio nao
+    // distingue "RLS filtrou" de "tabela sem dado".
+    const prep = await client
+      .from('bls')
+      .update({ financial_status: 'pending', charge_status: 'ready_for_billing' })
+      .in('id', blIds)
+    expect(prep.error).toBeNull()
 
-    if (login.error || !login.data.user) {
-      throw new Error(`Falha no login do operador de integracao: ${login.error?.message ?? 'sem sessao'}`)
+    for (const blId of blIds) {
+      const calc = await client.from('charge_calculations').upsert(
+        {
+          bl_id: blId,
+          source: 'auto',
+          status: 'ready_for_billing',
+          calculation_key: `${marker}:${blId}`,
+          quantity: 1,
+          unit_value_brl: 1234.56,
+          total_value_brl: 1234.56,
+          notes: 'integration operator-rls fixture',
+          created_by: userId,
+          calculated_at: new Date().toISOString(),
+        },
+        { onConflict: 'bl_id,calculation_key' },
+      )
+      expect(calc.error).toBeNull()
     }
 
-    const invoices = await operatorClient.from('invoices').select('id').limit(1)
-    expect(invoices.error).toBeNull()
-
-    const cancel = await operatorClient.rpc('cancel_invoice', {
-      p_invoice_id: -1,
-      p_reason: 'integration-operator-must-not-cancel',
-      p_actor: login.data.user.id,
+    const createInvoice = await client.rpc('create_invoice_from_bls', {
+      p_bl_ids: blIds,
+      p_due_date: dueDate,
+      p_notes: 'integration operator-rls read check',
+      p_issue_now: true,
+      p_actor: userId,
     })
-    expect(cancel.error?.code).toBe('42501')
+    expect(createInvoice.error).toBeNull()
+    const invoiceId = Number(((createInvoice.data as { invoice_id?: number } | null)?.invoice_id ?? 0))
+    expect(invoiceId).toBeGreaterThan(0)
 
-    await operatorClient.auth.signOut()
+    try {
+      const operatorClient = createClient<Database>(env.url, env.anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+
+      const login = await operatorClient.auth.signInWithPassword({
+        email: String(env.operatorEmail),
+        password: String(env.operatorPassword),
+      })
+
+      if (login.error || !login.data.user) {
+        throw new Error(`Falha no login do operador de integracao: ${login.error?.message ?? 'sem sessao'}`)
+      }
+
+      const invoices = await operatorClient.from('invoices').select('id').eq('id', invoiceId)
+      expect(invoices.error).toBeNull()
+      expect(invoices.data).toHaveLength(1)
+
+      const cancel = await operatorClient.rpc('cancel_invoice', {
+        p_invoice_id: -1,
+        p_reason: 'integration-operator-must-not-cancel',
+        p_actor: login.data.user.id,
+      })
+      expect(cancel.error?.code).toBe('42501')
+
+      await operatorClient.auth.signOut()
+    } finally {
+      const cancelFixture = await client.rpc('cancel_invoice', {
+        p_invoice_id: invoiceId,
+        p_reason: 'integration-operator-rls-cleanup',
+        p_actor: userId,
+      })
+      expect(cancelFixture.error).toBeNull()
+    }
   })
 
   billingFlowTest('billing flow cria/cancela/reemite invoice e liquida pagamento', async () => {
