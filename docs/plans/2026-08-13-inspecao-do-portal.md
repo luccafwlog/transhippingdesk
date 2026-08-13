@@ -44,6 +44,14 @@ Não-objetivos:
 | 6 | Cobertura | Portal inteiro — Painel, Faturas, BLs, Perfil e sino |
 | 7 | Controles | Leitura e navegação clicáveis; as seis gravações bloqueadas |
 | 8 | Sequenciamento | Depois de #527 e #528 — satisfeito |
+| 9 | `contact_email` na aba Perfil | Expor, como o cliente vê; ampliação registrada na ADR |
+| 10 | Teste de paridade | Estrutura (obrigatório, todo PR) + igualdade de resultado (sob demanda) |
+| 11 | Descoberta por Equipamentos | Todos os setores veem; abrir o console de provisionamento a `equipamentos` |
+
+As decisões 1 a 8 vieram do grilling; 9 a 11 foram tomadas depois da review que
+apontou as lacunas correspondentes. A decisão 12 — auditoria contornável — está
+na seção de riscos: aceitar o limite e escrevê-lo na ADR com as palavras certas
+(cobre o uso pela ferramenta, não o acesso pela API).
 
 A decisão 2 decorre da ADR 0044: leitura de dado interno é global para perfil
 ativo, e a restrição por departamento vive só no eixo de escrita. A migration
@@ -59,13 +67,17 @@ provisionamento o contato é mascarado para `operacoes` e negado aos demais
 entregaria esse campo a todo perfil ativo, o que é uma ampliação real de
 superfície, não uma reprojeção.
 
-Isso não invalida a decisão 2 — ela é coerente com a ADR 0044 —, mas a ADR nova
-precisa dizer que a Inspeção estende a leitura global a `contact_email` do
-Portal, em vez de deixar a ampliação implícita numa frase de "nenhum dado
-novo". Alternativa a avaliar na execução, se o custo parecer alto demais:
-mascarar `contact_email` na inspeção para os perfis que já o veem mascarado no
-console — ao custo de romper a fidelidade exatamente no campo que o cliente
-enxerga inteiro.
+**Decisão 9: expor, como o cliente vê.** Mascarar contradiria o propósito da
+ferramenta — um operador que vê `j***@empresa.com` numa tela que promete mostrar
+o que o cliente vê não pode confiar em mais nada daquela tela — e exigiria um
+ramo por papel dentro do núcleo compartilhado, justamente onde o desenho evita
+ramificações. É o contato do próprio cliente, num sistema onde todo perfil
+interno já lê faturas e recebíveis dele desde a `291`; a restrição da `041` era
+sobre a tabela inteira, que guarda hash de senha, não sobre este campo.
+
+A ADR nova precisa dizer isso explicitamente: a Inspeção **estende** a leitura
+global a `contact_email` do Portal. É ampliação real de superfície e não pode
+ficar implícita numa frase de "nenhum dado novo".
 
 ## A garantia de fidelidade
 
@@ -501,27 +513,51 @@ contexto de trabalho e não deve ser perdida; da ficha, navega na mesma aba.
 O rótulo acompanha `row.account_situation`: "Ver como o cliente vê" para conta
 ativa, "Ver o que o cliente veria" para pendente ou desativada.
 
-Sem gate de permissão próprio no botão — é a decisão 2. Mas **não** é verdade
-que seja "o mesmo gate que o banco aplica", e a diferença precisa ser assumida:
-o `PortalReviewPanel` só existe onde `portal_list_provisioning_console` devolve
-linhas, e essa RPC nega quem não estiver em
-`('administrativo','documentacao','financeiro','operacoes')` (`196:8`,
-`197:9`). `equipamentos` nunca enxerga o botão — mas alcança a rota digitando a
-URL, porque o gate do banco é `is_active_read_user()`, que o inclui.
+Sem gate de permissão próprio no botão — é a decisão 2. Mas o botão só existe
+onde `portal_list_provisioning_console` devolve linhas, e essa RPC nega quem não
+estiver em `('administrativo','documentacao','financeiro','operacoes')`
+(`196:8`, `197:9`). `equipamentos` nunca enxerga o painel — logo, nunca enxerga
+o botão —, embora alcance a rota digitando a URL, porque o gate do banco é
+`is_active_read_user()`, que o inclui.
 
-Isso é coerente com a decisão 2 (leitura para todo perfil ativo) e não é um
-furo: quem chega por URL vê o mesmo que veria pelo botão, e a auditoria registra
-igual. É só uma descoberta desigual — o caminho existe, o atalho não. Registrar
-na ADR; se incomodar, a correção é dar a Equipamentos uma entrada própria, não
-restringir a rota.
+**Decisão 11: todos os setores devem ver, Equipamentos incluído.** Então a
+correção não é na Inspeção: é abrir o console de provisionamento a
+`equipamentos`, para que a capacidade seja descobrível por quem a tem. Ver 3.5.
 
 ### 3.4 Faixa de Modo Inspeção
 
 Faixa persistente no topo, fora do chrome do Portal para não se confundir com
-ele: nome e CNPJ do cliente, situação da conta quando não for ativa, e um botão
-de saída que volta para a origem. Sem ela, um print de tela em modo inspeção
-seria indistinguível de um print do cliente — e alguém, uma hora, vai colar esse
-print num ticket.
+ele: nome e CNPJ do cliente, situação da conta quando não for ativa, e o botão
+de saída da 3.2 — que é o mesmo controle, não um segundo. Sem ela, um print de
+tela em modo inspeção seria indistinguível de um print do cliente — e alguém,
+uma hora, vai colar esse print num ticket.
+
+### 3.5 Abrir o console de provisionamento a Equipamentos
+
+Consequência da decisão 11, e a única parte deste plano que mexe fora da
+Inspeção. `portal_list_provisioning_console` (`196`/`197`) tem dois gates:
+
+```sql
+v_full_access BOOLEAN := v_role IN ('administrativo','documentacao','financeiro');
+IF v_role IS NULL OR v_role NOT IN ('administrativo','documentacao','financeiro','operacoes') THEN
+```
+
+`equipamentos` entra na segunda lista, com **acesso completo** — a mesma
+projeção dos três primeiros. Acesso reduzido faria Equipamentos ver o painel sem
+os dados que o botão de inspeção acompanha, o que é pior do que não ver.
+
+A alteração vai na mesma migration `292`, com a justificativa no cabeçalho, e as
+ações de provisionamento continuam gated como estão hoje: isto abre leitura, não
+escrita — a linha da ADR 0044.
+
+**Inconsistência que fica de pé, e precisa de decisão sua em algum momento:**
+`operacoes` continua com `v_full_access = false`, recebendo situação resumida e
+os booleanos `has_open_invoice`/`has_active_process`
+(`docs/ARCHITECTURE.md:438`), e `usePortalEvents` esconde o histórico dele
+(`PortalReviewPanel.tsx:28`). Isso contradiz o mesmo princípio que a decisão 11
+aplica — "todos os departamentos têm visualização sobre o sistema inteiro; o que
+muda é o que podem editar". Recomendo alinhar Operações no mesmo change; não
+fiz aqui porque é a projeção de outra tela e você não decidiu sobre ela.
 
 ## Etapa 4 — Testes (P0, junto da etapa 1)
 
@@ -549,20 +585,21 @@ Três armadilhas a evitar, e a terceira é a que compromete o plano inteiro:
   fidelidade nunca executa** — e o plano estaria confiando num verde que não
   significa nada, que é o mesmo erro de forma que a #528 corrigiu.
 
-A terceira armadilha exige uma decisão na execução, não uma nota de rodapé.
-Duas saídas, e a segunda é a recomendada:
+**Decisão 10: os dois testes, e o de estrutura é obrigatório.**
 
-1. Ligar `LOCAL_PG_INTEGRATION` no CI, subindo um Postgres de serviço e
-   aplicando as migrations. Cobertura real, ao custo de mexer no pipeline.
-2. Complementar com um **teste de contrato SQL** que não depende de banco:
-   extrair o corpo de cada `portal_<x>` e de cada `portal_inspect_<x>` das
-   migrations e asserir que ambos delegam ao mesmo `_portal_<x>_core`, sem SQL
-   próprio. Não prova igualdade de resultado, mas prova a **estrutura** que
-   produz a igualdade — e roda em todo PR, que é onde a regressão aconteceria.
+1. **Teste de estrutura** (contrato SQL, sem banco, roda em todo PR): extrair o
+   corpo de cada `portal_<x>` e de cada `portal_inspect_<x>` das migrations e
+   asserir que ambos delegam ao mesmo `_portal_<x>_core`, sem SQL próprio. Não
+   prova igualdade de resultado, mas prova a **estrutura** que a produz — e pega
+   o cenário de regressão real, que é alguém editar `portal_<x>` inline e romper
+   a delegação.
+2. **Teste de igualdade de resultado**, no harness de integração, rodado sob
+   demanda com `SUPABASE_RUN_INTEGRATION=1`. É a prova forte.
 
-A (2) sozinha já pega o cenário de risco real (alguém editar `portal_<x>`
-inline e romper a delegação). A (1) é a prova forte e deve ser buscada, mas não
-pode ser o único mecanismo, ou a garantia fica dormindo.
+O (1) é condição de merge; o (2) é a prova que se roda antes de liberar a
+funcionalidade. Ligar o Postgres no CI foi descartado por ora: mexeria no
+pipeline de todo mundo e a manutenção do fixture viraria custo de todo PR —
+mudança que vai além desta feature e merece decisão própria.
 
 ### 4.2 Contrato de grants
 
@@ -608,17 +645,20 @@ só aparece em uso real.
 | `CONTEXT.md` | Entrada **Inspeção do Portal** na seção do Portal (antes de *Conta de Portal*), distinguindo-a de Provisionamento e de recuperação assistida |
 | `docs/modules/portal-cliente.md` | Catálogo de ações da inspeção; o par núcleo/invólucro; a exceção; reforço da nota de `ALTER DEFAULT PRIVILEGES` (:225) |
 | `docs/RASTREABILIDADE.md` | Rota, componentes, hooks, serviços, RPCs e testes novos |
-| `docs/ARCHITECTURE.md` | Rota nova; nota de que `PortalLayout` serve dois hosts e dois modos |
+| `docs/ARCHITECTURE.md` | Rota nova; nota de que `PortalLayout` serve dois hosts e dois modos; console de provisionamento agora inclui `equipamentos` (:438) |
 | `docs/plans/README.md` | Linha deste plano; remover ao concluir |
 | `docs/CHANGELOG.md` | Entrega, ao concluir |
 
 ## Ordem de execução
 
-1. Etapa 1 + Etapa 4.1/4.2/4.4 (banco e suas provas) — sozinhas já são
-   verificáveis e não mudam nada visível.
+1. Etapa 1 + Etapa 4.1(1)/4.2/4.4 (banco e suas provas de estrutura) — sozinhas
+   já são verificáveis e não mudam nada visível.
 2. Etapa 2 + Etapa 4.3 (escopo e bloqueio de escrita).
-3. Etapa 3 (rota, layout, botão, faixa).
+3. Etapa 3, incluindo 3.5 (rota, layout, botão, faixa, console para
+   Equipamentos).
 4. Etapa 5 (documentação), no mesmo change da etapa que a torna verdadeira.
+5. Antes de liberar a funcionalidade: rodar o teste de igualdade de resultado
+   (4.1(2)) com `SUPABASE_RUN_INTEGRATION=1`, que o CI não roda.
 
 Verificação antes de concluir: `npm run docs:check`, `npm run lint`, `npm test`,
 `npm run build`.
@@ -633,10 +673,13 @@ Verificação antes de concluir: `npm run docs:check`, `npm run lint`, `npm test
   um token interno e souber o nome da RPC lê o Portal de qualquer cliente sem
   gerar linha de auditoria. Como a auditoria é justamente o controle que sustenta
   a decisão 3 (não informar o cliente), a lacuna é relevante — mas fechá-la
-  exigiria gravar a cada chamada, que a decisão 4 recusou. **Registrar na ADR
-  como limite conhecido**, com a redação honesta: a auditoria cobre o uso pela
-  ferramenta, não o acesso pela API. Quem quiser fechar depois: exigir um token
-  de sessão de inspeção como parâmetro das `portal_inspect_*`.
+  exigiria gravar a cada chamada, que a decisão 4 recusou. **Decisão 12: aceitar
+  e registrar na ADR** com a redação honesta — a auditoria cobre o uso pela
+  ferramenta, não o acesso pela API. O argumento que sustenta o aceite: quem
+  consegue chamar a RPC direto já é usuário interno ativo que, desde a `291`, lê
+  os mesmos dados pelas telas internas sem auditoria nenhuma; a Inspeção não cria
+  a exposição, reprojeta. Quem quiser fechar depois: exigir um token de sessão de
+  inspeção como parâmetro das `portal_inspect_*`.
 - **Divergência silenciosa por `CREATE OR REPLACE` futuro.** Alguém pode, mais
   tarde, editar o corpo de `portal_<x>` inline em vez de mexer no núcleo,
   quebrando a paridade. Mitigado pelo teste de estrutura da 4.1(2), que roda em
