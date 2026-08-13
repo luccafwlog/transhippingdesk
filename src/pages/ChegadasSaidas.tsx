@@ -201,7 +201,7 @@ export function ChegadasSaidas() {
 
   const { data: vessels = [], isLoading } = useQuery({
     queryKey: ['portal-schedule-voyages'],
-    queryFn: fetchPortalScheduleVoyages,
+    queryFn: () => fetchPortalScheduleVoyages(),
   })
 
   const invalidateSchedules = () => {

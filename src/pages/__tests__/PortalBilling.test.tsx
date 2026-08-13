@@ -96,11 +96,15 @@ vi.mock('../../components/billing/InvoiceDocumentLocal', () => ({
   InvoiceDocumentLocal: () => null,
 }))
 
-vi.mock('../../hooks/usePortalAuth', () => ({
-  usePortalAuth: () => ({
-    overview: { pending_balance: 300, customer_name: 'Cliente Teste' },
-    refreshOverview: vi.fn(),
-  }),
+// `usePortalScope` le `PortalAuthContext` direto (sem Provider, o default do
+// contexto e o valor entregue), entao o mock parcial precisa exportar os dois.
+const portalAuth = vi.hoisted(() => ({
+  overview: { pending_balance: 300, customer_name: 'Cliente Teste' },
+  refreshOverview: vi.fn(),
+}))
+vi.mock('../../hooks/usePortalAuth', async () => ({
+  usePortalAuth: () => portalAuth,
+  PortalAuthContext: (await vi.importActual<typeof import('react')>('react')).createContext(portalAuth),
 }))
 
 vi.mock('../../hooks/usePortalBilling', () => ({

@@ -7,6 +7,8 @@ import { usePortalOperationBls } from '../hooks/usePortalOperation'
 import { countContainersInDemurrage, countContainersWithoutReturn } from '../lib/portalOperationViews'
 import { formatBRL } from '../lib/utils'
 import { CLOSED_DEMURRAGE_STATUSES, OPEN_INVOICE_STATUSES } from '../lib/portalInvoiceStatus'
+import { usePortalScope } from '../hooks/usePortalScope'
+import { portalPath } from '../services/portalScope'
 
 type PanelCard = {
   label: string
@@ -20,6 +22,7 @@ export function PortalDashboard() {
   const { data: demurrage, isLoading: demLoading, error: demurrageError } = usePortalDemurrageInvoices()
   const { data: operationBls, isLoading: opLoading, error: operationError } = usePortalOperationBls()
   const nav = useNavigate()
+  const scope = usePortalScope()
 
   const cards = useMemo<PanelCard[]>(() => {
     const openLocal = (invoices ?? []).filter((i) => (OPEN_INVOICE_STATUSES as readonly string[]).includes(i.status ?? 'issued'))
@@ -36,28 +39,28 @@ export function PortalDashboard() {
         label: 'Taxas locais em aberto',
         primary: formatBRL(localTotal),
         secondary: `${openLocal.length} fatura(s) em aberto`,
-        link: '/portal/billing?tab=local',
+        link: portalPath(scope, '/billing?tab=local'),
       },
       {
         label: 'Demurrage em aberto',
         primary: formatBRL(demurrageTotal),
         secondary: `${openDemurrage.length} fatura(s) em aberto`,
-        link: '/portal/billing?tab=demurrage',
+        link: portalPath(scope, '/billing?tab=demurrage'),
       },
       {
         label: 'Containers sem devolucao',
         primary: String(containersNoReturn),
         secondary: 'container(es) ainda nao devolvido(s)',
-        link: '/portal/operacao?tab=containers&devolucao=sem_devolucao',
+        link: portalPath(scope, '/operacao?tab=containers&devolucao=sem_devolucao'),
       },
       {
         label: 'Containers em demurrage',
         primary: String(containersDemurrage),
         secondary: 'container(es) gerando sobreestadia',
-        link: '/portal/operacao?tab=containers&devolucao=em_demurrage',
+        link: portalPath(scope, '/operacao?tab=containers&devolucao=em_demurrage'),
       },
     ]
-  }, [invoices, demurrage, operationBls])
+  }, [invoices, demurrage, operationBls, scope])
 
   const loading = invLoading || demLoading || opLoading
   const financialError = Boolean(invoicesError || demurrageError)

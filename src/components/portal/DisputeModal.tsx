@@ -5,6 +5,7 @@ import { InlineError } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { usePortalOpenDispute } from '../../hooks/usePortalDisputes'
 import { portalErrorMessage } from '../../lib/portalErrorMessage'
+import { usePortalScope } from '../../hooks/usePortalScope'
 
 type Props = {
   demurrageInvoiceId: number | null
@@ -28,6 +29,7 @@ function DisputeModalContent({ demurrageInvoiceId, docNumber, onClose }: { demur
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const openDispute = usePortalOpenDispute()
+  const scope = usePortalScope()
 
   async function handleSubmit() {
     if (!reason.trim()) {
@@ -64,7 +66,7 @@ function DisputeModalContent({ demurrageInvoiceId, docNumber, onClose }: { demur
 
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-        <Button loading={openDispute.isPending} onClick={handleSubmit}>Abrir disputa</Button>
+        <Button loading={openDispute.isPending} onClick={handleSubmit} disabled={scope.mode === 'inspect'} title={scope.mode === 'inspect' ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}>Abrir disputa</Button>
       </div>
     </div>
   )

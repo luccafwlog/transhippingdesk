@@ -16,6 +16,7 @@ import { PortalDemurrageDetailModal } from '../components/portal/PortalDemurrage
 import { PortalInvoiceDetailModal } from '../components/portal/PortalInvoiceDetailModal'
 import { DemurrageTab, LocalFeesTab } from '../components/portal/PortalBillingTabs'
 import { usePortalAuth } from '../hooks/usePortalAuth'
+import { usePortalScope } from '../hooks/usePortalScope'
 import {
   usePortalConsolidatableReceivables,
   usePortalCurrentRoe,
@@ -57,7 +58,9 @@ function matchesText(values: string[], term: string) {
 }
 
 export function PortalBilling() {
-  const { overview } = usePortalAuth()
+  const { overview: authOverview } = usePortalAuth()
+  const { overview } = usePortalScope()
+  const effectiveOverview = overview ?? authOverview
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { data: receivables } = usePortalConsolidatableReceivables()
@@ -195,7 +198,7 @@ export function PortalBilling() {
       />
 
       <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(210px,1fr))]">
-        <MetricCard label="Saldo pendente" value={formatBRL(overview?.pending_balance)} />
+        <MetricCard label="Saldo pendente" value={formatBRL(effectiveOverview?.pending_balance)} />
         <MetricCard label="Faturas emitidas" value={String(invoices?.length ?? 0)} />
         <MetricCard label="B/Ls elegíveis" value={String(eligibleCount)} />
       </div>

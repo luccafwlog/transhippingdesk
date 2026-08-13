@@ -3,11 +3,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
-vi.mock('../../../hooks/usePortalAuth', () => ({
-  usePortalAuth: () => ({
-    overview: { customer_name: 'Cliente Portal', customer_cnpj_cpf: '12345678000195' },
-    signOut: vi.fn(),
-  }),
+// `usePortalScope` le `PortalAuthContext` direto (sem Provider, o default do
+// contexto e o valor entregue), entao o mock parcial precisa exportar os dois.
+const portalAuth = vi.hoisted(() => ({
+  overview: { customer_name: 'Cliente Portal', customer_cnpj_cpf: '12345678000195' },
+  signOut: vi.fn(),
+}))
+vi.mock('../../../hooks/usePortalAuth', async () => ({
+  usePortalAuth: () => portalAuth,
+  PortalAuthContext: (await vi.importActual<typeof import('react')>('react')).createContext(portalAuth),
 }))
 
 vi.mock('../../../hooks/usePortalNotifications', () => ({

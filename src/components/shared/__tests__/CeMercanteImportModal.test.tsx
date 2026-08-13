@@ -61,7 +61,13 @@ it('invalida caches e informa parcialidade no EDI de Granito', async () => {
   fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
     target: { files: [new File(['edi'], 'ce.edi')] },
   })
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar importação' })).toBeTruthy())
+  // O botao é sempre renderizado (CeMercanteImportModal.tsx:329 só alterna
+  // `disabled`), entao esperar pela existencia dele nao espera nada: o clique
+  // cairia no botao desabilitado antes de parseEdi resolver, e o import nunca
+  // rodaria. Esperar por `disabled === false` amarra o clique ao preview pronto.
+  await waitFor(() =>
+    expect((screen.getByRole('button', { name: 'Confirmar importação' }) as HTMLButtonElement).disabled).toBe(false),
+  )
   fireEvent.click(screen.getByRole('button', { name: 'Confirmar importação' }))
   await waitFor(() => expect(mocks.invalidateQueries).toHaveBeenCalled())
   expect(mocks.showToast).toHaveBeenCalledWith('Importacao parcial: 1 gravado(s), 1 pendencia(s).', 'error')

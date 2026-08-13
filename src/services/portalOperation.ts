@@ -1,4 +1,4 @@
-import { supabasePortal } from './supabase'
+import { callPortalRpc, clientPortalScope, type PortalScope } from './portalScope'
 
 export type PortalOperationContainerStatus =
   | 'sem_descarga'
@@ -136,10 +136,8 @@ export function normalizePortalOperationRows(data: unknown): PortalOperationBL[]
   })
 }
 
-export async function portalListOperationBls(): Promise<PortalOperationBL[]> {
-  const { data, error } = await supabasePortal.rpc('portal_list_operation_bls')
-
-  if (error) throw error
+export async function portalListOperationBls(scope: PortalScope = clientPortalScope): Promise<PortalOperationBL[]> {
+  const data = await callPortalRpc<unknown>(scope, 'portal_list_operation_bls')
 
   return normalizePortalOperationRows(data)
 }

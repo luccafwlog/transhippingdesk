@@ -5,6 +5,7 @@
 const BASE = 'Transhipping Desk'
 
 const ROUTE_TITLES: Array<[RegExp, string]> = [
+  [/^\/clientes\/portal\/inspecao\//, 'Portal · Inspeção'],
   [/^\/perfil/, 'Meu perfil'],
   [/^\/login/, 'Login'],
   [/^\/portal\/login/, 'Portal · Login'],
