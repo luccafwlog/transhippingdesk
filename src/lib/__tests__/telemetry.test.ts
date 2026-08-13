@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { redactUrlQueryString, reportBestEffortFailure, scrubEventValue, scrubPii } from '../telemetry'
+import { redactUrlQueryString, reportBestEffortFailure, scrubBreadcrumbData, scrubEventValue, scrubPii } from '../telemetry'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -76,6 +76,32 @@ describe('redactUrlQueryString', () => {
     expect(redactUrlQueryString('https://portal.transhippingdesk.com.br/portal/login')).toBe(
       'https://portal.transhippingdesk.com.br/portal/login',
     )
+  })
+})
+
+describe('scrubBreadcrumbData', () => {
+  // Achado da revisão do PR 527: breadcrumbsIntegration grava
+  // data.from/data.to com o href completo (path+query) em toda navegação,
+  // incluindo o history.replaceState que remove o token da URL -- o
+  // breadcrumb carregava o token mesmo depois da URL ficar limpa.
+  it('remove a query string de campos de navegacao (from/to)', () => {
+    expect(scrubBreadcrumbData({
+      from: '/portal/recuperar-senha?token=SEGREDO',
+      to: '/portal/recuperar-senha',
+    })).toEqual({
+      from: '/portal/recuperar-senha',
+      to: '/portal/recuperar-senha',
+    })
+  })
+
+  it('preserva valores nao textuais e redige PII em textos', () => {
+    expect(scrubBreadcrumbData({
+      status_code: 200,
+      url: 'https://x.com/y?cnpj=12.345.678/0001-95',
+    })).toEqual({
+      status_code: 200,
+      url: 'https://x.com/y',
+    })
   })
 })
 

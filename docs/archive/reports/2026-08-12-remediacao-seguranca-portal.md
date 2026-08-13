@@ -123,6 +123,49 @@ real.
 - O plano executado movido para `docs/archive/plans/`, linha removida de
   `docs/plans/README.md`.
 
+## 5.1. Correções da revisão de código (mesma PR)
+
+Uma revisão de código sobre o diff acima encontrou dois problemas concretos
+nas próprias defesas que este relatório descreve, corrigidos ainda dentro da
+PR #527:
+
+1. **Oráculo de *timing* em `/portal/esqueci-senha` (reabertura do achado
+   3.2).** A Task 2 equalizou o corpo da resposta (`{accepted: true}`), mas
+   só o caminho de conta ativa aguardava `sendPortalEmail` (fetch ao Resend +
+   retries com backoff) antes de responder — a latência sozinha voltava a
+   distinguir CNPJ com conta de CNPJ sem conta. Corrigido em
+   `supabase/functions/portal-password-recovery/index.ts`: o envio de email
+   passa a rodar em segundo plano via `EdgeRuntime.waitUntil`, e a resposta
+   sai imediatamente após a criação do convite de recuperação, em todo
+   caminho elegível.
+2. **Vazamento do token via breadcrumb do Sentry (reabertura do achado
+   3.3).** A Task 3 redigiu `event.request.url`/`Referer`, mas o
+   `beforeSend` só escrevia sobre `breadcrumb.message`, nunca
+   `breadcrumb.data`. O breadcrumb de navegação padrão do `@sentry/browser`
+   grava `data.from`/`data.to` com o href completo (path+query) em toda
+   chamada de `history.replaceState` — inclusive a própria chamada que
+   `PortalResetPassword`/`PortalAtivacao` usam para remover o token da URL,
+   que assim continuava vazando o token no breadcrumb mesmo com a URL limpa.
+   Corrigido em `src/lib/telemetry.ts` com `scrubBreadcrumbData`, que
+   redige a query string (e PII) de todo valor textual em `breadcrumb.data`.
+   Teste: `src/lib/__tests__/telemetry.test.ts`.
+
+Também foi endereçado um apontamento de robustez: a revogação de `anon` em
+`portal_invoice_details` (Task 4) era um `REVOKE` pontual sobre um padrão que
+já havia reaberto o mesmo grant várias vezes no histórico de migrations (084,
+085, 105, 120, 123, 261 reconcederam `EXECUTE` a `anon` copiando o
+boilerplate de uma versão anterior da função, por cima dos `REVOKE` de 114 e
+150). Em vez de reabrir uma nova migration, foi acrescentado
+`src/services/__tests__/portalInvoiceDetailsAnonGrantInvariant.test.ts`, que
+varre todas as migrations em ordem e trava que o último `GRANT`/`REVOKE`
+envolvendo `anon` para essa função seja um `REVOKE` — uma futura edição que
+reintroduza o grant sem revogar de novo quebra o teste em vez de abrir
+silenciosamente até a próxima auditoria.
+
+Verificação re-executada após as correções: `npm run lint`, `npm test` (394
+arquivos, 1777 testes, 16 skips pré-existentes), `npm run build` e
+`npm run docs:check` — todos ok.
+
 ## 6. Fora de escopo (mantido)
 
 - Advisory HIGH do `react-router` 7.17.0 (achado 3.6) — não tratado, conforme

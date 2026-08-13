@@ -10,6 +10,12 @@ import { withCors } from '../_shared/cors.ts'
 // limit -- que nao distingue conta e e informacao util de "tente mais tarde".
 // Todo outro desfecho elegivel devolve o mesmo `{ accepted: true }`,
 // independente de o CNPJ ter conta, estar ativo ou o email ter sido enviado.
+//
+// Achado da revisao do PR 527: igualar so o corpo da resposta nao bastava --
+// so o caminho de conta ativa aguardava sendPortalEmail (fetch para o Resend
+// + retries com backoff), entao o tempo de resposta sozinho reabria o oraculo
+// de enumeracao. sendPortalEmail roda em segundo piano via EdgeRuntime.waitUntil
+// e a resposta sai antes dele terminar, em todo caminho elegivel.
 if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   const body = await req.json().catch(() => ({})) as { cnpj?: string }
@@ -34,6 +40,8 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   const d = customer?.cnpj_cpf?.replace(/\D/g, '') ?? ''
   const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
   const template = recoveryTemplate({ companyName: customer?.name ?? 'sua empresa', cnpjMasked: d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***', recoveryUrl: `${portalUrl}/portal/recuperar-senha?token=${encodeURIComponent(token)}`, portalUrl, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' })
-  await sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })
+  const emailPromise = sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })
+    .catch((error) => console.error('[portal-password-recovery] falha ao enviar email em segundo plano', error))
+  if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(emailPromise)
   return accepted()
 }))

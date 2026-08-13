@@ -11,6 +11,18 @@
   `anon` em `portal_invoice_details` é revogado. *(plano arquivado
   `2026-08-12-remediacao-seguranca-portal`; origem: auditoria
   `security-audit-portal-2026-08-12`)*
+  - **Revisão de código na mesma PR:** o envio de email de
+    `portal-password-recovery` deixa de ser aguardado antes da resposta (roda
+    em segundo plano via `EdgeRuntime.waitUntil`), fechando um oráculo de
+    enumeração por *timing* que sobrevivia à equalização do corpo da
+    resposta; `beforeSend` da telemetria passa a redigir também
+    `breadcrumb.data` (não só `breadcrumb.message`), fechando o vazamento do
+    token de reset/ativação pelo breadcrumb de navegação do Sentry que a
+    própria remoção do token da URL disparava; e um teste de invariante
+    (`portalInvoiceDetailsAnonGrantInvariant.test.ts`) passa a travar, em
+    todas as migrations, que `anon` nunca retenha `EXECUTE` em
+    `portal_invoice_details`, para o grant residual não voltar a ser
+    reintroduzido silenciosamente por uma futura edição da função.
 
 - **Spec comportamental na edição `2026-08-12`:** rebuild diferencial contra as
   migrations `001`–`289`, 42 rotas, 103 RPCs e 12 Edge Functions — 36 linhas

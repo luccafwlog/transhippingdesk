@@ -35,6 +35,23 @@ export function redactUrlQueryString(url: string): string {
   return queryIndex === -1 ? url : url.slice(0, queryIndex)
 }
 
+// browserApiErrorsIntegration/breadcrumbsIntegration (defaults do
+// @sentry/browser) gravam breadcrumb.data.from/to com o href completo
+// (path+query) em toda navegacao, incluindo a propria chamada de
+// history.replaceState que os componentes de reset/ativacao do Portal usam
+// para remover o token da URL -- entao o breadcrumb carrega o token mesmo
+// depois da URL limpa. scrubPii nao pega token aleatorio (nao e CNPJ/CPF/
+// email), entao a query string inteira de qualquer valor string em
+// breadcrumb.data e removida, alem do scrub de PII de costume.
+export function scrubBreadcrumbData(data: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? scrubPii(redactUrlQueryString(value)) : value,
+    ]),
+  )
+}
+
 export function scrubEventValue(value: unknown, depth = 0): unknown {
   if (typeof value === 'string') return scrubPii(value)
   if (value == null || typeof value !== 'object') return value
@@ -67,6 +84,7 @@ export function initTelemetry(): void {
       if (event.extra) event.extra = scrubEventValue(event.extra) as typeof event.extra
       event.breadcrumbs?.forEach((breadcrumb) => {
         if (breadcrumb.message) breadcrumb.message = scrubPii(breadcrumb.message)
+        if (breadcrumb.data) breadcrumb.data = scrubBreadcrumbData(breadcrumb.data)
       })
       if (event.request) {
         if (event.request.url) event.request.url = redactUrlQueryString(event.request.url)
