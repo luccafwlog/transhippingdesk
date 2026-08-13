@@ -4,7 +4,8 @@
 // (ParsedBreakbulkManifest) com erros por linha. A persistência vive em
 // breakbulkImport.ts.
 import { assertUploadFile } from '../lib/fileGuard'
-import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
+import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
+import { asString, normalizeHeader, toNumber } from '../lib/utils'
 import { extractNcmCodes } from '../lib/ncm'
 import { normalizePortCode } from './portCode'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
@@ -20,7 +21,7 @@ const headerMap = {
   shipper: ['shipper', 'embarcador'],
   consignee: ['consignee', 'consignatario', 'cnee'],
   notify_party: ['notify', 'notify party'],
-  cnpj_cpf: ['cnpj', 'cnpj/cpf', 'cpf', 'documento'],
+  cnpj_cpf: ['cnpj', 'cnpj/cpf', 'documento'],
   pol: ['pol', 'porto origem'],
   pod: ['pod', 'porto destino'],
   item_description: ['descricao', 'descricao da carga', 'mercadoria'],
@@ -300,7 +301,7 @@ function parseLegacyRows(rows: Record<string, unknown>[]): ParsedBreakbulkManife
 
     const bl_id = normalizeKey(mapped.bl_id)
     const consignee = asString(mapped.consignee)
-    const cnpj_cpf = onlyDigits(asString(mapped.cnpj_cpf))
+    const cnpj_cpf = normalizeCnpj(asString(mapped.cnpj_cpf))
     const pol = normalizeKey(mapped.pol)
     const pod = normalizeKey(mapped.pod)
     const item_description = asString(mapped.item_description)
@@ -762,12 +763,9 @@ function findNearestCompanyBeforeIndex(lines: string[], endIndex: number, minInd
 }
 
 function extractTaxId(value: string) {
-  if (!/\b(CNPJ|CPF)\b/i.test(value)) return ''
-
-  const digits = onlyDigits(value)
-  if (digits.length >= 14) return digits.slice(0, 14)
-  if (digits.length >= 11 && /^CPF[:\s]/i.test(value)) return digits.slice(0, 11)
-  return ''
+  const match = value.match(/\bCNPJ\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})/i)
+  const cnpj = normalizeCnpj(match?.[1] ?? '')
+  return isValidCnpj(cnpj) ? cnpj : ''
 }
 
 function asNullableString(value: unknown) {
@@ -776,8 +774,8 @@ function asNullableString(value: unknown) {
 }
 
 function asNullableDigits(value: unknown) {
-  const digits = onlyDigits(asString(value))
-  return digits || null
+  const cnpj = normalizeCnpj(asString(value))
+  return cnpj || null
 }
 
 function normalizeKey(value: unknown) {

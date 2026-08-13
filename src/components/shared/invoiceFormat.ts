@@ -1,5 +1,6 @@
 import type { InvoiceDetail } from '../../services/billing'
 import { formatDate } from '../../lib/utils'
+import { formatCnpj } from '../../lib/cnpj'
 import type React from 'react'
 
 // Helpers de formatação e estilos compartilhados pelos documentos imprimíveis
@@ -37,11 +38,7 @@ export function describeUsdConversionNote(item: {
 }
 
 export function fmtCNPJ(s: string | null | undefined) {
-  if (!s) return ''
-  const d = s.replace(/\D/g, '')
-  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  return s
+  return s ? formatCnpj(s) : ''
 }
 
 export function longDate() {

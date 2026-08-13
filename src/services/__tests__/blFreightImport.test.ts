@@ -227,7 +227,7 @@ describe('blFreightImport', () => {
     expect(preview.rows[0].payload?.customer_id).toBe(42)
     expect(preview.rows[0].payload).toMatchObject({
       customer_reconciliation_status: 'matched_document',
-      customer_reconciliation_notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+      customer_reconciliation_notes: 'Cliente reconciliado automaticamente por CNPJ.',
       billing_hold_reason: null,
     })
   })
@@ -611,7 +611,7 @@ describe('blFreightImport', () => {
       id: 'DOCMATCH',
       customer_id: 42,
       customer_reconciliation_status: 'matched_document' as const,
-      customer_reconciliation_notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+      customer_reconciliation_notes: 'Cliente reconciliado automaticamente por CNPJ.',
       billing_hold_reason: null,
     }
     const nameMatched = {

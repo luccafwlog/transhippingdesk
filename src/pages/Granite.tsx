@@ -23,7 +23,7 @@ import {
 import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCharges'
 import { calculateAndIssueGraniteInvoice } from '../services/graniteBillingWorkflow'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
-import { onlyDigits } from '../lib/utils'
+import { normalizeCnpj } from '../lib/cnpj'
 import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../services/customerReconciliation'
 
 type Filters = {
@@ -89,8 +89,8 @@ export function Granite() {
   async function handleCnpjOverride(rowIndex: number, cnpj: string) {
     setCnpjOverrides((prev) => ({ ...prev, [rowIndex]: cnpj }))
     if (!manifest) return
-    const digits = onlyDigits(cnpj)
-    if (digits.length < 11) return
+    const canonical = normalizeCnpj(cnpj)
+    if (canonical.length < 14) return
     const maps = await loadCustomerMaps()
     const bl = manifest.bls[rowIndex]
     const match = findMatchedCustomer({ cnpjCpf: cnpj, consignee: bl.shipper_name ?? '' }, maps)
@@ -453,7 +453,7 @@ export function Granite() {
                               placeholder="Digite o CNPJ"
                               className="w-40 text-xs"
                               value={cnpjOverrides[idx] ?? ''}
-                              onChange={(e) => handleCnpjOverride(idx, e.target.value)}
+                              onChange={(e) => handleCnpjOverride(idx, normalizeCnpj(e.target.value))}
                             />
                           ) : (
                             bl.shipper_cnpj ?? '-'

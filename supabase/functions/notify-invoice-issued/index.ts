@@ -21,7 +21,7 @@ import { invoiceCriticalPendencyTemplate, invoiceIssuedTemplate } from '../_shar
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 
 function maskCnpj(value: string | null): string {
-  const digits = (value ?? '').replace(/\D/g, '')
+  const digits = (value ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase()
   return digits.length === 14 ? `${digits.slice(0, 2)}.***.***/${digits.slice(8, 12)}-${digits.slice(12)}` : '***'
 }
 

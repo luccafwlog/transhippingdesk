@@ -10,6 +10,7 @@ import { PortalReviewPanel } from '../components/portal/PortalReviewPanel'
 import { accountSituationLabel, getPortalNextAction, provisioningDecisionLabel } from '../lib/portalProvisioningViewModel'
 import { exportPortalProvisioningWorkbook } from '../services/exports'
 import { formatCnpjCpf } from '../lib/utils'
+import { normalizeCnpj } from '../lib/cnpj'
 
 type Preset = 'todos' | 'aguardando_analise' | 'criticas' | 'sem_email' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'provisionamento_nao_necessario'
 const presets: Array<{ value: Preset; label: string }> = [
@@ -36,7 +37,8 @@ export function ClientesPortal() {
   const rowRefs = useRef(new Map<number, HTMLButtonElement>())
   const rows = useMemo(() => data.filter((row) => {
     const text = `${row.customer_name} ${row.cnpj_cpf}`.toLowerCase()
-    return text.includes(search.toLowerCase()) && matchesPreset(row, preset)
+    const normalizedSearch = normalizeCnpj(search)
+    return (text.includes(search.toLowerCase()) || (normalizedSearch.length >= 2 && row.cnpj_cpf.includes(normalizedSearch))) && matchesPreset(row, preset)
   }).sort(comparePriority), [data, preset, search])
   const visibleRows = selected && !rows.some((row) => row.customer_id === selected.customer_id) ? [selected] : rows
   const count = (fn: (row: QueueRow) => boolean) => data.filter(fn).length

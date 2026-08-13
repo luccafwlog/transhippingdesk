@@ -164,7 +164,7 @@ describe('Revisao', () => {
     const nome = screen.getByLabelText('Nome')
     await user.clear(nome)
     await user.type(nome, 'Novo Cliente')
-    const doc = screen.getByLabelText('CNPJ/CPF')
+    const doc = screen.getByLabelText('CNPJ')
     await user.clear(doc)
     await user.type(doc, '11222333000181')
     await user.click(screen.getByRole('button', { name: 'Cadastrar cliente' }))

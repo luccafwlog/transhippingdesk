@@ -343,7 +343,7 @@ export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
 export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {
   const XLSX = await import('@e965/xlsx')
   const exportRows = rows.map((row) => ({
-    'CNPJ/CPF': row.cnpj_cpf ?? '',
+    CNPJ: row.cnpj_cpf ?? '',
     'Razao Social': row.name ?? '',
     'Nome Fantasia': row.trade_name ?? '',
     Email: '',

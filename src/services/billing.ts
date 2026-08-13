@@ -4,6 +4,7 @@ import type { Customer, Invoice, InvoiceDocumentStatus, InvoiceItem, InvoicePaym
 import { buildTransshippingPixPayload } from '../lib/pix'
 import { classifyDbError } from '../lib/errors'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../lib/utils'
+import { normalizeCnpj } from '../lib/cnpj'
 import { reportBestEffortFailure } from '../lib/telemetry'
 
 // Filtro de status exposto na UI: 3 estados operacionais. Cada um cobre os
@@ -995,7 +996,7 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
 export async function listBillingCustomers(search = '') {
   const normalizedSearch = String(search ?? '').trim()
   const safeSearch = escapeFilterTerm(normalizedSearch)
-  const digitSearch = normalizedSearch.replace(/\D/g, '')
+  const cnpjSearch = normalizeCnpj(normalizedSearch)
 
   let query = supabase
     .from('customers')
@@ -1005,7 +1006,7 @@ export async function listBillingCustomers(search = '') {
 
   if (normalizedSearch.length >= 2) {
     const terms = safeSearch ? [`name.ilike.%${safeSearch}%,cnpj_cpf.ilike.%${safeSearch}%`] : []
-    if (digitSearch.length >= 2) terms.push(`cnpj_cpf.ilike.%${digitSearch}%`)
+    if (cnpjSearch.length >= 2) terms.push(`cnpj_cpf.ilike.%${cnpjSearch}%`)
     if (terms.length) query = query.or(terms.join(','))
   }
 

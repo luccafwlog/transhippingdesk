@@ -34,7 +34,7 @@ describe('customerReconciliation', () => {
       customerId: 1,
       suggestedCustomerId: null,
       status: 'matched_document',
-      notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+      notes: 'Cliente reconciliado automaticamente por CNPJ.',
     })
   })
 

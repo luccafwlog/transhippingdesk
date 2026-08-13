@@ -1,5 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { asString, onlyDigits, toNumber } from '../lib/utils'
+import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
+import { asString, toNumber } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 
 export type BLFreightCharge = {
@@ -272,8 +273,9 @@ function parseNumber(value: unknown) {
 }
 
 export function extractTaxId(value: string) {
-  const digits = onlyDigits(value)
-  return digits.length >= 14 ? digits.slice(0, 14) : digits || null
+  const match = value.match(/\bCNPJ\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})/i)
+  const cnpj = normalizeCnpj(match?.[1] ?? value)
+  return isValidCnpj(cnpj) ? cnpj : null
 }
 
 export function extractEmail(value: string) {

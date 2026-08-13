@@ -1,4 +1,5 @@
-import { normalizeText, onlyDigits } from '../lib/utils'
+import { normalizeCnpj } from '../lib/cnpj'
+import { normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
 export type CustomerMatchRecord = {
@@ -78,7 +79,7 @@ export async function loadCustomerMaps() {
     for (const customer of batch) {
       const record: CustomerMatchRecord = { id: customer.id, name: customer.name }
 
-      const document = onlyDigits(customer.cnpj_cpf)
+      const document = normalizeCnpj(customer.cnpj_cpf)
       if (document) {
         customersByDocument.set(document, record)
       }
@@ -109,7 +110,7 @@ export function findMatchedCustomer(
   },
   maps: CustomerMaps,
 ): CustomerMatchResult | null {
-  const document = onlyDigits(candidate.cnpjCpf)
+  const document = normalizeCnpj(candidate.cnpjCpf ?? '')
   if (document) {
     const customerByDocument = maps.customersByDocument.get(document)
     if (customerByDocument) {
@@ -176,7 +177,7 @@ export function resolveCustomerLink(match: CustomerMatchResult | null): Customer
       customerId: match.customer.id,
       suggestedCustomerId: null,
       status: 'matched_document',
-      notes: 'Cliente reconciliado automaticamente por CNPJ/CPF.',
+      notes: 'Cliente reconciliado automaticamente por CNPJ.',
     }
   }
 

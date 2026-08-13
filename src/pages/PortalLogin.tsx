@@ -79,11 +79,11 @@ export function PortalLogin() {
             <Input
               required
               type="text"
-              inputMode="numeric"
+              inputMode="text"
               autoComplete="username"
               value={cnpj}
               onChange={(event) => setCnpj(normalizeCnpj(event.target.value))}
-              placeholder="00000000000000"
+              placeholder="00.000.000/0000-00"
             />
           </Field>
 
