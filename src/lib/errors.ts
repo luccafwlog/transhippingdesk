@@ -56,6 +56,28 @@ const ERROR_TABLE: Readonly<Record<string, ErrorTableEntry>> = {
   '57014': { kind: 'limite', message: 'A consulta demorou demais. Reduza o periodo e tente novamente.' },
 }
 
+/**
+ * Erros deterministicos: repetir a mesma request produz exatamente a mesma
+ * falha. O TanStack Query repete 3 vezes com backoff exponencial por padrao, o
+ * que transforma uma falha instantanea (RLS negando, select mal formado) em
+ * ~7 segundos de spinner antes da tela mostrar o erro. Falhas transitorias
+ * (rede caindo, `40001` de concorrencia) continuam sendo repetidas.
+ *
+ * `PGRST1xx`/`PGRST2xx` sao erros de construcao da query e de schema cache do
+ * PostgREST — por exemplo `PGRST201` (embed ambiguo, quando duas foreign keys
+ * ligam as mesmas tabelas) e `PGRST116` (single row esperado). Nenhum deles
+ * muda sozinho entre tentativas.
+ */
+const NON_RETRIABLE_KINDS: ReadonlySet<DbErrorKind> = new Set<DbErrorKind>([
+  'permissao', 'sessao_expirada', 'validacao', 'nao_encontrado', 'limite',
+])
+
+export function isRetriableDbError(error: unknown): boolean {
+  const code = error && typeof error === 'object' ? String((error as { code?: unknown }).code ?? '') : ''
+  if (/^PGRST[12]\d\d$/.test(code)) return false
+  return !NON_RETRIABLE_KINDS.has(classifyDbError(error).kind)
+}
+
 export function classifyDbError(error: unknown): ClassifiedDbError {
   const fields = error instanceof Error
     ? { code: String((error as Error & { code?: unknown }).code ?? ''), message: error.message }

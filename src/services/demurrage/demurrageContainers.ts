@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import { ensureDemurrageRatesLoaded, calculateDemurrage } from './demurrageRates'
 import { reportBestEffortFailure } from '../../lib/telemetry'
+import { CUSTOMER_OF_BL } from '../../lib/supabaseEmbeds'
 import type { DemurrageContainerListItem } from '../../types/database'
 
 export type DemurrageContainerFilters = {
@@ -45,7 +46,7 @@ export async function listDemurrageContainers(filters?: DemurrageContainerFilter
         id, pol, pod, free_time_override,
         demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd,
         demurrage_roe_manual, demurrage_roe, voyage_id,
-        customer:customers(id, name, cnpj_cpf),
+        customer:${CUSTOMER_OF_BL}(id, name, cnpj_cpf),
         voyage:voyages(id, voyage_number, vessel:vessels(id, name))
       )
     `)

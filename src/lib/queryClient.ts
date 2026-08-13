@@ -1,5 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { reportCaughtException } from './telemetry'
+import { isRetriableDbError } from './errors'
 
 function reportQueryError(error: unknown, meta: Record<string, unknown>) {
   reportCaughtException(error, 'TanStack Query', meta)
@@ -23,6 +24,7 @@ export function createAppQueryClient() {
       queries: {
         staleTime: 30_000,
         refetchOnWindowFocus: false,
+        retry: (failureCount, error) => failureCount < 3 && isRetriableDbError(error),
       },
     },
   })
