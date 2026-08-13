@@ -34,6 +34,7 @@ eixos.
 |---|---|
 | Escrita interna é global | Todo departamento ativo escreve em todos os módulos |
 | Exclusão de registro operacional continua com Administrativo | O registro não desfaz exclusão |
+| Remover linha manual tem o gate de lançá-la | Simetria que o código já pratica; o freio é o estado do documento |
 | Provisionamento do Portal continua com Administrativo + Documentação | Erro escapa da empresa e não é reversível internamente |
 | `/admin/usuarios` continua exclusivo do Administrativo, inclusive na leitura | Única exceção à leitura global |
 | Sign-off Departamental do ADR de Saída permanece departamental | Ali o departamento significa responsabilidade, não permissão |
@@ -41,20 +42,54 @@ eixos.
 | Ator não-humano assina `sistema` | Vocabulário já usado em `_portal_log_event` |
 | Auditoria por grão | Uma ação humana → um evento; carga em massa → o evento é o lote |
 
-### Regra de desambiguação — o que é "exclusão de registro operacional"
+### Regra de simetria — remover linha manual não é excluir registro
 
 A decisão "apagar continua com Administrativo" foi tomada sobre o `DELETE` de
 registro operacional: B/L, container, veículo, viagem, manifesto, escala. Ela
-**não** alcança a remoção de uma linha que a própria pessoa lançou no mesmo
-fluxo de edição — taxa manual de B/L, taxa manual de fatura, booking manual de
-vazios. Remover a linha que se acabou de lançar é parte de editar, e tratá-la
-como exclusão **restringiria** um fluxo que hoje funciona, o que este plano não
-se propõe a fazer.
+não alcança a remoção de uma linha manual, e a razão não é uma distinção nova
+entre editar e excluir — é uma regra que **o código já segue** sem nunca ter
+sido escrita: cada remoção de linha manual tem exatamente o gate do seu próprio
+lançamento.
 
-Consequência prática: `delete_manual_bl_charge`, `delete_manual_invoice_charge`
-e `delete_manual_vazios_booking` seguem o gate de escrita (aberto);
+| Remover | Gate atual | Lançar | Gate atual |
+|---|---|---|---|
+| `delete_manual_bl_charge` | `is_active_user()` | `add_manual_bl_charge` | `is_active_user()` |
+| `delete_manual_invoice_charge` | `is_active_user()` + `is_admin()` | `add_manual_invoice_charge` | `is_active_user()` + `is_admin()` |
+| `delete_manual_vazios_booking` | `is_active_user()` ou `is_equipamentos_user()` | `create_manual_vazios_booking` | `is_active_user()` ou `is_equipamentos_user()` |
+
+**Regra**: remover uma linha manual exige a mesma autoridade que lançá-la; o
+que impede a remoção é o **estado do documento**, não o departamento de quem
+remove. Ela descreve o desenho existente em vez de inventar um novo, dispensa
+julgamento caso a caso e resolve sozinha qualquer par que venha a ser criado.
+
+O estado é a proteção real, e é mais estrita do que o gate de papel jamais foi
+— continua valendo integralmente depois da abertura:
+
+- `delete_manual_bl_charge` (`108`) — só linha `source = 'manual'`, e recusa se
+  o B/L estiver `invoiced`, `partially_paid` ou `paid`.
+- `delete_manual_invoice_charge` (`108`) — só item `source = 'manual'`, só
+  fatura em `draft`/`issued`/`overdue`, e recusa se houver **qualquer**
+  pagamento registrado. Já grava em `audit_logs`.
+- `delete_manual_vazios_booking` (`246`) — só booking de manifesto cuja
+  `description` é `'Inclusao manual no Embarque de Vazios'`.
+
+Consequência prática: as três seguem o gate de escrita do módulo, portanto
+abrem. Para `delete_manual_bl_charge` e `delete_manual_vazios_booking` isso é
+quase preservação do estado atual — só acrescenta Equipamentos à primeira.
+Para `delete_manual_invoice_charge` é **mudança real**: hoje é exclusiva do
+Administrativo. Abre por coerência com a decisão de liberar as operações
+irreversíveis de caixa: remover uma linha de fatura ainda sem pagamento é
+estritamente menos drástico do que cancelar a fatura inteira, que já foi
+liberada — manter a linha fechada com o cancelamento aberto seria incoerente.
+
+Efeito colateral a conhecer: remover item de fatura emitida zera o
+`pix_payload`, e o código de pagamento que o cliente tem no Portal para de
+funcionar. Já é assim hoje para o Administrativo; muda apenas quem pode
+provocá-lo.
+
 `delete_baplie_manifest_for_voyage` e todas as policies `DELETE` de tabela
-seguem em `is_admin()`.
+seguem em `is_admin()` — são exclusão de registro operacional, não remoção de
+linha manual.
 
 ---
 
@@ -443,8 +478,8 @@ vazia que deixou o furo original passar.
 
 | # | Pendência | Bloqueia |
 |---|---|---|
-| 1 | Aval da regra de desambiguação de exclusão (as três RPCs de linha manual seguem abertas) | Etapa 2 |
-| 2 | Autorização para regenerar `src/types/database.ts`, protegido por `.claude/hooks/protect-files.sh` — a coluna `actor_role` e as seis funções dropadas mudam os tipos gerados | Etapas 1 e 3 |
+| 1 | ~~Aval da regra de exclusão de linhas manuais~~ — aprovada como regra de simetria em 2026-08-13 | — |
+| 2 | ~~Autorização para regenerar `src/types/database.ts`~~ — autorizada em 2026-08-13; regeneração entra nas Etapas 1 e 3 | — |
 | 3 | Confirmar o próximo número livre de migration; `293` está reservada por trabalho paralelo ainda não mergeado | Etapas 1 e 2 |
 | 4 | Medir o volume de `UPDATE` em `charge_calculations` num recálculo real de viagem cheia antes de ligar o trigger nela — é a única tabela da lista que uma ação humana altera em massa | Etapa 1 |
 
