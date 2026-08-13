@@ -46,11 +46,26 @@ Não-objetivos:
 | 8 | Sequenciamento | Depois de #527 e #528 — satisfeito |
 
 A decisão 2 decorre da ADR 0044: leitura de dado interno é global para perfil
-ativo, e a restrição por departamento vive só no eixo de escrita. Como a
-migration `291` já abriu `invoices`, `payments` e `bl_receivables` para todo
-perfil interno, a Inspeção **não expõe nenhuma classe de dado nova** — ela
-apenas apresenta, na projeção do Portal, o que o usuário interno já pode ler
-pelas telas internas.
+ativo, e a restrição por departamento vive só no eixo de escrita. A migration
+`291` já abriu `invoices`, `payments` e `bl_receivables` para todo perfil
+interno, então a maior parte do que a Inspeção mostra é dado que o usuário já lê
+pelas telas internas — só reprojetado na linguagem do Portal.
+
+**Com uma exceção que precisa de decisão explícita na ADR.** `portal_get_profile`
+devolve `customer_portal_accounts.contact_email`, e essa tabela tem RLS restrita
+a `is_admin()` desde `041` — a migration `291` não a tocou. No console de
+provisionamento o contato é mascarado para `operacoes` e negado aos demais
+(`196`/`198`). Abrir a aba Perfil da inspeção sob `is_active_read_user()`
+entregaria esse campo a todo perfil ativo, o que é uma ampliação real de
+superfície, não uma reprojeção.
+
+Isso não invalida a decisão 2 — ela é coerente com a ADR 0044 —, mas a ADR nova
+precisa dizer que a Inspeção estende a leitura global a `contact_email` do
+Portal, em vez de deixar a ampliação implícita numa frase de "nenhum dado
+novo". Alternativa a avaliar na execução, se o custo parecer alto demais:
+mascarar `contact_email` na inspeção para os perfis que já o veem mascarado no
+console — ao custo de romper a fidelidade exatamente no campo que o cliente
+enxerga inteiro.
 
 ## A garantia de fidelidade
 
@@ -113,8 +128,22 @@ Append-only: RLS habilitada, policy de `SELECT` para `is_active_read_user()`,
 escrita acontece só dentro do funil `SECURITY DEFINER` da 1.3. Índice em
 `(customer_id, created_at DESC)`.
 
-Registra a **abertura** da inspeção, não cada RPC — decisão 4. Uma sessão de
-inspeção grava uma linha.
+Registra a **abertura** da inspeção, não cada RPC — decisão 4.
+
+`origin` é preenchido pelo chamador e não é confiável como prova; serve para
+saber de onde a equipe costuma entrar, não para autorizar nada. Como é
+`NOT NULL` com `CHECK`, um valor ausente derrubaria a abertura inteira — então o
+default no servidor é `'ficha'` quando o parâmetro vier `NULL`, e o valor viaja
+na rota como query string (`?origem=provisionamento`), sobrevivendo a aba nova e
+a refresh. Um valor fora do `CHECK` vindo de URL editada à mão cai no default em
+vez de estourar.
+
+**Idempotência.** `main.tsx:41` monta o app em `<StrictMode>`, que invoca efeitos
+duas vezes em desenvolvimento; uma abertura ingênua no `useEffect` gravaria duas
+linhas e contradiria "uma sessão grava uma linha". A abertura é deduplicada por
+janela: `portal_open_inspection` não insere se já existe linha do mesmo
+`inspector_id` + `customer_id` nos últimos 30 minutos, e retorna o overview de
+qualquer forma. Isso também evita inflar a auditoria quando o operador dá F5.
 
 ### 1.2 O funil de autorização
 
@@ -142,45 +171,85 @@ não consegue inspecionar ninguém, nem a si mesmo.
 
 ### 1.3 Abertura de inspeção
 
-`portal_open_inspection(p_customer_id BIGINT, p_origin TEXT)` — chama o guard,
-insere em `portal_inspection_events`, e retorna o payload de overview que
-`portal_get_session_overview_v2` retornaria, **sem** o `UPDATE last_login_at`.
+`portal_open_inspection(p_customer_id BIGINT, p_origin TEXT DEFAULT NULL)` —
+chama o guard, insere em `portal_inspection_events` respeitando a deduplicação
+da 1.1, e retorna o payload de overview que `portal_get_session_overview_v2`
+retornaria, **sem** o `UPDATE last_login_at`.
 
 Esta é a única função da etapa que grava, e grava sobre auditoria interna, nunca
-sobre dado do cliente. `VOLATILE`.
+sobre dado do cliente. `VOLATILE`, `SECURITY DEFINER`, com
+`REVOKE ALL ... FROM PUBLIC, anon` e `GRANT EXECUTE ... TO authenticated` — sem
+isso o `ALTER DEFAULT PRIVILEGES` do projeto entregaria a `anon` uma função que
+grava auditoria e devolve o overview de qualquer cliente.
 
 ### 1.4 Os pares núcleo + invólucros
 
 Para cada RPC de leitura escopada por cliente, três passos:
 
-1. `CREATE FUNCTION public._portal_<x>_core(p_customer_id BIGINT)` com o corpo
-   atual, trocando `v_customer_id` pelo parâmetro. `REVOKE ALL ... FROM PUBLIC,
-   anon, authenticated` — o núcleo não é chamável de fora.
+1. `CREATE FUNCTION public._portal_<x>_core(p_customer_id BIGINT, <demais
+   parâmetros da RPC>)` com o corpo atual, trocando `v_customer_id` pelo
+   parâmetro. `SECURITY DEFINER` — o núcleo lê tabelas que o chamador não
+   alcança por RLS. `REVOKE ALL ... FROM PUBLIC, anon, authenticated`: o núcleo
+   não é chamável de fora.
 2. `CREATE OR REPLACE FUNCTION public.portal_<x>(...)` — **assinatura
-   inalterada** — cujo corpo passa a ser
-   `RETURN QUERY SELECT * FROM public._portal_<x>_core(public.current_portal_customer_id());`
-3. `CREATE FUNCTION public.portal_inspect_<x>(p_customer_id BIGINT, ...)` cujo
-   corpo é
-   `RETURN QUERY SELECT * FROM public._portal_<x>_core(public._portal_inspect_guard(p_customer_id));`
-   com `REVOKE ALL ... FROM PUBLIC, anon` e `GRANT EXECUTE ... TO authenticated`.
+   inalterada**, `SECURITY DEFINER` preservado — cujo corpo delega ao núcleo
+   passando `public.current_portal_customer_id()`.
+3. `CREATE FUNCTION public.portal_inspect_<x>(p_customer_id BIGINT, <demais
+   parâmetros>)`, também `SECURITY DEFINER`, delegando ao núcleo com
+   `public._portal_inspect_guard(p_customer_id)`. `REVOKE ALL ... FROM PUBLIC,
+   anon` e `GRANT EXECUTE ... TO authenticated`.
 
-As nove RPCs escopadas por cliente:
+**A forma da delegação depende do tipo de retorno** — não existe uma linha
+única que sirva para as nove. `RETURN QUERY SELECT * FROM ...` só vale para as
+que retornam `TABLE`; para `jsonb` e `int` a delegação é
+`RETURN public._portal_<x>_core(...)`. Cinco das nove retornam `jsonb` e uma
+retorna `int`, então a forma minoritária é a do `RETURN QUERY`.
 
-| RPC do cliente | Origem | Superfície |
-|---|---|---|
-| `portal_list_invoices()` | `084` | Faturas |
-| `portal_invoice_details(bigint)` | `084`/`290` | Modal de fatura |
-| `portal_list_demurrage_invoices()` | `105` | Faturas — demurrage |
-| `portal_get_demurrage_invoice_detail(bigint)` | `120` | Modal de demurrage |
-| `portal_list_consolidatable_receivables()` | `123` | Consolidação |
-| `portal_list_operation_bls()` | `085` | Operação |
-| `portal_get_profile()` | `116` | Perfil |
-| `portal_list_notifications(int)` | `119` | Sino |
-| `portal_notification_unread_count()` | `116` | Badge do sino |
+Os invólucros **não** podem ficar em `SECURITY INVOKER` (o default): o núcleo
+tem `EXECUTE` revogado de `authenticated`, e um invólucro invoker falharia com
+`42501` para todo mundo, cliente incluído.
 
-Duas RPCs **não** ganham par, porque não são escopadas por cliente e já
-retornam o mesmo para todos: `portal_get_current_roe()` e
-`portal_ship_schedule()`. A inspeção as chama diretamente.
+As nove RPCs escopadas por cliente, com a migration que carrega a **definição
+vigente** — é dela que o corpo deve ser copiado, não da migration de origem:
+
+| RPC do cliente | Definição vigente | Retorno | Superfície |
+|---|---|---|---|
+| `portal_list_invoices()` | `123` | `TABLE` | Faturas |
+| `portal_invoice_details(bigint)` | `261` | `jsonb` | Modal de fatura |
+| `portal_list_demurrage_invoices()` | `159` | `jsonb` | Faturas — demurrage |
+| `portal_get_demurrage_invoice_detail(bigint)` | `123` | `jsonb` | Modal de demurrage |
+| `portal_list_consolidatable_receivables()` | `123` | `TABLE` | Consolidação |
+| `portal_list_operation_bls()` | `202` | `jsonb` | Operação |
+| `portal_get_profile()` | `116` | `jsonb` | Perfil |
+| `portal_list_notifications(int)` | `119` | `TABLE` | Sino |
+| `portal_notification_unread_count()` | `116` | `int` | Badge do sino |
+
+Copiar da migration de origem em vez da vigente é o erro mais caro possível
+aqui: `portal_list_invoices` nasceu em `084`, mas foi `123` que lhe acrescentou
+o gate de CE Mercante. Um núcleo construído a partir de `084` mostraria ao
+cliente faturas que a regra de CE Mercante esconde — e o teste de paridade
+passaria, porque as duas portas chamariam o mesmo núcleo errado. **A paridade
+garante que as duas portas concordem, não que a porta esteja certa.**
+
+**`portal_list_operation_bls` exige tratamento próprio.** Desde `202:18` ela não
+resolve identidade no próprio corpo: delega a
+`portal_list_operation_bls_without_transshipment()`, e é a função aninhada que
+chama `current_portal_customer_id()`. Trocar `v_customer_id` no corpo externo
+não resolve nada — a aba "BLs e Containers" levantaria `28000` na inspeção. O
+par núcleo/invólucro precisa ser aplicado à **função aninhada**, com a externa
+repassando o `p_customer_id` recebido.
+
+**`portal_get_current_roe()` também precisa de par.** A versão anterior deste
+plano a dispensava por "não ser escopada por cliente" — o valor de ROE de fato
+é global, mas `200:50` faz `PERFORM public.current_portal_customer_id()` como
+guarda de sessão, o que levanta `28000` para o usuário interno. Sem par, o ROE
+some da tela de Faturas. Como não há dado por cliente a filtrar, o par aqui é
+degenerado: `portal_inspect_get_current_roe()` chama o guard da inspeção e lê a
+mesma linha, sem parâmetro de cliente.
+
+A única RPC do Portal que a inspeção chama **direto**, sem par, é
+`portal_ship_schedule()`: ela é allowlisted a `anon`
+(`portalShipScheduleMigration.test.ts`) e não resolve identidade nenhuma.
 
 ### 1.5 A exceção documentada
 
@@ -248,18 +317,20 @@ Portal real precise mudar.
 ### 2.2 O overview vem do escopo, não de `usePortalAuth`
 
 Em modo inspeção o usuário interno **não tem sessão de Portal**, então
-`usePortalAuth().overview` é `null` — e três consumidores dependem dele hoje:
+`usePortalAuth().overview` é `null` — e quatro consumidores dependem dele hoje:
 
 | Consumidor | Uso atual | Sintoma sem correção |
 |---|---|---|
 | `PortalLayout.tsx:43-47` | `overview?.customer_name`, `customer_cnpj_cpf` | Cabeçalho mostra o fallback "Cliente" |
 | `usePortalProfile.ts` | `enabled: Boolean(overview)` | Aba Perfil nunca carrega |
 | `NotificationBell.tsx:42` | `if (!overview) return null` | Sino some da tela |
+| `PortalBilling.tsx:60`, `:198` | `overview?.pending_balance` | Card "Saldo pendente" vazio |
 
-Pior que os três: se o usuário interno tiver uma sessão de Portal antiga na
+Pior que os quatro: se o usuário interno tiver uma sessão de Portal antiga na
 mesma aba, `overview` não é `null` — é o **overview de outro cliente**, e a
-inspeção exibiria a identidade errada no cabeçalho. Fidelidade invertida, que é
-exatamente o que esta ferramenta não pode fazer.
+inspeção exibiria a identidade errada no cabeçalho e o **saldo financeiro de
+outro cliente** na tela de Faturas. Fidelidade invertida, que é exatamente o que
+esta ferramenta não pode fazer.
 
 Correção: `portal_open_inspection` (1.3) devolve o overview, a página da
 inspeção o coloca no `PortalScopeContext`, e os três consumidores passam a ler
@@ -285,12 +356,11 @@ Duas mudanças obrigatórias nas query keys:
 
 - Incluir o `customerId` na chave em modo inspeção, ou inspecionar dois clientes
   em sequência serviria o cache do primeiro.
-- Usar um prefixo **fora** de `portal-` para as chaves de inspeção (proposta:
-  `portal-inspect-`). `clearPortalQueries` em `src/hooks/usePortalAuth.tsx`
-  remove por `String(query.queryKey[0]).startsWith('portal-')`; o prefixo
-  proposto continua casando com esse predicado, o que é o comportamento
-  desejado — um logout do Portal na mesma aba não deve deixar cache de
-  inspeção para trás.
+- Prefixar as chaves de inspeção com `portal-inspect-`, **dentro** do namespace
+  `portal-`. `clearPortalQueries` em `src/hooks/usePortalAuth.tsx` remove por
+  `String(query.queryKey[0]).startsWith('portal-')`, e ficar dentro do
+  namespace é o comportamento desejado: um logout do Portal na mesma aba deve
+  levar junto o cache de inspeção, não deixá-lo para trás.
 
 `enabled` deixa de ser `isAuthenticated` puro e passa a ser
 `isAuthenticated || scope.mode === 'inspect'`.
@@ -309,48 +379,94 @@ Em modo inspeção, as seis gravações do cliente ficam indisponíveis:
 | `portal_mark_all_notifications_read` | `NotificationBell.tsx` |
 | Edge Function `portal-recovery-email-change` | `PortalProfile.tsx` |
 
-Duas camadas, e as duas importam:
+Três camadas, e a terceira é a que a versão anterior deste plano não tinha:
 
 - **UI**: os controles ficam visíveis mas desabilitados, com tooltip "Ação do
   cliente — indisponível em Modo Inspeção". Ocultá-los quebraria a fidelidade,
   que é o ponto da ferramenta.
-- **Banco**: nenhuma dessas RPCs ganha par `portal_inspect_*`. Mesmo que a UI
-  falhasse, não existe caminho no banco para o interno executá-las por outro
-  cliente — elas continuam resolvendo por `current_portal_customer_id()`, que
-  para um usuário interno levanta `28000`.
+- **Banco**: nenhuma dessas RPCs ganha par `portal_inspect_*`. Não existe
+  caminho no banco para o interno executá-las **em nome de outro cliente** —
+  elas resolvem por `current_portal_customer_id()`, que para um usuário interno
+  levanta `28000`.
+- **Cliente Supabase**: em modo inspeção, as funções de escrita **não podem
+  usar `supabasePortal`**.
 
-Marcar notificação como lida merece atenção explícita: é escrita disfarçada de
-navegação, e abrir o sino em modo inspeção **não pode** marcar nada como lido.
+A terceira camada existe porque a segunda tem um furo, e é o mesmo cenário que
+a 2.2 já levanta: se houver sessão de Portal residual na mesma aba, `28000` não
+acontece — `current_portal_customer_id()` resolve com sucesso para o **cliente
+B** da sessão antiga. A tela mostra o cliente A, e a gravação cai no cliente B.
+Escrita cruzada silenciosa, a pior falha que esta ferramenta poderia ter.
+
+Mitigação: `callPortalRpc` (2.1) recusa qualquer RPC de escrita quando
+`scope.mode === 'inspect'` — lança antes de tocar em qualquer cliente Supabase,
+em vez de confiar que a UI desabilitou o botão. É a mesma disciplina do resto do
+projeto: corrigir na função compartilhada, não em cada call site.
+
+**Marcar notificação como lida é o caso difícil**, porque colide com a 3.2.
+`NotificationBell.tsx:90-94` tem um handler só, que faz as duas coisas:
+
+```ts
+if (!n.read) await markRead.mutateAsync(n.id)
+if (n.link?.startsWith('/portal')) navigate(n.link)
+```
+
+Desabilitar o item inteiro mataria a navegação que a 3.2 exige; deixá-lo ativo
+marcaria como lida uma notificação do cliente. Resolução: separar as duas metades
+no handler — em modo inspeção a chamada a `markRead` é pulada e o `navigate`
+acontece normalmente. O item continua clicável e o estado "não lida" permanece
+intacto, que é exatamente o que o cliente veria ao voltar.
 
 ## Etapa 3 — Superfície de entrada (P1)
 
 ### 3.1 Rota
 
-`/clientes/portal/inspecao/:customerId`, dentro das rotas internas
-(`src/App.tsx:146`). Não pode ficar sob `/portal/*`: `App.tsx:75` trata host
-`portal.*` como domínio exclusivo de cliente e redireciona rotas internas para
-`/portal`.
+`/clientes/portal/inspecao/:customerId/*`, nas rotas internas — mas **fora do
+`<Route element={<AppLayout />}>`** de `src/App.tsx:134`, e dentro do
+`<ProtectedRoute />`.
 
-A página monta `PortalScopeContext` com `{ mode: 'inspect', customerId }`,
-chama `portal_open_inspection` uma vez na entrada, e renderiza o mesmo
-`PortalLayout` do Portal real.
+As duas restrições têm motivos opostos e igualmente firmes:
+
+- Não pode ficar sob `/portal/*`: `App.tsx:75` trata host `portal.*` como
+  domínio exclusivo de cliente e redireciona rotas internas para `/portal`.
+- Não pode ficar dentro do `AppLayout`: todas as rotas internas de `App.tsx:134`
+  em diante renderizam o chrome interno, e a inspeção montaria `PortalLayout`
+  aninhado nele — sidebar interna por fora, cabeçalho do Portal por dentro. Duas
+  molduras concorrentes destroem a fidelidade que é o objetivo da ferramenta e
+  brigam com a faixa da 3.4. O lugar certo é o mesmo de
+  `/line-up-tv/display` (`App.tsx:133`): protegido, sem `AppLayout`.
+
+O sufixo `/*` é necessário para as sub-rotas das abas exigidas pela 3.2 — sem
+ele, `/inspecao/:customerId/billing` não casa com nada.
+
+A página monta `PortalScopeContext`, chama `portal_open_inspection` na entrada
+(deduplicado no servidor pela 1.1, então o duplo efeito do `StrictMode` não
+gera duas linhas), e renderiza o mesmo `PortalLayout` do Portal real.
 
 ### 3.2 Base path em **todos** os destinos, não só na navegação
 
 `src/components/layout/PortalLayout.tsx:10-13` tem `portalNavItems` com
 `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil` hardcoded —
-mas corrigir só essa lista não mantém o usuário dentro da inspeção. Há mais três
-famílias de destino absoluto:
+mas corrigir só essa lista não mantém o usuário dentro da inspeção. Há mais
+famílias de destino absoluto, e uma armadilha que não é link nenhum:
 
 | Origem | Linhas | O que acontece sem correção |
 |---|---|---|
 | `PortalLayout` — nav, brand, pill de perfil | `:10-13`, `:24`, `:36` | Navegação principal escapa |
 | `PortalDashboard` — os quatro cards de indicador | `:39`, `:45`, `:51`, `:57` | Clicar num KPI escapa |
 | `NotificationBell` — `navigate(n.link)` com guarda `startsWith('/portal')` | `:92` | Clicar numa notificação escapa |
+| `PortalLayout` — botão **Sair** | `:50` | Não escapa: derruba a sessão de Portal real da aba |
 
 "Escapar" aqui significa cair em `/portal/*`, que é rota exclusiva de cliente:
 o usuário interno, sem sessão de Portal, é jogado no login do Portal e perde a
 inspeção.
+
+O botão **Sair** é o caso mais perverso da lista porque não é um link — chama
+`signOut()` do `usePortalAuth`. Em modo inspeção ele encerraria a sessão de
+Portal de quem quer que estivesse logado naquela aba e rodaria
+`clearPortalQueries`, que limpa o cache `portal-inspect-*` da própria inspeção
+(2.3) e deixa a tela em branco. Em modo inspeção ele vira o botão de **sair da
+inspeção**, voltando para a origem — que é também o controle de saída pedido
+pela 3.4, então os dois viram o mesmo botão em vez de dois concorrentes.
 
 Correção: o `basePath` do escopo (2.1) é resolvido por um helper único —
 `portalPath(scope, '/billing?tab=local')` — usado nos três lugares. O
@@ -385,8 +501,19 @@ contexto de trabalho e não deve ser perdida; da ficha, navega na mesma aba.
 O rótulo acompanha `row.account_situation`: "Ver como o cliente vê" para conta
 ativa, "Ver o que o cliente veria" para pendente ou desativada.
 
-Sem gate de permissão no botão além de estar autenticado como interno ativo — é
-a decisão 2, e é o mesmo gate que o banco aplica.
+Sem gate de permissão próprio no botão — é a decisão 2. Mas **não** é verdade
+que seja "o mesmo gate que o banco aplica", e a diferença precisa ser assumida:
+o `PortalReviewPanel` só existe onde `portal_list_provisioning_console` devolve
+linhas, e essa RPC nega quem não estiver em
+`('administrativo','documentacao','financeiro','operacoes')` (`196:8`,
+`197:9`). `equipamentos` nunca enxerga o botão — mas alcança a rota digitando a
+URL, porque o gate do banco é `is_active_read_user()`, que o inclui.
+
+Isso é coerente com a decisão 2 (leitura para todo perfil ativo) e não é um
+furo: quem chega por URL vê o mesmo que veria pelo botão, e a auditoria registra
+igual. É só uma descoberta desigual — o caminho existe, o atalho não. Registrar
+na ADR; se incomodar, a correção é dar a Equipamentos uma entrada própria, não
+restringir a rota.
 
 ### 3.4 Faixa de Modo Inspeção
 
@@ -405,7 +532,7 @@ Reaproveitar o harness de integração da #527 (`SET LOCAL request.jwt.claim.sub
 chamar `portal_<x>()`, e comparar o retorno com `portal_inspect_<x>(customer_id)`
 chamada como usuário interno. Igualdade estrutural.
 
-Duas armadilhas a evitar, ambas já pagas por este projeto:
+Três armadilhas a evitar, e a terceira é a que compromete o plano inteiro:
 
 - **Verde vazio.** Asserir conteúdo não-vazio, nunca só `error === null` — é
   exatamente o bug corrigido em `src/integration/supabase.integration.test.ts`
@@ -414,12 +541,40 @@ Duas armadilhas a evitar, ambas já pagas por este projeto:
 - **Igualdade trivial.** Se as duas chamadas devolvem lista vazia, o teste passa
   sem provar nada. O fixture precisa garantir pelo menos uma fatura, um BL e uma
   notificação.
+- **Teste que não roda.** Todo harness de integração deste projeto é
+  `describe.skip` por padrão: `supabase.integration.test.ts:5-6` exige
+  `SUPABASE_RUN_INTEGRATION=1` e os `*.local-pg.test.ts` exigem
+  `LOCAL_PG_INTEGRATION=1`. O CI roda `npm test -- --shard` (`ci.yml:78`) sem
+  nenhuma das duas. Escrito assim, **o único teste que sustenta a garantia de
+  fidelidade nunca executa** — e o plano estaria confiando num verde que não
+  significa nada, que é o mesmo erro de forma que a #528 corrigiu.
+
+A terceira armadilha exige uma decisão na execução, não uma nota de rodapé.
+Duas saídas, e a segunda é a recomendada:
+
+1. Ligar `LOCAL_PG_INTEGRATION` no CI, subindo um Postgres de serviço e
+   aplicando as migrations. Cobertura real, ao custo de mexer no pipeline.
+2. Complementar com um **teste de contrato SQL** que não depende de banco:
+   extrair o corpo de cada `portal_<x>` e de cada `portal_inspect_<x>` das
+   migrations e asserir que ambos delegam ao mesmo `_portal_<x>_core`, sem SQL
+   próprio. Não prova igualdade de resultado, mas prova a **estrutura** que
+   produz a igualdade — e roda em todo PR, que é onde a regressão aconteceria.
+
+A (2) sozinha já pega o cenário de risco real (alguém editar `portal_<x>`
+inline e romper a delegação). A (1) é a prova forte e deve ser buscada, mas não
+pode ser o único mecanismo, ou a garantia fica dormindo.
 
 ### 4.2 Contrato de grants
 
 Teste no padrão de `portalInvoiceDetailsAnonGrantInvariant.test.ts`, varrendo as
-migrations em ordem: toda função `portal_inspect_*` e `_portal_*_core` criada
-deve ter `REVOKE` de `anon`, e nenhum `GRANT ... TO anon` posterior.
+migrations em ordem: toda função nova desta migration — `portal_inspect_*`,
+`_portal_*_core`, **`_portal_inspect_guard` e `portal_open_inspection`** — deve
+ter `REVOKE` de `anon`, e nenhum `GRANT ... TO anon` posterior.
+
+Os dois últimos entram por nome porque não casam com o padrão `portal_inspect_*`
+nem com `_portal_*_core`, e são justamente os mais sensíveis: um grava
+auditoria e devolve overview de qualquer cliente, o outro é o gate. Um teste que
+varresse só os dois prefixos deixaria ambos descobertos.
 
 Este teste é necessário porque `152_revoke_anon_definer_drift.sql` é uma
 varredura **única**, não uma trava permanente — funções criadas depois dela não
@@ -449,7 +604,7 @@ só aparece em uso real.
 
 | Documento | Mudança |
 |---|---|
-| ADR nova (`0045`) | Decisão da Inspeção; estende ADR 0044 a esta superfície; registra explicitamente a dívida da decisão 3 (cliente não informado) e a exceção da `portal_get_session_overview_v2` |
+| ADR nova (`0045`) | Decisão da Inspeção; estende ADR 0044 a esta superfície **e a `contact_email`**; registra a dívida da decisão 3 (cliente não informado), a exceção da `portal_get_session_overview_v2`, o limite da auditoria (cobre a ferramenta, não a API) e a descoberta desigual do botão para Equipamentos |
 | `CONTEXT.md` | Entrada **Inspeção do Portal** na seção do Portal (antes de *Conta de Portal*), distinguindo-a de Provisionamento e de recuperação assistida |
 | `docs/modules/portal-cliente.md` | Catálogo de ações da inspeção; o par núcleo/invólucro; a exceção; reforço da nota de `ALTER DEFAULT PRIVILEGES` (:225) |
 | `docs/RASTREABILIDADE.md` | Rota, componentes, hooks, serviços, RPCs e testes novos |
@@ -471,11 +626,28 @@ Verificação antes de concluir: `npm run docs:check`, `npm run lint`, `npm test
 ## Riscos e pontos de atenção
 
 - **Grant a `anon` em função nova.** O risco estrutural desta mudança. Mitigado
-  pelo `REVOKE` explícito em cada objeto novo e pelo teste 4.2.
+  pelo `REVOKE` explícito em cada objeto novo e pelo teste 4.2 — que precisa
+  cobrir os quatro padrões de nome, não só dois.
+- **Auditoria contornável.** As `portal_inspect_*` são chamáveis diretamente com
+  qualquer `p_customer_id`, sem passar por `portal_open_inspection`. Quem tiver
+  um token interno e souber o nome da RPC lê o Portal de qualquer cliente sem
+  gerar linha de auditoria. Como a auditoria é justamente o controle que sustenta
+  a decisão 3 (não informar o cliente), a lacuna é relevante — mas fechá-la
+  exigiria gravar a cada chamada, que a decisão 4 recusou. **Registrar na ADR
+  como limite conhecido**, com a redação honesta: a auditoria cobre o uso pela
+  ferramenta, não o acesso pela API. Quem quiser fechar depois: exigir um token
+  de sessão de inspeção como parâmetro das `portal_inspect_*`.
 - **Divergência silenciosa por `CREATE OR REPLACE` futuro.** Alguém pode, mais
   tarde, editar o corpo de `portal_<x>` inline em vez de mexer no núcleo,
-  quebrando a paridade sem quebrar nenhum teste que só olha assinatura. O teste
-  4.1 pega isso, desde que os fixtures não estejam vazios.
+  quebrando a paridade. Mitigado pelo teste de estrutura da 4.1(2), que roda em
+  todo PR; o teste de igualdade de resultado só roda com o harness de integração
+  ligado.
+- **Núcleo construído a partir da migration errada.** A paridade garante que as
+  duas portas concordem, não que estejam certas: um núcleo copiado da migration
+  de origem em vez da vigente passa em todos os testes de paridade e mostra ao
+  cliente dado que uma regra posterior escondia. Mitigado pela coluna "Definição
+  vigente" da 1.4, que precisa ser reconferida no momento da execução — não é
+  informação estável.
 - **Interpretação equivocada de conta não ativa.** Mitigado pela faixa da etapa
   3.4; sem ela, o risco é real.
 - **Divergência não coberta.** A auditoria registra a abertura, não cada
