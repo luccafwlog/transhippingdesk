@@ -7,9 +7,16 @@ import { supabasePortal } from '../services/supabase'
 
 const invalid = 'Link inválido ou expirado. Solicite um novo convite à empresa.'
 export function PortalAtivacao() {
-  const [params] = useSearchParams(); const token = params.get('token') ?? ''
+  const [params, setParams] = useSearchParams(); const [token] = useState(() => params.get('token') ?? '')
   const [company, setCompany] = useState<{ company_name: string; cnpj_masked: string } | null>(null)
   const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState(token ? '' : invalid); const [done, setDone] = useState(false); const [loading, setLoading] = useState(Boolean(token)); const [submitting, setSubmitting] = useState(false)
+  // Achado 3.3 (auditoria 2026-08-12): o token vaza para a telemetria via
+  // event.request.url se permanecer na URL. Removido da barra de enderecos
+  // assim que lido, mantido em estado para o submit (espelha PortalProfile).
+  useEffect(() => {
+    if (!params.get('token')) return
+    params.delete('token'); setParams(params, { replace: true })
+  }, [params, setParams])
   useEffect(() => {
     if (!token) return
     void supabasePortal.functions.invoke('portal-invite-activate', { body: { action: 'inspect', token } }).then(({ data, error: invokeError }) => {

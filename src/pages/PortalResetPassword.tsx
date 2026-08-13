@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError } from '../components/ui/Card'
@@ -10,8 +10,16 @@ const INVALID_LINK_MESSAGE = 'Link de recuperacao invalido ou expirado.'
 
 export function PortalResetPassword() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [token] = useState(() => searchParams.get('token'))
+  // Achado 3.3 (auditoria 2026-08-12): o token vaza para a telemetria via
+  // event.request.url se permanecer na URL. Removido da barra de enderecos
+  // assim que lido, mantido em estado para o submit (espelha PortalProfile).
+  useEffect(() => {
+    if (!searchParams.get('token')) return
+    searchParams.delete('token')
+    setSearchParams(searchParams, { replace: true })
+  }, [searchParams, setSearchParams])
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState(() => (token ? '' : INVALID_LINK_MESSAGE))

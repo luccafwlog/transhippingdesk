@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { reportBestEffortFailure, scrubEventValue, scrubPii } from '../telemetry'
+import { redactUrlQueryString, reportBestEffortFailure, scrubBreadcrumbData, scrubEventValue, scrubPii } from '../telemetry'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -59,6 +59,49 @@ describe('scrubPii', () => {
   it('preserva texto sem PII', () => {
     const message = 'Erro no job 12345 para id 550e8400-e29b-41d4-a716-446655440000'
     expect(scrubPii(message)).toBe(message)
+  })
+})
+
+describe('redactUrlQueryString', () => {
+  // Achado 3.3 (auditoria 2026-08-12): httpContextIntegration grava
+  // event.request.url = location.href antes do beforeSend rodar; telas de
+  // reset/ativacao do Portal carregam o token na query string.
+  it('remove a query string de uma URL com token', () => {
+    expect(redactUrlQueryString('https://portal.transhippingdesk.com.br/portal/recuperar-senha?token=SEGREDO')).toBe(
+      'https://portal.transhippingdesk.com.br/portal/recuperar-senha',
+    )
+  })
+
+  it('preserva URL sem query string', () => {
+    expect(redactUrlQueryString('https://portal.transhippingdesk.com.br/portal/login')).toBe(
+      'https://portal.transhippingdesk.com.br/portal/login',
+    )
+  })
+})
+
+describe('scrubBreadcrumbData', () => {
+  // Achado da revisão do PR 527: breadcrumbsIntegration grava
+  // data.from/data.to com o href completo (path+query) em toda navegação,
+  // incluindo o history.replaceState que remove o token da URL -- o
+  // breadcrumb carregava o token mesmo depois da URL ficar limpa.
+  it('remove a query string de campos de navegacao (from/to)', () => {
+    expect(scrubBreadcrumbData({
+      from: '/portal/recuperar-senha?token=SEGREDO',
+      to: '/portal/recuperar-senha',
+    })).toEqual({
+      from: '/portal/recuperar-senha',
+      to: '/portal/recuperar-senha',
+    })
+  })
+
+  it('preserva valores nao textuais e redige PII em textos', () => {
+    expect(scrubBreadcrumbData({
+      status_code: 200,
+      url: 'https://x.com/y?cnpj=12.345.678/0001-95',
+    })).toEqual({
+      status_code: 200,
+      url: 'https://x.com/y',
+    })
   })
 })
 

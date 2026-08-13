@@ -1,6 +1,6 @@
 # Portal do Cliente
 
-> **Status:** ativo · **Atualizado:** 2026-07-14 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
+> **Status:** ativo · **Atualizado:** 2026-08-12 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
 
 ## Provisionamento operacional
 
@@ -87,11 +87,22 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 
 ### `/portal/esqueci-senha`
 
-`src/pages/PortalForgotPassword.tsx` resolve documento por `portal_resolve_login`, usa email diretamente quando contém `@` e chama `supabasePortal.auth.resetPasswordForEmail`. Sucesso e falha não limitada usam texto não enumerável; a tela de sucesso não confirma que a conta existe.
+`src/pages/PortalForgotPassword.tsx` envia o CNPJ para a Edge Function
+`portal-password-recovery`. A resposta é `{ accepted: true }` para todo caso
+elegível (com conta ou sem, ativa ou não, email enviado ou não) e
+`{ accepted: false, rate_limited: true }` apenas quando o rate limit por CNPJ
+bloqueia; a tela mostra a mesma mensagem de sucesso nos dois primeiros casos e
+uma mensagem de "tente mais tarde" só para o rate limit — não enumera conta
+(achado 3.2 da auditoria `security-audit-portal-2026-08-12`).
 
 ### `/portal/recuperar-senha`
 
-`src/pages/PortalResetPassword.tsx` lê `access_token`, `refresh_token` e `type=recovery` do hash, estabelece manualmente a sessão com `setSession`, remove os tokens da URL e permite `updateUser({ password })` após validar mínimo de oito caracteres e confirmação.
+`src/pages/PortalResetPassword.tsx` lê o `token` de convite de recuperação da
+query string, remove-o da URL logo após ler (`setSearchParams(..., {replace:
+true})`, mantido em estado para o submit) e envia `{ token, password }` à
+Edge Function `portal-password-reset`, que valida o hash do token, a validade
+e o status antes de trocar a senha via Auth Admin e revogar as sessões do
+Portal.
 
 ### `/portal`
 
@@ -119,9 +130,8 @@ A interface e seus filtros não autorizam dados. RPCs de Portal resolvem o clien
 | `/portal/login` — usar email e autenticar senha | Identificador com `@` ou valor que não foi reconhecido como documento | `usePortalAuth.signIn` | Chama diretamente `supabasePortal.auth.signInWithPassword({ email, password })` | Supabase Auth; sessão persistida pelo cliente `supabasePortal` | Sessão em storage isolado `td-portal-auth`; depois carrega overview | Erro de Auth é convertido pela página em credencial genérica | **Código:** `src/hooks/usePortalAuth.tsx`, `src/services/supabase.ts`; **Runtime não executado** |
 | Inicialização — hidratar sessão e overview | Aplicação montada; sessão Portal persistida opcional | `PortalAuthProvider` | `getSession()` → `fetchOverview()`; listener `onAuthStateChange` reidrata em `SIGNED_IN`/`TOKEN_REFRESHED` quando necessário | Supabase Auth; RPC `portal_get_session_overview_v2`; UPDATE de `last_login_at` | Define `overview`, `isAuthenticated=Boolean(overview)` e identidade Sentry `{ id: customer_id }` com tag `area=portal` | Sessão sem Conta de Portal ativa gera `28000` e limpa overview; outras falhas não são exibidas | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx` |
 | Layout — sair | Sessão/overview presente | Botão “Sair” em `PortalLayout` ou evento `SIGNED_OUT` do Supabase Auth | Limpa overview e caches `portal-*` antes de `signOutSupabaseClient`; chamadas concorrentes compartilham uma Promise | Supabase Auth `signOut` | Guard passa a considerar a sessão não autenticada e queries do Portal são removidas | Ignora apenas erro conhecido de lock roubado; demais erros propagam | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`; `src/services/__tests__/supabaseAuth.test.ts` |
-| `/portal/esqueci-senha` — solicitar recuperação | Fluxo legado em transição para o plano 5 | `PortalForgotPassword.handleSubmit` | Será substituído pelas Edge Functions de recuperação | O RPC resolver foi revogado para o navegador | Mantém resposta não enumerável | Completar no plano 5 | **Código:** `src/pages/PortalForgotPassword.tsx` |
-| `/portal/recuperar-senha` — estabelecer sessão de recovery | Hash com `type=recovery`, access e refresh tokens | `parseRecoveryTokens`/`useEffect` | `supabasePortal.auth.setSession`; remove hash com `history.replaceState` | Supabase Auth; storage isolado | Habilita formulário somente após sessão válida | Link ausente, expirado ou `setSession` falho mostra mensagem única | **Código:** `src/pages/PortalResetPassword.tsx`; **Runtime não executado** |
-| `/portal/recuperar-senha` — atualizar senha | Sessão recovery pronta; senha 8+; confirmação igual | `handleSubmit` | `supabasePortal.auth.updateUser({ password })` e `signOutSupabaseClient(supabasePortal)` | Supabase Auth | Encerra a sessão de recovery e navega para `/portal/login` | Validação local ou mensagem retornada pelo Auth | **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
+| `/portal/esqueci-senha` — solicitar recuperação | CNPJ com 14 dígitos | `PortalForgotPassword.handleSubmit` | Edge Function `portal-password-recovery`; rate limit em `portal_recovery_check_rate_limit`/`_register_failure` | `customer_portal_accounts.login_cnpj`; `portal_invites` (purpose `recuperacao`); email via `sendPortalEmail` | `{ accepted: true }` para todo caso elegível; `{ accepted: false, rate_limited: true }` só no rate limit | Resposta não enumera conta (achado 3.2); rate limit mostra mensagem de "tente mais tarde" | **Código:** `src/pages/PortalForgotPassword.tsx`, `supabase/functions/portal-password-recovery/index.ts`; **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
+| `/portal/recuperar-senha` — atualizar senha | Token de convite de recuperação válido na query string; senha 8+; confirmação igual | `PortalResetPassword.handleSubmit` | Edge Function `portal-password-reset` valida hash/expiração/status e chama Auth Admin `updateUserById` | `portal_invites` (consumo condicional); `revokePortalSessions` | Remove `token` da URL após leitura (achado 3.3); encerra sessões do Portal e navega para `/portal/login` | Token ausente/expirado/inválido mostra mensagem única; validação local de senha | **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
 | Rotas protegidas — redirecionar | `PortalAuthProvider` terminou loading | `PortalProtectedRoute` | Loading ocupa shell; ausência de overview retorna `<Navigate replace>` | Nenhuma chamada própria | Redireciona para `/portal/login` | O guard é UX, não autorização de dados | **Código:** `src/components/layout/PortalProtectedRoute.tsx` |
 
 ### Dashboard
@@ -242,7 +252,7 @@ Os testes foram lidos, mas não executados nesta frente. “Teste de contrato SQ
 | `src/services/__tests__/portalInvoiceConsolidatedBreakdownMigration.test.ts` | **Teste de contrato SQL** | Breakdown por B/L e fallback reconciliado | É contrato de uma migration redefinida depois pelo gate de CE. |
 | `src/services/__tests__/portalInvoiceHistoryLinksMigration.test.ts` | **Teste de contrato SQL** histórico | Uso de links de histórico na migration de 2026-06-12 | A migration de CE posterior volta a filtrar links ativos em partes do contrato final. |
 
-Não há teste focado para `PortalLogin`, `PortalForgotPassword`, `PortalResetPassword`, `PortalProtectedRoute`, `PortalConsolidatedModal`, `DisputeModal`, `NotificationBell` ou `PortalProfile`; nessas ações a evidência atual é **Código**.
+Não há teste focado para `PortalLogin`, `PortalProtectedRoute`, `PortalConsolidatedModal`, `DisputeModal`, `NotificationBell` ou `PortalProfile`; nessas ações a evidência atual é **Código**. `PortalForgotPassword`, `PortalResetPassword` e `PortalAtivacao` têm cobertura de comportamento em `src/pages/__tests__/PortalRecovery.behavior.test.tsx` e `src/pages/__tests__/PortalAtivacao.test.tsx`.
 
 **Runtime não executado.** Cenários necessários: login real por CPF, CNPJ e email; desconhecido com erro genérico e rate limit; coexistência/logout das sessões interna e Portal; reload protegido; recovery completo e tokens expirados; KPIs e Realtime do cronograma; listas/detalhes/export/print local e demurrage; invisibilidade por CE ausente sem afetar o interno; consolidação e desfazimento com/sem pagamento, alertas e lifecycle; estados operacionais em datas controladas; abertura/resolução de disputa; triggers de invoice/demurrage; leitura individual/todas das notificações; perfil com atualização/criação única do contato `faturamento` e tentativa de alterar campos não permitidos.
 
