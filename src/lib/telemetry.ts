@@ -19,12 +19,17 @@ const STARTUP_MARK = 'td-startup'
 /** Records a low-cardinality startup checkpoint without sending route, user,
  * token, or query-string data. The breadcrumb is attached to the next Sentry
  * event, while the PerformanceEntry remains available to browser diagnostics.
+ * Fires at most once per stage per page life: callers may run on every
+ * refetch or navigation (Painel's query, RoutePreloader's route effect), and
+ * this is what stops that from flooding the breadcrumb buffer forever.
  */
 export function markStartupStage(stage: 'entry' | 'session' | 'profile' | 'route-chunk' | 'route-data'): void {
   if (typeof performance === 'undefined') return
+  const stageMark = `td-startup-${stage}`
+  if (performance.getEntriesByName(stageMark, 'mark').length) return
   const now = performance.now()
   if (!performance.getEntriesByName(STARTUP_MARK, 'mark').length) performance.mark(STARTUP_MARK)
-  performance.mark(`td-startup-${stage}`)
+  performance.mark(stageMark)
   const elapsed = Number(now.toFixed(1))
   if (import.meta.env.PROD) {
     Sentry.addBreadcrumb({

@@ -39,12 +39,21 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
 - **Implementado:** harness Playwright frio/quente em
   `scripts/perf/measure-authenticated-startup.mjs`, comando npm, documentação
   sanitizada e exclusão do relatório em `.gitignore`.
-- **Implementado:** `Cache-Control: no-cache, no-store, must-revalidate` também
-  para a rota `/` do Firebase Hosting, evitando que o rewrite do shell SPA seja
-  servido com cache de uma hora.
+- **Implementado:** `Cache-Control: no-cache, no-store, must-revalidate` para
+  `**` (avaliado no path original da requisição, antes do rewrite do Firebase
+  Hosting para `/index.html`), com a regra de `/assets/**` posicionada depois
+  para preservar o cache imutável dos assets com hash. A regra anterior só
+  cobria `/` e `/index.html` literais, então um link salvo para `/painel` ou
+  `/login` não recebia `no-store` e podia servir um `index.html` antigo,
+  referenciando assets já removidos após um deploy.
 - **Implementado:** checkpoints de `entry`, sessão, perfil, chunk da rota e
   dados do Painel em `performance.mark` e breadcrumbs de baixa cardinalidade,
-  sem usuário, token, query string ou payload.
+  sem usuário, token, query string ou payload; `markStartupStage` agora marca
+  cada stage no máximo uma vez por carregamento de página (dedupado pelo
+  próprio `performance.mark`), porque `route-data` reexecutava a cada refetch
+  do Painel (90s) e `route-chunk` reexecutava em toda navegação interna,
+  inundando o buffer de 100 breadcrumbs do Sentry com marcas sem valor
+  diagnóstico.
 - **Verificado:** typecheck, lint, `docs:check`, testes focados (20/20), build,
   `size-limit` (173,52 kB brotli, limite 250 kB), harness de parse/compile (37
   rotas, 0 acima de 50 ms) e `git diff --check` passaram no worktree isolado.
@@ -64,13 +73,17 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
 
 - [x] Implementar um script CDP/Playwright que receba URL e credenciais apenas
   por variáveis de ambiente, crie contexto novo por rodada e nunca grave tokens.
-- [ ] Medir cinco rodadas frias e cinco quentes de `/login` para `/painel`,
-  registrando `navigationStart`, FCP, login concluído, perfil concluído,
-  primeiro shell, primeira rota e fim das queries iniciais.
-- [x] Salvar somente resumo sanitizado em JSON: mediana, p95, quantidade de
-  requests, bytes e as dez requests mais lentas por categoria.
-- [x] Fazer o comando falhar quando login-até-shell exceder `2.000 ms` ou
-  navegação interna aquecida exceder `1.000 ms`; os valores devem ser
+- [x] Medir N rodadas frias (`/login` até `/painel`, contexto novo) e a
+  navegação interna aquecida subsequente (`/painel` até `/chegadas-saidas`, mesma
+  sessão) em cada rodada, registrando FCP, `domContentLoaded` e o tempo total
+  de cada fase. Os checkpoints de login concluído/perfil concluído dependem da
+  Task 4A (ainda bloqueada); hoje o script mede o intervalo login→shell como um
+  todo, não os sub-estágios internos.
+- [x] Salvar somente resumo sanitizado em JSON: mediana, p95 (frio e quente
+  separados), bytes totais e as dez requests mais lentas por categoria de
+  recurso.
+- [x] Fazer o comando falhar quando login-até-shell (frio) exceder `2.000 ms`
+  ou navegação interna aquecida exceder `1.000 ms`; os valores devem ser
   confirmados com o responsável depois do primeiro baseline.
 - [ ] Executar `npm run perf:authenticated-startup` e confirmar que o comando
   reproduz o sintoma antes de mudar produto.
