@@ -215,17 +215,26 @@ e dropar os `_portal_<x>_core`.
 
 ## Etapa 2 — Escopo injetado no frontend (P0)
 
-Hoje `src/services/portalBilling.ts:1` e `src/services/portalOperation.ts:1`
-importam `supabasePortal` no topo do módulo. Esse import é o que amarra as
-funções à sessão do cliente e precisa virar um parâmetro.
+Hoje `src/services/portalBilling.ts:1`, `src/services/portalOperation.ts:1` e
+`src/services/portalScheduleVoyages.ts:2` importam `supabasePortal` no topo do
+módulo. Esse import é o que amarra as funções à sessão do cliente e precisa
+virar um parâmetro.
 
 ### 2.1 O tipo de escopo
 
+O escopo carrega três coisas — não só a identidade do cliente:
+
 ```ts
-export type PortalScope =
-  | { mode: 'client' }
-  | { mode: 'inspect'; customerId: number }
+export type PortalScope = {
+  mode: 'client' | 'inspect'
+  customerId: number | null      // preenchido só em 'inspect'
+  overview: PortalOverview | null
+  basePath: string               // '/portal' | '/clientes/portal/inspecao/:id'
+}
 ```
+
+`overview` e `basePath` estão aqui porque o Portal os consome hoje por vias que
+o modo inspeção não tem. Detalhe em 2.2 e 2.3.
 
 Cada função de serviço passa a receber `scope` e escolher cliente Supabase e
 nome de RPC a partir dele: `supabasePortal` + `portal_<x>` no modo cliente,
@@ -236,11 +245,41 @@ escolha — corrigir no ponto compartilhado, não em cada call site.
 O modo `client` é o default em toda assinatura, para que nenhum call site do
 Portal real precise mudar.
 
-### 2.2 Hooks e chaves de cache
+### 2.2 O overview vem do escopo, não de `usePortalAuth`
+
+Em modo inspeção o usuário interno **não tem sessão de Portal**, então
+`usePortalAuth().overview` é `null` — e três consumidores dependem dele hoje:
+
+| Consumidor | Uso atual | Sintoma sem correção |
+|---|---|---|
+| `PortalLayout.tsx:43-47` | `overview?.customer_name`, `customer_cnpj_cpf` | Cabeçalho mostra o fallback "Cliente" |
+| `usePortalProfile.ts` | `enabled: Boolean(overview)` | Aba Perfil nunca carrega |
+| `NotificationBell.tsx:42` | `if (!overview) return null` | Sino some da tela |
+
+Pior que os três: se o usuário interno tiver uma sessão de Portal antiga na
+mesma aba, `overview` não é `null` — é o **overview de outro cliente**, e a
+inspeção exibiria a identidade errada no cabeçalho. Fidelidade invertida, que é
+exatamente o que esta ferramenta não pode fazer.
+
+Correção: `portal_open_inspection` (1.3) devolve o overview, a página da
+inspeção o coloca no `PortalScopeContext`, e os três consumidores passam a ler
+`usePortalScope().overview` em vez de `usePortalAuth().overview`. No modo
+cliente o provider preenche esse campo a partir de `usePortalAuth`, então o
+Portal real não muda de comportamento.
+
+### 2.3 Hooks e chaves de cache
 
 Os hooks de `usePortalBilling.ts`, `usePortalOperation.ts`,
-`usePortalNotifications.ts` e `usePortalProfile.ts` passam a ler o escopo de um
-`PortalScopeContext` novo, com default `{ mode: 'client' }`.
+`usePortalNotifications.ts`, `usePortalProfile.ts` e
+`usePortalScheduleVoyages.ts` passam a ler o escopo de um `PortalScopeContext`
+novo, com default de modo cliente.
+
+`usePortalScheduleVoyages` entra na lista mesmo sem par de inspeção no banco:
+`portal_ship_schedule()` não é escopada por cliente, mas o hook está travado em
+`enabled: isAuthenticated` e o serviço chama `supabasePortal`. Sem tratá-lo, o
+`ShipScheduleWidget` do Painel apareceria vazio na inspeção enquanto o cliente
+vê navios — divergência visível na primeira tela. Aqui a injeção muda só o
+cliente Supabase e o `enabled`, não o nome da RPC.
 
 Duas mudanças obrigatórias nas query keys:
 
@@ -256,7 +295,7 @@ Duas mudanças obrigatórias nas query keys:
 `enabled` deixa de ser `isAuthenticated` puro e passa a ser
 `isAuthenticated || scope.mode === 'inspect'`.
 
-### 2.3 Bloqueio das escritas
+### 2.4 Bloqueio das escritas
 
 Em modo inspeção, as seis gravações do cliente ficam indisponíveis:
 
@@ -296,13 +335,32 @@ A página monta `PortalScopeContext` com `{ mode: 'inspect', customerId }`,
 chama `portal_open_inspection` uma vez na entrada, e renderiza o mesmo
 `PortalLayout` do Portal real.
 
-### 3.2 `PortalLayout` com base configurável
+### 3.2 Base path em **todos** os destinos, não só na navegação
 
-`src/components/layout/PortalLayout.tsx` tem `portalNavItems` com caminhos
-`/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil` hardcoded.
-Passa a receber uma prop `basePath` (default `/portal`), e a inspeção passa
-`/clientes/portal/inspecao/:customerId`. As abas internas viram sub-rotas do
-mesmo prefixo — mesma navegação, mesmo chrome, mesmos componentes de página.
+`src/components/layout/PortalLayout.tsx:10-13` tem `portalNavItems` com
+`/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil` hardcoded —
+mas corrigir só essa lista não mantém o usuário dentro da inspeção. Há mais três
+famílias de destino absoluto:
+
+| Origem | Linhas | O que acontece sem correção |
+|---|---|---|
+| `PortalLayout` — nav, brand, pill de perfil | `:10-13`, `:24`, `:36` | Navegação principal escapa |
+| `PortalDashboard` — os quatro cards de indicador | `:39`, `:45`, `:51`, `:57` | Clicar num KPI escapa |
+| `NotificationBell` — `navigate(n.link)` com guarda `startsWith('/portal')` | `:92` | Clicar numa notificação escapa |
+
+"Escapar" aqui significa cair em `/portal/*`, que é rota exclusiva de cliente:
+o usuário interno, sem sessão de Portal, é jogado no login do Portal e perde a
+inspeção.
+
+Correção: o `basePath` do escopo (2.1) é resolvido por um helper único —
+`portalPath(scope, '/billing?tab=local')` — usado nos três lugares. O
+`NotificationBell` precisa de atenção extra: o link vem do payload da
+notificação, gravado no banco como `/portal/...`, então a guarda `startsWith`
+continua sendo o teste de segurança e o prefixo é **reescrito** para o
+`basePath` antes do `navigate`.
+
+Com isso as abas viram sub-rotas do mesmo prefixo — mesma navegação, mesmo
+chrome, mesmos componentes de página.
 
 `PortalDashboard.tsx:19-22` se compõe só de `usePortalInvoices`,
 `usePortalDemurrageInvoices`, `usePortalOperationBls` e `ShipScheduleWidget`:
@@ -378,6 +436,14 @@ asserir que **não existe** função `portal_inspect_<x>` correspondente em
 Teste de contrato SQL asserindo que `portal_get_session_overview_v2` não recebeu
 par de inspeção e que `portal_open_inspection` não contém `UPDATE`
 de `customer_portal_accounts`.
+
+### 4.5 Contenção da navegação
+
+Teste de componente: renderizar `PortalLayout`, `PortalDashboard` e
+`NotificationBell` sob um escopo de inspeção e asserir que nenhum destino
+renderizado começa com `/portal/`. É o teste que impede a regressão da 3.2 — um
+link absoluto novo é fácil de introduzir e o sintoma (cair no login do Portal)
+só aparece em uso real.
 
 ## Etapa 5 — Documentação (mesmo change)
 
