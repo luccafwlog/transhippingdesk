@@ -167,7 +167,7 @@ END;
 $migration$;
 
 CREATE OR REPLACE FUNCTION public.portal_list_invoices()
-RETURNS TABLE(id BIGINT, invoice_number TEXT, issued_at TIMESTAMPTZ, due_date DATE, total_brl NUMERIC, total_paid_brl NUMERIC, balance_brl NUMERIC, status TEXT, invoice_type TEXT, vessels TEXT[], voyages TEXT[], pods TEXT[])
+RETURNS TABLE(id BIGINT, invoice_number TEXT, issued_at TIMESTAMPTZ, due_date DATE, total_brl NUMERIC, total_paid_brl NUMERIC, balance_brl NUMERIC, status TEXT, invoice_type TEXT, vessels TEXT[], voyages TEXT[], vessel_voyages TEXT[], bls TEXT[], pods TEXT[])
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN RETURN QUERY SELECT * FROM public._portal_list_invoices_core(public.current_portal_customer_id()); END; $$;
 CREATE OR REPLACE FUNCTION public.portal_invoice_details(p_invoice_id BIGINT) RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN RETURN public._portal_invoice_details_core(public.current_portal_customer_id(), p_invoice_id); END; $$;
 CREATE OR REPLACE FUNCTION public.portal_list_demurrage_invoices() RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$ BEGIN RETURN public._portal_list_demurrage_invoices_core(public.current_portal_customer_id()); END; $$;
