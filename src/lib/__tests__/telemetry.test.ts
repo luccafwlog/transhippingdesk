@@ -1,8 +1,28 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { redactUrlQueryString, reportBestEffortFailure, scrubBreadcrumbData, scrubEventValue, scrubPii } from '../telemetry'
+import {
+  markStartupStage,
+  redactUrlQueryString,
+  reportBestEffortFailure,
+  scrubBreadcrumbData,
+  scrubEventValue,
+  scrubPii,
+} from '../telemetry'
 
 afterEach(() => vi.restoreAllMocks())
+
+describe('markStartupStage', () => {
+  // Achado da revisão do PR 530: Painel refaz a query a cada 90s e
+  // RoutePreloader roda em toda navegação, então sem dedup cada stage
+  // marcaria (e enviaria breadcrumb) sem fim durante a sessão.
+  it('marca cada stage no máximo uma vez por carregamento de página', () => {
+    markStartupStage('route-data')
+    markStartupStage('route-data')
+    markStartupStage('route-data')
+
+    expect(performance.getEntriesByName('td-startup-route-data', 'mark')).toHaveLength(1)
+  })
+})
 
 describe('reportBestEffortFailure', () => {
   it('loga um warning estruturado sem lançar', () => {

@@ -3,7 +3,10 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
-
+- **Investigação da lentidão de inicialização:** adiciona harness autenticado
+  frio/quente e checkpoints sanitizados de startup, impede cache de uma hora no
+  shell `/` do Firebase Hosting e mantém Auth, banco e waterfalls pendentes até
+  existir baseline autenticado e acesso administrativo ao Supabase.
 - **Inspeção do Portal:** documentada a rota interna somente leitura
   `/clientes/portal/inspecao/:customerId/*`, com `PortalLayout` compartilhado
   entre cliente e inspeção, modo visual identificado, navegação por `basePath`,

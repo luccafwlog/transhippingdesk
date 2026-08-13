@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Download,
@@ -15,6 +15,7 @@ import { LineUpFilters } from '../components/lineup/LineUpFilters'
 import { countActiveLineUpFilters, emptyLineUpFilters, filterLineUpRows, type LineUpFilters as LineUpFiltersState } from '../lib/lineupFilters'
 import { fetchLineUpSnapshot } from '../services/lineup'
 import { exportLineUpWorkbook } from '../services/exports'
+import { markStartupStage } from '../lib/telemetry'
 
 export function Painel() {
   const { showToast } = useToast()
@@ -38,6 +39,10 @@ export function Painel() {
     return filterLineUpRows(lineup?.rows ?? [], filters)
   }, [lineup, filters])
   const activeFilterCount = countActiveLineUpFilters(filters)
+
+  useEffect(() => {
+    if (lineup) markStartupStage('route-data')
+  }, [lineup])
 
   async function handleExport() {
     setIsExporting(true)

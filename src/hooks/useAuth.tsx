@@ -4,6 +4,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
 import type { UserProfile, UserProfileRole } from '../types/database'
+import { markStartupStage } from '../lib/telemetry'
 
 export function shouldHydrateProfile(nextUserId: string | null, hydratedUserId: string | null): boolean {
   return nextUserId !== null && nextUserId !== hydratedUserId
@@ -143,6 +144,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const nextUserId = nextSession?.user?.id ?? null
         if (shouldHydrateProfile(nextUserId, hydratedUserId)) {
           const nextProfile = await loadProfile(nextSession!.user.id)
+          markStartupStage('profile')
           hydratedUserId = nextUserId
           setProfile(nextProfile)
         } else if (!nextUserId) {
@@ -164,6 +166,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     void (async () => {
       try {
         const { data } = await supabase.auth.getSession()
+        markStartupStage('session')
         await hydrateSession(data.session)
       } catch {
         if (mounted) {

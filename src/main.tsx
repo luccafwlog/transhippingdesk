@@ -12,10 +12,11 @@ import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmDialogProvider } from './components/ui/ConfirmDialog'
 import { isSupabaseConfigured } from './services/supabase'
-import { initTelemetry } from './lib/telemetry'
+import { initTelemetry, markStartupStage } from './lib/telemetry'
 import { createAppQueryClient } from './lib/queryClient'
 
 initTelemetry()
+markStartupStage('entry')
 
 function ConfigurationError() {
   return (
