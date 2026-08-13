@@ -12,6 +12,14 @@
   `2026-08-12-remediacao-seguranca-portal`; origem: auditoria
   `security-audit-portal-2026-08-12`)*
 
+- **Spec comportamental na edição `2026-08-12`:** rebuild diferencial contra as
+  migrations `001`–`289`, 42 rotas, 103 RPCs e 12 Edge Functions — 36 linhas
+  novas (ADR, provisionamento e autenticação do Portal, `admin-users`, cadastro
+  de depot e RPCs de CE master, omissão, granito, recebíveis, vencimento e ROE),
+  3 linhas removidas por comportamento que não existe mais (gerador de EDI
+  Mercante, redirect `/line-up-tv`, `provision-portal-user`) e 8 referências
+  reparadas. A edição `2026-07-02` foi arquivada.
+
 - **Controles de vencimento e COD:** administrador pode ajustar o vencimento de
   uma invoice aberta (RPC `update_invoice_due_date`, migration `282`), com o
   detector de atraso mantido como única rotina que transiciona para `overdue`;

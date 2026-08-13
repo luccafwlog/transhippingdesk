@@ -74,8 +74,9 @@ O ADR fechado é imprimível pelo padrão existente de documentos React +
   escala (OS, % de overtime por depot) e os serviços extra de reorganização
   (qty × tarifa configurável) ganham tabelas próprias no módulo de vazios.
   O detalhamento vive na spec
-  `docs/spec/2026-07-19-agency-departure-report-design.md`, validada contra o
-  modelo real de ADR da empresa.
+  `docs/archive/specs/2026-07-19-agency-departure-report-design.md` (arquivada
+  após a execução do plano derivado; caminho original `docs/spec/`), validada
+  contra o modelo real de ADR da empresa.
 - Novo papel `Equipamentos` em `user_profiles`, com RLS/RPCs próprios; o mapa
   de escopos em CONTEXT.md ganha o Escopo de Equipamentos.
 - O snapshot duplica dados por design no fechamento — é o custo aceito para a

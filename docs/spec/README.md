@@ -29,7 +29,8 @@ specification** for Transhipping Desk. It tracks every feature from
 specification through verification in one spreadsheet.
 
 This directory is the living source of truth. Dated CSV/XLSX pairs are editions:
-the newest is canonical and older ones are historical snapshots.
+the newest is canonical and lives here; superseded editions move to
+[`../archive/specs/`](../archive/specs/) as historical snapshots.
 
 ## Canonical files
 
@@ -38,7 +39,8 @@ the newest is canonical and older ones are historical snapshots.
 | `<date>-behavioral-spec.csv` | **Source of truth** (edited directly, diffable, reviewable) |
 | `<date>-behavioral-spec.xlsx` | View layer (filters + summary sheet), generated from the CSV |
 
-Current edition: **`2026-07-02-behavioral-spec.{csv,xlsx}`**.
+Current edition: **`2026-08-12-behavioral-spec.{csv,xlsx}`**. The superseded
+`2026-07-02` edition is in [`../archive/specs/`](../archive/specs/).
 
 The CSV is edited by hand; the `.xlsx` is generated from it by
 [`../../scripts/build-behavioral-spec.mjs`](../../scripts/build-behavioral-spec.mjs).
@@ -53,10 +55,9 @@ this directory; pass a path to target a specific edition.
 
 ## Scope
 
-One row per feature across: all SPA routes, every `supabase.rpc(...)`, the three
-Edge Functions (`provision-portal-user`, `notify-invoice-issued`,
-`recalc-demurrage-ptax`), staff/portal auth, and every RLS table boundary, plus
-security/financial triggers and jobs. Generic UI components and behaviourless
+One row per feature across: all SPA routes, every `supabase.rpc(...)`, every
+Edge Function under `supabase/functions/` (12 at `2026-08-12`), staff/portal
+auth, and every RLS table boundary, plus security/financial triggers and jobs. Generic UI components and behaviourless
 helpers are out of scope.
 
 ## Columns
@@ -71,17 +72,41 @@ Defect Type, Evidence, Source References, Open Questions / Notes`.
 
 ## Provenance
 
-This edition was rebuilt from scratch against the executable repository at
-`2026-07-02`: `src/App.tsx` (routes), the `supabase.rpc(...)` call sites,
-`supabase/functions/`, the numbered migrations (`001`–`162`) and
+The `2026-07-02` edition was rebuilt from scratch against the executable
+repository at that date: `src/App.tsx` (routes), the `supabase.rpc(...)` call
+sites, `supabase/functions/`, the numbered migrations (`001`–`162`) and
 [`../RASTREABILIDADE.md`](../RASTREABILIDADE.md), then driven through one QA loop
-against the green Vitest suite (`npm test`).
+against the green Vitest suite.
 
-All 139 rows are verified and carry no open defect. 108 are `Verified` — backed
-by an executed `Vitest` or `SQL-contract` assertion; the remaining 31 are
-`Verified (static)`, confirmed by static code read where the feature has no
-executable surface in this environment (SQL triggers, `pg_cron` jobs, Edge
-Functions, live-DB RLS). The `Evidence` column preserves the strength of each
-verification. The two remaining
-`Open Questions / Notes` (`OPS-ROUTE-01`, `VOY-ACC-02`) are design-intent
-confirmations about pre-existing code, not defects.
+The `2026-08-12` edition carries that work forward against the repository at
+migrations `001`–`289`, 42 routes, 103 distinct `supabase.rpc(...)` call sites
+and 12 Edge Functions, with the Vitest suite green (`npm test`). It is a
+**differential** rebuild, not a from-scratch one: rows unaffected by the drift
+carry their `2026-07-02` verification forward.
+
+What changed relative to the previous edition:
+
+- **36 rows added** for surfaces the old edition did not cover — the departure
+  report RPCs (`ADR-RPC-01`–`08`), the Portal provisioning and authentication
+  flow (`PORT-ROUTE-05`–`09`, `PORT-RPC-06`–`11`, `PORT-EDGE-03`–`10`), the
+  `admin-users` Edge Function, depot registration, and the CE-master,
+  omission-edit, granite-CE, receivables, invoice-due-date and exchange-rate
+  RPCs.
+- **3 rows removed** for behavior the code no longer has: the Mercante EDI (M5)
+  generator (`MAN-ACT-02` — only CE Mercante *import* remains), the
+  `/line-up-tv` redirect (`OPS-ROUTE-04`), and the `provision-portal-user` Edge
+  Function (`PORT-EDGE-01`, superseded by the invite/activate flow).
+- **8 rows repaired** where a module or test had been renamed or moved
+  (`src/lib/uploadLimits.ts` → `src/lib/fileGuard.ts`, `manifestParser.ts` →
+  `blParser.ts`, `LineUpTV` → `LineUpTVDisplay`, and five stale `Evidence`
+  citations).
+
+All 175 rows carry no open defect. 133 are `Verified` — backed by an executed
+`Vitest` or `SQL-contract` assertion; the remaining 42 are `Verified (static)`,
+confirmed by static code read where the feature has no executable surface in
+this environment (SQL triggers, `pg_cron` jobs, Edge Functions, live-DB RLS).
+The `Evidence` column preserves the strength of each verification, and every
+file cited in `Evidence` and `Source References` was checked to exist at
+`2026-08-12`. The `Open Questions / Notes` entries (`OPS-ROUTE-01`,
+`VOY-ACC-02`, `MAN-ROUTE-09`, `BILL-RPC-12`) are design-intent confirmations or
+coverage gaps in pre-existing code, not defects.
