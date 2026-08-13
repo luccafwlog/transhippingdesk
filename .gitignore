@@ -8,6 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+artifacts/perf/
 .worktrees/
 dist
 dist-ssr

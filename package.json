@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:integration": "vitest run src/integration/supabase.integration.test.ts",
     "size-limit": "size-limit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "perf:authenticated-startup": "node scripts/perf/measure-authenticated-startup.mjs"
   },
   "size-limit": [
     {
@@ -23,8 +24,8 @@
         "dist/assets/index-*.js",
         "dist/assets/rolldown-runtime-*.js",
         "dist/assets/vendor-*.js",
-          "dist/assets/exports-*.js",
-          "dist/assets/utils-*.js",
+        "dist/assets/exports-*.js",
+        "dist/assets/utils-*.js",
         "dist/assets/createLucideIcon-*.js",
         "dist/assets/Button-*.js",
         "dist/assets/x-*.js"
@@ -62,6 +63,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.62.1",
     "size-limit": "^12.1.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~6.0.2",

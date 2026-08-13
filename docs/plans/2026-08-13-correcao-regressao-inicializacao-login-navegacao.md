@@ -34,6 +34,27 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
 - **Inconclusivo:** o build local chegou a `vite transforming...` e não terminou
   em mais de dois minutos; não pode ser tratado como falha nem como gate verde.
 
+## Execução nesta PR
+
+- **Implementado:** harness Playwright frio/quente em
+  `scripts/perf/measure-authenticated-startup.mjs`, comando npm, documentação
+  sanitizada e exclusão do relatório em `.gitignore`.
+- **Implementado:** `Cache-Control: no-cache, no-store, must-revalidate` também
+  para a rota `/` do Firebase Hosting, evitando que o rewrite do shell SPA seja
+  servido com cache de uma hora.
+- **Implementado:** checkpoints de `entry`, sessão, perfil, chunk da rota e
+  dados do Painel em `performance.mark` e breadcrumbs de baixa cardinalidade,
+  sem usuário, token, query string ou payload.
+- **Verificado:** typecheck, lint, `docs:check`, testes focados (20/20), build,
+  `size-limit` (173,52 kB brotli, limite 250 kB), harness de parse/compile (37
+  rotas, 0 acima de 50 ms) e `git diff --check` passaram no worktree isolado.
+- **Bloqueado:** a medição autenticada real não foi executada porque não há
+  credencial interna de teste disponível; o comando retorna erro seguro quando
+  as três variáveis obrigatórias não estão definidas. A verificação de
+  `pg_stat_statements`/publication também exige acesso administrativo ao
+  Supabase. Nenhuma correção de Auth ou waterfall foi inventada sem essa
+  evidência.
+
 ### Task 1: Criar o feedback loop autenticado
 
 **Arquivos:**
@@ -41,14 +62,14 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
 - Criar: `scripts/perf/README.md`
 - Modificar: `package.json`
 
-- [ ] Implementar um script CDP/Playwright que receba URL e credenciais apenas
+- [x] Implementar um script CDP/Playwright que receba URL e credenciais apenas
   por variáveis de ambiente, crie contexto novo por rodada e nunca grave tokens.
 - [ ] Medir cinco rodadas frias e cinco quentes de `/login` para `/painel`,
   registrando `navigationStart`, FCP, login concluído, perfil concluído,
   primeiro shell, primeira rota e fim das queries iniciais.
-- [ ] Salvar somente resumo sanitizado em JSON: mediana, p95, quantidade de
+- [x] Salvar somente resumo sanitizado em JSON: mediana, p95, quantidade de
   requests, bytes e as dez requests mais lentas por categoria.
-- [ ] Fazer o comando falhar quando login-até-shell exceder `2.000 ms` ou
+- [x] Fazer o comando falhar quando login-até-shell exceder `2.000 ms` ou
   navegação interna aquecida exceder `1.000 ms`; os valores devem ser
   confirmados com o responsável depois do primeiro baseline.
 - [ ] Executar `npm run perf:authenticated-startup` e confirmar que o comando
@@ -122,9 +143,9 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
 - Modificar: `package.json`
 - Testar: `scripts/perf/measure-page-load.mjs`
 
-- [ ] Verificar por que a resposta de `/` publicada retorna
+- [x] Verificar por que a resposta de `/` publicada retorna
   `Cache-Control: max-age=3600` apesar da regra específica de `index.html`.
-- [ ] Manter HTML revalidável e assets com hash `immutable`; não cachear HTML
+- [x] Manter HTML revalidável e assets com hash `immutable`; não cachear HTML
   antigo por uma hora.
 - [ ] Comparar grafo inicial e chunks da rota contra o commit `375de629` e
   remover preload estático que não esteja no caminho crítico medido.
@@ -137,7 +158,7 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
 - Modificar: `docs/ARCHITECTURE.md`
 - Modificar: `docs/CHANGELOG.md`
 
-- [ ] Emitir spans sem PII para `auth.session`, `auth.profile`, `route.chunk` e
+- [x] Emitir checkpoints sem PII para `auth.session`, `auth.profile`, `route.chunk` e
   `route.data`, com amostragem limitada e release associado ao commit.
 - [ ] Documentar o orçamento e o procedimento de captura sanitizada.
 - [ ] Registrar a causa comprovada, os números antes/depois e por que as outras

@@ -7,6 +7,7 @@ import { PortalLayout } from './components/layout/PortalLayout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { lazyPage } from './lib/lazyPage'
 import { matchRoutePreload, type RoutePreloadTable } from './lib/routePreload'
+import { markStartupStage } from './lib/telemetry'
 
 const Login = lazyPage(() => import('./pages/Login'), 'Login')
 const PortalLogin = lazyPage(() => import('./pages/PortalLogin'), 'PortalLogin')
@@ -101,7 +102,10 @@ const routePreloads: RoutePreloadTable = [
 function RoutePreloader() {
   const { pathname } = useLocation()
   useEffect(() => {
-    matchRoutePreload(pathname, routePreloads)?.().catch(() => {})
+    const preload = matchRoutePreload(pathname, routePreloads)
+    preload?.()
+      .then(() => markStartupStage('route-chunk'))
+      .catch(() => {})
   }, [pathname])
   return null
 }

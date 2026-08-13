@@ -14,6 +14,27 @@ const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
 const BARE_CNPJ_RE = /\b\d{14}\b/g
 const BARE_CPF_RE = /\b\d{11}\b/g
 const MAX_SCRUB_DEPTH = 4
+const STARTUP_MARK = 'td-startup'
+
+/** Records a low-cardinality startup checkpoint without sending route, user,
+ * token, or query-string data. The breadcrumb is attached to the next Sentry
+ * event, while the PerformanceEntry remains available to browser diagnostics.
+ */
+export function markStartupStage(stage: 'entry' | 'session' | 'profile' | 'route-chunk' | 'route-data'): void {
+  if (typeof performance === 'undefined') return
+  const now = performance.now()
+  if (!performance.getEntriesByName(STARTUP_MARK, 'mark').length) performance.mark(STARTUP_MARK)
+  performance.mark(`td-startup-${stage}`)
+  const elapsed = Number(now.toFixed(1))
+  if (import.meta.env.PROD) {
+    Sentry.addBreadcrumb({
+      category: 'performance.startup',
+      message: stage,
+      level: 'info',
+      data: { elapsed_ms: elapsed },
+    })
+  }
+}
 
 // Redige padroes de PII (CNPJ, CPF, email) em qualquer string do evento.
 export function scrubPii(text: string): string {
