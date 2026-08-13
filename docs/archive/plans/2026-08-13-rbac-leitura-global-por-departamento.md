@@ -1,7 +1,7 @@
 # Plano — leitura global interna por departamento
 
 Status: DONE — executado em 2026-08-13 na mesma PR desta auditoria (migration
-`290`, ADR 0044).
+`291`, ADR 0044).
 
 Origem: [`docs/archive/audits/2026-08-13-rbac-departamentos-visualizacao.md`](../audits/2026-08-13-rbac-departamentos-visualizacao.md)
 
@@ -17,7 +17,7 @@ mudar a matriz de `roleHasPermission`, que já está alinhada ao `CONTEXT.md`.
 
 ## Etapa 1 — abrir a leitura financeira no banco (P0) e alinhar a escrita de Taxas Locais (P0b)
 
-Migration nova `290_financial_reads_by_department.sql`, revertendo o eixo de
+Migration nova `291_financial_reads_by_department.sql`, revertendo o eixo de
 leitura de `014`, `020`, `066` e `111`, em duas seções.
 
 **Seção 1 — leitura.** Para cada uma das 13 tabelas — `charge_tables`,
@@ -114,7 +114,7 @@ o banco também os restringe a `is_admin()`.
 ## Etapa 5 — testes
 
 1. **Contrato SQL** — `src/services/__tests__/financialReadsByDepartmentMigration.test.ts`,
-   no padrão dos testes de migration existentes: a `290` dropa os 13
+   no padrão dos testes de migration existentes: a `291` dropa os 13
    `_select_admin` financeiros e cria os `_select_read` com
    `is_active_read_user()`; separadamente, confirma que `charge_tables`,
    `charge_table_items` e `customer_rate_overrides` trocam `INSERT`/`UPDATE`/
@@ -146,7 +146,7 @@ o banco também os restringe a `is_admin()`.
   escrita* — decisão que supera o eixo de leitura de `014`. Indexar em
   `docs/adr/README.md`.
 - `docs/ARCHITECTURE.md`: atualizar a seção de migrations (`:283-309`) com a
-  `290`.
+  `291`.
 - `docs/RASTREABILIDADE.md`: atualizar as linhas de Taxas Locais, Faturamento,
   Relatórios e Ficha do Cliente.
 - Ao concluir: mover este plano para `docs/archive/plans/`, remover a linha de

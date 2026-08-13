@@ -303,7 +303,7 @@ própria viagem; o snapshot de fechamento é revalidado no banco pela migration
 projeção compartilhada unifica POL/POD/EXP por escala brasileira, e o alerta
 pós-ATD do ADR enxerga também o ATD documental do POL sem retroagir o baseline.
 
-A migration `290` (ADR 0044) corrige o eixo de leitura de `014`/`020`/`066`/
+A migration `291` (ADR 0044) corrige o eixo de leitura de `014`/`020`/`066`/
 `111`: 13 tabelas financeiras (`charge_tables`, `invoices`, `payments`, o
 ledger de recebíveis etc.) tinham `SELECT` restrito a `is_admin()`, um
 resquício do modelo antigo admin/operator. Agora usam `is_active_read_user()`

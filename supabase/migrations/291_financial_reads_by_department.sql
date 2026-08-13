@@ -1,4 +1,4 @@
--- Migration 290: alinha a RLS financeira ao modelo de cinco perfis de
+-- Migration 291: alinha a RLS financeira ao modelo de cinco perfis de
 -- roleHasPermission() (src/hooks/useAuth.tsx) e ao CONTEXT.md.
 --
 -- Contexto (docs/archive/audits/2026-08-13-rbac-departamentos-visualizacao.md):

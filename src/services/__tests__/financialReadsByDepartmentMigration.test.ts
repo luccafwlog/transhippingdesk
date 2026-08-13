@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const sql = readFileSync('supabase/migrations/290_financial_reads_by_department.sql', 'utf8')
+const sql = readFileSync('supabase/migrations/291_financial_reads_by_department.sql', 'utf8')
 
 const FINANCIAL_READ_TABLES = [
   'charge_tables',
@@ -21,7 +21,7 @@ const FINANCIAL_READ_TABLES = [
 
 const LOCAL_CHARGE_TABLES = ['charge_tables', 'charge_table_items', 'customer_rate_overrides']
 
-describe('290_financial_reads_by_department', () => {
+describe('291_financial_reads_by_department', () => {
   it('lista exatamente as 13 tabelas restritas por 014/020/066/111', () => {
     const match = sql.match(/financial_read_tables TEXT\[\] := ARRAY\[([\s\S]*?)\];/)
     expect(match).not.toBeNull()

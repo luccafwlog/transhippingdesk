@@ -46,7 +46,7 @@ permissão específico (`can_edit_voyages()`, `can_edit_customers()`,
 permissão `charge_tables`/`charge_overrides` de `roleHasPermission`, que já
 concedia essa capacidade a Documentação sem a RLS correspondente).
 
-Migration: `290_financial_reads_by_department.sql`.
+Migration: `291_financial_reads_by_department.sql`.
 
 ## Consequências
 

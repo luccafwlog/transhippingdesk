@@ -64,7 +64,7 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   no B/L quando existe omissão sem disposição persistida.
 - [`2026-08-13-rbac-leitura-global-por-departamento`](2026-08-13-rbac-leitura-global-por-departamento.md)
   — corrige o eixo de leitura de `014`/`020`/`066`/`111`, que restringia 13
-  tabelas financeiras a `is_admin()`: migration `290` libera SELECT para todo
+  tabelas financeiras a `is_admin()`: migration `291` libera SELECT para todo
   perfil interno ativo (`is_active_read_user()`) e alinha INSERT/UPDATE/DELETE
   de `charge_tables`/`charge_table_items`/`customer_rate_overrides` à
   permissão `charge_tables`/`charge_overrides` já concedida a Documentação.
