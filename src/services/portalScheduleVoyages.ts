@@ -1,5 +1,5 @@
 import { PORTAL_SCHEDULE_LANES, portalLaneCode } from './portalScheduleLanes'
-import { supabasePortal } from './supabase'
+import { callPortalRpc, clientPortalScope, type PortalScope } from './portalScope'
 
 export type PortalScheduleRpcRow = {
   voyage_id: number
@@ -64,9 +64,8 @@ export function projectPortalScheduleRows(rows: PortalScheduleRpcRow[]): PortalS
   })
 }
 
-export async function fetchPortalScheduleVoyages(): Promise<PortalScheduleVoyage[]> {
-  const { data, error } = await supabasePortal.rpc('portal_ship_schedule')
-  if (error) throw error
+export async function fetchPortalScheduleVoyages(scope: PortalScope = clientPortalScope): Promise<PortalScheduleVoyage[]> {
+  const data = await callPortalRpc<PortalScheduleRpcRow[]>(scope, 'portal_ship_schedule')
   return projectPortalScheduleRows((data ?? []).map((row) => {
     if (row.kind !== 'pol' && row.kind !== 'pod') throw new Error(`Tipo de escala inválido: ${row.kind}`)
     return { ...row, kind: row.kind }

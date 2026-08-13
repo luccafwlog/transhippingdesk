@@ -4,6 +4,7 @@ import { routeTitle } from './lib/pageTitle'
 import { AppLayout } from './components/layout/AppLayout'
 import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
 import { PortalLayout } from './components/layout/PortalLayout'
+import { PortalScopeProvider } from './hooks/usePortalScope'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { lazyPage } from './lib/lazyPage'
 import { matchRoutePreload, type RoutePreloadTable } from './lib/routePreload'
@@ -18,6 +19,7 @@ const PortalForgotPassword = lazyPage(() => import('./pages/PortalForgotPassword
 const PortalResetPassword = lazyPage(() => import('./pages/PortalResetPassword'), 'PortalResetPassword')
 const PortalAtivacao = lazyPage(() => import('./pages/PortalAtivacao'), 'PortalAtivacao')
 const PortalProfile = lazyPage(() => import('./pages/PortalProfile'), 'PortalProfile')
+const PortalInspection = lazyPage(() => import('./pages/PortalInspection'), 'PortalInspection')
 const Painel = lazyPage(() => import('./pages/Painel'), 'Painel')
 const Viagens = lazyPage(() => import('./pages/Viagens'), 'Viagens')
 const Manifestos = lazyPage(() => import('./pages/Manifestos'), 'Manifestos')
@@ -86,6 +88,7 @@ const routePreloads: RoutePreloadTable = [
   ['/portal/recuperar-senha', PortalResetPassword.preload], ['/portal/ativar', PortalAtivacao.preload],
   ['/portal', PortalDashboard.preload], ['/portal/billing', PortalBilling.preload], ['/portal/operacao', PortalOperacao.preload],
   ['/portal/perfil', PortalProfile.preload], ['/login', Login.preload], ['/line-up-tv/display', LineUpTVDisplay.preload],
+  ['/clientes/portal/inspecao/:customerId', PortalInspection.preload],
   ['/painel', Painel.preload], ['/viagens/:voyageId', Viagens.preload], ['/viagens', Viagens.preload],
   ['/manifestos/:blId', BlDetalhe.preload], ['/manifestos', Manifestos.preload], ['/containers', Containers.preload],
   ['/carga-solta', CargaSolta.preload], ['/veiculos', Veiculos.preload], ['/revisao', Revisao.preload],
@@ -121,11 +124,13 @@ export default function App() {
       <Route path="/portal/recuperar-senha" element={withSuspense(<PortalResetPassword />)} />
       <Route path="/portal/ativar" element={withSuspense(<PortalAtivacao />)} />
       <Route element={<PortalProtectedRoute />}>
+        <Route element={<PortalScopeProvider />}>
         <Route element={<PortalLayout />}>
           <Route path="/portal" element={withSuspense(<PortalDashboard />)} />
           <Route path="/portal/billing" element={withSuspense(<PortalBilling />)} />
           <Route path="/portal/operacao" element={withSuspense(<PortalOperacao />)} />
           <Route path="/portal/perfil" element={withSuspense(<PortalProfile />)} />
+        </Route>
         </Route>
       </Route>
       {isPortalHost ? (
@@ -135,6 +140,12 @@ export default function App() {
       <Route path="/login" element={withSuspense(<Login />)} />
       <Route element={<ProtectedRoute />}>
         <Route path="/line-up-tv/display" element={withSuspense(<LineUpTVDisplay />)} />
+        <Route path="/clientes/portal/inspecao/:customerId/*" element={withSuspense(<PortalInspection />)}>
+          <Route index element={withSuspense(<PortalDashboard />)} />
+          <Route path="billing" element={withSuspense(<PortalBilling />)} />
+          <Route path="operacao" element={withSuspense(<PortalOperacao />)} />
+          <Route path="perfil" element={withSuspense(<PortalProfile />)} />
+        </Route>
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/painel" replace />} />
           <Route path="/painel" element={withSuspense(<Painel />)} />

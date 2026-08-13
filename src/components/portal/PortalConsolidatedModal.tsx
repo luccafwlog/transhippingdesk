@@ -8,6 +8,7 @@ import { useToast } from '../ui/Toast'
 import { usePortalConsolidatableReceivables, usePortalCreateConsolidation } from '../../hooks/usePortalBilling'
 import { isReceivableSelectable, summarizeConsolidation } from '../billing/consolidatedInvoiceSelection'
 import { formatBRL } from '../../lib/utils'
+import { usePortalScope } from '../../hooks/usePortalScope'
 
 type Props = {
   open: boolean
@@ -22,6 +23,7 @@ export function PortalConsolidatedModal({ open, onClose, onCreated }: Props) {
   const { showToast } = useToast()
   const { data: receivables, isLoading } = usePortalConsolidatableReceivables()
   const createMutation = usePortalCreateConsolidation()
+  const scope = usePortalScope()
   const [selected, setSelected] = useState<number[]>([])
 
   const rows = useMemo(() => receivables ?? [], [receivables])
@@ -87,7 +89,7 @@ export function PortalConsolidatedModal({ open, onClose, onCreated }: Props) {
                           type="checkbox"
                           aria-label={`Selecionar B/L ${r.bl_id}`}
                           checked={selected.includes(r.receivable_id)}
-                          disabled={!eligible}
+                          disabled={!eligible || scope.mode === 'inspect'}
                           onChange={() => toggle(r.receivable_id)}
                         />
                       </td>
@@ -118,7 +120,7 @@ export function PortalConsolidatedModal({ open, onClose, onCreated }: Props) {
             <Button variant="ghost" onClick={close}>
               Cancelar
             </Button>
-            <Button onClick={submit} loading={createMutation.isPending} disabled={summary.selectedCount === 0}>
+            <Button onClick={submit} loading={createMutation.isPending} disabled={summary.selectedCount === 0 || scope.mode === 'inspect'} title={scope.mode === 'inspect' ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}>
               <FilePlus2 size={16} />
               Consolidar e emitir
             </Button>

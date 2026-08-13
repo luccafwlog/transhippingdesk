@@ -1,5 +1,7 @@
 # Portal do Cliente
 
+> **Rota interna:** `/clientes/portal/inspecao/:customerId/*` (Modo Inspeção)
+
 > **Status:** ativo · **Atualizado:** 2026-08-12 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
 
 ## Provisionamento operacional
@@ -70,6 +72,44 @@ consolida atividade às 08:00 de Brasília. As variáveis
 `RESEND_API_KEY`, `PORTAL_FROM_EMAIL`, `PORTAL_REPLY_TO` e
 `RESEND_WEBHOOK_SECRET` ficam apenas nas Edge Functions; sem a chave de Resend o
 ambiente opera em dry-run e nenhum email real é enviado.
+
+### Inspeção do Portal
+
+`/clientes/portal/inspecao/:customerId/*` é uma visão interna somente leitura
+do Portal de um Cliente. O acesso usa `is_active_read_user()` e registra a
+abertura em `portal_inspection_events`; não usa login como cliente nem altera a
+sessão de Portal. O botão é compartilhado por `PortalReviewPanel` no console
+de provisionamento e na Ficha do Cliente. O console também é descobrível por
+Equipamentos, que consulta o histórico sem disparar o self-heal gravável.
+
+O `PortalLayout` é o mesmo no Portal real e na inspeção. Um `PortalScope` injeta
+modo, `customerId`, overview e `basePath`; nav, cards, abas e links do sino usam
+esse base path. A faixa de Modo Inspeção identifica Cliente, CNPJ e situação de
+conta não ativa.
+
+#### Catálogo de ações
+
+| Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
+|---|---|---|---|---|---|---|---|
+| `/clientes/portal/inspecao/:customerId/*` — abrir | Usuário interno ativo e Cliente conhecido | `PortalReviewPanel` | `portal_open_inspection` → `PortalScope` → `PortalLayout` | `portal_inspection_events` append-only; overview sem `last_login_at` | Deduplicação de abertura; caches por Cliente no namespace `portal-*` | Gate `42501`, Cliente inválido ou overview indisponível | **Código:** ADR 0045; **Teste de contrato SQL:** guard, grants e abertura |
+| Inspeção — consultar Portal | Escopo em modo `inspect` | Páginas e hooks do Portal | `callPortalRpc` escolhe `supabase` + `portal_inspect_*` | Somente leitura pelos núcleos compartilhados | Chaves incluem `customerId`; `basePath` preserva sub-rotas | Falha da superfície correspondente | **Código:** plano da PR 529; **Teste de contrato SQL:** paridade estrutural |
+| Inspeção — navegar ou sair | Escopo em modo `inspect` | `PortalLayout`, dashboard e `NotificationBell` | Helper de `portalPath`; saída retorna à origem | Nenhuma; sino não marca leitura | Links não escapam para `/portal/*` | Destino inválido permanece no shell protegido | **Código:** ADR 0045; **Teste:** contenção da navegação |
+| Inspeção — ação do cliente | Escopo em modo `inspect` | Disputa, perfil, consolidação e sino | UI desabilita; `callPortalRpc` recusa escrita | Nenhuma RPC de escrita de inspeção | Leitura e navegação continuam disponíveis | Tooltip de ação indisponível em Modo Inspeção | **Código:** ADR 0045; **Teste:** bloqueio de escrita |
+
+#### Arquitetura núcleo + invólucro
+
+As nove leituras escopadas por Cliente usam `_portal_<x>_core(customer_id, ...)`
+como fonte única. A RPC do cliente mantém a assinatura e chama o núcleo com
+`current_portal_customer_id()`; `portal_inspect_<x>(customer_id, ...)` chama o
+mesmo núcleo após `_portal_inspect_guard`. O núcleo não é executável
+externamente; os invólucros de inspeção revogam `PUBLIC`/`anon` e concedem
+somente a `authenticated`. Isso evita assinaturas opcionais novas e o risco de
+`ALTER DEFAULT PRIVILEGES` reabrir `EXECUTE` para `anon`.
+
+`portal_get_session_overview_v2` fica fora desse par porque grava
+`last_login_at`; `portal_open_inspection` devolve seu overview sem essa escrita.
+`portal_ship_schedule` é a única leitura chamada diretamente, pois não é
+escopada por Cliente. Nenhuma escrita recebe invólucro de inspeção.
 
 ## Propósito e escopo
 

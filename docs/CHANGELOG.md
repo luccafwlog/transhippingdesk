@@ -7,6 +7,14 @@
   frio/quente e checkpoints sanitizados de startup, impede cache de uma hora no
   shell `/` do Firebase Hosting e mantém Auth, banco e waterfalls pendentes até
   existir baseline autenticado e acesso administrativo ao Supabase.
+- **Inspeção do Portal:** documentada a rota interna somente leitura
+  `/clientes/portal/inspecao/:customerId/*`, com `PortalLayout` compartilhado
+  entre cliente e inspeção, modo visual identificado, navegação por `basePath`,
+  bloqueio das escritas do cliente e abertura auditada. A fidelidade usa
+  núcleos parametrizados compartilhados pelas RPCs do cliente e de inspeção;
+  `portal_get_session_overview_v2` é exceção por atualizar `last_login_at`.
+  Equipamentos passa a descobrir o console sem disparar o self-heal gravável.
+  *(ADR 0045; plano da PR 529)*
 - **Remediação de segurança do Portal do Cliente:** `import_manifest_transactional`
   ganha guarda de identidade (sessão interna ativa + `p_uploaded_by = auth.uid()`,
   migration `290`), `/portal/esqueci-senha` deixa de enumerar CNPJs cadastrados,
@@ -199,3 +207,9 @@
 
 - Consolida a implementação do ADR 0039, as correções da revisão da PR 503 e
   a documentação da rota `/perfil` em uma única entrega pronta para `main`.
+# Próxima entrega
+
+- adiciona harness autenticado frio/quente e checkpoints sanitizados de startup;
+- impede cache de uma hora no shell `/` do Firebase Hosting;
+- mantém a investigação de Auth, banco e waterfalls pendente até haver baseline
+  autenticado e acesso administrativo ao Supabase.

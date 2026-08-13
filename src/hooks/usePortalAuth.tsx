@@ -16,7 +16,9 @@ type PortalAuthContextValue = {
   refreshOverview: () => Promise<void>
 }
 
-const PortalAuthContext = createContext<PortalAuthContextValue | null>(null)
+// Exportado para `usePortalScope`, que precisa ler a sessao do Cliente sem
+// lancar quando ela nao existe (modo Inspecao e testes isolados).
+export const PortalAuthContext = createContext<PortalAuthContextValue | null>(null)
 
 function isPortalSessionError(error: unknown) {
   const code = typeof error === 'object' && error ? String((error as { code?: string }).code ?? '') : ''
@@ -32,6 +34,7 @@ function normalizePortalOverview(payload: Record<string, unknown>) {
     pending_balance: payload.pending_balance == null ? null : Number(payload.pending_balance),
     contact_email: payload.contact_email == null ? null : String(payload.contact_email),
     login_cnpj: payload.login_cnpj == null ? null : String(payload.login_cnpj),
+    account_active: payload.account_active == null ? undefined : Boolean(payload.account_active),
   } as PortalSessionOverview
 }
 

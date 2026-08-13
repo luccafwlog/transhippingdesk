@@ -22,13 +22,14 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const { can, isAdmin, effectiveRole } = useAuth()
   const canProvision = can ? can('portal_provisioning') : isAdmin
   const isOperations = effectiveRole === 'operacoes'
+  const canReadEvents = ['administrativo', 'documentacao', 'financeiro', 'equipamentos'].includes(effectiveRole ?? '')
   const confirm = useConfirm()
   const { showToast } = useToast()
   const [email, setEmail] = useState(row.recovery_email ?? '')
   const [newCnpj, setNewCnpj] = useState(row.cnpj_cpf)
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
-  const { data: events = [] } = usePortalEvents(row.customer_id, !isOperations)
+  const { data: events = [] } = usePortalEvents(row.customer_id, canReadEvents)
   const sendInviteMutation = useSendPortalInvite()
   const cancelInviteMutation = useCancelPortalInvite()
   const suspendMutation = useSuspendPortalAccount()
@@ -99,7 +100,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
           <h2 className="mt-1 text-xl font-semibold">{row.customer_name}</h2>
           <p className="font-mono text-sm text-[var(--app-muted)]">{formatCnpjCpf(row.cnpj_cpf)}</p>
         </div>
-        {onClose ? <Button variant="ghost" onClick={onClose}>Fechar</Button> : null}
+        <div className="flex items-center gap-2"><Link to={`/clientes/portal/inspecao/${row.customer_id}?origem=${variant === 'inline' ? 'provisionamento' : 'ficha'}`} target={variant === 'inline' ? '_blank' : undefined} className="rounded-lg border border-cyan-400/50 px-3 py-2 text-sm font-medium text-cyan-200">{row.account_situation === 'ativo' ? 'Ver como o cliente vê' : 'Ver o que o cliente veria'}</Link>{onClose ? <Button variant="ghost" onClick={onClose}>Fechar</Button> : null}</div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -156,7 +157,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         </div>
       </details> : null}
 
-      {!isOperations ? <section className="mt-6 border-t border-[var(--app-border)] pt-5">
+      {canReadEvents ? <section className="mt-6 border-t border-[var(--app-border)] pt-5">
         <h3 className="font-semibold">Histórico</h3>
         {events.length ? <ol className="mt-3 grid gap-2 text-sm">{events.slice(0, 10).map((event) => <li key={event.id} className="rounded border border-[var(--app-border)] p-2"><div>{event.reason ?? 'Evento do Portal'}</div><div className="text-xs text-[var(--app-muted)]">{accountSituationLabel(event.new_situation)} · {event.created_at ? new Date(event.created_at).toLocaleString('pt-BR') : 'Não informado'}</div></li>)}</ol> : <p className="mt-2 text-sm text-[var(--app-muted)]">Nenhum evento registrado.</p>}
       </section> : null}

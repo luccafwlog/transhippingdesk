@@ -12,8 +12,11 @@ const updateProfile = vi.hoisted(() => vi.fn())
 // object per render would re-trigger the effect in a loop past test teardown.
 const auth = vi.hoisted(() => ({ overview: { contact_email: 'fallback@example.com' }, refreshOverview: vi.fn() }))
 
-vi.mock('../../hooks/usePortalAuth', () => ({
+// `usePortalScope` le `PortalAuthContext` direto (sem Provider, o default do
+// contexto e o valor entregue), entao o mock parcial precisa exportar os dois.
+vi.mock('../../hooks/usePortalAuth', async () => ({
   usePortalAuth: () => auth,
+  PortalAuthContext: (await vi.importActual<typeof import('react')>('react')).createContext(auth),
 }))
 vi.mock('../../services/portalBilling', () => ({
   portalGetProfile: getProfile,
