@@ -106,6 +106,7 @@ DECLARE
   v_def TEXT;
   v_core TEXT;
   v_core_args TEXT;
+  v_core_types TEXT;
 BEGIN
   FOR r IN SELECT * FROM (VALUES
     ('portal_list_invoices()'::regprocedure, 'portal_list_invoices', '()'),
@@ -126,6 +127,16 @@ BEGIN
       WHEN r.fn_name = 'portal_list_notifications' THEN 'p_customer_id BIGINT, p_limit INTEGER'
       ELSE 'p_customer_id BIGINT'
     END;
+    -- ponytail: kept as a second CASE (not derived from v_core_args by
+    -- stripping names) so the REVOKE's type list is visibly tied to each
+    -- function's real core signature; the earlier bug here was a blanket
+    -- "BIGINT, BIGINT" that silently didn't match portal_list_notifications'
+    -- (BIGINT, INTEGER) core, only surfacing when the migration ran for real.
+    v_core_types := CASE
+      WHEN r.fn_name IN ('portal_invoice_details', 'portal_get_demurrage_invoice_detail') THEN 'BIGINT, BIGINT'
+      WHEN r.fn_name = 'portal_list_notifications' THEN 'BIGINT, INTEGER'
+      ELSE 'BIGINT'
+    END;
     v_core := regexp_replace(v_def,
       'CREATE OR REPLACE FUNCTION public\.' || r.fn_name || '\([^)]*\)',
       'CREATE FUNCTION public._' || r.fn_name || '_core(' || v_core_args || ')', 1, 1);
@@ -133,7 +144,7 @@ BEGIN
     v_core := replace(v_core, 'public.current_portal_customer_id()', 'p_customer_id');
     v_core := replace(v_core, 'v_customer_id', 'p_customer_id');
     EXECUTE v_core;
-    EXECUTE format('REVOKE ALL ON FUNCTION public._%I_core(%s) FROM PUBLIC, anon, authenticated', r.fn_name, CASE WHEN r.fn_args = '()' THEN 'BIGINT' ELSE 'BIGINT, BIGINT' END);
+    EXECUTE format('REVOKE ALL ON FUNCTION public._%I_core(%s) FROM PUBLIC, anon, authenticated', r.fn_name, v_core_types);
   END LOOP;
 END;
 $migration$;
