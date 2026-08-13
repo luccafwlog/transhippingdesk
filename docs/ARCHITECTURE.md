@@ -415,6 +415,13 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/revisao` | Revisão operacional |
 | `/clientes` | Clientes |
 | `/clientes/:cnpj` | Ficha do cliente (hub em abas via `?tab=`) |
+| `/clientes/portal/inspecao/:customerId/*` | Inspeção interna somente leitura do Portal, fora do `AppLayout`, sob `ProtectedRoute` |
+| `/clientes/portal/inspecao/:customerId/billing` | Faturas do Cliente em Modo Inspeção |
+| `/clientes/portal/inspecao/:customerId/operacao` | BLs e containers do Cliente em Modo Inspeção |
+| `/clientes/portal/inspecao/:customerId/perfil` | Perfil do Cliente em Modo Inspeção |
+| `billing` | Subrota de faturas dentro da Inspeção do Portal |
+| `operacao` | Subrota operacional dentro da Inspeção do Portal |
+| `perfil` | Subrota de perfil dentro da Inspeção do Portal |
 | `/taxas-locais` | Tabelas e overrides |
 | `/faturamento` | Validação, invoices e ledger |
 | `/demurrage` | Operação e invoices de demurrage |
@@ -427,6 +434,13 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/chegadas-saidas` | Programação exibida no Portal |
 | `/admin/usuarios` | Administração de usuários: criação com senha definida pelo admin, edição de e-mail/senha, setor, ativação e auditoria |
 | `/perfil` | Perfil do usuário interno: nome, e-mail e troca da própria senha |
+
+`/clientes/portal/inspecao/:customerId/*` é uma rota interna protegida, no nível
+de `/line-up-tv/display`, fora do `AppLayout` para não aninhar dois shells. Ela
+renderiza o mesmo `PortalLayout` do cliente real em modo inspeção, com faixa
+persistente, `PortalScope`, base path próprio e bloqueio de escritas. O Portal
+tem dois hosts (cliente e inspeção) e dois modos (client e inspect), mas uma
+única composição visual e um núcleo de leitura compartilhado.
 
 ### Redirecionamentos de compatibilidade
 
@@ -447,7 +461,7 @@ envio real.
 
 ### Console de provisionamento pré-piloto
 
-`/clientes/portal` é uma fila dedicada, alimentada por `portal_list_provisioning_console` (migrations `196` e `197`) e com gestão inline reutilizada na ficha de Cliente. A RPC projeta dados completos para Administrativo, Documentação e Financeiro; Operações recebe situação resumida e os booleanos `has_open_invoice`/`has_active_process`.
+`/clientes/portal` é uma fila dedicada, alimentada por `portal_list_provisioning_console` (migrations `196`, `197` e `198`) e com gestão inline reutilizada na ficha de Cliente. A RPC projeta dados completos para Administrativo, Documentação, Financeiro e Equipamentos; Operações recebe situação resumida e os booleanos `has_open_invoice`/`has_active_process`. Equipamentos consulta o histórico sem disparar o self-heal gravável.
 
 ## Fontes relacionadas
 

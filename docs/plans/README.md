@@ -10,7 +10,6 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
-| [`2026-08-13-inspecao-do-portal.md`](2026-08-13-inspecao-do-portal.md) | Inspeção do Portal — visão interna somente leitura do que o Cliente vê | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

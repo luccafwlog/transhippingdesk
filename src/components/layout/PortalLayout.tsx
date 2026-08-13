@@ -3,25 +3,28 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { Building2, FileText, LayoutDashboard, LogOut, Menu, Package, User, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePortalAuth } from '../../hooks/usePortalAuth'
+import { usePortalScope } from '../../hooks/usePortalScope'
+import { portalPath } from '../../services/portalScope'
 import { NotificationBell } from '../portal/NotificationBell'
 import { cn, formatCnpjCpf } from '../../lib/utils'
 
-const portalNavItems = [
-  { to: '/portal', label: 'Painel', icon: LayoutDashboard, end: true },
-  { to: '/portal/billing', label: 'Faturas', icon: FileText, end: false },
-  { to: '/portal/operacao', label: 'BLs e Containers', icon: Package, end: false },
-  { to: '/portal/perfil', label: 'Perfil', icon: User, end: false },
-]
-
 export function PortalLayout() {
-  const { overview, signOut } = usePortalAuth()
+  const { overview: authOverview, signOut } = usePortalAuth()
+  const scope = usePortalScope()
+  const overview = scope.overview ?? authOverview
+  const portalNavItems = [
+    { to: portalPath(scope), label: 'Painel', icon: LayoutDashboard, end: true },
+    { to: portalPath(scope, '/billing'), label: 'Faturas', icon: FileText, end: false },
+    { to: portalPath(scope, '/operacao'), label: 'BLs e Containers', icon: Package, end: false },
+    { to: portalPath(scope, '/perfil'), label: 'Perfil', icon: User, end: false },
+  ]
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header__content">
-          <NavLink to="/portal" className="app-header__brand">
+          <NavLink to={portalPath(scope)} className="app-header__brand">
             <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
             <div className="app-header__titles">
               <div className="app-header__eyebrow">Portal do cliente</div>
@@ -33,7 +36,7 @@ export function PortalLayout() {
             <NotificationBell />
 
             <NavLink
-              to="/portal/perfil"
+              to={portalPath(scope, '/perfil')}
               aria-label="Perfil"
               className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)]"
             >
@@ -47,7 +50,7 @@ export function PortalLayout() {
               <span className="app-user-pill__name">{overview?.customer_name ?? 'Cliente'}</span>
             </div>
 
-            <Button className="app-header__logout" variant="ghost" onClick={() => void signOut()}>
+            <Button className="app-header__logout" variant="ghost" onClick={() => scope.mode === 'inspect' ? window.history.back() : void signOut()}>
               <LogOut size={16} />
               Sair
             </Button>

@@ -32,6 +32,7 @@ function normalizePortalOverview(payload: Record<string, unknown>) {
     pending_balance: payload.pending_balance == null ? null : Number(payload.pending_balance),
     contact_email: payload.contact_email == null ? null : String(payload.contact_email),
     login_cnpj: payload.login_cnpj == null ? null : String(payload.login_cnpj),
+    account_active: payload.account_active == null ? undefined : Boolean(payload.account_active),
   } as PortalSessionOverview
 }
 

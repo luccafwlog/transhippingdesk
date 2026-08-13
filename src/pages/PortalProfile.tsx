@@ -5,22 +5,25 @@ import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { usePortalProfile } from '../hooks/usePortalProfile'
+import { usePortalScope } from '../hooks/usePortalScope'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
 import type { PortalProfile as PortalProfileData } from '../services/portalBilling'
 import { supabasePortal } from '../services/supabase'
 
 export function PortalProfile() {
   const profile = usePortalProfile()
+  const scope = usePortalScope()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
   useEffect(() => {
     const token = searchParams.get('confirm_email')
     if (!token) return
+    if (scope.mode === 'inspect') return
     void supabasePortal.functions.invoke('portal-recovery-email-change', { body: { action: 'confirm', token } }).then(({ error }) => {
       showToast(error ? 'Não foi possível confirmar o novo email.' : 'Email de Recuperação atualizado com sucesso.', error ? 'error' : 'success')
       searchParams.delete('confirm_email'); setSearchParams(searchParams, { replace: true })
     })
-  }, [searchParams, setSearchParams, showToast])
+  }, [searchParams, setSearchParams, showToast, scope.mode])
   const loadError = profile.error
     ? portalErrorMessage(profile.error, 'Falha ao carregar perfil. Tente novamente em instantes.')
     : ''
@@ -37,6 +40,7 @@ export function PortalProfile() {
             updateProfile={profile.updateProfile.mutateAsync}
             loadError={loadError}
             loadFailed={profile.isError}
+            readOnly={scope.mode === 'inspect'}
           />
         ) : (
           <div className="grid gap-4">
@@ -57,6 +61,7 @@ function PortalProfileForm({
   updateProfile,
   loadError,
   loadFailed,
+  readOnly,
 }: {
   profile: PortalProfileData
   fallbackContactEmail: string
@@ -70,6 +75,7 @@ function PortalProfileForm({
   }) => Promise<unknown>
   loadError: string
   loadFailed: boolean
+  readOnly: boolean
 }) {
   const { showToast } = useToast()
   const [contactEmail, setContactEmail] = useState(profile.contact_email ?? fallbackContactEmail)
@@ -88,6 +94,7 @@ function PortalProfileForm({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError('')
+    if (readOnly) return
     setSubmitting(true)
 
     try {
@@ -110,6 +117,7 @@ function PortalProfileForm({
   async function handleRecoveryEmailChange(event: FormEvent) {
     event.preventDefault(); setError('')
     if (newRecoveryEmail.trim().toLowerCase() !== confirmRecoveryEmail.trim().toLowerCase()) { setError('Os emails de recuperação não conferem.'); return }
+    if (readOnly) return
     setEmailSubmitting(true)
     try {
       const { error: invokeError } = await supabasePortal.functions.invoke('portal-recovery-email-change', { body: { action: 'request', current_password: currentPassword, new_email: newRecoveryEmail.trim() } })
@@ -164,7 +172,7 @@ function PortalProfileForm({
           {loadError || error ? <InlineError message={error || loadError} /> : null}
 
           <div className="flex justify-end">
-            <Button disabled={loadFailed} loading={submitting} type="submit">Salvar alteracoes</Button>
+            <Button disabled={readOnly || loadFailed} loading={submitting} type="submit" title={readOnly ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}>Salvar alteracoes</Button>
           </div>
         </form>
         <div className="mt-8 border-t border-[var(--app-border)] pt-5">
@@ -174,7 +182,7 @@ function PortalProfileForm({
             <Field label="Senha atual"><Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></Field>
             <Field label="Novo email"><Input type="email" value={newRecoveryEmail} onChange={(e) => setNewRecoveryEmail(e.target.value)} /></Field>
             <Field label="Confirmar novo email"><Input type="email" value={confirmRecoveryEmail} onChange={(e) => setConfirmRecoveryEmail(e.target.value)} /></Field>
-            <div className="flex justify-end"><Button loading={emailSubmitting} type="submit">Solicitar troca de email</Button></div>
+            <div className="flex justify-end"><Button disabled={readOnly} loading={emailSubmitting} type="submit" title={readOnly ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}>Solicitar troca de email</Button></div>
           </form>
         </div>
     </>

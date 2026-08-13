@@ -1022,6 +1022,16 @@ Recuperação do Portal e inicia o envio do Convite do Portal na mesma operaçã
 Pode coexistir com Ativação pendente, Convite expirado ou Falha no envio, pois a
 decisão da equipe e a situação da conta são dimensões diferentes.
 
+**Inspeção do Portal**
+Visão interna, permanente e somente leitura do que um Cliente específico vê no
+Portal. O usuário interno permanece na própria identidade, acessa
+`/clientes/portal/inspecao/:customerId/*` e não cria sessão de Portal nem executa
+ações do cliente. O modo é identificado visualmente e usa o mesmo
+`PortalLayout`, páginas e núcleo de leitura do Portal externo; as ações de
+escrita ficam visíveis, porém indisponíveis. A abertura é auditada pela
+ferramenta, não por cada chamada direta à API. Não informar o Cliente sobre a
+inspeção é uma dívida de transparência vigente.
+
 **Conta de Portal**
 Vínculo entre um Cliente e um usuário do Supabase Auth. Um cliente possui no
 máximo uma conta ativa provisionada internamente.

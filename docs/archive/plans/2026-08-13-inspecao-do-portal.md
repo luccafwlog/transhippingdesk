@@ -1,6 +1,6 @@
 # Plano — Inspeção do Portal
 
-Status: TODO
+Status: DONE
 
 Origem: sessão de decisão de 2026-08-13 (grilling com `grill-with-docs`), oito
 decisões confirmadas pelo product owner e registradas na seção

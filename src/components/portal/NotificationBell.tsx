@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { usePortalAuth } from '../../hooks/usePortalAuth'
+import { usePortalScope } from '../../hooks/usePortalScope'
 import { usePortalMarkAllRead, usePortalMarkRead, usePortalNotifications, usePortalUnreadCount } from '../../hooks/usePortalNotifications'
 
 export function NotificationBell() {
@@ -12,7 +12,7 @@ export function NotificationBell() {
   const markAllRead = usePortalMarkAllRead()
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
-  const { overview } = usePortalAuth()
+  const scope = usePortalScope()
 
   // Fecha ao clicar fora
   useEffect(() => {
@@ -36,10 +36,10 @@ export function NotificationBell() {
   }, [open])
 
   const handleMarkAllRead = useCallback(async () => {
-    await markAllRead.mutateAsync()
-  }, [markAllRead])
+    if (scope.mode === 'client') await markAllRead.mutateAsync()
+  }, [markAllRead, scope.mode])
 
-  if (!overview) return null
+  if (!scope.overview) return null
 
   return (
     <div ref={containerRef} className="relative">
@@ -68,6 +68,8 @@ export function NotificationBell() {
                 type="button"
                 className="text-xs text-[var(--app-link)] hover:underline"
                 onClick={handleMarkAllRead}
+                disabled={scope.mode === 'inspect'}
+                title={scope.mode === 'inspect' ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}
               >
                 Marcar todas como lidas
               </button>
@@ -88,8 +90,8 @@ export function NotificationBell() {
                     !n.read ? 'bg-[var(--app-surface-muted)]' : ''
                   }`}
                   onClick={async () => {
-                    if (!n.read) await markRead.mutateAsync(n.id)
-                    if (n.link?.startsWith('/portal')) navigate(n.link)
+                    if (!n.read && scope.mode === 'client') await markRead.mutateAsync(n.id)
+                    if (n.link?.startsWith('/portal')) navigate(scope.mode === 'inspect' ? n.link.replace(/^\/portal/, scope.basePath) : n.link)
                     setOpen(false)
                   }}
                 >

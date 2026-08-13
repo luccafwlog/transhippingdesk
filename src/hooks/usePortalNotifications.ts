@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePortalAuth } from './usePortalAuth'
+import { usePortalScope } from './usePortalScope'
 import {
   portalListNotifications,
   portalMarkAllNotificationsRead,
@@ -9,30 +10,33 @@ import {
 
 export function usePortalUnreadCount() {
   const { isAuthenticated } = usePortalAuth()
+  const scope = usePortalScope()
 
   return useQuery({
-    queryKey: ['portal-unread-count'],
-    enabled: Boolean(isAuthenticated),
+    queryKey: ['portal-unread-count', scope.mode, scope.customerId],
+    enabled: Boolean(isAuthenticated || scope.mode === 'inspect'),
     refetchInterval: 30_000,
-    queryFn: () => portalNotificationUnreadCount(),
+    queryFn: () => portalNotificationUnreadCount(scope),
   })
 }
 
 export function usePortalNotifications(enabled = true) {
   const { isAuthenticated } = usePortalAuth()
+  const scope = usePortalScope()
 
   return useQuery({
-    queryKey: ['portal-notifications'],
-    enabled: Boolean(isAuthenticated && enabled),
+    queryKey: ['portal-notifications', scope.mode, scope.customerId],
+    enabled: Boolean((isAuthenticated || scope.mode === 'inspect') && enabled),
     refetchInterval: 30_000,
-    queryFn: () => portalListNotifications(),
+    queryFn: () => portalListNotifications(scope),
   })
 }
 
 export function usePortalMarkRead() {
   const queryClient = useQueryClient()
+  const scope = usePortalScope()
   return useMutation({
-    mutationFn: (id: number) => portalMarkNotificationRead(id),
+    mutationFn: (id: number) => portalMarkNotificationRead(id, scope),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portal-notifications'] })
       queryClient.invalidateQueries({ queryKey: ['portal-unread-count'] })
@@ -42,8 +46,9 @@ export function usePortalMarkRead() {
 
 export function usePortalMarkAllRead() {
   const queryClient = useQueryClient()
+  const scope = usePortalScope()
   return useMutation({
-    mutationFn: () => portalMarkAllNotificationsRead(),
+    mutationFn: () => portalMarkAllNotificationsRead(scope),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portal-notifications'] })
       queryClient.invalidateQueries({ queryKey: ['portal-unread-count'] })
