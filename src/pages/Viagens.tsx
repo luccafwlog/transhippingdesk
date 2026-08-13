@@ -214,7 +214,7 @@ export function Viagens() {
             items={visibleRailItems}
             selectedId={selectedVoyageId}
             onSelect={(id) => navigate(`/viagens/${id}`)}
-            onEdit={setEditingVoyageId}
+            onEdit={canEditVoyages ? setEditingVoyageId : undefined}
           />
         )}
 

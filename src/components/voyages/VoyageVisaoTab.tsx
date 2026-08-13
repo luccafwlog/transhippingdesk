@@ -253,14 +253,16 @@ export function VoyageVisaoTab({
                       <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            className="app-voyage-icon-btn"
-                            aria-label={`Editar planejamento da escala ${row.port}`}
-                            onClick={() => onEditEscala(buildEscalaModalData(row))}
-                          >
-                            <Pencil size={15} />
-                          </Button>
+                          {canEditVoyages ? (
+                            <Button
+                              variant="secondary"
+                              className="app-voyage-icon-btn"
+                              aria-label={`Editar planejamento da escala ${row.port}`}
+                              onClick={() => onEditEscala(buildEscalaModalData(row))}
+                            >
+                              <Pencil size={15} />
+                            </Button>
+                          ) : null}
                           {canEditVoyages && row.temImportacao && !row.omitted ? (
                             <Button
                               variant="secondary"
