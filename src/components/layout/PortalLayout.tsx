@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Building2, FileText, LayoutDashboard, LogOut, Menu, Package, User, X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { usePortalAuth } from '../../hooks/usePortalAuth'
@@ -11,6 +11,7 @@ import { cn, formatCnpjCpf } from '../../lib/utils'
 export function PortalLayout() {
   const { overview: authOverview, signOut } = usePortalAuth()
   const scope = usePortalScope()
+  const navigate = useNavigate()
   const overview = scope.overview ?? authOverview
   const portalNavItems = [
     { to: portalPath(scope), label: 'Painel', icon: LayoutDashboard, end: true },
@@ -50,7 +51,7 @@ export function PortalLayout() {
               <span className="app-user-pill__name">{overview?.customer_name ?? 'Cliente'}</span>
             </div>
 
-            <Button className="app-header__logout" variant="ghost" onClick={() => scope.mode === 'inspect' ? window.history.back() : void signOut()}>
+            <Button className="app-header__logout" variant="ghost" onClick={() => scope.mode === 'inspect' ? navigate('/clientes/portal') : void signOut()}>
               <LogOut size={16} />
               Sair
             </Button>

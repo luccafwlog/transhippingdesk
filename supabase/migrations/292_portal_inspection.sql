@@ -91,6 +91,15 @@ GRANT EXECUTE ON FUNCTION public.portal_open_inspection(BIGINT, TEXT) TO authent
 
 -- Keep the historical implementations private, then generate a parametrized
 -- core from each current definition. This avoids copying an obsolete body.
+-- ponytail: the core is derived from the live function body via
+-- pg_get_functiondef + string replace, not written by hand. Ceiling: a
+-- source body whose shape drifts from what the replace() chain expects (a
+-- rename, a signature change, a new local var named like v_customer_id)
+-- silently produces a core the static wrappers below can't find, only
+-- surfacing when the migration is applied. Upgrade path: once the RPC set
+-- stabilizes, replace this loop with explicit CREATE FUNCTION statements
+-- per core, one per RPC, so a mismatch is a compile-time diff instead of a
+-- runtime EXECUTE failure.
 DO $migration$
 DECLARE
   r RECORD;
@@ -119,12 +128,12 @@ BEGIN
     END;
     v_core := regexp_replace(v_def,
       'CREATE OR REPLACE FUNCTION public\.' || r.fn_name || '\([^)]*\)',
-      'CREATE FUNCTION public._portal_' || r.fn_name || '_core(' || v_core_args || ')', 1, 1);
+      'CREATE FUNCTION public._' || r.fn_name || '_core(' || v_core_args || ')', 1, 1);
     v_core := replace(v_core, 'v_customer_id bigint := public.current_portal_customer_id();', '');
     v_core := replace(v_core, 'public.current_portal_customer_id()', 'p_customer_id');
     v_core := replace(v_core, 'v_customer_id', 'p_customer_id');
     EXECUTE v_core;
-    EXECUTE format('REVOKE ALL ON FUNCTION public._portal_%I_core(%s) FROM PUBLIC, anon, authenticated', r.fn_name, CASE WHEN r.fn_args = '()' THEN 'BIGINT' ELSE 'BIGINT, BIGINT' END);
+    EXECUTE format('REVOKE ALL ON FUNCTION public._%I_core(%s) FROM PUBLIC, anon, authenticated', r.fn_name, CASE WHEN r.fn_args = '()' THEN 'BIGINT' ELSE 'BIGINT, BIGINT' END);
   END LOOP;
 END;
 $migration$;
@@ -215,7 +224,11 @@ GRANT EXECUTE ON FUNCTION public.portal_inspect_notification_unread_count(BIGINT
 GRANT EXECUTE ON FUNCTION public.portal_inspect_get_current_roe(BIGINT) TO authenticated;
 
 -- Equipamentos can discover the same full provisioning view, but must not
--- trigger its self-heal writes; the event history is readable too.
+-- trigger its self-heal writes; the event history is readable too. Operações
+-- already had console access with masked fields (the only profile short of
+-- v_full_access besides Equipamentos before this migration); it now gets the
+-- same unmasked fields, keeping the ADR 0044 "read is global" line applied
+-- uniformly instead of leaving one department as the odd one out.
 ALTER FUNCTION public.portal_list_provisioning_console(BIGINT) RENAME TO portal_list_provisioning_console_legacy;
 ALTER FUNCTION public.portal_list_provisioning_events(BIGINT, INTEGER) RENAME TO portal_list_provisioning_events_legacy;
 
@@ -224,7 +237,7 @@ DECLARE v_def TEXT;
 BEGIN
   v_def := pg_get_functiondef('public.portal_list_provisioning_console_legacy(bigint)'::regprocedure);
   v_def := replace(v_def, 'CREATE OR REPLACE FUNCTION public.portal_list_provisioning_console_legacy(p_customer_id bigint DEFAULT NULL)', 'CREATE FUNCTION public.portal_list_provisioning_console(p_customer_id BIGINT DEFAULT NULL)');
-  v_def := replace(v_def, 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'');', 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'',''equipamentos'');');
+  v_def := replace(v_def, 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'');', 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'',''equipamentos'',''operacoes'');');
   v_def := replace(v_def, 'v_role NOT IN (''administrativo'',''documentacao'',''financeiro'',''operacoes'')', 'v_role NOT IN (''administrativo'',''documentacao'',''financeiro'',''operacoes'',''equipamentos'')');
   v_def := replace(v_def, '  PERFORM public.portal_repair_missing_accounts();', '  IF v_role <> ''equipamentos'' THEN\n    PERFORM public.portal_repair_missing_accounts();\n  END IF;');
   EXECUTE v_def;

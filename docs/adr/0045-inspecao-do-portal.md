@@ -48,9 +48,13 @@ qualquer RPC de escrita nesse modo, evitando escrita cruzada se houver sessão d
 Portal residual na aba. Nenhuma RPC `portal_inspect_*` é criada para escritas.
 
 O console de provisionamento passa a ser descobrível por Equipamentos e a
-mostrar seu histórico sem acionar o self-heal gravável. O acesso completo
-amplia para esse perfil a exposição dos campos de provisionamento projetados
-pelo console; a edição continua sujeita às permissões existentes.
+mostrar seu histórico sem acionar o self-heal gravável. Operações, que já
+acessava o console com os campos sensíveis mascarados, passa a ver os mesmos
+campos completos que os demais perfis leitores — sem essa mudança seria o
+único perfil restante com `v_full_access = false`, contrariando a mesma linha
+da ADR 0044 aplicada a Equipamentos aqui. A edição continua sujeita às
+permissões existentes; o histórico de eventos (`portal_list_provisioning_events`)
+permanece fora do alcance de Operações, que já o mantém desabilitado na tela.
 
 ## Consequências
 
