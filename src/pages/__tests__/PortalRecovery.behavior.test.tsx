@@ -2,11 +2,12 @@
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+type RecoveryResponse = { accepted: boolean; rate_limited?: boolean }
 const auth = vi.hoisted(() => ({
-  functions: { invoke: vi.fn(() => Promise.resolve({ data: { account_found: true, email_sent: true }, error: null })) },
+  functions: { invoke: vi.fn(() => Promise.resolve<{ data: RecoveryResponse | null; error: unknown }>({ data: { accepted: true }, error: null })) },
 }))
 
 vi.mock('../../services/supabase', () => ({ supabasePortal: { auth, functions: auth.functions } }))
@@ -19,7 +20,7 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-it('US-155: solicita recuperacao e confirma o envio do link', async () => {
+it('US-155: solicita recuperacao e confirma o recebimento da solicitacao', async () => {
   const user = userEvent.setup()
   render(
     <MemoryRouter>
@@ -30,8 +31,47 @@ it('US-155: solicita recuperacao e confirma o envio do link', async () => {
   await user.type(screen.getByPlaceholderText('00000000000000'), '12.345.678/0001-95')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
 
-  await waitFor(() => expect(screen.getByText('Conta encontrada')).toBeTruthy())
+  await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
   expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-recovery', { body: { cnpj: '12345678000195' } })
+})
+
+it('achado 3.2 (auditoria 2026-08-12): mostra a MESMA tela para conta existente e inexistente', async () => {
+  const user = userEvent.setup()
+  auth.functions.invoke.mockResolvedValueOnce({ data: { accepted: true }, error: null })
+  const { unmount } = render(
+    <MemoryRouter>
+      <PortalForgotPassword />
+    </MemoryRouter>,
+  )
+  await user.type(screen.getByPlaceholderText('00000000000000'), '12.345.678/0001-95')
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
+  unmount()
+
+  // Mesmo desfecho de resposta (accepted: true) para CNPJ sem conta -- o
+  // backend nao distingue mais os dois casos, entao a tela e identica.
+  auth.functions.invoke.mockResolvedValueOnce({ data: { accepted: true }, error: null })
+  render(
+    <MemoryRouter>
+      <PortalForgotPassword />
+    </MemoryRouter>,
+  )
+  await user.type(screen.getByPlaceholderText('00000000000000'), '98.765.432/0001-10')
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
+})
+
+it('achado 3.2: rate limit continua mostrando mensagem de "tente mais tarde"', async () => {
+  const user = userEvent.setup()
+  auth.functions.invoke.mockResolvedValueOnce({ data: { accepted: false, rate_limited: true }, error: null })
+  render(
+    <MemoryRouter>
+      <PortalForgotPassword />
+    </MemoryRouter>,
+  )
+  await user.type(screen.getByPlaceholderText('00000000000000'), '12.345.678/0001-95')
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await waitFor(() => expect(screen.getByText('Não foi possível verificar o CNPJ agora. Aguarde alguns minutos e tente novamente.')).toBeTruthy())
 })
 
 it('US-156: link invalido sem tokens mostra erro', () => {
@@ -74,6 +114,28 @@ it('US-157: atualiza a senha e volta para o login', async () => {
 
   await user.click(screen.getByRole('button', { name: 'Ir para o login' }))
   await waitFor(() => expect(screen.getByText('LOGIN PLACEHOLDER')).toBeTruthy())
+})
+
+it('achado 3.3 (auditoria 2026-08-12): remove o token da URL apos a montagem, sem perder o submit', async () => {
+  const user = userEvent.setup()
+  function LocationProbe() {
+    const location = useLocation()
+    return <span data-testid="search">{location.search}</span>
+  }
+  render(
+    <MemoryRouter initialEntries={['/portal/recuperar-senha?token=TOKEN']}>
+      <PortalResetPassword />
+      <LocationProbe />
+    </MemoryRouter>,
+  )
+
+  await waitFor(() => expect(screen.getByTestId('search').textContent).toBe(''))
+
+  await user.type(screen.getByPlaceholderText('Minimo 8 caracteres'), 'senhaSegura1')
+  await user.type(screen.getByPlaceholderText('Repita a senha'), 'senhaSegura1')
+  await user.click(screen.getByRole('button', { name: 'Redefinir senha' }))
+
+  await waitFor(() => expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-reset', { body: { token: 'TOKEN', password: 'senhaSegura1' } }))
 })
 
 it('US-157: rejeita senha sem composicao minima', async () => {

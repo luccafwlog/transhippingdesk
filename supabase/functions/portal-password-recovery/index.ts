@@ -4,29 +4,44 @@ import { recoveryTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 import { withCors } from '../_shared/cors.ts'
 
+// Achado 3.2 (auditoria 2026-08-12): a resposta antiga distinguia
+// account_found/email_sent, entao um atacante varria CNPJs distintos e
+// aprendia quais tem conta no Portal. O unico sinal que sobrevive e o rate
+// limit -- que nao distingue conta e e informacao util de "tente mais tarde".
+// Todo outro desfecho elegivel devolve o mesmo `{ accepted: true }`,
+// independente de o CNPJ ter conta, estar ativo ou o email ter sido enviado.
+//
+// Achado da revisao do PR 527: igualar so o corpo da resposta nao bastava --
+// so o caminho de conta ativa aguardava sendPortalEmail (fetch para o Resend
+// + retries com backoff), entao o tempo de resposta sozinho reabria o oraculo
+// de enumeracao. sendPortalEmail roda em segundo piano via EdgeRuntime.waitUntil
+// e a resposta sai antes dele terminar, em todo caminho elegivel.
 if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   const body = await req.json().catch(() => ({})) as { cnpj?: string }
   const cnpj = body.cnpj?.replace(/\D/g, '') ?? ''
-  const response = (accountFound: boolean | null, emailSent: boolean) => new Response(JSON.stringify({ account_found: accountFound, email_sent: emailSent }), { status: 200, headers: { 'Content-Type': 'application/json' } })
-  if (cnpj.length !== 14) return response(false, false)
+  const accepted = () => new Response(JSON.stringify({ accepted: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  const rateLimited = () => new Response(JSON.stringify({ accepted: false, rate_limited: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  if (cnpj.length !== 14) return accepted()
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const { data: blocked } = await admin.rpc('portal_recovery_check_rate_limit', { p_login: cnpj })
-  if (blocked === true) return response(null, false)
+  if (blocked === true) return rateLimited()
   await admin.rpc('portal_recovery_register_failure', { p_login: cnpj })
   const { data: account } = await admin.from('customer_portal_accounts').select('id, customer_id, account_situation, recovery_email, customers(name, cnpj_cpf)').eq('login_cnpj', cnpj).maybeSingle()
-  if (!account) return response(false, false)
-  if (account.account_situation !== 'ativo' || !account.recovery_email) return response(true, false)
+  if (!account) return accepted()
+  if (account.account_situation !== 'ativo' || !account.recovery_email) return accepted()
   const { data: suppressed } = await admin.from('portal_suppressed_emails').select('id').eq('email', account.recovery_email.toLowerCase()).maybeSingle()
-  if (suppressed) return response(true, false)
+  if (suppressed) return accepted()
   await admin.from('portal_invites').update({ status: 'invalidado_por_reenvio' }).eq('account_id', account.id).eq('purpose', 'recuperacao').eq('status', 'pendente')
   const token = generateToken(); const tokenHash = await hashToken(token)
   const { data: invite } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'recuperacao', token_hash: tokenHash, sent_to_email: account.recovery_email, expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), status: 'pendente' }).select('id').single()
-  if (!invite) return response(true, false)
+  if (!invite) return accepted()
   const customer = account.customers as { name?: string; cnpj_cpf?: string } | null
   const d = customer?.cnpj_cpf?.replace(/\D/g, '') ?? ''
   const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
   const template = recoveryTemplate({ companyName: customer?.name ?? 'sua empresa', cnpjMasked: d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***', recoveryUrl: `${portalUrl}/portal/recuperar-senha?token=${encodeURIComponent(token)}`, portalUrl, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' })
-  const sent = await sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })
-  return response(true, sent.ok)
+  const emailPromise = sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })
+    .catch((error) => console.error('[portal-password-recovery] falha ao enviar email em segundo plano', error))
+  if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(emailPromise)
+  return accepted()
 }))
