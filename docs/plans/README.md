@@ -10,6 +10,7 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
+| [`2026-08-13-correcao-regressao-inicializacao-login-navegacao.md`](./2026-08-13-correcao-regressao-inicializacao-login-navegacao.md) | Baseline autenticado e correção da lentidão no acesso frio, login e primeira navegação | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
