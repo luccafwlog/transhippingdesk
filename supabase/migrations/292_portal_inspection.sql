@@ -247,7 +247,7 @@ DO $provisioning$
 DECLARE v_def TEXT;
 BEGIN
   v_def := pg_get_functiondef('public.portal_list_provisioning_console_legacy(bigint)'::regprocedure);
-  v_def := replace(v_def, 'CREATE OR REPLACE FUNCTION public.portal_list_provisioning_console_legacy(p_customer_id bigint DEFAULT NULL)', 'CREATE FUNCTION public.portal_list_provisioning_console(p_customer_id BIGINT DEFAULT NULL)');
+  v_def := replace(v_def, 'CREATE OR REPLACE FUNCTION public.portal_list_provisioning_console_legacy(p_customer_id bigint DEFAULT NULL::bigint)', 'CREATE FUNCTION public.portal_list_provisioning_console(p_customer_id BIGINT DEFAULT NULL)');
   v_def := replace(v_def, 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'');', 'v_full_access BOOLEAN := v_role IN (''administrativo'',''documentacao'',''financeiro'',''equipamentos'',''operacoes'');');
   v_def := replace(v_def, 'v_role NOT IN (''administrativo'',''documentacao'',''financeiro'',''operacoes'')', 'v_role NOT IN (''administrativo'',''documentacao'',''financeiro'',''operacoes'',''equipamentos'')');
   v_def := replace(v_def, '  PERFORM public.portal_repair_missing_accounts();', '  IF v_role <> ''equipamentos'' THEN PERFORM public.portal_repair_missing_accounts(); END IF;');
