@@ -5,6 +5,7 @@ import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { supabasePortal } from '../services/supabase'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
+import { PASSWORD_RULE_MESSAGE, isValidPassword } from '../lib/passwordPolicy'
 
 const INVALID_LINK_MESSAGE = 'Link de recuperacao invalido ou expirado.'
 
@@ -30,8 +31,8 @@ export function PortalResetPassword() {
     event.preventDefault()
     setError('')
 
-    if (password.length < 8 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
-      setError('A senha deve ter no minimo 8 caracteres, com letra maiuscula, minuscula e numero.')
+    if (!isValidPassword(password)) {
+      setError(PASSWORD_RULE_MESSAGE)
       return
     }
 

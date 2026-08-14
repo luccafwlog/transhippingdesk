@@ -1,10 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-// Espelha src/lib/passwordPolicy.ts; Deno não importa o bundle Vite.
-const PASSWORD_RULE_MESSAGE = 'A senha deve ter no mínimo 8 caracteres, com letra maiúscula, minúscula e número.'
-const isValidPassword = (value: string) =>
-  value.length >= 8 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /\d/.test(value)
+import { PASSWORD_RULE_MESSAGE, isValidPassword } from '../_shared/passwordPolicy.ts'
 
 const MANAGED_PROFILES = ['administrativo', 'financeiro', 'operacoes', 'documentacao', 'equipamentos']
 const isValidEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)

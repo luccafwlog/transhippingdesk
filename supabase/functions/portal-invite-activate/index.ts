@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { hashToken } from '../_shared/portalToken.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+import { PASSWORD_RULE_MESSAGE, isValidPassword } from '../_shared/passwordPolicy.ts'
 
 const GENERIC_INVALID = 'Link inválido ou expirado. Solicite um novo convite à empresa.'
 
@@ -23,7 +24,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
     return cors(200, { company_name: customer?.name ?? '', cnpj_masked: maskCnpj(account?.login_cnpj ?? '') })
   }
   if (body.action !== 'activate' || typeof body.password !== 'string') return cors(400, { error: GENERIC_INVALID })
-  if (body.password.length < 8) return cors(422, { error: 'A senha deve ter pelo menos 8 caracteres.' })
+  if (!isValidPassword(body.password)) return cors(422, { error: PASSWORD_RULE_MESSAGE })
   if (!valid) return cors(410, { error: GENERIC_INVALID })
   const { data: consumed } = await admin.from('portal_invites').update({ status: 'consumido', consumed_at: new Date().toISOString() }).eq('id', invite.id).eq('status', 'pendente').gt('expires_at', new Date().toISOString()).select('id').maybeSingle()
   if (!consumed) return cors(410, { error: GENERIC_INVALID })
