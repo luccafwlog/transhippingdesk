@@ -11,6 +11,7 @@
   autorização da troca continua no pedido (sessão ativa **e** senha atual); a
   confirmação prova apenas posse da caixa nova. `PortalProfile` mantém o
   parâmetro antigo enquanto os convites de 48 horas já enviados não expiram.
+  *(ADR 0047)*
 - **Mensagens do login e da recuperação do Portal:** a tela de confirmação de
   `/portal/esqueci-senha` passa a afirmar o envio do link em vez de condicioná-lo
   a "se houver uma conta para este CNPJ" — o condicional devolvia ao cliente o

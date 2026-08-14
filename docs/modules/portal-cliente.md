@@ -163,7 +163,8 @@ O token sai da barra de endereços assim que lido (mesmo racional do achado
 3.3). A página aceita `token` e também `confirm_email`, e `PortalProfile`
 mantém o tratamento do parâmetro antigo: os convites já enviados para o caminho
 anterior valem 48 horas, e os dois ramos podem sair depois que essa janela
-expirar.
+expirar. Decisão registrada na
+[ADR 0047](../adr/0047-confirmacao-de-email-do-portal-em-rota-publica.md).
 
 ### `/portal/recuperar-senha`
 

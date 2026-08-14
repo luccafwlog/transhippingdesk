@@ -51,6 +51,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0044](./0044-leitura-interna-global-departamento-restringe-escrita.md) | Leitura interna é global; departamento restringe escrita | aceito | Corrige o eixo de leitura de `014`/`020`/`066`/`111` (migration `291`); estende a 0004 |
 | [0045](./0045-inspecao-do-portal.md) | Inspeção do Portal por núcleo compartilhado e invólucro interno | aceito | Estende a 0044; leitura somente, modo interno e paridade estrutural entre cliente e inspeção |
 | [0046](./0046-escrita-interna-global-com-rastro-obrigatorio.md) | Escrita interna global com rastro obrigatório | aceito | Substitui o eixo de escrita da 0044; reafirma leitura global e preserva as exceções operacionais |
+| [0047](./0047-confirmacao-de-email-do-portal-em-rota-publica.md) | Confirmação do Email de Recuperação em rota pública | aceito | Estende a 0013 (o que autentica cada passo) e a 0019 (convite); alinha a confirmação de email a `/portal/ativar` e `/portal/recuperar-senha`; não altera a 0004 |
 
 ## Convenção
 
