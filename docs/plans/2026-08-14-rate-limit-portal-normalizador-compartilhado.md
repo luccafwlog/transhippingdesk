@@ -6,8 +6,9 @@
 **Goal:** Fazer o rate limit do Portal usar o mesmo normalizador canônico de CNPJ
 do resto do sistema, estender a trava de tentativas à verificação de senha da
 troca de Email de Recuperação, parar de consumir o convite de confirmação antes
-de saber se há troca pendente para aplicar, e fechar a janela em que a sessão
-antiga sobrevive à troca de senha.
+de saber se há troca pendente para aplicar, fechar a janela em que a sessão
+antiga sobrevive à troca de senha, e dar saída à lista de bloqueio de emails —
+que hoje só abre para dentro.
 
 **Origem:** grilling de 2026-08-14 sobre o fluxo de login/recuperação (PR #539).
 Os achados foram verificados contra o código e o banco de produção; nenhum deles
@@ -187,7 +188,66 @@ Não há vazamento: a RPC busca por `auth_user_id`, não encontra e nega. Mas
 desfazer uma conta do Portal não remove o usuário do Auth nem as sessões dele.
 Fica registrado; a limpeza não pertence a este plano.
 
-### Task 5: Testes
+### Task 5: A lista de bloqueio de emails não tem saída
+
+**Achado F.** Sete pontos do código **consultam** `portal_suppressed_emails`
+(`portalEmail.ts:30`, `portal-password-recovery:33`, `portal-invite-send:24`,
+`portal-recovery-email-change:20`, e as RPCs `187`/`192`/`195`). **Nenhum a
+apaga.** Não há rota, RPC nem tela que remova um endereço. O bloqueio é
+definitivo, e nem o operador o desfaz.
+
+**Por que isso importa mais do que parece.** Hoje, para resgatar um cliente cujo
+endereço foi bloqueado indevidamente, o operador só pode cadastrar um endereço
+**diferente**. Para contornar um sinalizador errado, ele grava um dado errado no
+cadastro. O sistema empurra o operador a mentir para o registro — o que é pior
+que o bloqueio.
+
+E o bloqueio é opinião de terceiro sobre um fato que muda: quem decidiu
+"definitivo" foi o Resend, olhando uma tentativa num instante. Caixa cheia,
+servidor em manutenção e domínio em migração produzem o mesmo sintoma de
+endereço morto.
+
+**Arquivos:** nova migration, console de provisionamento do Portal
+
+- RPC administrativa que remove o endereço da lista, restrita a operador,
+  gravando **quem liberou e por quê** via `_portal_log_event`. Desbloquear
+  reexpõe o domínio a bounces; se virar hábito, o registro é o que mostra.
+- Ação correspondente no console, ao lado do cliente afetado.
+- **Alternativa descartada — expirar o bloqueio sozinho após N dias.** O sistema
+  não tem como saber que a caixa voltou; só pode chutar um prazo e voltar a
+  enviar para o vazio, gastando reputação do domínio. Quem sabe que voltou é o
+  operador, porque o cliente ligou. Falta o lugar de registrar, não o prazo.
+
+### Task 6: Conta ativa com Email de Recuperação quebrado não mostra sinal
+
+**Achado G.** O webhook só rebaixa a situação da conta quando ela está em
+`convite_pendente` (`portal-email-webhook:29`). Uma conta **ativa** cujo Email de
+Recuperação sofre bounce permanente continua `ativo`, e a recuperação de senha
+devolve `accepted()` em silêncio ao ver o endereço bloqueado
+(`portal-password-recovery:33`) — correto contra enumeração, mas o cliente lê
+"enviamos um link" e espera por um email que o sistema já sabia que não sairia.
+O único sinal é um alerta na fila.
+
+**O sinal precisa de campo próprio, não do `account_situation`.**
+`account_situation` é enum de valor único e `ativo`/`falha_no_envio` são
+excludentes (`178:11`). Marcar `falha_no_envio` numa conta ativa afirmaria que
+ela não está ativa — e está: o cliente continua entrando com a senha. Além
+disso, o console oferece "Revisar email e reenviar" para esse estado
+(`PortalReviewPanel.tsx:132`), ação de convite, errada para quem já é cliente.
+São dois fatos independentes — *a conta funciona* e *o email de recuperação
+quebrou* — e a coluna única faz um apagar o outro.
+
+**Arquivos:** nova migration, `portal-email-webhook`, console de provisionamento
+
+- Coluna própria em `customer_portal_accounts` (`recovery_email_status`, ou
+  equivalente) marcada pelo webhook em bounce permanente, **sem** tocar em
+  `account_situation`.
+- Console mostra o sinal junto do cliente, não só na fila de alertas.
+- **Anexo, achado H:** `alerts` não tem restrição de unicidade (`001:24`) e o
+  webhook insere sem checar, então cada bounce do mesmo endereço abre mais um
+  alerta. Deduplicar por `type` + `entity_id` + `status='open'`.
+
+### Task 7: Testes
 
 **Arquivos:** `supabase/functions/__tests__/` (ou equivalente do projeto),
 `src/services/__tests__/`
@@ -201,8 +261,13 @@ Fica registrado; a limpeza não pertence a este plano.
 - Troca assistida invalida os convites `confirmacao_email` pendentes da conta.
 - Token emitido antes da última troca de credencial é recusado pelo guard de
   sessão do Portal; token emitido depois passa.
+- Liberar um endereço da lista de bloqueio permite envio de novo e deixa rastro
+  de quem liberou.
+- Bounce permanente em conta **ativa** marca o sinal do email sem alterar
+  `account_situation`, e um segundo bounce do mesmo endereço não abre um
+  segundo alerta.
 
-### Task 6: Documentação
+### Task 8: Documentação
 
 **Arquivos:** `docs/modules/portal-cliente.md`, `docs/CHANGELOG.md`,
 `docs/plans/README.md`
@@ -224,6 +289,9 @@ Fica registrado; a limpeza não pertence a este plano.
   troca de email passa a consumir tentativas do próprio login. É o
   comportamento desejado — é a mesma senha e o mesmo alvo —, mas precisa estar
   claro na mensagem de tela.
+- **Liberar endereço bloqueado** (Task 5): reenviar para uma caixa que de fato
+  morreu gasta reputação de envio do domínio. O rastro de quem liberou é o que
+  torna o custo visível; sem ele, o botão vira hábito.
 - **Guard por `iat`** (Task 4): relógios do emissor e do banco precisam estar
   alinhados, senão a comparação derruba sessão legítima recém-criada. Dar folga
   de alguns segundos no marco e cobrir com teste o token emitido logo depois da

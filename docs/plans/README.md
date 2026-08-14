@@ -11,7 +11,7 @@ Quando um plano é totalmente executado, ele é movido para
 | Plano | Tema | Status |
 |---|---|---|
 | [`2026-08-13-correcao-regressao-inicializacao-login-navegacao.md`](./2026-08-13-correcao-regressao-inicializacao-login-navegacao.md) | Harness, cache do shell e checkpoints para diagnosticar a lentidão no acesso frio, login e primeira navegação | IN PROGRESS |
-| [`2026-08-14-rate-limit-portal-normalizador-compartilhado.md`](./2026-08-14-rate-limit-portal-normalizador-compartilhado.md) | Rate limit do Portal volta ao `normalize_cnpj` compartilhado (hoje apaga as letras do CNPJ alfanumérico), passa a cobrir a verificação de senha da troca de Email de Recuperação, a confirmação deixa de consumir o convite antes de saber se há troca pendente, e a troca de senha deixa de conviver com a sessão antiga por até 1 hora | TODO |
+| [`2026-08-14-rate-limit-portal-normalizador-compartilhado.md`](./2026-08-14-rate-limit-portal-normalizador-compartilhado.md) | Rate limit do Portal volta ao `normalize_cnpj` compartilhado (hoje apaga as letras do CNPJ alfanumérico), passa a cobrir a verificação de senha da troca de Email de Recuperação, a confirmação deixa de consumir o convite antes de saber se há troca pendente, a troca de senha deixa de conviver com a sessão antiga por até 1 hora, e a lista de bloqueio de emails ganha saída para o operador | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
