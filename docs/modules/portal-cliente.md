@@ -163,7 +163,15 @@ O token sai da barra de endereços assim que lido (mesmo racional do achado
 3.3). A página aceita `token` e também `confirm_email`, e `PortalProfile`
 mantém o tratamento do parâmetro antigo: os convites já enviados para o caminho
 anterior valem 48 horas, e os dois ramos podem sair depois que essa janela
-expirar. Decisão registrada na
+expirar. Para o link antigo chegar até esse ramo sem sessão, o próprio
+`PortalProtectedRoute` redireciona `/portal/perfil?confirm_email=` para a rota
+pública preservando a query string — sem isso o guard continuaria descartando o
+token. A publicação da Edge Function que passa a montar o link novo só pode
+acontecer depois que a rota estiver servida em produção; antes disso a URL cai
+no `path="*"` do `App`. Falha de rede na confirmação mostra mensagem própria de
+"tente de novo", não "link inválido": `functions.invoke` devolve `{ error }`
+tanto no 410 da função quanto no fetch que não saiu, e só o status decide.
+Decisão registrada na
 [ADR 0048](../adr/0048-confirmacao-de-email-do-portal-em-rota-publica.md).
 
 ### `/portal/recuperar-senha`

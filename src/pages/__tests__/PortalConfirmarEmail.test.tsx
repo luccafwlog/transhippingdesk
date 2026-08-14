@@ -80,7 +80,12 @@ it('link sem token mostra erro em vez de chamar a Edge Function', () => {
 })
 
 it('token recusado pela Edge Function vira mensagem de link invalido', async () => {
-  auth.functions.invoke.mockResolvedValueOnce({ data: null, error: { message: 'Link inválido ou expirado.' } })
+  // Forma real de um FunctionsHttpError: `invoke` resolve com `{ error }` e o
+  // Response da funcao vem em `context`. O 410 e o unico veredito de link morto.
+  auth.functions.invoke.mockResolvedValueOnce({
+    data: null,
+    error: { name: 'FunctionsHttpError', message: 'Edge Function returned a non-2xx status code', context: { status: 410 } },
+  })
 
   render(
     <MemoryRouter initialEntries={['/portal/confirmar-email?token=EXPIRADO']}>
@@ -89,4 +94,24 @@ it('token recusado pela Edge Function vira mensagem de link invalido', async () 
   )
 
   await waitFor(() => expect(screen.getByText(/Link de confirmacao invalido ou expirado/)).toBeTruthy())
+})
+
+it('falha de transporte nao declara o link morto, porque o token continua valido', async () => {
+  // `functions.invoke` NAO rejeita quando o fetch falha: resolve com um
+  // FunctionsFetchError, sem `context`. Mandar "peca a troca novamente" aqui
+  // queimaria um token valido e exigiria do leitor do email uma senha do
+  // Portal que ele nao tem.
+  auth.functions.invoke.mockResolvedValueOnce({
+    data: null,
+    error: { name: 'FunctionsFetchError', message: 'Failed to send a request to the Edge Function' },
+  })
+
+  render(
+    <MemoryRouter initialEntries={['/portal/confirmar-email?token=VALIDO']}>
+      <PortalConfirmarEmail />
+    </MemoryRouter>,
+  )
+
+  await waitFor(() => expect(screen.getByText(/Abra o link do email novamente em instantes/)).toBeTruthy())
+  expect(screen.queryByText(/Link de confirmacao invalido ou expirado/)).toBeNull()
 })

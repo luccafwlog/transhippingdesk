@@ -48,6 +48,17 @@ do achado 3.3 da auditoria `security-audit-portal-2026-08-12`, e aceita tanto
 antigo enquanto os convites já enviados para o caminho anterior não expiram
 (48 horas); os dois ramos podem sair depois dessa janela.
 
+Só o ramo em `PortalProfile` não bastaria: ele vive dentro de
+`PortalProtectedRoute`, o guard que descartava a query string, então o link
+antigo continuaria se perdendo justamente para quem não tem sessão. O guard
+passa a redirecionar `/portal/perfil?confirm_email=` para a rota pública,
+preservando o token, e sai junto com o ramo de compatibilidade.
+
+**Ordem de publicação:** a rota nova precisa estar servida em produção *antes*
+de a Edge Function passar a montar o link para ela. Publicada primeiro, a URL
+cai no `path="*"` do `App` e o token se perde do mesmo jeito que a decisão veio
+consertar.
+
 O restante do contrato não muda: o convite continua de uso único com validade de
 48 horas, o endereço anterior continua valendo até a confirmação, o endereço
 antigo continua sendo avisado no pedido, e a confirmação continua encerrando as

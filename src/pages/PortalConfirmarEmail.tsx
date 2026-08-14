@@ -4,6 +4,17 @@ import { Card, InlineError } from '../components/ui/Card'
 import { supabasePortal } from '../services/supabase'
 
 const INVALID_LINK_MESSAGE = 'Link de confirmacao invalido ou expirado. Peca a troca novamente pelo Portal.'
+const TRANSIENT_MESSAGE = 'Nao foi possivel confirmar agora. Abra o link do email novamente em instantes.'
+
+// `functions.invoke` nao rejeita em falha de transporte: devolve `{ error }`
+// tanto para a resposta 410 da funcao quanto para rede fora do ar. Tratar as
+// duas como link morto mandaria o cliente refazer a troca segurando um token
+// ainda valido -- e refazer exige sessao ativa E senha atual, que o leitor do
+// Email de Recuperacao normalmente nao tem. So o status da funcao decide.
+function isDeadLink(invokeError: unknown): boolean {
+  const status = (invokeError as { context?: { status?: number } } | null)?.context?.status
+  return status === 410 || status === 422
+}
 
 // Rota publica, como `/portal/ativar` e `/portal/recuperar-senha`. A troca de
 // email ja foi autorizada no pedido, que exigiu sessao ativa E senha atual; a
@@ -33,14 +44,14 @@ export function PortalConfirmarEmail() {
       .invoke('portal-recovery-email-change', { body: { action: 'confirm', token } })
       .then(({ error: invokeError }) => {
         if (invokeError) {
-          setError(INVALID_LINK_MESSAGE)
+          setError(isDeadLink(invokeError) ? INVALID_LINK_MESSAGE : TRANSIENT_MESSAGE)
           setState('erro')
           return
         }
         setState('ok')
       })
       .catch(() => {
-        setError('Nao foi possivel confirmar agora. Tente novamente em instantes.')
+        setError(TRANSIENT_MESSAGE)
         setState('erro')
       })
   }, [token])
