@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   can: vi.fn<(permission: string) => boolean>(),
   effectiveRole: vi.fn(() => 'documentacao'),
   isAdmin: vi.fn(() => false),
+  profile: { id: 'user-1' } as { id: string } | null,
   invalidateQueries: vi.fn(() => Promise.resolve()),
   updateVaziosBooking: vi.fn(() => Promise.resolve()),
   upsertVaziosExportOperation: vi.fn(() => Promise.resolve({ id: 'operation-1' })),
@@ -49,8 +50,9 @@ vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({
     isAdmin: mocks.isAdmin(),
     effectiveRole: mocks.effectiveRole(),
-    user: { id: 'user-1' },
+    user: mocks.profile ? { id: 'user-1' } : null,
     can: mocks.can,
+    profile: mocks.profile,
   }),
 }))
 vi.mock('../../hooks/useVehicles', () => ({
@@ -110,6 +112,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.effectiveRole.mockReturnValue('documentacao')
   mocks.isAdmin.mockReturnValue(false)
+  mocks.profile = { id: 'user-1' }
   mocks.vaziosRows = []
   mocks.vaziosOperation = null
   mocks.vaziosOperationError = null
@@ -153,7 +156,7 @@ describe('controles de Veiculos', () => {
   })
 
   it('oculta importacao e exclusao sem veiculos_edit', () => {
-    mocks.can.mockReturnValue(false)
+    mocks.profile = null
 
     renderPage(<Veiculos />, '/?voyage=7')
 
@@ -163,21 +166,21 @@ describe('controles de Veiculos', () => {
 })
 
 describe('imports fora do escopo de Equipamentos', () => {
-  it('oculta importacao de Granito', () => {
+  it('permite importacao de Granito para Equipamentos', () => {
     mocks.effectiveRole.mockReturnValue('equipamentos')
 
     renderPage(<Granite />)
 
-    expect(screen.queryByRole('button', { name: 'Importar Planilha COSCO' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Importar Planilha COSCO' })).toBeTruthy()
   })
 
-  it('oculta importacao de Vazios IMP e preserva exportacao', () => {
+  it('permite importacao de Vazios IMP e preserva exportacao', () => {
     mocks.effectiveRole.mockReturnValue('equipamentos')
 
     renderPage(<VaziosImportacao />)
 
     expect(screen.getByRole('button', { name: 'Exportar' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Importar Planilha' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Importar Planilha' })).toBeTruthy()
   })
 })
 

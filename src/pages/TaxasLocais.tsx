@@ -8,12 +8,12 @@ import { ChargeOverridesTab } from '../components/taxasLocais/ChargeOverridesTab
 import type { CargoModeFilter, LocalChargeTab } from '../components/taxasLocais/chargeForms'
 
 export function TaxasLocais() {
-  const { can } = useAuth()
+  const { profile, user } = useAuth()
   // Visualização é global para todo perfil interno ativo; `can(...)` só
   // decide o que pode ser alterado (docs/archive/audits/2026-08-13-rbac-
   // departamentos-visualizacao.md, Achado P1).
-  const canManageTables = can('charge_tables')
-  const canManageOverrides = can('charge_overrides')
+  const canManageTables = Boolean(profile || user)
+  const canManageOverrides = Boolean(profile || user)
   const [searchParams] = useSearchParams()
   const initialCustomerSearch = searchParams.get('cliente') ?? ''
   const [tab, setTab] = useState<LocalChargeTab>(searchParams.get('tab') === 'overrides' ? 'overrides' : 'tabelas')

@@ -47,9 +47,9 @@ export function BlDetalhe() {
   const tabParam = searchParams.get('tab')
   const activeTab: BlTab = isBlTab(tabParam) ? tabParam : 'visao-geral'
   const { data: bl, isLoading, error } = useBlDetail(blId)
-  const { user, can, effectiveRole } = useAuth()
-  const canEditVoyages = can('voyages_edit')
-  const canImport = effectiveRole !== 'equipamentos'
+  const { user, profile } = useAuth()
+  const canEditVoyages = Boolean(profile || user)
+  const canImport = Boolean(profile || user)
   const { setTransshipment, setCod } = useSetBlDisposition(bl?.voyage_id ?? 0)
   const cockpitQuery = useBlCockpit(bl)
   const { data: invoiceLinksByBl } = useInvoiceLinks(bl?.id ? [bl.id] : [])

@@ -1,6 +1,6 @@
 # 0044 — Leitura interna é global; departamento restringe escrita
 
-Status: aceito — 2026-08-13
+Status: substituída pela ADR 0046 — 2026-08-13
 
 ## Contexto
 

@@ -13,18 +13,7 @@ export function shouldHydrateProfile(nextUserId: string | null, hydratedUserId: 
 export type Permission =
   | 'admin_panel'
   | 'manage_users'
-  | 'charge_tables'
-  | 'charge_overrides'
-  | 'demurrage_edit'
-  | 'faturamento_edit'
-  | 'reconciliacao_edit'
-  | 'voyages_edit'
-  | 'manifests_upload'
-  | 'customers_edit'
   | 'portal_provisioning'
-  | 'vazios_edit'
-  | 'veiculos_edit'
-  | 'depots_edit'
 
 export function roleHasPermission(role: UserProfileRole | undefined, permission: Permission): boolean {
   if (!role) return false
@@ -33,20 +22,11 @@ export function roleHasPermission(role: UserProfileRole | undefined, permission:
     role === 'admin' ? 'administrativo' : role === 'operator' ? 'documentacao' : role
 
   switch (effectiveRole) {
-    case 'administrativo':
-      return true
+    case 'administrativo': return permission === 'admin_panel' || permission === 'manage_users' || permission === 'portal_provisioning'
+    case 'documentacao': return permission === 'portal_provisioning'
     case 'financeiro':
-      return permission === 'reconciliacao_edit'
     case 'operacoes':
-      return permission === 'voyages_edit'
-    case 'documentacao':
-      return [
-        'charge_tables', 'charge_overrides', 'demurrage_edit', 'faturamento_edit',
-        'voyages_edit', 'manifests_upload', 'customers_edit', 'portal_provisioning',
-        'vazios_edit', 'veiculos_edit',
-      ].includes(permission)
-    case 'equipamentos':
-      return permission === 'vazios_edit' || permission === 'veiculos_edit' || permission === 'depots_edit'
+    case 'equipamentos': return false
     default:
       return false
   }

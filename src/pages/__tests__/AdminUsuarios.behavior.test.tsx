@@ -108,7 +108,7 @@ it('pede confirmacao antes de trocar o setor, mostrando o escopo do destino', as
   fireEvent.change(screen.getAllByTitle('Setor de acesso')[0], { target: { value: 'financeiro' } })
   await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
   const args = mocks.confirm.mock.calls[0][0] as { message: string }
-  expect(args.message).toContain('conciliação de pagamentos')
+  expect(args.message).toContain('Leitura e escrita globais')
   expect(mocks.updateUserProfile).toHaveBeenCalledWith('u-1', { role: 'financeiro' })
 })
 

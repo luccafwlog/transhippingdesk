@@ -34,8 +34,8 @@ export function Manifestos() {
   const initialPod = searchParams.get('pod') ?? ''
   const queryClient = useQueryClient()
   const confirm = useConfirm()
-  const { effectiveRole, isAdmin, user } = useAuth()
-  const canImport = effectiveRole !== 'equipamentos'
+  const { isAdmin, user, profile } = useAuth()
+  const canImport = Boolean(profile || user)
   const selection = useRowSelection<string>()
   const [deleting, setDeleting] = useState(false)
   const { filters, setFilters, updateFilter } = usePageFilters<BlFilters>({

@@ -37,8 +37,8 @@ type Filters = {
 export function Granite() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  const { effectiveRole, user } = useAuth()
-  const canWrite = effectiveRole !== 'equipamentos'
+  const { user, profile } = useAuth()
+  const canWrite = Boolean(profile || user)
   const { showToast } = useToast()
   const initialVoyageId = searchParams.get('voyage') ?? ''
 

@@ -81,17 +81,37 @@ describe('fallback de importação de B/L', () => {
     expect(event?.detail).toContain('CNTR')
   })
 
-  it('mostra nome e setor do usuário que alterou o evento', () => {
+  it('mostra nome e setor do usuário que alterou o evento, congelado no próprio evento', () => {
     const events = buildVoyageTimeline({
       actorNames: { 'user-1': 'Ana Ribeiro' },
-      actorDepartments: { 'user-1': 'Operações' },
       auditEvents: [{
         entity_type: 'voyage', entity_id: '2', field_name: 'status',
-        old_value: null, new_value: 'planning', changed_by: 'user-1',
+        old_value: null, new_value: 'planning', changed_by: 'user-1', actor_role: 'operacoes',
         changed_at: '2026-07-16T12:00:00Z',
       }],
     })
 
     expect(events[0].detail).toContain('por Ana Ribeiro (Operações)')
+  })
+
+  it('não mistura o setor de um evento mais antigo do mesmo usuário', () => {
+    const events = buildVoyageTimeline({
+      actorNames: { 'user-1': 'Ana Ribeiro' },
+      auditEvents: [
+        {
+          entity_type: 'voyage', entity_id: '2', field_name: 'status',
+          old_value: null, new_value: 'planning', changed_by: 'user-1', actor_role: 'operacoes',
+          changed_at: '2026-07-16T12:00:00Z',
+        },
+        {
+          entity_type: 'voyage', entity_id: '2', field_name: 'voyage_number',
+          old_value: null, new_value: '001', changed_by: 'user-1', actor_role: 'financeiro',
+          changed_at: '2026-01-01T09:00:00Z',
+        },
+      ],
+    })
+
+    expect(events.some((event) => event.detail.includes('por Ana Ribeiro (Operações)'))).toBe(true)
+    expect(events.some((event) => event.detail.includes('por Ana Ribeiro (Financeiro)'))).toBe(true)
   })
 })

@@ -42,6 +42,7 @@ export type VoyageImportBatch = {
   status: 'processing' | 'completed' | 'partial' | 'failed' | null
   total_bls: number | null
   ce_master: string | null
+  route_summary?: string | null
 }
 
 export function collectVoyageManifestBatchRows({

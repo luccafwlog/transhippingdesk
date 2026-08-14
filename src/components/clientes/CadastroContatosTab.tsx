@@ -23,7 +23,7 @@ type ContactForm = { id?: number; name: string; email: string; phone: string; pu
 const emptyContact: ContactForm = { name: '', email: '', phone: '', purpose: 'geral', is_primary: false }
 
 export function CadastroContatosTab({ data, cnpj }: { data: Data; cnpj: string }) {
-  const queryClient = useQueryClient(); const { user, isAdmin, can } = useAuth(); const canEdit = can ? can('customers_edit') : isAdmin
+  const queryClient = useQueryClient(); const { user, profile } = useAuth(); const canEdit = Boolean(profile || user)
   const { showToast } = useToast(); const confirm = useConfirm(); const { data: portalRow } = usePortalProvisioningForCustomer(data.id)
   const [portalOpen, setPortalOpen] = useState(false); const [saving, setSaving] = useState(false); const [justification, setJustification] = useState('')
   const [contactForm, setContactForm] = useState<ContactForm>(emptyContact); const [contactSaving, setContactSaving] = useState(false)

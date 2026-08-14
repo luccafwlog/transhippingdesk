@@ -46,16 +46,14 @@ export function VoyageImportActions({
   const [activeType, setActiveType] = useState<ImportType | null>(null)
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const { can, effectiveRole } = useAuth()
-  const canEditVazios = can('vazios_edit')
-  const canEditVehicles = can('veiculos_edit')
-  const equipmentScoped = effectiveRole === 'equipamentos'
-
+  const { profile } = useAuth()
+  const canEditVazios = Boolean(profile || userId)
+  const canEditVehicles = Boolean(profile || userId)
   const allowedTypes = IMPORT_ORDER.filter((type) => {
     if (!types.includes(type)) return false
     if (type === 'vaziosExp') return canEditVazios
     if (type === 'vehicles') return canEditVehicles
-    return !equipmentScoped
+    return Boolean(profile || userId)
   })
 
   const invalidateAfterBLImport = async () => {
@@ -78,7 +76,7 @@ export function VoyageImportActions({
         ))}
       </div>
 
-      {activeType === 'bb' && !equipmentScoped ? (
+      {activeType === 'bb' ? (
         <FileImportModal
           title="Importar Manifesto BB (Break Bulk)"
           subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
@@ -102,7 +100,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'granite' && !equipmentScoped ? (
+      {activeType === 'granite' ? (
         <FileImportModal
           title="Importar Manifesto Granito"
           subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
@@ -127,7 +125,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'vaziosImp' && !equipmentScoped ? (
+      {activeType === 'vaziosImp' ? (
         <FileImportModal
           title="Importar Manifesto Vazios Importacao"
           subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
@@ -181,7 +179,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'baplie' && !equipmentScoped ? (
+      {activeType === 'baplie' ? (
         <BaplieImportModal
           voyageId={voyageId}
           voyageLabel={voyageLabel}
@@ -194,7 +192,7 @@ export function VoyageImportActions({
         <VehiclesImportModal voyageId={voyageId} voyageLabel={voyageLabel} onClose={() => setActiveType(null)} />
       ) : null}
 
-      {activeType === 'blFreight' && !equipmentScoped ? (
+      {activeType === 'blFreight' ? (
         <BlImportModal
           open
           voyageId={voyageId}
@@ -203,7 +201,7 @@ export function VoyageImportActions({
         />
       ) : null}
 
-      {activeType === 'ceMercante' && !equipmentScoped ? (
+      {activeType === 'ceMercante' ? (
         <CeMercanteImportModal open lockedVoyageId={voyageId} onClose={() => setActiveType(null)} />
       ) : null}
     </>

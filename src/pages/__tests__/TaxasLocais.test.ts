@@ -5,13 +5,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { TaxasLocais } from '../TaxasLocais'
 
 const authState = vi.hoisted(() => ({
-  capabilities: new Set(['charge_tables', 'charge_overrides']),
+  profile: { id: 'user-1' } as { id: string } | null,
+  user: { id: 'user-1' } as { id: string } | null,
 }))
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({
-    can: (capability: string) => authState.capabilities.has(capability),
-    user: { id: 'user-1' },
+    profile: authState.profile,
+    user: authState.user,
   }),
 }))
 
@@ -72,7 +73,8 @@ vi.mock('../../hooks/useLocalCharges', () => ({
 
 describe('TaxasLocais', () => {
   it('mantem somente cadastro de tabelas e overrides, sem fila operacional de pendencias', () => {
-    authState.capabilities = new Set(['charge_tables', 'charge_overrides'])
+    authState.profile = { id: 'user-1' }
+    authState.user = { id: 'user-1' }
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
     expect(html).toContain('Tabelas')
@@ -82,7 +84,8 @@ describe('TaxasLocais', () => {
   })
 
   it('mostra as duas abas mesmo sem nenhuma permissao de escrita (visualizacao e global)', () => {
-    authState.capabilities = new Set()
+    authState.profile = null
+    authState.user = null
 
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
@@ -92,7 +95,8 @@ describe('TaxasLocais', () => {
   })
 
   it('esconde os controles de escrita da aba Tabelas para quem so tem charge_overrides', () => {
-    authState.capabilities = new Set(['charge_overrides'])
+    authState.profile = null
+    authState.user = null
 
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
@@ -100,7 +104,8 @@ describe('TaxasLocais', () => {
   })
 
   it('abre a aba Overrides com o formulario de escrita quando charge_overrides esta presente', () => {
-    authState.capabilities = new Set(['charge_overrides'])
+    authState.profile = { id: 'user-1' }
+    authState.user = { id: 'user-1' }
 
     const html = renderToStaticMarkup(
       React.createElement(MemoryRouter, { initialEntries: ['/taxas-locais?tab=overrides'] }, React.createElement(TaxasLocais)),
@@ -111,7 +116,9 @@ describe('TaxasLocais', () => {
   })
 
   it('mostra a aba Overrides sem formulario de escrita para quem so tem charge_tables', () => {
-    authState.capabilities = new Set(['charge_tables'])
+    authState.profile = null
+    authState.user = null
+    authState.user = null
 
     const html = renderToStaticMarkup(
       React.createElement(MemoryRouter, { initialEntries: ['/taxas-locais?tab=overrides'] }, React.createElement(TaxasLocais)),

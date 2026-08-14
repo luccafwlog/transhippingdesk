@@ -33,8 +33,8 @@ export function Veiculos() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { can, isAdmin, user } = useAuth()
-  const canEditVehicles = can('veiculos_edit')
+  const { isAdmin, user, profile } = useAuth()
+  const canEditVehicles = Boolean(profile || user)
   const canDeleteVehicles = isAdmin
   const [deleting, setDeleting] = useState(false)
   const [exporting, setExporting] = useState(false)

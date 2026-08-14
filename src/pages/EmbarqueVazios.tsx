@@ -110,9 +110,9 @@ function TotalsCard({ title, totals }: { title: string; totals: Array<{ label: s
 
 export function EmbarqueVazios() {
   const queryClient = useQueryClient();
-  const { user, can } = useAuth();
+  const { user, profile } = useAuth();
   const { showToast } = useToast();
-  const canEdit = can("vazios_edit");
+  const canEdit = Boolean(profile || user);
   const [voyageId, setVoyageId] = useState<number | null>(null);
   const [port, setPort] = useState("");
   const [selectedOperation, setSelectedOperation] = useState<{

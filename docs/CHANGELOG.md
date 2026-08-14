@@ -3,6 +3,12 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Escrita interna global com rastro obrigatório:** migrations `294` e `295`
+  congelam autor/departamento em `audit_logs`, registram mudanças por trigger,
+  congelam a rota da importação e abrem a escrita interna aos cinco
+  departamentos. Exclusão operacional, provisionamento do Portal,
+  administração de usuários e sign-off departamental permanecem exceções;
+  frontend, tipos, timeline e ADR 0046 foram alinhados. *(PR 533)*
 - **Investigação da lentidão de inicialização:** adiciona harness autenticado
   frio/quente e checkpoints sanitizados de startup, impede cache de uma hora no
   shell `/` do Firebase Hosting e mantém Auth, banco e waterfalls pendentes até

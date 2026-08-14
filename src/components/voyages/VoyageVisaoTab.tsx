@@ -58,8 +58,8 @@ export function VoyageVisaoTab({
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { user, can } = useAuth()
-  const canEditVoyages = can('voyages_edit')
+  const { user, profile } = useAuth()
+  const canEditVoyages = Boolean(profile || user)
   const [timelineOpen, setTimelineOpen] = useState(true)
 
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
@@ -70,7 +70,7 @@ export function VoyageVisaoTab({
   const timelineEvents = useMemo(
     () =>
       buildVoyageTimeline({
-        importBatches: (timelineSources?.importBatches ?? importBatches).map((batch) => ({ ...batch, routes: routesByBatchId.get(batch.id) })),
+        importBatches: (timelineSources?.importBatches ?? importBatches).map((batch) => ({ ...batch, route: batch.route_summary ?? undefined, routes: routesByBatchId.get(batch.id) })),
         scheduleEvents: timelineSources?.scheduleEvents,
         auditEvents: timelineSources?.auditEvents,
         resolutions: timelineSources?.resolutions,
