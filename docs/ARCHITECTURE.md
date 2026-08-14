@@ -307,8 +307,12 @@ A migration `291` (ADR 0044) corrige o eixo de leitura de `014`/`020`/`066`/
 `111`: 13 tabelas financeiras (`charge_tables`, `invoices`, `payments`, o
 ledger de recebíveis etc.) tinham `SELECT` restrito a `is_admin()`, um
 resquício do modelo antigo admin/operator. Agora usam `is_active_read_user()`
-como qualquer dado interno — a restrição por departamento é sobre escrita, não
-sobre leitura. A mesma migration cria `can_edit_local_charges()` e alinha o
+como qualquer dado interno — a restrição por departamento era, então, sobre
+escrita e não sobre leitura. A migration `295_internal_writes_global.sql`
+removeu depois também a fronteira de escrita: todo Departamento ativo altera
+todos os módulos, com o rastro obrigatório no lugar do bloqueio prévio, e apenas
+exclusão operacional, provisionamento do Portal e administração de usuários
+seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
 `INSERT`/`UPDATE`/`DELETE` de `charge_tables`/`charge_table_items`/
 `customer_rate_overrides` à permissão `charge_tables`/`charge_overrides` de
 `roleHasPermission`, que já incluía Documentação sem a RLS correspondente.
@@ -321,7 +325,10 @@ sobre leitura. A mesma migration cria `can_edit_local_charges()` e alinha o
   (inclui Equipamentos), nunca `is_active_user()` (211);
 - operações financeiras e destrutivas usam RPCs ou policies restritas;
 - funções privilegiadas têm `search_path` controlado e grants explícitos;
-- `anon` segue default-deny, exceto funções pré-autenticação documentadas;
+- `anon` segue default-deny, exceto duas funções pré-autenticação documentadas:
+  `portal_resolve_login` (ADR 0013) e `portal_ship_schedule()`, cuja programação
+  de navios é vitrine pública por decisão — nenhum campo de cliente, fatura, B/L,
+  container ou contato pode entrar nela sem revisar esta exceção;
 - Edge Functions com service role validam chamador, origem ou segredo.
 
 ### Edge Functions
