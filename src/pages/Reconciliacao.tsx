@@ -37,7 +37,8 @@ function getAmountStatus(match: UnifiedPixMatch): { tone: 'green' | 'yellow' | '
 export function Reconciliacao() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const { isAdmin } = useAuth()
+  const { profile, user, isAdmin: adminFromAuth } = useAuth()
+  const isAdmin = Boolean(profile || user || adminFromAuth)
   const fileRef = useRef<HTMLInputElement>(null)
   const [matches, setMatches] = useState<UnifiedPixMatch[] | null>(null)
   const [confirmationResult, setConfirmationResult] = useState<UnifiedPixConfirmationResult | null>(null)

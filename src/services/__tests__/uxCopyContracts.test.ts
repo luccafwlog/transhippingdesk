@@ -31,17 +31,13 @@ it('uses the voyage-backed schedule flow instead of the legacy schedule export',
   expect(source).not.toContain('ended_vessels')
 })
 
-it('only exposes Baplie import and reimport controls to profiles with manifests_upload', () => {
-  // roleHasPermission (useAuth.tsx) concede manifests_upload a administrativo
-  // e documentacao, nao apenas a admin. Gatear por isAdmin escondia o botao
-  // de Documentacao, que tem essa permissao (docs/archive/audits/2026-08-13-
-  // rbac-departamentos-visualizacao.md, Achado P3).
+it('expõe importação Baplie para todo perfil interno ativo', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/pages/Baplie.tsx'), 'utf8')
-  expect(source).toMatch(/const \{[^}]*user[^}]*can[^}]*\} = useAuth\(\)/)
-  expect(source).toContain("const canUploadManifests = can('manifests_upload')")
+  expect(source).toMatch(/const \{[^}]*user[^}]*profile[^}]*\} = useAuth\(\)/)
+  expect(source).toContain('const canUploadManifests = Boolean(profile || user)')
   expect(source).toContain('<StateA canImport={canUploadManifests}')
   expect(source).toContain('canUploadManifests ?')
-  expect(source).toContain('A importação Baplie exige a permissão de upload de manifestos.')
-  expect(source).toContain("const canImportVazios = effectiveRole !== 'equipamentos'")
+  expect(source).toContain('A importação Baplie exige um perfil interno ativo.')
+  expect(source).toContain('const canImportVazios = Boolean(profile || user)')
   expect(source).toContain('canWrite={canImportVazios}')
 })

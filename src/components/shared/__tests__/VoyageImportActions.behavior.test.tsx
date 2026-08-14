@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   importBreakbulkManifest: vi.fn(() => Promise.resolve()),
   can: vi.fn<(permission: string) => boolean>(() => true),
   effectiveRole: vi.fn(() => 'documentacao'),
+  profile: { id: 'user-1' },
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -17,7 +18,7 @@ vi.mock('@tanstack/react-query', () => ({
 }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
 vi.mock('../../../hooks/useAuth', () => ({
-  useAuth: () => ({ can: mocks.can, effectiveRole: mocks.effectiveRole() }),
+  useAuth: () => ({ can: mocks.can, effectiveRole: mocks.effectiveRole(), profile: mocks.profile }),
 }))
 vi.mock('../../../services/supabase', () => ({ supabase: { from: vi.fn() } }))
 vi.mock('../../../services/breakbulkImport', () => ({
@@ -125,9 +126,8 @@ it('ordena as importacoes e abre CE Mercante travado na viagem', () => {
   expect(screen.getByText('CE travado: 7')).toBeTruthy()
 })
 
-it('restringe Equipamentos a Veiculos e Vazios Exp', () => {
+it('mantém a escrita aberta também para Equipamentos', () => {
   mocks.effectiveRole.mockReturnValue('equipamentos')
-  mocks.can.mockImplementation((permission) => permission === 'veiculos_edit' || permission === 'vazios_edit')
 
   render(
     <VoyageImportActions
@@ -139,7 +139,7 @@ it('restringe Equipamentos a Veiculos e Vazios Exp', () => {
   )
 
   expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
-    'Veículos', 'Vazios Exp',
+    'Baplie EDI', 'B/L', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
   ])
 })
 

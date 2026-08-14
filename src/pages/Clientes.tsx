@@ -48,8 +48,8 @@ export function Clientes() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { can, isAdmin, user, effectiveRole } = useAuth()
-  const canEditCustomers = can ? can('customers_edit') : isAdmin
+  const { user, effectiveRole, profile } = useAuth()
+  const canEditCustomers = Boolean(profile || user)
   const [deleting, setDeleting] = useState(false)
   const [actionsMenu, setActionsMenu] = useState<CustomerActionsMenu | null>(null)
   const [filters, setFilters] = useState<CustomerFilters>({

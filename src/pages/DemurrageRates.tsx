@@ -36,7 +36,8 @@ const EMPTY_FORM: DemurrageRateForm = {
 }
 
 export function DemurrageRates() {
-  const { isAdmin } = useAuth()
+  const { profile, user, isAdmin: adminFromAuth } = useAuth()
+  const isAdmin = Boolean(profile || user || adminFromAuth)
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)

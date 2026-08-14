@@ -554,6 +554,7 @@ type TimelineAuditEvent = {
   old_value?: string | null
   new_value: string | null
   changed_by?: string | null
+  actor_role?: string | null
   changed_at: string | null
   justification?: string | null
 }
@@ -563,6 +564,8 @@ type TimelineImportBatch = {
   filename: string
   cargo_mode: 'container' | 'carga_solta' | null
   uploaded_at: string | null
+  uploaded_by?: string | null
+  route_summary?: string | null
   route?: string | null
   routes?: Array<{ pol: string; pod: string; blCount: number }>
   total_bls?: number | null

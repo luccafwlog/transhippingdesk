@@ -58,7 +58,8 @@ type InvoiceDetailModalProps = {
 }
 
 export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, paymentId }: InvoiceDetailModalProps) {
-  const { user, isAdmin } = useAuth()
+  const { user, profile, isAdmin: adminFromAuth } = useAuth()
+  const isAdmin = Boolean(profile || user || adminFromAuth)
   const { showToast } = useToast()
   const confirm = useConfirm()
   const queryClient = useQueryClient()

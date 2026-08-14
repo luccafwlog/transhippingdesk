@@ -1,6 +1,6 @@
 # Plano — escrita interna global com rastro obrigatório
 
-Status: TODO
+Status: DONE
 
 Origem: sessão de grilling de 2026-08-13 sobre as decisões de escrita do RBAC,
 disparada pela investigação dos furos de leitura remanescentes da ADR 0044.

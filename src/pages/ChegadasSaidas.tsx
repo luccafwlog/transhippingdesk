@@ -195,8 +195,8 @@ export function ChegadasSaidas() {
   const [formData, setFormData] = useState<ScheduleForm>(emptyScheduleForm)
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const { effectiveRole, user } = useAuth()
-  const canWrite = effectiveRole !== 'equipamentos'
+  const { user, profile } = useAuth()
+  const canWrite = Boolean(profile || user)
   const tableColumnCount = PORTAL_SCHEDULE_LANES.length + (canWrite ? 3 : 2)
 
   const { data: vessels = [], isLoading } = useQuery({

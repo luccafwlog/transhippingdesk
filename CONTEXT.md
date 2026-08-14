@@ -1240,30 +1240,30 @@ pendências ou atividade relevante. Financeiro consulta no sistema e Operações
 não recebe pendências do Portal.
 
 **Visualização global interna**
-Todo perfil interno ativo (Administrativo, Financeiro, Operações, Documentação,
-Equipamentos) abre todas as telas e consulta todos os registros, inclusive
-dados financeiros e de tarifação. A restrição por departamento é sobre o que
-cada perfil pode **alterar**, não sobre o que pode ver — RLS 42501 é a resposta
-esperada para uma escrita fora do escopo do perfil, nunca para uma leitura. A
-única escrita do Financeiro é a conciliação de pagamentos.
+Todo perfil interno ativo abre todas as telas e consulta todos os registros,
+inclusive dados financeiros e de tarifação. A mesma regra vale para escrita:
+todo Departamento ativo pode alterar os módulos internos e cada evento congela
+autor e Departamento no rastro. As exceções são exclusão de registro
+operacional (Administrativo), provisionamento do Portal (Administrativo e
+Documentação) e administração de usuários (Administrativo). `/admin/usuarios`
+é a única exceção à leitura global.
 
-**Escopo de Operações**
-Perfil com ações completas em Viagens e leitura operacional de B/Ls, containers,
-veículos e manifestos vinculados. Não pode subir, editar ou excluir B/Ls, nem
-alterar Clientes, Portal ou Financeiro.
+**Departamento**
+Assinatura de responsabilidade de um usuário interno (Administrativo,
+Financeiro, Operações, Documentação, Equipamentos). Identifica o autor no
+registro de eventos e define quem assina cada seção do ADR de Saída. Não
+delimita acesso. _Evitar_: setor, perfil de acesso, papel, role.
 
-**Escopo de Equipamentos**
-Perfil com ações completas em Vazios de Exportação (VAZIOS EXP), Veículos e
-Depots, além do Sign-off Departamental das suas seções do ADR (veículos e
-embarque de vazios). Leitura no restante do sistema. Não altera Clientes,
-Portal ou Financeiro.
+**Escrita interna global**
+Todo Departamento ativo altera dados em todos os módulos. As exceções são
+exclusão de registro operacional, provisionamento do Portal e administração de
+usuários; nenhuma é uma conveniência de departamento.
 
-**Escopo de Documentação**
-Perfil com todas as ações de negócio, incluindo Clientes, Portal, B/Ls, Viagens,
-Faturamento, taxas, invoices e alertas, exceto conciliação de pagamentos. Não
-administra usuários internos, perfis ou permissões, nem o cadastro de Depots —
-essa edição fica reservada a Equipamentos (dono operacional de VAZIOS EXP) e
-Administrativo.
+**Rastro obrigatório**
+Toda escrita registra autor e Departamento no instante do evento. O
+Departamento é gravado junto com o evento, nunca derivado do cadastro atual.
+Ações automáticas assinam `sistema`.
+
 
 **Usuário interno atual**
 No escopo atual existe apenas `lucca.juliatti@fwlog.com.br`, com papel
@@ -1276,9 +1276,10 @@ desativar ou rebaixar o último Administrador, e alterações de perfil/status
 exigem confirmação, motivo e auditoria.
 
 **Dupla proteção RBAC**
-A interface usa `can(permission)` para orientar e ocultar ações, mas a
-autoridade real está em RLS, RPCs e Edge Functions, que devem rejeitar chamadas
-indevidas feitas diretamente à API.
+A interface usa `can(permission)` para orientar exceções de navegação, mas a
+autoridade real está em RLS, RPCs e Edge Functions; o rastro obrigatório
+responsabiliza toda escrita e as três exceções continuam rejeitadas diretamente
+pela API.
 
 O lado do frontend que lê essa recusa é `classifyDbError` em
 `src/lib/errors.ts`: uma tabela de códigos Postgres/PostgREST para `kind` e

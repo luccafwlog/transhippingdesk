@@ -59,8 +59,8 @@ function VaziosImportacaoPreview({ manifest }: { manifest: ParsedVaziosImportaca
 export function VaziosImportacao() {
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const { effectiveRole, user } = useAuth()
-  const canImport = effectiveRole !== 'equipamentos'
+  const { user, profile } = useAuth()
+  const canImport = Boolean(profile || user)
   const { showToast } = useToast()
 
   const { filters, setFilters, updateFilter } = usePageFilters<Filters>({

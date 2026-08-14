@@ -132,14 +132,14 @@ describe('ChegadasSaidas user behaviours', () => {
     )
   })
 
-  it('mantem Equipamentos somente leitura', () => {
+  it('permite escrita a Equipamentos', () => {
     mocks.effectiveRole.mockReturnValue('equipamentos')
     render(<ChegadasSaidas />)
 
-    expect(screen.queryByRole('button', { name: /Adicionar Navio/ })).toBeNull()
-    expect(screen.queryByRole('button', { name: /Fazer Upload/ })).toBeNull()
-    expect(screen.queryByTitle('Editar')).toBeNull()
-    expect(screen.queryByTitle('Remover do Portal')).toBeNull()
+    expect(screen.getByRole('button', { name: /Adicionar Navio/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Fazer Upload/ })).toBeTruthy()
+    expect(screen.getAllByTitle('Editar').length).toBeGreaterThan(0)
+    expect(screen.getAllByTitle('Remover do Portal').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Baixar Planilha Modelo/ })).toBeTruthy()
   })
 })

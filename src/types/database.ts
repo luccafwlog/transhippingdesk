@@ -225,6 +225,7 @@ export type Database = {
       }
       audit_logs: {
         Row: {
+          actor_role: string | null
           changed_at: string | null
           changed_by: string | null
           entity_id: string
@@ -236,6 +237,7 @@ export type Database = {
           old_value: string | null
         }
         Insert: {
+          actor_role?: string | null
           changed_at?: string | null
           changed_by?: string | null
           entity_id: string
@@ -247,6 +249,7 @@ export type Database = {
           old_value?: string | null
         }
         Update: {
+          actor_role?: string | null
           changed_at?: string | null
           changed_by?: string | null
           entity_id?: string
@@ -2377,6 +2380,7 @@ export type Database = {
           uploaded_at: string | null
           uploaded_by: string | null
           voyage_id: number
+          route_summary: string | null
         }
         Insert: {
           cargo_mode?: string
@@ -2392,6 +2396,7 @@ export type Database = {
           uploaded_at?: string | null
           uploaded_by?: string | null
           voyage_id: number
+          route_summary?: string | null
         }
         Update: {
           cargo_mode?: string
@@ -2407,6 +2412,7 @@ export type Database = {
           uploaded_at?: string | null
           uploaded_by?: string | null
           voyage_id?: number
+          route_summary?: string | null
         }
         Relationships: [
           {

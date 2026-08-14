@@ -17,7 +17,7 @@ const emptyServiceForm = { id: undefined as string | undefined, name: '', nature
 function conditionLabel(condition: string) { return condition === 'vazio' ? 'EMPTY' : condition === 'material' ? 'EMPTY W/ MATERIAL' : condition }
 
 export function DepotCadastro() {
-  const { can } = useAuth(); const canEdit = can('depots_edit'); const confirm = useConfirm(); const { showToast } = useToast(); const depots = useDepots()
+  const { profile, user } = useAuth(); const canEdit = Boolean(profile || user); const confirm = useConfirm(); const { showToast } = useToast(); const depots = useDepots()
   const [selectedId, setSelectedId] = useState<string | null>(null); const [newDepot, setNewDepot] = useState(false)
   const selected = newDepot ? null : depots.data?.find((item) => item.id === selectedId) ?? depots.data?.[0] ?? null
   const [depotForm, setDepotForm] = useState(emptyDepotForm); const [serviceForm, setServiceForm] = useState(emptyServiceForm)

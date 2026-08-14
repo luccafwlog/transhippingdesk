@@ -179,11 +179,11 @@ describe('ClienteFicha user behaviours', () => {
     expect(screen.getByRole('link', { name: 'Abrir fila de provisionamento →' }).getAttribute('href')).toBe('/clientes/portal?cliente=42')
   })
 
-  it('financeiro vê a ficha sem ações de alteração', () => {
+  it('Financeiro vê e pode operar a ficha no modelo de escrita global', () => {
     mocks.can.mockReturnValue(false)
     renderPage()
 
-    expect(screen.getByRole('button', { name: 'Salvar cadastro' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Salvar cadastro' })).not.toHaveProperty('disabled', true)
     expect(screen.getByRole('link', { name: 'Abrir fila de provisionamento →' }).getAttribute('href')).toBe('/clientes/portal?cliente=42')
   })
 })

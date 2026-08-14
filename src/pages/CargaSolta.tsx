@@ -27,8 +27,8 @@ import type { BLListItem } from '../types/database'
 export function CargaSolta() {
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const { effectiveRole, user } = useAuth()
-  const canImport = effectiveRole !== 'equipamentos'
+  const { user, profile } = useAuth()
+  const canImport = Boolean(profile || user)
   const { showToast } = useToast()
   const { data: portOptions } = usePortOptions()
   const initialVoyageId = searchParams.get('voyage') ?? ''

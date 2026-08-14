@@ -129,8 +129,8 @@ export function VoyageCard({
 }: VoyageCardProps) {
   const [activeTab, setActiveTab] = useState<VoyageTabKey>(initialTab)
   const [omitTarget, setOmitTarget] = useState<string | null>(null)
-  const { isAdmin, user, can } = useAuth()
-  const canEditVoyages = can('voyages_edit')
+  const { isAdmin, user, profile } = useAuth()
+  const canEditVoyages = Boolean(profile || user)
 
   const vehicleStats = vehicleStatsProp ?? DEFAULT_VEHICLE_STATS
   const vaziosImpStats = vaziosImpStatsProp ?? DEFAULT_VAZIOS_IMP_STATS

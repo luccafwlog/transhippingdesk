@@ -23,7 +23,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const { can, isAdmin, effectiveRole } = useAuth()
   const canProvision = can ? can('portal_provisioning') : isAdmin
   const isOperations = effectiveRole === 'operacoes'
-  const canReadEvents = ['administrativo', 'documentacao', 'financeiro', 'equipamentos'].includes(effectiveRole ?? '')
+  const canReadEvents = ['administrativo', 'documentacao', 'financeiro', 'operacoes', 'equipamentos'].includes(effectiveRole ?? '')
   const confirm = useConfirm()
   const { showToast } = useToast()
   const [email, setEmail] = useState(row.recovery_email ?? '')
