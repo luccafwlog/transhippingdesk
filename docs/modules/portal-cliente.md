@@ -164,7 +164,7 @@ O token sai da barra de endereços assim que lido (mesmo racional do achado
 mantém o tratamento do parâmetro antigo: os convites já enviados para o caminho
 anterior valem 48 horas, e os dois ramos podem sair depois que essa janela
 expirar. Decisão registrada na
-[ADR 0047](../adr/0047-confirmacao-de-email-do-portal-em-rota-publica.md).
+[ADR 0048](../adr/0048-confirmacao-de-email-do-portal-em-rota-publica.md).
 
 ### `/portal/recuperar-senha`
 

@@ -1,6 +1,12 @@
-# 0048 — Rate limit do Portal chaveado somente pelo CNPJ
+# 0049 — Rate limit do Portal chaveado somente pelo CNPJ
 
 Status: aceito — 2026-08-14
+
+> **Alcance.** O que esta ADR descreve como vigente é a chave do rate limit e o
+> preço aceito no login — ambos verificáveis no repositório hoje. A decorrência
+> sobre o teto de envio de email está marcada como não implementada no corpo, e
+> vive na Task 7 do plano
+> [`2026-08-14-rate-limit-portal-normalizador-compartilhado`](../plans/2026-08-14-rate-limit-portal-normalizador-compartilhado.md).
 
 ## Contexto
 
@@ -58,31 +64,27 @@ rejeitado: ele nunca tranca o dono, mas só encarece o chute de quem espera a
 resposta. Um atacante que dispare pedidos em paralelo não espera, e continua
 chutando na mesma taxa. Troca uma proteção real por uma aparente.
 
-**Na recuperação, o limite de envio deixa de ser o mesmo do pedido.** Enquanto
-houver convite de recuperação pendente e não expirado para a conta, um novo
-pedido **não** cria convite nem dispara email — devolve o mesmo `accepted:true`
-de sempre. Como o convite vale 1 hora, o teto passa a ser de um email por hora
-por conta, independentemente de quantas vezes peçam.
-
-Isso resolve um segundo problema pelo mesmo mecanismo: hoje cada pedido invalida
-o convite anterior (`portal-password-recovery/index.ts`), então o cliente que
-pediu o link, foi ler o email e clicou pode encontrá-lo cancelado por um pedido
-que não foi dele. Reusar o convite vivo elimina o link morto na mão do cliente.
-
 O balde de tentativas continua existindo e contando **todo** pedido, inclusive os
 que resultam em envio. Contar só os pedidos sem conta transformaria o próprio
 bloqueio em oráculo — "este CNPJ nunca trava, logo tem conta".
+
+**Decorrência ainda não implementada.** Como a chave não pode distinguir quem
+pede, o teto de *envio de email* precisa deixar de ser o mesmo teto de *pedidos*
+— caso contrário a recuperação segue sendo um canal de envio por conta alheia.
+O mecanismo acordado é reusar o convite vivo em vez de criar outro, e está
+especificado na Task 7 do plano
+`docs/plans/2026-08-14-rate-limit-portal-normalizador-compartilhado.md`. Esta
+ADR **não** descreve comportamento atual nesse ponto; receberá nota editorial
+quando a mudança entrar.
 
 ## Consequências
 
 - O comportamento sob abuso passa a estar escrito: o dono espera 15 minutos e o
   operador recebe alerta. Deixa de ser lacuna e passa a ser preço conhecido.
-- A recuperação para de ser um canal de envio de email por conta alheia; o teto
-  cai de 480 emails por dia para 24.
-- O cliente que não recebeu o email e pede de novo dentro da hora recebe a mesma
-  confirmação de tela, sem email novo. O link válido continua sendo o que ele já
-  tem; a linha de rodapé da tela de confirmação — procurar no spam e, na dúvida,
-  falar com o suporte — passa a ser o caminho previsto para esse caso.
+- Enquanto a Task 7 não entrar, a recuperação continua enviando um email por
+  pedido: até 480 por dia à caixa de um cliente, com o remetente do Portal. A
+  decisão de aceitar a chave por CNPJ **cria** essa pendência, e por isso ela
+  fica nomeada aqui em vez de ficar só no plano.
 - Se um dia o Portal ganhar outro identificador de acesso, esta decisão precisa
   ser revista: ela vale enquanto o CNPJ for a unidade de acesso.
 - A decisão não cobre a assimetria de tempo do caminho bloqueado do login, em

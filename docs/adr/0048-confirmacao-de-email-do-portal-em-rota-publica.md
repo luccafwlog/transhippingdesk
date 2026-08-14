@@ -1,4 +1,4 @@
-# 0047 — Confirmação do Email de Recuperação em rota pública
+# 0048 — Confirmação do Email de Recuperação em rota pública
 
 Status: aceito — 2026-08-14
 

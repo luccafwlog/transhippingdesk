@@ -260,7 +260,7 @@ O mesmo trecho produz um segundo efeito, esse contra o cliente: quem pediu o
 link, foi ler o email e clicou pode encontrá-lo cancelado por um pedido que não
 foi dele.
 
-**Decisão em ADR [0048](../adr/0048-rate-limit-do-portal-chaveado-somente-por-cnpj.md).**
+**Decisão em ADR [0049](../adr/0049-rate-limit-do-portal-chaveado-somente-por-cnpj.md).**
 A chave do balde continua sendo só o CNPJ — contar por IP foi rejeitado porque o
 `CONTEXT.md` registra que um mesmo Email de Recuperação atende mais de um CNPJ,
 então um escritório com vários clientes bloquearia um cliente com as tentativas
