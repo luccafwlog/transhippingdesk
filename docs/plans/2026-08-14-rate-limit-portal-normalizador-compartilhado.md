@@ -5,12 +5,13 @@
 
 **Goal:** Fazer o rate limit do Portal usar o mesmo normalizador canônico de CNPJ
 do resto do sistema, estender a trava de tentativas à verificação de senha da
-troca de Email de Recuperação, e parar de consumir o convite de confirmação
-antes de saber se há troca pendente para aplicar.
+troca de Email de Recuperação, parar de consumir o convite de confirmação antes
+de saber se há troca pendente para aplicar, e fechar a janela em que a sessão
+antiga sobrevive à troca de senha.
 
 **Origem:** grilling de 2026-08-14 sobre o fluxo de login/recuperação (PR #539).
-Os três achados foram verificados contra o código e o banco de produção; nenhum
-deles é regressão da #539.
+Os achados foram verificados contra o código e o banco de produção; nenhum deles
+é regressão da #539.
 
 **Escopo deliberadamente fora da PR #539:** exige migration, cujo risco de deploy
 é diferente do restante daquele diff.
@@ -145,7 +146,48 @@ caminho de exploração (o campo sempre guarda o último endereço pedido pelo
 próprio cliente), então fica anotado como endurecimento possível, fora deste
 plano.
 
-### Task 4: Testes
+### Task 4: A troca de senha só encerra a sessão antiga depois de até 1 hora
+
+**Achado D.** `portal_revoke_sessions` (migration `194`) apaga `auth.sessions` e
+`auth.refresh_tokens`. Isso tira do titular da sessão antiga o direito de
+**renovar** o access token, mas não invalida o access token que ele já tem em
+mãos: um JWT é aceito pela assinatura, sem consulta ao banco. A janela é o TTL
+do token — 1 hora no padrão do Supabase, e este projeto não o altera.
+
+A tela promete encerramento imediato; o banco entrega com atraso.
+
+**Metade disso já está resolvida, e por acidente feliz.** Na *suspensão* a
+janela não existe: as RPCs do Portal releem `active` da conta a cada chamada
+(`044:44`, `084:40`, `115`), então token válido não serve para nada quando a
+conta está desativada. O guard de estado no ponto de leitura é o padrão certo —
+falta só um estado a mais para ele vigiar.
+
+Na troca de senha e de email, `active` continua `true` e nada relê "quando esta
+credencial mudou", então o token antigo passa em todos os guards até vencer.
+
+**Arquivos:** nova migration, RPCs de leitura do Portal
+
+- Gravar em `customer_portal_accounts` o instante da última invalidação de
+  credencial (`credentials_revoked_at`), preenchido por `portal_revoke_sessions`
+  ou por quem a chama.
+- O guard de sessão do Portal passa a rejeitar token cujo `iat` seja anterior a
+  esse marco, no **mesmo ponto** onde hoje checa `active` — não um guard novo por
+  RPC. Se o `iat` não estiver acessível via `auth.jwt()` no contexto da RPC,
+  registrar a limitação em vez de espalhar checagens.
+- Alternativa descartada: reduzir o TTL do access token. Encolhe a janela sem
+  fechá-la e cobra tráfego de refresh em todas as telas.
+
+**Urgência: baixa e verificada.** Não há cliente usando o Portal — a única conta
+`ativo` é ficha de QA. O defeito está armado e ainda não tem a quem prejudicar.
+
+**Achado E, anexo (higiene de dados, sem correção proposta).** Duas das sessões
+vivas em produção pertencem a usuários do Auth com email técnico
+`@portal-interno...` que **não têm mais linha em `customer_portal_accounts`**.
+Não há vazamento: a RPC busca por `auth_user_id`, não encontra e nega. Mas
+desfazer uma conta do Portal não remove o usuário do Auth nem as sessões dele.
+Fica registrado; a limpeza não pertence a este plano.
+
+### Task 5: Testes
 
 **Arquivos:** `supabase/functions/__tests__/` (ou equivalente do projeto),
 `src/services/__tests__/`
@@ -157,8 +199,10 @@ plano.
 - Confirmação sem `pending_recovery_email` **não** consome o convite e devolve a
   mensagem de pedido já resolvido; o convite segue `pendente` depois da chamada.
 - Troca assistida invalida os convites `confirmacao_email` pendentes da conta.
+- Token emitido antes da última troca de credencial é recusado pelo guard de
+  sessão do Portal; token emitido depois passa.
 
-### Task 5: Documentação
+### Task 6: Documentação
 
 **Arquivos:** `docs/modules/portal-cliente.md`, `docs/CHANGELOG.md`,
 `docs/plans/README.md`
@@ -180,3 +224,7 @@ plano.
   troca de email passa a consumir tentativas do próprio login. É o
   comportamento desejado — é a mesma senha e o mesmo alvo —, mas precisa estar
   claro na mensagem de tela.
+- **Guard por `iat`** (Task 4): relógios do emissor e do banco precisam estar
+  alinhados, senão a comparação derruba sessão legítima recém-criada. Dar folga
+  de alguns segundos no marco e cobrir com teste o token emitido logo depois da
+  troca.
