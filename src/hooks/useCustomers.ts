@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
+import { normalizeCnpj } from '../lib/cnpj'
 import { supabase } from '../services/supabase'
 import { fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
-import { escapeFilterTerm, onlyDigits } from '../lib/utils'
+import { escapeFilterTerm } from '../lib/utils'
 import { classifyDbError } from '../lib/errors'
 import { sortCustomerRows, type CustomerSortKey, type SortDirection } from '../lib/customerTableViewModel'
+import { BLS_OF_CUSTOMER, BLS_OF_CUSTOMER_INNER } from '../lib/supabaseEmbeds'
 import type { Customer, CustomerDetail, CustomerListItem } from '../types/database'
 
 export type CustomerFilters = {
@@ -66,11 +68,33 @@ export function filterCustomerRowsByClientSideFilters(rows: CustomerListItem[], 
   })
 }
 
+/**
+ * Os KPIs somam TODOS os clientes que passam pelos filtros, entao paginacao e
+ * ordenacao nao mudam o resultado. Sem esta normalizacao a query key carrega
+ * `page`/`sortKey`/`sortDirection` e cada clique em "proxima pagina" ou em um
+ * cabecalho de coluna dispara outra varredura completa da base (mais a das
+ * faturas emitidas) so para recalcular os mesmos numeros.
+ */
+export function customerSummaryFilters(filters: CustomerFilters): CustomerFilters {
+  return {
+    search: filters.search,
+    contactEmail: filters.contactEmail,
+    emailStatus: filters.emailStatus,
+    blStatus: filters.blStatus,
+    pendingStatus: filters.pendingStatus,
+    sortKey: 'name',
+    sortDirection: 'asc',
+    page: 0,
+    pageSize: 0,
+  }
+}
+
 export function useCustomerSummary(filters: CustomerFilters) {
+  const scope = customerSummaryFilters(filters)
   return useQuery({
-    queryKey: ['customers-summary', filters],
+    queryKey: ['customers-summary', scope],
     queryFn: async () => {
-      const result = await fetchCustomerRows(filters, false)
+      const result = await fetchCustomerRows(scope, false)
       return summarizeCustomerRows(result.rows)
     },
     staleTime: 60_000,
@@ -99,7 +123,10 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
     Boolean(filters.pendingStatus) ||
     needsClientSideSort
 
-  const blsJoin = filters.blStatus === 'with' ? 'bls!inner(id, charge_status)' : 'bls(id, charge_status)'
+  const blsJoin =
+    filters.blStatus === 'with'
+      ? `${BLS_OF_CUSTOMER_INNER}(id, charge_status)`
+      : `${BLS_OF_CUSTOMER}(id, charge_status)`
 
   let query = supabase
     .from('customers')
@@ -108,8 +135,8 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
 
   if (filters.search) {
     const search = escapeFilterTerm(filters.search)
-    const normalizedDocument = onlyDigits(filters.search)
-    const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
+    const normalizedDocument = normalizeCnpj(filters.search)
+    const documentClause = /\d/.test(filters.search) && normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
     const terms = search
       ? `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`
       : ''
@@ -175,10 +202,10 @@ export function useCustomerDetail(cnpj?: string) {
           `
           *,
           customer_contacts(*),
-          bls(id, consignee, financial_status, review_status, created_at)
+          ${BLS_OF_CUSTOMER}(id, consignee, financial_status, review_status, created_at)
         `,
         )
-        .eq('cnpj_cpf', cnpj!)
+        .eq('cnpj_cpf', normalizeCnpj(cnpj))
         .single()
 
       if (error) throw error
@@ -241,13 +268,13 @@ export function useCustomerLookup(search: string) {
 
 function buildCustomerLookupFilter(search: string) {
   const term = escapeFilterTerm(search)
-  const document = onlyDigits(search)
+  const document = normalizeCnpj(search)
   const clauses: string[] = []
 
   if (term.length >= 2) {
     clauses.push(`name.ilike.%${term}%`, `cnpj_cpf.ilike.%${term}%`)
   }
-  if (document.length >= 2 && document !== term) {
+  if (/\d/.test(search) && document.length >= 2 && document !== term) {
     clauses.push(`cnpj_cpf.ilike.%${document}%`)
   }
 

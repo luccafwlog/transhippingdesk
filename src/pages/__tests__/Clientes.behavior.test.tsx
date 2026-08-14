@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -143,7 +143,7 @@ describe('Clientes page behaviours', () => {
     const { invalidateQueries } = renderPage()
 
     await user.click(screen.getByRole('button', { name: 'Novo Cliente' }))
-    await user.type(screen.getByLabelText('CNPJ/CPF'), '12345678000195')
+    await user.type(screen.getByLabelText('CNPJ'), '12345678000195')
     await user.type(screen.getByLabelText('Razao Social'), 'Cliente Novo')
     await user.type(screen.getByLabelText('Nome'), 'Financeiro')
     await user.type(screen.getByLabelText('Email'), 'novo@example.com')
@@ -160,8 +160,19 @@ describe('Clientes page behaviours', () => {
     expect(screen.queryByRole('dialog', { name: 'Novo Cliente' })).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Novo Cliente' }))
-    expect((screen.getByLabelText('CNPJ/CPF') as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText('CNPJ') as HTMLInputElement).value).toBe('')
     expect((screen.getByLabelText('Razao Social') as HTMLInputElement).value).toBe('')
+  })
+
+  it('normalizes a pasted alphanumeric CNPJ immediately', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: 'Novo Cliente' }))
+    const input = screen.getByLabelText('CNPJ') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '12.ABC.345/01DE-35' } })
+
+    expect(input.value).toBe('12ABC34501DE35')
   })
 
   it('imports the parsed customer base, invalidates dependent caches, closes and resets the modal', async () => {
@@ -216,7 +227,7 @@ describe('Clientes page behaviours', () => {
     }))
 
     await user.click(screen.getByRole('button', { name: 'Mais ações para Cliente Teste' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Copiar CNPJ/CPF' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Copiar CNPJ' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('12.345.678/0001-95'))
     expect(screen.queryByRole('menu')).toBeNull()
   })

@@ -64,6 +64,28 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
   Supabase. Nenhuma correção de Auth ou waterfall foi inventada sem essa
   evidência.
 
+### Atualização 2026-08-13 (segunda sessão)
+
+- **Desbloqueado — Task 2 concluída.** A verificação de banco exigia acesso
+  administrativo ao Supabase, que esta sessão possuía. Resultados em
+  [`docs/archive/reports/2026-08-13-baseline-performance-producao.md`](../archive/reports/2026-08-13-baseline-performance-producao.md).
+  A camada de banco está descartada como gargalo.
+- **Bloqueio das Tasks 1 (último passo), 3 e 4A mudou de natureza.** A
+  credencial interna de teste foi fornecida e **é válida** (`POST
+  /auth/v1/token` responde `200` via `curl` a partir do container). O que
+  impede a medição agora é a **política de rede do ambiente remoto**, não a
+  falta de credencial:
+  - `transhipping-desk.web.app` é recusado no CONNECT do proxy (`403`), então
+    não há como medir Hosting/TLS reais daqui;
+  - o Chromium do container não alcança `*.supabase.co` por nenhum método
+    (`ERR_CONNECTION_RESET` no POST de auth, `Failed to fetch` em GET),
+    embora `curl` pelo mesmo proxy funcione. Servir o build de produção em
+    `vite preview` local contorna o Hosting, mas não o bloqueio do browser.
+  - **Consequência:** `npm run perf:authenticated-startup` precisa rodar numa
+    máquina com rede irrestrita (a do responsável ou um runner de CI com
+    egresso liberado). O harness em si está pronto e foi exercitado até o
+    ponto do POST de login.
+
 ### Task 1: Criar o feedback loop autenticado
 
 **Arquivos:**
@@ -93,15 +115,19 @@ Firebase Hosting, Vite, Vitest e Playwright/CDP para trace de navegador.
 **Arquivos:**
 - Criar: `docs/archive/reports/2026-08-13-baseline-performance-producao.md`
 
-- [ ] Confirmar em `pg_publication_tables` que `supabase_realtime` não contém
-  `vessel_schedules`, `alerts` nem `demurrage_invoices`.
-- [ ] Capturar dois snapshots separados por dez minutos de
+- [x] Confirmar em `pg_publication_tables` que `supabase_realtime` não contém
+  `vessel_schedules`, `alerts` nem `demurrage_invoices`. A publication está
+  vazia — não contém nenhuma tabela.
+- [x] Capturar dois snapshots separados por dez minutos de
   `pg_stat_statements` para `realtime.apply_rls`; a contagem não pode crescer
-  por consumidores deste app.
-- [ ] Medir `EXPLAIN (ANALYZE, BUFFERS)` das consultas de `user_profiles`, das
+  por consumidores deste app. Três snapshots em 11min35s: crescimento **zero**
+  em chamadas e em tempo. Os 45,3% da auditoria de 2026-08-12 são resíduo
+  histórico acumulado antes da migration `289`.
+- [x] Medir `EXPLAIN (ANALYZE, BUFFERS)` das consultas de `user_profiles`, das
   cinco contagens de `useOperationalCounts` e do Line Up com um usuário interno
-  representativo.
-- [ ] Registrar ambiente, commit, horário, perfil, medianas e planos; não
+  representativo. Medido com `set local role authenticated` + claims, para que
+  a RLS entre no plano. Faixa de 0,095 ms a 32,1 ms; RLS promovida a InitPlan.
+- [x] Registrar ambiente, commit, horário, perfil, medianas e planos; não
   registrar PII, JWT, anon key ou payloads de clientes.
 
 ### Task 3: Isolar a camada dominante

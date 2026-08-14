@@ -28,7 +28,7 @@ it('US-155: solicita recuperacao e confirma o recebimento da solicitacao', async
     </MemoryRouter>,
   )
 
-  await user.type(screen.getByPlaceholderText('00000000000000'), '12.345.678/0001-95')
+  await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
 
   await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
@@ -43,7 +43,7 @@ it('achado 3.2 (auditoria 2026-08-12): mostra a MESMA tela para conta existente 
       <PortalForgotPassword />
     </MemoryRouter>,
   )
-  await user.type(screen.getByPlaceholderText('00000000000000'), '12.345.678/0001-95')
+  await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
   await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
   unmount()
@@ -56,7 +56,7 @@ it('achado 3.2 (auditoria 2026-08-12): mostra a MESMA tela para conta existente 
       <PortalForgotPassword />
     </MemoryRouter>,
   )
-  await user.type(screen.getByPlaceholderText('00000000000000'), '98.765.432/0001-10')
+  await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '98.765.432/0001-10')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
   await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
 })
@@ -69,7 +69,7 @@ it('achado 3.2: rate limit continua mostrando mensagem de "tente mais tarde"', a
       <PortalForgotPassword />
     </MemoryRouter>,
   )
-  await user.type(screen.getByPlaceholderText('00000000000000'), '12.345.678/0001-95')
+  await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
   await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
   await waitFor(() => expect(screen.getByText('Não foi possível verificar o CNPJ agora. Aguarde alguns minutos e tente novamente.')).toBeTruthy())
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyDbError, extractErrorText } from '../errors'
+import { classifyDbError, extractErrorText, isRetriableDbError } from '../errors'
 
 describe('extractErrorText', () => {
   it('junta os campos de um erro do Supabase preservando o casing', () => {
@@ -112,5 +112,24 @@ describe('classifyDbError', () => {
   it('retorna desconhecido para entradas vazias/sem forma de erro', () => {
     expect(classifyDbError(null)).toEqual({ kind: 'desconhecido', message: 'Falha inesperada. Tente novamente.' })
     expect(classifyDbError(123)).toEqual({ kind: 'desconhecido', message: 'Falha inesperada. Tente novamente.' })
+  })
+})
+
+describe('isRetriableDbError', () => {
+  it('nao repete erros de construcao de query do PostgREST', () => {
+    // PGRST201: duas foreign keys ligam as mesmas tabelas e o embed nao nomeia
+    // qual usar. Repetir devolve o mesmo 300 Multiple Choices.
+    expect(isRetriableDbError({ code: 'PGRST201', message: 'Could not embed because more than one relationship was found' })).toBe(false)
+    expect(isRetriableDbError({ code: 'PGRST116', message: 'JSON object requested, multiple rows returned' })).toBe(false)
+  })
+
+  it('nao repete negativa de RLS nem sessao expirada', () => {
+    expect(isRetriableDbError({ code: '42501', message: 'permission denied for table invoices' })).toBe(false)
+    expect(isRetriableDbError({ code: 'PGRST301', message: 'JWT expired' })).toBe(false)
+  })
+
+  it('continua repetindo falhas transitorias', () => {
+    expect(isRetriableDbError(new TypeError('Failed to fetch'))).toBe(true)
+    expect(isRetriableDbError({ code: '40001', message: 'could not serialize access' })).toBe(true)
   })
 })

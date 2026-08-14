@@ -19,7 +19,7 @@ import { withCors } from '../_shared/cors.ts'
 if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
   const body = await req.json().catch(() => ({})) as { cnpj?: string }
-  const cnpj = body.cnpj?.replace(/\D/g, '') ?? ''
+  const cnpj = (body.cnpj ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase()
   const accepted = () => new Response(JSON.stringify({ accepted: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
   const rateLimited = () => new Response(JSON.stringify({ accepted: false, rate_limited: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
   if (cnpj.length !== 14) return accepted()
@@ -37,7 +37,7 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   const { data: invite } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'recuperacao', token_hash: tokenHash, sent_to_email: account.recovery_email, expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), status: 'pendente' }).select('id').single()
   if (!invite) return accepted()
   const customer = account.customers as { name?: string; cnpj_cpf?: string } | null
-  const d = customer?.cnpj_cpf?.replace(/\D/g, '') ?? ''
+  const d = (customer?.cnpj_cpf ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase()
   const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
   const template = recoveryTemplate({ companyName: customer?.name ?? 'sua empresa', cnpjMasked: d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***', recoveryUrl: `${portalUrl}/portal/recuperar-senha?token=${encodeURIComponent(token)}`, portalUrl, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' })
   const emailPromise = sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })

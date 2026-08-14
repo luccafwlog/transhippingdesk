@@ -205,7 +205,7 @@ export function ValidacaoOperationsTable({
                                   <div className="text-[var(--app-text-strong)]">{queueItem.manifest_customer_name ?? '-'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-[var(--app-muted)]">CNPJ/CPF</div>
+                                  <div className="text-[var(--app-muted)]">CNPJ</div>
                                   <div className="text-[var(--app-text-strong)]">{queueItem.cnpj_cpf ?? '-'}</div>
                                 </div>
                                 <div>

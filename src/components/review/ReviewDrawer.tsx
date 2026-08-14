@@ -10,8 +10,8 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import type { ReviewQueueItem } from '../../hooks/useReview'
+import { isValidCnpj, normalizeCnpj, formatCnpj } from '../../lib/cnpj'
 import { classifyDbError, extractErrorText } from '../../lib/errors'
-import { formatCnpjCpf, onlyDigits } from '../../lib/utils'
 import { createCustomer } from '../../services/customers'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../../services/review'
@@ -71,7 +71,7 @@ export function ReviewDrawer({
     setTotalCbm(item.total_cbm ? String(item.total_cbm) : '')
     setNotes(item.notes ?? '')
     setSelectedCustomerId(item.customer_id ?? null)
-    setSelectedCustomerDisplay(item.customer ? `${item.customer.name} (${formatCnpjCpf(item.customer.cnpj_cpf)})` : null)
+    setSelectedCustomerDisplay(item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : null)
     setCustomerSearch('')
     const manifestName = item.source === 'bl' ? (item.manifest_customer_name ?? null) : null
     const manifestCnpj = item.source === 'bl' ? (item.manifest_customer_cnpj_cpf ?? null) : null
@@ -84,12 +84,12 @@ export function ReviewDrawer({
 
   async function handleCreateCustomer() {
     if (!newCustomerName.trim() || !newCustomerCnpj.trim()) {
-      showToast('Informe nome e CNPJ/CPF para criar o cliente.', 'error')
+      showToast('Informe nome e CNPJ para criar o cliente.', 'error')
       return
     }
-    const documentDigits = onlyDigits(newCustomerCnpj)
-    if (documentDigits.length !== 11 && documentDigits.length !== 14) {
-      showToast('Informe um CNPJ (14 dígitos) ou CPF (11 dígitos) válido.', 'error')
+    const documentCanonical = normalizeCnpj(newCustomerCnpj)
+    if (!isValidCnpj(documentCanonical)) {
+      showToast('Informe um CNPJ de 14 posições válido.', 'error')
       return
     }
 
@@ -99,8 +99,8 @@ export function ReviewDrawer({
         : []
       const customer = await createCustomer({ cnpjCpf: newCustomerCnpj, name: newCustomerName, contacts })
       setSelectedCustomerId(customer.id)
-      setSelectedCustomerDisplay(`${customer.name} (${formatCnpjCpf(customer.cnpj_cpf)})`)
-      setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
+      setSelectedCustomerDisplay(`${customer.name} (${formatCnpj(customer.cnpj_cpf)})`)
+      setCustomerSearch(`${customer.name} ${formatCnpj(customer.cnpj_cpf)}`)
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
       showToast('Cliente criado e pronto para vinculação. Clique em "Marcar como revisado" para concluir.', 'success')
     } catch (error) {
@@ -110,18 +110,18 @@ export function ReviewDrawer({
         const { data: existing } = await supabase
           .from('customers')
           .select('id, name, cnpj_cpf')
-          .eq('cnpj_cpf', documentDigits)
+          .eq('cnpj_cpf', documentCanonical)
           .maybeSingle()
 
         if (existing) {
           setSelectedCustomerId(existing.id)
-          setSelectedCustomerDisplay(`${existing.name} (${formatCnpjCpf(existing.cnpj_cpf)})`)
-          setCustomerSearch(`${existing.name} ${formatCnpjCpf(existing.cnpj_cpf)}`)
+          setSelectedCustomerDisplay(`${existing.name} (${formatCnpj(existing.cnpj_cpf)})`)
+          setCustomerSearch(`${existing.name} ${formatCnpj(existing.cnpj_cpf)}`)
           showToast('Cliente já existia e foi selecionado para vinculação.', 'success')
           return
         }
 
-        showToast('Este CNPJ/CPF já está cadastrado. Selecione o cliente na busca acima.', 'error')
+        showToast('Este CNPJ já está cadastrado. Selecione o cliente na busca acima.', 'error')
         return
       }
       if (classifyDbError(error).kind === 'permissao') {
@@ -307,7 +307,7 @@ export function ReviewDrawer({
             {item.source === 'granite' && item.suggested_customer?.name ? (
               <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
                 Sugestao por nome — confirme o documento antes de vincular: <strong>{item.suggested_customer.name}</strong>{' '}
-                ({formatCnpjCpf(item.suggested_customer.cnpj_cpf)})
+                ({formatCnpj(item.suggested_customer.cnpj_cpf)})
               </div>
             ) : null}
             <div className="font-semibold text-white">Vinculação de cliente</div>
@@ -330,12 +330,12 @@ export function ReviewDrawer({
                     }`}
                     onClick={() => {
                       setSelectedCustomerId(customer.id)
-                      setSelectedCustomerDisplay(`${customer.name} (${formatCnpjCpf(customer.cnpj_cpf)})`)
-                      setCustomerSearch(`${customer.name} ${formatCnpjCpf(customer.cnpj_cpf)}`)
+                      setSelectedCustomerDisplay(`${customer.name} (${formatCnpj(customer.cnpj_cpf)})`)
+                      setCustomerSearch(`${customer.name} ${formatCnpj(customer.cnpj_cpf)}`)
                     }}
                   >
                     <div className="font-semibold">{customer.name}</div>
-                    <div className="text-xs text-slate-400">{formatCnpjCpf(customer.cnpj_cpf)}</div>
+                    <div className="text-xs text-slate-400">{formatCnpj(customer.cnpj_cpf)}</div>
                   </button>
                 ))}
               </div>
@@ -344,7 +344,7 @@ export function ReviewDrawer({
             {selectedCustomerId ? (
               <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
                 <div>Cliente selecionado para vinculação.</div>
-                <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpjCpf(item.customer.cnpj_cpf)})` : selectedCustomerDisplay ?? 'Cliente'}.</div>
+                <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : selectedCustomerDisplay ?? 'Cliente'}.</div>
               </div>
             ) : null}
 
@@ -354,8 +354,8 @@ export function ReviewDrawer({
                 <Field label="Nome">
                   <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} />
                 </Field>
-                <Field label="CNPJ/CPF">
-                  <Input value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(event.target.value)} />
+                  <Field label="CNPJ">
+                    <Input value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(normalizeCnpj(event.target.value))} />
                 </Field>
                 <Field label="E-mail">
                   <Input value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} placeholder="(opcional)" />

@@ -37,7 +37,7 @@ export function CustomerSummaryReport({ rows }: Props) {
         <thead>
           <tr>
             <th style={th}>Consignatário</th>
-            <th style={th}>CNPJ/CPF</th>
+            <th style={th}>CNPJ</th>
             <th style={{ ...th, textAlign: 'right' }}>Faturas</th>
             <th style={{ ...th, textAlign: 'right' }}>Total USD</th>
             <th style={{ ...th, textAlign: 'right' }}>Total BRL</th>

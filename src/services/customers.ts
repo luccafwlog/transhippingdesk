@@ -1,3 +1,4 @@
+import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
 import { onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import { buildDependencyReport, tallyReasons, type DeleteDependencyReport } from './deleteDependencies'
@@ -30,12 +31,14 @@ type CreateCustomerInput = {
 }
 
 export async function createCustomer(input: CreateCustomerInput) {
+  const cnpj = normalizeCnpj(input.cnpjCpf)
+  if (!isValidCnpj(cnpj)) throw new Error('CNPJ inválido.')
   const contacts = (input.contacts ?? []).filter(
     (contact) => contact.name.trim() || (contact.email ?? '').trim() || (contact.phone ?? '').trim(),
   )
   const { data, error } = await supabase.rpc('create_customer_with_contacts', {
     p_customer: {
-      cnpj_cpf: onlyDigits(input.cnpjCpf),
+      cnpj_cpf: cnpj,
       name: input.name.trim(),
       trade_name: normalizeText(input.tradeName),
       address: normalizeText(input.address),
@@ -243,12 +246,12 @@ function normalizeZip(value?: string | null) {
   return digits || null
 }
 
-/** Busca cliente existente por CNPJ/CPF (fallback de cadastro duplicado). */
+/** Busca cliente existente por CNPJ (fallback de cadastro duplicado). */
 export async function findCustomerIdByDocument(cnpjCpf: string): Promise<number | null> {
   const { data } = await supabase
     .from('customers')
     .select('id')
-    .eq('cnpj_cpf', cnpjCpf.replace(/\D/g, ''))
+    .eq('cnpj_cpf', normalizeCnpj(cnpjCpf))
     .maybeSingle()
   return data?.id ?? null
 }

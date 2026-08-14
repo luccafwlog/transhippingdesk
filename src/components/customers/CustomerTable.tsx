@@ -154,9 +154,9 @@ export function CustomerTable({
 
       {actionsMenu ? (
         <div data-actions-menu className="app-floating-menu" role="menu" style={{ top: actionsMenu.top, left: actionsMenu.left }}>
-          <button type="button" role="menuitem" onClick={() => void onCopy(formatCnpjCpf(actionsMenu.cnpj), 'CNPJ/CPF')}>
+          <button type="button" role="menuitem" onClick={() => void onCopy(formatCnpjCpf(actionsMenu.cnpj), 'CNPJ')}>
             <Copy size={14} />
-            Copiar CNPJ/CPF
+            Copiar CNPJ
           </button>
           {actionsMenu.email ? (
             <button type="button" role="menuitem" onClick={() => void onCopy(actionsMenu.email!, 'E-mail principal')}>

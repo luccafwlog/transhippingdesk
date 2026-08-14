@@ -33,12 +33,12 @@ export function ImportBaseModal({
         <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
           <div className="font-semibold text-white">Modelo padrao da base</div>
           <div className="mt-2">
-            As colunas obrigatorias do arquivo sao <span className="font-semibold text-white">CNPJ/CPF</span> e{' '}
+            As colunas obrigatorias do arquivo sao <span className="font-semibold text-white">CNPJ</span> e{' '}
             <span className="font-semibold text-white">Razao Social</span>. As colunas opcionais sao Nome Fantasia,
             Endereco, Cidade, UF, CEP e Email.
           </div>
           <div className="mt-2 text-slate-400">
-            Se o mesmo CNPJ/CPF aparecer em mais de uma linha com e-mails distintos, todos os e-mails serao criados
+            Se o mesmo CNPJ aparecer em mais de uma linha com e-mails distintos, todos os e-mails serao criados
             como contatos do cliente.
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -62,7 +62,7 @@ export function ImportBaseModal({
         </div>
 
         <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
-          Quando um manifesto trouxer o mesmo CNPJ/CPF, o B/L passa a usar o cliente desta base como cadastro
+          Quando um manifesto trouxer o mesmo CNPJ, o B/L passa a usar o cliente desta base como cadastro
           oficial.
         </div>
 
@@ -107,7 +107,7 @@ function ImportBasePreview({ parsedBase }: { parsedBase: ParsedCustomerBase }) {
         <table className="app-table app-table--compact min-w-[760px] text-left text-sm">
           <thead className="text-xs uppercase tracking-wider">
             <tr>
-              <th scope="col" className="px-3 py-2">CNPJ/CPF</th>
+              <th scope="col" className="px-3 py-2">CNPJ</th>
               <th scope="col" className="px-3 py-2">Nome</th>
               <th scope="col" className="px-3 py-2">Emails</th>
               <th scope="col" className="px-3 py-2">Cidade/UF</th>

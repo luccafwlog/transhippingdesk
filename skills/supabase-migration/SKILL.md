@@ -39,6 +39,13 @@ invent types, constraints, policies, or grants from memory.
 
 - declare every foreign-key `ON DELETE` behavior;
 - index new FKs and demonstrated hot filters/orderings;
+- a **second** FK between two tables that already had one breaks every existing
+  PostgREST embed for that pair: the request fails whole with
+  `300 Multiple Choices` / `PGRST201`, visible only at runtime in the browser.
+  Before shipping such an FK, grep the client for embeds of both tables and name
+  the FK explicitly (`bls!bls_customer_id_fkey`), parking the alias in
+  `src/lib/supabaseEmbeds.ts`. See
+  `docs/archive/audits/2026-08-13-erro-ao-carregar-clientes-embed-ambiguo.md`;
 - use `timestamptz default now() not null` for creation time;
 - add `updated_at` only with its maintenance trigger;
 - prefer UUID/identity according to neighboring tables;

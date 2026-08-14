@@ -3,6 +3,7 @@ import { Button } from '../ui/Button'
 import { Field, Input, Select, Textarea } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import type { CreateCustomerForm, CustomerContactForm, CustomerCreateErrors } from './customerCreateForm'
+import { normalizeCnpj } from '../../lib/cnpj'
 
 export function CreateCustomerModal({
   open,
@@ -31,8 +32,8 @@ export function CreateCustomerModal({
     <Modal open={open} onClose={onClose} title="Novo Cliente">
       <div className="grid gap-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Field label="CNPJ/CPF" error={errors.cnpjCpf}>
-            <Input value={form.cnpjCpf} onChange={(event) => onFieldChange('cnpjCpf', event.target.value)} />
+          <Field label="CNPJ" error={errors.cnpjCpf}>
+            <Input value={form.cnpjCpf} onChange={(event) => onFieldChange('cnpjCpf', normalizeCnpj(event.target.value))} />
           </Field>
           <Field label="Razao Social" error={errors.name}>
             <Input value={form.name} onChange={(event) => onFieldChange('name', event.target.value)} />

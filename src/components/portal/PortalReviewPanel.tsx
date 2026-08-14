@@ -10,6 +10,7 @@ import type { QueueRow } from '../../services/portalProvisioning'
 import { useAdminChangeCnpj, useAssistedEmailChange, useCancelPortalInvite, usePortalEvents, useReturnToAnalysis, useSendPortalInvite, useSetProvisioningException, useSuspendPortalAccount } from '../../hooks/usePortalProvisioning'
 import { accountSituationLabel, contactPurposeLabel, deliveryStatusLabel, provisioningDecisionLabel, recoveryEmailSourceLabel } from '../../lib/portalProvisioningViewModel'
 import { formatCnpjCpf } from '../../lib/utils'
+import { normalizeCnpj } from '../../lib/cnpj'
 
 type Props = {
   row: QueueRow
@@ -87,7 +88,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
 
   async function adminCnpjChange() {
     if (!newCnpj.trim() || !reason.trim()) { setError('Informe CNPJ e justificativa.'); return }
-    try { await adminCnpjMutation.mutateAsync({ customerId: row.customer_id, cnpj: newCnpj.trim(), reason: reason.trim() }) }
+    try { await adminCnpjMutation.mutateAsync({ customerId: row.customer_id, cnpj: normalizeCnpj(newCnpj), reason: reason.trim() }) }
     catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível alterar o CNPJ.'); return }
     showToast('CNPJ alterado de forma auditada.', 'success'); onSaved?.()
   }
@@ -132,7 +133,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         {row.account_situation === 'ativo' ? <Button variant="secondary" onClick={() => void assistedEmailChange()} disabled={!canProvision || !email.trim() || busy}>Trocar Email de Recuperação</Button> : null}
       </div> : null}
 
-      {isAdmin && !isOperations ? <div className="mt-5 grid gap-3 border-t border-[var(--app-border)] pt-5"><Field label="Novo CNPJ"><Input value={newCnpj} onChange={(event) => setNewCnpj(event.target.value)} /></Field><Button variant="secondary" onClick={() => void adminCnpjChange()} disabled={!newCnpj.trim() || newCnpj === row.cnpj_cpf || busy}>Alterar CNPJ auditado</Button></div> : null}
+      {isAdmin && !isOperations ? <div className="mt-5 grid gap-3 border-t border-[var(--app-border)] pt-5"><Field label="Novo CNPJ"><Input value={newCnpj} onChange={(event) => setNewCnpj(normalizeCnpj(event.target.value))} /></Field><Button variant="secondary" onClick={() => void adminCnpjChange()} disabled={!newCnpj.trim() || newCnpj === row.cnpj_cpf || busy}>Alterar CNPJ auditado</Button></div> : null}
 
       {!isOperations && row.account_situation === 'convite_pendente' ? (
         <div className="mt-6 grid gap-3 border-t border-[var(--app-border)] pt-5">
