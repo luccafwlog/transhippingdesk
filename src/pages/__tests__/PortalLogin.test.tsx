@@ -20,6 +20,7 @@ vi.mock('../../services/supabase', () => ({
   isSupabaseConfigured: true,
 }))
 
+import { INCOMPLETE_CNPJ_MESSAGE } from '../../lib/portalCnpjLogin'
 import { PortalLogin } from '../PortalLogin'
 
 afterEach(() => {
@@ -59,4 +60,38 @@ it('mostra erro de conexao quando o login falha por rede', async () => {
     expect(screen.getByText('Nao foi possivel conectar. Verifique sua internet e tente novamente.')).toBeTruthy()
   })
   expect(screen.queryByText('Credenciais invalidas para o portal do cliente.')).toBeNull()
+})
+
+it('CNPJ incompleto para no cliente, com mensagem propria, sem tentar autenticar', async () => {
+  const user = userEvent.setup()
+
+  render(
+    <MemoryRouter>
+      <PortalLogin />
+    </MemoryRouter>,
+  )
+
+  await user.type(await screen.findByPlaceholderText('00.000.000/0000-00'), '12.345.678')
+  await user.type(screen.getByLabelText('Senha'), 'senha-secreta')
+  await user.click(screen.getByRole('button', { name: 'Entrar no portal' }))
+
+  await waitFor(() => expect(screen.getByText(INCOMPLETE_CNPJ_MESSAGE)).toBeTruthy())
+  expect(auth.signIn).not.toHaveBeenCalled()
+})
+
+it('senha errada em CNPJ completo mantem a mensagem generica de credenciais', async () => {
+  const user = userEvent.setup()
+  auth.signIn.mockRejectedValue(new Error('CNPJ ou senha inválidos.'))
+
+  render(
+    <MemoryRouter>
+      <PortalLogin />
+    </MemoryRouter>,
+  )
+
+  await user.type(await screen.findByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
+  await user.type(screen.getByLabelText('Senha'), 'senha-errada')
+  await user.click(screen.getByRole('button', { name: 'Entrar no portal' }))
+
+  await waitFor(() => expect(screen.getByText('Credenciais inválidas para o portal do cliente.')).toBeTruthy())
 })

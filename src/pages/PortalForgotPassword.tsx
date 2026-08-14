@@ -5,6 +5,7 @@ import { Card, InlineError } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
 import { supabasePortal } from '../services/supabase'
 import { normalizeCnpj } from '../lib/cnpj'
+import { INCOMPLETE_CNPJ_MESSAGE, isCompleteCnpjLogin } from '../lib/portalCnpjLogin'
 
 export function PortalForgotPassword() {
   const [cnpj, setCnpj] = useState('')
@@ -15,16 +16,28 @@ export function PortalForgotPassword() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError('')
+
+    // Formato do CNPJ é verificável sem consultar o servidor, então avisar aqui
+    // não revela nada sobre a base — e evita a tela de "solicitação recebida"
+    // para quem simplesmente digitou o CNPJ pela metade e nunca receberia email.
+    if (!isCompleteCnpjLogin(cnpj)) {
+      setError(INCOMPLETE_CNPJ_MESSAGE)
+      return
+    }
+
     setSubmitting(true)
 
     try {
       const { data, error: resetError } = await supabasePortal.functions.invoke('portal-password-recovery', { body: { cnpj } })
       if (resetError) throw resetError
-      if (data?.rate_limited === true) setError('Não foi possível verificar o CNPJ agora. Aguarde alguns minutos e tente novamente.')
+      if (data?.rate_limited === true) setError('Muitas solicitações em pouco tempo. Aguarde alguns minutos e tente novamente.')
       else setSent(true)
     } catch (err: unknown) {
       void err
-      setError('Se o CNPJ informado estiver cadastrado, enviaremos um link para redefinir sua senha.')
+      // A solicitação NÃO chegou ao servidor (rede/função fora do ar). Repetir
+      // aqui a mensagem de "enviaremos um link" faria o cliente esperar por um
+      // email que nunca sairia.
+      setError('Não foi possível concluir a solicitação agora. Tente novamente em instantes.')
     } finally {
       setSubmitting(false)
     }
@@ -40,8 +53,14 @@ export function PortalForgotPassword() {
               <h1 className="app-auth__title">Solicitação recebida</h1>
             </div>
           </div>
+          {/* A tela afirma o envio sem condicionar a "se houver conta": o texto
+              condicional devolvia ao cliente o mesmo sinal de enumeração que o
+              backend deixou de dar (achado 3.2). Nenhuma variação por CNPJ. */}
           <p className="text-sm text-[var(--app-muted)]">
-            Se houver uma conta do Portal para este CNPJ, enviamos um link de redefinição ao email cadastrado.
+            Enviamos um link de redefinição para o email cadastrado na conta. O link vale por 1 hora.
+          </p>
+          <p className="mt-2 text-sm text-[var(--app-muted)]">
+            Não recebeu em alguns minutos? Confira a caixa de spam ou fale com seu contato comercial na Transhipping.
           </p>
           <div className="mt-4 text-center">
             <Link to="/portal/login" className="text-sm text-[var(--app-link)] hover:underline">

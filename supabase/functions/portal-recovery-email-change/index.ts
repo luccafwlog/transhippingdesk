@@ -26,7 +26,11 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
     await admin.from('customer_portal_accounts').update({ pending_recovery_email: email }).eq('id', account.id)
     const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
     const supportEmail = Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br'
-    const urlConfirm = `${portalUrl}/portal/perfil?confirm_email=${encodeURIComponent(token)}`
+    // Rota publica dedicada: o link chega no Email de Recuperacao, que costuma
+    // ser lido pelo contato financeiro -- sem senha do Portal. Apontar para
+    // /portal/perfil (rota protegida) fazia o guard redirecionar para o login
+    // descartando a query string, e o token se perdia em silencio.
+    const urlConfirm = `${portalUrl}/portal/confirmar-email?token=${encodeURIComponent(token)}`
     const customer = account.customers as { name?: string } | null
     const confirmTemplate = emailChangeConfirmTemplate({ companyName: customer?.name ?? 'sua empresa', confirmUrl: urlConfirm, portalUrl, supportEmail })
     await sendPortalEmail({ admin, kind: 'alteracao_email', to: email, subject: confirmTemplate.subject, html: confirmTemplate.html, text: confirmTemplate.text, idempotencyKey: `alteracao_email:${invite.id}`, accountId: account.id, inviteId: invite.id })
