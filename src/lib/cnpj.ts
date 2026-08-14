@@ -18,6 +18,13 @@ export function isValidCnpj(value?: string | null): boolean {
   const canonical = normalizeCnpj(raw)
   if (!/^[0-9A-Z]{14}$/.test(canonical)) return false
 
+  // CNPJ de caractere repetido nao existe no cadastro da Receita. O caso que
+  // escapa e o zerado: com soma zero, o resto e zero e os dois DVs calculados
+  // dao "00", entao 00000000000000 fecha a propria conta e passaria como
+  // valido. Os demais repetidos ja reprovam no DV; a guarda cobre a familia
+  // inteira de uma vez, em vez de tratar so o zero.
+  if (/^(.)\1{13}$/.test(canonical)) return false
+
   const body = canonical.slice(0, 12)
   const expected = `${calculateDigit(body, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])}${calculateDigit(`${body}${canonical[12]}`, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])}`
   return canonical.slice(12) === expected

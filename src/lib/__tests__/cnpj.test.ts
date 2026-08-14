@@ -26,6 +26,15 @@ describe('isValidCnpj', () => {
     expect(isValidCnpj('12.ABC.345/01DE-35')).toBe(true)
   })
 
+  it('rejeita CNPJ de caractere repetido, inclusive o zerado', () => {
+    // O zerado e o unico repetido que fecha o proprio DV: soma zero, resto
+    // zero, DVs "00". Sem a guarda ele passaria como valido e viraria cliente
+    // e, na sequencia, identificador de login do Portal.
+    expect(isValidCnpj('00.000.000/0000-00')).toBe(false)
+    expect(isValidCnpj('11.111.111/1111-11')).toBe(false)
+    expect(isValidCnpj('AA.AAA.AAA/AAAA-AA')).toBe(false)
+  })
+
   it('rejeita DV incorreto e caracteres fora do alfabeto permitido', () => {
     expect(isValidCnpj('12.ABC.345/01DE-36')).toBe(false)
     expect(isValidCnpj('12.ABC.345/01D$-35')).toBe(false)
