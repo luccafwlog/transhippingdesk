@@ -7,8 +7,9 @@
 do resto do sistema, estender a trava de tentativas à verificação de senha da
 troca de Email de Recuperação, parar de consumir o convite de confirmação antes
 de saber se há troca pendente para aplicar, fechar a janela em que a sessão
-antiga sobrevive à troca de senha, e dar saída à lista de bloqueio de emails —
-que hoje só abre para dentro.
+antiga sobrevive à troca de senha, dar saída à lista de bloqueio de emails — que
+hoje só abre para dentro — e parar de enviar um email de recuperação para cada
+pedido quando já existe link vivo.
 
 **Origem:** grilling de 2026-08-14 sobre o fluxo de login/recuperação (PR #539).
 Os achados foram verificados contra o código e o banco de produção; nenhum deles
@@ -247,7 +248,60 @@ quebrou* — e a coluna única faz um apagar o outro.
   webhook insere sem checar, então cada bounce do mesmo endereço abre mais um
   alerta. Deduplicar por `type` + `entity_id` + `status='open'`.
 
-### Task 7: Testes
+### Task 7: Recuperação reusa o convite vivo em vez de enviar email novo
+
+**Achado I.** Cada pedido de recuperação invalida o convite anterior e cria
+outro (`portal-password-recovery:35-37`), disparando um email. Como o CNPJ é
+público e a função é necessariamente pública (`verify_jwt = false`), um terceiro
+faz o sistema enviar até 480 emails por dia à caixa de recuperação de um cliente
+real, saindo do domínio de envio do Portal.
+
+O mesmo trecho produz um segundo efeito, esse contra o cliente: quem pediu o
+link, foi ler o email e clicou pode encontrá-lo cancelado por um pedido que não
+foi dele.
+
+**Decisão em ADR [0048](../adr/0048-rate-limit-do-portal-chaveado-somente-por-cnpj.md).**
+A chave do balde continua sendo só o CNPJ — contar por IP foi rejeitado porque o
+`CONTEXT.md` registra que um mesmo Email de Recuperação atende mais de um CNPJ,
+então um escritório com vários clientes bloquearia um cliente com as tentativas
+de outro (a mesma contaminação cruzada do achado A, por outra chave).
+
+**Arquivos:** `supabase/functions/portal-password-recovery/index.ts`
+
+- Antes de invalidar e criar, buscar convite `recuperacao` com
+  `status = 'pendente'` e `expires_at > now()` para a conta. Havendo um, devolver
+  `accepted()` **sem** criar convite e **sem** enviar email.
+- Não alterar o balde de tentativas: ele continua registrando todo pedido,
+  inclusive os que resultam em envio. Contar só os pedidos sem conta
+  transformaria o bloqueio em oráculo de enumeração.
+- A resposta permanece byte a byte a mesma em todos os caminhos elegíveis. O
+  caminho de reuso não faz `fetch` para o Resend, então é mais rápido, não mais
+  lento — não reabre o oráculo de tempo que o `EdgeRuntime.waitUntil` fechou.
+- Teto resultante: um email por hora por conta, que é a validade do convite.
+
+### Task 8: Caminho bloqueado do login faz trabalho que depende da conta existir
+
+**Achado J.** Quando o rate limit bloqueia, `portal-login:42-46` consulta
+`customer_portal_accounts` e, **só se a conta existir**, consulta `alerts` e
+eventualmente insere. Os dois caminhos devolvem o mesmo `401 CNPJ ou senha
+inválidos.`, mas um faz consistentemente uma consulta a mais que o outro.
+
+É o mesmo oráculo por tempo do achado 3.2 da auditoria
+`security-audit-portal-2026-08-12`, que a PR 527 fechou na recuperação com
+`EdgeRuntime.waitUntil` — reaparecido no login, onde ninguém olhou.
+
+**Severidade: baixa.** Exige levar o CNPJ ao bloqueio antes de medir, e a
+diferença é de uma consulta, submersa no ruído da rede. Mas é assimetria real
+num caminho projetado para não ter nenhuma, e a correção já é conhecida na casa.
+
+**Arquivos:** `supabase/functions/portal-login/index.ts`
+
+- Mover a consulta e o alerta para segundo plano com `EdgeRuntime.waitUntil`,
+  respondendo `401` antes de o trabalho terminar — mesma forma de
+  `portal-password-recovery:45`.
+- Preservar a deduplicação do alerta por cliente, que já existe e está correta.
+
+### Task 9: Testes
 
 **Arquivos:** `supabase/functions/__tests__/` (ou equivalente do projeto),
 `src/services/__tests__/`
@@ -266,8 +320,11 @@ quebrou* — e a coluna única faz um apagar o outro.
 - Bounce permanente em conta **ativa** marca o sinal do email sem alterar
   `account_situation`, e um segundo bounce do mesmo endereço não abre um
   segundo alerta.
+- Segundo pedido de recuperação com convite vivo devolve `accepted:true`, **não**
+  envia email e **não** invalida o convite existente; passada a validade, o
+  pedido seguinte gera link novo.
 
-### Task 8: Documentação
+### Task 10: Documentação
 
 **Arquivos:** `docs/modules/portal-cliente.md`, `docs/CHANGELOG.md`,
 `docs/plans/README.md`
@@ -289,6 +346,10 @@ quebrou* — e a coluna única faz um apagar o outro.
   troca de email passa a consumir tentativas do próprio login. É o
   comportamento desejado — é a mesma senha e o mesmo alvo —, mas precisa estar
   claro na mensagem de tela.
+- **Reuso do convite vivo** (Task 7): o cliente que apagou o email por engano
+  não consegue forçar um link novo dentro da hora. A saída prevista é a linha de
+  rodapé da tela de confirmação (spam, e na dúvida o suporte); confirmar que ela
+  cobre esse caso antes de mudar.
 - **Liberar endereço bloqueado** (Task 5): reenviar para uma caixa que de fato
   morreu gasta reputação de envio do domínio. O rastro de quem liberou é o que
   torna o custo visível; sem ele, o botão vira hábito.
