@@ -58,10 +58,14 @@ somente CNPJ e senha; a Edge Function `portal-login` resolve a identidade
 técnica no servidor e devolve apenas a sessão. `portal_resolve_login(text)` não
 é executável por `anon`/`authenticated`.
 
-Essa resolução é a exceção pré-autenticação documentada para `anon`, limitada
-por tentativas e erro genérico. RPCs de dados do Portal exigem sessão
-autenticada e resolvem o cliente por `auth.uid()`. Veja a
-[ADR 0013](./adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
+A [ADR 0013](./adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md)
+tratou essa resolução como exceção pré-autenticação para `anon`, limitada por
+tentativas e erro genérico. **Essa exceção não existe mais:** a migration `182`
+revogou `anon` de `portal_resolve_login(text)` quando o login passou a ser
+resolvido pela Edge Function com `service_role`. O wrapper `portalResolveLogin`
+em `src/services/portalBilling.ts` é código morto, sem chamador de produção. RPCs
+de dados do Portal exigem sessão autenticada e resolvem o cliente por
+`auth.uid()`.
 
 O cliente do Portal recebe o **mesmo role `authenticated`** do usuário interno.
 O role, portanto, não separa os dois: quem separa é o perfil. `user_profiles`
@@ -325,10 +329,14 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
   (inclui Equipamentos), nunca `is_active_user()` (211);
 - operações financeiras e destrutivas usam RPCs ou policies restritas;
 - funções privilegiadas têm `search_path` controlado e grants explícitos;
-- `anon` segue default-deny, exceto duas funções pré-autenticação documentadas:
-  `portal_resolve_login` (ADR 0013) e `portal_ship_schedule()`, cuja programação
-  de navios é vitrine pública por decisão — nenhum campo de cliente, fatura, B/L,
-  container ou contato pode entrar nela sem revisar esta exceção;
+- `anon` segue default-deny **por construção**: desde a migration `297`, o
+  `ALTER DEFAULT PRIVILEGES` de `public` revoga `EXECUTE` de `PUBLIC`, `anon` e
+  `authenticated`, então função nova nasce fechada e o acesso é concedido caso a
+  caso na própria migration (ADR 0047). Há **uma** exceção pré-autenticação viva:
+  `portal_ship_schedule()`, cuja programação de navios é vitrine pública por
+  decisão — nenhum campo de cliente, fatura, B/L, container ou contato pode entrar
+  nela sem revisar esta exceção. A exceção `anon` da ADR 0013
+  (`portal_resolve_login`) foi encerrada pela migration `182`;
 - Edge Functions com service role validam chamador, origem ou segredo.
 
 ### Edge Functions
