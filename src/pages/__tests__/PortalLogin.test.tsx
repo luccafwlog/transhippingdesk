@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -27,6 +27,20 @@ afterEach(() => {
   auth.signIn.mockReset()
 })
 
+it('normaliza um CNPJ alfanumérico colado antes de autenticar', async () => {
+  auth.signIn.mockResolvedValue(undefined)
+
+  render(
+    <MemoryRouter>
+      <PortalLogin />
+    </MemoryRouter>,
+  )
+
+  const input = await screen.findByPlaceholderText('00.000.000/0000-00') as HTMLInputElement
+  fireEvent.change(input, { target: { value: '12.ABC.345/01DE-35' } })
+  expect(input.value).toBe('12ABC34501DE35')
+})
+
 it('mostra erro de conexao quando o login falha por rede', async () => {
   const user = userEvent.setup()
   auth.signIn.mockRejectedValue(new TypeError('Failed to fetch'))
@@ -37,7 +51,7 @@ it('mostra erro de conexao quando o login falha por rede', async () => {
     </MemoryRouter>,
   )
 
-  await user.type(await screen.findByPlaceholderText('00000000000000'), '12.345.678/0001-95')
+  await user.type(await screen.findByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
   await user.type(screen.getByLabelText('Senha'), 'senha-secreta')
   await user.click(screen.getByRole('button', { name: 'Entrar no portal' }))
 

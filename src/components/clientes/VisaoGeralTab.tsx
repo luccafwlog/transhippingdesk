@@ -60,7 +60,7 @@ export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-white">Identidade</h2>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div><dt className="text-xs text-slate-500">CNPJ/CPF</dt><dd>{formatCnpjCpf(data.cnpj_cpf)}</dd></div>
+            <div><dt className="text-xs text-slate-500">CNPJ</dt><dd>{formatCnpjCpf(data.cnpj_cpf)}</dd></div>
             <div><dt className="text-xs text-slate-500">Cidade/UF</dt><dd>{[data.city, data.state].filter(Boolean).join(' / ') || '—'}</dd></div>
             <div><dt className="text-xs text-slate-500">Contato principal</dt><dd>{primaryContact ? `${primaryContact.name ?? '—'} · ${primaryContact.email ?? primaryContact.phone ?? '—'}` : 'Nenhum contato'}</dd></div>
             <div><dt className="text-xs text-slate-500">Portal</dt><dd>{portalRow ? accountSituationLabel(portalRow.account_situation) : '—'}</dd></div>

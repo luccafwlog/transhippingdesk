@@ -1,4 +1,4 @@
-import { onlyDigits } from '../lib/utils'
+import { normalizeCnpj } from '../lib/cnpj'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import { canonicalizeVesselName } from '../lib/vesselAlias'
 import { extractConsigneeShortName } from '../lib/consigneeName'
@@ -242,7 +242,7 @@ export function buildBlFreightPreview({
     }
 
     const consigneeDocumentMatches = payload && existing?.manifest_customer_cnpj_cpf
-      ? onlyDigits(existing.manifest_customer_cnpj_cpf) === onlyDigits(payload.manifest_customer_cnpj_cpf)
+      ? normalizeCnpj(existing.manifest_customer_cnpj_cpf) === normalizeCnpj(payload.manifest_customer_cnpj_cpf)
       : null
 
     const billed = billingLockedBlIds.has(doc.blNumber)
@@ -529,8 +529,8 @@ function computeBillingImpact(
     messages.push(`Peso (carga solta, variavel de faturamento): ${existing.total_weight_kg ?? '-'} -> ${payload.total_weight_kg ?? '-'}`)
   }
 
-  const existingDoc = onlyDigits(existing.manifest_customer_cnpj_cpf ?? '')
-  const nextDoc = onlyDigits(payload.manifest_customer_cnpj_cpf ?? '')
+  const existingDoc = normalizeCnpj(existing.manifest_customer_cnpj_cpf ?? '')
+  const nextDoc = normalizeCnpj(payload.manifest_customer_cnpj_cpf ?? '')
   const cnpj = Boolean(existingDoc) && Boolean(nextDoc) && existingDoc !== nextDoc
   if (cnpj) {
     messages.push(`CNPJ faturado: ${existing.manifest_customer_cnpj_cpf} -> ${payload.manifest_customer_cnpj_cpf}`)

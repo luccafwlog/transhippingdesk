@@ -1,11 +1,12 @@
 import { asString, onlyDigits } from '../lib/utils'
+import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
 import { assertUploadFile } from '../lib/fileGuard'
 import type { Customer, CustomerContact } from '../types/database'
 import { supabase } from './supabase'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
 const headerMap = {
-  cnpj_cpf: ['cnpj/cpf', 'cnpj', 'cpf'],
+  cnpj_cpf: ['cnpj', 'cnpj/cpf'],
   name: ['razao social'],
   trade_name: ['nome fantasia', 'trade name', 'fantasia'],
   email: ['email', 'e-mail', 'mail'],
@@ -16,7 +17,7 @@ const headerMap = {
 } as const
 
 const requiredHeaders = {
-  cnpj_cpf: 'CNPJ/CPF',
+  cnpj_cpf: 'CNPJ',
   name: 'Razao Social',
 } as const
 
@@ -198,7 +199,7 @@ function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerB
     const name = asString(mapped.name)
 
     if (!cnpjCpf) {
-      rowErrors.push({ row: index + 2, message: 'Linha sem CNPJ/CPF valido.', raw: row })
+      rowErrors.push({ row: index + 2, message: 'Linha sem CNPJ válido.', raw: row })
       return
     }
 
@@ -234,9 +235,8 @@ function mapRow(row: Record<string, unknown>) {
 }
 
 function normalizeDocument(value: string) {
-  const digits = onlyDigits(value)
-  if (digits.length === 14 || digits.length === 11) return digits
-  return ''
+  const cnpj = normalizeCnpj(value)
+  return isValidCnpj(cnpj) ? cnpj : ''
 }
 
 function extractEmails(value: string) {

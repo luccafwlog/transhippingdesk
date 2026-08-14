@@ -1,5 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { onlyDigits, toNumber } from '../lib/utils'
+import { normalizeCnpj } from '../lib/cnpj'
+import { toNumber } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { normalizePortCode } from './portCode'
@@ -113,14 +114,14 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
     }
 
     const cnpjRaw = String(mapped['shipper_cnpj'] ?? '').trim()
-    const cnpjDigits = onlyDigits(cnpjRaw)
+    const cnpjCanonical = normalizeCnpj(cnpjRaw)
     const shipperName = String(mapped['shipper_name'] ?? '').trim() || null
 
     let clientId: number | null = null
     let suggestedClientId: number | null = null
     let reconciliationStatus: ReconciliationStatus = 'missing_cnpj'
 
-    if (cnpjDigits || shipperName) {
+    if (cnpjCanonical || shipperName) {
       const match = findMatchedCustomer({ cnpjCpf: cnpjRaw, consignee: shipperName ?? '' }, customerMaps)
       const link = resolveCustomerLink(match)
       clientId = link.customerId
@@ -129,7 +130,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
         ? 'matched'
         : link.status === 'matched_name'
           ? 'suggested_name'
-          : cnpjDigits ? 'not_found' : 'missing_cnpj'
+          : cnpjCanonical ? 'not_found' : 'missing_cnpj'
     }
 
     bls.push({
@@ -145,7 +146,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       loading_port: normalizePortCode(String(mapped['loading_port'] ?? '').trim() || null),
       discharge_port: normalizePortCode(String(mapped['discharge_port'] ?? '').trim() || null),
       shipper_name: shipperName,
-      shipper_cnpj: cnpjDigits || cnpjRaw || null,
+      shipper_cnpj: cnpjCanonical || cnpjRaw || null,
       consignee_name: String(mapped['consignee_name'] ?? '').trim() || null,
       charter: String(mapped['charter'] ?? '').trim() || null,
       shipper_m3: toNumber(String(mapped['shipper_m3'] ?? '')),

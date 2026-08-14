@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { normalizeCnpj } from '../lib/cnpj'
 import { supabase } from '../services/supabase'
 import { fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
-import { escapeFilterTerm, onlyDigits } from '../lib/utils'
+import { escapeFilterTerm } from '../lib/utils'
 import { classifyDbError } from '../lib/errors'
 import { sortCustomerRows, type CustomerSortKey, type SortDirection } from '../lib/customerTableViewModel'
 import { BLS_OF_CUSTOMER, BLS_OF_CUSTOMER_INNER } from '../lib/supabaseEmbeds'
@@ -134,8 +135,8 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
 
   if (filters.search) {
     const search = escapeFilterTerm(filters.search)
-    const normalizedDocument = onlyDigits(filters.search)
-    const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
+    const normalizedDocument = normalizeCnpj(filters.search)
+    const documentClause = /\d/.test(filters.search) && normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
     const terms = search
       ? `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`
       : ''
@@ -204,7 +205,7 @@ export function useCustomerDetail(cnpj?: string) {
           ${BLS_OF_CUSTOMER}(id, consignee, financial_status, review_status, created_at)
         `,
         )
-        .eq('cnpj_cpf', cnpj!)
+        .eq('cnpj_cpf', normalizeCnpj(cnpj))
         .single()
 
       if (error) throw error
@@ -267,13 +268,13 @@ export function useCustomerLookup(search: string) {
 
 function buildCustomerLookupFilter(search: string) {
   const term = escapeFilterTerm(search)
-  const document = onlyDigits(search)
+  const document = normalizeCnpj(search)
   const clauses: string[] = []
 
   if (term.length >= 2) {
     clauses.push(`name.ilike.%${term}%`, `cnpj_cpf.ilike.%${term}%`)
   }
-  if (document.length >= 2 && document !== term) {
+  if (/\d/.test(search) && document.length >= 2 && document !== term) {
     clauses.push(`cnpj_cpf.ilike.%${document}%`)
   }
 

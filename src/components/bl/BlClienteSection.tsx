@@ -81,7 +81,7 @@ export function BlClienteSection({ bl }: { bl: BLDetail }) {
       <h2 className="mb-4 text-lg font-semibold text-white">Cliente</h2>
       <dl className="mb-4 grid gap-3 text-sm">
         <InfoLine label="Cliente vinculado" value={bl.customer?.name ?? 'Não vinculado'} />
-        <InfoLine label="CNPJ/CPF" value={bl.customer?.cnpj_cpf ?? '-'} />
+        <InfoLine label="CNPJ" value={bl.customer?.cnpj_cpf ?? '-'} />
         <InfoLine label="Saldo pendente" value={formatBRL(bl.customer?.pending_balance ?? 0)} />
       </dl>
 
@@ -90,7 +90,7 @@ export function BlClienteSection({ bl }: { bl: BLDetail }) {
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Dados do manifesto</div>
           <dl className="mb-3 grid gap-2 text-sm">
             <InfoLine label="Nome" value={bl.manifest_customer_name ?? '-'} />
-            <InfoLine label="CNPJ/CPF" value={bl.manifest_customer_cnpj_cpf ?? '-'} />
+            <InfoLine label="CNPJ" value={bl.manifest_customer_cnpj_cpf ?? '-'} />
             <InfoLine label="Email" value={bl.manifest_customer_email ?? '-'} />
           </dl>
           {!bl.customer_id && bl.manifest_customer_name && bl.manifest_customer_cnpj_cpf ? (

@@ -1,4 +1,5 @@
-import { formatDate, onlyDigits } from '../lib/utils'
+import { normalizeCnpj } from '../lib/cnpj'
+import { formatDate } from '../lib/utils'
 import { sanitizeSheetRows } from '../lib/spreadsheetSafe'
 import { supabase } from './supabase'
 import type { PixTransaction } from '../types/database'
@@ -117,7 +118,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       id: inv.id,
       docNumber: docNum,
       customerName: inv.customer?.name ?? '',
-      customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''),
+      customerCnpj: normalizeCnpj(inv.customer?.cnpj_cpf ?? ''),
       amount: inv.balance_brl ?? inv.total_brl ?? 0,
     }
     const key = normTxid(docNum)
@@ -130,7 +131,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       id: inv.id,
       docNumber: inv.doc_number,
       customerName: inv.customer?.name ?? '',
-      customerCnpj: onlyDigits(inv.customer?.cnpj_cpf ?? ''),
+      customerCnpj: normalizeCnpj(inv.customer?.cnpj_cpf ?? ''),
       amount: inv.current_total_brl ?? 0,
     }
     const key = normTxid(inv.doc_number)
@@ -151,7 +152,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
         invoiceId: 0,
         docNumber: tx.txid,
         customerName: '',
-        customerCnpj: onlyDigits(tx.cnpj ?? ''),
+        customerCnpj: normalizeCnpj(tx.cnpj ?? ''),
         amount: tx.amount,
         ambiguous: true,
         ambiguityReason: 'Nenhum documento aberto usa este TXID.',

@@ -4,8 +4,8 @@ import { ALLOWED_ORIGINS } from '../_shared/cors.ts'
 const GENERIC_ERROR = 'CNPJ ou senha inválidos.'
 
 export function normalizeCnpj(input: string): string | null {
-  const digits = (input ?? '').replace(/\D/g, '')
-  return digits.length === 14 ? digits : null
+  const cnpj = (input ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase()
+  return /^[0-9A-Z]{14}$/.test(cnpj) ? cnpj : null
 }
 
 function json(status: number, body: unknown, origin: string | null) {

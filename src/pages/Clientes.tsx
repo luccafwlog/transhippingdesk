@@ -25,7 +25,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { filterCustomerRowsByClientSideFilters, useCustomers, useCustomerSummary, type CustomerFilters } from '../hooks/useCustomers'
 import { usePortalProvisioning } from '../hooks/usePortalProvisioning'
-import { escapeFilterTerm, formatBRL, formatCountLabel, onlyDigits } from '../lib/utils'
+import { escapeFilterTerm, formatBRL, formatCountLabel } from '../lib/utils'
+import { isValidCnpj } from '../lib/cnpj'
 import { getCustomerFilterChips, type CustomerSortKey } from '../lib/customerTableViewModel'
 import { BLS_OF_CUSTOMER } from '../lib/supabaseEmbeds'
 import { importCustomerBaseRows, parseCustomerBaseFile, type ParsedCustomerBase } from '../services/customerBase'
@@ -38,11 +39,7 @@ import type { CustomerListItem } from '../types/database'
 const customerCreateSchema = z.object({
   cnpjCpf: z
     .string()
-    .min(1, 'CNPJ/CPF obrigatório')
-    .refine((val) => {
-      const digits = onlyDigits(val)
-      return digits.length === 11 || digits.length === 14
-    }, 'Informe um CNPJ (14 dígitos) ou CPF (11 dígitos) válido'),
+    .refine((val) => isValidCnpj(val), 'Informe um CNPJ de 14 posições válido'),
   name: z.string().min(2, 'Razão Social obrigatória (mín. 2 caracteres)'),
 })
 
@@ -374,7 +371,7 @@ export function Clientes() {
     <>
       <PageHeader
         title="Clientes"
-        description="Cadastro mestre de consignatários. Importe a base antes dos manifestos para vínculo automático por CNPJ/CPF."
+        description="Cadastro mestre de consignatários. Importe a base antes dos manifestos para vínculo automático por CNPJ."
         action={
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={() => setImportOpen(true)}>
