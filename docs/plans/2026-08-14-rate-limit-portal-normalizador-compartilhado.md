@@ -4,12 +4,13 @@
 > implement this plan task-by-task.
 
 **Goal:** Fazer o rate limit do Portal usar o mesmo normalizador canônico de CNPJ
-do resto do sistema, e estender a trava de tentativas à verificação de senha da
-troca de Email de Recuperação.
+do resto do sistema, estender a trava de tentativas à verificação de senha da
+troca de Email de Recuperação, e parar de consumir o convite de confirmação
+antes de saber se há troca pendente para aplicar.
 
 **Origem:** grilling de 2026-08-14 sobre o fluxo de login/recuperação (PR #539).
-Os dois achados foram verificados contra o banco de produção; nenhum deles é
-regressão da #539, que trata de mensagens de tela.
+Os três achados foram verificados contra o código e o banco de produção; nenhum
+deles é regressão da #539.
 
 **Escopo deliberadamente fora da PR #539:** exige migration, cujo risco de deploy
 é diferente do restante daquele diff.
@@ -20,7 +21,7 @@ regressão da #539, que trata de mensagens de tela.
 
 ### Achado A — o hash do rate limit apaga as letras do CNPJ
 
-As três funções de rate limit calculam a chave assim:
+As cinco funções de rate limit calculam a chave assim:
 
 ```sql
 regexp_replace(coalesce(p_login,''), '\D', '', 'g')
@@ -105,7 +106,46 @@ migração de dados a fazer. Registrar isso no corpo da migration.
 - Encerrar a sessão criada na verificação (`verifier.auth.signOut()`) para não
   deixar refresh token pendurado a cada troca.
 
-### Task 3: Testes
+### Task 3: Confirmação não consome o convite antes de saber se há o que confirmar
+
+**Achado C.** Em `action: 'confirm'`, a ordem hoje é: validar o convite → marcar
+como `consumido` → ler a conta → devolver 410 se `pending_recovery_email` for
+nulo. O convite é queimado no passo 2 para descobrir no passo 3 que não havia
+nada a aplicar, e a mensagem devolvida ("Link inválido ou expirado") é falsa: o
+link estava válido, quem o destruiu foi a própria chamada.
+
+O caminho que produz isso: `portal_assisted_email_change` (migration `195`)
+zera `pending_recovery_email` mas **não invalida os convites
+`confirmacao_email` pendentes**. Depois de uma troca assistida, o link
+self-service do cliente segue vivo por até 48h e cai exatamente nessa ordem.
+
+**Severidade: baixa, e não é brecha.** A checagem de `pending_recovery_email`
+nula é justamente o que impede um convite em trânsito de aplicar troca indevida
+— a troca assistida neutraliza o link ao zerar o campo, e um pedido novo
+invalida os anteriores. O prejuízo é o cliente pedir a troca de novo sem
+entender o porquê.
+
+**Arquivos:** `supabase/functions/portal-recovery-email-change/index.ts`,
+nova migration (a mesma da Task 1 ou uma própria)
+
+- Ler a conta e checar `pending_recovery_email` **antes** do UPDATE que consome
+  o convite. A corrida continua protegida pelo update condicional
+  (`.eq('status','pendente')`), que segue sendo o ponto de serialização — só um
+  chamador vence, e o perdedor não queima nada.
+- Quando não houver `pending_recovery_email`, devolver mensagem verdadeira
+  ("este pedido de troca já foi resolvido"), distinta de link inválido/expirado.
+- `portal_assisted_email_change` passa a marcar os convites
+  `confirmacao_email` pendentes da conta como `invalidado_por_reenvio`, no mesmo
+  UPDATE que zera `pending_recovery_email`. Não deixa link solto em trânsito.
+
+**Amarra ausente, registrada e não corrigida:** o `confirm` nunca compara o
+`sent_to_email` do convite com o `pending_recovery_email` que vai aplicar —
+aplica o que estiver no campo, venha de qual convite vier. Não foi encontrado
+caminho de exploração (o campo sempre guarda o último endereço pedido pelo
+próprio cliente), então fica anotado como endurecimento possível, fora deste
+plano.
+
+### Task 4: Testes
 
 **Arquivos:** `supabase/functions/__tests__/` (ou equivalente do projeto),
 `src/services/__tests__/`
@@ -114,13 +154,17 @@ migração de dados a fazer. Registrar isso no corpo da migration.
   produzem hashes **diferentes**; CNPJ com e sem máscara produz o **mesmo** hash.
 - Troca de email: requisição bloqueada pelo rate limit não chega a verificar
   senha; falha registra tentativa.
+- Confirmação sem `pending_recovery_email` **não** consome o convite e devolve a
+  mensagem de pedido já resolvido; o convite segue `pendente` depois da chamada.
+- Troca assistida invalida os convites `confirmacao_email` pendentes da conta.
 
-### Task 4: Documentação
+### Task 5: Documentação
 
 **Arquivos:** `docs/modules/portal-cliente.md`, `docs/CHANGELOG.md`,
 `docs/plans/README.md`
 
-- Catálogo de ações: registrar a trava na troca de email.
+- Catálogo de ações: registrar a trava na troca de email e a nova mensagem de
+  "pedido já resolvido" na confirmação.
 - Ao concluir, mover este plano para `docs/archive/plans/` e remover a linha da
   tabela de planos vivos.
 
@@ -129,6 +173,9 @@ migração de dados a fazer. Registrar isso no corpo da migration.
 ## Riscos
 
 - **Zerar contadores em curso** (Task 1): aceito, janela de 15 minutos.
+- **Reordenar o consumo do convite** (Task 3): a proteção contra confirmação
+  dupla deixa de vir da ordem e passa a vir só do update condicional, que já era
+  o ponto de serialização real. Cobrir com teste antes de mudar.
 - **Reuso do contador de login** (Task 2): um cliente que erre a senha atual na
   troca de email passa a consumir tentativas do próprio login. É o
   comportamento desejado — é a mesma senha e o mesmo alvo —, mas precisa estar
