@@ -23,8 +23,7 @@ const EMPTY_FORM: Omit<GraniteRate, 'id' | 'created_at'> = {
 
 export function GraniteRates() {
   const queryClient = useQueryClient()
-  const { profile, user, isAdmin: adminFromAuth } = useAuth()
-  const isAdmin = Boolean(profile || user || adminFromAuth)
+  const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)

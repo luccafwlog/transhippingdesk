@@ -31,13 +31,13 @@ it('uses the voyage-backed schedule flow instead of the legacy schedule export',
   expect(source).not.toContain('ended_vessels')
 })
 
-it('expõe importação Baplie para todo perfil interno ativo', () => {
+it('only exposes Baplie import and reimport controls to administrators', () => {
   const source = readFileSync(resolve(process.cwd(), 'src/pages/Baplie.tsx'), 'utf8')
-  expect(source).toMatch(/const \{[^}]*user[^}]*profile[^}]*\} = useAuth\(\)/)
-  expect(source).toContain('const canUploadManifests = Boolean(profile || user)')
+  expect(source).toMatch(/const \{[^}]*user[^}]*profile[^}]*isAdmin[^}]*\} = useAuth\(\)/)
+  expect(source).toContain('const canUploadManifests = isAdmin')
   expect(source).toContain('<StateA canImport={canUploadManifests}')
   expect(source).toContain('canUploadManifests ?')
-  expect(source).toContain('A importação Baplie exige um perfil interno ativo.')
+  expect(source).toContain('A importação Baplie exige perfil administrativo.')
   expect(source).toContain('const canImportVazios = Boolean(profile || user)')
   expect(source).toContain('canWrite={canImportVazios}')
 })

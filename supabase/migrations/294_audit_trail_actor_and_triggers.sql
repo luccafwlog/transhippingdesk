@@ -29,6 +29,9 @@ ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS actor_role TEXT;
 ALTER TABLE public.audit_logs
   ALTER COLUMN actor_role SET DEFAULT public.current_actor_role();
 
+-- TG_ARGV[0] é uma lista de colunas separadas por vírgula que compõe a chave
+-- da linha (ex.: 'id' ou, para tabelas sem coluna id como bl_freight_lines,
+-- 'bl_id,seq'). O entity_id gravado é a concatenação dos valores com '/'.
 CREATE OR REPLACE FUNCTION public.audit_row_changes()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -38,10 +41,14 @@ AS $$
 DECLARE
   v_old JSONB := CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) ELSE '{}'::jsonb END;
   v_new JSONB := CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) ELSE '{}'::jsonb END;
-  v_key TEXT := COALESCE(TG_ARGV[0], 'id');
-  v_entity_id TEXT := COALESCE(v_new ->> v_key, v_old ->> v_key);
+  v_key_parts TEXT[] := string_to_array(COALESCE(TG_ARGV[0], 'id'), ',');
+  v_entity_id TEXT;
   v_field RECORD;
 BEGIN
+  SELECT string_agg(COALESCE(v_new ->> k, v_old ->> k), '/')
+    INTO v_entity_id
+    FROM unnest(v_key_parts) AS k;
+
   IF TG_OP = 'INSERT' THEN
     INSERT INTO public.audit_logs(entity_type, entity_id, field_name, new_value, changed_by)
     VALUES (TG_TABLE_NAME, v_entity_id, 'criado', v_new::TEXT, auth.uid());
@@ -74,11 +81,19 @@ $$;
 REVOKE ALL ON FUNCTION public.audit_row_changes() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.audit_row_changes() TO authenticated, service_role;
 
+-- 'voyages' fica fora da instrumentação genérica: createVoyage/updateVoyage/
+-- cancelVoyage (src/services/voyages.ts) já gravam audit_logs campo a campo,
+-- com justificativa; o trigger genérico apenas duplicaria essas linhas e, no
+-- INSERT, gravaria a linha inteira em JSON como 'criado'.
+-- 'baplie_containers' também fica fora: é staging transacional reimportado
+-- por inteiro a cada importação (DELETE + INSERT em massa) e já tem seu
+-- próprio registro agregado em audit_logs via entity_type = 'baplie_import';
+-- auditar linha a linha geraria milhares de registros por reimportação.
 DO $$
 DECLARE
   v_table TEXT;
   v_full_tables CONSTANT TEXT[] := ARRAY[
-    'customers', 'customer_contacts', 'carriers', 'vessels', 'ports', 'voyages',
+    'customers', 'customer_contacts', 'carriers', 'vessels', 'ports',
     'voyage_export_schedules', 'vessel_schedules', 'voyage_omissions', 'voyage_route_ce_master',
     'bl_transshipments', 'ended_vessels', 'depots', 'depot_services',
     'charge_tables', 'charge_table_items', 'customer_rate_overrides', 'demurrage_rates',
@@ -91,9 +106,10 @@ DECLARE
   ];
   v_line_tables CONSTANT TEXT[] := ARRAY[
     'bls', 'bl_containers', 'bl_breakbulk_items', 'bl_freight_lines', 'granite_bls',
-    'granite_bl_charges', 'vazios_bookings', 'vazios_importacao_containers', 'baplie_containers',
+    'granite_bl_charges', 'vazios_bookings', 'vazios_importacao_containers',
     'charge_calculations', 'vazios_export_operations', 'vazios_export_service_lines'
   ];
+  v_key TEXT;
 BEGIN
   FOREACH v_table IN ARRAY v_full_tables LOOP
     IF to_regclass('public.' || v_table) IS NULL THEN CONTINUE; END IF;
@@ -105,10 +121,11 @@ BEGIN
   END LOOP;
   FOREACH v_table IN ARRAY v_line_tables LOOP
     IF to_regclass('public.' || v_table) IS NULL THEN CONTINUE; END IF;
+    v_key := CASE WHEN v_table = 'bl_freight_lines' THEN 'bl_id,seq' ELSE 'id' END;
     EXECUTE format('DROP TRIGGER IF EXISTS audit_%I ON public.%I', v_table, v_table);
     EXECUTE format(
-      'CREATE TRIGGER audit_%I AFTER UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes(''id'')',
-      v_table, v_table
+      'CREATE TRIGGER audit_%I AFTER UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.audit_row_changes(%L)',
+      v_table, v_table, v_key
     );
   END LOOP;
 END $$;
@@ -133,7 +150,7 @@ BEGIN
     WHERE b.batch_id = NEW.id
       AND (b.pol IS NOT NULL OR b.pod IS NOT NULL)
   ) AS routes
-  WHERE route IS NOT NULL;
+  WHERE route IS NOT NULL AND route <> '';
   IF v_route IS NOT NULL THEN
     UPDATE public.import_batches SET route_summary = v_route WHERE id = NEW.id AND route_summary IS NULL;
     NEW.route_summary := v_route;
@@ -156,7 +173,7 @@ FROM (
     FROM public.bls
     WHERE batch_id IS NOT NULL AND (pol IS NOT NULL OR pod IS NOT NULL)
   ) AS b
-  WHERE b.route IS NOT NULL
+  WHERE b.route IS NOT NULL AND b.route <> ''
   GROUP BY b.batch_id
 ) AS routes
 WHERE ib.id = routes.batch_id AND ib.route_summary IS NULL;

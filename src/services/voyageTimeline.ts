@@ -81,8 +81,9 @@ export async function fetchVoyageTimelineSources(
   const importBatchAuditRes = importBatchIds.length
     ? await supabase
         .from('audit_logs')
-        .select('entity_id, changed_by, actor_role')
+        .select('entity_id, field_name, changed_by, actor_role')
         .eq('entity_type', 'import_batches')
+        .eq('field_name', 'criado')
         .in('entity_id', importBatchIds)
     : { data: [], error: null }
   if (importBatchAuditRes.error) throw importBatchAuditRes.error
@@ -112,16 +113,13 @@ export async function fetchVoyageTimelineSources(
     }
   }
 
-  for (const row of [...(scheduleRes.data ?? []), ...(auditRes.data ?? [])]) {
-    const actor = row.changed_by as string | null | undefined
-    const department = row.actor_role as string | null | undefined
-    if (actor && department) actorDepartments[actor] = TIMELINE_ROLE_LABELS[department] ?? department
-  }
   for (const row of importsRes.data ?? []) {
     if (row.uploaded_by) {
-      const audit = (importBatchAuditRes.data ?? []).find((event) => event.entity_id === String(row.id))
+      const audit = (importBatchAuditRes.data ?? []).find(
+        (event) => event.entity_id === String(row.id) && event.changed_by === row.uploaded_by,
+      )
       const department = audit?.actor_role ? TIMELINE_ROLE_LABELS[audit.actor_role] ?? audit.actor_role : null
-      actorDepartments[row.uploaded_by] = department ?? actorDepartments[row.uploaded_by] ?? '—'
+      if (department) actorDepartments[row.uploaded_by] = department
     }
   }
 
@@ -139,7 +137,7 @@ export async function fetchVoyageTimelineSources(
   }
 }
 
-const TIMELINE_ROLE_LABELS: Record<string, string> = {
+export const TIMELINE_ROLE_LABELS: Record<string, string> = {
   admin: 'Administrativo',
   operator: 'Documentação',
   administrativo: 'Administrativo',

@@ -36,8 +36,8 @@ BEGIN
       AND (
         COALESCE(qual, '') ~ 'is_active_non_equipamentos_user|is_equipamentos_user|can_edit_' OR
         COALESCE(with_check, '') ~ 'is_active_non_equipamentos_user|is_equipamentos_user|can_edit_' OR
-        lower(regexp_replace(COALESCE(qual, ''), '[[:space:]()]', '', 'g')) LIKE '%auth.role()=''authenticated''%' OR
-        lower(regexp_replace(COALESCE(with_check, ''), '[[:space:]()]', '', 'g')) LIKE '%auth.role()=''authenticated''%'
+        lower(regexp_replace(COALESCE(qual, ''), '[[:space:]()]', '', 'g')) LIKE '%auth.role=''authenticated''%' OR
+        lower(regexp_replace(COALESCE(with_check, ''), '[[:space:]()]', '', 'g')) LIKE '%auth.role=''authenticated''%'
       )
   LOOP
     v_roles := array_to_string(p.roles, ', ');
@@ -190,7 +190,7 @@ DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND cmd = 'DELETE'
+    WHERE schemaname = 'public' AND cmd IN ('DELETE', 'ALL')
       AND tablename NOT IN ('audit_logs')
       AND (COALESCE(qual, '') LIKE '%is_active_user()%' OR COALESCE(qual, '') LIKE '%is_equipamentos_user()%')
   ) THEN

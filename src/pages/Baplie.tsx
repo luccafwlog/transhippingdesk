@@ -35,9 +35,9 @@ export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
   const voyageId = searchParams.get('voyage') ?? ''
   const { showToast } = useToast()
-  const { user, profile } = useAuth()
+  const { user, profile, isAdmin } = useAuth()
   const canImportVazios = Boolean(profile || user)
-  const canUploadManifests = Boolean(profile || user)
+  const canUploadManifests = isAdmin
   const queryClient = useQueryClient()
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
@@ -336,7 +336,7 @@ function StateA({ canImport, onUpload }: { canImport: boolean; onUpload: () => v
             Importar Baplie EDI
           </Button>
         ) : (
-          <div className="text-sm text-amber-200">A importação Baplie exige um perfil interno ativo.</div>
+          <div className="text-sm text-amber-200">A importação Baplie exige perfil administrativo.</div>
         )}
       </div>
     </Card>

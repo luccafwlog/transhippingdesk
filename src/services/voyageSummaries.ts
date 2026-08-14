@@ -3,6 +3,7 @@ import { countDistinctContainerNumbers, countDistinctContainerNumbersBy } from '
 import { formatDate } from '../lib/utils'
 import { formatMetric, formatPortDisplayName, normalizePortName, stripFileExtension } from '../lib/voyageFormat'
 import { normalizePortCode } from './portCode'
+import { TIMELINE_ROLE_LABELS } from './voyageTimeline'
 
 export function summarizeContainerTypes(
   containers:
@@ -635,7 +636,6 @@ export function buildVoyageTimeline({
   voyageStatus,
   ceCoverage,
   actorNames,
-  actorDepartments,
 }: {
   importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; total_bls?: number | null; ce_master?: string | null }> | null
   scheduleEvents?: TimelineAuditEvent[] | null
@@ -650,8 +650,13 @@ export function buildVoyageTimeline({
 }): VoyageTimelineEvent[] {
   const imports = buildImportTimeline(importBatches)
   const events = [...imports.events]
-  const appendActor = (detail: string, changedBy: string | null | undefined) =>
-    appendTimelineActor(detail, changedBy, actorNames, actorDepartments)
+  const appendActor = (detail: string, row: { changed_by?: string | null; actor_role?: string | null }) =>
+    appendTimelineActor(
+      detail,
+      row.changed_by,
+      actorNames,
+      row.actor_role ? TIMELINE_ROLE_LABELS[row.actor_role] ?? row.actor_role : null,
+    )
   events.push(...buildCeCoverageTimeline(ceCoverage, imports.latestImportAt))
 
   events.push(...buildBaplieTimeline(baplieImports, openDivergenceCount))
@@ -773,7 +778,7 @@ function buildBaplieTimeline(
 
 function buildScheduleTimeline(
   scheduleEvents: TimelineAuditEvent[] | null | undefined,
-  appendActor: (detail: string, changedBy: string | null | undefined) => string,
+  appendActor: (detail: string, row: TimelineAuditEvent) => string,
 ): VoyageTimelineEvent[] {
   const events: VoyageTimelineEvent[] = []
   for (const [index, row] of (scheduleEvents ?? []).entries()) {
@@ -791,7 +796,7 @@ function buildScheduleTimeline(
         kind: 'escala-date',
         at,
         title: `${TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]} de ${port} ${changed ? 'alterado' : 'registrado'}`,
-        detail: appendActor(changed ? `${formatDate(oldValue)} -> ${formatDate(value)}` : formatDate(value), row.changed_by),
+        detail: appendActor(changed ? `${formatDate(oldValue)} -> ${formatDate(value)}` : formatDate(value), row),
       })
     } else if (row.field_name === 'escala_number' && value) {
       events.push({
@@ -799,7 +804,7 @@ function buildScheduleTimeline(
         kind: 'escala-number',
         at,
         title: `Escala de ${port} criada no Mercante`,
-        detail: appendActor(`Nº ${value}`, row.changed_by),
+        detail: appendActor(`Nº ${value}`, row),
       })
     } else if (row.field_name === 'linked' && value === 'true') {
       events.push({
@@ -807,7 +812,7 @@ function buildScheduleTimeline(
         kind: 'manifestos-linked',
         at,
         title: `Manifestos vinculados à escala de ${port}`,
-        detail: appendActor('ESCALA = SIM', row.changed_by),
+        detail: appendActor('ESCALA = SIM', row),
       })
     } else if (row.field_name === 'ces' && value) {
       events.push({
@@ -815,7 +820,7 @@ function buildScheduleTimeline(
         kind: 'ce-status',
         at,
         title: `Status de CE de ${port} alterado`,
-        detail: appendActor(oldValue ? `${formatTimelineCeStatus(oldValue)} -> ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row.changed_by),
+        detail: appendActor(oldValue ? `${formatTimelineCeStatus(oldValue)} -> ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row),
       })
     } else if (row.field_name === 'rtw' && value) {
       events.push({
@@ -823,7 +828,7 @@ function buildScheduleTimeline(
         kind: 'restow',
         at,
         title: `Restow de ${port} registrado`,
-        detail: appendActor(`RTW ${value}`, row.changed_by),
+        detail: appendActor(`RTW ${value}`, row),
       })
     } else if (row.field_name === 'deleted' && value === 'false') {
       events.push({
@@ -831,7 +836,7 @@ function buildScheduleTimeline(
         kind: 'pod-added',
         at,
         title: `Escala de ${port} adicionada ao planejamento`,
-        detail: appendActor('POD ativo', row.changed_by),
+        detail: appendActor('POD ativo', row),
       })
     } else if (row.field_name === 'deleted' && value === 'true') {
       events.push({
@@ -839,7 +844,7 @@ function buildScheduleTimeline(
         kind: 'pod-removed',
         at,
         title: `Escala de ${port} removida do planejamento`,
-        detail: appendActor('Planejamento removido', row.changed_by),
+        detail: appendActor('Planejamento removido', row),
       })
     }
   }
@@ -867,7 +872,7 @@ function buildVoyageCompletionTimeline(
 
 function buildAuditTimeline(
   auditEvents: TimelineAuditEvent[] | null | undefined,
-  appendActor: (detail: string, changedBy: string | null | undefined) => string,
+  appendActor: (detail: string, row: TimelineAuditEvent) => string,
 ): VoyageTimelineEvent[] {
   const events: VoyageTimelineEvent[] = []
   for (const [index, row] of (auditEvents ?? []).entries()) {
@@ -882,7 +887,7 @@ function buildAuditTimeline(
         kind: 'ce-master',
         at,
         title: oldValue ? 'CE Master alterado' : 'CE Master definido',
-        detail: appendActor(oldValue ? `${oldValue} -> ${value}` : value, row.changed_by),
+        detail: appendActor(oldValue ? `${oldValue} -> ${value}` : value, row),
       })
       continue
     }
@@ -896,7 +901,7 @@ function buildAuditTimeline(
         kind: 'omission',
         at,
         title: `Escala de ${omittedPod} omitida · Porto de Transbordo — ${value}${suffix}`,
-        detail: appendActor('Omissão registrada', row.changed_by),
+        detail: appendActor('Omissão registrada', row),
       })
       continue
     }
@@ -907,7 +912,7 @@ function buildAuditTimeline(
         kind: 'transshipment-info',
         at,
         title: 'Informações de Transbordo complementadas',
-        detail: appendActor('Registro global atualizado', row.changed_by),
+        detail: appendActor('Registro global atualizado', row),
       })
       continue
     }
@@ -919,7 +924,7 @@ function buildAuditTimeline(
         kind: 'voyage-data',
         at,
         title: oldValue ? 'Dados da viagem alterados' : 'Viagem criada',
-        detail: appendActor(oldValue ? `${label}: ${oldValue} -> ${value}` : `${label}: ${value}`, row.changed_by),
+        detail: appendActor(oldValue ? `${label}: ${oldValue} -> ${value}` : `${label}: ${value}`, row),
       })
     }
   }
@@ -943,13 +948,13 @@ function appendTimelineActor(
   detail: string,
   changedBy: string | null | undefined,
   actorNames: Record<string, string> | null | undefined,
-  actorDepartments: Record<string, string> | null | undefined,
+  department: string | null | undefined,
 ) {
   const actor = String(changedBy ?? '').trim()
   if (!actor) return detail
   const name = actorNames?.[actor]?.trim()
-  const department = actorDepartments?.[actor]?.trim()
-  if (name && department) return `${detail} · por ${name} (${department})`
+  const trimmedDepartment = department?.trim()
+  if (name && trimmedDepartment) return `${detail} · por ${name} (${trimmedDepartment})`
   if (name) return `${detail} · por ${name}`
   return isUuid(actor) ? detail : `${detail} · por ${actor}`
 }
