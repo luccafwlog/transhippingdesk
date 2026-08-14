@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FileSpreadsheet, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { Card, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
+import { assertUploadSize } from '../lib/fileGuard'
 import { useAuth } from '../hooks/useAuth'
 import { emptyScheduleForm, buildScheduleLanes, scheduleFormFromVoyage, type ScheduleForm } from './chegadasSaidasForm'
 import { PORTAL_SCHEDULE_LANES, formatScheduleDate } from '../services/portalScheduleLanes'
@@ -119,6 +120,7 @@ function SpreadsheetUpload({ canWrite, onUpdate }: { canWrite: boolean; onUpdate
     setUploading(true)
     setResult(null)
     try {
+      assertUploadSize(file)
       const XLSX = await import('@e965/xlsx')
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf, { cellDates: true })

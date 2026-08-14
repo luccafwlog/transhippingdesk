@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { PASSWORD_RULE_MESSAGE } from '../../lib/passwordPolicy'
 
 type RecoveryResponse = { accepted: boolean; rate_limited?: boolean }
 const auth = vi.hoisted(() => ({
@@ -151,6 +152,9 @@ it('US-157: rejeita senha sem composicao minima', async () => {
   await user.type(screen.getByPlaceholderText('Repita a senha'), 'senhafraca')
   await user.click(screen.getByRole('button', { name: 'Redefinir senha' }))
 
-  expect(screen.getByText('A senha deve ter no minimo 8 caracteres, com letra maiuscula, minuscula e numero.')).toBeTruthy()
+  // A mensagem passou a vir de src/lib/passwordPolicy.ts (auditoria 2026-08-14,
+  // achado A-04): a regra do Portal e a interna são a mesma, e a ADR 0019 já
+  // decidia isso. Antes havia uma cópia sem acentuação só nesta tela.
+  expect(screen.getByText(PASSWORD_RULE_MESSAGE)).toBeTruthy()
   expect(auth.functions.invoke).not.toHaveBeenCalledWith('portal-password-reset', expect.anything())
 })

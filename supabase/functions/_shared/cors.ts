@@ -10,12 +10,21 @@ export const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:5173',
 ])
 
+// Origem fora da allowlist recebe a AUSÊNCIA do header, que é a negação correta
+// em CORS. Devolver a string 'null' não nega: `null` é uma origem real — a que o
+// navegador apresenta em iframe `sandbox`, documento `data:` e alguns
+// redirecionamentos — e `Access-Control-Allow-Origin: null` casa com ela,
+// liberando justamente o contexto mais anônimo. `Vary: Origin` acompanha porque a
+// resposta passa a depender da origem, e cache compartilhado sem ele serviria o
+// header de uma origem para outra.
 export function corsHeaders(origin: string | null): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin': origin && ALLOWED_ORIGINS.has(origin) ? origin : 'null',
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
   }
+  if (origin && ALLOWED_ORIGINS.has(origin)) headers['Access-Control-Allow-Origin'] = origin
+  return headers
 }
 
 // Envolve um handler: responde o preflight OPTIONS e injeta os headers CORS em

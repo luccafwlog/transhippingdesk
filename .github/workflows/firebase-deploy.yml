@@ -32,8 +32,12 @@ jobs:
       - name: Deploy to Firebase Hosting
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+          # O secret entra por env, não interpolado na linha de comando: o GitHub
+          # substitui `${{ }}` antes do shell fazer o parsing, então uma aspa
+          # simples dentro do JSON quebraria a citação do `echo`.
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRANSHIPPING_DESK }}
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_TRANSHIPPING_DESK }}' > /tmp/firebase-sa.json
+          printf '%s' "$FIREBASE_SA" > /tmp/firebase-sa.json
           npx firebase-tools@15.22.4 deploy --only hosting:transhipping-desk \
             --project transhipping-desk \
             --non-interactive

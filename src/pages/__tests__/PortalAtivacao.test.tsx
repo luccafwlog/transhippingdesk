@@ -36,7 +36,10 @@ it('achado 3.3: remove o token da URL apos a montagem, sem perder o submit', asy
   expect(screen.getByTestId('search').textContent).toBe('')
   expect(invoke).toHaveBeenCalledWith('portal-invite-activate', { body: { action: 'inspect', token: 'TOKEN' } })
 
-  await user.type(screen.getByLabelText('Nova senha'), 'senhaSegura1')
+  // O campo ganhou o `hint` com a regra de senha (auditoria 2026-08-14, achado
+  // A-04). O hint mora dentro do <label>, então o nome acessível do input passou
+  // a incluí-lo — daí a consulta por prefixo em vez de texto exato.
+  await user.type(screen.getByLabelText('Nova senha', { exact: false }), 'senhaSegura1')
   await user.type(screen.getByLabelText('Confirmar senha'), 'senhaSegura1')
   await user.click(screen.getByRole('button', { name: 'Ativar acesso' }))
 
