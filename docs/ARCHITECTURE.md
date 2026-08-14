@@ -390,6 +390,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/portal/esqueci-senha` | Solicitação de recuperação |
 | `/portal/recuperar-senha` | Definição de nova senha |
 | `/portal/ativar` | Ativação de convite sem login automático |
+| `/portal/confirmar-email` | Confirmação do novo Email de Recuperação por token, sem login |
 | `/clientes/portal` | Console operacional de provisionamento do Portal |
 
 ### Portal autenticado

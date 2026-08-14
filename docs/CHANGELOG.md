@@ -3,6 +3,14 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Confirmação do Email de Recuperação em rota pública:** o link enviado ao
+  endereço novo passa a apontar para `/portal/confirmar-email`, sem exigir
+  sessão. Antes ele levava a `/portal/perfil`, rota protegida, e quem abrisse
+  sem estar logado era redirecionado ao login por `PortalProtectedRoute` — que
+  navega sem preservar a query string, descartando o token em silêncio. A
+  autorização da troca continua no pedido (sessão ativa **e** senha atual); a
+  confirmação prova apenas posse da caixa nova. `PortalProfile` mantém o
+  parâmetro antigo enquanto os convites de 48 horas já enviados não expiram.
 - **Mensagens do login e da recuperação do Portal:** a tela de confirmação de
   `/portal/esqueci-senha` passa a afirmar o envio do link em vez de condicioná-lo
   a "se houver uma conta para este CNPJ" — o condicional devolvia ao cliente o

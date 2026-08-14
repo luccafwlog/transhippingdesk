@@ -2,7 +2,7 @@
 
 > **Rota interna:** `/clientes/portal/inspecao/:customerId/*` (Modo Inspeção)
 
-> **Status:** ativo · **Atualizado:** 2026-08-12 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
+> **Status:** ativo · **Atualizado:** 2026-08-12 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal/confirmar-email`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
 
 ## Provisionamento operacional
 
@@ -144,6 +144,27 @@ sem chamar a Edge Function, e falha de rede/função mostra "não foi possível
 concluir a solicitação agora" — prometer email numa requisição que não chegou ao
 servidor faria o cliente esperar por uma mensagem que nunca sairia.
 
+### `/portal/confirmar-email`
+
+`src/pages/PortalConfirmarEmail.tsx` lê o token do link enviado ao endereço
+novo e chama `portal-recovery-email-change` com `action: 'confirm'`. É rota
+**pública**, como `/portal/ativar` e `/portal/recuperar-senha`.
+
+A autorização da troca acontece no pedido, não aqui: `action: 'request'` exige
+sessão ativa **e** a senha atual. O que a confirmação prova é posse da caixa
+nova, e o token é essa prova — exigir sessão outra vez não acrescentava
+barreira. Antes o link apontava para `/portal/perfil?confirm_email=`, rota
+protegida: quem abrisse sem sessão era redirecionado ao login por
+`PortalProtectedRoute`, que navega sem preservar a query string, e o token se
+perdia em silêncio. Isso atingia justamente o leitor do Email de Recuperação,
+em geral o contato financeiro, que não tem a senha do Portal.
+
+O token sai da barra de endereços assim que lido (mesmo racional do achado
+3.3). A página aceita `token` e também `confirm_email`, e `PortalProfile`
+mantém o tratamento do parâmetro antigo: os convites já enviados para o caminho
+anterior valem 48 horas, e os dois ramos podem sair depois que essa janela
+expirar.
+
 ### `/portal/recuperar-senha`
 
 `src/pages/PortalResetPassword.tsx` lê o `token` de convite de recuperação da
@@ -179,6 +200,7 @@ Portal.
 | Inicialização — hidratar sessão e overview | Aplicação montada; sessão Portal persistida opcional | `PortalAuthProvider` | `getSession()` → `fetchOverview()`; listener `onAuthStateChange` reidrata em `SIGNED_IN`/`TOKEN_REFRESHED` quando necessário | Supabase Auth; RPC `portal_get_session_overview_v2`; UPDATE de `last_login_at` | Define `overview`, `isAuthenticated=Boolean(overview)` e identidade Sentry `{ id: customer_id }` com tag `area=portal` | Sessão sem Conta de Portal ativa gera `28000` e limpa overview; outras falhas não são exibidas | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx` |
 | Layout — sair | Sessão/overview presente | Botão “Sair” em `PortalLayout` ou evento `SIGNED_OUT` do Supabase Auth | Limpa overview e caches `portal-*` antes de `signOutSupabaseClient`; chamadas concorrentes compartilham uma Promise | Supabase Auth `signOut` | Guard passa a considerar a sessão não autenticada e queries do Portal são removidas | Ignora apenas erro conhecido de lock roubado; demais erros propagam | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`; `src/services/__tests__/supabaseAuth.test.ts` |
 | `/portal/esqueci-senha` — solicitar recuperação | CNPJ de 14 posições numéricas ou alfanuméricas; pontuação colada é removida imediatamente; comprimento < 14 para na tela (`isCompleteCnpjLogin`) | `PortalForgotPassword.handleSubmit` | Edge Function `portal-password-recovery`; rate limit em `portal_recovery_check_rate_limit`/`_register_failure` | `customer_portal_accounts.login_cnpj`; `portal_invites` (purpose `recuperacao`); email via `sendPortalEmail` | `{ accepted: true }` para todo caso elegível; `{ accepted: false, rate_limited: true }` só no rate limit | Resposta não enumera conta (achado 3.2); confirmação afirma o envio sem condicionar a existência de conta; rate limit mostra "tente mais tarde"; falha de rede mostra erro real, não promessa de email | **Código:** `src/pages/PortalForgotPassword.tsx`, `supabase/functions/portal-password-recovery/index.ts`; **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
+| `/portal/confirmar-email` — confirmar novo Email de Recuperação | Token de convite `confirmacao_email` válido na query string (`token` ou `confirm_email`); sem sessão | `PortalConfirmarEmail` | Edge Function `portal-recovery-email-change` (`action: 'confirm'`) valida hash/expiração/status | `portal_invites` (consumo condicional); `customer_portal_accounts.recovery_email`; `revokePortalSessions` | Rota pública; token removido da URL após leitura; encerra as sessões do Portal | Token ausente/expirado/inválido mostra mensagem única; autorização da troca ficou no `action: 'request'` | **Teste:** `src/pages/__tests__/PortalConfirmarEmail.test.tsx` |
 | `/portal/recuperar-senha` — atualizar senha | Token de convite de recuperação válido na query string; senha 8+; confirmação igual | `PortalResetPassword.handleSubmit` | Edge Function `portal-password-reset` valida hash/expiração/status e chama Auth Admin `updateUserById` | `portal_invites` (consumo condicional); `revokePortalSessions` | Remove `token` da URL após leitura (achado 3.3); encerra sessões do Portal e navega para `/portal/login` | Token ausente/expirado/inválido mostra mensagem única; validação local de senha | **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
 | Rotas protegidas — redirecionar | `PortalAuthProvider` terminou loading | `PortalProtectedRoute` | Loading ocupa shell; ausência de overview retorna `<Navigate replace>` | Nenhuma chamada própria | Redireciona para `/portal/login` | O guard é UX, não autorização de dados | **Código:** `src/components/layout/PortalProtectedRoute.tsx` |
 

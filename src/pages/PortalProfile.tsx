@@ -15,6 +15,10 @@ export function PortalProfile() {
   const scope = usePortalScope()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
+  // Compatibilidade: a confirmacao passou a viver em /portal/confirmar-email
+  // (rota publica). Este ramo atende os links ja enviados para
+  // /portal/perfil?confirm_email=, validos por 48h, e pode sair depois que a
+  // ultima janela desses convites expirar.
   useEffect(() => {
     const token = searchParams.get('confirm_email')
     if (!token) return

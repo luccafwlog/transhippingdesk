@@ -18,6 +18,7 @@ const PortalDashboard = lazyPage(() => import('./pages/PortalDashboard'), 'Porta
 const PortalForgotPassword = lazyPage(() => import('./pages/PortalForgotPassword'), 'PortalForgotPassword')
 const PortalResetPassword = lazyPage(() => import('./pages/PortalResetPassword'), 'PortalResetPassword')
 const PortalAtivacao = lazyPage(() => import('./pages/PortalAtivacao'), 'PortalAtivacao')
+const PortalConfirmarEmail = lazyPage(() => import('./pages/PortalConfirmarEmail'), 'PortalConfirmarEmail')
 const PortalProfile = lazyPage(() => import('./pages/PortalProfile'), 'PortalProfile')
 const PortalInspection = lazyPage(() => import('./pages/PortalInspection'), 'PortalInspection')
 const Painel = lazyPage(() => import('./pages/Painel'), 'Painel')
@@ -123,6 +124,7 @@ export default function App() {
       <Route path="/portal/esqueci-senha" element={withSuspense(<PortalForgotPassword />)} />
       <Route path="/portal/recuperar-senha" element={withSuspense(<PortalResetPassword />)} />
       <Route path="/portal/ativar" element={withSuspense(<PortalAtivacao />)} />
+      <Route path="/portal/confirmar-email" element={withSuspense(<PortalConfirmarEmail />)} />
       <Route element={<PortalProtectedRoute />}>
         <Route element={<PortalScopeProvider />}>
         <Route element={<PortalLayout />}>
