@@ -110,7 +110,7 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
   if (filters.search) {
     const search = escapeFilterTerm(filters.search)
     const normalizedDocument = normalizeCnpj(filters.search)
-    const documentClause = normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
+    const documentClause = /\d/.test(filters.search) && normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
     const terms = search
       ? `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`
       : ''
@@ -248,7 +248,7 @@ function buildCustomerLookupFilter(search: string) {
   if (term.length >= 2) {
     clauses.push(`name.ilike.%${term}%`, `cnpj_cpf.ilike.%${term}%`)
   }
-  if (document.length >= 2 && document !== term) {
+  if (/\d/.test(search) && document.length >= 2 && document !== term) {
     clauses.push(`cnpj_cpf.ilike.%${document}%`)
   }
 

@@ -1006,7 +1006,7 @@ export async function listBillingCustomers(search = '') {
 
   if (normalizedSearch.length >= 2) {
     const terms = safeSearch ? [`name.ilike.%${safeSearch}%,cnpj_cpf.ilike.%${safeSearch}%`] : []
-    if (cnpjSearch.length >= 2) terms.push(`cnpj_cpf.ilike.%${cnpjSearch}%`)
+    if (/\d/.test(normalizedSearch) && cnpjSearch.length >= 2) terms.push(`cnpj_cpf.ilike.%${cnpjSearch}%`)
     if (terms.length) query = query.or(terms.join(','))
   }
 

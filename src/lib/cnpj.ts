@@ -4,6 +4,9 @@ export function normalizeCnpj(value?: string | null): string {
 
 export function formatCnpj(value?: string | null): string {
   const canonical = normalizeCnpj(value ?? '')
+  if (/^\d{11}$/.test(canonical)) {
+    return `${canonical.slice(0, 3)}.${canonical.slice(3, 6)}.${canonical.slice(6, 9)}-${canonical.slice(9)}`
+  }
   if (canonical.length !== 14) return value || '-'
   return `${canonical.slice(0, 2)}.${canonical.slice(2, 5)}.${canonical.slice(5, 8)}/${canonical.slice(8, 12)}-${canonical.slice(12)}`
 }

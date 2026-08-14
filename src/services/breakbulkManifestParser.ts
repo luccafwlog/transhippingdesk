@@ -5,7 +5,7 @@
 // breakbulkImport.ts.
 import { assertUploadFile } from '../lib/fileGuard'
 import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
-import { asString, normalizeHeader, toNumber } from '../lib/utils'
+import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
 import { extractNcmCodes } from '../lib/ncm'
 import { normalizePortCode } from './portCode'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
@@ -236,7 +236,7 @@ function parseSummaryRows(rows: Record<string, unknown>[]): ParsedBreakbulkManif
     const shipper = asNullableString(mapped.shipper)
     const consignee = asString(mapped.consignee)
     const notifyParty = asNullableString(mapped.notify_party)
-    const cnpjCpf = asNullableDigits(mapped.cnpj_cpf)
+    const cnpjCpf = asNullableCnpj(mapped.cnpj_cpf)
     const pol = nullableKey(mapped.pol)
     const pod = nullableKey(mapped.pod)
 
@@ -774,6 +774,11 @@ function asNullableString(value: unknown) {
 }
 
 function asNullableDigits(value: unknown) {
+  const digits = onlyDigits(asString(value))
+  return digits || null
+}
+
+function asNullableCnpj(value: unknown) {
   const cnpj = normalizeCnpj(asString(value))
   return cnpj || null
 }

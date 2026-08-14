@@ -60,6 +60,7 @@ CREATE OR REPLACE FUNCTION public.normalize_document_text(p_value TEXT)
 RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public, pg_temp
 AS $$
   SELECT public.normalize_cnpj(COALESCE(p_value, ''));
 $$;
@@ -69,6 +70,8 @@ GRANT EXECUTE ON FUNCTION public.normalize_cnpj(TEXT) TO authenticated, service_
 REVOKE ALL ON FUNCTION public.is_valid_cnpj(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_valid_cnpj(TEXT) TO authenticated, service_role;
 
+-- O backfill também precisa atravessar a proteção de alteração de CNPJ da migration 184.
+SET LOCAL portal.allow_cnpj_change = 'true';
 UPDATE public.customers
 SET cnpj_cpf = public.normalize_cnpj(cnpj_cpf)
 WHERE cnpj_cpf IS DISTINCT FROM public.normalize_cnpj(cnpj_cpf);
@@ -234,7 +237,7 @@ DECLARE
   v_account public.customer_portal_accounts%ROWTYPE;
 BEGIN
   IF v_role IS DISTINCT FROM 'administrativo' THEN RAISE EXCEPTION 'permission denied' USING ERRCODE='42501'; END IF;
-  IF NOT public.is_valid_cnpj(v_normalized) THEN RAISE EXCEPTION 'CNPJ inválido.' USING ERRCODE='22023'; END IF;
+  IF v_normalized IS NULL OR NOT public.is_valid_cnpj(v_normalized) THEN RAISE EXCEPTION 'CNPJ inválido.' USING ERRCODE='22023'; END IF;
   IF NULLIF(trim(p_reason), '') IS NULL THEN RAISE EXCEPTION 'Justificativa é obrigatória.' USING ERRCODE='22023'; END IF;
   SELECT * INTO v_account FROM public.customer_portal_accounts WHERE customer_id = p_customer_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Registro de Portal não encontrado para o Cliente.' USING ERRCODE='P0002'; END IF;

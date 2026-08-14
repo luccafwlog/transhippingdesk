@@ -273,9 +273,14 @@ function parseNumber(value: unknown) {
 }
 
 export function extractTaxId(value: string) {
-  const match = value.match(/\bCNPJ\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})/i)
-  const cnpj = normalizeCnpj(match?.[1] ?? value)
-  return isValidCnpj(cnpj) ? cnpj : null
+  const pattern = /([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})/i
+  const labeled = value.match(/\bCNPJ\b\s*[:-]?\s*/i)
+  const searchValue = labeled ? value.slice(labeled.index! + labeled[0].length) : value
+  for (const match of searchValue.matchAll(new RegExp(pattern.source, 'gi'))) {
+    const cnpj = normalizeCnpj(match[1] ?? '')
+    if (isValidCnpj(cnpj)) return cnpj
+  }
+  return null
 }
 
 export function extractEmail(value: string) {

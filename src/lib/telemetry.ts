@@ -11,7 +11,7 @@ const SENTRY_DSN = 'https://8fbf8837315ab9f627c2f6e1283bf8d5@o4511542052454400.i
 const FORMATTED_CNPJ_RE = /\b[0-9A-Z]{2}\.[0-9A-Z]{3}\.[0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}\b/gi
 const FORMATTED_CPF_RE = /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
-const BARE_CNPJ_RE = /\b[0-9A-Z]{14}\b/gi
+const BARE_CNPJ_RE = /\b(?=[0-9A-Z]{14}\b)(?=[0-9A-Z]*\d)[0-9A-Z]{14}\b/gi
 const BARE_CPF_RE = /\b\d{11}\b/g
 const MAX_SCRUB_DEPTH = 4
 const STARTUP_MARK = 'td-startup'

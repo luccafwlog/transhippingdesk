@@ -1,10 +1,14 @@
 import * as XLSX from '@e965/xlsx'
 import { describe, expect, it } from 'vitest'
-import { extractEmail } from '../blParser'
+import { extractEmail, extractTaxId } from '../blParser'
 
 it('extrai o primeiro e-mail do bloco do consignatário', () => {
   expect(extractEmail('ACME LOGISTICS\nEMAIL: Finance@Acme.COM')).toBe('finance@acme.com')
   expect(extractEmail('ACME LOGISTICS')).toBeNull()
+})
+
+it('extrai CNPJ válido embutido no bloco mesmo sem o rótulo CNPJ', () => {
+  expect(extractTaxId('ACME COMERCIO LTDA\nRUA X 100\n12.345.678/0001-95')).toBe('12345678000195')
 })
 import { parseBLBuffer, parseBLFile } from '../blParser'
 
