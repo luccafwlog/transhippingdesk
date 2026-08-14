@@ -6,6 +6,7 @@ import { Field, Input } from '../components/ui/Input'
 import { usePortalAuth } from '../hooks/usePortalAuth'
 import { isSupabaseConfigured } from '../services/supabase'
 import { normalizeCnpj } from '../lib/cnpj'
+import { INCOMPLETE_CNPJ_MESSAGE, isCompleteCnpjLogin } from '../lib/portalCnpjLogin'
 
 function isNetworkError(error: unknown): boolean {
   if (error instanceof TypeError) return true
@@ -30,6 +31,15 @@ export function PortalLogin() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError('')
+
+    // CNPJ incompleto é erro de digitação, não credencial errada: dizer isso
+    // não revela nada (o formato se confere offline) e poupa uma tentativa
+    // contra o rate limit de login.
+    if (!isCompleteCnpjLogin(cnpj)) {
+      setError(INCOMPLETE_CNPJ_MESSAGE)
+      return
+    }
+
     setSubmitting(true)
 
     try {

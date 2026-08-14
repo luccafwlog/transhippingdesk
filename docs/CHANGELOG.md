@@ -3,6 +3,14 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Mensagens do login e da recuperação do Portal:** a tela de confirmação de
+  `/portal/esqueci-senha` passa a afirmar o envio do link em vez de condicioná-lo
+  a "se houver uma conta para este CNPJ" — o condicional devolvia ao cliente o
+  sinal de enumeração que o backend já não dava (achado 3.2). Falha de rede
+  deixa de reaproveitar esse texto e mostra erro real, e CNPJ com menos de 14
+  caracteres é reprovado na própria tela, em `/portal/login` e
+  `/portal/esqueci-senha`, por `src/lib/portalCnpjLogin.ts`. A validação cobre só
+  o comprimento: metade dos `login_cnpj` reais não fecha dígito verificador.
 - **Escrita interna global com rastro obrigatório:** migrations `294` e `295`
   congelam autor/departamento em `audit_logs`, registram mudanças por trigger,
   congelam a rota da importação e abrem a escrita interna aos cinco
