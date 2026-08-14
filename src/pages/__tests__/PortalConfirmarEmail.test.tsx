@@ -115,3 +115,24 @@ it('falha de transporte nao declara o link morto, porque o token continua valido
   await waitFor(() => expect(screen.getByText(/Abra o link do email novamente em instantes/)).toBeTruthy())
   expect(screen.queryByText(/Link de confirmacao invalido ou expirado/)).toBeNull()
 })
+
+it('pedido ja resolvido tem mensagem propria, distinta de link invalido', async () => {
+  // 409: a Edge Function leu a conta ANTES de queimar o convite e viu que nao
+  // havia troca pendente para aplicar -- tipicamente porque o atendimento ja
+  // trocou o email. O link estava valido; dizer "invalido" mandaria o cliente
+  // refazer uma troca que ja aconteceu.
+  auth.functions.invoke.mockResolvedValueOnce({
+    data: null,
+    error: { name: 'FunctionsHttpError', message: 'Edge Function returned a non-2xx status code', context: { status: 409 } },
+  })
+
+  render(
+    <MemoryRouter initialEntries={['/portal/confirmar-email?token=JA_RESOLVIDO']}>
+      <PortalConfirmarEmail />
+    </MemoryRouter>,
+  )
+
+  await waitFor(() => expect(screen.getByText(/pedido de troca de email ja foi resolvido/)).toBeTruthy())
+  expect(screen.queryByText(/Link de confirmacao invalido ou expirado/)).toBeNull()
+  expect(screen.queryByText(/Abra o link do email novamente em instantes/)).toBeNull()
+})

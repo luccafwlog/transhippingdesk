@@ -3,6 +3,27 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Rate limit do Portal, trava da troca de email e saída da lista de
+  bloqueio:** o balde de tentativas volta a chavear pelo `normalize_cnpj`
+  compartilhado (migration `298`) — o `regexp_replace(…, '\\D', …)` inline das
+  migrations `183`/`191` apagava as letras do CNPJ alfanumérico, então
+  `12ABC34501DE35` e `12XYZ34501FG35` dividiam o mesmo balde e cinco falhas em
+  um trancavam o login do outro. A verificação da senha atual na troca de Email
+  de Recuperação passa a consultar **o contador do login** antes de verificar a
+  senha (429) e encerra a sessão de verificação, fechando a porta paralela à
+  trava. A confirmação lê a conta **antes** de consumir o convite e devolve 409
+  com mensagem verdadeira quando o pedido já foi resolvido, em vez de queimar um
+  link válido para dizer "link inválido"; a troca assistida invalida os convites
+  `confirmacao_email` pendentes (`300`). `credentials_revoked_at` (`301`) faz
+  `current_portal_customer_id()` recusar token emitido antes da última
+  revogação, fechando a janela de até 1 hora em que a sessão antiga sobrevivia à
+  troca de senha. Conta ativa com Email de Recuperação quebrado ganha sinal em
+  coluna própria (`299`, `recovery_email_status`) sem rebaixar
+  `account_situation`, com alerta deduplicado; a lista de bloqueio de emails
+  ganha saída pelo operador, com justificativa e rastro (`302`). A recuperação
+  de senha reusa o convite vivo em vez de enviar um email por pedido (teto de um
+  por hora por conta) e o caminho bloqueado do login responde antes de consultar
+  a conta e abrir o alerta. *(ADR 0049, nota editorial; migrations `298`–`302`)*
 - **Confirmação do Email de Recuperação em rota pública:** o link enviado ao
   endereço novo passa a apontar para `/portal/confirmar-email`, sem exigir
   sessão. Antes ele levava a `/portal/perfil`, rota protegida, e quem abrisse

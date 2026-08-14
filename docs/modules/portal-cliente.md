@@ -2,7 +2,7 @@
 
 > **Rota interna:** `/clientes/portal/inspecao/:customerId/*` (Modo Inspeção)
 
-> **Status:** ativo · **Atualizado:** 2026-08-12 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal/confirmar-email`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
+> **Status:** ativo · **Atualizado:** 2026-08-14 · **Rotas:** `/portal/login`, `/portal/esqueci-senha`, `/portal/recuperar-senha`, `/portal/confirmar-email`, `/portal`, `/portal/billing`, `/portal/operacao`, `/portal/perfil`
 
 ## Provisionamento operacional
 
@@ -16,6 +16,38 @@ O registro interno de Portal possui dois eixos independentes: `provisioning_deci
 falha, `ativo` ou `suspenso`). `recovery_email` é um contato operacional separado
 da identidade técnica do Supabase Auth e pode ser compartilhado entre CNPJs após
 análise humana.
+
+A saúde do Email de Recuperação é um **terceiro eixo**, em coluna própria
+(`recovery_email_status`, migration `299`): `ok`, `bounce_permanente` ou
+`complaint`. Ela não rebaixa `account_situation` porque os dois fatos são
+independentes — a conta continua `ativo` e o cliente continua entrando com a
+senha; o que quebrou é o endereço para onde a recuperação seria enviada. O
+webhook marca o sinal em bounce permanente ou complaint, o console mostra o
+aviso junto do Cliente e a fila passa a pedir "Validar Email de Recuperação" em
+vez de "Conta ativa". `account_situation` só é rebaixado para `falha_no_envio`
+quando a conta ainda está em `convite_pendente`, como antes.
+
+`portal_release_suppressed_email(customer_id, email, justificativa)` (migration
+`302`) é a **saída** da lista de bloqueio: restrita a Administrativo e
+Documentação, exige justificativa não vazia, remove o endereço de
+`portal_suppressed_emails`, zera o sinal das contas que o usavam e grava quem
+liberou e por quê em `portal_provisioning_events`. Sem ela, o operador que
+quisesse resgatar um endereço bloqueado por engano só podia cadastrar um
+endereço **diferente** — gravar um dado errado para contornar um sinalizador
+errado. O bloqueio expirar sozinho após N dias foi descartado: o sistema não
+tem como saber que a caixa voltou, só chutar um prazo e voltar a enviar para o
+vazio; quem sabe é o operador, porque o cliente ligou.
+
+`credentials_revoked_at` (migration `301`) guarda o instante da última
+revogação de credencial, gravado por `portal_revoke_sessions`.
+`current_portal_customer_id()` — o ponto único onde toda leitura do Portal
+resolve o cliente — recusa token cujo `iat` seja anterior a esse marco, com
+folga de cinco segundos para o desalinhamento entre o relógio do emissor e o do
+banco. Sem isso, apagar `auth.sessions` tirava o direito de **renovar** o
+token, mas não invalidava o access token já emitido, e a sessão antiga
+sobrevivia à troca de senha ou de email pelo TTL do JWT (1 hora). Se `iat` não
+estiver acessível no contexto da RPC, o guard não rejeita e a checagem de
+`active` continua valendo — limitação declarada na migration.
 
 `portal_invites` armazena somente hash de token; `portal_email_attempts`,
 `portal_email_events` e `portal_suppressed_emails` registram entrega e supressão;
@@ -205,11 +237,12 @@ Portal.
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| `/portal/login` — autenticar por CNPJ | CNPJ canônico de 14 posições e senha preenchidos; pontuação colada é removida imediatamente e letras são preservadas em maiúsculas; comprimento < 14 para na tela (`isCompleteCnpjLogin`) | `PortalLogin` → `usePortalAuth.signIn` | Edge Function `portal-login` → Auth técnico → `setSession` | `customer_portal_accounts.login_cnpj`; rate limit hash em `portal_login_attempts` | O navegador recebe somente tokens de sessão | CNPJ desconhecido, conta inativa, senha errada e bloqueio usam a mesma mensagem; CNPJ incompleto tem mensagem de digitação, decidida sem consultar o servidor | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`, `src/pages/__tests__/PortalLogin.test.tsx`, `src/lib/__tests__/cnpj.test.ts` |
+| `/portal/login` — autenticar por CNPJ | CNPJ canônico de 14 posições e senha preenchidos; pontuação colada é removida imediatamente e letras são preservadas em maiúsculas; comprimento < 14 para na tela (`isCompleteCnpjLogin`) | `PortalLogin` → `usePortalAuth.signIn` | Edge Function `portal-login` → Auth técnico → `setSession` | `customer_portal_accounts.login_cnpj`; rate limit hash em `portal_login_attempts` | O navegador recebe somente tokens de sessão | CNPJ desconhecido, conta inativa, senha errada e bloqueio usam a mesma mensagem; no caminho bloqueado a consulta à conta e o alerta `portal_abuso_login` rodam em `EdgeRuntime.waitUntil`, então o 401 sai sem trabalho a mais; CNPJ incompleto tem mensagem de digitação, decidida sem consultar o servidor | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`, `src/pages/__tests__/PortalLogin.test.tsx`, `src/lib/__tests__/cnpj.test.ts` |
 | Inicialização — hidratar sessão e overview | Aplicação montada; sessão Portal persistida opcional | `PortalAuthProvider` | `getSession()` → `fetchOverview()`; listener `onAuthStateChange` reidrata em `SIGNED_IN`/`TOKEN_REFRESHED` quando necessário | Supabase Auth; RPC `portal_get_session_overview_v2`; UPDATE de `last_login_at` | Define `overview`, `isAuthenticated=Boolean(overview)` e identidade Sentry `{ id: customer_id }` com tag `area=portal` | Sessão sem Conta de Portal ativa gera `28000` e limpa overview; outras falhas não são exibidas | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx` |
 | Layout — sair | Sessão/overview presente | Botão “Sair” em `PortalLayout` ou evento `SIGNED_OUT` do Supabase Auth | Limpa overview e caches `portal-*` antes de `signOutSupabaseClient`; chamadas concorrentes compartilham uma Promise | Supabase Auth `signOut` | Guard passa a considerar a sessão não autenticada e queries do Portal são removidas | Ignora apenas erro conhecido de lock roubado; demais erros propagam | **Teste:** `src/hooks/__tests__/usePortalAuth.test.tsx`; `src/services/__tests__/supabaseAuth.test.ts` |
-| `/portal/esqueci-senha` — solicitar recuperação | CNPJ de 14 posições numéricas ou alfanuméricas; pontuação colada é removida imediatamente; comprimento < 14 para na tela (`isCompleteCnpjLogin`) | `PortalForgotPassword.handleSubmit` | Edge Function `portal-password-recovery`; rate limit em `portal_recovery_check_rate_limit`/`_register_failure` | `customer_portal_accounts.login_cnpj`; `portal_invites` (purpose `recuperacao`); email via `sendPortalEmail` | `{ accepted: true }` para todo caso elegível; `{ accepted: false, rate_limited: true }` só no rate limit | Resposta não enumera conta (achado 3.2); confirmação afirma o envio sem condicionar a existência de conta; rate limit mostra "tente mais tarde"; falha de rede mostra erro real, não promessa de email | **Código:** `src/pages/PortalForgotPassword.tsx`, `supabase/functions/portal-password-recovery/index.ts`; **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
-| `/portal/confirmar-email` — confirmar novo Email de Recuperação | Token de convite `confirmacao_email` válido na query string (`token` ou `confirm_email`); sem sessão | `PortalConfirmarEmail` | Edge Function `portal-recovery-email-change` (`action: 'confirm'`) valida hash/expiração/status | `portal_invites` (consumo condicional); `customer_portal_accounts.recovery_email`; `revokePortalSessions` | Rota pública; token removido da URL após leitura; encerra as sessões do Portal | Token ausente/expirado/inválido mostra mensagem única; autorização da troca ficou no `action: 'request'` | **Teste:** `src/pages/__tests__/PortalConfirmarEmail.test.tsx` |
+| `/portal/esqueci-senha` — solicitar recuperação | CNPJ de 14 posições numéricas ou alfanuméricas; pontuação colada é removida imediatamente; comprimento < 14 para na tela (`isCompleteCnpjLogin`) | `PortalForgotPassword.handleSubmit` | Edge Function `portal-password-recovery`; rate limit em `portal_recovery_check_rate_limit`/`_register_failure`; havendo convite `recuperacao` pendente e válido, **reusa** e não envia email novo | `customer_portal_accounts.login_cnpj`; `portal_invites` (purpose `recuperacao`); email via `sendPortalEmail` | `{ accepted: true }` para todo caso elegível, inclusive o de reuso; `{ accepted: false, rate_limited: true }` só no rate limit | Resposta não enumera conta (achado 3.2); confirmação afirma o envio sem condicionar a existência de conta; rate limit mostra "tente mais tarde"; falha de rede mostra erro real, não promessa de email; teto de envio de um email por hora por conta (validade do convite), sem alterar o balde de pedidos | **Código:** `src/pages/PortalForgotPassword.tsx`, `supabase/functions/portal-password-recovery/index.ts`, [ADR 0049](../adr/0049-rate-limit-do-portal-chaveado-somente-por-cnpj.md); **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx`, `src/services/__tests__/portalInvites.test.ts` |
+| `/portal/confirmar-email` — confirmar novo Email de Recuperação | Token de convite `confirmacao_email` válido na query string (`token` ou `confirm_email`); sem sessão | `PortalConfirmarEmail` | Edge Function `portal-recovery-email-change` (`action: 'confirm'`) valida hash/expiração/status, **lê a conta antes** de consumir o convite e só consome quando há `pending_recovery_email` | `portal_invites` (consumo condicional, ponto de serialização); `customer_portal_accounts.recovery_email` e `recovery_email_status='ok'`; `revokePortalSessions` | Rota pública; token removido da URL após leitura; encerra as sessões do Portal | Token ausente/expirado/inválido devolve 410 com mensagem única; pedido já resolvido por outro caminho devolve **409** com mensagem própria ("este pedido de troca já foi resolvido") e **não** queima o convite; autorização da troca ficou no `action: 'request'` | **Teste:** `src/pages/__tests__/PortalConfirmarEmail.test.tsx`, `src/services/__tests__/portalInvites.test.ts` |
+| `/portal/perfil` — pedir troca do Email de Recuperação | Sessão do Portal ativa **e** senha atual; email novo válido e fora da lista de bloqueio | `PortalProfile.handleRecoveryEmailChange` | Edge Function `portal-recovery-email-change` (`action: 'request'`) consulta `portal_login_check_rate_limit` **antes** de `signInWithPassword`, registra falha/sucesso no contador do login e encerra a sessão de verificação | `portal_invites` (purpose `confirmacao_email`); `customer_portal_accounts.pending_recovery_email`; `portal_login_attempts` | Email de confirmação para o endereço novo e alerta para o anterior; o endereço atual segue valendo até a confirmação | Bloqueio devolve **429** com mensagem própria; a tela avisa que errar a senha aqui consome as tentativas do login do Portal (mesmo balde, ADR 0049) | **Código:** `src/pages/PortalProfile.tsx`, `supabase/functions/portal-recovery-email-change/index.ts`; **Teste:** `src/services/__tests__/portalLoginRateLimit.test.ts`, `src/services/__tests__/portalEdgeFunctionsOrder.test.ts` |
 | `/portal/recuperar-senha` — atualizar senha | Token de convite de recuperação válido na query string; senha 8+; confirmação igual | `PortalResetPassword.handleSubmit` | Edge Function `portal-password-reset` valida hash/expiração/status e chama Auth Admin `updateUserById` | `portal_invites` (consumo condicional); `revokePortalSessions` | Remove `token` da URL após leitura (achado 3.3); encerra sessões do Portal e navega para `/portal/login` | Token ausente/expirado/inválido mostra mensagem única; validação local de senha | **Teste:** `src/pages/__tests__/PortalRecovery.behavior.test.tsx` |
 | Rotas protegidas — redirecionar | `PortalAuthProvider` terminou loading | `PortalProtectedRoute` | Loading ocupa shell; ausência de overview retorna `<Navigate replace>` | Nenhuma chamada própria | Redireciona para `/portal/login` | O guard é UX, não autorização de dados | **Código:** `src/components/layout/PortalProtectedRoute.tsx` |
 

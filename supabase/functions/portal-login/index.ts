@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { ALLOWED_ORIGINS } from '../_shared/cors.ts'
+import { openAlertOnce } from '../_shared/portalAlerts.ts'
+import { isLoginRateLimited, registerLoginFailure, registerLoginSuccess } from '../_shared/portalLoginRateLimit.ts'
 
 const GENERIC_ERROR = 'CNPJ ou senha inválidos.'
 
@@ -37,37 +39,49 @@ if (typeof Deno !== 'undefined') {
     if (!url || !serviceKey || !anonKey) return json(500, { error: 'Portal indisponível.' }, origin)
 
     const admin = createClient(url, serviceKey)
-    const { data: blocked, error: rateError } = await admin.rpc('portal_login_check_rate_limit', { p_login: normalized })
-    if (rateError || blocked === true) {
-      const { data: blockedAccount } = await admin.from('customer_portal_accounts').select('customer_id').eq('login_cnpj', normalized).maybeSingle()
-      if (blockedAccount) {
-        const { data: existingAlert } = await admin.from('alerts').select('id').eq('type', 'portal_abuso_login').eq('entity_type', 'customer').eq('entity_id', String(blockedAccount.customer_id)).neq('status', 'closed').maybeSingle()
-        if (!existingAlert) await admin.from('alerts').insert({ type: 'portal_abuso_login', entity_type: 'customer', entity_id: String(blockedAccount.customer_id), message: 'Muitas tentativas de login no Portal. Verifique a origem e contate o Cliente se necessário.', status: 'open' })
-      }
+    if (await isLoginRateLimited(admin, normalized)) {
+      // O caminho bloqueado consultava a conta e, SÓ se ela existisse,
+      // consultava e inseria o alerta: os dois desfechos devolvem o mesmo 401,
+      // mas um fazia consistentemente uma consulta a mais que o outro. É o
+      // mesmo oráculo por tempo do achado 3.2 da auditoria
+      // security-audit-portal-2026-08-12, que a PR 527 fechou na recuperação e
+      // que reapareceu no login. A resposta sai antes do trabalho terminar, na
+      // mesma forma de portal-password-recovery.
+      const alertWork = (async () => {
+        const { data: blockedAccount } = await admin.from('customer_portal_accounts').select('customer_id').eq('login_cnpj', normalized).maybeSingle()
+        if (!blockedAccount) return
+        await openAlertOnce(admin, {
+          type: 'portal_abuso_login',
+          entityType: 'customer',
+          entityId: String(blockedAccount.customer_id),
+          message: 'Muitas tentativas de login no Portal. Verifique a origem e contate o Cliente se necessário.',
+        })
+      })().catch((error) => console.error('[portal-login] falha ao registrar alerta de abuso em segundo plano', error))
+      if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(alertWork)
       return json(401, { error: GENERIC_ERROR }, origin)
     }
 
     const { data: account } = await admin.from('customer_portal_accounts').select('auth_user_id, account_situation').eq('login_cnpj', normalized).maybeSingle()
     if (!account || account.account_situation !== 'ativo' || !account.auth_user_id) {
-      await admin.rpc('portal_login_register_failure', { p_login: normalized })
+      await registerLoginFailure(admin, normalized)
       return json(401, { error: GENERIC_ERROR }, origin)
     }
 
     const { data: user } = await admin.auth.admin.getUserById(account.auth_user_id)
     const technicalEmail = user.user?.email
     if (!technicalEmail) {
-      await admin.rpc('portal_login_register_failure', { p_login: normalized })
+      await registerLoginFailure(admin, normalized)
       return json(401, { error: GENERIC_ERROR }, origin)
     }
 
     const authClient = createClient(url, anonKey)
     const { data: session, error } = await authClient.auth.signInWithPassword({ email: technicalEmail, password: body.password })
     if (error || !session.session) {
-      await admin.rpc('portal_login_register_failure', { p_login: normalized })
+      await registerLoginFailure(admin, normalized)
       return json(401, { error: GENERIC_ERROR }, origin)
     }
 
-    await admin.rpc('portal_login_register_success', { p_login: normalized })
+    await registerLoginSuccess(admin, normalized)
     await admin.from('customer_portal_accounts').update({ last_login_at: new Date().toISOString() }).eq('login_cnpj', normalized)
     return json(200, {
       access_token: session.session.access_token,

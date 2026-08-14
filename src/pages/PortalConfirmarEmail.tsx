@@ -5,15 +5,24 @@ import { supabasePortal } from '../services/supabase'
 
 const INVALID_LINK_MESSAGE = 'Link de confirmacao invalido ou expirado. Peca a troca novamente pelo Portal.'
 const TRANSIENT_MESSAGE = 'Nao foi possivel confirmar agora. Abra o link do email novamente em instantes.'
+// 409: o link estava valido, mas o pedido de troca ja tinha sido resolvido por
+// outro caminho (tipicamente a troca assistida pelo atendimento). Dizer "link
+// invalido" aqui mandaria o cliente refazer uma troca que ja aconteceu.
+const ALREADY_RESOLVED_MESSAGE = 'Este pedido de troca de email ja foi resolvido. Nenhuma acao e necessaria; o Email de Recuperacao em vigor e o atual.'
 
 // `functions.invoke` nao rejeita em falha de transporte: devolve `{ error }`
 // tanto para a resposta 410 da funcao quanto para rede fora do ar. Tratar as
 // duas como link morto mandaria o cliente refazer a troca segurando um token
 // ainda valido -- e refazer exige sessao ativa E senha atual, que o leitor do
 // Email de Recuperacao normalmente nao tem. So o status da funcao decide.
-function isDeadLink(invokeError: unknown): boolean {
-  const status = (invokeError as { context?: { status?: number } } | null)?.context?.status
-  return status === 410 || status === 422
+function invokeStatus(invokeError: unknown): number | undefined {
+  return (invokeError as { context?: { status?: number } } | null)?.context?.status
+}
+
+function errorMessageFor(invokeError: unknown): string {
+  const status = invokeStatus(invokeError)
+  if (status === 409) return ALREADY_RESOLVED_MESSAGE
+  return status === 410 || status === 422 ? INVALID_LINK_MESSAGE : TRANSIENT_MESSAGE
 }
 
 // Rota publica, como `/portal/ativar` e `/portal/recuperar-senha`. A troca de
@@ -44,7 +53,7 @@ export function PortalConfirmarEmail() {
       .invoke('portal-recovery-email-change', { body: { action: 'confirm', token } })
       .then(({ error: invokeError }) => {
         if (invokeError) {
-          setError(isDeadLink(invokeError) ? INVALID_LINK_MESSAGE : TRANSIENT_MESSAGE)
+          setError(errorMessageFor(invokeError))
           setState('erro')
           return
         }

@@ -5,6 +5,10 @@ export type ProvisioningDecision = 'aguardando_analise' | 'aprovado_para_provisi
 export type AccountSituation = 'sem_conta' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'suspenso'
 export type RecoveryEmailSource = 'candidato' | 'informado_manualmente'
 export type PortalDeliveryStatus = 'aceito' | 'entregue' | 'bounce' | 'complaint' | 'falha_transitoria' | 'falha_permanente'
+// Saúde do Email de Recuperação, independente de `account_situation`: uma conta
+// pode estar `ativo` (o cliente entra com a senha) e ainda assim ter o endereço
+// de recuperação morto.
+export type RecoveryEmailStatus = 'ok' | 'bounce_permanente' | 'complaint'
 
 export type PortalProvisioningRow = {
   account_id: number
@@ -25,6 +29,8 @@ export type EmailCandidate = {
 }
 
 export type QueueRow = PortalProvisioningRow & {
+  recoveryEmailStatus: RecoveryEmailStatus | null
+  recoveryEmailSuppressed: boolean
   hasCriticalAlert: boolean
   hasOpenInvoice: boolean
   hasActiveProcess: boolean
@@ -45,6 +51,8 @@ export type PortalProvisioningConsolePayload = {
   recovery_email: string | null
   recovery_email_source: RecoveryEmailSource | null
   pending_invite_expires_at: string | null
+  recovery_email_status: RecoveryEmailStatus | null
+  recovery_email_suppressed: boolean
   latest_delivery_status: PortalDeliveryStatus | null
   exception_reason: string | null
   last_event_at: string | null
@@ -65,6 +73,12 @@ const portalProvisioningConsolePayloadSchema: z.ZodType<PortalProvisioningConsol
   recovery_email: z.string().nullable(),
   recovery_email_source: z.enum(['candidato', 'informado_manualmente']).nullable(),
   pending_invite_expires_at: z.string().nullable(),
+  // Exigidas: WORKFLOW §5 manda aplicar as migrations pendentes antes de
+  // publicar o frontend dependente, então a RPC já responde com as duas quando
+  // este bundle sobe. Tolerar a ausência aqui esconderia justamente o deploy
+  // fora de ordem que a regra existe para impedir.
+  recovery_email_status: z.enum(['ok', 'bounce_permanente', 'complaint']).nullable(),
+  recovery_email_suppressed: z.boolean(),
   latest_delivery_status: z.enum(['aceito', 'entregue', 'bounce', 'complaint', 'falha_transitoria', 'falha_permanente']).nullable(),
   exception_reason: z.string().nullable(),
   last_event_at: z.string().nullable(),
@@ -116,6 +130,8 @@ export async function listPortalProvisioningQueue(customerId?: number): Promise<
     recovery_email: row.recovery_email,
     recovery_email_source: row.recovery_email_source,
     pending_invite_expires_at: row.pending_invite_expires_at,
+    recoveryEmailStatus: row.recovery_email_status,
+    recoveryEmailSuppressed: row.recovery_email_suppressed,
     hasCriticalAlert: row.has_critical_alert,
     hasOpenInvoice: row.has_open_invoice,
     hasActiveProcess: row.has_active_process,
@@ -140,5 +156,14 @@ export async function setProvisioningException(customerId: number, reason: strin
 
 export async function returnToAnalysis(customerId: number, reason: string) {
   const { error } = await supabase.rpc('portal_return_to_analysis', { p_customer_id: customerId, p_reason: reason })
+  if (error) throw error
+}
+
+// A RPC nasceu na migration 302 e ainda não consta dos tipos gerados; mesmo
+// caminho de `portal_open_inspection` em src/services/portalScope.ts.
+type UntypedRpc = { rpc: (rpc: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> }
+
+export async function releaseSuppressedEmail(customerId: number, email: string, reason: string) {
+  const { error } = await (supabase as unknown as UntypedRpc).rpc('portal_release_suppressed_email', { p_customer_id: customerId, p_email: email, p_reason: reason })
   if (error) throw error
 }
