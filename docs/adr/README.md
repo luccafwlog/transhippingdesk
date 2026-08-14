@@ -51,6 +51,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0044](./0044-leitura-interna-global-departamento-restringe-escrita.md) | Leitura interna é global; departamento restringe escrita | aceito | Corrige o eixo de leitura de `014`/`020`/`066`/`111` (migration `291`); estende a 0004 |
 | [0045](./0045-inspecao-do-portal.md) | Inspeção do Portal por núcleo compartilhado e invólucro interno | aceito | Estende a 0044; leitura somente, modo interno e paridade estrutural entre cliente e inspeção |
 | [0046](./0046-escrita-interna-global-com-rastro-obrigatorio.md) | Escrita interna global com rastro obrigatório | aceito | Substitui o eixo de escrita da 0044; reafirma leitura global e preserva as exceções operacionais |
+| [0047](./0047-grants-de-funcao-fechados-por-padrao.md) | Grants de função fechados por padrão em `public` | aceito | Estende a 0011: o default-deny deixa de ser disciplina de autor e passa a ser o default do schema (`ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ON FUNCTIONS`), com acesso concedido caso a caso; **encerra formalmente a exceção `anon` da 0013**, já revogada na prática pela migration `182`; preserva `portal_ship_schedule()` como única exceção pré-autenticação viva; implementada na migration `297` |
 
 ## Convenção
 
