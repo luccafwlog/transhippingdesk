@@ -79,9 +79,13 @@ BEGIN
   -- Caixa compartilhada: a liberação já valeu para estes Clientes no DELETE
   -- acima. Registrar só no histórico de quem pediu deixaria os outros com o
   -- endereço reaberto e nenhuma linha explicando quando, por quem e por quê.
+  -- `pending_recovery_email` conta junto: a guarda de propriedade acima aceita
+  -- o endereço ainda não confirmado como sendo do Cliente, e quem espera a
+  -- confirmação é exatamente quem o bloqueio estava impedindo de concluir.
   FOR v_compartilhada IN
     SELECT * FROM public.customer_portal_accounts
-    WHERE lower(recovery_email) = v_email AND customer_id <> p_customer_id
+    WHERE (lower(recovery_email) = v_email OR lower(pending_recovery_email) = v_email)
+      AND customer_id <> p_customer_id
   LOOP
     PERFORM public._portal_log_event(
       v_compartilhada.customer_id, v_compartilhada.id, NULL,

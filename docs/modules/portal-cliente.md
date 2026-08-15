@@ -46,7 +46,10 @@ endereço do sistema, com o rastro gravado no histórico de quem não pediu nada
 Quando a caixa é compartilhada entre CNPJs (o console conta isso em
 `shared_email_count`), a liberação alcança todos por construção, e **cada
 Cliente afetado recebe a linha no próprio histórico** — para ele o endereço
-mudou de estado sem que ninguém o tivesse mencionado.
+mudou de estado sem que ninguém o tivesse mencionado. "Afetado" cobre as duas
+colunas, como na guarda de propriedade: quem tem o endereço só em
+`pending_recovery_email` é justamente quem o bloqueio impedia de concluir a
+confirmação.
 
 `credentials_revoked_at` (migration `301`) guarda o instante da última
 revogação de credencial, gravado por `portal_revoke_sessions`.

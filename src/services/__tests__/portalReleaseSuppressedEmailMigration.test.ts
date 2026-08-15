@@ -46,9 +46,22 @@ describe('Saída da lista de bloqueio de emails do Portal (302)', () => {
   // quando o endereço reabriu e por quê.
   it('registra a liberação no histórico de cada Cliente que compartilha a caixa', () => {
     expect(sql).toContain('FOR v_compartilhada IN')
-    expect(sql).toContain('WHERE lower(recovery_email) = v_email AND customer_id <> p_customer_id')
+    expect(sql).toContain('AND customer_id <> p_customer_id')
     expect(sql).toContain('v_compartilhada.customer_id, v_compartilhada.id, NULL,')
     expect(sql).toContain('(caixa compartilhada). ')
+  })
+
+  // A guarda de propriedade aceita as duas colunas; o laço da caixa
+  // compartilhada tem de aceitar as mesmas. Casar só `recovery_email` deixaria
+  // sem rastro justamente o Cliente que espera a confirmação de um endereço que
+  // o bloqueio o impedia de concluir -- e para ele o endereço mudou de estado
+  // sem que ninguém o tenha mencionado.
+  it('alcança também quem tem o endereço apenas como pendente', () => {
+    expect(sql).toContain('WHERE (lower(recovery_email) = v_email OR lower(pending_recovery_email) = v_email)')
+    // A guarda de propriedade olha o mesmo par de colunas: se um dia divergirem,
+    // volta a existir Cliente alcançado pelo DELETE e ausente do histórico.
+    expect(sql).toContain('IF v_email IS DISTINCT FROM lower(v_account.recovery_email)')
+    expect(sql).toContain('AND v_email IS DISTINCT FROM lower(v_account.pending_recovery_email) THEN')
   })
 
   it('roda com search_path controlado', () => {
