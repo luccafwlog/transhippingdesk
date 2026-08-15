@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook } from 'https://esm.sh/svix@1'
+import { openAlertOnce } from '../_shared/portalAlerts.ts'
 
 const STATUS_BY_EVENT: Record<string, string> = { 'email.delivered': 'entregue', 'email.bounced': 'bounce', 'email.complained': 'complaint' }
 
@@ -26,8 +27,30 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
       if (permanentBounce) await admin.from('portal_suppressed_emails').upsert({ email, reason: status === 'bounce' ? 'bounce_permanente' : 'complaint' }, { onConflict: 'email', ignoreDuplicates: true })
       const { data: affected } = await admin.from('customer_portal_accounts').select('customer_id').ilike('recovery_email', email)
       for (const account of affected ?? []) {
-        if (permanentBounce) await admin.from('customer_portal_accounts').update({ account_situation: 'falha_no_envio' }).eq('customer_id', account.customer_id).eq('account_situation', 'convite_pendente')
-        if (permanentBounce) await admin.from('alerts').insert({ type: 'portal_email_suprimido', entity_type: 'customer', entity_id: String(account.customer_id), message: 'Email de Recuperação indisponível. Informe ou valide outro endereço.', status: 'open' })
+        if (!permanentBounce) continue
+        // Sinal em coluna própria: `account_situation` é de valor único e
+        // `ativo`/`falha_no_envio` são excludentes, então marcar `falha_no_envio`
+        // numa conta ativa afirmaria que ela não está ativa -- e está, o cliente
+        // continua entrando com a senha. São dois fatos independentes: a conta
+        // funciona, e o Email de Recuperação quebrou.
+        await admin.from('customer_portal_accounts').update({ recovery_email_status: status === 'bounce' ? 'bounce_permanente' : 'complaint' }).eq('customer_id', account.customer_id)
+        await admin.from('customer_portal_accounts').update({ account_situation: 'falha_no_envio' }).eq('customer_id', account.customer_id).eq('account_situation', 'convite_pendente')
+        // O alerta é sinal secundário: o estado autoritativo já foi gravado em
+        // `recovery_email_status` acima, e é ele que o console lê. Deixar o
+        // erro subir daqui abortaria os Clientes seguintes da mesma caixa e
+        // devolveria 500 -- e o retry do Resend cairia na linha de dedup já
+        // gravada, que responde 200 sem reprocessar nada. Falhar em avisar não
+        // pode custar o registro do fato.
+        try {
+          await openAlertOnce(admin, {
+            type: 'portal_email_suprimido',
+            entityType: 'customer',
+            entityId: String(account.customer_id),
+            message: 'Email de Recuperação indisponível. Informe ou valide outro endereço.',
+          })
+        } catch (error) {
+          console.error('[portal-email-webhook] falha ao abrir alerta de email suprimido', account.customer_id, error)
+        }
       }
     }
   }

@@ -7,8 +7,8 @@ import { useConfirm } from '../ui/ConfirmDialog'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import type { QueueRow } from '../../services/portalProvisioning'
-import { useAdminChangeCnpj, useAssistedEmailChange, useCancelPortalInvite, usePortalEvents, useReturnToAnalysis, useSendPortalInvite, useSetProvisioningException, useSuspendPortalAccount } from '../../hooks/usePortalProvisioning'
-import { accountSituationLabel, contactPurposeLabel, deliveryStatusLabel, provisioningDecisionLabel, recoveryEmailSourceLabel } from '../../lib/portalProvisioningViewModel'
+import { useAdminChangeCnpj, useAssistedEmailChange, useCancelPortalInvite, usePortalEvents, useReleaseSuppressedEmail, useReturnToAnalysis, useSendPortalInvite, useSetProvisioningException, useSuspendPortalAccount } from '../../hooks/usePortalProvisioning'
+import { accountSituationLabel, contactPurposeLabel, deliveryStatusLabel, hasBrokenRecoveryEmail, provisioningDecisionLabel, recoveryEmailSourceLabel, recoveryEmailStatusLabel } from '../../lib/portalProvisioningViewModel'
 import { formatCnpjCpf } from '../../lib/utils'
 import { normalizeCnpj } from '../../lib/cnpj'
 
@@ -38,8 +38,10 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const adminCnpjMutation = useAdminChangeCnpj()
   const exceptionMutation = useSetProvisioningException()
   const returnToAnalysisMutation = useReturnToAnalysis()
+  const releaseSuppressedMutation = useReleaseSuppressedEmail()
   const busy = sendInviteMutation.isPending || cancelInviteMutation.isPending || suspendMutation.isPending
     || assistedEmailMutation.isPending || exceptionMutation.isPending || returnToAnalysisMutation.isPending
+    || releaseSuppressedMutation.isPending
 
   async function sendInvite() {
     if (!email.trim()) return
@@ -86,6 +88,23 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
     catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível alterar o email.') }
   }
 
+  // Desbloquear reexpoe o dominio de envio a bounces. A confirmacao explicita e
+  // a justificativa obrigatoria existem para que a liberacao seja uma decisao
+  // registrada, e nao um botao de habito -- a RPC grava quem liberou e por que.
+  async function releaseSuppressedEmail() {
+    const target = row.recovery_email?.trim()
+    if (!target) { setError('Não há Email de Recuperação para liberar.'); return }
+    if (!reason.trim()) { setError('Informe a justificativa.'); return }
+    const authorized = await confirm({
+      title: 'Liberar endereço bloqueado',
+      message: 'O endereço voltará a receber emails do Portal. Se a caixa ainda estiver morta, cada novo envio gasta a reputação do domínio. Confirme que o Cliente informou que o endereço voltou.',
+      confirmLabel: 'Liberar endereço',
+    })
+    if (!authorized) return
+    try { await releaseSuppressedMutation.mutateAsync({ customerId: row.customer_id, email: target, reason: reason.trim() }); showToast('Endereço liberado da lista de bloqueio.', 'success'); onSaved?.() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível liberar o endereço.') }
+  }
+
   async function adminCnpjChange() {
     if (!newCnpj.trim() || !reason.trim()) { setError('Informe CNPJ e justificativa.'); return }
     try { await adminCnpjMutation.mutateAsync({ customerId: row.customer_id, cnpj: normalizeCnpj(newCnpj), reason: reason.trim() }) }
@@ -110,8 +129,20 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         <div><div className="text-xs text-[var(--app-muted)]">Email atual</div><div>{row.recovery_email ?? 'Não informado'}</div></div>
         <div><div className="text-xs text-[var(--app-muted)]">Origem</div><div>{recoveryEmailSourceLabel(row.recovery_email_source)}</div></div>
         <div><div className="text-xs text-[var(--app-muted)]">Entrega</div><div>{deliveryStatusLabel(row.latestDeliveryStatus)}</div></div>
+        <div><div className="text-xs text-[var(--app-muted)]">Email de Recuperação</div><div>{recoveryEmailStatusLabel(row.recoveryEmailStatus)}</div></div>
         {row.exceptionReason ? <div className="sm:col-span-2"><div className="text-xs text-[var(--app-muted)]">Justificativa da exceção</div><div>{row.exceptionReason}</div></div> : null}
       </div>
+
+      {/* A conta segue ativa e o cliente entra com a senha; o que quebrou foi o
+          endereco para onde a recuperacao seria enviada. Sem este aviso, o unico
+          sinal era um alerta na fila, e a recuperacao respondia "enviamos" em
+          silencio -- correto contra enumeracao, e mudo para o operador. */}
+      {!isOperations && hasBrokenRecoveryEmail(row) ? (
+        <p className="mt-4 rounded-lg border border-red-400/40 bg-red-950/20 p-3 text-sm text-red-100">
+          O Email de Recuperação deste Cliente {row.recoveryEmailSuppressed ? 'está na lista de bloqueio de envio' : 'apresentou falha permanente'}. A conta continua funcionando com a senha,
+          mas a recuperação de senha não chega. Informe outro endereço ou libere o atual quando o Cliente confirmar que a caixa voltou.
+        </p>
+      ) : null}
 
       {!isOperations ? <section className="mt-6 grid gap-3">
         <h3 className="font-semibold">Candidatos de email</h3>
@@ -150,8 +181,10 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         {row.account_situation === 'ativo' ? <p className="text-sm text-[var(--app-muted)]">Suspender encerra as sessões ativas do Cliente.</p> : null}
         {row.account_situation === 'suspenso' ? <p className="text-sm text-[var(--app-muted)]">Reativar devolve o cliente à fila de análise para um novo convite.</p> : null}
         {row.provisioning_decision === 'aguardando_analise' && row.account_situation === 'sem_conta' ? <p className="text-sm text-[var(--app-muted)]">A exceção exige confirmação e justificativa não vazia.</p> : null}
+        {row.recoveryEmailSuppressed ? <p className="text-sm text-[var(--app-muted)]">Liberar devolve o endereço à fila de envio e registra quem liberou e por quê. O bloqueio é opinião do provedor sobre um instante: caixa cheia, servidor em manutenção e domínio em migração dão o mesmo sintoma de endereço morto.</p> : null}
         <div className="flex flex-wrap gap-2">
           {row.account_situation === 'ativo' || row.account_situation === 'suspenso' ? <Button variant="secondary" onClick={() => void changeAccount(row.account_situation === 'ativo' ? 'suspend' : 'reactivate')} disabled={!canProvision || busy}>{row.account_situation === 'ativo' ? 'Suspender conta' : 'Reativar conta'}</Button> : null}
+          {row.recoveryEmailSuppressed ? <Button variant="secondary" onClick={() => void releaseSuppressedEmail()} disabled={!canProvision || busy}>Liberar endereço bloqueado</Button> : null}
           {row.provisioning_decision === 'aguardando_analise' && row.account_situation === 'sem_conta' ? <Button variant="secondary" onClick={() => void changeDecision('exception')} disabled={!canProvision || busy}>Provisionamento não necessário no momento</Button> : null}
           {row.provisioning_decision !== 'aguardando_analise' ? <Button variant="secondary" onClick={() => void changeDecision('analysis')} disabled={!canProvision || busy}>Reabrir análise</Button> : null}
         </div>

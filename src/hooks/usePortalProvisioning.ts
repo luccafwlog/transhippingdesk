@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listPortalProvisioningEvents, listPortalProvisioningQueue, returnToAnalysis, setProvisioningException } from '../services/portalProvisioning'
+import { listPortalProvisioningEvents, listPortalProvisioningQueue, releaseSuppressedEmail, returnToAnalysis, setProvisioningException } from '../services/portalProvisioning'
 import { supabase } from '../services/supabase'
 
 export const PORTAL_PROVISIONING_QUERY_KEY = ['portal-provisioning'] as const
@@ -80,6 +80,14 @@ export function useAssistedEmailChange() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ customerId, email, reason }: { customerId: number; email: string; reason: string }) => { const { error } = await supabase.rpc('portal_assisted_email_change', { p_customer_id: customerId, p_new_email: email, p_reason: reason }); if (error) throw error },
+    onSuccess: () => invalidatePortalQueries(queryClient),
+  })
+}
+
+export function useReleaseSuppressedEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ customerId, email, reason }: { customerId: number; email: string; reason: string }) => releaseSuppressedEmail(customerId, email, reason),
     onSuccess: () => invalidatePortalQueries(queryClient),
   })
 }

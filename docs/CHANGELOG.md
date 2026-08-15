@@ -3,6 +3,50 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Documento comprido deixa de virar CNPJ válido, e a linha do tempo credita
+  quem importou:** `isValidCnpj` passa a validar sobre a forma canônica
+  completa (`canonicalizeDocument`, igual ao `normalize_cnpj` do banco) em vez
+  da forma truncada em 14 usada como máscara de digitação — a guarda bruta
+  aceita de 14 a 18 caracteres para deixar passar a pontuação, então um
+  documento sem pontuação e comprido era aparado até 14 e entregue aos dígitos
+  verificadores já no formato que eles esperam. Na aba Visão da viagem, os
+  eventos de importação passam a exibir **quem importou e de qual
+  departamento**: o par já era consultado e chegava a `buildVoyageTimeline`,
+  que o descartava, então a viagem creditava toda mudança de escala e deixava
+  anônimo o evento que originou os dados. E os embeds ambíguos entre
+  `customers` e `bls` (duas FKs desde a `285`) ganham a varredura de
+  código-fonte que a documentação já prometia, cobrindo o embed aninhado e o de
+  primeiro nível a partir do `.from(...)`.
+- **Rate limit do Portal, trava da troca de email e saída da lista de
+  bloqueio:** o balde de tentativas volta a chavear pelo `normalize_cnpj`
+  compartilhado (migration `298`) — o `regexp_replace(…, '\\D', …)` inline das
+  migrations `183`/`191` apagava as letras do CNPJ alfanumérico, então
+  `12ABC34501DE35` e `12XYZ34501FG35` dividiam o mesmo balde e cinco falhas em
+  um trancavam o login do outro. A verificação da senha atual na troca de Email
+  de Recuperação passa a consultar **o contador do login** antes de verificar a
+  senha (429) e encerra a sessão de verificação, fechando a porta paralela à
+  trava. A confirmação lê a conta **antes** de consumir o convite e devolve 409
+  com mensagem verdadeira quando o pedido já foi resolvido, em vez de queimar um
+  link válido para dizer "link inválido"; a troca assistida invalida os convites
+  `confirmacao_email` **e `recuperacao`** pendentes (`300`) — o link de
+  recuperação redefine a senha e tinha ido para a caixa que o operador está
+  justamente trocando. `credentials_revoked_at` (`301`) faz
+  `current_portal_customer_id()` recusar token emitido antes da última
+  revogação, fechando a janela de até 1 hora em que a sessão antiga sobrevivia à
+  troca de senha. Conta ativa com Email de Recuperação quebrado ganha sinal em
+  coluna própria (`299`, `recovery_email_status`) sem rebaixar
+  `account_situation`, com alerta deduplicado; a lista de bloqueio de emails
+  ganha saída pelo operador, com justificativa e rastro (`302`) — restrita ao
+  endereço do próprio Cliente, e com registro no histórico de cada Cliente que
+  compartilha a caixa. A recuperação de senha reusa o convite vivo em vez de
+  enviar um email por pedido (teto de um por hora por conta), mas só quando o
+  convite está endereçado ao email vigente e seu envio não falhou nem voltou
+  como bounce — inclusive o bounce brando, que não suprime o endereço nem marca
+  a conta: pendente não é prova de entrega, e tratá-lo assim transformava uma
+  queda passageira do provedor em uma hora sem recuperação. O caminho bloqueado do login responde
+  antes de consultar a conta e abrir o alerta, e a deduplicação desse alerta
+  passa a ser garantida por índice único parcial (`303`) em vez de
+  check-then-insert. *(ADR 0049, nota editorial; migrations `298`–`303`)*
 - **Confirmação do Email de Recuperação em rota pública:** o link enviado ao
   endereço novo passa a apontar para `/portal/confirmar-email`, sem exigir
   sessão. Antes ele levava a `/portal/perfil`, rota protegida, e quem abrisse

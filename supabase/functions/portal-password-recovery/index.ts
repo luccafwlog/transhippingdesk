@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateToken, hashToken } from '../_shared/portalToken.ts'
 import { recoveryTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
+import { findReusableRecoveryInvite } from '../_shared/portalInvites.ts'
 import { withCors } from '../_shared/cors.ts'
 
 // Achado 3.2 (auditoria 2026-08-12): a resposta antiga distinguia
@@ -32,6 +33,23 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (account.account_situation !== 'ativo' || !account.recovery_email) return accepted()
   const { data: suppressed } = await admin.from('portal_suppressed_emails').select('id').eq('email', account.recovery_email.toLowerCase()).maybeSingle()
   if (suppressed) return accepted()
+  // Havendo link vivo, o pedido reusa em vez de reenviar: sem isso, um terceiro
+  // com o CNPJ (publico) fazia o sistema enviar ate 480 emails por dia a caixa
+  // de um cliente real, e o cliente que estava lendo o proprio link podia
+  // encontra-lo cancelado por um pedido que nao era dele. O teto resultante e
+  // um email por hora por conta -- a validade do convite. O balde de tentativas
+  // NAO muda: ele continua registrando todo pedido, inclusive os que resultam
+  // em envio; contar so os pedidos sem conta faria do bloqueio um oraculo de
+  // enumeracao. Este caminho nao faz fetch para o Resend, entao e mais rapido,
+  // nao mais lento -- nao reabre o oraculo de tempo fechado pelo waitUntil.
+  //
+  // "Vivo" e mais que "pendente": o convite tem de estar endereçado ao email de
+  // recuperacao VIGENTE e o envio nao pode ter falhado. Um convite pendente que
+  // o Resend recusou, ou que foi para a caixa anterior a uma troca de endereco,
+  // seguraria por uma hora o link que o cliente esta pedindo agora -- justamente
+  // no caminho em que ele nao tem outro jeito de entrar.
+  const liveInvite = await findReusableRecoveryInvite(admin, account.id, account.recovery_email, Date.now())
+  if (liveInvite) return accepted()
   await admin.from('portal_invites').update({ status: 'invalidado_por_reenvio' }).eq('account_id', account.id).eq('purpose', 'recuperacao').eq('status', 'pendente')
   const token = generateToken(); const tokenHash = await hashToken(token)
   const { data: invite } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'recuperacao', token_hash: tokenHash, sent_to_email: account.recovery_email, expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), status: 'pendente' }).select('id').single()

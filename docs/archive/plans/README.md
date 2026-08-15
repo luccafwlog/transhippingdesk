@@ -71,6 +71,18 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   Taxas Locais separa visualização (sempre visível) de edição (`canEdit`);
   `PROFILE_SCOPES` corrigido; gates de escrita de Viagens/Baplie alinhados a
   `voyages_edit`/`manifests_upload` em vez de `isAdmin`. ADR 0044.
+- [`2026-08-14-rate-limit-portal-normalizador-compartilhado`](2026-08-14-rate-limit-portal-normalizador-compartilhado.md)
+  — rate limit do Portal volta ao `normalize_cnpj` compartilhado (migration
+  `298`; o regexp inline das `183`/`191` apagava as letras do CNPJ
+  alfanumérico e fazia dois clientes dividirem o balde); sinal próprio para
+  Email de Recuperação quebrado (`299`); troca assistida invalida os convites
+  `confirmacao_email` pendentes (`300`); `credentials_revoked_at` fecha a
+  janela de até 1 hora da sessão antiga (`301`); saída da lista de bloqueio de
+  emails com rastro de quem liberou (`302`). Nas Edge Functions: trava de
+  tentativas na verificação de senha da troca de email, confirmação que só
+  consome o convite quando há o que aplicar, reuso do convite de recuperação
+  vivo e caminho bloqueado do login em segundo plano. ADR 0049 (nota
+  editorial).
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

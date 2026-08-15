@@ -7,7 +7,7 @@ const row = {
   account_id: 1, customer_id: 123, customer_name: 'Cliente Portal', cnpj_cpf: '12345678000195',
   provisioning_decision: 'aguardando_analise', account_situation: 'sem_conta', recovery_email: null,
   recovery_email_source: null, pending_invite_expires_at: null, hasCriticalAlert: false,
-  hasOpenInvoice: false, hasActiveProcess: false, lastActivityAt: null, candidates: [], sharedEmailCount: 0, latestDeliveryStatus: null, exceptionReason: null,
+  hasOpenInvoice: false, hasActiveProcess: false, lastActivityAt: null, candidates: [], sharedEmailCount: 0, latestDeliveryStatus: null, exceptionReason: null, recoveryEmailStatus: 'ok', recoveryEmailSuppressed: false,
 } as const
 
 vi.mock('../../hooks/usePortalProvisioning', () => ({

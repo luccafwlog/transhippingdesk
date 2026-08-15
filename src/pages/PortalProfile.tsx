@@ -10,6 +10,9 @@ import { portalErrorMessage } from '../lib/portalErrorMessage'
 import type { PortalProfile as PortalProfileData } from '../services/portalBilling'
 import { supabasePortal } from '../services/supabase'
 
+export const RECOVERY_EMAIL_RATE_LIMIT_MESSAGE =
+  'Muitas tentativas com a senha atual. Este limite é o mesmo do login do Portal, então aguarde alguns minutos antes de tentar de novo — aqui e no login.'
+
 export function PortalProfile() {
   const profile = usePortalProfile()
   const scope = usePortalScope()
@@ -125,6 +128,10 @@ function PortalProfileForm({
     setEmailSubmitting(true)
     try {
       const { error: invokeError } = await supabasePortal.functions.invoke('portal-recovery-email-change', { body: { action: 'request', current_password: currentPassword, new_email: newRecoveryEmail.trim() } })
+      // A verificação da senha atual passou a consultar o mesmo contador do
+      // login (429). Dizer só "não foi possível" faria o cliente insistir e
+      // gastar o orçamento do próprio login sem entender o porquê.
+      if ((invokeError as { context?: { status?: number } } | null)?.context?.status === 429) { setError(RECOVERY_EMAIL_RATE_LIMIT_MESSAGE); return }
       if (invokeError) throw invokeError
       showToast('Enviamos um link para confirmar o novo email.', 'success')
       setCurrentPassword(''); setNewRecoveryEmail(''); setConfirmRecoveryEmail('')
@@ -184,6 +191,7 @@ function PortalProfileForm({
           <p className="mt-1 text-sm text-[var(--app-muted)]">O endereço atual permanece válido até a confirmação do novo.</p>
           <form className="mt-4 grid gap-4" onSubmit={handleRecoveryEmailChange}>
             <Field label="Senha atual"><Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></Field>
+            <p className="-mt-2 text-xs text-[var(--app-muted)]">Errar a senha aqui consome as mesmas tentativas do login do Portal.</p>
             <Field label="Novo email"><Input type="email" value={newRecoveryEmail} onChange={(e) => setNewRecoveryEmail(e.target.value)} /></Field>
             <Field label="Confirmar novo email"><Input type="email" value={confirmRecoveryEmail} onChange={(e) => setConfirmRecoveryEmail(e.target.value)} /></Field>
             <div className="flex justify-end"><Button disabled={readOnly} loading={emailSubmitting} type="submit" title={readOnly ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}>Solicitar troca de email</Button></div>
