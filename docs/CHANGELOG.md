@@ -26,9 +26,10 @@
   endereço do próprio Cliente, e com registro no histórico de cada Cliente que
   compartilha a caixa. A recuperação de senha reusa o convite vivo em vez de
   enviar um email por pedido (teto de um por hora por conta), mas só quando o
-  convite está endereçado ao email vigente e seu envio não falhou: pendente não
-  é prova de entrega, e tratá-lo assim transformava uma queda passageira do
-  provedor em uma hora sem recuperação. O caminho bloqueado do login responde
+  convite está endereçado ao email vigente e seu envio não falhou nem voltou
+  como bounce — inclusive o bounce brando, que não suprime o endereço nem marca
+  a conta: pendente não é prova de entrega, e tratá-lo assim transformava uma
+  queda passageira do provedor em uma hora sem recuperação. O caminho bloqueado do login responde
   antes de consultar a conta e abrir o alerta, e a deduplicação desse alerta
   passa a ser garantida por índice único parcial (`303`) em vez de
   check-then-insert. *(ADR 0049, nota editorial; migrations `298`–`303`)*

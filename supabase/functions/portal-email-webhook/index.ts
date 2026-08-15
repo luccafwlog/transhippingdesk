@@ -35,12 +35,22 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
         // funciona, e o Email de Recuperação quebrou.
         await admin.from('customer_portal_accounts').update({ recovery_email_status: status === 'bounce' ? 'bounce_permanente' : 'complaint' }).eq('customer_id', account.customer_id)
         await admin.from('customer_portal_accounts').update({ account_situation: 'falha_no_envio' }).eq('customer_id', account.customer_id).eq('account_situation', 'convite_pendente')
-        await openAlertOnce(admin, {
-          type: 'portal_email_suprimido',
-          entityType: 'customer',
-          entityId: String(account.customer_id),
-          message: 'Email de Recuperação indisponível. Informe ou valide outro endereço.',
-        })
+        // O alerta é sinal secundário: o estado autoritativo já foi gravado em
+        // `recovery_email_status` acima, e é ele que o console lê. Deixar o
+        // erro subir daqui abortaria os Clientes seguintes da mesma caixa e
+        // devolveria 500 -- e o retry do Resend cairia na linha de dedup já
+        // gravada, que responde 200 sem reprocessar nada. Falhar em avisar não
+        // pode custar o registro do fato.
+        try {
+          await openAlertOnce(admin, {
+            type: 'portal_email_suprimido',
+            entityType: 'customer',
+            entityId: String(account.customer_id),
+            message: 'Email de Recuperação indisponível. Informe ou valide outro endereço.',
+          })
+        } catch (error) {
+          console.error('[portal-email-webhook] falha ao abrir alerta de email suprimido', account.customer_id, error)
+        }
       }
     }
   }

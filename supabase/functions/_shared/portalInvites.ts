@@ -2,9 +2,14 @@ import type { PortalDb } from './portalDb.ts'
 
 export type ReusableInvite = { id: number; expires_at: string }
 
-// Estados em que `sendPortalEmail` desistiu do envio. Um convite cujo email não
-// saiu não é prova de entrega nenhuma.
-const FALHA_DE_ENVIO = new Set(['falha_transitoria', 'falha_permanente'])
+// Estados em que o convite não é prova de que um link legível chegou à caixa.
+// `falha_transitoria`/`falha_permanente` são desistências do próprio
+// `sendPortalEmail`; `bounce` vem depois, do webhook do Resend, e vale para o
+// bounce brando também -- caixa cheia devolve a mensagem sem suprimir o
+// endereço nem marcar a conta, então nada mais no sistema registra que o email
+// não chegou. `complaint` fica de fora de propósito: a mensagem foi entregue e
+// o cliente a marcou como spam, então o link existe na caixa dele.
+const FALHA_DE_ENVIO = new Set(['falha_transitoria', 'falha_permanente', 'bounce'])
 
 // ponytail: janela em que um convite recém-criado ainda não tem tentativa
 // registrada. `sendPortalEmail` roda em `EdgeRuntime.waitUntil` e insere a linha

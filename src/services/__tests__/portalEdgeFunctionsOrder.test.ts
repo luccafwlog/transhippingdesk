@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 const emailChange = readFileSync('supabase/functions/portal-recovery-email-change/index.ts', 'utf8')
 const login = readFileSync('supabase/functions/portal-login/index.ts', 'utf8')
 const recovery = readFileSync('supabase/functions/portal-password-recovery/index.ts', 'utf8')
+const webhook = readFileSync('supabase/functions/portal-email-webhook/index.ts', 'utf8')
 
 function indexOf(source: string, needle: string): number {
   const at = source.indexOf(needle)
@@ -72,6 +73,29 @@ describe('caminho bloqueado do login não faz trabalho síncrono a mais', () => 
   it('preserva a deduplicação do alerta por cliente', () => {
     expect(login).toContain("type: 'portal_abuso_login'")
     expect(login).toContain('openAlertOnce(admin, {')
+  })
+})
+
+describe('webhook do Resend grava o fato antes de tentar avisar', () => {
+  // `openAlertOnce` passou a propagar erro que não seja o 23505 da corrida. No
+  // webhook isso cai dentro de um laço por Cliente da mesma caixa: subir daqui
+  // abortaria os Clientes seguintes e devolveria 500 -- e o retry do Resend
+  // encontraria a linha de dedup já gravada no início do handler, que responde
+  // 200 sem reprocessar nada. O alerta é aviso; `recovery_email_status` é o
+  // fato, e ele já foi gravado.
+  it('isola a falha do alerta sem abortar os demais Clientes da caixa', () => {
+    expect(indexOf(webhook, "update({ recovery_email_status:")).toBeLessThan(indexOf(webhook, 'openAlertOnce(admin, {'))
+    const laco = webhook.slice(indexOf(webhook, 'for (const account of affected ?? [])'))
+    expect(laco).toContain('try {')
+    expect(indexOf(laco, 'try {')).toBeLessThan(indexOf(laco, 'openAlertOnce(admin, {'))
+    expect(laco).toContain("console.error('[portal-email-webhook] falha ao abrir alerta de email suprimido'")
+  })
+
+  // A linha de dedup entra antes de qualquer processamento, então um 500 depois
+  // dela é definitivo: o retry cai no 23505 e devolve 200.
+  it('devolve 200 no evento repetido, o que torna o 500 posterior irreversível', () => {
+    expect(webhook).toContain("if (dedupError?.code === '23505') return new Response(null, { status: 200 })")
+    expect(indexOf(webhook, 'portal_email_events').valueOf()).toBeLessThan(indexOf(webhook, 'openAlertOnce(admin, {'))
   })
 })
 

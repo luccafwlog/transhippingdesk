@@ -149,8 +149,19 @@ describe('convite de recuperação reusável', () => {
     }
   })
 
-  it('reusa convite cujo envio saiu ou foi entregue', async () => {
-    for (const status of ['aceito', 'entregue']) {
+  // O bounce brando (caixa cheia, servidor fora do ar) devolve a mensagem sem
+  // suprimir o endereço nem marcar a conta: nenhum outro sinal do sistema
+  // registra que o link não chegou. Reusá-lo prenderia o cliente por uma hora
+  // atrás de uma tela dizendo que o email saiu.
+  it('não reusa convite que o provedor devolveu, mesmo em bounce brando', async () => {
+    const { db } = reusableDb(liveInvite(), { status: 'bounce' })
+    expect(await findReusableRecoveryInvite(db, 4, EMAIL, NOW)).toBeNull()
+  })
+
+  // `complaint` é entrega seguida de "marcar como spam": a mensagem chegou, o
+  // link está na caixa do cliente, e um reenvio iria para o mesmo lugar.
+  it('reusa convite cujo envio saiu, foi entregue ou virou reclamação', async () => {
+    for (const status of ['aceito', 'entregue', 'complaint']) {
       const { db } = reusableDb(liveInvite(), { status })
       expect(await findReusableRecoveryInvite(db, 4, EMAIL, NOW)).toMatchObject({ id: 12 })
     }
