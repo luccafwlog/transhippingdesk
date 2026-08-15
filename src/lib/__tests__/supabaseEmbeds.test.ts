@@ -1,4 +1,5 @@
-import { globSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { BLS_OF_CUSTOMER, BLS_OF_CUSTOMER_INNER, CUSTOMER_OF_BL } from '../supabaseEmbeds'
 
@@ -100,7 +101,23 @@ function rootedSelects(source: string): Array<{ root: string; select: string }> 
   return found
 }
 
-const sources = globSync('src/**/*.{ts,tsx}').filter((file) => !file.includes('__tests__'))
+// Caminhada própria em vez de `fs.globSync`: o glob nativo só existe a partir
+// do Node 22 e o runner do CI roda uma versão anterior, então o teste passava
+// aqui e quebrava lá com `globSync is not a function`.
+function sourceFiles(dir: string): string[] {
+  const found: string[] = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (entry.name !== '__tests__') found.push(...sourceFiles(path))
+      continue
+    }
+    if (/\.tsx?$/.test(entry.name)) found.push(path)
+  }
+  return found
+}
+
+const sources = sourceFiles('src')
 
 describe('embeds ambíguos entre `customers` e `bls`', () => {
   it('varre o código-fonte e não encontra embed sem dica de foreign key', () => {
