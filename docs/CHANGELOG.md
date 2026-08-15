@@ -14,16 +14,24 @@
   trava. A confirmação lê a conta **antes** de consumir o convite e devolve 409
   com mensagem verdadeira quando o pedido já foi resolvido, em vez de queimar um
   link válido para dizer "link inválido"; a troca assistida invalida os convites
-  `confirmacao_email` pendentes (`300`). `credentials_revoked_at` (`301`) faz
+  `confirmacao_email` **e `recuperacao`** pendentes (`300`) — o link de
+  recuperação redefine a senha e tinha ido para a caixa que o operador está
+  justamente trocando. `credentials_revoked_at` (`301`) faz
   `current_portal_customer_id()` recusar token emitido antes da última
   revogação, fechando a janela de até 1 hora em que a sessão antiga sobrevivia à
   troca de senha. Conta ativa com Email de Recuperação quebrado ganha sinal em
   coluna própria (`299`, `recovery_email_status`) sem rebaixar
   `account_situation`, com alerta deduplicado; a lista de bloqueio de emails
-  ganha saída pelo operador, com justificativa e rastro (`302`). A recuperação
-  de senha reusa o convite vivo em vez de enviar um email por pedido (teto de um
-  por hora por conta) e o caminho bloqueado do login responde antes de consultar
-  a conta e abrir o alerta. *(ADR 0049, nota editorial; migrations `298`–`302`)*
+  ganha saída pelo operador, com justificativa e rastro (`302`) — restrita ao
+  endereço do próprio Cliente, e com registro no histórico de cada Cliente que
+  compartilha a caixa. A recuperação de senha reusa o convite vivo em vez de
+  enviar um email por pedido (teto de um por hora por conta), mas só quando o
+  convite está endereçado ao email vigente e seu envio não falhou: pendente não
+  é prova de entrega, e tratá-lo assim transformava uma queda passageira do
+  provedor em uma hora sem recuperação. O caminho bloqueado do login responde
+  antes de consultar a conta e abrir o alerta, e a deduplicação desse alerta
+  passa a ser garantida por índice único parcial (`303`) em vez de
+  check-then-insert. *(ADR 0049, nota editorial; migrations `298`–`303`)*
 - **Confirmação do Email de Recuperação em rota pública:** o link enviado ao
   endereço novo passa a apontar para `/portal/confirmar-email`, sem exigir
   sessão. Antes ele levava a `/portal/perfil`, rota protegida, e quem abrisse

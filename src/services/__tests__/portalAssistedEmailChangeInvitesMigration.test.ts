@@ -8,7 +8,21 @@ describe('Troca assistida não deixa link self-service solto (300)', () => {
   // `confirmacao_email` vivo por até 48h; o link caía depois numa confirmação
   // que não tinha o que aplicar.
   it('invalida os convites de confirmação de email pendentes da conta', () => {
-    expect(sql).toContain("UPDATE public.portal_invites SET status='invalidado_por_reenvio' WHERE account_id=v_account.id AND purpose='confirmacao_email' AND status='pendente';")
+    expect(sql).toContain("UPDATE public.portal_invites SET status='invalidado_por_reenvio' WHERE account_id=v_account.id AND purpose IN ('confirmacao_email','recuperacao') AND status='pendente';")
+  })
+
+  // O link de recuperação REDEFINE A SENHA e foi para o endereço anterior --
+  // a caixa que o operador está trocando justamente porque o cliente não a tem
+  // mais. Deixá-lo vivo mantém aberta, na caixa errada, a porta que a troca
+  // existe para fechar.
+  it('encerra também o convite de recuperação endereçado à caixa anterior', () => {
+    expect(sql).toMatch(/purpose IN \('confirmacao_email','recuperacao'\)/)
+  })
+
+  // O convite de ativação tem substituto próprio ("Revisar email e reenviar");
+  // encerrá-lo por tabela deixaria a conta em convite_pendente sem link vivo.
+  it('não encerra o convite de ativação, que tem fluxo próprio de reenvio', () => {
+    expect(sql).not.toMatch(/purpose IN \([^)]*'convite'[^)]*\)/)
   })
 
   it('preserva as guardas, a revogação de sessões e a auditoria da 195', () => {

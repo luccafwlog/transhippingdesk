@@ -23,6 +23,16 @@
 -- enviar para o vazio, gastando reputação do domínio. Quem sabe que voltou é o
 -- operador, porque o cliente ligou. Faltava o lugar de registrar, não o prazo.
 --
+-- O bloqueio é único por endereço (178), não por Cliente: liberar alcança toda
+-- conta que usa a mesma caixa. Duas consequências, e as duas estão tratadas
+-- abaixo em vez de ignoradas. Primeira: o endereço tem de ser o DESTE Cliente,
+-- senão a permissão sobre um Cliente viraria permissão para desbloquear
+-- qualquer endereço do sistema, com o rastro gravado no histórico de quem não
+-- pediu nada. Segunda: quando a caixa é compartilhada -- o console já conta
+-- isso em `shared_email_count` --, cada Cliente afetado recebe o registro no
+-- próprio histórico, porque para ele o endereço mudou de estado sem que
+-- ninguém o tenha mencionado.
+--
 -- Rollback: DROP FUNCTION public.portal_release_suppressed_email(BIGINT,TEXT,TEXT).
 
 CREATE OR REPLACE FUNCTION public.portal_release_suppressed_email(p_customer_id BIGINT, p_email TEXT, p_reason TEXT)
@@ -32,12 +42,22 @@ DECLARE
   v_account public.customer_portal_accounts%ROWTYPE;
   v_email TEXT := lower(NULLIF(trim(coalesce(p_email,'')),''));
   v_removed INTEGER;
+  v_compartilhada public.customer_portal_accounts%ROWTYPE;
 BEGIN
   IF v_role IS NULL OR v_role NOT IN ('administrativo','documentacao') THEN RAISE EXCEPTION 'permission denied' USING ERRCODE='42501'; END IF;
   IF NULLIF(trim(coalesce(p_reason,'')),'') IS NULL THEN RAISE EXCEPTION 'Justificativa é obrigatória.' USING ERRCODE='22023'; END IF;
   IF v_email IS NULL THEN RAISE EXCEPTION 'Email inválido.' USING ERRCODE='22023'; END IF;
   SELECT * INTO v_account FROM public.customer_portal_accounts WHERE customer_id=p_customer_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Registro de Portal não encontrado.' USING ERRCODE='P0002'; END IF;
+
+  -- O endereço liberado tem de ser o que este Cliente usa. Sem isto, quem pode
+  -- operar um Cliente qualquer poderia limpar o bloqueio de qualquer endereço
+  -- do sistema, e o único rastro ficaria no histórico do Cliente escolhido para
+  -- passar na guarda -- que não tem nada a ver com o endereço liberado.
+  IF v_email IS DISTINCT FROM lower(v_account.recovery_email)
+     AND v_email IS DISTINCT FROM lower(v_account.pending_recovery_email) THEN
+    RAISE EXCEPTION 'Endereço não pertence a este Cliente.' USING ERRCODE='22023';
+  END IF;
 
   DELETE FROM public.portal_suppressed_emails WHERE email = v_email;
   GET DIAGNOSTICS v_removed = ROW_COUNT;
@@ -55,6 +75,23 @@ BEGIN
     v_role,
     'Endereço ' || v_email || ' liberado da lista de bloqueio de emails. ' || trim(p_reason),
     NULL);
+
+  -- Caixa compartilhada: a liberação já valeu para estes Clientes no DELETE
+  -- acima. Registrar só no histórico de quem pediu deixaria os outros com o
+  -- endereço reaberto e nenhuma linha explicando quando, por quem e por quê.
+  FOR v_compartilhada IN
+    SELECT * FROM public.customer_portal_accounts
+    WHERE lower(recovery_email) = v_email AND customer_id <> p_customer_id
+  LOOP
+    PERFORM public._portal_log_event(
+      v_compartilhada.customer_id, v_compartilhada.id, NULL,
+      v_compartilhada.provisioning_decision, v_compartilhada.provisioning_decision,
+      v_compartilhada.account_situation, v_compartilhada.account_situation,
+      v_role,
+      'Endereço ' || v_email || ' liberado da lista de bloqueio de emails na liberação feita para o Cliente #'
+        || p_customer_id || ' (caixa compartilhada). ' || trim(p_reason),
+      NULL);
+  END LOOP;
 END; $$;
 
 REVOKE ALL ON FUNCTION public.portal_release_suppressed_email(BIGINT,TEXT,TEXT) FROM PUBLIC, anon;

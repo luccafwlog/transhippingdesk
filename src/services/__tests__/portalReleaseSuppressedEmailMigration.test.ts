@@ -31,6 +31,26 @@ describe('Saída da lista de bloqueio de emails do Portal (302)', () => {
     expect(sql).toContain('WHERE lower(recovery_email) = v_email')
   })
 
+  // O bloqueio é único por endereço (178) e a permissão é por Cliente: sem
+  // amarrar os dois, quem pode operar um Cliente qualquer limparia o bloqueio
+  // de qualquer endereço do sistema, com o rastro no histórico de quem não
+  // pediu nada.
+  it('só libera o endereço que pertence ao Cliente informado', () => {
+    expect(sql).toContain('IF v_email IS DISTINCT FROM lower(v_account.recovery_email)')
+    expect(sql).toContain('AND v_email IS DISTINCT FROM lower(v_account.pending_recovery_email) THEN')
+    expect(sql).toContain("RAISE EXCEPTION 'Endereço não pertence a este Cliente.' USING ERRCODE='22023';")
+  })
+
+  // Caixa compartilhada: a liberação já valeu para os outros Clientes no
+  // DELETE, então o histórico deles não pode ficar sem a linha que explica
+  // quando o endereço reabriu e por quê.
+  it('registra a liberação no histórico de cada Cliente que compartilha a caixa', () => {
+    expect(sql).toContain('FOR v_compartilhada IN')
+    expect(sql).toContain('WHERE lower(recovery_email) = v_email AND customer_id <> p_customer_id')
+    expect(sql).toContain('v_compartilhada.customer_id, v_compartilhada.id, NULL,')
+    expect(sql).toContain('(caixa compartilhada). ')
+  })
+
   it('roda com search_path controlado', () => {
     expect(sql).toContain("SECURITY DEFINER SET search_path TO 'public','pg_temp'")
   })

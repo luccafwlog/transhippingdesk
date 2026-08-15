@@ -36,7 +36,15 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   const templateInput = { companyName: customer?.name ?? 'sua empresa', cnpjMasked: maskCnpj(customer?.cnpj_cpf ?? ''), activationUrl: `${portalUrl}/portal/ativar?token=${encodeURIComponent(token)}`, portalUrl, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' }
   const template = resend ? resendTemplate(templateInput) : inviteTemplate(templateInput)
   const sent = await sendPortalEmail({ admin, kind: resend ? 'reenvio' : 'convite', to: email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `convite:${invite.id}`, accountId: account.id, inviteId: invite.id })
-  await admin.from('customer_portal_accounts').update({ recovery_email: email, recovery_email_source: body.recovery_email_source === 'informado_manualmente' ? 'informado_manualmente' : 'candidato', provisioning_decision: 'aprovado_para_provisionar', account_situation: sent.ok ? 'convite_pendente' : 'falha_no_envio' }).eq('id', account.id)
+  // `recovery_email_status` (299) descreve o endereço, não a conta: gravar um
+  // endereço novo aqui sem zerar o sinal deixaria o console acusando de quebrado
+  // um endereço que nunca foi testado -- e o operador não teria como limpá-lo,
+  // porque `portal_release_suppressed_email` recusa endereço que não está na
+  // lista de bloqueio. É o mesmo zeramento que a troca assistida (300) e a
+  // confirmação pelo cliente já fazem; este era o terceiro escritor de
+  // `recovery_email` e o único que não o fazia. O endereço chega aqui checado
+  // contra a lista de bloqueio logo acima, então 'ok' é o que se sabe dele.
+  await admin.from('customer_portal_accounts').update({ recovery_email: email, recovery_email_source: body.recovery_email_source === 'informado_manualmente' ? 'informado_manualmente' : 'candidato', recovery_email_status: 'ok', provisioning_decision: 'aprovado_para_provisionar', account_situation: sent.ok ? 'convite_pendente' : 'falha_no_envio' }).eq('id', account.id)
   const { error: auditError } = await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: 'aprovado_para_provisionar', p_prev_situation: account.account_situation, p_new_situation: sent.ok ? 'convite_pendente' : 'falha_no_envio', p_actor_type: String(role), p_reason: body.reason ?? (resend ? 'Reenvio de convite autorizado.' : 'Convite autorizado.'), p_request_id: null })
   if (auditError) {
     console.error('portal invite audit failed', auditError)

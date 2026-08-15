@@ -30,16 +30,26 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
     // está bloqueado não chega a ter a senha verificada.
     if (await isLoginRateLimited(admin, account.login_cnpj)) return new Response(JSON.stringify({ error: RATE_LIMITED }), { status: 429 })
     const { data: authUser } = await admin.auth.admin.getUserById(authId); const technicalEmail = authUser.user?.email
+    // Sem email técnico não houve senha errada: houve falha nossa ao resolver o
+    // usuário do Auth. Contar isso no balde do login gastaria as 5 tentativas do
+    // cliente por conta de um defeito do servidor e o trancaria por 15 minutos
+    // fora do Portal, sem que ele tivesse errado nada. O balde só registra o que
+    // o cliente digitou.
+    if (!technicalEmail) return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 500 })
     const verifier = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!)
-    const verified = technicalEmail ? await verifier.auth.signInWithPassword({ email: technicalEmail, password: body.current_password }) : { error: new Error('invalid') }
+    const verified = await verifier.auth.signInWithPassword({ email: technicalEmail, password: body.current_password })
     if (verified.error) {
       await registerLoginFailure(admin, account.login_cnpj)
       return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 422 })
     }
     await registerLoginSuccess(admin, account.login_cnpj)
     // A verificação cria uma sessão do Supabase Auth que ninguém mais usa;
-    // sem signOut, cada troca deixava um refresh token pendurado.
-    await verifier.auth.signOut().catch((error) => console.error('[portal-recovery-email-change] falha ao encerrar a sessão de verificação', error))
+    // sem signOut, cada troca deixava um refresh token pendurado. O escopo é
+    // `local` de propósito: o padrão do supabase-js é `global`, que revoga TODO
+    // refresh token do usuário -- inclusive o da aba em que o cliente está
+    // fazendo o pedido, que cairia para o login na renovação seguinte. O que
+    // sobra para encerrar é a sessão que esta função acabou de criar.
+    await verifier.auth.signOut({ scope: 'local' }).catch((error) => console.error('[portal-recovery-email-change] falha ao encerrar a sessão de verificação', error))
     const email = body.new_email.toLowerCase(); const { data: suppressed } = await admin.from('portal_suppressed_emails').select('id').eq('email', email).maybeSingle()
     if (suppressed) return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 422 })
     await admin.from('portal_invites').update({ status: 'invalidado_por_reenvio' }).eq('account_id', account.id).eq('purpose', 'confirmacao_email').eq('status', 'pendente')

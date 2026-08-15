@@ -1,8 +1,22 @@
 import type { PortalDb } from './portalDb.ts'
 
-export type LiveInvite = { id: number; expires_at: string }
+export type ReusableInvite = { id: number; expires_at: string }
 
-// Convite de recuperação ainda pendente e dentro da validade.
+// Estados em que `sendPortalEmail` desistiu do envio. Um convite cujo email não
+// saiu não é prova de entrega nenhuma.
+const FALHA_DE_ENVIO = new Set(['falha_transitoria', 'falha_permanente'])
+
+// ponytail: janela em que um convite recém-criado ainda não tem tentativa
+// registrada. `sendPortalEmail` roda em `EdgeRuntime.waitUntil` e insere a linha
+// de `portal_email_attempts` no seu primeiro passo, então "sem tentativa" tem
+// dois significados: o envio está em voo, ou nunca chegou a começar. Distinguir
+// pelo relógio é heurística — o teto é que dois pedidos separados por mais de
+// dois minutos, com o envio travado nesse intervalo, geram um convite a mais.
+// Upgrade: gravar a tentativa junto do convite, na mesma transação.
+const ENVIO_EM_VOO_MS = 2 * 60 * 1000
+
+// Convite de recuperação ainda pendente, dentro da validade, endereçado ao
+// email de recuperação vigente e cujo envio não falhou.
 //
 // Cada pedido de recuperação invalidava o convite anterior e criava outro,
 // disparando um email. Como o CNPJ é público e a função é necessariamente
@@ -10,19 +24,45 @@ export type LiveInvite = { id: number; expires_at: string }
 // emails por dia à caixa de recuperação de um cliente real. E o cliente que
 // pediu o link, foi lê-lo e clicou podia encontrá-lo cancelado por um pedido
 // que não era dele. Havendo link vivo, o pedido novo reusa em vez de reenviar.
-export async function findLiveRecoveryInvite(db: PortalDb, accountId: number, nowIso: string): Promise<LiveInvite | null> {
+//
+// O reuso só vale para um link que o cliente possa ler AGORA, e são duas
+// condições, não uma:
+//
+// 1. Endereço. Depois de uma troca de Email de Recuperação, o convite pendente
+//    aponta para a caixa anterior. Reusá-lo responderia "enviamos" enquanto
+//    nada chega ao endereço vigente — e é justamente o endereço novo que o
+//    cliente acabou de pedir para usar.
+// 2. Envio. A falha do Resend só vira `console.error` dentro do `waitUntil`, e
+//    o convite fica pendente do mesmo jeito. Tratar pendente como enviado
+//    transformava uma indisponibilidade passageira do provedor em uma hora sem
+//    recuperação de senha, atrás de uma tela dizendo que o email saiu.
+export async function findReusableRecoveryInvite(db: PortalDb, accountId: number, recoveryEmail: string, now: number): Promise<ReusableInvite | null> {
   const { data } = await db
     .from('portal_invites')
-    .select('id, expires_at')
+    .select('id, expires_at, sent_to_email, created_at')
     .eq('account_id', accountId)
     .eq('purpose', 'recuperacao')
     .eq('status', 'pendente')
-    .gt('expires_at', nowIso)
+    .gt('expires_at', new Date(now).toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (!data) return null
-  return { id: Number(data.id), expires_at: String(data.expires_at) }
+  if (String(data.sent_to_email ?? '').toLowerCase() !== recoveryEmail.toLowerCase()) return null
+
+  const inviteId = Number(data.id)
+  const { data: attempt } = await db
+    .from('portal_email_attempts')
+    .select('status')
+    .eq('idempotency_key', `recuperacao:${inviteId}`)
+    .maybeSingle()
+  if (!attempt) {
+    const createdAt = Date.parse(String(data.created_at ?? ''))
+    const emVoo = Number.isFinite(createdAt) && now - createdAt < ENVIO_EM_VOO_MS
+    return emVoo ? { id: inviteId, expires_at: String(data.expires_at) } : null
+  }
+  if (FALHA_DE_ENVIO.has(String(attempt.status))) return null
+  return { id: inviteId, expires_at: String(data.expires_at) }
 }
 
 export type EmailChangeAccount = {
@@ -50,9 +90,19 @@ export type EmailChangeConfirmation =
 // migration 300 passou a encerrar o convite junto, e esta ordem cobre os links
 // que já estavam em trânsito.
 //
+// Por isso o que decide entre 409 e 410 é a CONTA, não o status do convite: a
+// troca assistida encerra o convite no mesmo UPDATE em que zera o pedido, então
+// exigir `status = 'pendente'` antes de olhar a conta devolvia 410 "link
+// inválido" exatamente no caso que o 409 existe para descrever — o cliente
+// clicaria num link que estava válido e ouviria que nunca esteve. Sem pedido
+// pendente não há o que aplicar nem o que invalidar: o desfecho é "já foi
+// resolvido", tenha o convite sido encerrado pela troca assistida, por uma
+// confirmação anterior deste mesmo link, ou nem isso.
+//
 // A proteção contra confirmação dupla continua vindo do UPDATE condicional
 // (`status = 'pendente'`), que é o ponto de serialização real: só um chamador
-// vence, e o perdedor não queima nada.
+// vence, e o perdedor não queima nada — e, tendo perdido para quem aplicou a
+// troca, o que ele tem a dizer também é "já foi resolvido".
 export async function resolveEmailChangeConfirmation(db: PortalDb, tokenHash: string, now: number): Promise<EmailChangeConfirmation> {
   const { data: invite } = await db
     .from('portal_invites')
@@ -60,7 +110,7 @@ export async function resolveEmailChangeConfirmation(db: PortalDb, tokenHash: st
     .eq('token_hash', tokenHash)
     .eq('purpose', 'confirmacao_email')
     .maybeSingle()
-  if (!invite || invite.status !== 'pendente' || new Date(String(invite.expires_at)).getTime() <= now) return { outcome: 'link_invalido' }
+  if (!invite) return { outcome: 'link_invalido' }
 
   const { data: account } = await db
     .from('customer_portal_accounts')
@@ -69,6 +119,11 @@ export async function resolveEmailChangeConfirmation(db: PortalDb, tokenHash: st
     .maybeSingle()
   if (!account?.pending_recovery_email) return { outcome: 'pedido_ja_resolvido' }
 
+  // Há pedido pendente: o convite precisa estar de pé para aplicá-lo. Encerrado
+  // ou vencido com troca pendente é link superado por um pedido mais novo — aí
+  // "inválido" é verdade.
+  if (invite.status !== 'pendente' || new Date(String(invite.expires_at)).getTime() <= now) return { outcome: 'link_invalido' }
+
   const { data: consumed } = await db
     .from('portal_invites')
     .update({ status: 'consumido', consumed_at: new Date(now).toISOString() })
@@ -76,7 +131,7 @@ export async function resolveEmailChangeConfirmation(db: PortalDb, tokenHash: st
     .eq('status', 'pendente')
     .select('id')
     .maybeSingle()
-  if (!consumed) return { outcome: 'link_invalido' }
+  if (!consumed) return { outcome: 'pedido_ja_resolvido' }
 
   return {
     outcome: 'aplicar',
