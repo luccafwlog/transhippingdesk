@@ -16,11 +16,9 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
+| [`2026-08-15-clientes-portal-alertas-design.md`](./2026-08-15-clientes-portal-alertas-design.md) | Clientes, Portal, faturamento dependente e Disputes de Demurrage — Bloco #521 |
 
-Nenhuma no momento: todas as specs funcionais aprovadas até aqui tiveram seus
-planos concluídos e estão preservadas no
-[arquivo histórico](../archive/specs/). A spec comportamental abaixo é
-permanente e não entra nesta tabela.
+A spec comportamental abaixo é permanente e não entra nesta tabela.
 
 ## Behavioral Specification
 
