@@ -34,9 +34,20 @@ describe('troca de Email de Recuperação consulta a trava antes de verificar a 
     expect(emailChange).toContain('await registerLoginSuccess(admin, account.login_cnpj)')
   })
 
-  // A verificação criava uma sessão do Auth que ninguém mais usava.
-  it('encerra a sessão criada só para verificar a senha', () => {
-    expect(emailChange).toContain('verifier.auth.signOut()')
+  // Falha ao resolver o usuário do Auth não é senha errada: registrá-la no
+  // balde gastaria as tentativas do cliente por defeito do servidor e o
+  // trancaria 15 minutos fora do Portal sem que ele tivesse errado nada.
+  it('não registra falha quando o email técnico não pôde ser resolvido', () => {
+    expect(emailChange).toContain("if (!technicalEmail) return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 500 })")
+    expect(indexOf(emailChange, 'if (!technicalEmail)')).toBeLessThan(indexOf(emailChange, 'await registerLoginFailure(admin, account.login_cnpj)'))
+  })
+
+  // A verificação criava uma sessão do Auth que ninguém mais usava. O escopo
+  // importa: o padrão do supabase-js é `global`, que derrubaria também a aba em
+  // que o cliente está fazendo o pedido.
+  it('encerra só a sessão criada para verificar a senha, sem derrubar as do cliente', () => {
+    expect(emailChange).toContain("verifier.auth.signOut({ scope: 'local' })")
+    expect(emailChange).not.toContain('verifier.auth.signOut()')
   })
 
   it('devolve mensagem própria para o pedido já resolvido, com status distinto', () => {
@@ -68,15 +79,22 @@ describe('recuperação reusa o convite vivo em vez de enviar email novo', () =>
   // Achado I: cada pedido invalidava o convite anterior e criava outro, então
   // um terceiro com o CNPJ público fazia o sistema despejar emails na caixa de
   // um cliente real — e cancelava o link que o cliente estava lendo.
-  it('procura o convite vivo antes de invalidar os pendentes', () => {
-    expect(indexOf(recovery, 'findLiveRecoveryInvite(admin, account.id')).toBeLessThan(indexOf(recovery, "update({ status: 'invalidado_por_reenvio' })"))
+  it('procura o convite reusável antes de invalidar os pendentes', () => {
+    expect(indexOf(recovery, 'findReusableRecoveryInvite(admin, account.id')).toBeLessThan(indexOf(recovery, "update({ status: 'invalidado_por_reenvio' })"))
     expect(recovery).toContain('if (liveInvite) return accepted()')
+  })
+
+  // Reuso é sobre um link que o cliente possa ler AGORA: o convite tem de estar
+  // endereçado ao email vigente, e não basta estar pendente -- pendente também
+  // fica o convite cujo envio o Resend recusou.
+  it('passa o email de recuperação vigente para a decisão de reuso', () => {
+    expect(recovery).toContain('findReusableRecoveryInvite(admin, account.id, account.recovery_email, Date.now())')
   })
 
   // Contar só os pedidos sem conta transformaria o bloqueio em oráculo de
   // enumeração; o registro da tentativa continua antes de qualquer bifurcação.
   it('não altera o balde de tentativas', () => {
-    expect(indexOf(recovery, "admin.rpc('portal_recovery_register_failure'")).toBeLessThan(indexOf(recovery, 'findLiveRecoveryInvite(admin, account.id'))
+    expect(indexOf(recovery, "admin.rpc('portal_recovery_register_failure'")).toBeLessThan(indexOf(recovery, 'findReusableRecoveryInvite(admin, account.id'))
   })
 
   it('o caminho de reuso devolve a mesma resposta dos demais casos elegíveis', () => {

@@ -10,6 +10,10 @@ export type FakeRpcCall = { name: string; params?: PortalDbRow }
 // pedido pendente não consome o convite".
 export function createFakePortalDb(options: {
   resolve?: (call: FakeCall) => PortalDbRow | null
+  // Erro devolvido pela chamada, para exercitar o que o helper faz com ele --
+  // por exemplo o `23505` que o índice único parcial (303) levanta quando duas
+  // rajadas tentam abrir o mesmo alerta.
+  fail?: (call: FakeCall) => unknown
   rpc?: (name: string, params?: PortalDbRow) => { data?: unknown; error?: unknown }
 } = {}) {
   const calls: FakeCall[] = []
@@ -34,7 +38,11 @@ export function createFakePortalDb(options: {
         gt: (column, value) => record('gt', column, value),
         order: (column, opts) => record('order', column, opts),
         limit: (count) => record('limit', count),
-        maybeSingle: async () => ({ data: options.resolve?.(call) ?? null }),
+        maybeSingle: async () => {
+          const error = options.fail?.(call)
+          if (error) return { data: null, error }
+          return { data: options.resolve?.(call) ?? null }
+        },
       }
       return query
     },
