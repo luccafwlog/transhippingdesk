@@ -1,5 +1,19 @@
+/**
+ * Canonicalização idêntica à `normalize_cnpj` do banco (migration 293): remove
+ * o que não for alfanumérico e sobe para maiúsculas, SEM truncar.
+ *
+ * `normalizeCnpj` corta em 14 porque também serve de máscara de digitação, e é
+ * disso que a validação precisa se defender: cortar antes de validar apara um
+ * documento comprido até o tamanho de um CNPJ e o oferece aos dígitos
+ * verificadores, que podem fechar por acaso. O que entrou não era um CNPJ, e
+ * seria gravado como se fosse.
+ */
+export function canonicalizeDocument(value?: string | null): string {
+  return (value ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase()
+}
+
 export function normalizeCnpj(value?: string | null): string {
-  return (value ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase().slice(0, 14)
+  return canonicalizeDocument(value).slice(0, 14)
 }
 
 export function formatCnpj(value?: string | null): string {
@@ -15,7 +29,7 @@ export function isValidCnpj(value?: string | null): boolean {
   const raw = value ?? ''
   if (!/^[0-9A-Za-z.\-/\s]{14,18}$/.test(raw)) return false
 
-  const canonical = normalizeCnpj(raw)
+  const canonical = canonicalizeDocument(raw)
   if (!/^[0-9A-Z]{14}$/.test(canonical)) return false
 
   // CNPJ de caractere repetido nao existe no cadastro da Receita. O caso que

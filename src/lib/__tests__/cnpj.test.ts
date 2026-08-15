@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCnpj, isValidCnpj, normalizeCnpj } from '../cnpj'
+import { canonicalizeDocument, formatCnpj, isValidCnpj, normalizeCnpj } from '../cnpj'
 
 describe('normalizeCnpj', () => {
   it('remove pontuação, preserva letras e converte para maiúsculas', () => {
@@ -7,6 +7,17 @@ describe('normalizeCnpj', () => {
   })
 
   it('limita a entrada a 14 posições canônicas', () => {
+    expect(normalizeCnpj('12.abc.345/01de-35999')).toBe('12ABC34501DE35')
+  })
+})
+
+describe('canonicalizeDocument', () => {
+  // O truncamento de `normalizeCnpj` é máscara de digitação; o banco
+  // (`normalize_cnpj`, migration 293) não trunca. Onde a decisão é sobre o
+  // documento — validar, comparar com o que está gravado — vale a forma
+  // completa, senão as duas pontas discordam do que é o mesmo documento.
+  it('não trunca, ao contrário da máscara', () => {
+    expect(canonicalizeDocument('12.abc.345/01de-35999')).toBe('12ABC34501DE35999')
     expect(normalizeCnpj('12.abc.345/01de-35999')).toBe('12ABC34501DE35')
   })
 })
@@ -20,6 +31,17 @@ describe('formatCnpj', () => {
 describe('isValidCnpj', () => {
   it('aceita um CNPJ numérico válido', () => {
     expect(isValidCnpj('06.352.972/0001-21')).toBe(true)
+  })
+
+  // A guarda bruta aceita de 14 a 18 caracteres para deixar passar a
+  // pontuação. Um documento sem pontuação e comprido cabia nessa faixa, era
+  // aparado até 14 e entregue aos dígitos verificadores já no formato que eles
+  // esperam -- e um CNPJ válido com um dígito colado no fim entrava como se
+  // fosse ele mesmo.
+  it('recusa documento comprido em vez de apará-lo até um CNPJ válido', () => {
+    expect(isValidCnpj('06352972000121')).toBe(true)
+    expect(isValidCnpj('063529720001219')).toBe(false)
+    expect(isValidCnpj('06352972000121999')).toBe(false)
   })
 
   it('aceita o exemplo alfanumérico oficial da Receita', () => {

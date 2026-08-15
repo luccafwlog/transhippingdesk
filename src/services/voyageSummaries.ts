@@ -636,19 +636,9 @@ export function buildVoyageTimeline({
   voyageStatus,
   ceCoverage,
   actorNames,
-}: {
-  importBatches?: Array<{ id: number; filename: string; cargo_mode: 'container' | 'carga_solta' | null; uploaded_at: string | null; route?: string | null; routes?: Array<{ pol: string; pod: string; blCount: number }>; total_bls?: number | null; ce_master?: string | null }> | null
-  scheduleEvents?: TimelineAuditEvent[] | null
-  auditEvents?: TimelineAuditEvent[] | null
-  resolutions?: Array<{ field_name: string | null; resolved_at: string | null }> | null
-  baplieImports?: Array<{ imported_at?: string | null; created_at?: string | null; container_count?: number | null }> | null
-  openDivergenceCount?: number | null
-  voyageStatus?: string | null
-  ceCoverage?: { filled: number; total: number } | null
-  actorNames?: Record<string, string> | null
-  actorDepartments?: Record<string, string> | null
-}): VoyageTimelineEvent[] {
-  const imports = buildImportTimeline(importBatches)
+  actorDepartments,
+}: VoyageTimelineInput): VoyageTimelineEvent[] {
+  const imports = buildImportTimeline(importBatches, actorNames, actorDepartments)
   const events = [...imports.events]
   const appendActor = (detail: string, row: { changed_by?: string | null; actor_role?: string | null }) =>
     appendTimelineActor(
@@ -676,13 +666,25 @@ export function buildVoyageTimeline({
   })
 }
 
-function buildImportTimeline(importBatches: TimelineImportBatch[] | null | undefined) {
+// O import é o único evento da linha do tempo cujo autor não vem de
+// `audit_logs`: o batch guarda `uploaded_by`, e o departamento é resolvido à
+// parte (`fetchVoyageTimelineSources` casa o batch com a linha `criado` da
+// auditoria). Sem receber esse par aqui, a viagem exibia "por Fulano
+// (Departamento)" em toda mudança de escala e deixava anônimo justamente o
+// evento que originou os dados.
+function buildImportTimeline(
+  importBatches: TimelineImportBatch[] | null | undefined,
+  actorNames?: Record<string, string> | null,
+  actorDepartments?: Record<string, string> | null,
+) {
   const events: VoyageTimelineEvent[] = []
   let latestImportAt: string | null = null
 
   for (const batch of importBatches ?? []) {
     if (!batch.uploaded_at) continue
     if (!latestImportAt || batch.uploaded_at > latestImportAt) latestImportAt = batch.uploaded_at
+    const appendUploader = (detail: string) =>
+      appendTimelineActor(detail, batch.uploaded_by, actorNames, batch.uploaded_by ? actorDepartments?.[batch.uploaded_by] : null)
 
     const ceMaster = String(batch.ce_master ?? '').trim()
     if (ceMaster) {
@@ -709,7 +711,7 @@ function buildImportTimeline(importBatches: TimelineImportBatch[] | null | undef
           kind: 'import',
           at: batch.uploaded_at,
           title: `${route.count} B/L${plural} importado${plural} · ${route.pol} → ${route.pod}`,
-          detail: batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR',
+          detail: appendUploader(batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'),
         })
       }
     } else {
@@ -721,7 +723,7 @@ function buildImportTimeline(importBatches: TimelineImportBatch[] | null | undef
         kind: 'import',
         at: batch.uploaded_at,
         title: route ? `${countLabel} · ${route}` : countLabel,
-        detail: `${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${route || stripFileExtension(batch.filename)}`,
+        detail: appendUploader(`${batch.cargo_mode === 'carga_solta' ? 'BB' : 'CNTR'} · ${route || stripFileExtension(batch.filename)}`),
       })
     }
   }

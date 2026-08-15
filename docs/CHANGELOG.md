@@ -3,6 +3,20 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Documento comprido deixa de virar CNPJ válido, e a linha do tempo credita
+  quem importou:** `isValidCnpj` passa a validar sobre a forma canônica
+  completa (`canonicalizeDocument`, igual ao `normalize_cnpj` do banco) em vez
+  da forma truncada em 14 usada como máscara de digitação — a guarda bruta
+  aceita de 14 a 18 caracteres para deixar passar a pontuação, então um
+  documento sem pontuação e comprido era aparado até 14 e entregue aos dígitos
+  verificadores já no formato que eles esperam. Na aba Visão da viagem, os
+  eventos de importação passam a exibir **quem importou e de qual
+  departamento**: o par já era consultado e chegava a `buildVoyageTimeline`,
+  que o descartava, então a viagem creditava toda mudança de escala e deixava
+  anônimo o evento que originou os dados. E os embeds ambíguos entre
+  `customers` e `bls` (duas FKs desde a `285`) ganham a varredura de
+  código-fonte que a documentação já prometia, cobrindo o embed aninhado e o de
+  primeiro nível a partir do `.from(...)`.
 - **Rate limit do Portal, trava da troca de email e saída da lista de
   bloqueio:** o balde de tentativas volta a chavear pelo `normalize_cnpj`
   compartilhado (migration `298`) — o `regexp_replace(…, '\\D', …)` inline das

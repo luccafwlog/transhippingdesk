@@ -11,7 +11,10 @@
  *
  * Use estas constantes em vez de escrever `bls(...)` ou `customers(...)` cru:
  * `src/lib/__tests__/supabaseEmbeds.test.ts` varre o codigo-fonte e falha se
- * algum select voltar a usar a forma ambigua.
+ * algum select voltar a usar a forma ambigua -- seja o embed aninhado
+ * (`customers(... bls(...))`) ou o de primeiro nivel, cuja tabela raiz vem do
+ * `.from(...)`. A ambiguidade so existe quando uma das duas e PAI da outra:
+ * `bl:bls(...)` pendurado em `invoice_bls` tem caminho unico e dispensa a dica.
  */
 
 /** Embed de `customers` -> `bls` pelo cliente efetivo (`bls.customer_id`). */
