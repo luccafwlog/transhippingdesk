@@ -164,7 +164,7 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         {row.account_situation === 'ativo' ? <Button variant="secondary" onClick={() => void assistedEmailChange()} disabled={!canProvision || !email.trim() || busy}>Trocar Email de Recuperação</Button> : null}
       </div> : null}
 
-      {isAdmin && !isOperations ? <div className="mt-5 grid gap-3 border-t border-[var(--app-border)] pt-5"><Field label="Novo CNPJ"><Input value={newCnpj} onChange={(event) => setNewCnpj(normalizeCnpj(event.target.value))} /></Field><Button variant="secondary" onClick={() => void adminCnpjChange()} disabled={!newCnpj.trim() || newCnpj === row.cnpj_cpf || busy}>Alterar CNPJ auditado</Button></div> : null}
+      {isAdmin && !isOperations ? <div className="mt-5 grid gap-3 border-t border-[var(--app-border)] pt-5"><Field label="Novo CNPJ"><Input maxLength={14} value={newCnpj} onChange={(event) => setNewCnpj(normalizeCnpj(event.target.value))} /></Field><Button variant="secondary" onClick={() => void adminCnpjChange()} disabled={!newCnpj.trim() || newCnpj === row.cnpj_cpf || busy}>Alterar CNPJ auditado</Button></div> : null}
 
       {!isOperations && row.account_situation === 'convite_pendente' ? (
         <div className="mt-6 grid gap-3 border-t border-[var(--app-border)] pt-5">

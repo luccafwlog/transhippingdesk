@@ -1,4 +1,4 @@
-import { normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument } from '../lib/cnpj'
 import { normalizeText } from '../lib/utils'
 import { supabase } from './supabase'
 
@@ -79,7 +79,7 @@ export async function loadCustomerMaps() {
     for (const customer of batch) {
       const record: CustomerMatchRecord = { id: customer.id, name: customer.name }
 
-      const document = normalizeCnpj(customer.cnpj_cpf)
+      const document = canonicalizeDocument(customer.cnpj_cpf)
       if (document) {
         customersByDocument.set(document, record)
       }
@@ -110,7 +110,7 @@ export function findMatchedCustomer(
   },
   maps: CustomerMaps,
 ): CustomerMatchResult | null {
-  const document = normalizeCnpj(candidate.cnpjCpf ?? '')
+  const document = canonicalizeDocument(candidate.cnpjCpf ?? '')
   if (document) {
     const customerByDocument = maps.customersByDocument.get(document)
     if (customerByDocument) {

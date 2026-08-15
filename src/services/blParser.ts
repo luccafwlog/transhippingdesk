@@ -1,5 +1,5 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeValidCnpj } from '../lib/cnpj'
 import { asString, toNumber } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 
@@ -277,8 +277,8 @@ export function extractTaxId(value: string) {
   const labeled = value.match(/\bCNPJ\b\s*[:-]?\s*/i)
   const searchValue = labeled ? value.slice(labeled.index! + labeled[0].length) : value
   for (const match of searchValue.matchAll(new RegExp(pattern.source, 'gi'))) {
-    const cnpj = normalizeCnpj(match[1] ?? '')
-    if (isValidCnpj(cnpj)) return cnpj
+    const cnpj = canonicalizeValidCnpj(match[1] ?? '')
+    if (cnpj) return cnpj
   }
   return null
 }

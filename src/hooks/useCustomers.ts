@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument } from '../lib/cnpj'
 import { supabase } from '../services/supabase'
 import { fetchIssuedInvoiceBalanceByCustomer } from '../services/customers'
 import { escapeFilterTerm } from '../lib/utils'
@@ -135,7 +135,7 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
 
   if (filters.search) {
     const search = escapeFilterTerm(filters.search)
-    const normalizedDocument = normalizeCnpj(filters.search)
+    const normalizedDocument = canonicalizeDocument(filters.search)
     const documentClause = /\d/.test(filters.search) && normalizedDocument ? `,cnpj_cpf.ilike.%${normalizedDocument}%` : ''
     const terms = search
       ? `name.ilike.%${search}%,trade_name.ilike.%${search}%,cnpj_cpf.ilike.%${search}%`
@@ -205,7 +205,7 @@ export function useCustomerDetail(cnpj?: string) {
           ${BLS_OF_CUSTOMER}(id, consignee, financial_status, review_status, created_at)
         `,
         )
-        .eq('cnpj_cpf', normalizeCnpj(cnpj))
+        .eq('cnpj_cpf', canonicalizeDocument(cnpj))
         .single()
 
       if (error) throw error
@@ -268,7 +268,7 @@ export function useCustomerLookup(search: string) {
 
 function buildCustomerLookupFilter(search: string) {
   const term = escapeFilterTerm(search)
-  const document = normalizeCnpj(search)
+  const document = canonicalizeDocument(search)
   const clauses: string[] = []
 
   if (term.length >= 2) {

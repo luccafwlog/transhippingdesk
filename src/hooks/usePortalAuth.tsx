@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import * as Sentry from '@sentry/react'
 import { supabasePortal } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
-import { normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument } from '../lib/cnpj'
 import type { PortalSessionOverview } from '../services/portalBilling'
 
 type PortalAuthContextValue = {
@@ -118,7 +118,7 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
   const signIn = useCallback(async (cnpj: string, password: string) => {
     setLoading(true)
     try {
-      const normalized = normalizeCnpj(cnpj)
+      const normalized = canonicalizeDocument(cnpj)
       if (!normalized) throw new Error('CNPJ ou senha inválidos.')
       const { data, error } = await supabasePortal.functions.invoke('portal-login', { body: { cnpj: normalized, password } })
       if (error || !data?.access_token) throw new Error('CNPJ ou senha inválidos.')

@@ -1,5 +1,5 @@
 import { asString, onlyDigits } from '../lib/utils'
-import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeValidCnpj } from '../lib/cnpj'
 import { assertUploadFile } from '../lib/fileGuard'
 import type { Customer, CustomerContact } from '../types/database'
 import { supabase } from './supabase'
@@ -235,8 +235,7 @@ function mapRow(row: Record<string, unknown>) {
 }
 
 function normalizeDocument(value: string) {
-  const cnpj = normalizeCnpj(value)
-  return isValidCnpj(cnpj) ? cnpj : ''
+  return canonicalizeValidCnpj(value) ?? ''
 }
 
 function extractEmails(value: string) {

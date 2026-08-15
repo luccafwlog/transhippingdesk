@@ -1,5 +1,5 @@
 // Predicados puros para a fila de revisão.
-import { normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument } from '../lib/cnpj'
 import type { ReviewQueueItem } from '../hooks/useReview'
 
 export function normalizeConsignee(value?: string | null) {
@@ -11,9 +11,9 @@ export function normalizeConsignee(value?: string | null) {
 // manifesto (que pode ter ruído de leitura). Por isso o CNPJ do cliente
 // vinculado tem prioridade sobre o CNPJ lido do manifesto.
 export function getReviewItemCnpj(item: ReviewQueueItem): string | null {
-  const registered = item.customer?.cnpj_cpf ? normalizeCnpj(item.customer.cnpj_cpf) : ''
+  const registered = item.customer?.cnpj_cpf ? canonicalizeDocument(item.customer.cnpj_cpf) : ''
   if (registered) return registered
-  const manifest = item.manifest_customer_cnpj_cpf ? normalizeCnpj(item.manifest_customer_cnpj_cpf) : ''
+  const manifest = item.manifest_customer_cnpj_cpf ? canonicalizeDocument(item.manifest_customer_cnpj_cpf) : ''
   return manifest || null
 }
 

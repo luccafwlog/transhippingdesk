@@ -23,7 +23,7 @@ import {
 import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCharges'
 import { calculateAndIssueGraniteInvoice } from '../services/graniteBillingWorkflow'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
-import { normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument, normalizeCnpj } from '../lib/cnpj'
 import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../services/customerReconciliation'
 
 type Filters = {
@@ -89,7 +89,7 @@ export function Granite() {
   async function handleCnpjOverride(rowIndex: number, cnpj: string) {
     setCnpjOverrides((prev) => ({ ...prev, [rowIndex]: cnpj }))
     if (!manifest) return
-    const canonical = normalizeCnpj(cnpj)
+    const canonical = canonicalizeDocument(cnpj)
     if (canonical.length < 14) return
     const maps = await loadCustomerMaps()
     const bl = manifest.bls[rowIndex]
@@ -453,6 +453,7 @@ export function Granite() {
                               placeholder="Digite o CNPJ"
                               className="w-40 text-xs"
                               value={cnpjOverrides[idx] ?? ''}
+                              maxLength={14}
                               onChange={(e) => handleCnpjOverride(idx, normalizeCnpj(e.target.value))}
                             />
                           ) : (

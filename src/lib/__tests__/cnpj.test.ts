@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canonicalizeDocument, formatCnpj, isValidCnpj, normalizeCnpj } from '../cnpj'
+import { canonicalizeDocument, canonicalizeValidCnpj, formatCnpj, isValidCnpj, normalizeCnpj } from '../cnpj'
 
 describe('normalizeCnpj', () => {
   it('remove pontuação, preserva letras e converte para maiúsculas', () => {
@@ -60,5 +60,12 @@ describe('isValidCnpj', () => {
   it('rejeita DV incorreto e caracteres fora do alfabeto permitido', () => {
     expect(isValidCnpj('12.ABC.345/01DE-36')).toBe(false)
     expect(isValidCnpj('12.ABC.345/01D$-35')).toBe(false)
+  })
+})
+
+describe('canonicalizeValidCnpj', () => {
+  it('valida a entrada completa antes de canonicalizar', () => {
+    expect(canonicalizeValidCnpj('06.352.972/0001-21')).toBe('06352972000121')
+    expect(canonicalizeValidCnpj('063529720001219')).toBeNull()
   })
 })

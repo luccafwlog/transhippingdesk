@@ -91,6 +91,7 @@ export function PortalLogin() {
               type="text"
               inputMode="text"
               autoComplete="username"
+              maxLength={14}
               value={cnpj}
               onChange={(event) => setCnpj(normalizeCnpj(event.target.value))}
               placeholder="00.000.000/0000-00"

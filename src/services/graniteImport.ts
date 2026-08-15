@@ -1,5 +1,5 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument } from '../lib/cnpj'
 import { toNumber } from '../lib/utils'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
@@ -114,7 +114,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
     }
 
     const cnpjRaw = String(mapped['shipper_cnpj'] ?? '').trim()
-    const cnpjCanonical = normalizeCnpj(cnpjRaw)
+    const cnpjCanonical = canonicalizeDocument(cnpjRaw)
     const shipperName = String(mapped['shipper_name'] ?? '').trim() || null
 
     let clientId: number | null = null

@@ -1,4 +1,4 @@
-import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument, canonicalizeValidCnpj } from '../lib/cnpj'
 import { onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import { buildDependencyReport, tallyReasons, type DeleteDependencyReport } from './deleteDependencies'
@@ -31,8 +31,8 @@ type CreateCustomerInput = {
 }
 
 export async function createCustomer(input: CreateCustomerInput) {
-  const cnpj = normalizeCnpj(input.cnpjCpf)
-  if (!isValidCnpj(cnpj)) throw new Error('CNPJ inválido.')
+  const cnpj = canonicalizeValidCnpj(input.cnpjCpf)
+  if (!cnpj) throw new Error('CNPJ inválido.')
   const contacts = (input.contacts ?? []).filter(
     (contact) => contact.name.trim() || (contact.email ?? '').trim() || (contact.phone ?? '').trim(),
   )
@@ -251,7 +251,7 @@ export async function findCustomerIdByDocument(cnpjCpf: string): Promise<number 
   const { data } = await supabase
     .from('customers')
     .select('id')
-    .eq('cnpj_cpf', normalizeCnpj(cnpjCpf))
+    .eq('cnpj_cpf', canonicalizeDocument(cnpjCpf))
     .maybeSingle()
   return data?.id ?? null
 }

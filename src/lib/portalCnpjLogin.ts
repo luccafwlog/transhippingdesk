@@ -1,4 +1,4 @@
-import { normalizeCnpj } from './cnpj'
+import { canonicalizeDocument } from './cnpj'
 
 export const INCOMPLETE_CNPJ_MESSAGE = 'Informe o CNPJ completo, com 14 caracteres.'
 
@@ -15,5 +15,5 @@ export const INCOMPLETE_CNPJ_MESSAGE = 'Informe o CNPJ completo, com 14 caracter
 // `isValidCnpj` fica liberado quando o cadastro estiver limpo — a partir daí
 // nenhum documento inválido entra, porque `createCustomer` já barra.
 export function isCompleteCnpjLogin(value: string): boolean {
-  return normalizeCnpj(value).length === 14
+  return canonicalizeDocument(value).length === 14
 }

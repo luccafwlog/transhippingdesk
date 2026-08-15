@@ -4,7 +4,7 @@
 // (ParsedBreakbulkManifest) com erros por linha. A persistência vive em
 // breakbulkImport.ts.
 import { assertUploadFile } from '../lib/fileGuard'
-import { isValidCnpj, normalizeCnpj } from '../lib/cnpj'
+import { canonicalizeDocument, canonicalizeValidCnpj } from '../lib/cnpj'
 import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
 import { extractNcmCodes } from '../lib/ncm'
 import { normalizePortCode } from './portCode'
@@ -301,7 +301,7 @@ function parseLegacyRows(rows: Record<string, unknown>[]): ParsedBreakbulkManife
 
     const bl_id = normalizeKey(mapped.bl_id)
     const consignee = asString(mapped.consignee)
-    const cnpj_cpf = normalizeCnpj(asString(mapped.cnpj_cpf))
+    const cnpj_cpf = canonicalizeDocument(asString(mapped.cnpj_cpf))
     const pol = normalizeKey(mapped.pol)
     const pod = normalizeKey(mapped.pod)
     const item_description = asString(mapped.item_description)
@@ -764,8 +764,7 @@ function findNearestCompanyBeforeIndex(lines: string[], endIndex: number, minInd
 
 function extractTaxId(value: string) {
   const match = value.match(/\bCNPJ\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})/i)
-  const cnpj = normalizeCnpj(match?.[1] ?? '')
-  return isValidCnpj(cnpj) ? cnpj : ''
+  return canonicalizeValidCnpj(match?.[1] ?? '') ?? ''
 }
 
 function asNullableString(value: unknown) {
@@ -779,7 +778,7 @@ function asNullableDigits(value: unknown) {
 }
 
 function asNullableCnpj(value: unknown) {
-  const cnpj = normalizeCnpj(asString(value))
+  const cnpj = canonicalizeDocument(asString(value))
   return cnpj || null
 }
 

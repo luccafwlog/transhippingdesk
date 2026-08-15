@@ -33,7 +33,7 @@ export function CreateCustomerModal({
       <div className="grid gap-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Field label="CNPJ" error={errors.cnpjCpf}>
-            <Input value={form.cnpjCpf} onChange={(event) => onFieldChange('cnpjCpf', normalizeCnpj(event.target.value))} />
+            <Input maxLength={14} value={form.cnpjCpf} onChange={(event) => onFieldChange('cnpjCpf', normalizeCnpj(event.target.value))} />
           </Field>
           <Field label="Razao Social" error={errors.name}>
             <Input value={form.name} onChange={(event) => onFieldChange('name', event.target.value)} />

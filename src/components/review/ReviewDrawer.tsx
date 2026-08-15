@@ -10,7 +10,7 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import type { ReviewQueueItem } from '../../hooks/useReview'
-import { isValidCnpj, normalizeCnpj, formatCnpj } from '../../lib/cnpj'
+import { canonicalizeValidCnpj, normalizeCnpj, formatCnpj } from '../../lib/cnpj'
 import { classifyDbError, extractErrorText } from '../../lib/errors'
 import { createCustomer } from '../../services/customers'
 import { logOperationalEvent } from '../../services/operationalEvents'
@@ -87,8 +87,8 @@ export function ReviewDrawer({
       showToast('Informe nome e CNPJ para criar o cliente.', 'error')
       return
     }
-    const documentCanonical = normalizeCnpj(newCustomerCnpj)
-    if (!isValidCnpj(documentCanonical)) {
+    const documentCanonical = canonicalizeValidCnpj(newCustomerCnpj)
+    if (!documentCanonical) {
       showToast('Informe um CNPJ de 14 posições válido.', 'error')
       return
     }
@@ -355,7 +355,7 @@ export function ReviewDrawer({
                   <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} />
                 </Field>
                   <Field label="CNPJ">
-                    <Input value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(normalizeCnpj(event.target.value))} />
+                    <Input maxLength={14} value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(normalizeCnpj(event.target.value))} />
                 </Field>
                 <Field label="E-mail">
                   <Input value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} placeholder="(opcional)" />

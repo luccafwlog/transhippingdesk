@@ -44,6 +44,12 @@ export function isValidCnpj(value?: string | null): boolean {
   return canonical.slice(12) === expected
 }
 
+/** Valida o documento bruto e só então devolve sua forma canônica completa. */
+export function canonicalizeValidCnpj(value?: string | null): string | null {
+  if (!isValidCnpj(value)) return null
+  return canonicalizeDocument(value)
+}
+
 function calculateDigit(value: string, weights: number[]): string {
   const sum = [...value].reduce((total, char, index) => total + (char.charCodeAt(0) - 48) * weights[index], 0)
   const remainder = sum % 11
