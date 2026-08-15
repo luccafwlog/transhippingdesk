@@ -16,6 +16,7 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
+| [`2026-08-15-bloco-520-bl-revisao-design.md`](./2026-08-15-bloco-520-bl-revisao-design.md) | B/L, Revisão Manual e Documentação — Bloco #520 |
 
 Nenhuma no momento: todas as specs funcionais aprovadas até aqui tiveram seus
 planos concluídos e estão preservadas no
