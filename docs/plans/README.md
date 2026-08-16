@@ -15,6 +15,16 @@ Quando um plano é totalmente executado, ele é movido para
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
+### Nota editorial sobre o registro de decisões de #519
+
+A regra de encerramento de #519 nomeia
+`docs/plans/2026-08-11-alertas-e-notificacoes.md` como destino das decisões.
+Para o Bloco #521, esse registro foi formalizado como spec funcional em
+[`../spec/2026-08-15-clientes-portal-alertas-design.md`](../spec/2026-08-15-clientes-portal-alertas-design.md), que é a fonte canônica ligada ao
+plano acima. A substituição é intencional: a spec separa decisões funcionais
+do plano de execução e deve ser consultada pelos blocos seguintes até que um
+registro transversal seja consolidado.
+
 ## Ao concluir um plano
 
 1. `git mv docs/plans/<plano>.md docs/archive/plans/`

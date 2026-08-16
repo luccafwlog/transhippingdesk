@@ -13,9 +13,9 @@ dependente do Portal e Disputes de Demurrage.
 
 **Issue:** [#521](https://github.com/luccafwlog/transhippingdesk/issues/521)
 
-**Dependências:** arquitetura transversal de alertas/notificações; regras do
-Bloco #520 para Revisão Manual; bloco transversal de e-mails/notificações para
-os canais concretos do Portal.
+**Dependências:** arquitetura transversal de alertas/notificações; PR [#516](https://github.com/luccafwlog/transhippingdesk/pull/516), que bloqueia a
+decisão A3 de cliente sem e-mail; regras do Bloco #520 para Revisão Manual;
+bloco transversal de e-mails/notificações para os canais concretos do Portal.
 
 ## Resultado esperado
 
@@ -39,6 +39,15 @@ os canais concretos do Portal.
   cliente.
 - O gate de Portal/e-mail não está garantido em todos os caminhos finais de
   emissão.
+- `alerts.assigned_to` é uma FK para `auth.users(id)`, portanto não representa
+  o departamento responsável. A implementação precisa de uma representação
+  departamental própria, sem escolher arbitrariamente um usuário e sem
+  retirar a visibilidade dos demais.
+- `portal_invoice_exception_on_issue` só está ligado a `UPDATE OF status`, mas
+  os fluxos de emissão podem inserir invoices já como `issued`; existe uma
+  lacuna de detecção para a exceção histórica.
+- O gate atual aceita `matched_document` e `reconciled`; o segundo é o vínculo
+  confirmado manualmente e não pode ser removido por uma redação de plano.
 - `portal_open_demurrage_dispute` grava a contestação inicial, mas o modelo
   atual usa campos de texto em `demurrage_invoices`; não há conversa estruturada
   nem anexos por mensagem.
@@ -68,6 +77,11 @@ gerados; serviços compartilhados de projeção.
 - [ ] Definir a representação persistente de pendência com entidade canônica,
   tipo, departamento responsável, mensagem detalhada, origem, causa,
   timestamps, resolução e referência opcional a entidade relacionada.
+- [ ] Criar a representação persistente do departamento responsável (por
+  exemplo, `assigned_department` com valores canônicos do domínio), mantendo
+  `assigned_to` apenas como usuário que assumiu a execução quando aplicável.
+  Incluir migration, grants, projeções e notificações; não gravar o nome do
+  departamento na FK de usuário.
 - [ ] Definir a projeção de uma pendência para `/alertas`, sino, lista, ficha e
   entidade sem duplicar registros.
 - [ ] Preservar resolução coletiva do alerta e leitura individual das
@@ -78,6 +92,13 @@ gerados; serviços compartilhados de projeção.
   manuais sensíveis.
 - [ ] Definir a migração dos estados técnicos atuais para a apresentação
   `Pendente`/`Resolvido`, sem apagar histórico.
+- [ ] Criar backfill que consolide, por cliente, as linhas não resolvidas de
+  `portal_convite_expirado`, `portal_falha_envio` e `portal_email_suprimido`
+  em um único `portal_pendencia_geral`, agregando as razões e encerrando as
+  linhas legadas com auditoria. Linhas já fechadas permanecem no histórico;
+  `portal_abuso_login` e a exceção crítica de invoice continuam separados.
+- [ ] Catalogar para cada tipo a gravidade e o gatilho/frequência de detecção
+  definidos na spec, incluindo a reconciliação de 15 minutos quando aplicável.
 - [ ] Adicionar testes SQL-contract e testes de serviço para deduplicação,
   projeção e resolução coletiva.
 
@@ -85,7 +106,7 @@ gerados; serviços compartilhados de projeção.
 
 **Arquivos prováveis:**
 `src/pages/Clientes.tsx`, `src/pages/ClienteFicha.tsx`,
-`src/pages/PortalProvisioning.tsx`, componentes de clientes, serviços e RPCs
+`src/pages/ClientesPortal.tsx`, componentes de clientes, serviços e RPCs
 do Portal.
 
 - [ ] Rejeitar CNPJ inválido e duplicado no cadastro/importação sem criar
@@ -96,8 +117,10 @@ do Portal.
   labels, ações e decisões.
 - [ ] Promover cliente com processo ativo e Portal/e-mail pendente para um único
   alerta geral, agrupando razões simultâneas.
-- [ ] Confirmar reconciliação automática somente para `matched_document`; manter
-  sugestão por nome/fuzzy match como pendência de validação.
+- [ ] Confirmar reconciliação automática somente para `matched_document`, sem
+  promover a pendência ao alerta geral do cliente; preservar `reconciled` como
+  estado válido de vínculo manual e manter sugestão por nome/fuzzy match como
+  pendência de validação.
 - [ ] Adicionar no `/clientes` a exclamação para pendências próprias e resumo
   quantitativo/acionável dos B/Ls pendentes.
 - [ ] Adicionar na ficha do cliente painel persistente com pendências próprias,
@@ -130,6 +153,11 @@ faturamento/B/L.
   que ainda impeçam emissão.
 - [ ] Criar alerta técnico específico e ação de reprocessamento quando a
   emissão automática falhar depois da ativação.
+- [ ] Corrigir a exceção crítica de invoice para detectar tanto `INSERT` já em
+  `issued` quanto a transição para `issued`, gerar alerta por B/L afetado com
+  referência à invoice e executar backfill dos registros históricos que foram
+  emitidos sem Portal/e-mail utilizável. Cobrir esse comportamento em critério
+  de aceite e teste de contrato SQL.
 - [ ] Garantir disponibilidade da invoice emitida nas consultas do Portal e
   registrar os eventos no cliente e no B/L.
 - [ ] Preservar o comportamento de pagamento individual que obsoleta a
@@ -149,6 +177,9 @@ serviços de eventos e migrations de histórico.
 - [ ] Registrar bloqueio temporário normal de login como evento de segurança.
 - [ ] Registrar convite pendente dentro da validade, quando não houver bloqueio
   de B/L, apenas como estado/histórico.
+- [ ] Registrar motivo, histórico e resultado da Dispute também na ficha do
+  cliente e na ficha da fatura; essas superfícies devem projetar o histórico
+  canônico da conversa.
 - [ ] Garantir que eventos não apareçam na fila de pendências nem criem
   exclamação vermelha.
 - [ ] Adicionar testes de classificação evento versus pendência.
@@ -160,8 +191,10 @@ Portal, `/demurrage`, componentes de conversa, RLS e Storage.
 
 - [ ] Criar entidade de conversa/Dispute preservando as Disputes históricas e
   vinculando cada caso à fatura de Demurrage.
-- [ ] Separar estado do caso (`aberta`, `resolvida`, `cancelada`) do responsável
-  pela próxima resposta (`cliente`, `equipamentos`, `ninguém`).
+- [ ] Separar os rótulos funcionais do estado do caso (Aberta, Resolvida,
+  Cancelada) dos literais persistidos existentes (`aberto`, `resolvido`,
+  `cancelado`) e do responsável pela próxima resposta (`cliente`,
+  `equipamentos`, `ninguém`), sem quebrar as Disputes históricas.
 - [ ] Criar mensagens imutáveis com autor/origem, data/hora, conteúdo e
   mudança de responsável pela próxima resposta.
 - [ ] Criar anexos por mensagem, com Storage privado, metadados, RLS,
@@ -198,6 +231,8 @@ alertas e notificações.
   estado do caso e próxima resposta.
 - [ ] Adicionar no Portal do cliente a visualização da conversa, envio de
   respostas e anexos, solicitação de reabertura e histórico.
+- [ ] Projetar o motivo, histórico e resultado da Dispute na ficha do cliente e
+  na ficha da fatura, sem criar cópias editáveis do histórico.
 - [ ] Integrar links das projeções com as rotas já definidas, sem criar telas
   duplicadas de correção.
 - [ ] Cobrir estados vazios, carregamento, erro, acesso negado e falha de
@@ -212,6 +247,12 @@ componentes do sino/Portal, conforme o bloco transversal.
 
 - [ ] Publicar eventos com destinatário departamental, entidade, ação e link
   de destino.
+- [ ] Usar os destinos canônicos: pendência geral em
+  `/clientes/portal?cliente={id}`; bloqueio ou falha de B/L em
+  `/manifestos/{blId}?tab=faturamento`; invoice em
+  `/faturamento?invoice={invoiceId}`; reconciliação em
+  `/manifestos/{blId}?tab=detalhes`; e Dispute diretamente na conversa de
+  `/demurrage` ou `/portal/billing` conforme o ambiente.
 - [ ] Garantir Documentação como destinatário das pendências de Portal,
   bloqueios financeiros causados pelo Portal e falhas de reprocessamento.
 - [ ] Garantir Equipamentos como destinatário das Disputes de Demurrage quando

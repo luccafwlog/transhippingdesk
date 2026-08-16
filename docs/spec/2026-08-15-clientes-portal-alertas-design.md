@@ -39,6 +39,21 @@ notificações do Portal.
 projetado nessa fila, na lista de clientes, na ficha do cliente e nas
 entidades afetadas.
 
+### 2.1 Destinos canônicos de correção
+
+Os links de alerta e notificação não são escolhidos por tela. Cada origem deve
+abrir o ambiente onde a ação realmente acontece:
+
+| Origem | Destino |
+|---|---|
+| Pendência geral de Cliente/Portal | `/clientes/portal?cliente={id}` |
+| Bloqueio financeiro de B/L | `/manifestos/{blId}?tab=faturamento` |
+| Falha técnica de emissão ou reprocessamento | `/manifestos/{blId}?tab=faturamento` |
+| Invoice já criada | `/faturamento?invoice={invoiceId}` |
+| Reconciliação de cliente | `/manifestos/{blId}?tab=detalhes` |
+| Dispute de Demurrage interna | `/demurrage`, diretamente na conversa da Dispute |
+| Dispute de Demurrage no Portal | `/portal/billing`, diretamente na conversa da Dispute |
+
 ## 3. Vocabulário e princípios
 
 ### 3.1 Pendência, evento e notificação
@@ -103,6 +118,11 @@ Na reconciliação de um B/L:
   pendência no B/L;
 - correspondência apenas por nome ou fuzzy match é sugestão, nunca vínculo
   definitivo automático.
+
+A reconciliação de cliente é uma pendência própria do B/L e **não é promovida**
+ao alerta geral do cliente. Ela pode ser resumida na ficha do cliente e
+notificada com destino à aba de detalhes/revisão do B/L, mas não cria uma
+segunda unidade de alerta no cliente.
 
 ### 4.1 Cadastro antecipado
 
@@ -215,6 +235,13 @@ notificam Documentação. Isso não transforma Financeiro no responsável
 operacional por provisionamento; Financeiro permanece atuando nos seus fluxos
 próprios, especialmente consulta e reconciliação do extrato do Itaú.
 
+Uma emissão indevida também pode ocorrer em dados históricos ou quando uma
+invoice é inserida já com `status = 'issued'`. Essa exceção é crítica, é
+detectada tanto na inserção quanto na transição para `issued`, e gera uma
+pendência por B/L afetado com referência à invoice. A implementação deve
+backfillar os registros históricos que ainda satisfazem essa condição; não pode
+depender apenas de um `UPDATE OF status`.
+
 ### 5.2 Ativação dispara reprocessamento
 
 Quando o Portal for ativado, o sistema deve reavaliar os B/Ls ativos e ainda
@@ -267,11 +294,18 @@ Demurrage é tratado pelo departamento **Equipamentos**. A contestação deve
 aparecer no acompanhamento interno de Demurrage, que é o ambiente operacional
 principal para análise, resposta e encerramento.
 
+O motivo, a sequência de mensagens, as mudanças de responsável e o resultado
+da contestação também devem ser registrados na ficha do cliente e na ficha da
+fatura, além do acompanhamento de Demurrage. Essas superfícies são projeções do
+mesmo histórico, não registros independentes.
+
 ### 6.2 Estado da Dispute versus próxima resposta
 
 Essas dimensões são independentes.
 
-**Estado da Dispute:** Aberta, Resolvida ou Cancelada.
+**Estado da Dispute:** Aberta, Resolvida ou Cancelada. Esses são os rótulos
+funcionais; os literais persistidos permanecem `aberto`, `resolvido` e
+`cancelado`, para preservar o CHECK e as Disputes históricas existentes.
 
 **Responsável pela próxima resposta:** Cliente, Transhipping/Equipamentos ou
 Ninguém.
@@ -323,6 +357,17 @@ A definição funcional desse comportamento pertence a este bloco. A
 implementação dos canais de e-mail e notificações dentro do Portal pertence ao
 bloco transversal de notificações.
 
+### 6.6 Abuso de login investigável
+
+O bloqueio automático comum por excesso de tentativas é apenas um evento de
+segurança no histórico. Quando o volume ou padrão exigir investigação, deve ser
+criado um alerta específico por cliente, separado da pendência geral de Portal.
+Esse alerta é crítico, é direcionado a Documentação e permanece aberto até que
+o departamento registre a análise e a providência tomada. O fim automático da
+janela de bloqueio não resolve o alerta. Repetições são deduplicadas enquanto
+houver uma ocorrência pendente; depois de resolvido, uma nova ocorrência pode
+abrir novo alerta.
+
 ## 7. Eventos normais que não são alertas
 
 Os seguintes eventos devem ser preservados no histórico, mas não virar
@@ -351,6 +396,24 @@ acesso direto à entidade correspondente.
   leitura individual por usuário.
 - A resolução do problema tem efeito coletivo para o departamento.
 
+### 8.1 Gravidade e detecção dos alertas do bloco
+
+O catálogo abaixo responde explicitamente aos critérios de gravidade e detecção
+do épico #519. “Gatilho” inclui evento de domínio em RPC/Edge Function; quando
+indicado, o cron é apenas a reconciliação periódica e não uma escalada por
+tempo.
+
+| Tipo | Gravidade | Detecção |
+|---|---|---|
+| `portal_pendencia_geral` | Normal | Gatilho nas mudanças de cliente, B/L, conta e e-mail; reconciliação de segurança a cada 15 minutos. |
+| `portal_convite_expirado` | Normal | Cron a cada 15 minutos (`portal-mark-expired-invites`). |
+| `portal_falha_envio` | Normal | Gatilho imediato no resultado da tentativa de envio; reconciliação da fila a cada 15 minutos. |
+| `portal_email_suprimido` | Normal | Webhook assinado do provedor, imediatamente após bounce permanente ou complaint; reprocessamento idempotente do evento. |
+| `portal_abuso_login` | Crítica | Gatilho imediato no fluxo de login quando o padrão atingir o limiar investigável; sem fechamento por expiração da janela. |
+| `portal_excecao_critica_fatura` | Crítica | Trigger após `INSERT` de invoice já `issued` ou transição para `issued`, mais backfill explícito dos registros históricos. |
+
+Nenhum alerta se torna crítico apenas por envelhecer.
+
 ## 9. Critérios de aceite funcionais
 
 - **521-AC-01:** cliente sem processo ativo pode permanecer em `Aguardando
@@ -378,7 +441,8 @@ acesso direto à entidade correspondente.
 - **521-AC-12:** criação de fatura e desconsolidação válida são eventos de
   histórico com acesso direto às entidades.
 - **521-AC-13:** bloqueio temporário normal de login não gera alerta; padrão que
-  exigir investigação gera alerta específico para Documentação.
+  exigir investigação gera alerta específico, crítico, para Documentação, que
+  permanece até análise e tratamento; a expiração da janela não o fecha.
 - **521-AC-14:** Dispute de Demurrage gera pendência para Equipamentos e aparece
   no acompanhamento interno de Demurrage.
 - **521-AC-15:** Dispute separa estado do caso e responsável pela próxima
@@ -392,6 +456,9 @@ acesso direto à entidade correspondente.
 - **521-AC-19:** uma nova Dispute não sobrescreve uma contestação anterior.
 - **521-AC-20:** canais concretos de e-mail e notificação do Portal são tratados
   no bloco transversal, sem duplicar esta regra.
+- **521-AC-21:** invoice inserida já como `issued`, ou alterada para `issued`,
+  sem Portal/e-mail utilizável gera a exceção crítica por B/L, e os registros
+  históricos equivalentes são encontrados pelo backfill.
 
 ## 10. Fora de escopo e dependências
 
@@ -404,6 +471,10 @@ Este documento não define ainda:
 - limites, extensões e política detalhada de armazenamento de anexos;
 - a implementação do faturamento automático e do gate final;
 - a implementação da conversa de Dispute.
+
+O gate de reconciliação deve preservar os dois estados válidos já existentes:
+`matched_document` (vínculo automático por documento) e `reconciled` (vínculo
+confirmado manualmente). Somente os demais estados permanecem pendentes.
 
 Esses itens serão detalhados no plano técnico e, quando compartilhados por
 outros módulos, no bloco transversal correspondente.
