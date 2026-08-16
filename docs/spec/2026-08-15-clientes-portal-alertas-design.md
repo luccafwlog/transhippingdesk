@@ -67,9 +67,10 @@ gera alerta persistente, notificação interna de pendência ou exclamação. De
 ser registrado no histórico/auditoria e, quando aplicável, conter link direto
 para a entidade produzida.
 
-**Notificação** é um aviso direcionado a um usuário ou departamento. Ler uma
-notificação não resolve a pendência. A resolução depende da correção da
-condição de origem.
+**Notificação Interna** é uma entrega pessoal, uma linha por usuário ativo dos
+papéis internos definidos para o evento. O departamento define a audiência,
+mas não substitui o destinatário individual. Ler uma notificação não resolve a
+pendência. A resolução depende da correção da condição de origem.
 
 ### 3.2 Unidades canônicas
 

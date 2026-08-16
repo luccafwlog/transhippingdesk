@@ -13,7 +13,7 @@ dependente do Portal e Disputes de Demurrage.
 
 **Issue:** [#521](https://github.com/luccafwlog/transhippingdesk/issues/521)
 
-**Dependências:** arquitetura transversal de alertas/notificações; PR [#516](https://github.com/luccafwlog/transhippingdesk/pull/516), que bloqueia a
+**Dependências:** arquitetura transversal de alertas/notificações; PR [#518](https://github.com/luccafwlog/transhippingdesk/pull/518), que bloqueia a
 decisão A3 de cliente sem e-mail; regras do Bloco #520 para Revisão Manual;
 bloco transversal de e-mails/notificações para os canais concretos do Portal.
 
@@ -39,10 +39,11 @@ bloco transversal de e-mails/notificações para os canais concretos do Portal.
   cliente.
 - O gate de Portal/e-mail não está garantido em todos os caminhos finais de
   emissão.
-- `alerts.assigned_to` é uma FK para `auth.users(id)`, portanto não representa
-  o departamento responsável. A implementação precisa de uma representação
-  departamental própria, sem escolher arbitrariamente um usuário e sem
-  retirar a visibilidade dos demais.
+- `alerts.assigned_to` é uma FK para `auth.users(id)`, mas permanece sem uso
+  nesta arquitetura: não representa departamento nem o destinatário do sino.
+  A implementação precisa declarar a audiência por tipo de evento e fazer
+  fan-out para uma Notificação Interna por usuário ativo, sem escolher
+  arbitrariamente um usuário e sem retirar a visibilidade dos demais.
 - `portal_invoice_exception_on_issue` só está ligado a `UPDATE OF status`, mas
   os fluxos de emissão podem inserir invoices já como `issued`; existe uma
   lacuna de detecção para a exceção histórica.
@@ -77,11 +78,12 @@ gerados; serviços compartilhados de projeção.
 - [ ] Definir a representação persistente de pendência com entidade canônica,
   tipo, departamento responsável, mensagem detalhada, origem, causa,
   timestamps, resolução e referência opcional a entidade relacionada.
-- [ ] Criar a representação persistente do departamento responsável (por
-  exemplo, `assigned_department` com valores canônicos do domínio), mantendo
-  `assigned_to` apenas como usuário que assumiu a execução quando aplicável.
-  Incluir migration, grants, projeções e notificações; não gravar o nome do
-  departamento na FK de usuário.
+- [ ] Criar a representação persistente da audiência departamental (por
+  exemplo, uma regra de destinatários com valores canônicos do domínio), sem
+  gravar o departamento em `alerts.assigned_to` e sem introduzir atribuição
+  individual nesta rodada. Incluir migration, grants, projeções e notificações;
+  a entrega deve gerar uma Notificação Interna por usuário ativo do papel
+  definido para o evento.
 - [ ] Definir a projeção de uma pendência para `/alertas`, sino, lista, ficha e
   entidade sem duplicar registros.
 - [ ] Preservar resolução coletiva do alerta e leitura individual das
