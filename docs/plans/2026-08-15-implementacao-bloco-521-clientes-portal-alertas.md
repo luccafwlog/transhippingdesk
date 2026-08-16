@@ -13,8 +13,9 @@ dependente do Portal e Disputes de Demurrage.
 
 **Issue:** [#521](https://github.com/luccafwlog/transhippingdesk/issues/521)
 
-**Dependências:** arquitetura transversal de alertas/notificações; PR [#518](https://github.com/luccafwlog/transhippingdesk/pull/518), que bloqueia a
-decisão A3 de cliente sem e-mail; regras do Bloco #520 para Revisão Manual;
+**Dependências:** arquitetura transversal de alertas/notificações; PR [#518](https://github.com/luccafwlog/transhippingdesk/pull/518), relevante
+somente para implementar A3 (cliente sem e-mail agrupado por cliente), sem
+bloquear as demais tarefas do bloco; regras do Bloco #520 para Revisão Manual;
 bloco transversal de e-mails/notificações para os canais concretos do Portal.
 
 ## Resultado esperado
