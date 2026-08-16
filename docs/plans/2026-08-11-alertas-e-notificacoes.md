@@ -26,9 +26,11 @@ branco: resposta ausente vira decisão por omissão na implementação.
 1. **Alerta, notificação ou ambos?** Alerta é item na fila `/alertas`, que espera
    ser tratado. Notificação é aviso ativo (sino), que interrompe. São coisas
    diferentes e um evento pode ser só uma delas.
-2. **Departamento ou global?** O destinatário, gravado em `alerts.assigned_to`
-   (item E3). Global só quando o evento não tem dono único — não como fuga de
-   decidir.
+2. **Departamento ou global?** A audiência do Evento Notificável é declarada
+   numa regra central por tipo. O Alerta continua sendo uma pendência coletiva;
+   a Notificação Interna é entregue individualmente aos usuários dos papéis
+   definidos para aquele evento. `alerts.assigned_to` permanece sem uso, conforme
+   o ADR 0034, até existir uma necessidade real de atribuição individual.
 3. **Como fecha — e reabre?** Automático por condição verificável, ou manual por
    decisão. Se a condição volta a valer, reabre o mesmo item ou cria outro.
 4. **Qual é a unidade?** Por B/L, por cliente, por viagem, por fatura, por
@@ -54,9 +56,11 @@ Duas regras valem para todos e não são debatidas caso a caso:
 
 ## Dependência externa
 
-O item **A3 (cliente sem e-mail)** depende da correção registrada em
-`docs/archive/audits/2026-08-11-vinculo-de-cliente-por-nome.md` — documento que
-chega ao `main` pela PR #516, motivo de a referência aqui não ser um link.
+O item **A3 (cliente sem e-mail)** depende da correção implementada na PR
+[#518](https://github.com/luccafwlog/transhippingdesk/pull/518), que faz o vínculo
+automático somente por documento exato e preserva match por nome como sugestão.
+O audit histórico está em
+`docs/archive/audits/2026-08-11-vinculo-de-cliente-por-nome.md`.
 A fila agrupa por CNPJ (`src/pages/revisaoHelpers.ts:45`); enquanto a importação
 gravar `customer_id` a partir de match por nome, o agrupamento não é confiável —
 dois B/Ls do mesmo cliente podem cair em grupos distintos, ou um grupo pode
@@ -87,17 +91,25 @@ digest do Portal, pendências gerais do Portal e `mark_overdue_invoices`, que é
 outra função.
 
 Consequência atual: um prazo vencido não existe enquanto ninguém abre a tela, e
-portanto não pode notificar. Agendar os três, seguindo o padrão do Portal. É
-pré-requisito de qualquer notificação por sino.
+portanto não pode notificar. Agendar os três, seguindo o padrão do Portal, mas
+sem chamar diretamente pelo `pg_cron` uma função que exige `auth.uid()`: a
+implementação deve usar um wrapper server-only protegido ou uma invocação HTTP
+autenticada. É pré-requisito de qualquer notificação por sino.
 
-### E3 — Passar a usar `assigned_to` e `notified_at`
+### E3 — Notificação Interna por destinatário, separada do Alerta
 
-As duas colunas existem em `alerts` desde `001_schema.sql:31,34`, têm índice
-(`011_schema_hardening.sql:230`) e nunca foram escritas nem lidas. São
-exatamente o que as decisões de responsável e de sino precisam.
+O ADR 0034 define que `alerts` é uma fila coletiva e que o sino precisa de uma
+entidade separada, com uma linha por usuário destinatário e estado de leitura
+individual. A audiência de cada tipo fica declarada num único registro de regras;
+os produtores continuam apenas criando ou atualizando Alertas.
 
-- `assigned_to` — o departamento/responsável decidido por tipo (bloco A).
-- `notified_at` — quando o sino disparou, para não notificar duas vezes.
+- A nova Notificação Interna congela o evento no momento da entrega e mantém
+  `read_at` por usuário.
+- O fan-out resolve os papéis internos definidos para o tipo e cria uma entrega
+  por usuário ativo, com deduplicação idempotente.
+- Ler a Notificação Interna nunca reconhece nem fecha o Alerta coletivo.
+- `alerts.assigned_to` e `alerts.notified_at` permanecem sem uso; não são
+  sobrecarregados para representar departamento ou entrega pessoal.
 
 ## Bloco A — Operacional
 
@@ -222,8 +234,10 @@ diferentes.
 ### D1 — Encerrar o tipo legado `agency_report_section_pending`
 
 Obsoleto desde a 225; nada mais o cria. Fechar as linhas antigas ainda abertas e
-remover o rótulo de `src/pages/Alertas.tsx:31`, para a tela parar de sugerir um
-tipo que não existe mais. O histórico das migrations preserva o registro.
+substituir o rótulo legado pelo tipo ativo
+`agency_report_department_pending` em `src/pages/Alertas.tsx:31`, para a tela
+continuar apresentando corretamente as pendências departamentais criadas pela
+migration 225. O histórico das migrations preserva o registro legado.
 
 ## Limpeza colateral
 
