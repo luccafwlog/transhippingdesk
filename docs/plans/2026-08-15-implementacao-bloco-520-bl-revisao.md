@@ -16,9 +16,11 @@ Revisão Manual, ficha do B/L, carga solta, containers e veículos.
 Clientes/Portal do #521; alerta de viagem/Baplie do #523; regras financeiras de
 Demurrage do #522.
 
-**Bloqueio atual:** a fundação transversal de alertas/notificações ainda não
-existe no repositório. Não iniciar as tasks dependentes até o contrato canônico
-e sua persistência estarem disponíveis.
+**Bloqueio parcial atual:** a persistência da Notificação Interna da arquitetura
+transversal ainda não existe no repositório. Ela bloqueia somente as partes das
+Tasks 1, 3 e 7 que dependem do sino e do fan-out. As Tasks 2 (resultado de
+importação) e 6 (validação de veículos), que não dependem de Notificação
+Interna, podem avançar com os contratos já existentes.
 
 ## Resultado esperado
 
@@ -36,13 +38,17 @@ e sua persistência estarem disponíveis.
 
 - [ ] Consumir o contrato canônico de alerta por entidade e tipo.
 - [ ] Definir o tipo de alerta de Revisão Manual com chave única por
-  `(entity_type, entity_id)`, distinguindo `bl` de `granite_bl`.
+  `(type, entity_type, entity_id)`, distinguindo `bl` de `granite_bl` sem
+  colidir com outros tipos de alerta da mesma entidade.
 - [ ] Definir como a mensagem agrega e remove motivos sem duplicar registros.
 - [ ] Definir a projeção de um alerta de viagem/Baplie em B/Ls e containers,
   sem criar alerta filho.
 - [ ] Preservar leitura individual, resolução coletiva e auditoria.
 - [ ] Bloquear fechamento manual de alertas derivados enquanto a origem ainda
-  tiver motivos pendentes; somente a recomputação pode fechá-los.
+  tiver motivos pendentes; somente a recomputação pode fechá-los. Implementar
+  a guarda no contrato server-side (RPC, trigger ou policy/RLS apropriada),
+  acompanhada de teste de contrato SQL, para que um UPDATE direto não contorne
+  a proteção da UI.
 - [ ] Criar testes de deduplicação, atualização parcial e resolução.
 
 ## Task 2 — Importação de B/Ls e carga solta
@@ -73,7 +79,7 @@ em `CLAUDE.md` apenas para essa sessão.
   alerta canônico, com motivos vindos da fonte correta de cada origem.
 - [ ] Consolidar os motivos de cada origem em um único alerta por origem e B/L;
   para `bls`, usar cliente não vinculado, cliente sem e-mail e peso de carga
-  solta, e para `granite_bls`, usar a fila própria do Granito.
+  solta, e para `granite_bls`, usar a condição vigente `client_id IS NULL`.
 - [ ] Atualizar a mensagem quando houver correção parcial.
 - [ ] Fechar o alerta e retirar o B/L da fila somente quando todos os motivos
   forem resolvidos; bloquear fechamento manual enquanto houver motivo pendente.

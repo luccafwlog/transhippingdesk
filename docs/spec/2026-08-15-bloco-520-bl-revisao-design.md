@@ -33,11 +33,12 @@ pendência pode ser tratada diretamente na ficha do B/L ou no módulo responsáv
 por sua origem.
 
 Neste bloco, B/L inclui registros de `bls` e `granite_bls`. O alerta de revisão
-usa a chave composta `(entity_type, entity_id)`: `bl` e `granite_bl` distinguem
-as duas origens mesmo quando os identificadores coincidem. Os B/Ls de `bls`
-usam os três motivos do gate canônico; os registros de `granite_bls` usam os
-motivos expostos pela fila própria do Granito, sem inventar motivos de Portal ou
-de peso que não pertençam a esse fluxo.
+usa a chave composta `(type, entity_type, entity_id)`: `type` separa alertas
+legitimamente distintos para a mesma entidade, enquanto `bl` e `granite_bl`
+distinguem as duas origens mesmo quando os identificadores coincidem. Os B/Ls de
+`bls` usam os três motivos do gate canônico; os registros de `granite_bls` usam
+a condição vigente `client_id IS NULL`, sem inventar motivos de Portal ou de
+peso que não pertençam a esse fluxo.
 
 ## 3. Princípios
 
@@ -131,10 +132,12 @@ mesmo tratamento de pendência:
 - cliente sem e-mail cadastrado/utilizável;
 - peso de carga solta ausente.
 
-Para `granite_bls`, a fila vigente é a fonte dos motivos de revisão do Granito;
-o vínculo de cliente não resolvido é tratado no mesmo alerta único, sem
-duplicar a unidade por causa da tabela de origem. O motivo pode ter uma origem
-ou correção diferente, mas não cria um alerta separado.
+Para `granite_bls`, a condição vigente da fila é `client_id IS NULL`; ela é a
+fonte do motivo de revisão do Granito. O vínculo de cliente não resolvido é
+tratado no mesmo alerta único, sem duplicar a unidade por causa da tabela de
+origem. A implementação deve recomputar essa condição após
+`save_granite_bl_review` e fechar o alerta quando `client_id` deixar de ser
+nulo; não deve inventar motivos de Portal ou de peso.
 
 Quando o problema for a ausência de e-mail, a pendência de cliente segue também
 a regra própria do bloco de Clientes. O Portal não é motivo do gate de revisão
@@ -219,7 +222,7 @@ domínios e não ao cadastro de veículos.
 - **520-AC-02:** falha de importação não cria alerta, notificação ou exclamação.
 - **520-AC-03:** todo B/L de `bls` ou `granite_bls` que entra em Revisão Manual
   possui alerta persistente e notificação para Documentação, identificado pela
-  chave `(entity_type, entity_id)`.
+  chave `(type, entity_type, entity_id)`.
 - **520-AC-04:** múltiplos motivos de um B/L permanecem em um único alerta.
 - **520-AC-05:** correção parcial atualiza a mensagem sem duplicar alerta.
 - **520-AC-06:** resolver todos os motivos remove o B/L da fila, fecha o
