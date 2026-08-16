@@ -18,10 +18,9 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 |---|---|
 | [`2026-08-15-bloco-520-bl-revisao-design.md`](./2026-08-15-bloco-520-bl-revisao-design.md) | B/L, Revisão Manual e Documentação — Bloco #520 |
 
-Nenhuma no momento: todas as specs funcionais aprovadas até aqui tiveram seus
-planos concluídos e estão preservadas no
-[arquivo histórico](../archive/specs/). A spec comportamental abaixo é
-permanente e não entra nesta tabela.
+A spec funcional permanece nesta tabela enquanto seu plano não for concluído e
+é movida para o [arquivo histórico](../archive/specs/) junto com ele. A spec
+comportamental abaixo é permanente e não entra nesta tabela.
 
 ## Behavioral Specification
 

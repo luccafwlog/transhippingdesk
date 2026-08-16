@@ -16,10 +16,14 @@ Revisão Manual, ficha do B/L, carga solta, containers e veículos.
 Clientes/Portal do #521; alerta de viagem/Baplie do #523; regras financeiras de
 Demurrage do #522.
 
+**Bloqueio atual:** a fundação transversal de alertas/notificações ainda não
+existe no repositório. Não iniciar as tasks dependentes até o contrato canônico
+e sua persistência estarem disponíveis.
+
 ## Resultado esperado
 
 - Importação em lote com erro por linha no modal, sem alertas persistentes.
-- Um alerta canônico por B/L que entra em Revisão Manual.
+- Um alerta canônico por B/L de `bls` ou `granite_bls` que entra em Revisão Manual.
 - Painel contextual no topo da ficha do B/L, com correção direta ou link para
   outro módulo.
 - Projeções sem duplicação em listas, containers, carga solta, sino e Alertas.
@@ -27,47 +31,60 @@ Demurrage do #522.
 
 ## Task 1 — Confirmar contratos e modelo de alerta
 
-**Arquivos prováveis:** migrations e serviços da fundação transversal; tipos
-gerados; `src/services/alerts.ts`.
+**Arquivos prováveis:** serviços da fundação transversal; tipos gerados;
+`src/services/alerts.ts`; `src/pages/Alertas.tsx`.
 
 - [ ] Consumir o contrato canônico de alerta por entidade e tipo.
-- [ ] Definir o tipo de alerta de Revisão Manual com chave única por B/L.
+- [ ] Definir o tipo de alerta de Revisão Manual com chave única por
+  `(entity_type, entity_id)`, distinguindo `bl` de `granite_bl`.
 - [ ] Definir como a mensagem agrega e remove motivos sem duplicar registros.
 - [ ] Definir a projeção de um alerta de viagem/Baplie em B/Ls e containers,
   sem criar alerta filho.
 - [ ] Preservar leitura individual, resolução coletiva e auditoria.
+- [ ] Bloquear fechamento manual de alertas derivados enquanto a origem ainda
+  tiver motivos pendentes; somente a recomputação pode fechá-los.
 - [ ] Criar testes de deduplicação, atualização parcial e resolução.
 
 ## Task 2 — Importação de B/Ls e carga solta
 
 **Arquivos prováveis:** serviços/parsers de importação, modais das páginas de
-manifestos e carga solta, testes de importação.
+manifestos e carga solta, `import_manifest_transactional`, `import_errors` e
+testes de importação.
 
 - [ ] Exibir resultado por linha no modal, incluindo falha e motivo.
 - [ ] Continuar o processamento das linhas válidas em importação em lote.
-- [ ] Registrar falhas no histórico técnico sem inserir `alerts`.
+- [ ] Registrar falhas por lote/linha usando a tabela existente `import_errors`,
+  sem criar nova tabela e sem inserir `alerts`.
 - [ ] Aplicar o mesmo comportamento ao importador de carga solta.
 - [ ] Criar testes de lote parcial, erro de parsing e erro de validação.
 
 ## Task 3 — Gate e fila de Revisão Manual
 
-**Arquivos prováveis:** `src/pages/Revisao.tsx`, serviços de revisão, RPCs e
-migrations do gate `compute_bl_review_pendencies`.
+**Arquivos prováveis:** `src/pages/Revisao.tsx`, `src/hooks/useReview.ts`,
+serviços de revisão, RPCs do gate e integração com alertas.
 
-- [ ] Garantir que todo B/L em `pending_review` tenha um alerta canônico.
-- [ ] Consolidar os motivos cliente não vinculado, cliente sem e-mail e peso
-  de carga solta em um único alerta por B/L.
+Se a integração exigir alteração de banco, a migration nova deve usar o próximo
+prefixo disponível (`304` neste checkout); nunca editar
+`188_review_gate_remove_portal.sql`. Migrations são arquivos protegidos: antes
+de criá-las ou editá-las, obter autorização explícita e usar o override previsto
+em `CLAUDE.md` apenas para essa sessão.
+
+- [ ] Garantir que todo B/L de `bls` ou `granite_bls` na fila de revisão tenha um
+  alerta canônico, com motivos vindos da fonte correta de cada origem.
+- [ ] Consolidar os motivos de cada origem em um único alerta por origem e B/L;
+  para `bls`, usar cliente não vinculado, cliente sem e-mail e peso de carga
+  solta, e para `granite_bls`, usar a fila própria do Granito.
 - [ ] Atualizar a mensagem quando houver correção parcial.
-- [ ] Resolver o alerta e retirar o B/L da fila somente quando todos os motivos
-  forem resolvidos.
+- [ ] Fechar o alerta e retirar o B/L da fila somente quando todos os motivos
+  forem resolvidos; bloquear fechamento manual enquanto houver motivo pendente.
 - [ ] Encaminhar notificações de revisão para Documentação.
 - [ ] Permitir tratamento na fila sem tornar a fila a única origem da correção.
 - [ ] Criar testes de entrada, permanência, correção parcial e saída da fila.
 
 ## Task 4 — Ficha do B/L e projeções
 
-**Arquivos prováveis:** `src/pages/ManifestoDetalhe.tsx`, componentes de ficha,
-listas de manifestos, containers e carga solta.
+**Arquivos prováveis:** `src/pages/BlDetalhe.tsx`, componentes de ficha, listas
+de manifestos, containers e carga solta.
 
 - [ ] Adicionar painel contextual persistente no topo da ficha, visível em
   todas as abas.
@@ -76,7 +93,7 @@ listas de manifestos, containers e carga solta.
   aplicável.
 - [ ] Encaminhar divergência de Baplie ao módulo de viagem/Baplie.
 - [ ] Exibir exclamação enquanto existir motivo pendente do B/L.
-- [ ] Projeter contexto nas listas sem criar alertas duplicados.
+- [ ] Projetar contexto nas listas sem criar alertas duplicados.
 - [ ] Adicionar testes de navegação e visibilidade por aba.
 
 ## Task 5 — Containers e Demurrage
@@ -84,25 +101,29 @@ listas de manifestos, containers e carga solta.
 **Arquivos prováveis:** página/serviços de containers, regras de Demurrage e
 componentes de projeção.
 
-- [ ] Exibir na lista de containers os alertas canônicos relacionados a B/L,
-  viagem ou Demurrage.
+- [ ] Exibir na lista de containers os alertas canônicos relacionados a B/L ou
+  viagem e o Indicador Operacional de Demurrage.
 - [ ] Não alertar container dentro do free time sem devolução.
-- [ ] Consumir alerta próprio de Demurrage quando o container exceder free time
-  e permanecer sem devolução.
+- [ ] Consumir o Indicador Operacional próprio de Demurrage quando o container
+  exceder free time e permanecer sem devolução, sem criar `alerts` ou
+  notificações.
 - [ ] Garantir que a projeção não crie alerta duplicado no container.
 - [ ] Criar testes para origem e desaparecimento do marcador.
 
 ## Task 6 — Importação de veículos
 
-**Arquivos prováveis:** `src/services/vehicleImport.ts`, parser de veículos,
-RPC/migration de persistência e testes.
+**Arquivos prováveis:** `src/services/vehicleImport.ts`, parser de veículos e
+testes.
 
-- [ ] Validar chassi, B/L, viagem, container, tipo e lacre antes do insert.
-- [ ] Rejeitar veículo sem container válido.
+- [ ] Verificar e preservar a validação já existente em
+  `src/services/vehicleImport.ts:250-302`, que cobre B/L, viagem, container,
+  tipo, lacre e match ambíguo antes do insert.
+- [ ] Rejeitar veículo sem container válido sem reintroduzir fallback silencioso.
 - [ ] Mostrar o motivo no resultado da importação.
 - [ ] Não criar alerta para veículo que não foi persistido.
 - [ ] Manter falhas de faturamento/Portal nos blocos correspondentes.
-- [ ] Criar testes de rejeição antes da persistência e de importação válida.
+- [ ] Criar ou completar testes de rejeição antes da persistência e de importação
+  válida; não reescrever a validação sem evidência de regressão.
 
 ## Task 7 — Integração transversal
 
@@ -122,7 +143,7 @@ RPC/migration de persistência e testes.
 - [ ] Rodar testes focados, `npm run docs:check`, `npm run typecheck`,
   `npm run lint`, `npm test`, `npm run build` e `git diff --check`.
 - [ ] Atualizar a spec comportamental canônica após verificação do código.
-- [ ] Registrar a entrega no `CHANGELOG.md`.
+- [ ] Registrar a entrega em `docs/CHANGELOG.md`.
 - [ ] Após a conclusão, mover spec e plano para os diretórios de arquivo e
   atualizar os índices.
 

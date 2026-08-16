@@ -22,7 +22,7 @@ de leitura individual e resolução coletiva.
 |---|---|
 | `/manifestos` | Lista de B/Ls, importação em lote e indicação de pendências. |
 | `/manifestos/:blId` | Ficha do B/L, painel contextual e correções diretas quando possível. |
-| `/revisao` | Fila operacional de B/Ls que impedem o avanço normal do fluxo. |
+| `/revisao` | Fila operacional combinada de B/Ls de `bls` e `granite_bls` que impedem o avanço normal do fluxo. |
 | `/containers` | Projeção de pendências originadas em B/L, viagem ou Demurrage, sem duplicação. |
 | `/carga-solta` | Importação e projeção de pendências dos B/Ls de carga solta. |
 | `/veiculos` | Importação com validação antes da persistência; sem pendência própria de vínculo inválido. |
@@ -31,6 +31,13 @@ de leitura individual e resolução coletiva.
 `/revisao` é uma fila de trabalho e não uma segunda fonte de alertas. A mesma
 pendência pode ser tratada diretamente na ficha do B/L ou no módulo responsável
 por sua origem.
+
+Neste bloco, B/L inclui registros de `bls` e `granite_bls`. O alerta de revisão
+usa a chave composta `(entity_type, entity_id)`: `bl` e `granite_bl` distinguem
+as duas origens mesmo quando os identificadores coincidem. Os B/Ls de `bls`
+usam os três motivos do gate canônico; os registros de `granite_bls` usam os
+motivos expostos pela fila própria do Granito, sem inventar motivos de Portal ou
+de peso que não pertençam a esse fluxo.
 
 ## 3. Princípios
 
@@ -48,9 +55,10 @@ outras linhas falhem.
 
 ### 3.2 Alerta único por B/L em revisão
 
-Todo B/L que entra em Revisão Manual possui uma pendência bloqueadora e gera:
+Todo B/L (`bls` ou `granite_bls`) que entra em Revisão Manual possui uma
+pendência bloqueadora e gera:
 
-- um único alerta de revisão por B/L;
+- um único alerta de revisão por origem e B/L;
 - notificação para Documentação;
 - exclamação vermelha nas listas e projeções do B/L.
 
@@ -61,9 +69,14 @@ Correção parcial atualiza o alerta existente. Quando todos os motivos forem
 resolvidos:
 
 - o B/L sai da fila de revisão;
-- o alerta passa a resolvido;
+- o alerta é fechado;
 - a pendência deixa de ser exibida como ativa;
 - a exclamação desaparece.
+
+O fechamento desse alerta derivado é feito pela recomputação da origem. Enquanto
+houver motivo pendente, o fechamento manual é bloqueado; reconhecer continua
+sendo uma ação coletiva distinta de ler. Assim, `/alertas` não pode esconder um
+B/L que ainda está bloqueado no gate.
 
 Abrir a revisão, a ficha ou a notificação não resolve o problema.
 
@@ -93,8 +106,9 @@ O modal deve identificar por linha:
 - informação não reconhecida;
 - motivo técnico ou de validação.
 
-B/Ls válidos continuam o processamento. Falhas ficam no resultado da operação
-e no histórico técnico da importação, mas não geram alerta persistente,
+B/Ls válidos continuam o processamento. Falhas ficam no resultado da operação e
+no histórico técnico já existente em `import_errors`, associado ao
+`import_batches` da operação, mas não geram alerta persistente,
 notificação ou marcador visual.
 
 Se um B/L válido entrar posteriormente em Revisão Manual, aplica-se a regra do
@@ -110,20 +124,23 @@ A importação de carga solta segue a mesma separação:
 
 ## 5. Motivos da Revisão Manual
 
-Os motivos canônicos atuais do gate de revisão recebem o mesmo tratamento de
-pendência do B/L:
+Para B/Ls de `bls`, os três motivos canônicos atuais do gate de revisão recebem o
+mesmo tratamento de pendência:
 
 - cliente não vinculado;
 - cliente sem e-mail cadastrado/utilizável;
 - peso de carga solta ausente.
 
-O motivo pode ter uma origem ou correção diferente, mas não cria um alerta
-separado. A unidade continua sendo o B/L em Revisão Manual.
+Para `granite_bls`, a fila vigente é a fonte dos motivos de revisão do Granito;
+o vínculo de cliente não resolvido é tratado no mesmo alerta único, sem
+duplicar a unidade por causa da tabela de origem. O motivo pode ter uma origem
+ou correção diferente, mas não cria um alerta separado.
 
-Quando o problema for a ausência de e-mail ou Portal do cliente, a pendência
-de cliente/Portal segue também a regra própria do bloco de Clientes e Portal.
-O B/L continua exibindo a consequência financeira/operacional aplicável, sem
-duplicar o alerta geral do cliente.
+Quando o problema for a ausência de e-mail, a pendência de cliente segue também
+a regra própria do bloco de Clientes. O Portal não é motivo do gate de revisão
+nem condição de prontidão para faturamento desde a migration `188`; o B/L
+continua exibindo a consequência financeira/operacional aplicável, sem duplicar
+o alerta geral do cliente.
 
 Quando a reconciliação identificar corretamente o cliente por documento, o
 vínculo é resolvido automaticamente. Correspondência somente por nome ou fuzzy
@@ -153,12 +170,12 @@ respeitada nas projeções deste bloco.
 
 ## 7. Containers
 
-`/containers` pode exibir pendências cujo domínio canônico seja B/L, viagem ou
-Demurrage, mas não deve criar cópia do alerta.
+`/containers` pode exibir pendências cujo domínio canônico seja B/L ou viagem,
+além do Indicador Operacional de Demurrage, mas não deve criar cópia do alerta.
 
 - Container descarregado dentro do free time e ainda não devolvido: sem alerta.
-- Container fora do free time e não devolvido: pode gerar alerta de Demurrage
-  por container, conforme as regras financeiras/operacionais de Demurrage.
+- Container fora do free time e não devolvido: permanece no indicador operacional
+  de Demurrage (por container), sem virar Alerta ou Notificação Interna.
 - Pendência de cliente, Baplie ou Revisão: exibir contexto e link, mantendo o
   alerta na entidade canônica.
 
@@ -179,10 +196,19 @@ domínios e não ao cadastro de veículos.
 - A tela global `/alertas` exibe o alerta canônico para todos os departamentos.
 - O sino encaminha a notificação para Documentação nos casos de Revisão Manual.
 - A leitura é individual por usuário e não resolve a pendência.
-- A resolução da condição de origem tem efeito coletivo para o departamento.
+- Reconhecer e fechar um Alerta são ações coletivas, compartilhadas por toda a
+  equipe interna; não há estado ou escopo de resolução por departamento.
+- O Eco de Tratamento informa os demais destinatários quando alguém reconhece ou
+  fecha um Alerta.
+- Alertas derivados do gate de revisão só podem ser fechados pela resolução da
+  condição de origem; a UI e o servidor bloqueiam fechamento manual enquanto
+  houver motivo pendente.
 - Todos os usuários internos podem consultar e executar ações autorizadas, com
   logs completos.
-- Ações manuais sensíveis exigem justificativa.
+- As correções deste bloco não exigem justificativa textual obrigatória: o rastro
+  obrigatório registra autor e departamento congelado, e a RPC pode preencher
+  `Revisão manual` como justificativa opcional. Regras específicas existentes
+  que exigirem justificativa continuam prevalecendo.
 - O log registra usuário, departamento/role, data/hora, entidade, estado
   anterior, estado novo, origem, ação e justificativa.
 
@@ -191,20 +217,23 @@ domínios e não ao cadastro de veículos.
 - **520-AC-01:** importação em lote mostra falhas por linha no modal e continua
   processando linhas válidas.
 - **520-AC-02:** falha de importação não cria alerta, notificação ou exclamação.
-- **520-AC-03:** todo B/L que entra em Revisão Manual possui alerta persistente e
-  notificação para Documentação.
+- **520-AC-03:** todo B/L de `bls` ou `granite_bls` que entra em Revisão Manual
+  possui alerta persistente e notificação para Documentação, identificado pela
+  chave `(entity_type, entity_id)`.
 - **520-AC-04:** múltiplos motivos de um B/L permanecem em um único alerta.
 - **520-AC-05:** correção parcial atualiza a mensagem sem duplicar alerta.
-- **520-AC-06:** resolver todos os motivos remove o B/L da fila, resolve o
+- **520-AC-06:** resolver todos os motivos remove o B/L da fila, fecha o
   alerta e remove a exclamação.
-- **520-AC-07:** abrir a ficha ou a notificação não resolve a pendência.
+- **520-AC-07:** abrir a ficha ou a notificação não resolve a pendência, e o
+  fechamento manual não oculta um alerta de revisão com motivos pendentes.
 - **520-AC-08:** ficha do B/L exibe painel contextual no topo em todas as abas.
 - **520-AC-09:** correção possível na ficha pode ser executada diretamente ali.
 - **520-AC-10:** pendência de outro domínio encaminha para o módulo correto.
 - **520-AC-11:** carga solta segue as mesmas regras de importação e revisão.
-- **520-AC-12:** `/containers` projeta alertas de B/L, viagem ou Demurrage sem
-  duplicá-los.
-- **520-AC-13:** container dentro do free time sem devolução não gera alerta.
+- **520-AC-12:** `/containers` projeta alertas de B/L/viagem e o indicador de
+  Demurrage sem duplicar alertas nem transformar o indicador em alerta.
+- **520-AC-13:** container dentro do free time sem devolução não gera alerta; o
+  vencido permanece apenas como Indicador Operacional.
 - **520-AC-14:** veículo sem container válido não é persistido e não gera alerta.
 - **520-AC-15:** divergência de Baplie gera alerta por viagem, nunca por B/L ou
   container.
@@ -219,7 +248,8 @@ Este documento não implementa nem redefine:
 - os canais de e-mail e o sino transversal;
 - a implementação do alerta de Baplie, que pertence ao bloco de viagens;
 - a implementação de faturamento, Portal e Demurrage;
-- a política de arquivamento de importações além do registro técnico do erro.
+- a política de arquivamento de importações além do registro técnico já existente
+  em `import_errors`.
 
 Esses pontos devem ser consumidos por contratos comuns e pelos blocos #521,
 #522 e #523.
