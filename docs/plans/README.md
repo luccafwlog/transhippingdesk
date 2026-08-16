@@ -11,6 +11,7 @@ Quando um plano é totalmente executado, ele é movido para
 | Plano | Tema | Status |
 |---|---|---|
 | [`2026-08-13-correcao-regressao-inicializacao-login-navegacao.md`](./2026-08-13-correcao-regressao-inicializacao-login-navegacao.md) | Harness, cache do shell e checkpoints para diagnosticar a lentidão no acesso frio, login e primeira navegação | IN PROGRESS |
+| [`2026-08-16-implementacao-bloco-522-financeiro-alertas.md`](./2026-08-16-implementacao-bloco-522-financeiro-alertas.md) | Implementação do contrato de alertas, notificações e reconciliação PIX do Bloco 3 — Financeiro (#522) | BLOCKED — fundação E3/PR #517 |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
