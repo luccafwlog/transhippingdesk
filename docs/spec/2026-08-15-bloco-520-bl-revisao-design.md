@@ -32,10 +32,12 @@ de leitura individual e resolução coletiva.
 pendência pode ser tratada diretamente na ficha do B/L ou no módulo responsável
 por sua origem.
 
-Neste bloco, B/L inclui registros de `bls` e `granite_bls`. O alerta de revisão
-usa a chave composta `(type, entity_type, entity_id)`: `type` separa alertas
-legitimamente distintos para a mesma entidade, enquanto `bl` e `granite_bl`
-distinguem as duas origens mesmo quando os identificadores coincidem. A tabela
+Neste bloco, B/L inclui registros de `bls` e `granite_bls`. Existe um único
+alerta agregado por entidade, identificado por `(entity_type, entity_id)`. O
+`type` deixa de separar alertas: ele identifica o item de pendência dentro do
+agregado. A origem `bl` ou `granite_bl` deve compor a identidade canônica do B/L
+quando os identificadores das tabelas puderem coincidir, sem criar dois alertas
+para a mesma entidade canônica. A tabela
 `public.bls` é a fonte comum tanto para B/L de contêiner
 (`cargo_mode = 'container'`) quanto para B/L de carga solta
 (`cargo_mode = 'carga_solta'`),
@@ -57,28 +59,30 @@ pode avançar no fluxo sem tratamento.
 Em importações em lote, linhas válidas continuam sendo processadas mesmo que
 outras linhas falhem.
 
-### 3.2 Alerta único por B/L em revisão
+### 3.2 Alerta agregado único por B/L
 
 Todo B/L (`bls` ou `granite_bls`) que entra em Revisão Manual possui uma
-pendência bloqueadora e gera:
+pendência bloqueadora dentro do único alerta agregado da entidade e gera:
 
-- um único alerta de revisão por origem e B/L;
+- um item de revisão no alerta agregado do B/L;
 - notificação para Documentação;
 - exclamação vermelha nas listas e projeções do B/L.
 
-Se houver vários motivos, eles são detalhes do mesmo alerta. A mensagem lista
-somente os motivos ainda pendentes.
+Se houver vários motivos, cada motivo é um item de pendência resolvível
+individualmente no mesmo alerta agregado. A mensagem lista somente os itens
+ainda pendentes; outras pendências do mesmo B/L, inclusive de outro bloco,
+entram no mesmo agregado.
 
-Correção parcial atualiza o alerta existente. Quando todos os motivos forem
-resolvidos:
+Correção parcial atualiza os itens existentes sem duplicar o agregado. Quando
+todos os itens do B/L forem resolvidos:
 
 - o B/L sai da fila de revisão;
-- o alerta é fechado;
+- o alerta agregado é fechado;
 - a pendência deixa de ser exibida como ativa;
 - a exclamação desaparece.
 
 O fechamento desse alerta derivado é feito pela recomputação da origem. Enquanto
-houver motivo pendente, o fechamento manual é bloqueado. Não existe ação de
+houver qualquer item pendente, o fechamento manual é bloqueado. Não existe ação de
 reconhecer: ler continua sendo individual e não resolve. A ação coletiva de
 triagem é uma dispensa temporária, que apenas tira o alerta da fila prioritária,
 exige motivo e data futura de revisão e nunca libera o gate. Assim, `/alertas`
@@ -228,10 +232,12 @@ domínios e não ao cadastro de veículos.
   processando linhas válidas.
 - **520-AC-02:** falha de importação não cria alerta, notificação ou exclamação.
 - **520-AC-03:** todo B/L de `bls` ou `granite_bls` que entra em Revisão Manual
-  possui alerta persistente e notificação para Documentação, identificado pela
-  chave `(type, entity_type, entity_id)`.
-- **520-AC-04:** múltiplos motivos de um B/L permanecem em um único alerta.
-- **520-AC-05:** correção parcial atualiza a mensagem sem duplicar alerta.
+  possui um item persistente no alerta agregado identificado por
+  `(entity_type, entity_id)` e notificação para Documentação.
+- **520-AC-04:** múltiplos motivos de um B/L permanecem no mesmo agregado como
+  itens de pendência independentes.
+- **520-AC-05:** correção parcial atualiza os itens e a mensagem sem duplicar o
+  alerta da entidade.
 - **520-AC-06:** resolver todos os motivos remove o B/L da fila, fecha o
   alerta e remove a exclamação.
 - **520-AC-07:** abrir a ficha ou a notificação não resolve a pendência; não há

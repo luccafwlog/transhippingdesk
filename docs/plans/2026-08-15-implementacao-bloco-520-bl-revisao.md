@@ -25,7 +25,8 @@ Interna, podem avançar com os contratos já existentes.
 ## Resultado esperado
 
 - Importação em lote com erro por linha no modal, sem alertas persistentes.
-- Um alerta canônico por B/L de `bls` ou `granite_bls` que entra em Revisão Manual.
+- Um alerta agregado canônico por B/L de `bls` ou `granite_bls`, com itens de
+  pendência para cada motivo ativo da Revisão Manual.
 - Painel contextual no topo da ficha do B/L, com correção direta ou link para
   outro módulo.
 - Projeções sem duplicação em listas, containers, carga solta, sino e Alertas.
@@ -36,10 +37,10 @@ Interna, podem avançar com os contratos já existentes.
 **Arquivos prováveis:** serviços da fundação transversal; tipos gerados;
 `src/services/alerts.ts`; `src/pages/Alertas.tsx`.
 
-- [ ] Consumir o contrato canônico de alerta por entidade e tipo.
-- [ ] Definir o tipo de alerta de Revisão Manual com chave única por
-  `(type, entity_type, entity_id)`, distinguindo `bl` de `granite_bl` sem
-  colidir com outros tipos de alerta da mesma entidade.
+- [ ] Consumir o contrato canônico de alerta agregado por entidade.
+- [ ] Definir a chave única do agregado como `(entity_type, entity_id)`; `type`
+  identifica o item de pendência e a origem `bl`/`granite_bl` compõe a identidade
+  canônica do B/L quando necessário, sem separar alertas da mesma entidade.
 - [ ] Definir como a mensagem agrega e remove motivos sem duplicar registros.
 - [ ] Definir a projeção de um alerta de viagem/Baplie em B/Ls e containers,
   sem criar alerta filho.
@@ -86,9 +87,9 @@ gate de revisão/faturamento; a implementação deve fazê-lo em migration nova.
 - [ ] Garantir que todo B/L de `bls` ou `granite_bls` na fila de revisão tenha um
   alerta canônico, com motivos vindos da fonte correta de cada origem; em
   `bls`, incluir cliente, e-mail, prontidão do Portal e peso BB.
-- [ ] Consolidar os motivos de cada origem em um único alerta por origem e B/L;
-  para `bls`, usar cliente não vinculado, cliente sem e-mail, Portal não pronto
-  e peso de carga solta, e para `granite_bls`, usar a condição vigente
+- [ ] Consolidar os motivos de cada origem em itens do único alerta agregado do
+  B/L; para `bls`, usar cliente não vinculado, cliente sem e-mail, Portal não
+  pronto e peso de carga solta, e para `granite_bls`, usar a condição vigente
   `client_id IS NULL`.
 - [ ] Substituir a extração de motivos de notas em `src/hooks/useReview.ts`
   por uma fonte canônica server-side (RPC/view sobre
@@ -117,7 +118,8 @@ de manifestos, containers e carga solta.
   aplicável.
 - [ ] Encaminhar divergência de Baplie ao módulo de viagem/Baplie.
 - [ ] Exibir exclamação enquanto existir motivo pendente do B/L.
-- [ ] Projetar contexto nas listas sem criar alertas duplicados.
+- [ ] Projetar contexto nas listas sem criar alertas duplicados; a resolução de
+  um item atualiza a lista corrente do agregado e preserva seu histórico.
 - [ ] Definir rótulo/destino de `granite_bl` e não deixar a revisão ocupar
   silenciosamente o teto de 200 linhas de `listAlerts`; paginar ou filtrar a
   fila.
