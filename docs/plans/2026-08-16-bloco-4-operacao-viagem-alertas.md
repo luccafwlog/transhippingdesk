@@ -8,8 +8,11 @@ Mercante e exportação, preservando os eventos nulos e sem duplicar os ADRs do
 
 **Architecture:** A fundação transversal #517 fornece catálogo de gravidade,
 detecção server-only, estado de dispensa/revisão e fan-out de Notificações.
-BL, Baplie e CE usam unidade viagem; exportação pós-ATD usa unidade escala.
-Os detectores usam tabelas existentes e não criam uma linha por container ou BL.
+BL, Baplie e CE usam a viagem como entidade pai; exportação pós-ATD usa a
+escala como entidade pai. Os detectores atualizam um único alerta agregado por
+`(entity_type, entity_id)` e não criam uma linha por container ou BL: cada
+condição é um item de pendência dentro do agregado. A audiência é a união dos
+departamentos dos itens ativos.
 O D−7 pode forçar a avaliação Baplie de rotas ainda sem BL; isso não mistura o
 ciclo do alerta de BL faltante com o ciclo da divergência Baplie.
 Todos os detectores usam `America/Sao_Paulo` para a aritmética de D−7/D−5.
@@ -232,11 +235,11 @@ podem gerar `missing_in_baplie` quando houver dados para o confronto. Essa é a
 exceção à cobertura completa de rotas, não uma mistura com o alerta independente
 de BL faltante.
 
-- [ ] **Step 4: Fechar e criar ciclos.**
+- [ ] **Step 4: Fechar e reabrir o agregado.**
 
 Fechar somente com todas as rotas cobertas por BL com containers e sem
-divergência. Atualização do alerta aberto não notifica novamente; recorrência
-após fechamento cria novo ciclo. O modo D−7 deve continuar preservando a
+divergência. Atualização do item aberto não notifica novamente; recorrência
+após fechamento reabre o mesmo alerta agregado, preservando a história. O modo D−7 deve continuar preservando a
 auditoria da aplicação das flags físicas soberanas do Baplie no B/L; flags
 físicas não são divergência.
 
@@ -333,8 +336,10 @@ somente no modal.
 
 - [ ] **Step 2: Provar coexistência.**
 
-BL, ausência Baplie, cobertura Baplie/BL e CE têm ciclos independentes. Se dois
-eventos abrirem simultaneamente, cada um gera sua própria notificação.
+BL, ausência Baplie, cobertura Baplie/BL e CE têm itens independentes dentro do
+mesmo alerta agregado da viagem. Se dois eventos abrirem simultaneamente, a
+notificação é calculada pela união dos departamentos dos itens ativos, sem
+duplicar o alerta da viagem.
 
 ### Task 11: destinos compartilhados
 

@@ -27,11 +27,14 @@ gravidade, fechamento, reabertura, detecção e destino.
 
 ## Regras gerais
 
-1. Alerta é pendência coletiva; Notificação Interna é entrega individual no
-   sino. A notificação não fecha o alerta. A audiência deste bloco é
-   departamental: usuários ativos de Documentação ou Equipamentos.
-2. BL, Baplie e CE usam a unidade viagem. O alerta pós-ATD de exportação usa a
-   unidade escala. Não criar eventos por BL ou container.
+1. Existe um único alerta agregado por entidade, identificado por
+   `(entity_type, entity_id)`. Cada condição ativa é um item de pendência com
+   tipo, origem, departamento, destino, estado e histórico próprios. A
+   Notificação Interna é entrega individual no sino para a união dos
+   departamentos dos itens ativos; a notificação não fecha o agregado.
+2. BL, Baplie e CE têm a viagem como entidade pai; o alerta pós-ATD de
+   exportação tem a escala como entidade pai. As condições não criam alertas
+   por BL ou container: entram como itens do agregado de viagem/escala.
 3. Alertas pertencentes aos ADRs, inclusive agency_report_department_pending e
    agency_report_deadline_missed, ficam no #524 e não são duplicados aqui.
 4. Não há escalonamento genérico por envelhecimento. D−7, D−5 e o override D−7
@@ -42,7 +45,8 @@ gravidade, fechamento, reabertura, detecção e destino.
    exceções. Uma dispensa vigente suprime a abertura/reabertura idempotente em
    todos os detectores; no vencimento da revisão, a condição persistente reabre
    o mesmo ciclo e notifica.
-6. O fechamento manual de qualquer alerta exige data futura de revisão. Para
+6. O fechamento manual de qualquer alerta agregado exige data futura de revisão.
+   Para
    BL, Baplie e CE, antes do primeiro ETA de importação, a revisão não pode
    ultrapassá-lo; depois que esse ETA passou, qualquer data futura é válida. Para
    exportação pós-ATD, basta a data ser futura, sem limite máximo específico. A
@@ -74,12 +78,17 @@ gravidade, fechamento, reabertura, detecção e destino.
 
 ## Matriz de decisões
 
+A coluna **Unidade/audiência** abaixo descreve a granularidade do item de
+pendência e seu departamento responsável. Ela não cria uma segunda chave de
+alerta: condições simultâneas da mesma viagem ou escala permanecem no mesmo
+agregado, e a audiência do sino é recalculada pela união dos itens ativos.
+
 | Tela/evento | Tratamento | Unidade/audiência | Fechamento/reabertura | Detecção/destino |
 |---|---|---|---|---|
 | Viagens: ações normais, auditoria e timeline | Nenhum evento próprio | — | — | Fluxo normal |
 | BL esperado por POL/POD | Alerta crítico + Notificação para todos os usuários ativos de Documentação | Viagem | Fecha com cobertura mínima de cada POL e POD; reabre com nova expectativa ou remoção de BL | D−7 e alterações materiais; /viagens/:voyageId |
 | Baplie ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha com importação válida; reabre se o arquivo for invalidado/removido | D−7 e invalidação, somente com POD elegível; /baplie filtrado |
-| Cobertura documental Baplie/BL | Alerta crítico + Notificação genérica para usuários ativos de Documentação | Viagem | Fecha com todas as rotas confrontáveis e sem divergência; novo ciclo após recorrência | Imediato quando rotas cobertas; override em D−7; /baplie filtrado |
+| Cobertura documental Baplie/BL | Item crítico no alerta agregado + Notificação genérica para usuários ativos de Documentação | Viagem | Fecha quando todas as rotas confrontáveis estiverem sem divergência; a recorrência reabre o mesmo agregado | Imediato quando rotas cobertas; override em D−7; /baplie filtrado |
 | CE Mercante ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha quando todos os BLs da viagem com POD têm CE; reabre com nova pendência | D−5 e alterações materiais; /viagens/:voyageId |
 | `/chegadas-saidas`: ATD, POL/POD e prazos de agência | Nenhum evento novo | ADR do #524 para o prazo; fluxo normal para POL/POD | Mantém contratos existentes; alterações de POL/POD reavaliam o alerta de BL quando elegíveis | ATD da escala unificada alimenta `agency_report_deadline_missed` da migration 271; não duplicar no #523 |
 | Exportação pós-ATD | Alerta normal + Notificação para todos os usuários ativos de Equipamentos | Escala | Fecha quando tipos esperados têm vínculo; remoção reabre | ATD e alterações; viagem com escala selecionada |
@@ -144,7 +153,8 @@ Override D−7:
 - o alerta só fecha quando todas as rotas tiverem BL com containers e não houver
   divergência;
 - atualização do alerta aberto não envia nova notificação;
-- nova divergência depois do fechamento cria novo ciclo.
+- nova divergência depois do fechamento reabre o mesmo agregado, adicionando o
+  item atual e preservando a história dos ciclos anteriores.
 
 O alerta é único por viagem, genérico na notificação e detalhado em `/baplie`.
 No nível do alerta e da Notificação Interna, não criar itens por BL ou
