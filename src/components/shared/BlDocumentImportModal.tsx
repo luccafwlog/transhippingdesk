@@ -9,7 +9,7 @@ import { useVoyageOptions } from '../../hooks/useBls'
 import { formatCnpj } from '../../lib/cnpj'
 import { formatNcm } from '../../lib/ncm'
 import { afterManifestoImportado } from '../../services/cacheEffects'
-import { describeVoyageMismatch, importBlDocument, type BlDocumentVoyage } from '../../services/blDocumentImport'
+import { describeVoyageMismatch, importBlDocuments, type BlDocumentVoyage } from '../../services/blDocumentImport'
 import { parseBlDocumentFile, type ParsedBlDocument } from '../../services/blDocumentParser'
 
 /**
@@ -50,19 +50,24 @@ export function BlDocumentImportModal({ onClose }: { onClose: () => void }) {
         />
       }
       parser={parseBlDocumentFile}
-      importer={async (document, file) => {
+      batchImporter={async (entries) => {
         if (!user || !voyageId) return
-        await importBlDocument({
-          filename: file.name,
+        await importBlDocuments({
+          filename: entries.map((entry) => entry.file.name).join(', '),
           voyageId: Number(voyageId),
-          document,
+          documents: entries.map((entry) => entry.preview),
           uploadedBy: user.id,
         })
         await afterManifestoImportado(queryClient, { voyageId })
-        showToast(`B/L ${document.bl_id} importado como carga solta.`, 'success')
+        showToast(`${entries.length} B/L(s) importado(s) como carga solta.`, 'success')
       }}
       canImport={(document) => document.errors.length === 0 && !describeVoyageMismatch(document, selectedVoyage)}
-      renderBatchSummary={(entries) => <BatchSummary entries={entries} />}
+      renderBatchSummary={(entries) => (
+        <BatchSummary
+          entries={entries}
+          canImport={(document) => document.errors.length === 0 && !describeVoyageMismatch(document, selectedVoyage)}
+        />
+      )}
       renderPreview={(document) => <BlDocumentPreview document={document} voyage={selectedVoyage} />}
       helper={
         <div className="app-panel app-panel--padded text-sm">
@@ -83,8 +88,14 @@ export function BlDocumentImportModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function BatchSummary({ entries }: { entries: FilePreviewEntry<ParsedBlDocument>[] }) {
-  const ready = entries.filter((entry) => entry.preview.errors.length === 0)
+function BatchSummary({
+  entries,
+  canImport,
+}: {
+  entries: FilePreviewEntry<ParsedBlDocument>[]
+  canImport: (document: ParsedBlDocument) => boolean
+}) {
+  const ready = entries.filter((entry) => canImport(entry.preview))
   const withWarnings = ready.filter((entry) => entry.preview.warnings.length > 0)
 
   return (

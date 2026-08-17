@@ -412,8 +412,8 @@ describe('breakbulkImport', () => {
 
   // A autoridade sobre o CE Mercante e a importacao de CE Mercante. Nenhum
   // layout de manifesto BB alem do resumo traz CE, e o B/L avulso nunca traz —
-  // mandar nulo apagaria em silencio um CE ja emitido.
-  it('preserva o CE Mercante do B/L quando o arquivo importado nao traz CE', async () => {
+  // omitir o campo permite que a RPC preserve atomicamente o valor no target.
+  it('omite o CE Mercante quando o arquivo importado nao traz CE', async () => {
     mockRpc.mockImplementation((name: string) =>
       Promise.resolve(name === 'import_breakbulk_manifest_transactional'
         ? { data: { batch_id: 91 }, error: null }
@@ -430,7 +430,7 @@ describe('breakbulkImport', () => {
         return {
           select: vi.fn(() => ({
             in: vi.fn(() => Promise.resolve({
-              data: [{ id: 'BB009', cargo_mode: 'carga_solta', ce_mercante: '122605051526081' }],
+              data: [{ id: 'BB009', cargo_mode: 'carga_solta' }],
               error: null,
             })),
           })),
@@ -471,8 +471,8 @@ describe('breakbulkImport', () => {
       uploadedBy: '00000000-0000-0000-0000-000000000001',
     })
 
-    expect(mockRpc).toHaveBeenCalledWith('import_breakbulk_manifest_transactional', expect.objectContaining({
-      p_bls: [expect.objectContaining({ id: 'BB009', ce_mercante: '122605051526081' })],
-    }))
+    const payload = mockRpc.mock.calls.find(([name]) => name === 'import_breakbulk_manifest_transactional')?.[1]
+    expect(payload.p_bls[0]).toMatchObject({ id: 'BB009' })
+    expect(payload.p_bls[0]).not.toHaveProperty('ce_mercante')
   })
 })

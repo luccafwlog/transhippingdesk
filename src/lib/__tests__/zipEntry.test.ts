@@ -36,6 +36,12 @@ describe('readZipTextEntry', () => {
 
     await expect(readZipTextEntry(notAZip, 'word/document.xml')).rejects.toThrow(/não é um zip válido/)
   })
+
+  it('recusa entrada descomprimida acima do limite', async () => {
+    const zip = buildStoredZip('word/document.xml', 'x'.repeat(10 * 1024 * 1024 + 1))
+
+    await expect(readZipTextEntry(zip, 'word/document.xml')).rejects.toThrow(/limite.*descomprim/i)
+  })
 })
 
 /** Zip mínimo de uma entrada gravada sem compressão (método 0). */

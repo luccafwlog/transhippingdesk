@@ -3,7 +3,8 @@
 // transacional do manifesto, com a mesma reconciliação de cliente, a mesma
 // trilha de lote e o mesmo disparo de taxas locais.
 import { canonicalizeVesselName } from '../lib/vesselAlias'
-import { importBreakbulkManifest } from './breakbulkImport'
+import { supabase } from './supabase'
+import { importBreakbulkManifest, type ParsedBreakbulkManifest } from './breakbulkImport'
 import { blDocumentToManifest, type ParsedBlDocument } from './blDocumentParser'
 
 /** Viagem escolhida na tela, no formato que `useVoyageOptions` devolve. */
@@ -23,16 +24,70 @@ export async function importBlDocument({
   document: ParsedBlDocument
   uploadedBy: string
 }) {
-  if (document.errors.length) {
-    throw new Error(`${filename}: ${document.errors.join(' ')}`)
-  }
-
-  return importBreakbulkManifest({
+  return importBlDocuments({
     filename,
     voyageId,
-    manifest: blDocumentToManifest(document),
+    documents: [document],
     uploadedBy,
   })
+}
+
+export async function importBlDocuments({
+  filename,
+  voyageId,
+  documents,
+  uploadedBy,
+}: {
+  filename: string
+  voyageId: number
+  documents: ParsedBlDocument[]
+  uploadedBy: string
+}) {
+  const invalidDocument = documents.find((document) => document.errors.length > 0)
+  if (invalidDocument) {
+    throw new Error(`${filename}: ${invalidDocument.errors.join(' ')}`)
+  }
+
+  const voyage = await fetchVoyage(voyageId)
+  const mismatch = documents
+    .map((document) => describeVoyageMismatch(document, voyage))
+    .find((reason): reason is string => Boolean(reason))
+  if (mismatch) throw new Error(`${filename}: ${mismatch}`)
+
+  const parsedManifests = documents.map((document, index) => {
+    const manifest = blDocumentToManifest(document)
+    return {
+      ...manifest,
+      bls: manifest.bls.map((bl) => ({ ...bl, rowNumber: index + 1 })),
+      rowErrors: manifest.rowErrors.map((error) => ({ ...error, row: index + 1 })),
+    }
+  })
+  const manifest: ParsedBreakbulkManifest = {
+    layout: 'bl_document',
+    bls: parsedManifests.flatMap((item) => item.bls),
+    rowErrors: parsedManifests.flatMap((item) => item.rowErrors),
+  }
+
+  return importBreakbulkManifest({ filename, voyageId, manifest, uploadedBy })
+}
+
+async function fetchVoyage(voyageId: number): Promise<BlDocumentVoyage> {
+  const { data, error } = await supabase
+    .from('voyages')
+    .select('voyage_number, vessel:vessels(name)')
+    .eq('id', voyageId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('Viagem selecionada nao encontrada.')
+
+  const voyage = data as unknown as {
+    voyage_number: string | null
+    vessel?: { name?: string | null } | null
+  }
+  return {
+    voyage_number: voyage.voyage_number ?? '',
+    vessel: voyage.vessel?.name ? { name: voyage.vessel.name } : null,
+  }
 }
 
 /**
@@ -43,11 +98,11 @@ export async function importBlDocument({
  * mesmo contrato, inclusive no alias de prefixo do nome do navio.
  */
 export function describeVoyageMismatch(document: ParsedBlDocument, voyage: BlDocumentVoyage | null) {
-  if (!voyage || !document.vessel_name) return null
+  if (!voyage) return null
 
-  const documentVessel = canonicalizeVesselName(document.vessel_name)
+  const documentVessel = canonicalizeVesselName(document.vessel_name ?? '')
   const selectedVessel = canonicalizeVesselName(voyage.vessel?.name ?? '')
-  const vesselMismatch = Boolean(selectedVessel) && documentVessel !== selectedVessel
+  const vesselMismatch = Boolean(documentVessel && selectedVessel && documentVessel !== selectedVessel)
   const voyageMismatch = Boolean(
     document.voyage_number &&
       voyage.voyage_number &&

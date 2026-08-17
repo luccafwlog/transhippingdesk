@@ -19,6 +19,11 @@
   caminho compartilhado, importar carga solta sem CE Mercante deixa de apagar o
   CE já gravado: a autoridade sobre esse dado é a importação de CE Mercante, e
   nenhum layout além do resumo o carrega.
+  A definição da RPC mantém o CE no target quando o payload não declara esse
+  campo, o serviço revalida a viagem escolhida, vários arquivos entram no
+  mesmo lote, e a leitura DOCX limita a saída descomprimida e preserva as
+  reservas do navio. O chunk de PDF usa uma versão compatível com Node 20, o
+  runtime do CI.
 - **Documento comprido deixa de virar CNPJ válido, e a linha do tempo credita
   quem importou:** `isValidCnpj` passa a validar sobre a forma canônica
   completa (`canonicalizeDocument`, igual ao `normalize_cnpj` do banco) em vez

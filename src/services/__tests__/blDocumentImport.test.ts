@@ -1,11 +1,20 @@
-import { describe, expect, it, vi } from 'vitest'
-import { describeVoyageMismatch, importBlDocument } from '../blDocumentImport'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describeVoyageMismatch, importBlDocument, importBlDocuments } from '../blDocumentImport'
 import type { ParsedBlDocument } from '../blDocumentParser'
 
 // blDocumentImport chega no supabase pelo breakbulkImport; estes testes cobrem
 // a decisão que acontece antes da escrita.
+const { mockFrom, mockImportBreakbulkManifest } = vi.hoisted(() => ({
+  mockFrom: vi.fn(),
+  mockImportBreakbulkManifest: vi.fn(),
+}))
+
+vi.mock('../breakbulkImport', () => ({
+  importBreakbulkManifest: mockImportBreakbulkManifest,
+}))
+
 vi.mock('../supabase', () => ({
-  supabase: { from: vi.fn(), rpc: vi.fn() },
+  supabase: { from: mockFrom, rpc: vi.fn() },
 }))
 
 function blDocument(overrides: Partial<ParsedBlDocument> = {}): ParsedBlDocument {
@@ -85,17 +94,76 @@ describe('describeVoyageMismatch', () => {
   it('sem viagem escolhida ou sem navio no documento não há o que comparar', () => {
     expect(describeVoyageMismatch(blDocument(), null)).toBeNull()
     expect(
-      describeVoyageMismatch(blDocument({ vessel_name: null }), { voyage_number: '99', vessel: { name: 'OUTRO' } }),
+      describeVoyageMismatch(blDocument({ vessel_name: null }), { voyage_number: '75', vessel: { name: 'OUTRO' } }),
     ).toBeNull()
+  })
+
+  it('bloqueia viagem diferente mesmo quando o navio não foi extraído', () => {
+    expect(
+      describeVoyageMismatch(blDocument({ vessel_name: null, voyage_number: '75' }), {
+        voyage_number: '76',
+        vessel: { name: 'DA XIN' },
+      }),
+    ).toContain('mas você apontou')
   })
 })
 
 describe('importBlDocument', () => {
+  beforeEach(() => {
+    mockFrom.mockReset()
+    mockImportBreakbulkManifest.mockReset()
+  })
+
   it('recusa documento sem número de B/L antes de tocar no banco', async () => {
     const document = blDocument({ bl_id: '', errors: ['Número do B/L não encontrado no documento.'] })
 
     await expect(
       importBlDocument({ filename: 'bl.pdf', voyageId: 10, document, uploadedBy: 'user-1' }),
     ).rejects.toThrow('bl.pdf: Número do B/L não encontrado no documento.')
+  })
+
+  it('revalida a viagem no serviço antes de persistir', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({ data: { voyage_number: '76', vessel: { name: 'DA XIN' } }, error: null }),
+          ),
+        })),
+      })),
+    })
+
+    await expect(
+      importBlDocument({
+        filename: 'bl.pdf',
+        voyageId: 10,
+        document: blDocument({ voyage_number: '75' }),
+        uploadedBy: 'user-1',
+      }),
+    ).rejects.toThrow('mas você apontou')
+    expect(mockImportBreakbulkManifest).not.toHaveBeenCalled()
+  })
+
+  it('envia vários documentos em um único lote BB', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({ data: { voyage_number: '75', vessel: { name: 'DA XIN' } }, error: null }),
+          ),
+        })),
+      })),
+    })
+    mockImportBreakbulkManifest.mockResolvedValue(77)
+
+    await importBlDocuments({
+      filename: 'bls.zip',
+      voyageId: 10,
+      documents: [blDocument(), blDocument({ bl_id: 'DX75ZJGVIT03' })],
+      uploadedBy: 'user-1',
+    })
+
+    expect(mockImportBreakbulkManifest).toHaveBeenCalledTimes(1)
+    expect(mockImportBreakbulkManifest.mock.calls[0]?.[0].manifest.bls).toHaveLength(2)
   })
 })

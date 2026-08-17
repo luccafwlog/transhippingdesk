@@ -32,8 +32,8 @@ export async function extractPdfPages(buffer: ArrayBuffer): Promise<BlPdfPage[]>
     verbosity: 0,
   })
 
-  const document = await task.promise
   try {
+    const document = await task.promise
     const pages: BlPdfPage[] = []
     for (let number = 1; number <= document.numPages; number += 1) {
       const page = await document.getPage(number)

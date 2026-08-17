@@ -5,7 +5,7 @@ import {
   normalizeBlDocumentFields,
   parseBlDocumentBuffer,
 } from '../blDocumentParser'
-import type { BlDocumentFields } from '../blDocumentFields'
+import { collectFieldsFromBlocks, type BlDocumentFields } from '../blDocumentFields'
 
 const fixturesPath = new URL('./fixtures/', import.meta.url)
 
@@ -280,5 +280,28 @@ describe('blDocumentToManifest', () => {
     )
 
     expect(blDocumentToManifest(document).bls[0]?.consignee).toBe('CONSIGNATARIO NAO IDENTIFICADO')
+  })
+})
+
+describe('collectFieldsFromBlocks', () => {
+  it('preserva as reservas do navio no formulário sem rótulos', () => {
+    const block = (order: number, lines: string[]) => ({
+      order,
+      page: 1,
+      x: null,
+      y: null,
+      lines,
+      text: lines.join('\n'),
+    })
+
+    const fields = collectFieldsFromBlocks([
+      block(0, ['SHIPPER LOGISTICS LTD']),
+      block(1, ['CONSIGNEE TRADING S.A', 'CNPJ: 12.116.971/0010-71']),
+      block(2, ['NOTIFY IMPORTACAO LTDA']),
+      block(3, ['5 CASES', 'STEEL PIPES']),
+      block(4, ["SHIP'S REMARKS:", 'CARGO STORED IN OPEN YARD']),
+    ])
+
+    expect(fields.remarks).toBe('CARGO STORED IN OPEN YARD')
   })
 })

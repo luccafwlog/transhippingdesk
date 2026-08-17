@@ -13,10 +13,12 @@
 const END_OF_CENTRAL_DIRECTORY = 0x06054b50
 const CENTRAL_FILE_HEADER = 0x02014b50
 const MAX_COMMENT_BYTES = 65_535
+const MAX_DECOMPRESSED_ENTRY_BYTES = 10 * 1024 * 1024
 
 type ZipEntryLocation = {
   method: number
   compressedSize: number
+  uncompressedSize: number
   localHeaderOffset: number
 }
 
@@ -27,13 +29,20 @@ export async function readZipTextEntry(buffer: ArrayBuffer, entryName: string): 
 }
 
 /** Lê uma entrada do zip como bytes. Lança se a entrada não existir. */
-export async function readZipEntry(buffer: ArrayBuffer, entryName: string): Promise<Uint8Array<ArrayBuffer>> {
+export async function readZipEntry(
+  buffer: ArrayBuffer,
+  entryName: string,
+  maxOutputBytes = MAX_DECOMPRESSED_ENTRY_BYTES,
+): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = new Uint8Array(buffer)
   const view = new DataView(buffer)
   const location = findEntry(bytes, view, entryName)
   if (!location) throw new Error(`Arquivo compactado sem a entrada "${entryName}".`)
 
-  const { method, compressedSize, localHeaderOffset } = location
+  const { method, compressedSize, uncompressedSize, localHeaderOffset } = location
+  if (uncompressedSize > maxOutputBytes) {
+    throw decompressedSizeError(entryName, maxOutputBytes)
+  }
   if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) {
     throw new Error(`Entrada "${entryName}" com cabeçalho local inválido.`)
   }
@@ -43,9 +52,12 @@ export async function readZipEntry(buffer: ArrayBuffer, entryName: string): Prom
   const start = localHeaderOffset + 30 + nameLength + extraLength
   const data = bytes.subarray(start, start + compressedSize)
 
-  if (method === 0) return data
+  if (method === 0) {
+    if (data.byteLength > maxOutputBytes) throw decompressedSizeError(entryName, maxOutputBytes)
+    return data
+  }
   if (method !== 8) throw new Error(`Entrada "${entryName}" usa compressão não suportada (${method}).`)
-  return inflateRaw(data)
+  return inflateRaw(data, maxOutputBytes, entryName)
 }
 
 function findEntry(bytes: Uint8Array, view: DataView, entryName: string): ZipEntryLocation | null {
@@ -63,13 +75,14 @@ function findEntry(bytes: Uint8Array, view: DataView, entryName: string): ZipEnt
 
     const method = view.getUint16(offset + 10, true)
     const compressedSize = view.getUint32(offset + 20, true)
+    const uncompressedSize = view.getUint32(offset + 24, true)
     const nameLength = view.getUint16(offset + 28, true)
     const extraLength = view.getUint16(offset + 30, true)
     const commentLength = view.getUint16(offset + 32, true)
     const localHeaderOffset = view.getUint32(offset + 42, true)
     const name = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLength))
 
-    if (name === entryName) return { method, compressedSize, localHeaderOffset }
+    if (name === entryName) return { method, compressedSize, uncompressedSize, localHeaderOffset }
     offset += 46 + nameLength + extraLength + commentLength
   }
 
@@ -84,7 +97,11 @@ function findEndOfCentralDirectory(view: DataView, size: number) {
   return -1
 }
 
-async function inflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+async function inflateRaw(
+  data: Uint8Array<ArrayBuffer>,
+  maxOutputBytes: number,
+  entryName: string,
+): Promise<Uint8Array<ArrayBuffer>> {
   if (typeof DecompressionStream === 'undefined') {
     throw new Error('Este navegador não suporta a leitura de arquivos .docx (DecompressionStream ausente).')
   }
@@ -96,5 +113,34 @@ async function inflateRaw(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<Arr
     },
   })
   const inflated = source.pipeThrough(new DecompressionStream('deflate-raw'))
-  return new Uint8Array(await new Response(inflated).arrayBuffer())
+  const reader = inflated.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      totalBytes += value.byteLength
+      if (totalBytes > maxOutputBytes) {
+        await reader.cancel()
+        throw decompressedSizeError(entryName, maxOutputBytes)
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const result = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return result
+}
+
+function decompressedSizeError(entryName: string, maxOutputBytes: number) {
+  return new Error(`Entrada "${entryName}" excede o limite descomprimido de ${maxOutputBytes} bytes.`)
 }

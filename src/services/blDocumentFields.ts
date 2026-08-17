@@ -340,6 +340,11 @@ export function collectFieldsFromBlocks(blocks: BlTextBlock[]): BlDocumentFields
   fields.placeAndDateOfIssue = claim(unclaimed().find((block) => block.lines.length === 1 && hasIssueDate(block.text)))?.text ?? null
   fields.freight = claim(unclaimed().find((block) => /^FREIGHT\s+(PREPAID|COLLECT)/i.test(block.text)))?.text ?? null
 
+  const remarksBlock = claim(unclaimed().find((block) => block.lines.some((line) => SHIPS_REMARK_PATTERN.test(line))))
+  if (remarksBlock) {
+    fields.remarks = extractRemarks(remarksBlock.lines)
+  }
+
   const partyBoundary = Math.min(
     ...[descriptionBlock?.order, weightBlock?.order, Number.POSITIVE_INFINITY].filter(
       (order): order is number => order !== undefined,
@@ -354,6 +359,14 @@ export function collectFieldsFromBlocks(blocks: BlTextBlock[]): BlDocumentFields
   fields.marks = claim(unclaimed().find((block) => block.order > partyBoundary && block.lines.length <= 3))?.text ?? null
 
   return fields
+}
+
+function extractRemarks(lines: string[]) {
+  const headerIndex = lines.findIndex((line) => SHIPS_REMARK_PATTERN.test(line))
+  if (headerIndex < 0) return null
+
+  const inline = lines[headerIndex]?.replace(SHIPS_REMARK_PATTERN, '').replace(/^\s*:\s*/, '').trim() ?? ''
+  return joinLines([inline, ...lines.slice(headerIndex + 1)])
 }
 
 /**

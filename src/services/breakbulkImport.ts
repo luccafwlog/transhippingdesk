@@ -33,14 +33,12 @@ export async function importBreakbulkManifest({
   const customerMaps = await loadCustomerMaps()
 
   const existingModeByBl = new Map<string, 'container' | 'carga_solta' | null>()
-  const existingCeByBl = new Map<string, string | null>()
   const blIds = manifest.bls.map((bl) => bl.bl_id)
   for (const chunk of chunkArray(blIds, 400)) {
-    const { data, error } = await supabase.from('bls').select('id, cargo_mode, ce_mercante').in('id', chunk)
+    const { data, error } = await supabase.from('bls').select('id, cargo_mode').in('id', chunk)
     if (error) throw error
     for (const row of data ?? []) {
       existingModeByBl.set(String(row.id), (row.cargo_mode as 'container' | 'carga_solta' | null) ?? null)
-      existingCeByBl.set(String(row.id), row.ce_mercante ?? null)
     }
   }
 
@@ -73,16 +71,16 @@ export async function importBreakbulkManifest({
       reviewReasons.add('Cliente nao vinculado automaticamente')
     }
 
+    const ceMercante = bl.ce_mercante == null ? {} : { ce_mercante: bl.ce_mercante }
+
     return [
       {
         id: bl.bl_id,
         voyage_id: voyageId,
         cargo_mode: 'carga_solta' as const,
-        // A autoridade sobre o CE Mercante é a importação de CE Mercante, não o
-        // manifesto: dos layouts aceitos só o resumo tem coluna CE, e o legado,
-        // o de armador e o B/L avulso chegam sempre sem ela. Como a RPC grava o
-        // que receber, mandar nulo apagaria em silêncio um CE já emitido.
-        ce_mercante: bl.ce_mercante ?? existingCeByBl.get(bl.bl_id) ?? null,
+        // A ausência do campo é intencional: a RPC preserva atomicamente o CE
+        // existente quando o layout não é autoridade sobre esse dado.
+        ...ceMercante,
         bb_machine_qty: bl.bb_machine_qty,
         bb_packages_qty: bl.bb_packages_qty,
         bb_packages_total: bl.bb_packages_total,
