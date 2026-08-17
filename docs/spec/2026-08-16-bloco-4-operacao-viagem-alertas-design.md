@@ -42,6 +42,12 @@ gravidade, fechamento, reabertura, detecção e destino.
    exceções. Uma dispensa vigente suprime a abertura/reabertura idempotente em
    todos os detectores; no vencimento da revisão, a condição persistente reabre
    o mesmo ciclo e notifica.
+6. O fechamento manual de qualquer alerta exige data futura de revisão. Para
+   BL, Baplie e CE, antes do primeiro ETA de importação, a revisão não pode
+   ultrapassá-lo; depois que esse ETA passou, qualquer data futura é válida. Para
+   exportação pós-ATD, basta a data ser futura, sem limite máximo específico. A
+   dispensa não pode alterar o estado de idempotência de modo que o detector
+   recrie o alerta antes do vencimento da revisão.
 
 ## Prazo e contexto de importação
 
@@ -127,8 +133,9 @@ Override D−7:
 
 - se houver Baplie importado, forçar a checagem mesmo quando a reconciliação
   normal retornaria `awaiting_route_coverage`;
-- uma rota EDI sem BL gera um resumo de divergência por rota, com quantidade de
-  containers afetados; o detalhe dos containers fica consultável em `/baplie`;
+- no modo forçado, uma rota EDI sem BL gera um resumo de divergência por rota,
+  com quantidade de containers afetados; o detalhe dos containers fica
+  consultável em `/baplie`;
 - containers previstos pelo EDI podem gerar divergência `missing_in_manifest`
   mesmo quando a rota ainda não tem nenhum BL;
 - containers de BL que não existem no EDI continuam gerando
@@ -140,10 +147,13 @@ Override D−7:
 - nova divergência depois do fechamento cria novo ciclo.
 
 O alerta é único por viagem, genérico na notificação e detalhado em `/baplie`.
-Não criar alertas ou Notificações Internas por container; quando uma rota não
-tem BL, o detalhe pode ser expandido por container sem alterar a unidade do
-alerta.
-Não criar alertas por BL ou container.
+No nível do alerta e da Notificação Interna, não criar itens por BL ou
+container. Quando uma rota não tiver containers de BL disponíveis para
+confronto — porque não há BL ou porque os BLs da rota não têm containers — o
+alerta permanece unitário por viagem e seu detalhe é resumido por rota, com a
+quantidade afetada. Na camada de reconciliação consultada em `/baplie`, o
+detalhe dos containers continua disponível e pode ser expandido sem alterar a
+unidade do alerta.
 
 A importação do Baplie é soberana para flags físicas: ela sobrescreve os
 valores físicos do B/L e registra a alteração em auditoria. Essa atualização
@@ -182,11 +192,6 @@ exportação fica ativo. O alerta abre após ATD confirmado e é por escala:
 - remoção de vínculo reabre e notifica;
 - alteração do tipo recalcula imediatamente;
 - destino: viagem com a escala selecionada.
-
-O fechamento manual exige data futura de revisão. Antes do primeiro ETA de
-importação, a revisão não pode ultrapassá-lo; depois que o ETA passou, qualquer
-data futura é válida. A dispensa não pode alterar o estado de idempotência de
-modo que o detector recrie o alerta antes do vencimento da revisão.
 
 ## Nova implementação necessária
 

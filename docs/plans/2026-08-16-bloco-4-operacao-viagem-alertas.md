@@ -216,13 +216,17 @@ Quando todas as rotas estiverem cobertas e houver divergência de existência,
 abrir alerta crítico por viagem, notificar genericamente os usuários ativos de
 Documentação e apontar para Baplie. No fluxo normal, somente aceitar o resultado
 quando `reconcileBaplieWithManifest` retornar `source === 'reconciled'`.
+No fluxo normal, se uma rota coberta por BL não tiver containers de BL
+disponíveis para confronto, o alerta continua unitário por viagem e o detalhe do
+alerta é resumido por rota, com quantidade de containers afetados. Os containers
+individuais permanecem consultáveis em `/baplie`.
 
 - [ ] **Step 3: Forçar checagem em D−7.**
 
 Se houver Baplie importado e o prazo D−7 tiver sido atingido, forçar a avaliação
-mesmo quando o resultado normal seria `awaiting_route_coverage`. Uma rota EDI
-sem BL gera resumo por rota e quantidade de containers afetados; o detalhe dos
-containers fica em `/baplie`. Containers previstos pelo EDI podem gerar
+mesmo quando o resultado normal seria `awaiting_route_coverage`. No modo forçado,
+uma rota EDI sem BL gera resumo por rota e quantidade de containers afetados;
+o detalhe dos containers fica em `/baplie`. Containers previstos pelo EDI podem gerar
 `missing_in_manifest` mesmo sem qualquer BL na rota; containers presentes em BL
 podem gerar `missing_in_baplie` quando houver dados para o confronto. Essa é a
 exceção à cobertura completa de rotas, não uma mistura com o alerta independente
@@ -238,9 +242,10 @@ físicas não são divergência.
 
 - [ ] **Step 5: Não alertar flags físicas nem granularidade indevida.**
 
-Não criar alertas por container, BL ou flag IMO/OOG. Para uma rota sem BL no
-D−7, o alerta permanece por viagem e o detalhe deve ser um resumo de rota com
-quantidade, com containers consultáveis na tela.
+No nível do alerta, não criar itens por container, BL ou flag IMO/OOG. Para uma
+rota sem containers de BL para confronto, o alerta permanece por viagem e o
+detalhe deve ser um resumo de rota com quantidade, com containers consultáveis
+na tela.
 
 ### Task 7: detector de CE Mercante
 
