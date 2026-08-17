@@ -377,7 +377,7 @@ alerts.
 Provar abertura idempotente com dispensa vigente e vencida, D−7, cobertura
 POL/POD, BL com rota e zero containers, Baplie normal e forçado
 (inclusive rota EDI sem BL), Baplie somente com POD elegível, CE apenas para
-importação, escala somente exportação com POD bloqueada em todos os caminhos,
+BLs com POD, escala somente exportação com POD bloqueada em todos os caminhos,
 exportação por escala, falha all-or-nothing de depot/terminal desconhecido,
 fechamento automático,
 dispensa/revisão e novos ciclos.
