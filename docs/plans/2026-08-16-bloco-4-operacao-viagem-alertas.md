@@ -10,6 +10,8 @@ Mercante e exportação, preservando os eventos nulos e sem duplicar os ADRs do
 detecção server-only, estado de dispensa/revisão e fan-out de Notificações.
 BL, Baplie e CE usam unidade viagem; exportação pós-ATD usa unidade escala.
 Os detectores usam tabelas existentes e não criam uma linha por container ou BL.
+O D−7 pode forçar a avaliação Baplie de rotas ainda sem BL; isso não mistura o
+ciclo do alerta de BL faltante com o ciclo da divergência Baplie.
 
 **Tech Stack:** React/TypeScript, Supabase PostgreSQL/RPCs, migrations,
 TanStack Query, Vitest e testes de contrato SQL.
@@ -42,6 +44,10 @@ produtor do #517.
 Localizar as tabelas de viagem/escala e validar o contrato de alerts antes de
 escolher qualquer nome de coluna, enum, RPC ou número de migration.
 
+Confirmar que o ATD da escala unificada continua sendo a fonte do prazo de
+`agency_report_deadline_missed` da migration 271; qualquer alerta desse fluxo
+permanece no #524 e não é duplicado aqui.
+
 ## Modelo de dados e configuração
 
 ### Task 1: adicionar primeiro porto brasileiro externo e ETA
@@ -60,8 +66,9 @@ empresa.
 
 - [ ] **Step 2: Validar POD e precedência.**
 
-Bloquear sem POD, bloquear ETA externo que não seja anterior ao primeiro ETA
-próprio e bloquear mudança do ETA próprio que o torne anterior ao externo.
+Bloquear sem POD, bloquear ETA externo que não seja anterior ao menor ETA das
+escalas próprias criadas por Chegadas e Saídas ou manualmente e bloquear mudança
+do ETA próprio que o torne anterior ao externo.
 
 - [ ] **Step 3: Implementar suspensão e retomada.**
 
@@ -86,9 +93,14 @@ condições.
 Valores funcionais: somente granito, somente vazios ou ambos. Bloquear
 salvamento de escala com exportação sem o tipo.
 
+Bloquear também o salvamento de uma escala marcada como somente exportação se
+ela já tiver POD. A validação é por escala; outras escalas da mesma viagem
+podem ser de importação ou mistas.
+
 - [ ] **Step 2: Permitir escala mista sem POD.**
 
-Exportação continua ativa; importação fica suspensa até existir POD.
+Exportação continua ativa; importação fica suspensa até existir POD. Enquanto
+não houver POD, não abrir BL, Baplie ausente, divergência Baplie ou CE.
 
 - [ ] **Step 3: Recalcular após alteração.**
 
@@ -131,8 +143,10 @@ notificar se a condição persistir.
 
 - [ ] **Step 1: Calcular expectativa de viagem.**
 
-Usar POLs e PODs vinculados por Chegadas e Saídas ou manualmente. Cobrir cada
-origem e destino individualmente; não exigir todas as combinações.
+Usar POLs e PODs vinculados por Chegadas e Saídas ou manualmente. Chegadas e
+Saídas fornece a expectativa preliminar antes do Baplie. Cobrir cada origem e
+destino individualmente; não exigir todas as combinações. Sem POD, não abrir o
+alerta de BL.
 
 - [ ] **Step 2: Abrir alerta crítico no D−7.**
 
@@ -153,8 +167,9 @@ imediatamente. Remoção reabre; remoção da expectativa retira o item.
 
 - [ ] **Step 1: Abrir alerta crítico por viagem no D−7.**
 
-Se houver qualquer escala de importação/mista, exigir Baplie. Somente
-exportação não entra.
+Se houver fluxo de importação elegível, isto é, POD vinculado, exigir Baplie.
+Escala mista sem POD não entra até que o POD seja informado. Somente exportação
+não entra.
 
 - [ ] **Step 2: Fechar e reabrir por estado de importação.**
 
@@ -175,24 +190,31 @@ de importação fica como feedback imediato.
 
 Uma rota é confrontável quando há BL com containers vinculados para o par exato
 POL → POD. O detector não compara Baplie diretamente com Chegadas e Saídas.
+O Baplie cobre todas as escalas próprias relevantes da viagem.
 
 - [ ] **Step 2: Abrir imediatamente com cobertura completa.**
 
 Quando todas as rotas estiverem confrontáveis e houver divergência de existência,
-abrir alerta crítico por viagem, notificar genericamente Documentação e apontar
-para Baplie.
+abrir alerta crítico por viagem, notificar genericamente os usuários ativos de
+Documentação e apontar para Baplie. No fluxo normal, somente aceitar o resultado
+quando `reconcileBaplieWithManifest` retornar `source === 'reconciled'`.
 
 - [ ] **Step 3: Forçar checagem em D−7.**
 
-Mesmo com rotas sem BL, inserir rotas sem cobertura e divergências das rotas
-confrontáveis no mesmo alerta. Esta é a exceção explícita à exigência absoluta
-de source=reconciled.
+Se houver Baplie importado e o prazo D−7 tiver sido atingido, forçar a avaliação
+mesmo quando o resultado normal seria `awaiting_route_coverage`. Containers
+previstos pelo EDI podem gerar `missing_in_manifest` mesmo sem qualquer BL na
+rota; containers presentes em BL podem gerar `missing_in_baplie` quando houver
+dados para o confronto. Essa é a exceção à cobertura completa de rotas, não uma
+mistura com o alerta independente de BL faltante.
 
 - [ ] **Step 4: Fechar e criar ciclos.**
 
 Fechar somente com todas as rotas cobertas por BL com containers e sem
 divergência. Atualização do alerta aberto não notifica novamente; recorrência
-após fechamento cria novo ciclo.
+após fechamento cria novo ciclo. O modo D−7 deve continuar preservando a
+auditoria da aplicação das flags físicas soberanas do Baplie no B/L; flags
+físicas não são divergência.
 
 - [ ] **Step 5: Não alertar flags físicas nem granularidade indevida.**
 
@@ -225,8 +247,9 @@ CE, remoção de CE ou nova pendência reabre e notifica.
 
 - [ ] **Step 1: Abrir no ATD confirmado por escala.**
 
-Escala com exportação abre alerta normal para Equipamentos se faltar qualquer
-tipo configurado.
+Escala com exportação abre alerta normal para os usuários ativos de
+Equipamentos se faltar qualquer tipo configurado. Escala somente exportação não
+produz BL, Baplie ou CE; granito e vazios podem ser vinculados depois do ATD.
 
 - [ ] **Step 2: Aplicar tipos esperados.**
 
@@ -254,6 +277,10 @@ Destino é a viagem com escala selecionada.
 BL, Baplie, POD, POL, ETA e tipo de exportação devem chamar o detector ou
 invalidar o mecanismo central previsto no #517.
 
+Importação de planilha em `/embarquevazios` com depot ou terminal não cadastrado
+deve falhar como operação de importação, sem sucesso parcial; apenas feedback
+transacional na própria tela, sem alerta persistente ou Notificação Interna.
+
 - [ ] **Step 2: Provar coexistência.**
 
 BL, ausência Baplie, cobertura Baplie/BL e CE têm ciclos independentes. Se dois
@@ -271,6 +298,9 @@ eventos abrirem simultaneamente, cada um gera sua própria notificação.
 
 BL e CE abrem /viagens/:voyageId. Ausência e cobertura Baplie abrem
 /baplie?voyage=<id>. Exportação abre a viagem com a escala selecionada.
+
+`/embarquevazios/depots` e `/vazios-importacao` não recebem produtores de
+alerta; seus estados são consulta/cadastro normal.
 
 - [ ] **Step 2: Não criar produtores nas páginas.**
 
@@ -299,8 +329,10 @@ alerts.
 
 - [ ] **Step 3: Validar contratos SQL.**
 
-Provar abertura idempotente, D−7, cobertura POL/POD, Baplie normal e forçado,
-CE apenas para importação, exportação por escala, fechamento automático,
+Provar abertura idempotente, D−7, cobertura POL/POD, Baplie normal e forçado
+(inclusive rota EDI sem BL), Baplie somente com POD elegível, CE apenas para
+importação, escala somente exportação com POD bloqueada, exportação por escala,
+falha transacional de depot/terminal desconhecido, fechamento automático,
 dispensa/revisão e novos ciclos.
 
 ## Handoff
@@ -314,4 +346,3 @@ implementação separada com:
 
 Não encerrar #523 nesta PR documental. A issue só deve ser encerrada depois da
 implementação e verificação completa.
-
