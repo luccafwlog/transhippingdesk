@@ -21,7 +21,10 @@ de comportamento nesta etapa.
   financeiro previsto nesta spec.
 - Eventos de **Taxas Locais** são de **Documentação**.
 - Eventos de **Demurrage** são de **Equipamentos**.
-- Eventos de **Granito** são de **Equipamentos**.
+- **Granito não participa do faturamento deste contrato.** O módulo permanece
+  como apoio quantitativo operacional; não cria invoice, não exige vínculo de
+  cliente, não depende do Portal e não produz Alerta ou Notificação Interna
+  financeira.
 - Um **Alerta** é um agregado global por entidade, identificado por
   `(entity_type, entity_id)`. Cada condição ativa é um item de pendência
   persistido dentro dele, com seu tipo, origem, departamento, destino, estado e
@@ -52,7 +55,7 @@ mesma entidade entram no mesmo alerta.
 | PIX local exige exatidão | **Teste de contrato SQL:** `supabase/migrations/111_pix_exact_and_manual_overpayment_refunds.sql` exige `txid` normalizado e valor exato, com tolerância de R$ 0,01 | Vínculo manual não pode contornar a validação da liquidação |
 | Demurrage usa janela financeira própria | **Código:** `docs/adr/0015-demurrage-conciliacao-janela-duas-ptax-data-pagamento.md`; **Teste de contrato SQL:** `supabase/migrations/158_demurrage_pix_window_conciliation.sql` usa `txid`, duas PTAX mais recentes e data do pagamento, com quitação integral | Preservar o algoritmo atual; divergência não vira liquidação válida |
 | Portal consolidado é escolha do cliente | **Código:** produtores `portal_invoice_created` e `portal_consolidation_obsoleted` existem nas migrations, mas o plano central os trata como histórico; não há ação interna necessária | Retirar Alerta/Notificação persistente e manter apenas histórico/auditoria |
-| Granito tem fluxo próprio | **Código:** `docs/modules/granito.md`, `src/pages/Granite.tsx` e `src/pages/GraniteRates.tsx`; vínculo de cliente da PR #518 já foi avaliado separadamente | A falta de taxa Granito é decisão financeira própria de Equipamentos; não bloquear o bloco por qualidade do vínculo |
+| Granito está fora do faturamento | **Código:** `src/pages/Granite.tsx`, `src/services/graniteBillingWorkflow.ts` e `src/services/reviewBillingAutomation.ts` ainda contêm o caminho de emissão; **Decisão de produto:** esse caminho será retirado e Granito ficará como apoio quantitativo operacional | Não criar produtor, conciliação PIX, vencimento, emissão, vínculo de cliente/Portal ou alerta financeiro para Granito; a documentação operacional específica fica fora deste bloco |
 
 ## Matriz de decisão por tela
 
@@ -66,20 +69,18 @@ do catálogo, mesmo que exiba indicadores, estados ou erros inline.
 | `/faturamento` | Cálculo local bloqueado após tentativa autoritativa, impedindo dinheiro faturável | **Alerta + Notificação Interna** | Departamental: Documentação | BL / cobrança local | Fecha quando há cálculo faturável válido ou isenção válida; reabre se `review_status`, `billing_hold_reason` ou linhas inválidas voltarem | Ação/RPC; cron é somente backstop se o contrato central assim permitir | `/faturamento` ou `/taxas-locais`, conforme a causa |
 | `/faturamento` | Falha inesperada na emissão automática local | **Alerta + Notificação Interna** | Departamental: Documentação | BL | Fecha após emissão bem-sucedida ou correção operacional comprovada; reabre na próxima falha da mesma unidade | Ação de emissão automática | `/faturamento` |
 | `/faturamento` | Invoice local vencida com saldo | **Alerta + Notificação Interna** | Departamental: Documentação | Invoice | Fecha com saldo zero/pagamento; reabre se pagamento for revertido ou o saldo voltar a vencer | Cron diário | `/faturamento` |
-| `/faturamento` | Invoice Granito vencida com saldo | **Alerta + Notificação Interna** | Departamental: Equipamentos | Invoice | Fecha com saldo zero/pagamento; reabre se pagamento for revertido ou o saldo voltar a vencer | Cron diário | `/faturamento` |
-| `/faturamento` | `Aguardando CE` local ou Granito | **Nenhum** | — | — | — | Mudança normal de estado | `/faturamento`, como operação normal |
+| `/faturamento` | Exceção crítica de Portal na emissão da invoice (`portal_excecao_critica_fatura`, propriedade do #521) | **Nenhum neste bloco** | — | — | A implementação do #521 mantém o item no B/L agregado, com referência à invoice; este bloco não duplica o evento por invoice | Produtor e reprocessamento do #521 | `/manifestos/{blId}?tab=faturamento`, conforme o #521 |
+| `/faturamento` | `Aguardando CE` local | **Nenhum** | — | — | — | Mudança normal de estado | `/faturamento`, como operação normal |
 | `/faturamento` | Fatura consolidada criada ou tornada obsoleta pelo Portal | **Nenhum** | — | — | — | Evento de histórico do Portal | Portal/histórico; não há correção interna |
 | `/faturamento` | Falha transitória de pagamento manual ou bloqueio de cancelamento (`invoice_payment_invalid`, `invoice_cancel_blocked`) | **Nenhum** | — | — | — | Ação/guard de interface | Feedback da própria ação; não persistir ocorrência de trabalho |
-| `/demurrage` | Disputa de invoice aberta no Portal | **Alerta + Notificação Interna** | Departamental: Equipamentos | Invoice Demurrage | Fecha quando a disputa é resolvida; reabre se for reaberta | Trigger/ação na abertura da disputa | `/demurrage` |
+| `/demurrage` | Disputa de invoice aberta no Portal | **Alerta + Notificação Interna** | Departamental: Equipamentos quando a próxima ação for interna | Invoice Demurrage | Item interno existe somente enquanto a próxima ação for de Equipamentos; ao aguardar o cliente ou resolver, sai da lista corrente; volta a ser criado/reaberto quando a próxima ação retornar a Equipamentos | Trigger/ação na mudança da próxima ação, conforme o contrato do #521 | `/demurrage` |
 | `/demurrage` | Contagem de vencidos, free-time, container não devolvido ou ausência de invoice | **Nenhum** | — | — | — | Indicador operacional e estado do módulo | `/demurrage`, sem ocorrência |
 | `/demurrage` | Taxa ausente, PTAX fora da janela ou falha inline de cálculo | **Nenhum** | — | — | — | Ação/validação inline | `/demurrage` ou `/demurrage/taxas`, sem alerta neste bloco |
 | `/demurrage/taxas` | Criar, editar ou inativar taxa Demurrage | **Nenhum** | — | — | — | Ação normal de manutenção | A própria tela, sem ocorrência |
-| `/reconciliacao` | PIX sem conciliação segura: sem invoice candidata, `txid` duplicado, candidato com valor divergente ou outra ambiguidade que impeça confirmação segura | **Alerta + Notificação Interna** | Departamental: Documentação **e** Equipamentos | Uma transação PIX identificada pelo `txid` | Fecha somente após vínculo válido e liquidação confirmada; reabre se o vínculo for removido ou invalidado | Ação de importação do extrato, imediatamente após a leitura | `/reconciliacao` |
+| `/reconciliacao` | PIX sem conciliação segura: sem invoice candidata, `txid` duplicado, candidato com valor divergente ou outra ambiguidade que impeça confirmação segura | **Alerta + Notificação Interna** | Departamental: Documentação **e** Equipamentos | Linha persistida de transação PIX; `txid` normalizado quando houver | Fecha somente após vínculo válido e liquidação confirmada; reabre se o vínculo for removido ou invalidado | Importação server-side do extrato, imediatamente após a persistência; não depende de abrir a tela | `/reconciliacao` |
 | `/reconciliacao` | Upload e leitura bem-sucedidos do extrato, sem linhas inseguras | **Nenhum** | — | — | — | Ação normal de importação | `/reconciliacao`, sem ocorrência |
-| `/granito` | Falha inesperada na emissão automática de invoice Granito | **Alerta + Notificação Interna** | Departamental: Equipamentos | BL Granito | Fecha após emissão bem-sucedida ou correção operacional comprovada; reabre na próxima falha | Ação de emissão automática | `/granito` ou `/faturamento`, conforme a correção |
-| `/granito` | BL com CE e cliente, mas sem taxa Granito ativa aplicável | **Alerta + Notificação Interna** | Departamental: Equipamentos | BL Granito | Fecha após taxa válida e recálculo bem-sucedido ou isenção válida; reabre se a taxa deixar de ser aplicável | Ação/RPC de cálculo | `/granito/taxas` |
-| `/granito` | `Aguardando CE`, cliente em revisão do fluxo #520 ou erro de toast sem pendência persistida | **Nenhum** | — | — | — | Estado/ação normal ou cobertura de outro bloco | Tela de origem, sem ocorrência duplicada |
-| `/granito/taxas` | Taxa Granito ausente, criação, edição ou inativação de taxa | **Nenhum** para a manutenção; a ausência descoberta pelo cálculo é o evento da linha anterior | — | — | — | Ação normal de manutenção | `/granito/taxas`, a partir do evento produzido pelo cálculo |
+| `/granito` | Apoio quantitativo operacional, inclusive ausência de taxa, CE, cliente ou erro inline | **Nenhum** | — | — | — | Estado/ação operacional; não há faturamento a monitorar | `/granito`, sem ocorrência financeira |
+| `/granito/taxas` | Manutenção ou consulta de dados de apoio do Granito | **Nenhum** | — | — | — | Ação normal de manutenção | `/granito/taxas`, sem ocorrência financeira |
 
 ## Catálogo dos eventos ativos
 
@@ -95,7 +96,7 @@ do #520, isenção válida ou manutenção informativa da tabela.
 - Tipo: Alerta + Notificação Interna.
 - Audiência: Documentação; nenhuma entrega direta para Financeiro.
 - Unidade: BL/cobrança local.
-- Gravidade: **Critical**, porque impede dinheiro de entrar no faturamento.
+- Gravidade: **Crítico**, porque impede dinheiro de entrar no faturamento.
 - Detecção: ação/RPC de cálculo; eventual cron é apenas mecanismo de
   recuperação definido pela fundação, não o produtor primário.
 - Fechamento: cálculo faturável válido ou isenção válida. Reabertura: a mesma
@@ -105,32 +106,33 @@ do #520, isenção válida ou manutenção informativa da tabela.
 
 ### Falha de emissão automática
 
-Abrange `billing_auto_issue_failed` para o fluxo local e para o fluxo Granito
-quando uma emissão automática realmente falha. Não abrange o retorno normal
-`awaiting_flow` por CE ausente, revisão pendente, cliente ausente ou ausência
-de valor que seja uma condição prevista.
+Abrange `billing_auto_issue_failed` somente para o fluxo local quando uma
+emissão automática realmente falha. Granito não tem faturamento neste contrato
+e, portanto, não participa deste evento. O retorno normal `awaiting_flow` por CE
+ausente, revisão pendente, cliente ausente ou ausência de valor prevista também
+não é ocorrência financeira.
 
 - Tipo: Alerta + Notificação Interna.
-- Audiência: Documentação para BL/cobrança local; Equipamentos para BL Granito.
-- Unidade: BL.
-- Gravidade: **Critical**.
+- Audiência: Documentação.
+- Unidade: BL local.
+- Gravidade: **Crítico**.
 - Detecção: ação de emissão automática.
 - Fechamento: emissão bem-sucedida ou resolução operacional verificável;
   reabertura na próxima falha.
-- Correção: `/faturamento` no local; `/granito` no Granito, com
-  `/granito/taxas` quando a causa for taxa.
+- Correção: `/faturamento`.
 
 ### Invoice vencida
 
-Aplica-se às invoices locais e às invoices Granito com saldo vencido. Não se
-aplica às invoices Demurrage, cujo enforcement de atraso foi removido.
+Aplica-se somente às invoices locais com saldo vencido. Granito não gera
+faturamento neste contrato. Não se aplica às invoices Demurrage, cujo
+enforcement de atraso foi removido.
 
 - Tipo: Alerta + Notificação Interna.
-- Audiência: Documentação para invoice local; Equipamentos para invoice
-  Granito.
-- Unidade: invoice.
+- Audiência: Documentação.
+- Unidade: invoice local.
 - Gravidade: **Normal**; não há promoção genérica por idade.
-- Detecção: cron diário, conforme o plano central de alertas.
+- Detecção: cron diário server-side, por wrapper protegido conforme E2 do
+  catálogo central; não depende de abrir `/faturamento`.
 - Fechamento: saldo zero/pagamento; reabertura se a liquidação for revertida
   ou a invoice voltar a ficar vencida.
 - Correção: `/faturamento`.
@@ -146,16 +148,29 @@ conciliação arbitrária:
 - local: `txid` normalizado e valor exato, dentro da tolerância de R$ 0,01;
 - Demurrage: `txid` identificado, invoice compatível com as duas PTAX mais
   recentes aplicáveis à data do pagamento, e quitação integral;
+- Granito não participa: não há invoice Granito, vínculo de cliente/Portal ou
+  candidato Granito neste fluxo;
 - qualquer confirmação continua sujeita às RPCs e invariantes das migrations
   financeiras existentes.
+
+Quando o `txid` não puder ser normalizado, ele não pode ser usado sozinho como
+`entity_id`: a persistência deve atribuir identidade própria a cada linha
+recebida e guardar também data, valor, txid bruto/normalizado (quando houver) e
+motivo. Mesmo um `txid` normalizado repetido é uma ambiguidade que precisa
+preservar as linhas distintas, usando identidade da linha e da importação para
+idempotência; reprocessar o mesmo extrato não pode duplicar, e transações
+distintas sem `txid` não podem colidir no mesmo item.
 
 - Tipo: Alerta + Notificação Interna.
 - Audiência: Documentação e Equipamentos; é uma pendência compartilhada para
   que qualquer um dos dois departamentos possa resolvê-la.
-- Unidade: uma transação PIX, identificada pelo `txid`.
-- Gravidade: **Critical**, porque o dinheiro recebido não está associado a um
+- Unidade: uma linha de transação PIX persistida; o `txid` normalizado é a
+  chave de busca quando existir, mas a identidade persistida da linha continua
+  própria para tratar duplicidade, ausência ou invalidez do `txid`.
+- Gravidade: **Crítico**, porque o dinheiro recebido não está associado a um
   documento conciliável.
-- Detecção: ação de importação do extrato, imediatamente após a leitura.
+- Detecção: importação server-side do extrato, imediatamente após a persistência;
+  não depende de abrir `/reconciliacao`.
 - Fechamento: vínculo válido seguido de liquidação confirmada. Reabertura:
   vínculo removido, inválido ou novamente incapaz de ser confirmado.
 - Correção: `/reconciliacao`, com ação explícita de vincular à invoice do
@@ -165,15 +180,20 @@ conciliação arbitrária:
 
 É a única ocorrência Demurrage ativa neste bloco. O produtor existente
 `portal_dispute_opened` deve ser direcionado para a unidade `demurrage_invoice`
-e resolvido quando a disputa do Portal for encerrada. A rota atual de destino
-precisa ser completada para não deixar o alerta sem navegação de correção.
+e seguir o contrato do #521: o item de trabalho interno existe somente quando a
+próxima ação é de Equipamentos. Enquanto a próxima ação for do cliente, a
+conversa permanece acompanhável, mas não há cobrança interna ativa. A rota de
+correção é `/demurrage`.
 
 - Tipo: Alerta + Notificação Interna.
-- Audiência: Equipamentos.
+- Audiência: Equipamentos enquanto a próxima ação for interna.
 - Unidade: invoice Demurrage.
 - Gravidade: **Normal**.
-- Detecção: trigger/ação na abertura da disputa.
-- Fechamento: disputa resolvida; reabertura se o Portal reabrir a disputa.
+- Detecção: trigger/ação na abertura e na mudança da próxima ação da disputa,
+  conforme o contrato do #521.
+- Fechamento: a mudança da próxima ação para o cliente ou a resolução fecha o
+  item interno; a volta da próxima ação para Equipamentos reabre o mesmo item e
+  o mesmo agregado, preservando o histórico.
 - Correção: `/demurrage`.
 
 ## Decisões explícitas de “nenhum evento”
@@ -181,7 +201,8 @@ precisa ser completada para não deixar o alerta sem navegação de correção.
 As seguintes situações não devem produzir Alerta nem Notificação Interna no
 Bloco 3:
 
-1. `Aguardando CE` local ou Granito.
+1. `Aguardando CE` local; estados equivalentes exibidos no apoio quantitativo
+   do Granito também não são eventos financeiros.
 2. Criação ou obsolescência de fatura consolidada do Portal: é escolha do
    cliente e não existe ação interna.
 3. Indicador de Demurrage, atraso/free-time, container não devolvido ou
@@ -195,6 +216,8 @@ Bloco 3:
 7. Falha transitória de pagamento manual e cancelamento bloqueado, que são
    guards da ação e não trabalho pendente.
 8. Upload/leitura de extrato bem-sucedidos sem transação insegura.
+9. Apoio quantitativo do Granito, inclusive dados de taxa, CE, cliente ou
+   contagem operacional: não há faturamento nem alerta financeiro.
 
 ## Invariantes financeiras que não podem ser alteradas
 
@@ -208,6 +231,8 @@ Bloco 3:
   migration 158.
 - Demurrage continua em sua persistência própria; não criar uma falsa tabela
   de ledger unificado para fazê-la caber no fluxo local.
+- Granito não cria invoice, não participa da reconciliação PIX e não exige
+  vínculo de cliente ou Portal neste bloco.
 - Um alerta ou notificação nunca substitui a confirmação financeira nem
   libera uma invoice por si só.
 
@@ -229,11 +254,11 @@ financeira deve consumir o estado real desse fluxo e não criar uma segunda
 ocorrência para a mesma causa. Isso é uma dependência de integração, não um
 bloqueio das decisões deste documento.
 
-### Sem bloqueio por PR #518
+### Sem dependência de PR #518
 
-A qualidade do vínculo de cliente do Granito foi avaliada separadamente. A
-decisão financeira de taxa ausente e emissão falha segue válida para
-Equipamentos e não espera nova decisão sobre o vínculo.
+Como Granito não gera faturamento nem exige vínculo de cliente/Portal neste
+bloco, sua documentação de apoio quantitativo não depende da PR #518. O fluxo
+de revisão de cliente que permanece ativo é o de B/Ls do #520.
 
 ## Critérios de aceite da implementação posterior
 
@@ -244,8 +269,8 @@ Equipamentos e não espera nova decisão sobre o vínculo.
 - Um PIX órfão permanece visível após o fim da tela/importação e pode ser
   resolvido em `/reconciliacao`; não é possível confirmar pagamento violando
   `txid`, valor, PTAX, data ou quitação integral.
-- Invoices locais e Granito vencidas são detectadas por cron e Demurrage não
-  entra nesse detector.
+- Invoices locais vencidas são detectadas por cron server-side e Demurrage não
+  entra nesse detector; Granito está fora por não gerar faturamento.
 - Produtores atuais de consolidação do Portal e de guards transitórios deixam
   de criar pendência de trabalho, preservando histórico técnico quando
   necessário.

@@ -4,7 +4,9 @@
 
 **Objetivo:** implementar o contrato funcional do Bloco 3 — issue #522 — para
 as telas financeiras, sem criar ocorrências para estados normais e sem violar
-as invariantes de PIX, local charges, Granito e Demurrage.
+as invariantes de PIX, local charges e Demurrage. Granito permanece somente
+como apoio quantitativo operacional: não gera faturamento, invoice, vínculo de
+cliente/Portal ou alerta financeiro neste bloco.
 
 **Arquitetura:** manter a decisão de negócio no produtor que conhece a
 transição autoritativa: cálculo/emissão para bloqueios, cron para vencimentos,
@@ -39,9 +41,9 @@ existentes.
   `supabase/migrations/158_demurrage_pix_window_conciliation.sql`.
 - [ ] Confirmar que a integração do #520 expõe a revisão de cliente de modo
   consumível, para não duplicar ocorrências de cliente ausente/revisão.
-- [ ] Confirmar que a mudança de qualidade de vínculo da PR #518 está presente
-  ou, se não estiver, tratar a divergência como integração independente; ela
-  não pode bloquear o catálogo financeiro de Granito.
+- [ ] Confirmar que o bloco não cria dependência de cliente ou Portal para
+  Granito. A documentação específica do apoio quantitativo do Granito fica
+  fora deste plano.
 
 ## Task 1: Ajustar o catálogo e a resolução de destino
 
@@ -60,8 +62,14 @@ existentes.
   e fechamento idempotente; não abrir uma pendência nova a cada renderização.
 - [ ] Completar o destino de `portal_dispute_opened` quando
   `entity_type=demurrage_invoice`, levando o usuário para `/demurrage`.
+- [ ] Consumir, sem duplicar, a exceção crítica de invoice que pertence ao
+  #521: o item deve ser do B/L agregado, referenciar a invoice e usar
+  `/manifestos/{blId}?tab=faturamento` como destino canônico.
 - [ ] Não fazer o rótulo legado `demurrage` produzir alerta sem produtor
   correspondente.
+- [ ] Resolver `invoice_overdue` com o identificador canônico aceito pela
+  navegação; não depender de `invoice_number` textual para abrir uma invoice
+  específica.
 
 ## Task 2: Implementar bloqueios de cálculo e emissão automática
 
@@ -70,9 +78,9 @@ existentes.
 - Modificar: `src/services/reviewBillingAutomation.ts`
 - Modificar: `src/components/billing/validacaoPipeline.ts`
 - Modificar: `src/pages/Faturamento.tsx`
-- Modificar: `src/pages/Granite.tsx`
+- Modificar: `src/pages/Granite.tsx` e `src/services/graniteBillingWorkflow.ts`
 - Testar: testes de `reviewBillingAutomation`, pipeline de validação e fluxos
-  Granito
+  locais
 
 - [ ] Produzir A2 somente quando uma tentativa autoritativa deixar uma
   pendência real, distinguindo `review:no_table`, revisão de cálculo, linhas
@@ -81,15 +89,18 @@ existentes.
 - [ ] Rotear causas de tabela/configuração para `/taxas-locais` e as demais
   causas locais para `/faturamento`.
 - [ ] Manter `billing_auto_issue_failed` apenas para falhas efetivas de
-  emissão, em Documentação para local e Equipamentos para Granito.
-- [ ] Produzir o evento de taxa Granito ausente somente quando o cálculo
-  confirmar que o BL deveria ser calculado e não há taxa ativa aplicável;
-  direcionar para `/granito/taxas`.
+  emissão local, em Documentação.
+- [ ] Não criar cálculo, emissão, vencimento, reconciliação PIX, vínculo de
+  cliente/Portal ou alerta financeiro para Granito; seus dados permanecem
+  apoio quantitativo operacional e aguardam documentação específica.
+- [ ] Retirar o caminho de emissão existente do Granito — inclusive o ramo
+  `target='granite'` e o `billing_auto_issue_failed` com `entity_type='granite_bl'` —
+  sem apagar as consultas/quantidades operacionais que ainda serão usadas.
 - [ ] Não alertar `Aguardando CE` nem criar duplicata do fluxo #520.
 - [ ] Testar fechamento após cálculo/emissão válida e reabertura após retorno
   da causa.
 
-## Task 3: Separar vencimentos locais e Granito do Demurrage
+## Task 3: Detectar vencimentos locais sem depender da tela
 
 **Arquivos prováveis:**
 
@@ -97,12 +108,16 @@ existentes.
 - Modificar: `src/pages/Faturamento.tsx`
 - Revisar sem alterar retroativamente: migrations que produzem
   `invoice_overdue`
-- Testar: detector de vencimento e classificação de invoices
+- Testar: detector de vencimento e classificação de invoices locais
 
-- [ ] Fazer o detector diário classificar invoice local como Documentação e
-  invoice Granito como Equipamentos.
+- [ ] Fazer o detector diário considerar somente invoices locais (`individual`
+  e `consolidated`) e entregá-las a Documentação. Granito fica fora por não
+  gerar faturamento.
 - [ ] Excluir Demurrage do detector, preservando a remoção de enforcement em
   `supabase/migrations/157_demurrage_drop_overdue.sql`.
+- [ ] Executar o detector por cron server-side protegido, conforme E2 do
+  catálogo central; não chamar diretamente uma RPC que exige `auth.uid()` a
+  partir de `pg_cron` e não depender de `/faturamento`.
 - [ ] Fechar a ocorrência apenas com saldo zero/pagamento confirmado e cobrir
   reversão ou novo vencimento como reabertura.
 - [ ] Manter severidade Normal e não implementar escalonamento por idade.
@@ -121,10 +136,18 @@ existentes.
 - Testar: `src/services/__tests__/reconciliacao*.test.ts` e testes SQL de
   contrato das RPCs
 
-- [ ] Persistir, durante a importação, cada transação `unmatched` ou
-  `ambiguous` que impeça confirmação segura, com `txid`, valor, data, motivo e
-  identidade suficiente para a unidade ser uma transação, não uma invoice
+- [ ] Persistir no servidor, durante o fluxo de importação do extrato, cada
+  transação `unmatched` ou `ambiguous` que impeça confirmação segura. A tela
+  não pode manter a ocorrência somente em `useState`: definir RPC/endpoint
+  transacional, com `txid` bruto e normalizado quando houver, valor, data,
+  motivo, candidatos e identidade própria da linha recebida — não uma invoice
   artificial.
+- [ ] Definir uma guarda de unicidade/idempotência no armazenamento persistente
+  depois de validar o schema real: `txid` normalizado é chave de busca quando
+  único, mas a linha persistida sempre tem identidade própria para representar
+  `txid` duplicado, ausente ou inválido. Usar identidade da importação/linha
+  para tornar o reprocessamento idempotente, sem duplicar alerta nem engolir
+  uma segunda transação.
 - [ ] Emitir a ocorrência imediatamente para Documentação e Equipamentos; não
   emitir para Financeiro e não criar evento de “subida atrasada do extrato”.
 - [ ] Exibir as ocorrências persistidas na reconciliação mesmo depois de a
@@ -134,6 +157,8 @@ existentes.
 - [ ] Preservar para local o `txid` normalizado e valor exato da migration 111.
 - [ ] Preservar para Demurrage as duas PTAX mais recentes aplicáveis à data do
   pagamento, o próprio `txid` e a quitação integral da ADR 0015/migration 158.
+- [ ] Não incluir invoices Granito, porque Granito não gera faturamento nem
+  participa da reconciliação PIX deste bloco.
 - [ ] Fechar a ocorrência somente após vínculo e liquidação confirmados; manter
   ou reabrir quando o vínculo for inválido/removido.
 - [ ] Cobrir órfão estrito, `txid` duplicado, divergência de valor, conflito de
@@ -146,20 +171,26 @@ existentes.
 
 **Arquivos prováveis:**
 
-- Revisar/alterar o produtor SQL de `portal_dispute_opened` em migration nova,
-  sem editar migrations históricas
+- Alinhar o consumidor financeiro ao produtor SQL de `portal_dispute_opened`,
+  sem editar migrations históricas; a regra de conversa e de próxima ação é
+  propriedade do #521
 - Alterar produtores atuais de `portal_invoice_created` e
   `portal_consolidation_obsoleted` para histórico sem ocorrência de trabalho
 - Modificar: `src/components/billing/InvoiceDetailModal.tsx`
 - Testar: contratos SQL e testes de ações de invoice/Portal
 
-- [ ] Manter `portal_dispute_opened` como Alerta + Notificação Interna para
-  Equipamentos, com fechamento quando a disputa for resolvida.
+- [ ] Manter o item interno de `portal_dispute_opened` somente enquanto a
+  próxima ação for de Equipamentos. Aguardar o cliente retira o item da lista
+  corrente sem apagar o histórico; resolução também fecha o item. A volta da
+  próxima ação para Equipamentos reabre o mesmo agregado.
 - [ ] Retirar o Alerta/Notificação persistente de criação e obsolescência de
   consolidada, preservando auditoria/histórico quando o fluxo exigir.
-- [ ] Retirar ou rebaixar os produtores persistentes de
-  `invoice_payment_invalid` e `invoice_cancel_blocked`: feedback imediato da
-  ação pode permanecer na interface, mas não é pendência do catálogo.
+- [ ] Retirar do frontend os `createAlert` de `invoice_payment_invalid` e
+  `invoice_cancel_blocked` em `InvoiceDetailModal.tsx`; o toast permanece como
+  feedback imediato, mas não é pendência do catálogo.
+- [ ] Preservar os inserts correspondentes em `audit_logs` da migration 020:
+  eles são histórico técnico, não produtores de `alerts`. Fechar/consolidar
+  eventuais linhas antigas de `alerts` desses tipos sem remover a auditoria.
 - [ ] Não reintroduzir alertas de Demurrage por vencimento, rótulo de UI, taxa
   ausente ou PTAX fora da janela sem ADR explícita.
 
@@ -213,5 +244,6 @@ disponíveis.
 - **Não bloqueado:** a persistência de PIX órfão é uma lacuna de implementação
   identificada no schema atual; deve ser desenhada contra o banco real na task
   correspondente.
-- **Não bloqueado:** Granito segue com Equipamentos mesmo que a qualidade do
-  vínculo de cliente precise de evolução no #520 ou em trabalho posterior.
+- **Fora do escopo financeiro:** Granito é apoio quantitativo operacional e não
+  gera faturamento, invoice, vínculo de cliente/Portal, reconciliação PIX ou
+  alerta neste bloco. A documentação específica será preparada separadamente.
