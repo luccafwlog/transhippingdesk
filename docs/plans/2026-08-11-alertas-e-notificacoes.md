@@ -26,17 +26,19 @@ branco: resposta ausente vira decisão por omissão na implementação.
 1. **Alerta, notificação ou ambos?** Alerta é item na fila `/alertas`, que espera
    ser tratado. Notificação é aviso ativo (sino), que interrompe. São coisas
    diferentes e um evento pode ser só uma delas.
-2. **Departamento ou global?** A audiência do Evento Notificável é declarada
-   numa regra central por tipo. O Alerta continua sendo uma pendência coletiva;
-   a Notificação Interna é entregue individualmente aos usuários dos papéis
-   definidos para aquele evento. `alerts.assigned_to` permanece sem uso, conforme
-   o ADR 0034, até existir uma necessidade real de atribuição individual.
-3. **Como fecha — e reabre?** Automático por condição verificável, ou manual por
-   decisão. Se a condição volta a valer, reabre o mesmo item ou cria outro.
-4. **Qual é a unidade?** Por B/L, por cliente, por viagem, por fatura, por
-   transação. Decide se o evento produz um item ou centenas: A3 é por cliente e
-   A4 é por viagem exatamente por isso, e A5 foi recusado por não ter unidade que
-   sobrevivesse ao volume.
+2. **Departamento ou global?** A audiência do item de pendência é declarada
+   numa regra central por tipo. Existe um único Alerta agregado por entidade,
+   global para consulta; a Notificação Interna é entregue individualmente aos
+   usuários dos departamentos que ainda têm itens ativos. `alerts.assigned_to`
+   permanece sem uso, conforme o ADR 0034, até existir uma necessidade real de
+   atribuição individual.
+3. **Como fecha — e reabre?** Cada item fecha automaticamente por condição
+   verificável. O alerta agregado fecha somente quando não houver item interno
+   ativo. Se uma condição voltar, o mesmo agregado é reaberto com a lista atual
+   e o histórico preservado.
+4. **Qual é a unidade?** A unidade do alerta é sempre uma entidade — B/L,
+   cliente, viagem, fatura ou transação. Cada condição é um item de pendência
+   dentro desse agregado; não se criam centenas de alertas para a mesma entidade.
 5. **Gravidade — crítico ou normal?** Alimenta a lista única consolidada por E1.
    Sem decisão por evento, o E1 centraliza uma lista que continua sendo só do
    Portal.
@@ -96,12 +98,30 @@ sem chamar diretamente pelo `pg_cron` uma função que exige `auth.uid()`: a
 implementação deve usar um wrapper server-only protegido ou uma invocação HTTP
 autenticada. É pré-requisito de qualquer notificação por sino.
 
+### Regra transversal — um alerta agregado por entidade
+
+Para cada entidade existe no máximo um alerta agregado, identificado pela chave
+`(entity_type, entity_id)`, independentemente da quantidade de condições ou dos
+departamentos envolvidos. Cada condição ativa é um item de pendência persistido,
+com origem, tipo, departamento, destino, estado, timestamps e histórico próprios.
+
+- Um novo evento adiciona ou atualiza o item correspondente no mesmo agregado;
+  não cria um segundo alerta para a entidade.
+- Resolver um item remove somente aquele item da lista atual e do departamento
+  que deixou de ter pendência; o histórico do item permanece consultável.
+- O agregado só fecha quando todos os itens ativos estiverem resolvidos. Uma
+  ocorrência futura reutiliza o mesmo registro agregado, atualizando a história.
+- A audiência do sino é a união dos departamentos dos itens ainda ativos. Um
+  departamento sem item ativo não recebe a Notificação Interna, mesmo que tenha
+  participado de um item resolvido.
+
 ### E3 — Notificação Interna por destinatário, separada do Alerta
 
 O ADR 0034 define que `alerts` é uma fila coletiva e que o sino precisa de uma
 entidade separada, com uma linha por usuário destinatário e estado de leitura
 individual. A audiência de cada tipo fica declarada num único registro de regras;
-os produtores continuam apenas criando ou atualizando Alertas.
+os produtores continuam apenas criando ou atualizando o alerta agregado e seus
+itens de pendência.
 
 - A nova Notificação Interna congela o evento no momento da entrega e mantém
   `read_at` por usuário.
@@ -208,8 +228,8 @@ candidato (`src/services/reconciliacao.ts:150`) desaparecem ao fechar a tela —
 `reconciliacao.ts` só lê, nunca persiste. É dinheiro recebido sem destino cujo
 único rastro é a memória do operador.
 
-Persistir as transações não casadas e abrir pendência por transação órfã,
-fechando quando for conciliada.
+Persistir as transações não casadas e abrir um item de pendência no alerta
+agregado da transação, fechando o item quando for conciliada.
 
 Contexto que a implementação precisa respeitar: PIX exige quitação exata (o QR
 tem valor fixo; divergência para mais ou menos é rejeitada — `111`), e demurrage
@@ -227,9 +247,9 @@ porque o QR é estático e o cliente pode pagar com um de ontem (`158`, ADR 0015
 
 O desenho atual está correto e não muda: a migration 225 trocou pendência por
 seção por pendência **por departamento** (ADR 0029), fechando ao assinar; a 271
-somou o alerta independente de prazo vencido (ATD da escala unificada + 3 dias
-úteis), que fecha no Fechamento do ADR. Os dois convivem porque dizem coisas
-diferentes.
+somou um item independente de prazo vencido (ATD da escala unificada + 3 dias
+úteis) no agregado da escala, que fecha no Fechamento do ADR. Os dois itens
+convivem porque dizem coisas diferentes, sem criar dois alertas para a escala.
 
 ### D1 — Encerrar o tipo legado `agency_report_section_pending`
 
