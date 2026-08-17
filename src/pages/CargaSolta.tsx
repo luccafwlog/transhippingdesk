@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
+import { BlDocumentImportModal } from '../components/shared/BlDocumentImportModal'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -46,6 +47,7 @@ export function CargaSolta() {
     pageSize: 20,
   })
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [blDocumentOpen, setBlDocumentOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
@@ -171,6 +173,10 @@ export function CargaSolta() {
                   <Upload size={16} />
                   Importar CE Mercante
                 </Button>
+                <Button variant="secondary" onClick={() => setBlDocumentOpen(true)}>
+                  <Upload size={16} />
+                  Importar B/Ls (PDF/DOCX)
+                </Button>
                 <Button onClick={() => setUploadOpen(true)}>
                   <Upload size={16} />
                   Importar Manifesto BB
@@ -293,7 +299,7 @@ export function CargaSolta() {
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="p-0">
-                    <EmptyState title="Nenhum B/L de carga solta encontrado." description="Importe um manifesto BB ou ajuste os filtros." />
+                    <EmptyState title="Nenhum B/L de carga solta encontrado." description="Importe um manifesto BB, importe os B/Ls do armador ou ajuste os filtros." />
                   </td>
                 </tr>
               ) : null}
@@ -363,6 +369,8 @@ export function CargaSolta() {
       </Card>
 
       <CeMercanteImportModal open={ceMercanteOpen && canImport} onClose={() => setCeMercanteOpen(false)} />
+
+      {blDocumentOpen && canImport ? <BlDocumentImportModal onClose={() => setBlDocumentOpen(false)} /> : null}
 
       {uploadOpen && canImport ? (
         <FileImportModal

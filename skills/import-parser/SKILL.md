@@ -18,6 +18,7 @@ terms in `CONTEXT.md`.
 |---|---|
 | Header-mapped CSV/XLSX | `blParser.ts`, `blFreightImport.ts` |
 | Breakbulk | `breakbulkImport.ts` |
+| Carrier document (PDF/DOCX) | `blDocumentParser.ts`, `blDocumentPdf.ts`, `blDocumentDocx.ts` |
 | EDI/EDIFACT | `baplieParser.ts`, `baplieImport.ts` |
 | Focused upsert | `vehicleImport.ts`, `ceMercanteImport.ts` |
 | Replaceable staging | `baplieImport.ts`, `containerDatesImport.ts` |
@@ -47,6 +48,16 @@ const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' })
 
 Adjust the guard import path to the service location. Prefer dynamic spreadsheet
 imports.
+
+Document formats follow the same rule: `pdfjs-dist` is imported dynamically
+(`pdfjs-dist/legacy/build/pdf.mjs`, so browser and vitest share one code path)
+and `.docx` is opened with `readZipTextEntry` from `src/lib/zipEntry.ts` —
+`DecompressionStream`, no zip dependency in the bundle.
+
+A document without a labelled form (a scan with text boxes over it) has no
+header row to match. Read it by content — unit, voyage number, tax id, address
+— and keep document order as the only structural signal; never key a field to
+an absolute coordinate.
 
 ### Leia a planilha pelo seam
 

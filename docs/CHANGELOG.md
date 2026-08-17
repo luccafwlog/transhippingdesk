@@ -3,6 +3,22 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Carga solta passa a aceitar o B/L do armador, sem perder o manifesto:**
+  `/carga-solta` ganha o modal **Importar B/Ls (PDF/DOCX)** ao lado da
+  importação de Manifesto BB, que continua igual. O PDF do formulário com
+  campos numerados é lido pelos próprios rótulos impressos; o modelo em Word —
+  onde o formulário é uma imagem escaneada e cada campo é uma caixa de texto
+  por cima — é lido por conteúdo (unidade do peso, número de viagem, CNPJ,
+  endereço) e pela ordem do documento. Os dois desembocam no mesmo caminho de
+  persistência do manifesto BB, com a mesma reconciliação de cliente, o mesmo
+  lote e o mesmo disparo de taxas locais. Divergência entre o navio/viagem do
+  documento e a viagem escolhida bloqueia o arquivo, como já acontecia na
+  importação documental de B/L de container; o que não impede a importação
+  (CNPJ ausente, peso ou cubagem não encontrados, volumes divergentes do total
+  por extenso) vira aviso na prévia e fica registrado nos erros do lote. No
+  caminho compartilhado, importar carga solta sem CE Mercante deixa de apagar o
+  CE já gravado: a autoridade sobre esse dado é a importação de CE Mercante, e
+  nenhum layout além do resumo o carrega.
 - **Documento comprido deixa de virar CNPJ válido, e a linha do tempo credita
   quem importou:** `isValidCnpj` passa a validar sobre a forma canônica
   completa (`canonicalizeDocument`, igual ao `normalize_cnpj` do banco) em vez
