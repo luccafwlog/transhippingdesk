@@ -94,6 +94,9 @@ gate de revisão/faturamento; a implementação deve fazê-lo em migration nova.
   por uma fonte canônica server-side (RPC/view sobre
   `compute_bl_review_pendencies`) e tornar a abertura imediata nas mutações
   autoritativas, com cron idempotente a cada 15 minutos como segurança.
+- [ ] Remover os predicados mortos `groupNeedsPortal` e `needsCeMercante` de
+  `src/pages/revisaoHelpers.ts:105-110`, sem reintroduzir esses conceitos como
+  motivos paralelos fora da fonte canônica.
 - [ ] Atualizar a mensagem quando houver correção parcial.
 - [ ] Fechar o alerta e retirar o B/L da fila somente quando todos os motivos
   forem resolvidos; nenhum reconhecimento; a dispensa é temporária, exige
