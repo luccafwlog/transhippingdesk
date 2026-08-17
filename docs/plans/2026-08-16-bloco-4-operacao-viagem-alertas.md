@@ -12,6 +12,7 @@ BL, Baplie e CE usam unidade viagem; exportação pós-ATD usa unidade escala.
 Os detectores usam tabelas existentes e não criam uma linha por container ou BL.
 O D−7 pode forçar a avaliação Baplie de rotas ainda sem BL; isso não mistura o
 ciclo do alerta de BL faltante com o ciclo da divergência Baplie.
+Todos os detectores usam `America/Sao_Paulo` para a aritmética de D−7/D−5.
 
 **Tech Stack:** React/TypeScript, Supabase PostgreSQL/RPCs, migrations,
 TanStack Query, Vitest e testes de contrato SQL.
@@ -66,9 +67,11 @@ empresa.
 
 - [ ] **Step 2: Validar POD e precedência.**
 
-Bloquear sem POD, bloquear ETA externo que não seja anterior ao menor ETA das
-escalas próprias criadas por Chegadas e Saídas ou manualmente e bloquear mudança
-do ETA próprio que o torne anterior ao externo.
+Ao informar ou alterar o ETA externo, bloquear sem POD, bloquear ETA externo que
+não seja anterior ao menor ETA das escalas próprias criadas por Chegadas e
+Saídas ou manualmente e bloquear mudança do ETA próprio que o torne anterior ao
+externo. Um ETA externo já salvo sobrevive à remoção do POD; salvar outros
+campos sem alterá-lo continua permitido.
 
 - [ ] **Step 3: Implementar suspensão e retomada.**
 
@@ -123,15 +126,24 @@ Baplie/BL, CE ausente e exportação pós-ATD.
 - [ ] **Step 2: Persistir estado distinto de dispensa.**
 
 Guardar motivo, usuário, data/hora, revisão e histórico. Mostrar dispensados em
-filtros de exceção.
+filtros de exceção. A dispensa vigente deve ser distinta de `closed` para o
+predicado de idempotência dos detectores e impedir nova abertura/reabertura.
 
 - [ ] **Step 3: Implementar vencimento da revisão.**
 
-BL/Baplie/CE não podem ter revisão posterior ao primeiro ETA. Exportação exige
-data futura sem limite máximo específico. Na revisão vencida, reabrir e
-notificar se a condição persistir.
+Antes do primeiro ETA, BL/Baplie/CE exigem revisão futura até o primeiro ETA.
+Depois que o ETA passou, qualquer data futura é válida. Exportação exige data
+futura sem limite máximo específico. Na revisão vencida, reabrir o mesmo ciclo
+e notificar se a condição persistir; não criar outro alerta a cada execução.
 
 ## Detectores
+
+### Regra comum de dispensa e elegibilidade
+
+Todos os Tasks 4–8 devem aplicar o mesmo predicado: somente abrir ou reabrir
+quando a condição estiver vigente, houver POD quando o evento for de
+importação, e não houver dispensa manual vigente. No vencimento da revisão, a
+próxima execução reabre o mesmo ciclo de alerta e envia a Notificação Interna.
 
 ### Task 4: detector preliminar de BL por POL/POD
 
@@ -146,7 +158,8 @@ notificar se a condição persistir.
 Usar POLs e PODs vinculados por Chegadas e Saídas ou manualmente. Chegadas e
 Saídas fornece a expectativa preliminar antes do Baplie. Cobrir cada origem e
 destino individualmente; não exigir todas as combinações. Sem POD, não abrir o
-alerta de BL.
+alerta de BL. Respeitar a dispensa vigente e reavaliar a retomada quando o POD
+voltar a existir.
 
 - [ ] **Step 2: Abrir alerta crítico no D−7.**
 
@@ -169,7 +182,8 @@ imediatamente. Remoção reabre; remoção da expectativa retira o item.
 
 Se houver fluxo de importação elegível, isto é, POD vinculado, exigir Baplie.
 Escala mista sem POD não entra até que o POD seja informado. Somente exportação
-não entra.
+não entra. Respeitar a dispensa vigente e reabrir apenas no vencimento da
+revisão ou quando a condição for criada novamente.
 
 - [ ] **Step 2: Fechar e reabrir por estado de importação.**
 
@@ -184,17 +198,21 @@ de importação fica como feedback imediato.
 - Modify: detector server-only do #517
 - Create/modify: migration/RPC idempotente após validação do schema
 - Test: testes de reconciliação e cobertura de rota
+- Test: BL com rota coberta e zero containers ainda retorna `reconciled` e
+  permite divergências `missing_in_manifest`
 - Test: contrato SQL do ciclo de alerta
 
 - [ ] **Step 1: Definir correspondência exata.**
 
-Uma rota é confrontável quando há BL com containers vinculados para o par exato
-POL → POD. O detector não compara Baplie diretamente com Chegadas e Saídas.
-O Baplie cobre todas as escalas próprias relevantes da viagem.
+Uma rota é coberta quando há pelo menos um BL para o par exato POL → POD. A
+existência de containers no BL não é pré-requisito para iniciar a reconciliação;
+BL sem containers pode produzir `missing_in_manifest`. O detector não compara
+Baplie diretamente com Chegadas e Saídas. O Baplie cobre todas as escalas
+próprias relevantes da viagem.
 
 - [ ] **Step 2: Abrir imediatamente com cobertura completa.**
 
-Quando todas as rotas estiverem confrontáveis e houver divergência de existência,
+Quando todas as rotas estiverem cobertas e houver divergência de existência,
 abrir alerta crítico por viagem, notificar genericamente os usuários ativos de
 Documentação e apontar para Baplie. No fluxo normal, somente aceitar o resultado
 quando `reconcileBaplieWithManifest` retornar `source === 'reconciled'`.
@@ -202,11 +220,13 @@ quando `reconcileBaplieWithManifest` retornar `source === 'reconciled'`.
 - [ ] **Step 3: Forçar checagem em D−7.**
 
 Se houver Baplie importado e o prazo D−7 tiver sido atingido, forçar a avaliação
-mesmo quando o resultado normal seria `awaiting_route_coverage`. Containers
-previstos pelo EDI podem gerar `missing_in_manifest` mesmo sem qualquer BL na
-rota; containers presentes em BL podem gerar `missing_in_baplie` quando houver
-dados para o confronto. Essa é a exceção à cobertura completa de rotas, não uma
-mistura com o alerta independente de BL faltante.
+mesmo quando o resultado normal seria `awaiting_route_coverage`. Uma rota EDI
+sem BL gera resumo por rota e quantidade de containers afetados; o detalhe dos
+containers fica em `/baplie`. Containers previstos pelo EDI podem gerar
+`missing_in_manifest` mesmo sem qualquer BL na rota; containers presentes em BL
+podem gerar `missing_in_baplie` quando houver dados para o confronto. Essa é a
+exceção à cobertura completa de rotas, não uma mistura com o alerta independente
+de BL faltante.
 
 - [ ] **Step 4: Fechar e criar ciclos.**
 
@@ -218,7 +238,9 @@ físicas não são divergência.
 
 - [ ] **Step 5: Não alertar flags físicas nem granularidade indevida.**
 
-Não criar alertas por container, BL ou flag IMO/OOG.
+Não criar alertas por container, BL ou flag IMO/OOG. Para uma rota sem BL no
+D−7, o alerta permanece por viagem e o detalhe deve ser um resumo de rota com
+quantidade, com containers consultáveis na tela.
 
 ### Task 7: detector de CE Mercante
 
@@ -230,12 +252,14 @@ Não criar alertas por container, BL ou flag IMO/OOG.
 
 - [ ] **Step 1: Abrir no D−5 por viagem.**
 
-Considerar apenas BLs de importação/POD. Sem BL, não abrir CE.
+Considerar os BLs da viagem que possuem POD; todos os BLs existentes no sistema
+são de importação. Sem BL, não abrir CE.
 
 - [ ] **Step 2: Fechar/reabrir por estado dos BLs.**
 
-Fechar quando todos os BLs de importação existentes tiverem CE. BL novo sem
-CE, remoção de CE ou nova pendência reabre e notifica.
+Fechar quando todos os BLs existentes da viagem com POD tiverem CE. BL novo sem
+CE, remoção de CE ou nova pendência reabre e notifica, respeitando a dispensa
+vigente.
 
 ### Task 8: detector pós-ATD de exportação
 
@@ -254,7 +278,7 @@ produz BL, Baplie ou CE; granito e vazios podem ser vinculados depois do ATD.
 - [ ] **Step 2: Aplicar tipos esperados.**
 
 Granito exige granito; vazios exige vazio; ambos exigem os dois. Tipo não
-esperado não mantém o alerta aberto.
+esperado é ignorado: não fecha nem reabre o alerta.
 
 - [ ] **Step 3: Fechar/reabrir.**
 
@@ -263,13 +287,34 @@ Destino é a viagem com escala selecionada.
 
 ## Reavaliação, navegação e não duplicação
 
-### Task 9: reavaliar ações materiais
+### Task 9: importação de vazios all-or-nothing
+
+**Files:**
+
+- Modify: `src/services/vaziosImport.ts`
+- Modify: `src/pages/EmbarqueVazios.tsx`
+- Modify: RPC/migration da importação transacional, após inspeção do schema
+- Test: `src/services/__tests__/vaziosImportAdrColumns.test.ts`
+- Test: `src/pages/__tests__/EmbarqueVazios.flow.test.tsx`
+
+- [ ] **Step 1: Rejeitar o arquivo quando houver depot ou terminal inválido.**
+
+Se qualquer linha contiver depot/terminal não cadastrado ou inativo, a
+importação inteira falha e nenhum subconjunto é persistido. O feedback deve
+identificar as linhas inválidas na própria tela.
+
+- [ ] **Step 2: Preservar ausência de alerta persistente.**
+
+O erro é transacional e não cria alerta nem Notificação Interna. Corrigir e
+reenviar o arquivo é a ação de resolução.
+
+### Task 10: reavaliar ações materiais
 
 **Files:**
 
 - Modify: serviços de importação/associação de BL
 - Modify: serviço de importação/reprocessamento Baplie
-- Modify: gravação de POD, POL, ETA e tipo de exportação
+- Modify: gravação compartilhada de POD, POL, ETA e tipo de exportação
 - Test: fluxos de reavaliação imediata
 
 - [ ] **Step 1: Disparar reavaliação sem depender do render.**
@@ -277,16 +322,16 @@ Destino é a viagem com escala selecionada.
 BL, Baplie, POD, POL, ETA e tipo de exportação devem chamar o detector ou
 invalidar o mecanismo central previsto no #517.
 
-Importação de planilha em `/embarquevazios` com depot ou terminal não cadastrado
-deve falhar como operação de importação, sem sucesso parcial; apenas feedback
-transacional na própria tela, sem alerta persistente ou Notificação Interna.
+A validação "somente exportação não pode ter POD" deve estar no ponto
+compartilhado de gravação de POD, depois de verificar todos os callers, e não
+somente no modal.
 
 - [ ] **Step 2: Provar coexistência.**
 
 BL, ausência Baplie, cobertura Baplie/BL e CE têm ciclos independentes. Se dois
 eventos abrirem simultaneamente, cada um gera sua própria notificação.
 
-### Task 10: destinos compartilhados
+### Task 11: destinos compartilhados
 
 **Files:**
 
@@ -310,7 +355,7 @@ alerts.
 
 ## Verificação
 
-### Task 11: testes e gates
+### Task 12: testes e gates
 
 **Files:**
 
@@ -329,10 +374,12 @@ alerts.
 
 - [ ] **Step 3: Validar contratos SQL.**
 
-Provar abertura idempotente, D−7, cobertura POL/POD, Baplie normal e forçado
+Provar abertura idempotente com dispensa vigente e vencida, D−7, cobertura
+POL/POD, BL com rota e zero containers, Baplie normal e forçado
 (inclusive rota EDI sem BL), Baplie somente com POD elegível, CE apenas para
-importação, escala somente exportação com POD bloqueada, exportação por escala,
-falha transacional de depot/terminal desconhecido, fechamento automático,
+importação, escala somente exportação com POD bloqueada em todos os caminhos,
+exportação por escala, falha all-or-nothing de depot/terminal desconhecido,
+fechamento automático,
 dispensa/revisão e novos ciclos.
 
 ## Handoff

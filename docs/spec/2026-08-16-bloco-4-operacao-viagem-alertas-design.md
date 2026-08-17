@@ -35,27 +35,32 @@ gravidade, fechamento, reabertura, detecção e destino.
 3. Alertas pertencentes aos ADRs, inclusive agency_report_department_pending e
    agency_report_deadline_missed, ficam no #524 e não são duplicados aqui.
 4. Não há escalonamento genérico por envelhecimento. D−7, D−5 e o override D−7
-   do Baplie são regras de negócio explícitas.
+   do Baplie são regras de negócio explícitas. A aritmética usa o fuso
+   `America/Sao_Paulo`, inclusive quando executada server-side.
 5. Fechamento manual significa dispensa, não resolução. Deve ter motivo,
    usuário, data/hora, data de revisão e estado distinto; fica visível em
-   exceções.
+   exceções. Uma dispensa vigente suprime a abertura/reabertura idempotente em
+   todos os detectores; no vencimento da revisão, a condição persistente reabre
+   o mesmo ciclo e notifica.
 
 ## Prazo e contexto de importação
 
 - D−7: BLs e Baplie disponíveis para qualquer viagem com importação.
-- D−5: CE Mercante vinculado aos BLs de importação existentes.
-- Os prazos usam o primeiro ETA brasileiro, em dias corridos, pela data local.
+- D−5: CE Mercante vinculado aos BLs da viagem que possuem POD.
+- Os prazos usam o primeiro ETA brasileiro, em dias corridos, pela data local de
+  `America/Sao_Paulo`.
 - Por padrão, o primeiro ETA brasileiro é o menor ETA das escalas próprias
   criadas por Chegadas e Saídas ou manualmente. O ETA externo, quando
   informado, substitui essa referência por ser anterior.
 - O modal da viagem deve permitir informar opcionalmente o primeiro porto
   brasileiro que não é atendido pela empresa e o ETA dele. Esse dado não cria
   uma escala operacional.
-- O ETA externo só pode ser salvo com POD e se for anterior ao primeiro ETA
-  próprio. Se uma alteração tornar o ETA próprio anterior ao externo, a
-  alteração é bloqueada.
+- Ao informar ou alterar o ETA externo, deve existir POD e ele deve ser anterior
+  ao primeiro ETA próprio. Se uma alteração tornar o ETA próprio anterior ao
+  externo, a alteração é bloqueada.
 - Remover POD preserva o ETA externo, suspende alertas de importação e não
-  apaga o dado. Recolocar POD reativa o ETA e recalcula D−7/D−5.
+  apaga o dado; salvar outros campos sem alterar esse ETA continua permitido.
+  Recolocar POD reativa o ETA e recalcula D−7/D−5.
 - Sem POD não há alertas de BL, Baplie ou CE.
 - Uma escala marcada como somente exportação não pode ter POD. Escala mista sem
   POD pode existir:
@@ -69,14 +74,14 @@ gravidade, fechamento, reabertura, detecção e destino.
 | BL esperado por POL/POD | Alerta crítico + Notificação para todos os usuários ativos de Documentação | Viagem | Fecha com cobertura mínima de cada POL e POD; reabre com nova expectativa ou remoção de BL | D−7 e alterações materiais; /viagens/:voyageId |
 | Baplie ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha com importação válida; reabre se o arquivo for invalidado/removido | D−7 e invalidação, somente com POD elegível; /baplie filtrado |
 | Cobertura documental Baplie/BL | Alerta crítico + Notificação genérica para usuários ativos de Documentação | Viagem | Fecha com todas as rotas confrontáveis e sem divergência; novo ciclo após recorrência | Imediato quando rotas cobertas; override em D−7; /baplie filtrado |
-| CE Mercante ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha quando todos os BLs de importação existentes têm CE; reabre com nova pendência | D−5 e alterações materiais; /viagens/:voyageId |
-| ATD e prazos de agência | Nenhum evento novo | ADR do #524 | Mantém contrato do ADR | ATD da escala unificada alimenta `agency_report_deadline_missed` da migration 271; não duplicar no #523 |
+| CE Mercante ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha quando todos os BLs da viagem com POD têm CE; reabre com nova pendência | D−5 e alterações materiais; /viagens/:voyageId |
+| `/chegadas-saidas`: ATD, POL/POD e prazos de agência | Nenhum evento novo | ADR do #524 para o prazo; fluxo normal para POL/POD | Mantém contratos existentes; alterações de POL/POD reavaliam o alerta de BL quando elegíveis | ATD da escala unificada alimenta `agency_report_deadline_missed` da migration 271; não duplicar no #523 |
 | Exportação pós-ATD | Alerta normal + Notificação para todos os usuários ativos de Equipamentos | Escala | Fecha quando tipos esperados têm vínculo; remoção reabre | ATD e alterações; viagem com escala selecionada |
 | `/embarquevazios`: depot/terminal não cadastrado na planilha | Falha da importação + feedback transacional, sem alerta persistente ou Notificação Interna | Arquivo/importação | O arquivo não é importado com sucesso; corrigir e reenviar | Ação na própria tela |
 | `/embarquevazios/depots` | Nenhum evento próprio | — | — | Cadastro/consulta normal |
 | `/vazios-importacao` | Nenhum evento próprio | — | — | Consulta/fluxo normal |
 | Serviços cadastrais sem expiração | Nenhum evento próprio | — | — | Não há data de expiração a monitorar |
-| Estados vazios, awaiting_route_coverage e ausência normal | Nenhum evento próprio | — | — | Estado/consulta normal |
+| Estados sem dados, `awaiting_route_coverage` e ausência normal | Nenhum evento próprio | — | — | Estado/consulta normal |
 
 ## Alerta preliminar de BL
 
@@ -103,12 +108,14 @@ da viagem e a importação já exclui portos sem nossa agência. Chegadas e Saí
 diretamente essas duas fontes. Não limitar o Baplie à escala atualmente
 selecionada na interface.
 
-Uma rota Baplie é confrontável quando existe BL com containers vinculados para
-o par exato POL → POD.
+Uma rota Baplie é coberta quando existe pelo menos um BL para o par exato
+POL → POD. A existência de containers no BL não é pré-requisito para iniciar a
+reconciliação; um BL sem containers pode produzir divergências
+`missing_in_manifest`.
 
 Regra normal:
 
-- quando todas as rotas estiverem confrontáveis, avaliar existência e cobertura
+- quando todas as rotas estiverem cobertas, avaliar existência e cobertura
   de containers;
 - divergência comprovada abre imediatamente, mesmo antes de D−7;
 - flags físicas não entram no alerta.
@@ -120,8 +127,10 @@ Override D−7:
 
 - se houver Baplie importado, forçar a checagem mesmo quando a reconciliação
   normal retornaria `awaiting_route_coverage`;
-- containers previstos pelo EDI podem gerar divergência
-  `missing_in_manifest` mesmo quando a rota ainda não tem nenhum BL;
+- uma rota EDI sem BL gera um resumo de divergência por rota, com quantidade de
+  containers afetados; o detalhe dos containers fica consultável em `/baplie`;
+- containers previstos pelo EDI podem gerar divergência `missing_in_manifest`
+  mesmo quando a rota ainda não tem nenhum BL;
 - containers de BL que não existem no EDI continuam gerando
   `missing_in_baplie` quando houver dados para confrontá-los;
 - o alerta de Baplie continua independente do alerta de BL faltante;
@@ -130,7 +139,10 @@ Override D−7:
 - atualização do alerta aberto não envia nova notificação;
 - nova divergência depois do fechamento cria novo ciclo.
 
-O alerta é único por viagem, genérico na notificação e detalhado em /baplie.
+O alerta é único por viagem, genérico na notificação e detalhado em `/baplie`.
+Não criar alertas ou Notificações Internas por container; quando uma rota não
+tem BL, o detalhe pode ser expandido por container sem alterar a unidade do
+alerta.
 Não criar alertas por BL ou container.
 
 A importação do Baplie é soberana para flags físicas: ela sobrescreve os
@@ -139,10 +151,11 @@ não produz divergência nem alerta.
 
 ## CE Mercante
 
-O alerta considera somente BLs de importação/POD. Em escala mista, BLs de
-exportação não entram nesta regra.
+Todos os BLs existentes no sistema são BLs de importação; não existe um
+predicado separado de direção para o detector. O alerta considera os BLs da
+viagem que possuem POD.
 
-- abre no D−5 se houver BL de importação sem CE;
+- abre no D−5 se houver BL da viagem com POD sem CE;
 - sem BL, não abrir alerta de CE;
 - qualquer CE vinculado ao BL é suficiente;
 - BL novo sem CE, remoção de CE ou nova pendência reabre;
@@ -170,8 +183,10 @@ exportação fica ativo. O alerta abre após ATD confirmado e é por escala:
 - alteração do tipo recalcula imediatamente;
 - destino: viagem com a escala selecionada.
 
-O fechamento manual exige data futura de revisão, sem limite máximo baseado no ETA
-de importação.
+O fechamento manual exige data futura de revisão. Antes do primeiro ETA de
+importação, a revisão não pode ultrapassá-lo; depois que o ETA passou, qualquer
+data futura é válida. A dispensa não pode alterar o estado de idempotência de
+modo que o detector recrie o alerta antes do vencimento da revisão.
 
 ## Nova implementação necessária
 
@@ -188,10 +203,13 @@ de implementação:
    elegível, com POD.
 7. Reconciliação Baplie/BL com regra normal e override D−7, incluindo
    divergência de containers em rotas sem BL.
-8. Detector D−5 de CE somente para BLs de importação.
+8. Detector D−5 de CE para BLs da viagem com POD; o sistema não possui BLs de
+   exportação.
 9. Detector pós-ATD de exportação por escala.
 10. Reavaliação imediata após BL, Baplie, POD, POL, ETA ou tipo de exportação.
 11. Roteamento compartilhado para viagem/Baplie e seleção de escala.
+12. Importação de vazios all-or-nothing quando depot ou terminal não estiver
+    cadastrado, incluindo serviço, página e feedback transacional.
 
 Nenhuma coluna, enum ou migration é pré-inventada aqui. A implementação deve
 validar as tabelas e RPCs atuais antes de escolher a próxima migration
@@ -214,8 +232,8 @@ ser criada depois da validação do contrato central e das tabelas atuais.
 
 A reconciliação Baplie hoje é consumida por TypeScript/telas e a importação
 transacional não persiste os eventos descritos. O detector deve ser idempotente,
-usar tabelas existentes, oferecer o modo forçado de D−7 e não criar tabela por
-container ou BL.
+usar tabelas existentes, oferecer o modo forçado de D−7, respeitar a dispensa
+vigente e não criar tabela por container ou BL.
 
 ## Validação futura
 
