@@ -54,6 +54,10 @@ abrir o ambiente onde a ação realmente acontece:
 | Dispute de Demurrage interna | `/demurrage`, diretamente na conversa da Dispute |
 | Dispute de Demurrage no Portal | `/portal/billing`, diretamente na conversa da Dispute |
 
+Esses destinos pertencem a cada item de pendência. O alerta agregado da entidade
+exibe todos os itens ativos e seus links de correção; ele não escolhe um único
+destino nem cria uma cópia por tela.
+
 ## 3. Vocabulário e princípios
 
 ### 3.1 Pendência, evento e notificação
@@ -68,19 +72,33 @@ ser registrado no histórico/auditoria e, quando aplicável, conter link direto
 para a entidade produzida.
 
 **Notificação Interna** é uma entrega pessoal, uma linha por usuário ativo dos
-papéis internos definidos para o evento. O departamento define a audiência,
-mas não substitui o destinatário individual. Ler uma notificação não resolve a
-pendência. A resolução depende da correção da condição de origem.
+papéis internos definidos para cada item de pendência. A audiência do alerta
+agregado é a união dos departamentos dos itens ativos, mas não substitui o
+destinatário individual. Ler uma notificação não resolve a pendência. A
+resolução depende da correção da condição de origem.
 
 ### 3.2 Unidades canônicas
 
-- Pendência geral de Portal: um alerta por cliente.
-- Bloqueio financeiro para faturamento: um alerta por B/L afetado.
-- B/L em Revisão Manual: um alerta por B/L, reunindo todos os motivos daquele
-  B/L.
-- Contestação de Demurrage: alerta vinculado à fatura de Demurrage.
-- Abuso de login investigável: alerta específico por cliente, separado da
-  pendência geral de Portal.
+O alerta persistente é agregado por entidade: para cada par
+`(entity_type, entity_id)` pode existir no máximo um alerta não resolvido,
+independentemente do tipo da pendência. Cada condição ativa fica em um item de
+pendência ligado ao alerta, com sua própria origem, departamento, destino,
+estado e histórico.
+
+- Cliente: um alerta agregado reúne pendências de Portal, abuso investigável e
+  outras condições diretamente relacionadas ao cliente.
+- B/L: um alerta agregado reúne bloqueio financeiro, revisão, falha técnica e
+  demais pendências diretamente relacionadas ao B/L.
+- Viagem: um alerta agregado reúne divergência Baplie, CE e outras pendências da
+  viagem, inclusive quando pertencem a departamentos diferentes.
+- Fatura de Demurrage: o alerta agregado reúne os itens da Dispute enquanto a
+  próxima ação for interna.
+
+Quando uma condição é resolvida, somente o item correspondente sai da visão
+ativa. O alerta é fechado apenas quando não restar item que exija ação interna.
+Se uma nova condição surgir depois, o mesmo alerta agregado é atualizado e
+reaberto com a situação atual; itens resolvidos permanecem no histórico e não
+voltam à mensagem ativa.
 
 As telas não devem criar cópias independentes do mesmo problema. Todas as
 projeções devem consultar a mesma fonte canônica.
@@ -91,9 +109,9 @@ Obrigações do sistema nunca são atribuídas a uma pessoa individualmente. A
 responsabilidade é departamental.
 
 Todos os usuários internos podem consultar e executar as ações autorizadas,
-independentemente do departamento. O departamento responsável serve para
-encaminhar notificações, organizar a fila de trabalho e identificar a
-responsabilidade operacional.
+independentemente do departamento. Cada item de pendência declara o
+departamento responsável; o alerta agregado permanece global e a notificação
+interna é entregue à união dos departamentos dos itens ainda ativos.
 
 Toda ação deve preservar auditoria completa.
 
@@ -158,8 +176,8 @@ decisão funcional paralela.
 
 ### 4.3 Pendência geral do Portal
 
-O cliente recebe um único alerta geral quando existir uma condição de Portal
-que exija intervenção, por exemplo:
+O cliente recebe um item de pendência geral dentro do alerta agregado da entidade
+quando existir uma condição de Portal que exija intervenção, por exemplo:
 
 - B/L ativo sem Portal ativo;
 - B/L ativo sem e-mail de recuperação utilizável;
@@ -168,11 +186,13 @@ que exija intervenção, por exemplo:
 - e-mail suprimido;
 - cliente aguardando análise com processo ativo.
 
-Razões simultâneas são agrupadas no mesmo alerta, com descrição detalhada.
+Razões simultâneas são agrupadas no mesmo alerta agregado do cliente, como itens
+distintos com descrição detalhada. A entrada da fila permanece única para o
+cliente.
 
-Essas pendências gerais são responsabilidade de Documentação. O alerta continua
-visível globalmente, mas a notificação interna é direcionada ao departamento de
-Documentação.
+Esses itens gerais são responsabilidade de Documentação. O alerta continua
+visível globalmente, mas a notificação interna correspondente é direcionada aos
+usuários ativos de Documentação.
 
 Um convite dentro do prazo, sem B/L que dependa de faturamento, é somente um
 estado normal da fila. Se houver B/L faturável bloqueado, a condição passa a
@@ -227,14 +247,17 @@ faturamento obrigatoriamente. O bloqueio deve ser verificado tanto no fluxo de
 preparação do B/L quanto no RPC final de emissão.
 
 Uma emissão indevida por brecha técnica ou dado histórico é exceção e deve
-gerar alerta vinculado ao B/L, com referência à fatura existente. Não deve
-existir um alerta financeiro genérico separado apenas porque a fatura foi
-emitida.
+gerar um item de pendência no alerta agregado do B/L, com referência à fatura
+existente. Não deve existir um alerta financeiro genérico separado apenas
+porque a fatura foi emitida. Em uma invoice consolidada, cada B/L afetado
+recebe seu próprio item no alerta agregado do B/L, todos referenciando a mesma
+invoice.
 
-O bloqueio financeiro causado por Portal, e a falha técnica no reprocessamento,
-notificam Documentação. Isso não transforma Financeiro no responsável
-operacional por provisionamento; Financeiro permanece atuando nos seus fluxos
-próprios, especialmente consulta e reconciliação do extrato do Itaú.
+O bloqueio financeiro causado por Portal e a falha técnica no reprocessamento
+notificam Documentação. Financeiro pode continuar atuando nos seus fluxos
+próprios, especialmente consulta e reconciliação do extrato do Itaú, mas não é
+destinatário de alertas ou notificações deste bloco para enviar o StratoPIX ou
+tratar provisionamento do Portal.
 
 Uma emissão indevida também pode ocorrer em dados históricos ou quando uma
 invoice é inserida já com `status = 'issued'`. Essa exceção é crítica, é
@@ -254,7 +277,8 @@ Portal, e-mail de recuperação e demais bloqueios aplicáveis.
 - B/L elegível: faturar automaticamente, individualmente, e disponibilizar a
   fatura no Portal.
 - B/L com outro bloqueio: manter a pendência com a causa funcional específica.
-- Falha técnica: manter alerta específico no B/L, com ação de reprocessamento.
+- Falha técnica: manter item específico no alerta agregado do B/L, com ação de
+  reprocessamento.
 - Reprocessamento repetido: ser idempotente e não criar fatura ativa duplicada.
 
 A ativação não deve ser desfeita por falha posterior na emissão.
@@ -263,7 +287,7 @@ A ativação não deve ser desfeita por falha posterior na emissão.
 
 Um cliente pode possuir:
 
-- um alerta geral de Portal;
+- um item geral de Portal no alerta agregado do cliente;
 - alertas financeiros individuais nos B/Ls bloqueados;
 - pendências incorporadas ao alerta de Revisão Manual de outros B/Ls;
 - B/Ls cancelados ou encerrados sem novos alertas.
@@ -319,9 +343,12 @@ Fluxo esperado:
 4. Equipamentos conclui a análise: resolvida, sem resposta pendente.
 5. A Dispute é cancelada formalmente: cancelada, sem resposta pendente.
 
-O alerta interno deve existir quando a próxima ação for de Equipamentos. Quando
-a próxima resposta for do cliente, o caso permanece aberto e visível no
-acompanhamento, mas não gera nova cobrança interna para Equipamentos.
+O item de pendência interno deve existir quando a próxima ação for de
+Equipamentos. Quando a próxima resposta for do cliente, a Dispute permanece
+aberta e visível no acompanhamento, mas o item de Equipamentos é removido da
+visão ativa e não gera nova cobrança interna. Se houver outra pendência ativa
+na mesma entidade, ela permanece no alerta agregado com seu próprio
+departamento.
 
 ### 6.3 Conversa e anexos
 
@@ -362,7 +389,9 @@ bloco transversal de notificações.
 
 O bloqueio automático comum por excesso de tentativas é apenas um evento de
 segurança no histórico. Quando o volume ou padrão exigir investigação, deve ser
-criado um alerta específico por cliente, separado da pendência geral de Portal.
+criado um item específico no alerta agregado do cliente, separado como razão da
+pendência geral de Portal, mas sem criar uma segunda linha de alerta para o
+mesmo cliente.
 Esse alerta é crítico, é direcionado a Documentação e permanece aberto até que
 o departamento registre a análise e a providência tomada. O fim automático da
 janela de bloqueio não resolve o alerta. Repetições são deduplicadas enquanto
@@ -387,15 +416,24 @@ acesso direto à entidade correspondente.
 ## 8. Segurança, auditoria e visibilidade
 
 - Todos os usuários internos podem consultar e executar ações autorizadas.
-- Ações sensíveis exigem justificativa obrigatória.
+- A troca interna do e-mail de recuperação, a revogação e a dispensa, quando
+  aplicáveis, exigem justificativa; as demais correções seguem o rastro
+  obrigatório de autor e departamento congelado, conforme a política de escrita
+  interna.
 - O log deve registrar usuário, departamento/role, data/hora, cliente, conta,
   entidade, estado anterior, estado novo, e-mail/convite relacionado e origem.
 - Eventos automáticos devem registrar uma justificativa descritiva.
 - A leitura não resolve alerta nem Dispute.
+- Não existe ação de reconhecimento: ler é pessoal e nunca muda os itens do
+  alerta agregado.
 - O alerta global continua visível para todos os departamentos.
-- A notificação interna é direcionada ao departamento responsável e possui
-  leitura individual por usuário.
-- A resolução do problema tem efeito coletivo para o departamento.
+- A notificação interna é direcionada à união dos departamentos responsáveis
+  pelos itens ativos e possui leitura individual por usuário.
+- A resolução de um item remove somente aquele item e o departamento que deixou
+  de ter pendência; a resolução de todos os itens fecha o alerta agregado.
+- Qualquer dispensa temporária definida pela fundação é metadado com motivo,
+  autor e revisão futura; não resolve item, não fecha o alerta e não libera
+  faturamento.
 
 ### 8.1 Gravidade e detecção dos alertas do bloco
 
@@ -404,7 +442,7 @@ do épico #519. “Gatilho” inclui evento de domínio em RPC/Edge Function; qu
 indicado, o cron é apenas a reconciliação periódica e não uma escalada por
 tempo.
 
-| Tipo | Gravidade | Detecção |
+| Tipo de pendência | Gravidade | Detecção |
 |---|---|---|
 | `portal_pendencia_geral` | Normal | Gatilho nas mudanças de cliente, B/L, conta e e-mail; reconciliação de segurança a cada 15 minutos. |
 | `portal_convite_expirado` | Normal | Cron a cada 15 minutos (`portal-mark-expired-invites`). |
@@ -413,16 +451,17 @@ tempo.
 | `portal_abuso_login` | Crítica | Gatilho imediato no fluxo de login quando o padrão atingir o limiar investigável; sem fechamento por expiração da janela. |
 | `portal_excecao_critica_fatura` | Crítica | Trigger após `INSERT` de invoice já `issued` ou transição para `issued`, mais backfill explícito dos registros históricos. |
 
-Nenhum alerta se torna crítico apenas por envelhecer.
+Os tipos da tabela são chaves de itens de pendência, não linhas independentes
+de `alerts`. Nenhum alerta se torna crítico apenas por envelhecer.
 
 ## 9. Critérios de aceite funcionais
 
 - **521-AC-01:** cliente sem processo ativo pode permanecer em `Aguardando
   análise` sem alerta persistente.
 - **521-AC-02:** cliente com B/L ativo sem Portal ou e-mail utilizável gera um
-  único alerta geral no cliente.
-- **521-AC-03:** convite expirado ou falha de envio atualiza o alerta geral sem
-  duplicá-lo.
+  item no único alerta agregado do cliente.
+- **521-AC-03:** convite expirado ou falha de envio atualiza o item
+  correspondente no alerta agregado sem duplicá-lo.
 - **521-AC-04:** `Provisionamento não necessário` não aparece em estados,
   filtros ou ações.
 - **521-AC-05:** `/clientes` exibe pendência própria e resumo dos B/Ls
@@ -435,17 +474,18 @@ Nenhum alerta se torna crítico apenas por envelhecer.
   e-mail de recuperação utilizável.
 - **521-AC-09:** ativar o Portal reprocessa B/Ls ativos não faturados de forma
   idempotente.
-- **521-AC-10:** B/L bloqueado por falha de emissão mantém alerta específico e
-  ação de reprocessamento.
+- **521-AC-10:** B/L bloqueado por falha de emissão mantém item específico no
+  alerta agregado e ação de reprocessamento.
 - **521-AC-11:** pagamento individual de B/L obsoleta automaticamente a
   consolidação relacionada, sem alerta normal.
 - **521-AC-12:** criação de fatura e desconsolidação válida são eventos de
   histórico com acesso direto às entidades.
-- **521-AC-13:** bloqueio temporário normal de login não gera alerta; padrão que
-  exigir investigação gera alerta específico, crítico, para Documentação, que
-  permanece até análise e tratamento; a expiração da janela não o fecha.
-- **521-AC-14:** Dispute de Demurrage gera pendência para Equipamentos e aparece
-  no acompanhamento interno de Demurrage.
+- **521-AC-13:** bloqueio temporário normal de login não gera item; padrão que
+  exigir investigação gera item crítico no alerta agregado do cliente, para
+  Documentação, que permanece até análise e tratamento; a expiração da janela
+  não o fecha.
+- **521-AC-14:** Dispute de Demurrage gera item para Equipamentos quando a
+  próxima ação for interna e aparece no acompanhamento interno de Demurrage.
 - **521-AC-15:** Dispute separa estado do caso e responsável pela próxima
   resposta.
 - **521-AC-16:** conversa de Dispute preserva mensagens e anexos por autor e
@@ -458,15 +498,19 @@ Nenhum alerta se torna crítico apenas por envelhecer.
 - **521-AC-20:** canais concretos de e-mail e notificação do Portal são tratados
   no bloco transversal, sem duplicar esta regra.
 - **521-AC-21:** invoice inserida já como `issued`, ou alterada para `issued`,
-  sem Portal/e-mail utilizável gera a exceção crítica por B/L, e os registros
-  históricos equivalentes são encontrados pelo backfill.
+  sem Portal/e-mail utilizável gera o item da exceção crítica no alerta
+  agregado do B/L, e os registros históricos equivalentes são encontrados pelo
+  backfill.
+- **521-AC-22:** uma entidade com várias pendências mantém um único alerta
+  agregado; cada item pode ser resolvido separadamente, atualizando a lista
+  ativa, os departamentos e os destinos sem apagar o histórico.
 
 ## 10. Fora de escopo e dependências
 
 Este documento não define ainda:
 
-- o desenho técnico definitivo de `alerts`, notificações individuais ou
-  migração dos estados técnicos atuais;
+- o desenho técnico definitivo dos itens do alerta agregado, das notificações
+  individuais ou da migração dos estados técnicos atuais;
 - o mecanismo de envio de e-mails ao cliente;
 - a implementação visual completa das notificações dentro do Portal;
 - limites, extensões e política detalhada de armazenamento de anexos;

@@ -35,14 +35,15 @@ bloco transversal de e-mails/notificações para os canais concretos do Portal.
 - `/clientes`, `/clientes/:cnpj` e `/clientes/portal` possuem dados de Portal,
   mas ainda não uma projeção unificada de pendências.
 - `alerts` ainda utiliza estados técnicos `open`, `acknowledged` e `closed`,
-  enquanto o produto deve expor apenas pendente/resolvido.
+  não possui itens de pendência agregados nem uma audiência derivada dos itens,
+  enquanto o produto deve expor uma pendência agregada por entidade.
 - `portal-invite-activate` ativa a conta, mas ainda não reprocessa os B/Ls do
   cliente.
 - O gate de Portal/e-mail não está garantido em todos os caminhos finais de
   emissão.
 - `alerts.assigned_to` é uma FK para `auth.users(id)`, mas permanece sem uso
   nesta arquitetura: não representa departamento nem o destinatário do sino.
-  A implementação precisa declarar a audiência por tipo de evento e fazer
+  A implementação precisa declarar a audiência por item de pendência e fazer
   fan-out para uma Notificação Interna por usuário ativo, sem escolher
   arbitrariamente um usuário e sem retirar a visibilidade dos demais.
 - `portal_invoice_exception_on_issue` só está ligado a `UPDATE OF status`, mas
@@ -55,6 +56,8 @@ bloco transversal de e-mails/notificações para os canais concretos do Portal.
   nem anexos por mensagem.
 - A implantação deve preservar os fluxos já existentes de reconciliação do
   extrato do Itaú e o acesso amplo auditado dos usuários internos.
+- Financeiro pode executar a consulta/reconciliação do extrato, mas não recebe
+  alertas ou notificações deste bloco para enviar o StratoPIX ou tratar Portal.
 
 ## Ordem e bloqueios
 
@@ -76,34 +79,51 @@ destinatários de forma estável para consumi-lo.
 **Arquivos prováveis:** migrations novas; `src/services/alerts.ts`; tipos
 gerados; serviços compartilhados de projeção.
 
-- [ ] Definir a representação persistente de pendência com entidade canônica,
-  tipo, departamento responsável, mensagem detalhada, origem, causa,
-  timestamps, resolução e referência opcional a entidade relacionada.
-- [ ] Criar a representação persistente da audiência departamental (por
-  exemplo, uma regra de destinatários com valores canônicos do domínio), sem
-  gravar o departamento em `alerts.assigned_to` e sem introduzir atribuição
-  individual nesta rodada. Incluir migration, grants, projeções e notificações;
-  a entrega deve gerar uma Notificação Interna por usuário ativo do papel
-  definido para o evento.
+- [ ] Definir a representação persistente do alerta agregado por entidade e de
+  seus itens de pendência. O par `(entity_type, entity_id)` identifica uma
+  única fila agregada não resolvida; cada item mantém chave de origem, tipo,
+  departamento, mensagem, destino, causa, timestamps, estado e histórico
+  próprios.
+- [ ] Criar a ligação persistente entre alerta agregado e itens, permitindo
+  recomputar a lista ativa sem interpretar texto concatenado. Resolver um item
+  não pode fechar os demais; o alerta só fecha quando não restar item que exija
+  ação interna.
+- [ ] Criar a representação persistente da audiência departamental por item,
+  sem gravar o departamento em `alerts.assigned_to` e sem introduzir atribuição
+  individual nesta rodada. O alerta agregado usa a união dos departamentos dos
+  itens ativos; a entrega deve gerar uma Notificação Interna por usuário ativo
+  de cada papel definido para esses itens.
 - [ ] Definir a projeção de uma pendência para `/alertas`, sino, lista, ficha e
   entidade sem duplicar registros.
 - [ ] Preservar resolução coletiva do alerta e leitura individual das
   notificações.
-- [ ] Implementar deduplicação por unidade canônica: cliente, B/L, fatura de
-  Demurrage ou ocorrência de segurança.
+- [ ] Implementar deduplicação por entidade, com índice/guarda server-side que
+  impeça mais de um alerta não resolvido para o mesmo `(entity_type,
+  entity_id)`, independentemente do tipo. Os itens usam uma chave própria de
+  origem para impedir duplicação da mesma condição dentro do agregado.
+- [ ] Consolidar no rollout os alertas não resolvidos já existentes para a
+  mesma entidade, unindo seus itens, mensagens, departamentos e destinos antes
+  de encerrar duplicatas; nenhum histórico pode ser descartado.
 - [ ] Criar auditoria para criação, atualização, resolução, reabertura e ações
   manuais sensíveis.
 - [ ] Definir a migração dos estados técnicos atuais para a apresentação
-  `Pendente`/`Resolvido`, sem apagar histórico.
+  `Pendente`/`Resolvido`, sem reconhecimento como resolução e sem apagar
+  histórico. Fechamento deriva da recomputação dos itens; leitura individual
+  nunca altera o alerta. Se a fundação oferecer dispensa temporária, o plano
+  deve consumir metadado com motivo, autor e revisão futura, sem fechar item,
+  alerta ou liberar faturamento.
 - [ ] Criar backfill que consolide, por cliente, as linhas não resolvidas de
-  `portal_convite_expirado`, `portal_falha_envio` e `portal_email_suprimido`
-  em um único `portal_pendencia_geral`, agregando as razões e encerrando as
-  linhas legadas com auditoria. Linhas já fechadas permanecem no histórico;
-  `portal_abuso_login` e a exceção crítica de invoice continuam separados.
+  `portal_convite_expirado`, `portal_falha_envio`, `portal_email_suprimido`,
+  `portal_abuso_login` e a pendência geral em um único alerta agregado,
+  preservando cada razão como item e encerrando as linhas legadas com
+  auditoria. A exceção crítica de invoice deve ser convertida em item do
+  alerta agregado do B/L afetado, com referência à invoice. Linhas já fechadas
+  permanecem no histórico.
 - [ ] Catalogar para cada tipo a gravidade e o gatilho/frequência de detecção
   definidos na spec, incluindo a reconciliação de 15 minutos quando aplicável.
 - [ ] Adicionar testes SQL-contract e testes de serviço para deduplicação,
-  projeção e resolução coletiva.
+  agregação por entidade, projeção, audiência por união de departamentos,
+  resolução individual de item e resolução coletiva do alerta.
 
 ## Task 2 — Cliente, fila do Portal e reconciliação
 
@@ -117,9 +137,14 @@ do Portal.
 - [ ] Manter cliente sem processo ativo e sem contatos utilizáveis sem alerta.
 - [ ] Criar/normalizar a conta de Portal antecipadamente em `Aguardando
   análise`, removendo `Provisionamento não necessário` de estados, filtros,
-  labels, ações e decisões.
-- [ ] Promover cliente com processo ativo e Portal/e-mail pendente para um único
-  alerta geral, agrupando razões simultâneas.
+  labels, ações e decisões. A migration deve fazer backfill idempotente das
+  contas históricas para `aguardando_analise`, preservar os eventos de auditoria,
+  substituir a exclusão/fechamento baseada no literal por uma condição de B/L
+  ativo, atualizar os read-models e substituir/revogar as RPCs que ainda
+  gravam o estado removido.
+- [ ] Promover cliente com processo ativo e Portal/e-mail pendente para um item
+  no alerta agregado do cliente, agrupando razões simultâneas sem duplicar a
+  linha da entidade.
 - [ ] Confirmar reconciliação automática somente para `matched_document`, sem
   promover a pendência ao alerta geral do cliente; preservar `reconciled` como
   estado válido de vínculo manual e manter sugestão por nome/fuzzy match como
@@ -146,21 +171,28 @@ faturamento/B/L.
   recuperação utilizável.
 - [ ] Aplicar a verificação no caminho final de toda emissão individual e
   consolidada, sem confiar apenas em `ready_for_billing` ou na interface.
-- [ ] Criar pendência financeira por B/L quando o gate bloquear faturamento,
-  incorporando a causa ao alerta de Revisão Manual quando ele já existir.
+- [ ] Criar item de pendência financeira por B/L quando o gate bloquear
+  faturamento, incorporando a causa ao alerta agregado do B/L quando ele já
+  existir.
 - [ ] Fazer a ativação do Portal localizar B/Ls ativos ainda não faturados e
   reexecutar todas as verificações de elegibilidade.
+- [ ] Incluir `matched_document` e `reconciled` como vínculos elegíveis para o
+  reprocessamento. Nenhum B/L não faturado pode desaparecer por retorno nulo:
+  se houver bloqueio, registrar a causa funcional no item do alerta agregado;
+  se houver falha técnica, registrar alerta/item específico e ação de
+  reprocessamento.
 - [ ] Emitir individualmente cada B/L elegível, com idempotência e vínculo
   correto ao ledger.
-- [ ] Manter alertas funcionais para CE Mercante, revisão, taxa ou reconciliação
-  que ainda impeçam emissão.
+- [ ] Manter itens funcionais para CE Mercante, revisão, taxa ou reconciliação
+  que ainda impeçam emissão, dentro do alerta agregado do B/L.
 - [ ] Criar alerta técnico específico e ação de reprocessamento quando a
   emissão automática falhar depois da ativação.
 - [ ] Corrigir a exceção crítica de invoice para detectar tanto `INSERT` já em
   `issued` quanto a transição para `issued`, gerar alerta por B/L afetado com
   referência à invoice e executar backfill dos registros históricos que foram
-  emitidos sem Portal/e-mail utilizável. Cobrir esse comportamento em critério
-  de aceite e teste de contrato SQL.
+  emitidos sem Portal/e-mail utilizável. A inserção deve atualizar o item do
+  alerta agregado do B/L, não criar uma linha independente por invoice. Cobrir
+  esse comportamento em critério de aceite e teste de contrato SQL.
 - [ ] Garantir disponibilidade da invoice emitida nas consultas do Portal e
   registrar os eventos no cliente e no B/L.
 - [ ] Preservar o comportamento de pagamento individual que obsoleta a
@@ -249,7 +281,8 @@ alertas e notificações.
 componentes do sino/Portal, conforme o bloco transversal.
 
 - [ ] Publicar eventos com destinatário departamental, entidade, ação e link
-  de destino.
+  de destino. O evento atualiza o item correspondente do alerta agregado e
+  nunca cria outra linha para a mesma entidade.
 - [ ] Usar os destinos canônicos: pendência geral em
   `/clientes/portal?cliente={id}`; bloqueio ou falha de B/L em
   `/manifestos/{blId}?tab=faturamento`; invoice em
@@ -261,7 +294,12 @@ componentes do sino/Portal, conforme o bloco transversal.
 - [ ] Garantir Equipamentos como destinatário das Disputes de Demurrage quando
   a próxima resposta for interna.
 - [ ] Preservar leitura individual por usuário e resolução coletiva por
-  departamento.
+  departamento. A resolução individual de um item remove apenas seu
+  departamento da audiência; o alerta fecha somente quando todos os itens forem
+  resolvidos.
+- [ ] Normalizar o identificador canônico usado nos destinos de invoice e
+  disponibilizar os links de cada item, evitando que número textual de invoice
+  caia em `/faturamento` sem selecionar a fatura.
 - [ ] Delegar o envio de e-mail ao cliente e a notificação in-app do Portal ao
   bloco transversal, com contrato versionado.
 - [ ] Testar que uma mensagem não cria notificações duplicadas nem altera a
