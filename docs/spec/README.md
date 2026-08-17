@@ -16,11 +16,11 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
+| [`2026-08-16-bloco-4-operacao-viagem-alertas-design.md`](./2026-08-16-bloco-4-operacao-viagem-alertas-design.md) | Contrato de alertas e notificações do Bloco 4 (#523) |
 
-Nenhuma no momento: todas as specs funcionais aprovadas até aqui tiveram seus
-planos concluídos e estão preservadas no
-[arquivo histórico](../archive/specs/). A spec comportamental abaixo é
-permanente e não entra nesta tabela.
+Specs funcionais aprovadas permanecem nesta tabela enquanto o plano derivado
+estiver pendente; depois são movidas para o [arquivo histórico](../archive/specs/).
+A spec comportamental abaixo é permanente e não entra nesta tabela.
 
 ## Behavioral Specification
 
