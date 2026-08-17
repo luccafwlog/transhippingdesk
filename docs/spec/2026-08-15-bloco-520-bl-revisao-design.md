@@ -35,10 +35,13 @@ por sua origem.
 Neste bloco, B/L inclui registros de `bls` e `granite_bls`. O alerta de revisão
 usa a chave composta `(type, entity_type, entity_id)`: `type` separa alertas
 legitimamente distintos para a mesma entidade, enquanto `bl` e `granite_bl`
-distinguem as duas origens mesmo quando os identificadores coincidem. Os B/Ls de
-`bls` usam os três motivos do gate canônico; os registros de `granite_bls` usam
-a condição vigente `client_id IS NULL`, sem inventar motivos de Portal ou de
-peso que não pertençam a esse fluxo.
+distinguem as duas origens mesmo quando os identificadores coincidem. A tabela
+`public.bls` é a fonte comum tanto para B/L de contêiner
+(`cargo_mode = 'container'`) quanto para B/L de carga solta
+(`cargo_mode = 'carga_solta'`),
+que usa os campos próprios de volumes/peso e não exige `bl_containers`. Os B/Ls
+de `bls` usam os motivos canônicos do gate; os registros de `granite_bls` usam
+a condição vigente `client_id IS NULL`.
 
 ## 3. Princípios
 
@@ -75,9 +78,11 @@ resolvidos:
 - a exclamação desaparece.
 
 O fechamento desse alerta derivado é feito pela recomputação da origem. Enquanto
-houver motivo pendente, o fechamento manual é bloqueado; reconhecer continua
-sendo uma ação coletiva distinta de ler. Assim, `/alertas` não pode esconder um
-B/L que ainda está bloqueado no gate.
+houver motivo pendente, o fechamento manual é bloqueado. Não existe ação de
+reconhecer: ler continua sendo individual e não resolve. A ação coletiva de
+triagem é uma dispensa temporária, que apenas tira o alerta da fila prioritária,
+exige motivo e data futura de revisão e nunca libera o gate. Assim, `/alertas`
+não pode esconder uma pendência bloqueadora sem preservar sua revisão futura.
 
 Abrir a revisão, a ficha ou a notificação não resolve o problema.
 
@@ -125,11 +130,13 @@ A importação de carga solta segue a mesma separação:
 
 ## 5. Motivos da Revisão Manual
 
-Para B/Ls de `bls`, os três motivos canônicos atuais do gate de revisão recebem o
-mesmo tratamento de pendência:
+Para B/Ls de `bls`, o gate de revisão deve expor quatro motivos canônicos, todos
+com o mesmo tratamento de pendência:
 
 - cliente não vinculado;
 - cliente sem e-mail cadastrado/utilizável;
+- Conta de Portal não ativa, não vinculada ao usuário de autenticação ou sem
+  acesso utilizável para visualizar a fatura;
 - peso de carga solta ausente.
 
 Para `granite_bls`, a condição vigente da fila é `client_id IS NULL`; ela é a
@@ -139,11 +146,12 @@ origem. A implementação deve recomputar essa condição após
 `save_granite_bl_review` e fechar o alerta quando `client_id` deixar de ser
 nulo; não deve inventar motivos de Portal ou de peso.
 
-Quando o problema for a ausência de e-mail, a pendência de cliente segue também
-a regra própria do bloco de Clientes. O Portal não é motivo do gate de revisão
-nem condição de prontidão para faturamento desde a migration `188`; o B/L
-continua exibindo a consequência financeira/operacional aplicável, sem duplicar
-o alerta geral do cliente.
+Quando o problema for a ausência de e-mail ou a falta de prontidão do Portal, a
+pendência de cliente segue também a regra própria do bloco de Clientes. A
+prontidão do Portal é condição do gate de revisão/faturamento conforme a ADR
+0051; deve compor o alerta único do B/L, sem duplicar o alerta geral do cliente.
+Como a migration `188_review_gate_remove_portal.sql` é histórica e protegida, a
+restauração ocorre em migration nova e não por edição retroativa.
 
 Quando a reconciliação identificar corretamente o cliente por documento, o
 vínculo é resolvido automaticamente. Correspondência somente por nome ou fuzzy
@@ -199,13 +207,12 @@ domínios e não ao cadastro de veículos.
 - A tela global `/alertas` exibe o alerta canônico para todos os departamentos.
 - O sino encaminha a notificação para Documentação nos casos de Revisão Manual.
 - A leitura é individual por usuário e não resolve a pendência.
-- Reconhecer e fechar um Alerta são ações coletivas, compartilhadas por toda a
-  equipe interna; não há estado ou escopo de resolução por departamento.
-- O Eco de Tratamento informa os demais destinatários quando alguém reconhece ou
-  fecha um Alerta.
-- Alertas derivados do gate de revisão só podem ser fechados pela resolução da
-  condição de origem; a UI e o servidor bloqueiam fechamento manual enquanto
-  houver motivo pendente.
+- Não há estado nem ação de reconhecimento. A dispensa é coletiva, temporária,
+  exige motivo e data futura de revisão e apenas retira o alerta da fila
+  prioritária; não resolve a origem nem libera faturamento.
+- Alertas derivados do gate de revisão só podem ser fechados automaticamente
+  pela resolução da condição de origem; a UI e o servidor bloqueiam fechamento
+  manual enquanto houver motivo pendente.
 - Todos os usuários internos podem consultar e executar ações autorizadas, com
   logs completos.
 - As correções deste bloco não exigem justificativa textual obrigatória: o rastro
@@ -227,8 +234,8 @@ domínios e não ao cadastro de veículos.
 - **520-AC-05:** correção parcial atualiza a mensagem sem duplicar alerta.
 - **520-AC-06:** resolver todos os motivos remove o B/L da fila, fecha o
   alerta e remove a exclamação.
-- **520-AC-07:** abrir a ficha ou a notificação não resolve a pendência, e o
-  fechamento manual não oculta um alerta de revisão com motivos pendentes.
+- **520-AC-07:** abrir a ficha ou a notificação não resolve a pendência; não há
+  reconhecimento; e a dispensa exige motivo e data futura sem ocultar a origem.
 - **520-AC-08:** ficha do B/L exibe painel contextual no topo em todas as abas.
 - **520-AC-09:** correção possível na ficha pode ser executada diretamente ali.
 - **520-AC-10:** pendência de outro domínio encaminha para o módulo correto.
@@ -242,6 +249,12 @@ domínios e não ao cadastro de veículos.
   container.
 - **520-AC-16:** todos os usuários internos veem e podem tratar as pendências,
   com auditoria.
+- **520-AC-17:** o alerta de revisão é crítico e sua abertura ocorre no servidor
+  nas mutações autoritativas, com recomputação idempotente de segurança a cada
+  15 minutos, sem depender de tela e sem duplicar registros.
+- **520-AC-18:** toda dispensa de alerta exige data futura de revisão; se a
+  condição persistir, o alerta retorna à fila prioritária, e se tiver sido
+  resolvida o fechamento é automático.
 
 ## 11. Fora de escopo e dependências
 
@@ -255,4 +268,6 @@ Este documento não implementa nem redefine:
   em `import_errors`.
 
 Esses pontos devem ser consumidos por contratos comuns e pelos blocos #521,
-#522 e #523.
+#522 e #523. Para a detecção D−5 de CE Mercante do bloco de viagens, a unidade
+de B/L é exclusivamente `public.bls`: entram B/Ls de contêiner e carga solta
+com POD; `granite_bls` fica fora desse detector.

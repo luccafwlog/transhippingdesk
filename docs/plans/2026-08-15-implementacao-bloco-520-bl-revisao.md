@@ -43,12 +43,19 @@ Interna, podem avançar com os contratos já existentes.
 - [ ] Definir como a mensagem agrega e remove motivos sem duplicar registros.
 - [ ] Definir a projeção de um alerta de viagem/Baplie em B/Ls e containers,
   sem criar alerta filho.
-- [ ] Preservar leitura individual, resolução coletiva e auditoria.
+- [ ] Preservar leitura individual, triagem coletiva temporária e auditoria; não
+  implementar `reconhecer` como estado ou ação.
+- [ ] Modelar dispensa como metadado/registro temporário do Alerta aberto, com
+  motivo, autor, data/hora e data futura de revisão; nunca como fechamento ou
+  dispensa indefinida.
 - [ ] Bloquear fechamento manual de alertas derivados enquanto a origem ainda
   tiver motivos pendentes; somente a recomputação pode fechá-los. Implementar
   a guarda no contrato server-side (RPC, trigger ou policy/RLS apropriada),
   acompanhada de teste de contrato SQL, para que um UPDATE direto não contorne
   a proteção da UI.
+- [ ] Definir o rótulo e o destino compartilhados para `bl` e `granite_bl`;
+  incluir paginação/filtro para que a lista de 200 alertas não esconda
+  pendências de revisão.
 - [ ] Criar testes de deduplicação, atualização parcial e resolução.
 
 ## Task 2 — Importação de B/Ls e carga solta
@@ -73,16 +80,24 @@ Se a integração exigir alteração de banco, a migration nova deve usar o pró
 prefixo disponível (`304` neste checkout); nunca editar
 `188_review_gate_remove_portal.sql`. Migrations são arquivos protegidos: antes
 de criá-las ou editá-las, obter autorização explícita e usar o override previsto
-em `CLAUDE.md` apenas para essa sessão.
+em `CLAUDE.md` apenas para essa sessão. A ADR 0051 restabelece o Portal como
+gate de revisão/faturamento; a implementação deve fazê-lo em migration nova.
 
 - [ ] Garantir que todo B/L de `bls` ou `granite_bls` na fila de revisão tenha um
-  alerta canônico, com motivos vindos da fonte correta de cada origem.
+  alerta canônico, com motivos vindos da fonte correta de cada origem; em
+  `bls`, incluir cliente, e-mail, prontidão do Portal e peso BB.
 - [ ] Consolidar os motivos de cada origem em um único alerta por origem e B/L;
-  para `bls`, usar cliente não vinculado, cliente sem e-mail e peso de carga
-  solta, e para `granite_bls`, usar a condição vigente `client_id IS NULL`.
+  para `bls`, usar cliente não vinculado, cliente sem e-mail, Portal não pronto
+  e peso de carga solta, e para `granite_bls`, usar a condição vigente
+  `client_id IS NULL`.
+- [ ] Substituir a extração de motivos de notas em `src/hooks/useReview.ts`
+  por uma fonte canônica server-side (RPC/view sobre
+  `compute_bl_review_pendencies`) e tornar a abertura imediata nas mutações
+  autoritativas, com cron idempotente a cada 15 minutos como segurança.
 - [ ] Atualizar a mensagem quando houver correção parcial.
 - [ ] Fechar o alerta e retirar o B/L da fila somente quando todos os motivos
-  forem resolvidos; bloquear fechamento manual enquanto houver motivo pendente.
+  forem resolvidos; nenhum reconhecimento; a dispensa é temporária, exige
+  motivo/data futura e não encerra nem libera o gate.
 - [ ] Encaminhar notificações de revisão para Documentação.
 - [ ] Permitir tratamento na fila sem tornar a fila a única origem da correção.
 - [ ] Criar testes de entrada, permanência, correção parcial e saída da fila.
@@ -100,6 +115,9 @@ de manifestos, containers e carga solta.
 - [ ] Encaminhar divergência de Baplie ao módulo de viagem/Baplie.
 - [ ] Exibir exclamação enquanto existir motivo pendente do B/L.
 - [ ] Projetar contexto nas listas sem criar alertas duplicados.
+- [ ] Definir rótulo/destino de `granite_bl` e não deixar a revisão ocupar
+  silenciosamente o teto de 200 linhas de `listAlerts`; paginar ou filtrar a
+  fila.
 - [ ] Adicionar testes de navegação e visibilidade por aba.
 
 ## Task 5 — Containers e Demurrage
@@ -122,7 +140,7 @@ componentes de projeção.
 testes.
 
 - [ ] Verificar e preservar a validação já existente em
-  `src/services/vehicleImport.ts:250-302`, que cobre B/L, viagem, container,
+  `src/services/vehicleImport.ts:246-302`, que cobre B/L, viagem, container,
   tipo, lacre e match ambíguo antes do insert.
 - [ ] Rejeitar veículo sem container válido sem reintroduzir fallback silencioso.
 - [ ] Mostrar o motivo no resultado da importação.
@@ -138,6 +156,8 @@ testes.
 - [ ] Publicar projeções de Baplie sem assumir a implementação do #523.
 - [ ] Garantir que a ficha do cliente do #521 possa resumir B/Ls deste bloco.
 - [ ] Garantir que o faturamento do #522 possa consumir o estado de revisão.
+- [ ] Garantir que a emissão/faturamento respeite a prontidão do Portal como
+  gate server-side, conforme ADR 0051, sem editar a migration 188.
 - [ ] Testar resolução da origem refletida em todas as projeções.
 
 ## Task 8 — Verificação e rollout
@@ -146,12 +166,25 @@ testes.
 - [ ] Exercitar B/L com múltiplos motivos e correção em etapas.
 - [ ] Exercitar Baplie como alerta de viagem com projeções em B/L/container.
 - [ ] Exercitar veículo inválido e confirmar ausência de entidade/alerta.
+- [ ] Exercitar a dispensa com data futura: o alerta sai da fila prioritária,
+  retorna se a origem persistir e fecha automaticamente se a origem resolver.
 - [ ] Rodar testes focados, `npm run docs:check`, `npm run typecheck`,
   `npm run lint`, `npm test`, `npm run build` e `git diff --check`.
 - [ ] Atualizar a spec comportamental canônica após verificação do código.
 - [ ] Registrar a entrega em `docs/CHANGELOG.md`.
 - [ ] Após a conclusão, mover spec e plano para os diretórios de arquivo e
   atualizar os índices.
+
+## Nota factual para o bloco de viagens
+
+O D−5 de CE Mercante deve considerar exclusivamente `public.bls` com POD,
+incluindo `cargo_mode = 'container'` e `cargo_mode = 'carga_solta'`; carga solta
+é B/L comum com campos BB próprios, não um container. `granite_bls` não entra
+nesse detector. O helper atual de faturamento
+`src/services/reviewBillingAutomation.ts:15-70` bloqueia explicitamente CE
+ausente apenas para `cargo_mode = 'container'`; a regra documental de CE para
+todos os modos da ADR 0042 exige correção/teste no bloco de implementação, não
+uma afirmação de que o código já está correto.
 
 ## Checkpoints de revisão
 

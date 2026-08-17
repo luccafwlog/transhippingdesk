@@ -959,10 +959,9 @@ auditoria é um evento do Histórico; nem todo evento do Histórico é uma audit
 
 **Alerta**
 Pendência operacional registrada automaticamente pelo sistema e compartilhada
-por toda a equipe interna. Existe uma única vez, tem ciclo de vida próprio
-(aberto → reconhecido → fechado) e é tratada uma única vez: quando alguém
-reconhece ou fecha, o estado passa a valer para todos. Responde "o que ainda
-precisa ser feito".
+por toda a equipe interna. Existe uma única vez e permanece aberto enquanto a
+condição de origem existir. Não há estado de reconhecimento: leitura é pessoal
+e não trata a pendência. Responde "o que ainda precisa ser feito".
 
 **Notificação Interna**
 Aviso pessoal entregue a um usuário interno sobre um Evento Notificável, com
@@ -973,9 +972,9 @@ de Alerta.
 
 **Cópia Congelada**
 Invariante da Notificação Interna: ela descreve o Evento Notificável como ele
-ocorreu, não o estado atual da entidade envolvida. Reconhecer ou fechar o
-Alerta não apaga nem altera as Notificações Internas já entregues — o registro
-de que o usuário foi avisado permanece.
+ocorreu, não o estado atual da entidade envolvida. Dispensar ou fechar o Alerta
+não apaga nem altera as Notificações Internas já entregues — o registro de que
+o usuário foi avisado permanece.
 
 **Evento Notificável**
 Acontecimento do sistema que origina Notificações Internas. Abrange os
@@ -988,14 +987,20 @@ Notificação Interna. É a única fonte da audiência: quem produz o evento nã
 decide quem é avisado.
 
 **Eco de Tratamento**
-Notificação Interna emitida aos demais destinatários quando alguém reconhece ou
-fecha um Alerta. Existe para impedir que duas pessoas trabalhem a mesma
-pendência sem saber.
+Notificação Interna emitida aos demais destinatários quando alguém executa uma
+ação manual de tratamento, como uma dispensa temporária. Existe para impedir
+que duas pessoas trabalhem a mesma pendência sem saber.
 
-**Leitura e Reconhecimento**
+**Leitura e Dispensa**
 Ações distintas e sem acoplamento. Ler é pessoal, vale apenas para quem leu e
-não altera o Alerta. Reconhecer é ato da equipe sobre o Alerta e vale para
-todos.
+não altera o Alerta. Dispensar é ato coletivo de triagem: tira a pendência da
+fila prioritária por prazo determinado, mas não resolve a origem nem libera
+gate. Toda dispensa exige motivo, autor e data futura de revisão.
+
+**Fechamento automático**
+Transição do Alerta para encerrado somente depois que a recomputação server-side
+confirmar que a condição de origem foi resolvida. Não é sinônimo de leitura,
+reconhecimento ou dispensa.
 
 **Indicador Operacional**
 Contagem derivada de uma consulta ao estado atual, como containers com
@@ -1015,6 +1020,13 @@ autorizar e enviar o Convite do Portal e acompanhar a ativação da Conta de
 Portal. Autorizar ou enviar o convite não torna o Cliente provisionado; o
 provisionamento só se conclui quando a Conta de Portal fica Ativa após a pessoa
 autorizada definir a senha.
+
+**Gate de faturamento do Portal**
+Condição server-side para considerar o processo faturável: a Conta de Portal
+está Ativa, vinculada ao usuário de autenticação e com Email de Recuperação
+válido e não suprimido, de modo que o cliente consiga acessar e visualizar a
+fatura. A ausência dessa condição mantém o processo bloqueado e pode aparecer
+no alerta único de revisão do B/L.
 
 **Provisionamento autorizado**
 Decisão auditada de Documentação ou Administrativo que confirma o Email de
