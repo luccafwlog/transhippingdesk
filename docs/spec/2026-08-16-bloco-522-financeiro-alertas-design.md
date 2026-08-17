@@ -22,16 +22,24 @@ de comportamento nesta etapa.
 - Eventos de **Taxas Locais** são de **Documentação**.
 - Eventos de **Demurrage** são de **Equipamentos**.
 - Eventos de **Granito** são de **Equipamentos**.
-- Um **Alerta** é uma unidade coletiva de trabalho na fila. Uma
-  **Notificação Interna** é a entrega direcionada aos usuários da audiência.
-  Quando a matriz disser “ambos”, a mesma ocorrência deve alimentar os dois
-  canais, sem criar duas pendências independentes.
+- Um **Alerta** é um agregado global por entidade, identificado por
+  `(entity_type, entity_id)`. Cada condição ativa é um item de pendência
+  persistido dentro dele, com seu tipo, origem, departamento, destino, estado e
+  histórico. Uma **Notificação Interna** é a entrega direcionada à união dos
+  departamentos dos itens ainda ativos. Quando a matriz disser “ambos”, a mesma
+  entidade alimenta os dois canais, sem criar dois alertas ou duas pendências
+  duplicadas.
 - A severidade é a da ocorrência, não uma escala que sobe genericamente com o
   tempo. Não existe escalonamento temporal genérico neste bloco.
-- O fechamento precisa ser derivado do estado resolvido, e não de um clique
-  que apenas oculte a ocorrência. Se a condição voltar, a ocorrência reabre ou
-  uma nova ocorrência da mesma unidade é criada conforme a implementação da
-  fundação de alertas.
+- O fechamento de cada item precisa ser derivado do estado resolvido, e não de
+  um clique que apenas oculte a ocorrência. O agregado só fecha quando não há
+  item interno ativo. Se uma condição voltar, o mesmo agregado é reaberto com a
+  lista corrente atualizada e o histórico preservado.
+
+Na matriz e no catálogo, a coluna **Unidade** descreve a granularidade do item
+de pendência. Ela não autoriza um novo alerta por invoice, BL ou transação
+quando a entidade pai já possui um agregado ativo; condições simultâneas da
+mesma entidade entram no mesmo alerta.
 
 ## Evidência do estado atual
 

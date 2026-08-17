@@ -8,10 +8,13 @@ as invariantes de PIX, local charges, Granito e Demurrage.
 
 **Arquitetura:** manter a decisão de negócio no produtor que conhece a
 transição autoritativa: cálculo/emissão para bloqueios, cron para vencimentos,
-importação para PIX inseguro e abertura de disputa para Portal. Alertas e
-Notificações Internas continuam canais distintos, compartilhando uma ocorrência
-de domínio. O tratamento sempre navega para a tela de correção definida na
-spec, e a resolução deriva do estado financeiro confirmado.
+importação para PIX inseguro e abertura de disputa para Portal. Todos esses
+produtores atualizam o único alerta agregado da entidade `(entity_type,
+entity_id)` e seus itens de pendência; condições simultâneas não criam alertas
+duplicados. Alertas e Notificações Internas continuam canais distintos, e a
+notificação usa a união dos departamentos dos itens ativos. O tratamento sempre
+navega para a tela de correção definida na spec, e a resolução deriva do estado
+financeiro confirmado.
 
 **Stack:** React 19, React Router, TanStack Query, Supabase/Postgres,
 `pg_cron`, Vitest, migrations SQL e os serviços de billing/reconciliação
@@ -165,8 +168,12 @@ existentes.
 **Arquivos:** os arquivos alterados nas Tasks 1–5 e testes de integração
 disponíveis.
 
-- [ ] Para cada evento ativo, executar o caminho produtor → ocorrência →
-  audiência → destino → fechamento → reabertura.
+- [ ] Para cada evento ativo, executar o caminho produtor → item no agregado →
+  audiência derivada dos itens ativos → destino → fechamento do item →
+  atualização/fechamento do agregado → reabertura no mesmo agregado.
+- [ ] Testar que cálculo, vencimento, PIX e disputa para a mesma entidade
+  atualizam um único alerta, preservando itens resolvidos no histórico e
+  removendo somente o departamento do item resolvido da audiência.
 - [ ] Para cada decisão “Nenhum”, provar por teste ou inspeção de contrato que
   não há insert persistente; especialmente `Aguardando CE`, consolidada do
   Portal, Demurrage overdue e guards transitórios.
