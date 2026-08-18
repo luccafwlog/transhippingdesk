@@ -16,6 +16,7 @@ Esta spec fecha o contrato funcional de:
 - /embarquevazios
 - /embarquevazios/depots
 - /vazios-importacao
+- ciclo sequencial das seis datas da escala: ETA, ATA, ETB, ATB, ETD e ATD.
 
 A etapa não implementa produtores, migrations, tabelas, RPCs ou Notificações
 Internas. Quando uma decisão exige capacidade inexistente no código atual, ela
@@ -133,6 +134,7 @@ agregado, e a audiência do sino é recalculada pela união dos itens ativos.
 | Cobertura documental Baplie/BL | Item crítico no alerta agregado + Notificação para usuários ativos de Documentação | Viagem | Fecha quando todas as rotas cobertas estiverem sem divergência; a recorrência reabre o mesmo agregado | Imediato quando rotas cobertas; override em D−7; /baplie filtrado |
 | CE Mercante ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha quando todos os BLs da viagem com POD têm CE; reabre com nova pendência | D−5 e alterações materiais; /viagens/:voyageId |
 | `/chegadas-saidas`: ATD, POL/POD e prazos de agência | Nenhum evento novo | ADR do #524 para o prazo; fluxo normal para POL/POD | Mantém contratos existentes; alterações de POL/POD reavaliam o alerta de BL quando elegíveis | ATD da escala unificada alimenta `agency_report_deadline_missed` da migration 271; não duplicar no #523 |
+| Datas da escala: ETA → ATA → ETB → ATB → ETD → ATD | Alerta normal + Notificação para usuários ativos de Operações e Documentação | Escala | Só um marco fica ativo por vez; cada item fecha quando sua data real é preenchida e abre o próximo conforme a regra temporal | Mutação de qualquer uma das seis datas e varredura server-only a cada 15 minutos; `/viagens/:voyageId?escala=PORTO` |
 | Exportação pós-ATD | Alerta normal + Notificação para todos os usuários ativos de Equipamentos | Escala | Fecha quando tipos esperados têm vínculo; remoção reabre | ATD e alterações; viagem com escala selecionada |
 | `/embarquevazios`: depot/terminal não cadastrado na planilha | Falha da importação + feedback transacional, sem alerta persistente ou Notificação Interna | Arquivo/importação | O arquivo não é importado com sucesso; corrigir e reenviar | Ação na própria tela |
 | `/embarquevazios/depots` | Nenhum evento próprio | — | — | Cadastro/consulta normal |
@@ -140,6 +142,47 @@ agregado, e a audiência do sino é recalculada pela união dos itens ativos.
 | Serviços cadastrais sem expiração | Nenhum evento próprio | — | — | Não há data de expiração a monitorar |
 | Estados sem dados, `awaiting_route_coverage` e ausência normal | Nenhum evento próprio | — | — | Estado/consulta normal |
 
+## Ciclo sequencial das datas da escala
+
+O ciclo de datas usa o agregado da escala
+`entity_type = 'voyage_pod_schedule'`, `entity_id = voyageId::PORTO`. Há
+um único item de marco ativo por vez dentro desse agregado, com a audiência
+conjunta de Operações e Documentação. A dimensão `milestone` preserva qual
+data está sendo aguardada; ela não cria um agregado separado.
+
+| Etapa | Quando abre | Quando fecha e qual é a próxima |
+|---|---|---|
+| ATA pendente | A data local do ETA foi atingida ou ultrapassada e ATA ainda está vazia | Fecha ao preencher ATA; abre ETB pendente |
+| ETB pendente | ATA foi preenchida e ETB ainda está vazia | Fecha ao preencher ETB; aguarda a data do ETB para abrir ATB pendente |
+| ATB pendente | A data local do ETB foi atingida ou ultrapassada e ATB ainda está vazia | Fecha ao preencher ATB; abre ETD pendente |
+| ETD pendente | ATB foi preenchida e ETD ainda está vazia | Fecha ao preencher ETD; aguarda a data do ETD para abrir ATD pendente |
+| ATD pendente | A data local do ETD foi atingida ou ultrapassada e ATD ainda está vazia | Fecha ao preencher ATD; encerra o ciclo de alertas de datas da escala |
+
+As comparações de ETA, ETB e ETD usam a data local de
+`America/Sao_Paulo`, com o próprio dia incluído. Uma etapa já satisfeita não
+abre alerta retroativo: se ATA, por exemplo, já estiver preenchida, o ciclo
+avança para ETB; se ETB também estiver preenchida, avança para ATB conforme a
+data de ETB. O detector materializa somente o primeiro marco ainda pendente,
+para que as etapas nunca fiquem paralelas.
+
+A sequência pode avançar várias vezes no mesmo dia, mas cada avanço depende da
+mutação que preenche a data real anterior. Exemplo: se ETA, ATA, ETB, ATB e ETD
+forem registrados no mesmo dia, o sistema encerra e abre os itens nessa ordem;
+o ATD só é cobrado quando o ETD for atingido e continuar vazio. Se ATD for
+preenchido, o ciclo termina sem alerta de data posterior. Se outros itens
+operacionais do Bloco 4 estiverem ativos, o agregado geral da escala continua
+aberto por eles.
+
+Todos os cinco itens são de gravidade normal. Cada abertura ou reabertura gera
+uma Notificação Interna por usuário ativo de Operações e por usuário ativo de
+Documentação; uma atualização enquanto o item já estiver ativo não duplica a
+entrega. A dispensa segue a política global: é temporária, exige motivo, autor
+e revisão futura, não resolve a origem e, se vencer com a etapa ainda pendente,
+reativa o mesmo item e gera nova notificação.
+
+A reconciliação ocorre nas mutações autorizadas das seis datas e em varredura
+server-only protegida a cada 15 minutos. Ela é idempotente, não depende da
+página `/alertas` e usa o destino compartilhado da escala.
 ## Alerta preliminar de BL
 
 POLs e PODs vinculados por Chegadas e Saídas ou manualmente criam a
@@ -280,6 +323,10 @@ de implementação:
 12. Verificação e cobertura de regressão da importação de vazios já
     all-or-nothing para depot/terminal inválido; preservar serviço, página,
     feedback transacional e ausência de sucesso parcial.
+13. Cadeia sequencial de ETA/ATA/ETB/ATB/ETD/ATD, incluindo avanços no mesmo
+    dia, preenchimento antecipado de datas, não paralelismo, deduplicação,
+    fan-out para Operações e Documentação e nova notificação após dispensa
+    vencida.
 
 Nenhuma coluna, enum ou migration é pré-inventada aqui. A implementação deve
 validar as tabelas e RPCs atuais antes de escolher a próxima migration
