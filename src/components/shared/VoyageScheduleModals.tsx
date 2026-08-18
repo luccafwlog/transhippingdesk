@@ -11,6 +11,14 @@ import {
 } from '../../services/voyageRouteSchedules'
 import { normalizePortCode } from '../../services/portCode'
 import { normalizeDischargePorts } from '../../services/voyageExportSchedules'
+import type {
+  ClosedAdrBlocker,
+  OperationFront,
+  OperationFrontDirection,
+  OperationFrontKind,
+  TerminalOption,
+  TerminalScaleState,
+} from '../../services/escalaTerminalAllocation'
 
 // Portos brasileiros de escala, na ordem em que a operação os lê.
 const ESCALA_PORT_SUGGESTIONS = ['BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'BRIGI', 'BRNVT'] as const
@@ -40,6 +48,28 @@ export type EscalaModalPayload = {
   escalaNumber: string | null
   exportacao: EscalaExportPayload
   exportExistingId: string | null
+  terminalState?: {
+    expectedRevision: number
+    fronts: Array<{
+      sentido: OperationFrontDirection
+      modalidade: OperationFrontKind
+      terminalId: string | null
+      source: OperationFront['source']
+    }>
+    terminals: Array<{
+      terminalId: string
+      atb: string | null
+      atd: string | null
+      restow: number | null
+    }>
+    exportExpectation: Record<string, unknown>
+    justification: string | null
+  }
+}
+
+export type EscalaModalTerminalScale = TerminalScaleState & {
+  loading?: boolean
+  error?: string | null
 }
 
 export type EscalaModalData = {
@@ -70,6 +100,7 @@ export type EscalaModalData = {
    * desdeclarada enquanto a carga existir.
    */
   exportLocked: boolean
+  terminalScale?: EscalaModalTerminalScale | null
 }
 
 // Modais apresentacionais de escala e de manifesto; a persistência fica no
@@ -165,6 +196,258 @@ export function PolScheduleModal({
   )
 }
 
+const FRONT_LABELS: Record<OperationFrontKind, string> = {
+  carga_cheia: 'Carga cheia',
+  carga_solta: 'Carga solta',
+  vazio: 'Vazios',
+  veiculo: 'Veículos',
+  granito: 'Granito',
+}
+
+const DIRECTION_LABELS: Record<OperationFrontDirection, string> = {
+  importacao: 'Importação',
+  exportacao: 'Exportação',
+}
+
+function frontKey(front: Pick<OperationFront, 'sentido' | 'modalidade'>) {
+  return `${front.sentido}:${front.modalidade}`
+}
+
+function dateInputValue(value: string | null | undefined) {
+  return value ? value.slice(0, 10) : ''
+}
+
+function mergeTerminalOptions(active: TerminalOption[], historical: TerminalOption[]) {
+  const options = new Map<string, TerminalOption>()
+  for (const option of [...active, ...historical]) {
+    const existing = options.get(option.id)
+    options.set(option.id, existing && existing.active ? existing : option)
+  }
+  return [...options.values()].sort((left, right) => left.code.localeCompare(right.code))
+}
+
+function orderTerminalIds(
+  scale: TerminalScaleState,
+  fronts: Record<string, string>,
+  dates: Record<string, { atb: string; atd: string; restow: string }>,
+  terminalById: Map<string, TerminalOption>,
+) {
+  const ids = new Set(scale.terminals.map((terminal) => terminal.terminalId))
+  for (const terminalId of Object.values(fronts)) if (terminalId) ids.add(terminalId)
+  return [...ids].sort((leftId, rightId) => {
+    const leftAtb = dates[leftId]?.atb || ''
+    const rightAtb = dates[rightId]?.atb || ''
+    if (leftAtb && rightAtb && leftAtb !== rightAtb) return leftAtb.localeCompare(rightAtb)
+    if (leftAtb && !rightAtb) return -1
+    if (!leftAtb && rightAtb) return 1
+    return (terminalById.get(leftId)?.code ?? leftId).localeCompare(terminalById.get(rightId)?.code ?? rightId)
+  })
+}
+
+function sameDraft(left: Record<string, unknown>, right: Record<string, unknown>) {
+  const normalize = (value: Record<string, unknown>) => Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
+}
+
+function isRevisionConflictError(error: unknown) {
+  const value = error as { code?: string; message?: string } | null
+  return value?.code === 'ESCALA_REVISION_CONFLICT'
+    || value?.code === 'P0001'
+    || /REVISAO_OBSOLETA|revis[aã]o.*(obsoleta|atualizada)|vers[aã]o.*(obsoleta|atualizada)/i.test(value?.message ?? '')
+}
+
+function isClosedAdrError(error: unknown): error is { blockers: ClosedAdrBlocker[] } {
+  const value = error as { code?: string; blockers?: ClosedAdrBlocker[]; message?: string } | null
+  return value?.code === 'ADR_CLOSED_BLOCKED'
+    || (Array.isArray(value?.blockers) && value.blockers.length > 0)
+    || /ADR fechado/i.test(value?.message ?? '')
+}
+
+function buildTerminalPayload({
+  terminalScale,
+  terminalFronts,
+  terminalDates,
+  terminalStateChanged,
+  hasPriorTerminalAssignment,
+  justification,
+  exportExpectation,
+}: {
+  terminalScale: EscalaModalTerminalScale | null
+  terminalFronts: Record<string, string>
+  terminalDates: Record<string, { atb: string; atd: string; restow: string }>
+  terminalStateChanged: boolean
+  hasPriorTerminalAssignment: boolean
+  justification: string
+  exportExpectation: Record<string, unknown>
+}): { value?: EscalaModalPayload['terminalState']; error?: string } {
+  if (!terminalScale) return {}
+
+  const frontsByKey = new Map(terminalScale.fronts.map((front) => [frontKey(front), front]))
+  const fronts = terminalScale.fronts.flatMap((front) => {
+    if (front.sentido === 'exportacao') {
+      if (exportExpectation.tem_exportacao !== true) return []
+      if (front.modalidade === 'granito' && exportExpectation.granito !== true) return []
+      if (front.modalidade === 'vazio' && exportExpectation.has_empty !== true) return []
+    }
+    const terminalId = terminalFronts[frontKey(front)] || null
+    return [{ sentido: front.sentido, modalidade: front.modalidade, terminalId, source: front.source }]
+  })
+  for (const modalidade of ['granito', 'vazio'] as const) {
+    if (exportExpectation.tem_exportacao === true && exportExpectation[modalidade === 'vazio' ? 'has_empty' : modalidade] === true && !frontsByKey.has(`exportacao:${modalidade}`)) {
+      fronts.push({ sentido: 'exportacao', modalidade, terminalId: null, source: 'export_declaration' })
+    }
+  }
+
+  const terminalIds = new Set<string>(terminalScale.terminals.map((terminal) => terminal.terminalId))
+  for (const terminalId of Object.values(terminalFronts)) if (terminalId) terminalIds.add(terminalId)
+  const terminals: NonNullable<EscalaModalPayload['terminalState']>['terminals'] = []
+  for (const terminalId of terminalIds) {
+    const draft = terminalDates[terminalId] ?? { atb: '', atd: '', restow: '' }
+    if (draft.atb && draft.atd && draft.atd < draft.atb) {
+      const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
+      return { error: `ATD não pode ser anterior ao ATB do terminal ${code}.` }
+    }
+    const restow = draft.restow.trim() ? Number(draft.restow) : null
+    if (restow !== null && (!Number.isInteger(restow) || restow < 0)) {
+      return { error: `Restow inválido para o terminal ${terminalId}.` }
+    }
+    terminals.push({ terminalId, atb: draft.atb || null, atd: draft.atd || null, restow })
+  }
+
+  if (terminalStateChanged && hasPriorTerminalAssignment && !justification.trim()) {
+    return { error: 'Informe a justificativa para alterar uma escala já atribuída a terminal.' }
+  }
+
+  return {
+    value: {
+      expectedRevision: terminalScale.revision,
+      fronts,
+      terminals,
+      exportExpectation,
+      justification: justification.trim() || null,
+    },
+  }
+}
+
+function TerminalFrontEditor({
+  scale,
+  terminalFronts,
+  terminalDates,
+  terminalOptions,
+  terminalById,
+  terminalIds,
+  onTerminalChange,
+  onDateChange,
+  justification,
+  onJustificationChange,
+  showJustification,
+  error,
+  blockers,
+  onReopenAdr,
+}: {
+  scale: EscalaModalTerminalScale
+  terminalFronts: Record<string, string>
+  terminalDates: Record<string, { atb: string; atd: string; restow: string }>
+  terminalOptions: TerminalOption[]
+  terminalById: Map<string, TerminalOption>
+  terminalIds: string[]
+  onTerminalChange: (front: OperationFront, terminalId: string) => void
+  onDateChange: (terminalId: string, field: 'atb' | 'atd' | 'restow', value: string) => void
+  justification: string
+  onJustificationChange: (value: string) => void
+  showJustification: boolean
+  error: string | null
+  blockers: ClosedAdrBlocker[]
+  onReopenAdr?: (blocker: ClosedAdrBlocker) => void
+}) {
+  const grouped = (['importacao', 'exportacao'] as OperationFrontDirection[]).map((sentido) => ({
+    sentido,
+    fronts: scale.fronts.filter((front) => front.sentido === sentido),
+  })).filter((group) => group.fronts.length > 0)
+
+  return (
+    <section aria-label="Frentes operacionais" className="grid gap-4 rounded-lg border border-[var(--app-border)] p-3">
+      <div>
+        <h3 className="text-sm font-semibold text-[var(--app-text-strong)]">Frentes operacionais</h3>
+        <p className="mt-1 text-xs text-[var(--app-muted)]">Terminais disponíveis somente para o porto {scale.port}. Sem terminal, a frente fica em TBC e não cria placeholder.</p>
+      </div>
+      {grouped.map((group) => (
+        <div key={group.sentido} className="grid gap-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">{DIRECTION_LABELS[group.sentido]}</h4>
+          {group.fronts.map((front) => {
+            const selected = terminalFronts[frontKey(front)] ?? ''
+            return (
+              <div key={frontKey(front)} className="grid gap-2 rounded-md border border-[var(--app-border)] p-2 md:grid-cols-[1fr_15rem] md:items-center">
+                <div>
+                  <div className="text-sm text-[var(--app-text-strong)]">{FRONT_LABELS[front.modalidade]}</div>
+                  {selected ? null : <div className="text-xs text-amber-200">TBC — pendente de atribuição de terminal</div>}
+                </div>
+                <label className="text-xs text-[var(--app-muted)]">
+                  Terminal
+                  <select
+                    aria-label={`Terminal ${group.sentido} ${FRONT_LABELS[front.modalidade]}`}
+                    className="app-input mt-1"
+                    value={selected}
+                    onChange={(event) => onTerminalChange(front, event.target.value)}
+                  >
+                    <option value="">TBC</option>
+                    {terminalOptions.map((option) => {
+                      const isCurrent = option.id === selected
+                      return (
+                        <option key={option.id} value={option.id} disabled={!option.active && !isCurrent}>
+                          {option.code}{!option.active ? ' (inativo · histórico)' : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </label>
+              </div>
+            )
+          })}
+        </div>
+      ))}
+
+      <div className="grid gap-2">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Datas por terminal</h4>
+        {terminalIds.length === 0 ? <p className="text-xs text-[var(--app-muted)]">Nenhum terminal atribuído. As datas globais ATA/ATD permanecem acima.</p> : null}
+        {terminalIds.map((terminalId) => {
+          const option = terminalById.get(terminalId)
+          const draft = terminalDates[terminalId] ?? { atb: '', atd: '', restow: '' }
+          const code = option?.code ?? terminalId
+          return (
+            <div key={terminalId} className="grid gap-3 rounded-md border border-[var(--app-border)] p-2 md:grid-cols-[1fr_1fr_1fr_8rem] md:items-end">
+              <div className="text-sm font-medium text-[var(--app-text-strong)]">
+                {code}
+                {option?.active === false ? <div className="text-xs text-amber-200">Terminal inativo · histórico</div> : null}
+              </div>
+              <Field label={`ATB ${code}`}><Input type="date" value={draft.atb} onChange={(event) => onDateChange(terminalId, 'atb', event.target.value)} /></Field>
+              <Field label={`ATD ${code}`}><Input type="date" value={draft.atd} onChange={(event) => onDateChange(terminalId, 'atd', event.target.value)} /></Field>
+              <Field label={`Restow ${code}`}><Input type="number" min="0" step="1" value={draft.restow} onChange={(event) => onDateChange(terminalId, 'restow', event.target.value)} /></Field>
+            </div>
+          )
+        })}
+      </div>
+
+      {showJustification ? (
+        <Field label="Justificativa da alteração">
+          <Input value={justification} onChange={(event) => onJustificationChange(event.target.value)} placeholder="Explique a troca de terminal, remoção ou ajuste de data" />
+        </Field>
+      ) : null}
+      {error ? <p role="alert" className="text-xs text-red-300">{error}</p> : null}
+      {blockers.length > 0 ? (
+        <div className="grid gap-2 rounded-md border border-red-400/30 bg-red-950/20 p-2 text-xs text-red-100">
+          {blockers.map((blocker) => (
+            <div key={`${blocker.reportId ?? 'report'}-${blocker.terminalId ?? 'terminal'}`} className="flex flex-wrap items-center justify-between gap-2">
+              <span>ADR fechado{blocker.terminalCode ? ` · terminal ${blocker.terminalCode}` : ''}{blocker.reportId ? ` · ${blocker.reportId}` : ''}</span>
+              <Button type="button" variant="secondary" className="app-btn--sm" onClick={() => onReopenAdr?.(blocker)}>Reabrir ADR</Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
 /**
  * Um porto, uma escala, um modal: importação e exportação da mesma escala são
  * declaradas aqui (ADR 0035, nota editorial de 2026-08-03).
@@ -174,11 +457,13 @@ export function EscalaModal({
   escala,
   onClose,
   onSaved,
+  onReopenAdr,
 }: {
   open: boolean
   escala: EscalaModalData | null
   onClose: () => void
   onSaved: (payload: EscalaModalPayload) => Promise<void>
+  onReopenAdr?: (blocker: ClosedAdrBlocker) => void
 }) {
   const [port, setPort] = useState('')
   const [eta, setEta] = useState('')
@@ -199,6 +484,11 @@ export function EscalaModal({
   const [dischargePorts, setDischargePorts] = useState('')
   const [portError, setPortError] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [terminalFronts, setTerminalFronts] = useState<Record<string, string>>({})
+  const [terminalDates, setTerminalDates] = useState<Record<string, { atb: string; atd: string; restow: string }>>({})
+  const [justification, setJustification] = useState('')
+  const [terminalError, setTerminalError] = useState<string | null>(null)
+  const [closedBlockers, setClosedBlockers] = useState<ClosedAdrBlocker[]>([])
   const [saving, setSaving] = useState(false)
   const confirm = useConfirm()
 
@@ -226,9 +516,48 @@ export function EscalaModal({
     setDischargePorts(escala.dischargePorts.join(', '))
     setPortError(null)
     setExportError(null)
+    setTerminalError(null)
+    setClosedBlockers([])
+    setJustification('')
+    const state = escala.terminalScale
+    setTerminalFronts(Object.fromEntries(
+      (state?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
+    ))
+    setTerminalDates(Object.fromEntries(
+      (state?.terminals ?? []).map((terminal) => [terminal.terminalId, {
+        atb: dateInputValue(terminal.atb),
+        atd: dateInputValue(terminal.atd),
+        restow: terminal.restow == null ? '' : String(terminal.restow),
+      }]),
+    ))
   }
 
   const isNew = escala?.port === null
+  const terminalScale = escala?.terminalScale ?? null
+  const terminalOptions = terminalScale
+    ? mergeTerminalOptions(terminalScale.activeTerminals, terminalScale.historicalTerminals)
+      .filter((option) => terminalScale.portId == null || option.portId == null || option.portId === terminalScale.portId)
+    : []
+  const terminalById = new Map(terminalOptions.map((option) => [option.id, option]))
+  const terminalIds = terminalScale
+    ? orderTerminalIds(terminalScale, terminalFronts, terminalDates, terminalById)
+    : []
+  const initialTerminalFronts = Object.fromEntries(
+    (terminalScale?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
+  )
+  const initialTerminalDates = Object.fromEntries(
+    (terminalScale?.terminals ?? []).map((terminal) => [terminal.terminalId, {
+      atb: dateInputValue(terminal.atb),
+      atd: dateInputValue(terminal.atd),
+      restow: terminal.restow == null ? '' : String(terminal.restow),
+    }]),
+  )
+  const terminalStateChanged = terminalScale
+    ? !sameDraft(terminalFronts, initialTerminalFronts) || !sameDraft(terminalDates, initialTerminalDates)
+    : false
+  const hasPriorTerminalAssignment = Boolean(
+    terminalScale?.fronts.some((front) => front.terminalId !== null) || terminalScale?.terminals.length,
+  )
 
   async function handleToggleExportacao(next: boolean) {
     if (!next && escala?.exportLocked) return
@@ -269,6 +598,28 @@ export function EscalaModal({
     setHasEmpty(nextHasEmpty)
   }
 
+  function handleTerminalChange(front: OperationFront, nextTerminalId: string) {
+    const key = frontKey(front)
+    setTerminalFronts((current) => ({ ...current, [key]: nextTerminalId }))
+    if (nextTerminalId) {
+      setTerminalDates((current) => current[nextTerminalId] ? current : {
+        ...current,
+        [nextTerminalId]: { atb: '', atd: '', restow: '' },
+      })
+    }
+    setTerminalError(null)
+    setClosedBlockers([])
+  }
+
+  function handleTerminalDateChange(terminalId: string, field: 'atb' | 'atd' | 'restow', value: string) {
+    setTerminalDates((current) => ({
+      ...current,
+      [terminalId]: { ...(current[terminalId] ?? { atb: '', atd: '', restow: '' }), [field]: value },
+    }))
+    setTerminalError(null)
+    setClosedBlockers([])
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!escala) return
@@ -288,6 +639,30 @@ export function EscalaModal({
     )
     if (temExportacao && !hasGranite && !hasEmpty && !isLegacyUnclassifiedExport) {
       setExportError('Uma nova declaração de exportação exige granito ou vazios.')
+      return
+    }
+
+    const terminalPayload = buildTerminalPayload({
+      terminalScale,
+      terminalFronts,
+      terminalDates,
+      terminalStateChanged,
+      hasPriorTerminalAssignment,
+      justification,
+      exportExpectation: {
+        tem_exportacao: temExportacao,
+        granito: temExportacao ? hasGranite : false,
+        vazios: temExportacao ? hasEmpty : false,
+        has_empty: temExportacao ? hasEmpty : false,
+        containers_qty: temExportacao && containersQty.trim() ? Number(containersQty) : null,
+        movements_qty: temExportacao && movementsQty.trim() ? Number(movementsQty) : null,
+        discharge_ports: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
+        ce_status: ceStatus,
+        linked: linked === 'true',
+      },
+    })
+    if (terminalPayload.error) {
+      setTerminalError(terminalPayload.error)
       return
     }
 
@@ -316,7 +691,19 @@ export function EscalaModal({
           dischargePorts: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
         },
         exportExistingId: escala.exportExistingId,
+        terminalState: terminalPayload.value,
       })
+      setTerminalError(null)
+      setClosedBlockers([])
+    } catch (error) {
+      if (isClosedAdrError(error)) {
+        setClosedBlockers(error.blockers)
+        setTerminalError('A alteração não foi aplicada porque existe ADR fechado. Reabra o ADR indicado e tente novamente.')
+      } else if (isRevisionConflictError(error)) {
+        setTerminalError('A escala foi atualizada por outra pessoa. Seus dados foram preservados; recarregue a escala antes de salvar novamente.')
+      } else {
+        setTerminalError(error instanceof Error ? error.message : 'Falha ao salvar a escala.')
+      }
     } finally {
       setSaving(false)
     }
@@ -371,6 +758,27 @@ export function EscalaModal({
               <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
             </Field>
           </div>
+
+          {terminalScale?.loading ? (
+            <div className="rounded-lg border border-[var(--app-border)] p-3 text-sm text-[var(--app-muted)]">Carregando frentes e terminais da escala…</div>
+          ) : terminalScale ? (
+            <TerminalFrontEditor
+              scale={terminalScale}
+              terminalFronts={terminalFronts}
+              terminalDates={terminalDates}
+              terminalOptions={terminalOptions}
+              terminalById={terminalById}
+              terminalIds={terminalIds}
+              onTerminalChange={handleTerminalChange}
+              onDateChange={handleTerminalDateChange}
+              justification={justification}
+              onJustificationChange={setJustification}
+              showJustification={hasPriorTerminalAssignment || terminalScale.revision > 0}
+              error={terminalError ?? terminalScale.error ?? null}
+              blockers={closedBlockers}
+              onReopenAdr={onReopenAdr}
+            />
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="RESTOW">

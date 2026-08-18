@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -34,6 +34,11 @@ import {
   saveVoyageExportScheduleTransactional,
   VoyageExportScheduleBlockedError,
 } from '../services/voyageExportSchedules'
+import {
+  EscalaTerminalBlockedError,
+  fetchEscalaTerminalState,
+  saveEscalaTerminalState,
+} from '../services/escalaTerminalAllocation'
 import { afterEscalaAlterada, afterRotaAlterada, afterViagemAlterada } from '../services/cacheEffects'
 import {
   VoyageCard,
@@ -49,6 +54,22 @@ import {
   filterVoyageRailItems,
   type VoyageFilters as VoyageFiltersState,
 } from '../lib/viagensFilters'
+
+function makeTerminalScaleLoadingState(voyageId: number, port: string): NonNullable<EscalaModalData['terminalScale']> {
+  return {
+    voyageId,
+    port,
+    portId: null,
+    revision: 0,
+    fronts: [],
+    tbcFronts: [],
+    terminals: [],
+    activeTerminals: [],
+    historicalTerminals: [],
+    agencyReports: [],
+    loading: true,
+  }
+}
 
 export function Viagens() {
   const { voyageId } = useParams()
@@ -79,6 +100,27 @@ export function Viagens() {
     ...emptyFilters(),
     search: initialVessel,
   })
+
+  useEffect(() => {
+    const current = editingEscala
+    if (!current?.port || !current.terminalScale?.loading) return
+    let mounted = true
+    const loadingState = current.terminalScale
+    void fetchEscalaTerminalState(current.voyageId, current.port)
+      .then((state) => {
+        if (!mounted) return
+        setEditingEscala((previous) => previous?.voyageId === current.voyageId && previous.port === current.port
+          ? { ...previous, terminalScale: state }
+          : previous)
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return
+        setEditingEscala((previous) => previous?.voyageId === current.voyageId && previous.port === current.port
+          ? { ...previous, terminalScale: { ...loadingState, loading: false, error: error instanceof Error ? error.message : 'Falha ao carregar frentes e terminais.' } }
+          : previous)
+      })
+    return () => { mounted = false }
+  }, [editingEscala])
   const selectedVoyageId = voyageId ? Number(voyageId) : null
 
   const voyages = useMemo(() => data ?? [], [data])
@@ -240,7 +282,9 @@ export function Viagens() {
             onEditVoyage={setEditingVoyageId}
             onDeleteVoyage={setDeletingVoyageId}
             onCancelVoyage={setCancellingVoyageId}
-            onEditEscala={setEditingEscala}
+            onEditEscala={(payload) => setEditingEscala(
+              payload.port ? { ...payload, terminalScale: makeTerminalScaleLoadingState(payload.voyageId, payload.port) } : payload,
+            )}
             onEditPol={setEditingPol}
             initialTab={initialTab}
             initialEscala={initialEscala}
@@ -338,16 +382,33 @@ export function Viagens() {
         open={editingEscala !== null}
         escala={editingEscala}
         onClose={() => setEditingEscala(null)}
+        onReopenAdr={() => {
+          const port = editingEscala?.port
+          if (!port) return
+          const target = editingEscala
+          setEditingEscala(null)
+          navigate(`/viagens/${target.voyageId}?tab=adr&escala=${encodeURIComponent(port)}`)
+        }}
         onSaved={async (payload) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
           }
           try {
-            // Sem exportação declarada e sem linha anterior, não há o que gravar.
-            // Quando há linha, a RPC lê o estado completo e remove somente as
-            // frentes exportadoras solicitadas.
-            if (payload.exportacao.temExportacao || payload.exportExistingId) {
+            if (payload.terminalState) {
+              await saveEscalaTerminalState({
+                voyageId: payload.voyageId,
+                port: payload.port,
+                expectedRevision: payload.terminalState.expectedRevision,
+                fronts: payload.terminalState.fronts,
+                terminals: payload.terminalState.terminals,
+                exportExpectation: payload.terminalState.exportExpectation,
+                justification: payload.terminalState.justification,
+                queryClient,
+              })
+            } else if (payload.exportacao.temExportacao || payload.exportExistingId) {
+              // Escalas legadas continuam no fluxo exportacional existente até
+              // que o estado terminalizado seja carregado para o modal.
               await saveVoyageExportScheduleTransactional({
                 existingId: payload.exportExistingId,
                 voyageId: payload.voyageId,
@@ -382,15 +443,28 @@ export function Viagens() {
             showToast('Escala salva com sucesso.', 'success')
             setEditingEscala(null)
           } catch (error) {
+            if (error instanceof EscalaTerminalBlockedError) {
+              const blockers = error.blockers
+                .map((blocker) => [blocker.terminalCode, blocker.reportId].filter(Boolean).join(' / '))
+                .filter(Boolean)
+                .join(', ')
+              showToast(`Alteração bloqueada por ADR fechado${blockers ? ` (${blockers})` : ''}. Reabra o ADR antes de continuar.`, 'error')
+              throw error
+            }
             if (error instanceof VoyageExportScheduleBlockedError) {
               const blockers = error.result.closed_blockers
                 .map((blocker) => [blocker.terminal_code, blocker.report_id].filter(Boolean).join(' / '))
                 .filter(Boolean)
                 .join(', ')
               showToast(`Exportação bloqueada por ADR fechado${blockers ? ` (${blockers})` : ''}. Reabra o ADR antes de alterar a escala.`, 'error')
-              return
+              throw error
+            }
+            if (error instanceof Error && /REVISAO_OBSOLETA|revis[aã]o.*(obsoleta|atualizada)/i.test(error.message)) {
+              showToast('A escala foi atualizada por outra pessoa. Recarregue antes de salvar novamente.', 'error')
+              throw error
             }
             showToast('Falha ao salvar a escala.', 'error')
+            throw error
           }
         }}
       />
