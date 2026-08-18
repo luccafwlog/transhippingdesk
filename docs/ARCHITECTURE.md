@@ -182,11 +182,18 @@ flowchart LR
 - Arquivos de B/L alimentam os B/Ls e cargas de container; Manifestos BB mantêm
   seu fluxo próprio. A importação de Manifesto CNTR e a geração local de EDI
   Mercante foram removidas conforme a ADR 0025.
+- Carga solta tem duas portas de ingestão que convivem: o Manifesto BB
+  (planilha) e o B/L avulso do armador em `.pdf`/`.docx`. As duas terminam na
+  mesma RPC transacional (`import_breakbulk_manifest_transactional`); o B/L
+  avulso é lido no cliente (`blDocumentParser.ts`) e convertido em um manifesto
+  de uma linha.
 - Granito mantém tabelas próprias, integradas downstream.
 - Veículos são importados por planilha e vinculados a B/L/container.
 - CE Mercante e datas operacionais têm importadores específicos.
 - Arquivos de planilha usam `@e965/xlsx` e devem passar pelo limite de upload
-  antes do parsing.
+  antes do parsing. B/L em PDF usa `pdfjs-dist` (import dinâmico, chunk próprio)
+  e B/L em `.docx` é descompactado por `src/lib/zipEntry.ts`, sem dependência de
+  zip no bundle.
 
 ### Revisão e auto-faturamento
 
@@ -420,7 +427,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/baplie` | Importação e conciliação Baplie |
 | `/manifestos` | Lista de B/Ls CNTR; importação documental por arquivo de B/L |
 | `/manifestos/:blId` | Detalhe do B/L |
-| `/carga-solta` | Manifestos breakbulk |
+| `/carga-solta` | Manifestos breakbulk e importação de B/L avulso (.pdf/.docx) |
 | `/containers` | Containers |
 | `/veiculos` | Veículos RoRo |
 | `/vazios-importacao` | Vazios de importação |
@@ -438,8 +445,9 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `billing` | Subrota de faturas dentro da Inspeção do Portal |
 | `operacao` | Subrota operacional dentro da Inspeção do Portal |
 | `perfil` | Subrota de perfil dentro da Inspeção do Portal |
-| `/taxas-locais` | Tabelas e overrides |
-| `/faturamento` | Validação, invoices e ledger |
+| `/taxas-locais` | Validação, invoices e ledger de Taxas Locais |
+| `/taxas-locais/tabelas` | Cadastro de tabelas e overrides de Taxas Locais |
+| `/faturamento` | Redirect legado para `/taxas-locais`, preservando a query string |
 | `/demurrage` | Operação e invoices de demurrage |
 | `/demurrage/taxas` | Tarifas de demurrage |
 | `/reconciliacao` | Conciliação PIX |

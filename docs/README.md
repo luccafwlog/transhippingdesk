@@ -40,8 +40,8 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#fluxo-ope
 | Granito | [modules/granito.md](modules/granito.md) | `/granito`, `/granito/taxas` |
 | Chegadas/Saídas | [modules/chegadas-saidas.md](modules/chegadas-saidas.md) | `/chegadas-saidas` |
 | Clientes | [modules/clientes.md](modules/clientes.md) | `/clientes`, `/clientes/:cnpj` |
-| Taxas Locais | [modules/taxas-locais.md](modules/taxas-locais.md) | `/taxas-locais` |
-| Faturamento | [modules/faturamento.md](modules/faturamento.md) | `/faturamento` |
+| Taxas Locais | [modules/taxas-locais.md](modules/taxas-locais.md) | `/taxas-locais`, `/taxas-locais/tabelas` |
+| Faturamento | [modules/faturamento.md](modules/faturamento.md) | operação em `/taxas-locais`; `/faturamento` é redirect legado |
 | Demurrage | [modules/demurrage.md](modules/demurrage.md) | `/demurrage`, `/demurrage/taxas` |
 | Conciliação PIX | [modules/reconciliacao-pix.md](modules/reconciliacao-pix.md) | `/reconciliacao` |
 | Portal do Cliente | [modules/portal-cliente.md](modules/portal-cliente.md) | `/portal/*` |

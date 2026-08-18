@@ -409,4 +409,70 @@ describe('breakbulkImport', () => {
     expect(manifest.rowErrors).toHaveLength(0)
     expect(manifest.bls[0]?.bb_machine_qty).toBe(9)
   })
+
+  // A autoridade sobre o CE Mercante e a importacao de CE Mercante. Nenhum
+  // layout de manifesto BB alem do resumo traz CE, e o B/L avulso nunca traz —
+  // omitir o campo permite que a RPC preserve atomicamente o valor no target.
+  it('omite o CE Mercante quando o arquivo importado nao traz CE', async () => {
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve(name === 'import_breakbulk_manifest_transactional'
+        ? { data: { batch_id: 91 }, error: null }
+        : { data: { status: 'calculated' }, error: null }),
+    )
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'voyages') {
+        return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: { id: 10 }, error: null })) })) })) }
+      }
+      if (table === 'customers') {
+        return { select: vi.fn(() => ({ order: vi.fn(() => ({ range: vi.fn(() => Promise.resolve({ data: [], error: null })) })) })) }
+      }
+      if (table === 'bls') {
+        return {
+          select: vi.fn(() => ({
+            in: vi.fn(() => Promise.resolve({
+              data: [{ id: 'BB009', cargo_mode: 'carga_solta' }],
+              error: null,
+            })),
+          })),
+        }
+      }
+      throw new Error(`Tabela nao mockada: ${table}`)
+    })
+
+    const manifest: ParsedBreakbulkManifest = {
+      layout: 'bl_document',
+      rowErrors: [],
+      bls: [
+        {
+          rowNumber: 1,
+          bl_id: 'BB009',
+          ce_mercante: null,
+          shipper: 'SHIPPER LTDA',
+          consignee: 'IMPORTADOR LTDA',
+          notify_party: null,
+          cnpj_cpf: null,
+          pol: 'CNTAC',
+          pod: 'BRVIX',
+          bb_machine_qty: null,
+          bb_packages_qty: 4,
+          bb_packages_total: 4,
+          bb_weight_ton: 1,
+          total_weight_kg: 1000,
+          total_cbm: 12.5,
+          items: [],
+        },
+      ],
+    }
+
+    await importBreakbulkManifest({
+      filename: 'BB009.pdf',
+      voyageId: 10,
+      manifest,
+      uploadedBy: '00000000-0000-0000-0000-000000000001',
+    })
+
+    const payload = mockRpc.mock.calls.find(([name]) => name === 'import_breakbulk_manifest_transactional')?.[1]
+    expect(payload.p_bls[0]).toMatchObject({ id: 'BB009' })
+    expect(payload.p_bls[0]).not.toHaveProperty('ce_mercante')
+  })
 })

@@ -5,7 +5,9 @@ import { routeTitle } from '../pageTitle'
 describe('routeTitle (WCAG 2.4.2 — título por rota)', () => {
   it('antepõe o nome da tela e mantém o sufixo do produto', () => {
     expect(routeTitle('/painel')).toBe('Painel · Transhipping Desk')
-    expect(routeTitle('/faturamento')).toBe('Faturamento · Transhipping Desk')
+    expect(routeTitle('/taxas-locais')).toBe('Taxas Locais · Transhipping Desk')
+    expect(routeTitle('/taxas-locais/tabelas')).toBe('Tabelas de Taxas Locais · Transhipping Desk')
+    expect(routeTitle('/faturamento')).toBe('Transhipping Desk')
   })
 
   it('prioriza rotas específicas sobre genéricas', () => {

@@ -54,6 +54,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0047](./0047-grants-de-funcao-fechados-por-padrao.md) | Grants de função fechados por padrão em `public` | aceito | Estende a 0011: o default-deny deixa de ser disciplina de autor e passa a ser o default do schema (`ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ON FUNCTIONS`), com acesso concedido caso a caso; **encerra formalmente a exceção `anon` da 0013**, já revogada na prática pela migration `182`; preserva `portal_ship_schedule()` como única exceção pré-autenticação viva; implementada na migration `297` |
 | [0048](./0048-confirmacao-de-email-do-portal-em-rota-publica.md) | Confirmação do Email de Recuperação em rota pública | aceito | Estende a 0013 (o que autentica cada passo) e a 0019 (convite); alinha a confirmação de email a `/portal/ativar` e `/portal/recuperar-senha`; não altera a 0004 |
 | [0049](./0049-rate-limit-do-portal-chaveado-somente-por-cnpj.md) | Rate limit do Portal chaveado somente pelo CNPJ | aceito | Apoia-se na 0013 (CNPJ como única unidade de acesso); rejeita contagem por IP porque um escritório opera vários CNPJs; a decorrência sobre o teto de envio de email está marcada como não implementada |
+| [0050](./0050-financeiro-segregado-por-processo-faturavel.md) | Financeiro segregado por processo faturável | aceito | Vigente; rotas legadas preservam deep links |
 
 ## Convenção
 
