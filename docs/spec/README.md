@@ -18,6 +18,11 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 |---|---|
 | [`2026-08-18-escala-multiplos-terminais-design.md`](./2026-08-18-escala-multiplos-terminais-design.md) | Escala com múltiplos terminais e ADR por terminal |
 
+A spec de múltiplos terminais está **com implementação pendente**. Ela fixa o
+contrato de execução, mas não promove o comportamento para o `CONTEXT.md` nem
+para a arquitetura atual antes da implementação, dos testes e dos gates do
+plano serem concluídos.
+
 A spec comportamental abaixo é permanente e não entra nesta tabela.
 
 ## Behavioral Specification

@@ -1,14 +1,16 @@
 # Escala com múltiplos terminais e ADR por terminal
 
-Status: **desenho concluído** — sessão de grilling em 2026-08-18. Aguarda ADR de
-engenharia e plano de implementação.
+Status: **implementação pendente** — desenho concluído na sessão de grilling em
+2026-08-18. Esta spec é o contrato de implementação; não descreve comportamento
+já entregue.
 
 Esta spec registra decisões de domínio já fechadas que **ainda não estão
 implementadas**. Enquanto ela viver aqui, o `CONTEXT.md`, o
 `docs/ARCHITECTURE.md` e o schema continuam descrevendo o comportamento atual
-— identidade `(viagem, porto)`. A atualização daqueles documentos acontece na
-mesma mudança que implementar o modelo, junto com a ADR de engenharia e a
-migration.
+— identidade `(viagem, porto)`. O `CONTEXT.md` só será promovido depois que a
+implementação, a migration, os testes e os gates de execução forem concluídos;
+essa promoção acontecerá na mesma mudança que comprovar o modelo, junto com a
+ADR de engenharia.
 
 ## Caso operacional que motiva a mudança
 
@@ -61,21 +63,23 @@ os três sign-offs.
 Uma escala pode ter mais de um terminal. A lista vive na **Escala**, não no ADR:
 é ela que o Line-Up, o Painel e a TV leem. O ADR não inventa terminal — deriva.
 
-## Decisão 3 — terminal é sempre um terminal cadastrado, nunca texto livre
+## Decisão 3 — terminal é registrado e escolhido no modal da escala
 
-O `agency_departure_reports.terminal` de texto livre acaba. O terminal passa a
-referenciar o cadastro do sistema.
+O terminal não é digitado livremente no ADR. Ele é um terminal portuário
+registrado no Cadastro de Terminais, selecionado no modal da escala para cada
+Frente de Operação. O ADR terminalizado recebe essa atribuição derivada; não
+existe um segundo ato de escolher ou editar o terminal no cabeçalho do ADR.
 
-Pendência que isso abre: a tabela `depots` **não tem porto** (colunas: `code`,
+A implementação deve resolver que a tabela `depots` **não tem porto** (colunas: `code`,
 `name`, `tipo`, `free_time_*`, `active`). Um terminal cadastrado hoje não sabe a
 que porto pertence, então nada impediria vincular um terminal de Santos a uma
 escala de Vitória.
 
-## Decisão 4 — a atribuição do operado ao terminal é manual e obrigatória
+## Decisão 4 — a atribuição do operado ao terminal é manual e obrigatória no modal
 
-Nenhum módulo de origem carrega terminal, e não haverá inferência. O usuário
-**aponta** a que terminal cada parcela da operação pertence, e o preenchimento é
-**impeditivo** — sem ele a operação não segue.
+Nenhum módulo de origem carrega terminal, e não haverá inferência. No modal da
+escala, o usuário **aponta** a que terminal registrado cada Frente de Operação
+pertence, e o preenchimento é **impeditivo** — sem ele a operação não segue.
 
 O grão da atribuição **não é a seção do ADR**. Verificado em
 `src/components/voyages/AgencyReportDocument.tsx:583` e `:621`: "Carga solta" e
@@ -93,6 +97,16 @@ fora da lista — sem precisar de regra de validação para nenhum dos dois.
 
 O custo aceito: não há como registrar um terminal *previsto* antes de existir
 carga atribuível a ele.
+
+## Decisão 5 — Line-Up, Painel e TV mantêm uma linha por sentido e terminal como coluna
+
+Cada escala que opera ou declara um sentido produz exatamente uma linha daquele
+sentido no Line-Up, no Painel e na TV; uma escala com os dois sentidos produz
+uma linha de importação e uma de exportação. O terminal é uma coluna/atributo
+da linha, nunca um novo eixo de agrupamento: vários terminais do mesmo sentido
+aparecem na mesma célula, em ordem determinística. A ausência de terminal é
+exibida como `TBC`, sem salvar o placeholder e sem criar ADR. Chegadas e Saídas
+não é afetado.
 
 ## Decisão 6 — o terminal da escala sai do Cadastro de Terminais, com porto obrigatório
 
@@ -116,19 +130,25 @@ Direto); passa a precisar conter **todo terminal onde qualquer navio atraca**.
 
 Isso deixa em aberto **onde esse cadastro é mantido**. "Aba de terminal no
 Painel", da nota original, acabou resolvida como a coluna de terminais do
-Line-Up (Decisão 13) — não uma tela nova. Não há mais lugar óbvio para o
-cadastro sair de `/embarquevazios/depots`; ou ele continua lá (mesmo que o
-consumidor principal passe a ser a atribuição de escala, não Vazios), ou ganha
-uma tela própria fora do módulo. Fica como questão aberta (E2).
+Line-Up (Decisão 13) — não uma tela nova. A Decisão 14 adia a escolha de outra
+superfície: por ora, o cadastro continua em `/embarquevazios/depots`, mesmo que
+o consumidor principal passe a ser a atribuição de escala, não Vazios.
 
 ## Decisão 7 — a unidade atribuível é a Frente de Operação `(sentido, modalidade)`
 
 **Frente de Operação** é o nome canônico. "Natureza da carga" não serve —
 natureza já nomeia três conceitos; "movimento" também não — é FCL/LCL.
 
-São seis, e elas **não** coincidem com as seis seções do ADR: `carga_descarregada`
-contém duas, e `datas` não é carga. Vazio aparece nos dois sentidos, então a
-modalidade sozinha não identifica: a chave é o par.
+São seis, e elas **não** coincidem com as seis seções do ADR:
+`carga_descarregada` contém duas, e `datas` não é carga. Vazio aparece nos dois
+sentidos, então a modalidade sozinha não identifica: a chave é o par.
+
+As quatro frentes de importação existem quando há dado operacional real:
+container cheio, carga solta, vazio importado ou veículo. As duas frentes de
+exportação existem quando a escala tem declaração explícita de exportação de
+granito e/ou vazios, mesmo que ainda não haja linhas operacionais realizadas.
+Assim, importação é baseada em dado e exportação é baseada em declaração; a
+existência de uma frente de exportação não é inferida de quantidade preenchida.
 
 | Sentido | Modalidade | Seção do ADR | Fonte |
 |---|---|---|---|
@@ -178,10 +198,14 @@ TVV — fechar o TVV nesse estado é assinar "completo" sobre escala com carga s
 dono. Mesma lógica que o `CONTEXT.md` já aplica às seções: "Ausência de dado não
 é conclusão".
 
+Uma frente existente sem terminal aparece como `TBC` somente na apresentação.
+`TBC` não é terminal, não é persistido e não cria ADR. Enquanto qualquer frente
+estiver em `TBC`, todos os ADRs da escala permanecem impedidos de fechar.
+
 Recusado o bloqueio no sign-off da seção: não cobre a frente órfã, que não está
 em seção de ADR nenhum e portanto não tem sign-off para bloquear.
 
-## Decisão 9 — chegada e partida são da escala; atracação, desatracação e restow são do terminal
+## Decisão 9 — ATA/ATD são globais; ATB/ATD/Restow são do terminal
 
 A seção Escala do ADR impresso mostra hoje ATA, ATB, ATD e Restow
 (`AgencyReportDocument.tsx:558-562`). ETA/ETB/ETD são planejamento e vivem na
@@ -193,18 +217,22 @@ assinado pelos três departamentos afirmando que o navio saiu do TVV numa hora e
 que estava atracado em outro terminal. O Financeiro usa esse relatório para
 aprovar pagamento.
 
-Cada data passa a morar no nível em que o fato acontece:
+As datas ficam consolidadas no nível em que o fato acontece:
 
-| Dado | Nível | Razão |
+| Dado | Campo e nível | Regra |
 |---|---|---|
-| ATA | Escala | o navio chega ao porto uma vez |
-| Atracação (ATB) | Terminal | o shifting cria uma segunda |
-| Desatracação | Terminal | **campo novo**; não existe hoje |
-| ATD | Escala | o navio deixa o porto uma vez |
-| Restow (`rtw`) | Terminal | é operação de berço; na escala, os dois ADRs imprimiriam o mesmo número e a soma dobraria |
+| ATA | `escala.ata`, global | o navio chega ao porto uma vez |
+| ATD | `escala.atd`, global | o navio deixa o porto uma vez |
+| ATB | `terminal_atb`, por terminal | o shifting pode criar uma segunda atracação |
+| ATD | `terminal_atd`, por terminal | registra a desatracação daquele terminal |
+| Restow | `terminal_rtw`, por terminal | é operação de berço e não pode ser duplicado entre ADRs |
 
-Nada que hoje lê `escala.atd` quebra. O Line-Up continua exibindo um ATB da
-escala: o do primeiro terminal na ordem de atracação.
+Para cada terminal, `terminal_atd` é nulo ou satisfaz
+`terminal_atd >= terminal_atb`; nunca pode ser anterior à atracação do mesmo
+terminal. ATA e ATD globais não são duplicados em cada terminal.
+
+Nada que hoje lê `escala.atd` quebra. As projeções terminalizadas passam a ler
+as datas do terminal correspondente, preservando as datas globais da escala.
 
 Recusada a inversão completa (todas as datas no terminal, escala derivando):
 a escala existe antes de qualquer terminal, porque a atribuição vem depois, e
@@ -236,10 +264,6 @@ terminal portuário nas duas pontas.
 Recusado criar um caso próprio para a transferência entre terminais: não
 corrigiria nada que já não seja lançável, e o glossário é explícito em não
 presumir lançamento ("o sistema não presume nenhuma").
-
-## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
-
-Chegadas e Saídas não é afetado.
 
 ## Decisão 11 — cada ADR fecha por conta própria; reatribuir sobre ADR fechado exige reabrir
 
@@ -284,13 +308,13 @@ precisa diferenciar antes de abrir.
 O título da aba e o nome do PDF exportado passam a incluir o terminal:
 `ADR - GREEN PECEM V.9 - BRVIX - TVV.pdf`.
 
-## Decisão 13 — Line-Up, Painel e TV mantêm a linha por sentido; terminal vira coluna
+## Decisão 13 — a coluna de terminal é derivada por sentido
 
-A estrutura atual não muda: a ADR 0035 já segrega o Line-Up por sentido — uma
-escala que opera nos dois vira duas linhas, com as mesmas datas da escala,
-diferindo no conteúdo operado. Esta sessão não substitui esse critério por um
-novo eixo de linhas; acrescenta uma **coluna de terminais** ao final da tabela
-(`LineUpTable.tsx:57-73`).
+A Decisão 5 fixa a cardinalidade das linhas. A coluna de terminais lista, na
+mesma linha daquele sentido, os terminais das Frentes de Operação atribuídas a
+ele. A escala que opera nos dois sentidos continua com duas linhas, não com uma
+linha por terminal ou por `(escala, terminal, sentido)`. A implementação usa
+`src/components/lineup/LineUpTable.tsx:57-73`.
 
 A coluna lista os terminais das Frentes de Operação **daquele sentido**, coerente
 com o resto da linha — que já só exibe dado do próprio sentido (VIN só aparece
@@ -313,42 +337,34 @@ atribuir Frentes de Operação, entra por um módulo que não é o seu
 (`/embarquevazios/depots`) até que a tela mude de lugar, se mudar. Vira item de
 UI separado, decidido depois.
 
-## Decisão 15 — sem transição: a base é resetada antes da implementação
+## Decisão 15 — migração compatível, sem reset nem backfill destrutivo
 
-Verificado antes de decidir: hoje a base tem 2 `agency_departure_reports`
-(nenhum com `terminal` preenchido) e 4 terminais já cadastrados como
-`terminal_portuario` — TVV e PORTMAC, do próprio caso GREEN PECEM, entre eles.
-Um dos dois ADRs já está **fechado** (`BRSSA`, 2026-08-10), com histórico real,
-o que descartaria um simples "deixar órfão".
+A migration deve ser compatível com os registros existentes. ADRs legados
+continuam preservados e legíveis sob a identidade `(viagem, porto)`, inclusive
+seus sign-offs, ocorrências, snapshots e histórico; a coluna textual legada não
+é apagada nem reinterpretada automaticamente. ADRs novos usam a identidade
+`(viagem, porto, terminal)` e o terminal registrado atribuído pelas frentes.
 
-A pergunta ficou sem objeto: a base será resetada para a implementação. A
-migration cria o modelo `(viagem, porto, terminal)` direto, sem backfill de
-texto livre nem preservação de ADR fechado sob a identidade antiga.
+Não haverá reset da base, limpeza ampla, exclusão/recriação de registros ou
+backfill destrutivo. A transição deve adicionar o modelo terminalizado sem
+perder dados históricos e sem escolher terminal automaticamente para um ADR
+legado.
 
-## Questões em aberto
+## Estado das decisões e dependências
 
-Ordenadas por dependência.
-
-Nenhuma pendência de domínio restante. Todas as decisões:
+Não há pendência de domínio para esta spec. Todas as decisões estão fechadas:
 
 A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
 (Decisão 10), D3 — fechamento (Decisão 11), D3.1 — impresso (Decisão 12), E1 —
-Line-Up (Decisão 13), E2 — cadastro adiado (Decisão 14), F1 — sem transição
-(Decisão 15).
+Line-Up (Decisões 5 e 13), E2 — cadastro adiado (Decisão 14), F1 — migração
+compatível (Decisão 15).
 
-Prazo departamental e alertas estão fora do escopo desta spec: correm em
-trabalho paralelo. O próximo passo é a ADR de engenharia e o plano de
-implementação (`docs/plans/`).
+Alertas, issue #519 e issue #524 são dependências posteriores e estão fora do
+escopo do comportamento deste plano. Não há, nesta mudança, contrato de alerta
+por terminal, prazo departamental ou alteração do catálogo de notificações. A
+revisão dessas dependências só ocorre depois que o núcleo terminalizado estiver
+implementado e validado contra o modelo real.
 
-### Colisão de terminologia a resolver em B1
-
-O vocabulário livre é escasso. Já estão tomados:
-
-- **Natureza** — três conceitos: Natureza do Serviço (armazenagem/transporte/
-  geral), a natureza da matriz de descarga (tipo × natureza) e a `natureza` do
-  vazio de importação (cama/cover plate).
-- **Movimento** — FCL/LCL (`CONTEXT.md:784`).
-
-Livre e já usado no sentido certo: **modalidade**, na nota editorial da ADR 0035
-("Granito é modalidade de carga da exportação... A coluna 'Opera' diz sentido,
-não modalidade").
+O próximo passo é a ADR de engenharia e a execução do plano em
+`docs/plans/`; o `CONTEXT.md` só será atualizado após os gates definidos para
+essa execução.
