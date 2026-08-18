@@ -1,0 +1,82 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const sql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/306_escala_multiplos_terminais.sql'),
+  'utf8',
+)
+const legacyAdrSchema = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/213_agency_departure_reports.sql'),
+  'utf8',
+)
+
+describe('contrato SQL da escala com múltiplos terminais', () => {
+  it('persiste estado por terminal e frente por escala com FK de porto', () => {
+    expect(sql).toMatch(
+      /CREATE TABLE IF NOT EXISTS public\.voyage_escala_terminal_state[\s\S]+terminal_atb TIMESTAMPTZ[\s\S]+terminal_atd TIMESTAMPTZ[\s\S]+terminal_rtw TIMESTAMPTZ[\s\S]+revision INTEGER[\s\S]+UNIQUE \(voyage_id, port, terminal_id\)/i,
+    )
+    expect(sql).toMatch(
+      /CREATE TABLE IF NOT EXISTS public\.voyage_escala_operation_fronts[\s\S]+sentido TEXT[\s\S]+modalidade TEXT[\s\S]+terminal_id UUID[\s\S]+source TEXT[\s\S]+last_changed_by UUID/i,
+    )
+    expect(sql).toMatch(/FOREIGN KEY \(terminal_id, port_id\)[\s\S]+REFERENCES public\.depots\(id, port_id\) ON DELETE RESTRICT/i)
+    expect(sql).toContain("source IN ('operational_data', 'export_declaration')")
+    expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS uq_voyage_escala_operation_front[\s\S]+\(voyage_id, port, sentido, modalidade\)/i)
+    expect(sql).toMatch(/terminal_id UUID\s*REFERENCES public\.depots\(id\)\s*ON DELETE RESTRICT/i)
+    expect(sql).toContain('terminal_id UUID,')
+  })
+
+  it('adiciona terminalização de ADRs sem apagar o legado nem os filhos por report_id', () => {
+    expect(sql).toMatch(/ALTER TABLE public\.agency_departure_reports[\s\S]+ADD COLUMN IF NOT EXISTS terminal_id UUID/i)
+    expect(sql).toContain('DROP CONSTRAINT IF EXISTS agency_departure_reports_voyage_id_port_key')
+    expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS\s+uq_agency_departure_reports_terminal[\s\S]+WHERE terminal_id IS NOT NULL/i)
+    expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS\s+uq_agency_departure_reports_legacy[\s\S]+WHERE terminal_id IS NULL/i)
+    expect(sql).not.toMatch(/DROP TABLE\s+public\.agency_departure_report/i)
+    expect(sql).not.toMatch(/TRUNCATE\s+public\.agency_departure_report/i)
+    expect(sql).toMatch(/DELETE\s+FROM\s+public\.agency_departure_reports[\s\S]+status = 'open'/i)
+    expect(legacyAdrSchema).toContain('report_id UUID NOT NULL REFERENCES public.agency_departure_reports(id) ON DELETE CASCADE')
+    expect(sql).toContain('report_id')
+  })
+
+  it('expõe a RPC transacional com revisão, lock, validações, ADR e retorno estável', () => {
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.save_voyage_escala_terminal_state\(\s*p_voyage_id BIGINT,\s*p_port TEXT,\s*p_expected_revision INTEGER,\s*p_fronts JSONB,\s*p_terminals JSONB,\s*p_export_expectation JSONB,\s*p_justification TEXT\s*\)/i,
+    )
+    expect(sql).toContain('SECURITY DEFINER')
+    expect(sql).toContain('SET search_path = public, pg_temp')
+    expect(sql).toMatch(/FROM public\.voyages[\s\S]+FOR UPDATE/i)
+    expect(sql).toContain('REVISAO_OBSOLETA')
+    expect(sql).toContain('terminal_atd < terminal_atb')
+    expect(sql).toContain('closed_blockers')
+    expect(sql).toContain('status = \'closed\'')
+    expect(sql).toContain('terminal_code')
+    expect(sql).toContain('report_id')
+    expect(sql).toContain("'revision'")
+    expect(sql).toContain("'fronts'")
+    expect(sql).toContain("'terminals'")
+    expect(sql).toMatch(/INSERT INTO public\.agency_departure_reports[\s\S]+terminal_id/i)
+    expect(sql).toContain('ON CONFLICT (voyage_id, port, terminal_id) WHERE terminal_id IS NOT NULL')
+    expect(sql).toContain("'front_created'")
+    expect(sql).toContain("'front_removed'")
+    expect(sql).toContain("'terminal_assignment'")
+    expect(sql).toContain("'terminal_dates'")
+    expect(sql).toContain("'export_expectation'")
+    expect(sql).toContain("'voyage_pod_schedule'")
+    expect(sql).toContain('actor_role')
+    expect(sql).toContain('actor_department')
+    expect(sql).toContain('p_justification')
+  })
+
+  it('mantém escrita somente pela RPC e revoga a superfície pública', () => {
+    expect(sql).toMatch(/ALTER TABLE public\.voyage_escala_terminal_state ENABLE ROW LEVEL SECURITY/i)
+    expect(sql).toMatch(/CREATE POLICY voyage_escala_terminal_state_select[\s\S]+FOR SELECT TO authenticated[\s\S]+is_active_read_user/i)
+    expect(sql).toMatch(/ALTER TABLE public\.voyage_escala_operation_fronts ENABLE ROW LEVEL SECURITY/i)
+    expect(sql).toMatch(/CREATE POLICY voyage_escala_operation_fronts_select[\s\S]+FOR SELECT TO authenticated[\s\S]+is_active_read_user/i)
+    expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_terminal_state FROM PUBLIC, anon, authenticated/i)
+    expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_operation_fronts FROM PUBLIC, anon, authenticated/i)
+    expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_terminal_state TO authenticated/i)
+    expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_operation_fronts TO authenticated/i)
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.save_voyage_escala_terminal_state\(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT\) FROM PUBLIC, anon/i)
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.save_voyage_escala_terminal_state\(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT\) TO authenticated/i)
+  })
+})
