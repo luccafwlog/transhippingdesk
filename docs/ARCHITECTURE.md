@@ -445,8 +445,9 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `billing` | Subrota de faturas dentro da Inspeção do Portal |
 | `operacao` | Subrota operacional dentro da Inspeção do Portal |
 | `perfil` | Subrota de perfil dentro da Inspeção do Portal |
-| `/taxas-locais` | Tabelas e overrides |
-| `/faturamento` | Validação, invoices e ledger |
+| `/taxas-locais` | Validação, invoices e ledger de Taxas Locais |
+| `/taxas-locais/tabelas` | Cadastro de tabelas e overrides de Taxas Locais |
+| `/faturamento` | Redirect legado para `/taxas-locais`, preservando a query string |
 | `/demurrage` | Operação e invoices de demurrage |
 | `/demurrage/taxas` | Tarifas de demurrage |
 | `/reconciliacao` | Conciliação PIX |

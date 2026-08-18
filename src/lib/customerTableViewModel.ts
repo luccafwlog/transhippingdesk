@@ -1,5 +1,5 @@
 export function buildCustomerBillingUrl(customer: { id: number; name: string }) {
-  return `/faturamento?tab=invoices&customer=${customer.id}&customerName=${encodeURIComponent(customer.name)}`
+  return `/taxas-locais?tab=invoices&customer=${customer.id}&customerName=${encodeURIComponent(customer.name)}`
 }
 
 export function getPrimaryContactEmail(

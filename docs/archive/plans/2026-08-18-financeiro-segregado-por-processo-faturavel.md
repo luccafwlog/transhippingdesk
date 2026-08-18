@@ -74,10 +74,11 @@ foi confirmada na forma corrigida da Task 7: o strip é removido e nada muda em
 0014); dados legados continuam cobertos pelos consumidores que já os exibem,
 sem criar uma decisão nova de filtro de status.
 
-**Este plano não foi executado.** A sessão que o produziu foi de planejamento
-apenas, por decisão do autor; a implementação acontece em sessão separada.
-Quem executar deve seguir as tasks na ordem e tratar o inventário de
-referências como a lista de verificação de "nenhuma referência quebrada".
+**Execução concluída nesta PR.** A implementação foi feita nesta branch e o
+inventário de referências foi usado como lista de verificação de navegação.
+Os gates de TypeScript, lint, build, documentação e CI remoto são a evidência
+de validação; a suíte local completa ainda conserva seis falhas preexistentes
+de timeout/fixture fora do escopo desta mudança.
 
 ## Global Constraints
 

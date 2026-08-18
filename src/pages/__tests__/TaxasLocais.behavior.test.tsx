@@ -33,12 +33,11 @@ vi.mock('../../components/billing/InvoiceDetailModal', () => ({
 }))
 vi.mock('../../components/billing/ValidacaoTab', () => ({ ValidacaoTab: () => null }))
 vi.mock('../../components/billing/FinancialAlertsPanel', () => ({ FinancialAlertsPanel: () => null }))
-vi.mock('../../components/billing/DemurrageMetricsStrip', () => ({ DemurrageMetricsStrip: () => null }))
 vi.mock('../../components/billing/InvoiceFiltersBar', () => ({ InvoiceFiltersBar: () => null }))
 vi.mock('../../components/billing/InvoicesTable', () => ({ InvoicesTable: () => null }))
 vi.mock('../../components/billing/ConsolidatedInvoiceModal', () => ({ ConsolidatedInvoiceModal: () => null }))
 
-import { Faturamento } from '../Faturamento'
+import { TaxasLocais } from '../TaxasLocais'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -46,8 +45,8 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-it('opens the invoice supplied by the URL query string', () => {
-  render(<MemoryRouter initialEntries={['/faturamento?invoice=73']}><Faturamento /></MemoryRouter>)
+it('opens the invoice supplied by the canonical URL query string', () => {
+  render(<MemoryRouter initialEntries={['/taxas-locais?invoice=73']}><TaxasLocais /></MemoryRouter>)
   expect(screen.getByTestId('invoice-id').textContent).toBe('73')
 })
 
@@ -55,7 +54,7 @@ it('records overdue detection failure without producing an unhandled rejection',
   const failure = new Error('overdue unavailable')
   mocks.detectOverdue.mockRejectedValue(failure)
 
-  render(<MemoryRouter><Faturamento /></MemoryRouter>)
+  render(<MemoryRouter><TaxasLocais /></MemoryRouter>)
 
   await waitFor(() => expect(mocks.reportFailure).toHaveBeenCalledWith(
     'detectOverdueInvoices ao abrir Faturamento',

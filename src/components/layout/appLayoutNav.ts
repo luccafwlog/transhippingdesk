@@ -5,7 +5,6 @@ import {
   Bell,
   Car,
   Clock,
-  DollarSign,
   FileSpreadsheet,
   Home,
   Mountain,
@@ -53,17 +52,16 @@ export const adminNavItems: NavItem[] = [
 ]
 
 export const financialNavItems: NavItem[] = [
-  { to: '/faturamento', label: 'Faturamento', icon: DollarSign },
-  { to: '/taxas-locais', label: 'Taxas locais', icon: ReceiptText },
-  { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
+  { to: '/taxas-locais', label: 'Taxas Locais', icon: ReceiptText },
   { to: '/demurrage', label: 'Demurrage', icon: Clock },
   { to: '/reconciliacao', label: 'Conciliação PIX', icon: RefreshCw },
 ]
 
+export const reportsNavItem: NavItem = { to: '/relatorios', label: 'Relatórios', icon: BarChart3 }
+
 export function buildFinancialNavItemsForCounts(counts: OperationalCounts): NavItem[] {
   return financialNavItems.map((item) => {
     if (item.to === '/taxas-locais') return { ...item, badge: counts.chargeReviewRequired || undefined }
-    if (item.to === '/faturamento') return { ...item, alert: counts.chargeReviewRequired > 0 }
     return item
   })
 }

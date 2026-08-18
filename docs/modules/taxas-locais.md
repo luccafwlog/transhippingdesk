@@ -1,17 +1,18 @@
 # Taxas Locais
 
-> **Status:** ativo · **Atualizado:** 2026-07-19 · **Rotas:** `/taxas-locais`; ações operacionais também partem de `/revisao`, `/manifestos/:blId` e `/faturamento`
+> **Status:** ativo · **Atualizado:** 2026-08-18 · **Rotas:** operação em `/taxas-locais`; cadastro em `/taxas-locais/tabelas`; ações operacionais também partem de `/revisao` e `/manifestos/:blId`
 
 ## Propósito e escopo
 
 Este módulo é o dono da configuração de tarifas locais e das operações que
-transformam os dados de um B/L em linhas faturáveis. A rota `/taxas-locais`
-expõe somente as abas de tabelas e overrides; cálculo, recálculo, revisão,
+transformam os dados de um B/L em linhas faturáveis. A rota
+`/taxas-locais/tabelas` expõe as abas de tabelas e overrides; a rota pai
+`/taxas-locais` expõe a operação de validação e invoices. Cálculo, recálculo, revisão,
 liberação para faturamento, cobranças manuais e reconciliação de cliente são
 operações do mesmo domínio disparadas por outras telas.
 
 - `src/App.tsx` monta `/taxas-locais` dentro da aplicação interna protegida.
-- `src/pages/TaxasLocais.tsx` exige as capacidades de interface
+- `src/pages/TaxasLocaisTabelas.tsx` exige as capacidades de interface
   `charge_tables` e `charge_overrides`, definidas em `src/hooks/useAuth.tsx`.
 - `src/services/charges/chargeTableService.ts` e
   `src/services/charges/chargeRateService.ts` são donos do CRUD de configuração.
@@ -30,7 +31,7 @@ operações do mesmo domínio disparadas por outras telas.
 
 ## Anatomia das telas
 
-### Aba Tabelas em `/taxas-locais`
+### Aba Tabelas em `/taxas-locais/tabelas`
 
 `src/components/taxasLocais/ChargeTablesTab.tsx` recebe da página os filtros
 compartilhados de modo de carga e POD, mantém queries, mutations, validação e
@@ -55,7 +56,7 @@ Os formulários e defaults vivem em
 `src/components/taxasLocais/chargeForms.ts`; validação e normalização vivem em
 `src/pages/taxasLocaisHelpers.ts`.
 
-### Aba Overrides em `/taxas-locais`
+### Aba Overrides em `/taxas-locais/tabelas`
 
 `src/components/taxasLocais/ChargeOverridesTab.tsx` contém:
 

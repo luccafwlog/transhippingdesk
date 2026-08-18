@@ -8,6 +8,7 @@ import { PortalScopeProvider } from './hooks/usePortalScope'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { lazyPage } from './lib/lazyPage'
 import { matchRoutePreload, type RoutePreloadTable } from './lib/routePreload'
+import { resolveLegacyFaturamentoRedirect, resolveTaxasLocaisRedirect, toRouteTarget } from './lib/routeRedirects'
 import { markStartupStage } from './lib/telemetry'
 
 const Login = lazyPage(() => import('./pages/Login'), 'Login')
@@ -33,7 +34,7 @@ const Clientes = lazyPage(() => import('./pages/Clientes'), 'Clientes')
 const ClientesPortal = lazyPage(() => import('./pages/ClientesPortal'), 'ClientesPortal')
 const ClienteFicha = lazyPage(() => import('./pages/ClienteFicha'), 'ClienteFicha')
 const TaxasLocais = lazyPage(() => import('./pages/TaxasLocais'), 'TaxasLocais')
-const Faturamento = lazyPage(() => import('./pages/Faturamento'), 'Faturamento')
+const TaxasLocaisTabelas = lazyPage(() => import('./pages/TaxasLocaisTabelas'), 'TaxasLocaisTabelas')
 const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
 const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
@@ -73,6 +74,17 @@ function DocumentTitle() {
   return null
 }
 
+function LegacyFaturamentoRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={toRouteTarget(resolveLegacyFaturamentoRedirect(search))} replace />
+}
+
+function TaxasLocaisRoute() {
+  const { search } = useLocation()
+  const redirect = resolveTaxasLocaisRedirect(search)
+  return redirect ? <Navigate to={toRouteTarget(redirect)} replace /> : withSuspense(<TaxasLocais />)
+}
+
 // O app é o mesmo SPA servido em dois domínios: `portal.<dominio>` é exclusivo
 // do Portal do Cliente; qualquer outro host (raiz, web.app, localhost) é o
 // sistema interno. Em host de Portal, rotas internas e a raiz caem em /portal.
@@ -94,7 +106,8 @@ const routePreloads: RoutePreloadTable = [
   ['/manifestos/:blId', BlDetalhe.preload], ['/manifestos', Manifestos.preload], ['/containers', Containers.preload],
   ['/carga-solta', CargaSolta.preload], ['/veiculos', Veiculos.preload], ['/revisao', Revisao.preload],
   ['/clientes/portal', ClientesPortal.preload], ['/clientes/:cnpj', ClienteFicha.preload], ['/clientes', Clientes.preload],
-  ['/taxas-locais', TaxasLocais.preload], ['/faturamento', Faturamento.preload], ['/alertas', Alertas.preload],
+  ['/taxas-locais/tabelas', TaxasLocaisTabelas.preload], ['/taxas-locais', TaxasLocais.preload],
+  ['/faturamento', TaxasLocais.preload], ['/alertas', Alertas.preload],
   ['/relatorios', Relatorios.preload], ['/demurrage', Demurrage.preload], ['/reconciliacao', Reconciliacao.preload],
   ['/granito/taxas', GraniteRates.preload], ['/granito', Granite.preload], ['/demurrage/taxas', DemurrageRates.preload],
   ['/embarquevazios/depots', DepotCadastro.preload], ['/embarquevazios', EmbarqueVazios.preload],
@@ -162,8 +175,9 @@ export default function App() {
           <Route path="/clientes" element={withSuspense(<Clientes />)} />
           <Route path="/clientes/portal" element={withSuspense(<ClientesPortal />)} />
           <Route path="/clientes/:cnpj" element={withSuspense(<ClienteFicha />)} />
-          <Route path="/taxas-locais" element={withSuspense(<TaxasLocais />)} />
-          <Route path="/faturamento" element={withSuspense(<Faturamento />)} />
+          <Route path="/taxas-locais/tabelas" element={withSuspense(<TaxasLocaisTabelas />)} />
+          <Route path="/taxas-locais" element={<TaxasLocaisRoute />} />
+          <Route path="/faturamento" element={<LegacyFaturamentoRedirect />} />
           <Route path="/alertas" element={withSuspense(<Alertas />)} />
           <Route path="/relatorios" element={withSuspense(<Relatorios />)} />
           <Route path="/demurrage" element={withSuspense(<Demurrage />)} />

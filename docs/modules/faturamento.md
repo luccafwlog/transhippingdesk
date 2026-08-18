@@ -1,17 +1,17 @@
 # Faturamento
 
-> **Status:** ativo · **Atualizado:** 2026-07-08 · **Rotas:** `/faturamento`; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
+> **Status:** ativo · **Atualizado:** 2026-08-18 · **Rotas:** operação em `/taxas-locais`; `/faturamento` é redirect legado; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
 
 ## Propósito e escopo
 
-Faturamento transforma B/Ls elegíveis em documentos financeiros, mantém a
+Faturamento é o processo compartilhado de invoices que transforma B/Ls elegíveis em documentos financeiros, mantém a
 lista e o detalhe de invoices, cria consolidadas, registra pagamentos,
 cancelamentos e restituições e apresenta Demurrage como visão financeira
 agregada. Para taxas locais, o saldo canônico é o ledger por recebível; a tabela
 `invoices` continua sendo o documento emitido.
 
-- `/faturamento` é uma rota interna definida em `src/App.tsx` e composta por
-  `src/pages/Faturamento.tsx`.
+- `/taxas-locais` é a rota interna definida em `src/App.tsx` e composta por
+  `src/pages/TaxasLocais.tsx`; `/faturamento` apenas preserva links legados.
 - Alterações financeiras exigem usuário ativo/admin nas RPCs. A capacidade
   `faturamento_edit` existe em `src/hooks/useAuth.tsx`, mas
   `src/pages/Faturamento.tsx` não a usa como gate da rota ou das abas.
@@ -32,7 +32,7 @@ agregada. Para taxas locais, o saldo canônico é o ledger por recebível; a tab
 
 ### Lista de invoices
 
-`src/pages/Faturamento.tsx` abre por padrão a aba **Faturas**. A lista usa:
+`src/pages/TaxasLocais.tsx` abre por padrão a aba **Faturas**. A lista usa:
 
 - `src/components/billing/InvoiceFiltersBar.tsx` para B/L, invoice, cliente,
   navio/viagem, POD, tipo, status, emissão, pagamento e tamanho de página;
@@ -152,7 +152,6 @@ impressão e chama `window.print()`; o nome sugerido é calculado por
 | Receivables consolidáveis | `queryKeys.billingLedger.consolidatableReceivables(filters)` | `useConsolidatableReceivables` |
 | Refunds | `['invoice-refunds', invoiceId]` | `useInvoiceRefunds` |
 | Alertas | `['financial-alerts']` | `Faturamento` |
-| Demurrage agregado (métricas) | `['demurrage-invoices', 'faturamento-strip']` | `DemurrageMetricsStrip` |
 | Histórico | `['reconciliation-history', filters]` | `ReconciliationHistoryTable` |
 
 `useLedgerInvalidation` invalida `billingLedger.all()`, `invoices.all()`,
@@ -238,7 +237,8 @@ Os testes não foram executados nesta cartografia, por instrução do coordenado
 
 ### Testes de serviço, página e componente
 
-- `src/pages/__tests__/Faturamento.test.ts`
+- `src/pages/__tests__/TaxasLocais.test.ts`
+- `src/pages/__tests__/TaxasLocais.behavior.test.tsx`
 - `src/pages/__tests__/faturamentoInvoiceStatus.test.ts`
 - `src/services/__tests__/billing.test.ts`
 - `src/services/__tests__/billingHelpers.test.ts`
