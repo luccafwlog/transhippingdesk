@@ -203,6 +203,33 @@ Recusada a inversão completa (todas as datas no terminal, escala derivando):
 a escala existe antes de qualquer terminal, porque a atribuição vem depois, e
 escala sem terminal ficaria sem data nenhuma.
 
+## Decisão 10 — o Embarque de Vazios continua um por escala
+
+"Exportação × Vazio" é **uma** Frente de Operação, e pelo teto da Decisão 7 uma
+frente aponta um terminal só. Logo os vazios embarcados de uma escala vão todos
+para o mesmo terminal por construção: o Embarque de Vazios não precisa se partir.
+Ele passa a saber a que terminal pertence lendo a frente.
+
+O `CONTEXT.md` precisa trocar "mesma identidade do ADR — (viagem, porto)" por uma
+referência à frente, já que a identidade do ADR mudou embaixo dele.
+
+### Embarque Direto deixa de afirmar permanência
+
+O glossário define Embarque Direto como a unidade cuja origem é um Terminal
+Portuário — "o container descarregou, **permaneceu no terminal** e está sendo
+reembarcado". Antes desta mudança a afirmação era verdadeira por construção: um
+porto, um terminal. Agora um vazio pode descarregar no TVV e embarcar na
+PORTMAC, e o caminhão entre os dois desmente a permanência.
+
+Cai a frase. Embarque Direto passa a significar apenas "origem é Terminal
+Portuário, não Depot". O custo do transporte entre terminais já é representável:
+a Linha de Serviço de transporte tem rota origem → destino e o cadastro aceita
+terminal portuário nas duas pontas.
+
+Recusado criar um caso próprio para a transferência entre terminais: não
+corrigiria nada que já não seja lançável, e o glossário é explícito em não
+presumir lançamento ("o sistema não presume nenhuma").
+
 ## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
 
 Chegadas e Saídas não é afetado.
