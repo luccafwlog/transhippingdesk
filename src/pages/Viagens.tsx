@@ -30,7 +30,10 @@ import {
   setVoyageRouteCeMaster,
 } from '../services/voyageRouteSchedules'
 import { PORTAL_SCHEDULE_LANES, portalLaneCode } from '../services/portalScheduleLanes'
-import { saveVoyageExportSchedule } from '../services/voyageExportSchedules'
+import {
+  saveVoyageExportScheduleTransactional,
+  VoyageExportScheduleBlockedError,
+} from '../services/voyageExportSchedules'
 import { afterEscalaAlterada, afterRotaAlterada, afterViagemAlterada } from '../services/cacheEffects'
 import {
   VoyageCard,
@@ -341,6 +344,24 @@ export function Viagens() {
             return
           }
           try {
+            // Sem exportação declarada e sem linha anterior, não há o que gravar.
+            // Quando há linha, a RPC lê o estado completo e remove somente as
+            // frentes exportadoras solicitadas.
+            if (payload.exportacao.temExportacao || payload.exportExistingId) {
+              await saveVoyageExportScheduleTransactional({
+                existingId: payload.exportExistingId,
+                voyageId: payload.voyageId,
+                pol: payload.port,
+                temExportacao: payload.exportacao.temExportacao,
+                hasGranite: payload.exportacao.hasGranite,
+                hasEmpty: payload.exportacao.hasEmpty,
+                containersQty: payload.exportacao.containersQty,
+                movementsQty: payload.exportacao.movementsQty,
+                dischargePorts: payload.exportacao.dischargePorts,
+                ceStatus: payload.ceStatus,
+                linked: payload.linked,
+              })
+            }
             await saveVoyageEscalaSchedule({
               voyageId: payload.voyageId,
               port: payload.port,
@@ -357,26 +378,18 @@ export function Viagens() {
               temImportacao: payload.temImportacao,
               changedBy: user.id,
             })
-            // Sem exportação declarada e sem linha anterior, não há o que gravar.
-            if (payload.exportacao.temExportacao || payload.exportExistingId) {
-              await saveVoyageExportSchedule({
-                existingId: payload.exportExistingId,
-                voyageId: payload.voyageId,
-                pol: payload.port,
-                temExportacao: payload.exportacao.temExportacao,
-                hasGranite: payload.exportacao.hasGranite,
-                hasEmpty: payload.exportacao.hasEmpty,
-                containersQty: payload.exportacao.containersQty,
-                movementsQty: payload.exportacao.movementsQty,
-                dischargePorts: payload.exportacao.dischargePorts,
-                ceStatus: payload.ceStatus,
-                linked: payload.linked,
-              })
-            }
             await afterEscalaAlterada(queryClient, { voyageId: payload.voyageId })
             showToast('Escala salva com sucesso.', 'success')
             setEditingEscala(null)
-          } catch {
+          } catch (error) {
+            if (error instanceof VoyageExportScheduleBlockedError) {
+              const blockers = error.result.closed_blockers
+                .map((blocker) => [blocker.terminal_code, blocker.report_id].filter(Boolean).join(' / '))
+                .filter(Boolean)
+                .join(', ')
+              showToast(`Exportação bloqueada por ADR fechado${blockers ? ` (${blockers})` : ''}. Reabra o ADR antes de alterar a escala.`, 'error')
+              return
+            }
             showToast('Falha ao salvar a escala.', 'error')
           }
         }}

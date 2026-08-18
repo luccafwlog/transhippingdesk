@@ -191,12 +191,14 @@ export function EscalaModal({
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [escalaNumber, setEscalaNumber] = useState('')
+  const [temExportacao, setTemExportacao] = useState(false)
   const [hasGranite, setHasGranite] = useState(false)
   const [hasEmpty, setHasEmpty] = useState(false)
   const [containersQty, setContainersQty] = useState('')
   const [movementsQty, setMovementsQty] = useState('')
   const [dischargePorts, setDischargePorts] = useState('')
   const [portError, setPortError] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const confirm = useConfirm()
 
@@ -216,21 +218,31 @@ export function EscalaModal({
     setCeStatus(getEditableVoyagePodCeStatus(escala.ceStatus))
     setLinked(escala.linked ? 'true' : 'false')
     setEscalaNumber(escala.escalaNumber ?? '')
+    setTemExportacao(escala.temExportacao)
     setHasGranite(escala.hasGranite)
     setHasEmpty(escala.hasEmpty ?? false)
     setContainersQty(escala.containersQty === null ? '' : String(escala.containersQty))
     setMovementsQty(escala.movementsQty === null ? '' : String(escala.movementsQty))
     setDischargePorts(escala.dischargePorts.join(', '))
     setPortError(null)
+    setExportError(null)
   }
 
   const isNew = escala?.port === null
+
+  function handleToggleExportacao(next: boolean) {
+    if (!next && escala?.exportLocked) return
+    setTemExportacao(next)
+    setExportError(null)
+  }
 
   async function handleDeclarationChange(kind: 'granito' | 'vazios', next: boolean) {
     if (escala?.exportLocked && !next) return
 
     const nextHasGranite = kind === 'granito' ? next : hasGranite
     const nextHasEmpty = kind === 'vazios' ? next : hasEmpty
+    if (next) setTemExportacao(true)
+    setExportError(null)
     const hasPlanning = containersQty.trim() !== '' || movementsQty.trim() !== '' || dischargePorts.trim() !== ''
     if (!nextHasGranite && !nextHasEmpty && hasPlanning) {
       const confirmed = await confirm({
@@ -262,6 +274,13 @@ export function EscalaModal({
       return
     }
     setPortError(null)
+    const isLegacyUnclassifiedExport = Boolean(
+      escala.exportExistingId && escala.temExportacao && !escala.hasGranite && !escala.hasEmpty,
+    )
+    if (temExportacao && !hasGranite && !hasEmpty && !isLegacyUnclassifiedExport) {
+      setExportError('Uma nova declaração de exportação exige granito ou vazios.')
+      return
+    }
 
     setSaving(true)
     try {
@@ -280,12 +299,12 @@ export function EscalaModal({
         linked: linked === 'true',
         escalaNumber: escalaNumber.trim() || null,
         exportacao: {
-          temExportacao: hasGranite || hasEmpty,
-          hasGranite,
-          hasEmpty,
-          containersQty: hasEmpty && containersQty.trim() ? Number(containersQty) : null,
-          movementsQty: hasEmpty && movementsQty.trim() ? Number(movementsQty) : null,
-          dischargePorts: (hasGranite || hasEmpty) ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
+          temExportacao,
+          hasGranite: temExportacao ? hasGranite : false,
+          hasEmpty: temExportacao ? hasEmpty : false,
+          containersQty: temExportacao && containersQty.trim() ? Number(containersQty) : null,
+          movementsQty: temExportacao && movementsQty.trim() ? Number(movementsQty) : null,
+          dischargePorts: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
         },
         exportExistingId: escala.exportExistingId,
       })
@@ -381,6 +400,18 @@ export function EscalaModal({
             <label className="flex cursor-pointer items-center gap-3">
               <input
                 type="checkbox"
+                checked={temExportacao}
+                disabled={escala.exportLocked && temExportacao}
+                onChange={(event) => handleToggleExportacao(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
+              />
+              <span className="text-sm text-[var(--app-text)]">Esta escala terá exportação</span>
+            </label>
+
+            {temExportacao ? <>
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
                 checked={hasGranite}
                 disabled={escala.exportLocked && hasGranite}
                 onChange={(event) => { void handleDeclarationChange('granito', event.target.checked) }}
@@ -399,6 +430,9 @@ export function EscalaModal({
               />
               <span className="text-sm text-[var(--app-text)]">Terá embarque de vazios</span>
             </label>
+            </> : null}
+
+            {exportError ? <p role="alert" className="text-xs text-red-300">{exportError}</p> : null}
 
             {escala.exportLocked && (hasGranite || hasEmpty) ? (
               <p className="text-xs text-[var(--app-muted)]">

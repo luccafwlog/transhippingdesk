@@ -4042,6 +4042,123 @@ export type Database = {
           },
         ]
       }
+      voyage_escala_operation_fronts: {
+        Row: {
+          created_at: string
+          id: string
+          last_changed_at: string
+          last_changed_by: string | null
+          modalidade: string
+          port: string
+          port_id: number
+          revision: number
+          sentido: string
+          source: string
+          terminal_id: string | null
+          updated_at: string
+          voyage_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_changed_at?: string
+          last_changed_by?: string | null
+          modalidade: string
+          port: string
+          port_id: number
+          revision?: number
+          sentido: string
+          source: string
+          terminal_id?: string | null
+          updated_at?: string
+          voyage_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_changed_at?: string
+          last_changed_by?: string | null
+          modalidade?: string
+          port?: string
+          port_id?: number
+          revision?: number
+          sentido?: string
+          source?: string
+          terminal_id?: string | null
+          updated_at?: string
+          voyage_id?: number
+        }
+        Relationships: []
+      }
+      voyage_escala_revision_state: {
+        Row: {
+          created_at: string
+          port: string
+          port_id: number
+          revision: number
+          updated_at: string
+          voyage_id: number
+        }
+        Insert: {
+          created_at?: string
+          port: string
+          port_id: number
+          revision?: number
+          updated_at?: string
+          voyage_id: number
+        }
+        Update: {
+          created_at?: string
+          port?: string
+          port_id?: number
+          revision?: number
+          updated_at?: string
+          voyage_id?: number
+        }
+        Relationships: []
+      }
+      voyage_escala_terminal_state: {
+        Row: {
+          created_at: string
+          id: string
+          port: string
+          port_id: number
+          revision: number
+          terminal_atb: string | null
+          terminal_atd: string | null
+          terminal_id: string
+          terminal_rtw: number | null
+          updated_at: string
+          voyage_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          port: string
+          port_id: number
+          revision?: number
+          terminal_atb?: string | null
+          terminal_atd?: string | null
+          terminal_id: string
+          terminal_rtw?: number | null
+          updated_at?: string
+          voyage_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          port?: string
+          port_id?: number
+          revision?: number
+          terminal_atb?: string | null
+          terminal_atd?: string | null
+          terminal_id?: string
+          terminal_rtw?: number | null
+          updated_at?: string
+          voyage_id?: number
+        }
+        Relationships: []
+      }
       voyage_omissions: {
         Row: {
           discharge_pod: string
@@ -5148,6 +5265,18 @@ export type Database = {
           p_granite_bl_id: string
         }
         Returns: undefined
+      }
+      save_voyage_escala_terminal_state: {
+        Args: {
+          p_expected_revision: number
+          p_export_expectation: Json
+          p_fronts: Json
+          p_justification: string
+          p_port: string
+          p_terminals: Json
+          p_voyage_id: number
+        }
+        Returns: Json
       }
       set_agency_report_department_signoff: {
         Args: {

@@ -509,9 +509,19 @@ DECLARE
   v_old_export_declared BOOLEAN := FALSE;
   v_old_export_granite BOOLEAN := FALSE;
   v_old_export_empty BOOLEAN := FALSE;
+  v_old_export_containers_qty INTEGER;
+  v_old_export_movements_qty INTEGER;
+  v_old_export_discharge_ports TEXT[] := '{}'::TEXT[];
+  v_old_export_ce_status TEXT;
+  v_old_export_linked BOOLEAN := FALSE;
   v_export_granite BOOLEAN := FALSE;
   v_export_empty BOOLEAN := FALSE;
   v_export_declared BOOLEAN := FALSE;
+  v_export_containers_qty INTEGER;
+  v_export_movements_qty INTEGER;
+  v_export_discharge_ports TEXT[] := '{}'::TEXT[];
+  v_export_ce_status TEXT;
+  v_export_linked BOOLEAN := FALSE;
   v_export_old JSONB;
   v_export_new JSONB;
   v_current_terminal_assignment BOOLEAN;
@@ -543,7 +553,9 @@ BEGIN
   END IF;
   IF p_fronts IS NULL OR jsonb_typeof(p_fronts) <> 'array'
      OR p_terminals IS NULL OR jsonb_typeof(p_terminals) <> 'array'
-     OR (p_export_expectation IS NOT NULL AND jsonb_typeof(p_export_expectation) <> 'object') THEN
+     OR (p_export_expectation IS NOT NULL AND jsonb_typeof(p_export_expectation) <> 'object')
+     OR (p_export_expectation ? 'discharge_ports'
+         AND jsonb_typeof(p_export_expectation->'discharge_ports') <> 'array') THEN
     RAISE EXCEPTION 'Payload de escala invalido.' USING ERRCODE = '22023';
   END IF;
 
@@ -702,8 +714,12 @@ BEGIN
     END IF;
   END LOOP;
 
-  SELECT COALESCE(ves.tem_exportacao, FALSE), COALESCE(ves.has_granite, FALSE), COALESCE(ves.has_empty, FALSE)
-  INTO v_old_export_declared, v_old_export_granite, v_old_export_empty
+  SELECT COALESCE(ves.tem_exportacao, FALSE), COALESCE(ves.has_granite, FALSE), COALESCE(ves.has_empty, FALSE),
+         ves.containers_qty, ves.movements_qty, COALESCE(ves.discharge_ports, '{}'::TEXT[]),
+         ves.ce_status, COALESCE(ves.linked, FALSE)
+  INTO v_old_export_declared, v_old_export_granite, v_old_export_empty,
+       v_old_export_containers_qty, v_old_export_movements_qty, v_old_export_discharge_ports,
+       v_old_export_ce_status, v_old_export_linked
   FROM public.voyage_export_schedules AS ves
   WHERE ves.voyage_id = p_voyage_id AND ves.pol = v_port
   FOR UPDATE;
@@ -716,7 +732,9 @@ BEGIN
       WHERE lower(btrim(f.sentido)) = 'exportacao' AND lower(btrim(f.modalidade)) = 'granito'
     );
   END IF;
-  IF COALESCE(p_export_expectation, '{}'::JSONB) ? 'vazios' THEN
+  IF COALESCE(p_export_expectation, '{}'::JSONB) ? 'has_empty' THEN
+    v_export_empty := COALESCE((p_export_expectation->>'has_empty')::BOOLEAN, FALSE);
+  ELSIF COALESCE(p_export_expectation, '{}'::JSONB) ? 'vazios' THEN
     v_export_empty := COALESCE((p_export_expectation->>'vazios')::BOOLEAN, FALSE);
   ELSE
     v_export_empty := EXISTS (
@@ -724,13 +742,54 @@ BEGIN
       WHERE lower(btrim(f.sentido)) = 'exportacao' AND lower(btrim(f.modalidade)) = 'vazio'
     );
   END IF;
-  v_export_declared := v_export_granite OR v_export_empty;
-
-  IF COALESCE(p_export_expectation, '{}'::JSONB) ? 'tem_exportacao' THEN
-    IF COALESCE((p_export_expectation->>'tem_exportacao')::BOOLEAN, FALSE) IS DISTINCT FROM v_export_declared THEN
-      RAISE EXCEPTION 'Expectativa de exportacao diverge das frentes declaradas.' USING ERRCODE = '23514';
-    END IF;
+  IF (COALESCE(p_export_expectation, '{}'::JSONB) ? 'has_empty')
+     AND (COALESCE(p_export_expectation, '{}'::JSONB) ? 'vazios')
+     AND COALESCE((p_export_expectation->>'has_empty')::BOOLEAN, FALSE)
+         IS DISTINCT FROM COALESCE((p_export_expectation->>'vazios')::BOOLEAN, FALSE) THEN
+    RAISE EXCEPTION 'Expectativas de vazios divergentes.' USING ERRCODE = '23514';
   END IF;
+  IF COALESCE(p_export_expectation, '{}'::JSONB) ? 'tem_exportacao' THEN
+    v_export_declared := COALESCE((p_export_expectation->>'tem_exportacao')::BOOLEAN, FALSE);
+    IF NOT v_export_declared AND (v_export_granite OR v_export_empty) THEN
+      RAISE EXCEPTION 'Expectativa de exportacao desligada com frente declarada.' USING ERRCODE = '23514';
+    END IF;
+    IF v_export_declared AND NOT (v_export_granite OR v_export_empty)
+       AND NOT (v_old_export_exists AND v_old_export_declared
+                AND NOT v_old_export_granite AND NOT v_old_export_empty) THEN
+      RAISE EXCEPTION 'Nova expectativa de exportacao exige granito ou vazios.' USING ERRCODE = '23514';
+    END IF;
+  ELSE
+    v_export_declared := v_export_granite OR v_export_empty;
+  END IF;
+
+  v_export_containers_qty := CASE
+    WHEN COALESCE(p_export_expectation, '{}'::JSONB) ? 'containers_qty'
+      THEN (p_export_expectation->>'containers_qty')::INTEGER
+    ELSE v_old_export_containers_qty
+  END;
+  v_export_movements_qty := CASE
+    WHEN COALESCE(p_export_expectation, '{}'::JSONB) ? 'movements_qty'
+      THEN (p_export_expectation->>'movements_qty')::INTEGER
+    ELSE v_old_export_movements_qty
+  END;
+  v_export_discharge_ports := CASE
+    WHEN COALESCE(p_export_expectation, '{}'::JSONB) ? 'discharge_ports'
+      THEN COALESCE(
+        ARRAY(SELECT jsonb_array_elements_text(p_export_expectation->'discharge_ports')),
+        '{}'::TEXT[]
+      )
+    ELSE v_old_export_discharge_ports
+  END;
+  v_export_ce_status := CASE
+    WHEN COALESCE(p_export_expectation, '{}'::JSONB) ? 'ce_status'
+      THEN p_export_expectation->>'ce_status'
+    ELSE v_old_export_ce_status
+  END;
+  v_export_linked := CASE
+    WHEN COALESCE(p_export_expectation, '{}'::JSONB) ? 'linked'
+      THEN COALESCE((p_export_expectation->>'linked')::BOOLEAN, FALSE)
+    ELSE v_old_export_linked
+  END;
   IF v_export_granite AND NOT EXISTS (
     SELECT 1 FROM jsonb_to_recordset(p_fronts) AS f(sentido TEXT, modalidade TEXT, terminal_id UUID, source TEXT)
     WHERE lower(btrim(f.sentido)) = 'exportacao' AND lower(btrim(f.modalidade)) = 'granito'
@@ -747,12 +806,24 @@ BEGIN
   v_export_old := jsonb_build_object(
     'tem_exportacao', v_old_export_declared,
     'granito', v_old_export_granite,
-    'vazios', v_old_export_empty
+    'vazios', v_old_export_empty,
+    'has_empty', v_old_export_empty,
+    'containers_qty', v_old_export_containers_qty,
+    'movements_qty', v_old_export_movements_qty,
+    'discharge_ports', v_old_export_discharge_ports,
+    'ce_status', v_old_export_ce_status,
+    'linked', v_old_export_linked
   );
   v_export_new := jsonb_build_object(
     'tem_exportacao', v_export_declared,
     'granito', v_export_granite,
-    'vazios', v_export_empty
+    'vazios', v_export_empty,
+    'has_empty', v_export_empty,
+    'containers_qty', v_export_containers_qty,
+    'movements_qty', v_export_movements_qty,
+    'discharge_ports', v_export_discharge_ports,
+    'ce_status', v_export_ce_status,
+    'linked', v_export_linked
   );
   IF v_export_old IS DISTINCT FROM v_export_new THEN
     v_requires_justification := v_current_revision > 0;
@@ -1119,13 +1190,23 @@ BEGIN
       );
     END IF;
     INSERT INTO public.voyage_export_schedules (
-      voyage_id, pol, tem_exportacao, has_granite, has_empty, updated_at
+      voyage_id, pol, tem_exportacao, has_granite, has_empty,
+      containers_qty, movements_qty, discharge_ports, ce_status, linked, updated_at
     )
-    VALUES (p_voyage_id, v_port, v_export_declared, v_export_granite, v_export_empty, now())
+    VALUES (
+      p_voyage_id, v_port, v_export_declared, v_export_granite, v_export_empty,
+      v_export_containers_qty, v_export_movements_qty, v_export_discharge_ports,
+      v_export_ce_status, v_export_linked, now()
+    )
     ON CONFLICT (voyage_id, pol) DO UPDATE SET
       tem_exportacao = EXCLUDED.tem_exportacao,
       has_granite = EXCLUDED.has_granite,
       has_empty = EXCLUDED.has_empty,
+      containers_qty = EXCLUDED.containers_qty,
+      movements_qty = EXCLUDED.movements_qty,
+      discharge_ports = EXCLUDED.discharge_ports,
+      ce_status = EXCLUDED.ce_status,
+      linked = EXCLUDED.linked,
       updated_at = now();
   END IF;
 

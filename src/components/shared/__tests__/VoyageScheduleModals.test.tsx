@@ -169,6 +169,43 @@ describe('EscalaModal', () => {
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ port: 'BRVIX', temImportacao: false }))
   })
 
+  it('exige uma frente ao declarar exportação em uma escala nova', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({ ...escalaBase, port: null })
+
+    await user.type(screen.getByLabelText('Porto da escala'), 'BRVIX')
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('granito ou vazios')
+  })
+
+  it('preserva declaração e planejamento de uma linha legada sem flags', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      exportExistingId: 'legacy-export-id',
+      temExportacao: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      exportacao: {
+        temExportacao: true,
+        hasGranite: false,
+        hasEmpty: false,
+        containersQty: 4,
+        movementsQty: 2,
+        dischargePorts: ['ITGOA'],
+      },
+    }))
+  })
+
   it('recusa porto estrangeiro ao criar a escala', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala({ ...escalaBase, port: null })
@@ -187,6 +224,7 @@ describe('EscalaModal', () => {
     expect(screen.queryByLabelText('CNTR (Vazios Exp.)')).toBeNull()
 
     await user.type(screen.getByLabelText('Porto da escala'), 'brvix')
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
     await user.click(screen.getByLabelText('Terá embarque de vazios'))
     await user.type(screen.getByLabelText('CNTR (Vazios Exp.)'), '10')
     await user.type(screen.getByLabelText('Portos de descarga'), 'itgoa, nlrtm brssz')
