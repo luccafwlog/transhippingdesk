@@ -145,7 +145,21 @@ Levantamento completo — a base do requisito de "zero quebra".
 correspondentes acompanham. Troca cruzada — fazer em commit isolado para o
 diff continuar legível. `faturamentoInvoiceStatus.ts`,
 `faturamentoLedgerPayment.ts`, `services/billing.ts` e `components/billing/`
-**não** mudam de nome: descrevem o domínio de emissão/ledger, que não mudou.
+**não** mudam de nome, por dois motivos verificados:
+
+- **O banco é a âncora do vocabulário.** `billing.ts` e `billingLedger.ts`
+  operam sobre `ready_for_billing`, `billing_hold_reason`, `billing_runs`,
+  `last_billing_run_id` e `mark_bl_ready_for_billing`. Renomear o arquivo sem
+  poder renomear as colunas e RPCs (migration de verdade, fora do escopo desta
+  mudança) troca uma inconsistência por outra pior: arquivo com um nome, corpo
+  inteiro com outro.
+- **`src/components/taxasLocais/` já existe** (as abas Tabelas e Overrides).
+  Renomear `components/billing/` para o nome do processo colidiria com ela.
+
+Registro de precisão: `services/billing.ts` e `billingLedger.ts` **não**
+atendem Demurrage (zero referências); quem atende os dois processos é
+`services/portalBilling.ts`, do Portal do Cliente. O argumento para preservar
+os nomes é a âncora no banco, não uso compartilhado.
 
 ### Task 3 — Botão "Tabelas" e redirect por parâmetro
 `src/pages/TaxasLocais.tsx` (nova)
