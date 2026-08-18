@@ -300,18 +300,29 @@ Recusadas as alternativas que criavam um segundo eixo de linhas — uma linha po
 `(escala, terminal)` ou por `(escala, terminal, sentido)` — por reabrirem uma
 partição que a ADR 0035 já resolveu, sem necessidade.
 
+## Decisão 14 — o cadastro fica em `/embarquevazios/depots` por ora
+
+Adiado, não descartado. Migrar a tela é refactor de UI puro, sem risco de
+modelo: `depot` e `terminal_portuario` continuam a mesma tabela, só muda onde
+ela é editada. Resolver agora só adicionaria escopo a uma decisão que já é
+grande — identidade do ADR, atribuição, datas, Line-Up.
+
+O custo aceito: Operações, que passa a ser quem mais usa esse cadastro para
+atribuir Frentes de Operação, entra por um módulo que não é o seu
+(`/embarquevazios/depots`) até que a tela mude de lugar, se mudar. Vira item de
+UI separado, decidido depois.
+
 ## Questões em aberto
 
 Ordenadas por dependência.
 
 | # | Bloco | Questão |
 |---|---|---|
-| E2 | Superfícies | Onde vive o cadastro de terminais, já que não há aba nova no Painel |
 | F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
 
 Decididas: A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
 (Decisão 10), D3 — fechamento (Decisão 11), D3.1 — impresso (Decisão 12), E1 —
-Line-Up (Decisão 13).
+Line-Up (Decisão 13), E2 — cadastro adiado (Decisão 14).
 
 Prazo departamental e alertas estão fora do escopo desta spec: correm em
 trabalho paralelo.
