@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS public.voyage_escala_terminal_state (
   terminal_id UUID NOT NULL,
   terminal_atb TIMESTAMPTZ,
   terminal_atd TIMESTAMPTZ,
-  terminal_rtw TIMESTAMPTZ,
+  terminal_rtw INTEGER,
   revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -601,7 +601,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM jsonb_to_recordset(p_terminals) AS t(terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw TIMESTAMPTZ)
+    FROM jsonb_to_recordset(p_terminals) AS t(terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw INTEGER)
     GROUP BY terminal_id
     HAVING COUNT(*) > 1
   ) THEN
@@ -666,7 +666,7 @@ BEGIN
       AND NOT EXISTS (
         SELECT 1
         FROM jsonb_to_recordset(p_terminals) AS t(
-          terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw TIMESTAMPTZ
+          terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw INTEGER
         )
         WHERE t.terminal_id = f.terminal_id
       )
@@ -681,7 +681,7 @@ BEGIN
       terminal_id UUID,
       terminal_atb TIMESTAMPTZ,
       terminal_atd TIMESTAMPTZ,
-      terminal_rtw TIMESTAMPTZ
+      terminal_rtw INTEGER
     )
   LOOP
     SELECT d.id, d.code, d.name, d.active, d.tipo, d.port_id
@@ -910,7 +910,7 @@ BEGIN
   FOR v_terminal IN
     SELECT t.terminal_id, t.terminal_atb, t.terminal_atd, t.terminal_rtw
     FROM jsonb_to_recordset(p_terminals) AS t(
-      terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw TIMESTAMPTZ
+      terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw INTEGER
     )
   LOOP
     SELECT s.terminal_atb, s.terminal_atd, s.terminal_rtw
@@ -1030,7 +1030,7 @@ BEGIN
   FOR v_terminal IN
     SELECT t.terminal_id, t.terminal_atb, t.terminal_atd, t.terminal_rtw
     FROM jsonb_to_recordset(p_terminals) AS t(
-      terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw TIMESTAMPTZ
+      terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw INTEGER
     )
   LOOP
     SELECT s.terminal_atb, s.terminal_atd, s.terminal_rtw

@@ -20,7 +20,7 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     )
     expect(sql).toContain('Nao ha backfill automatico.')
     expect(sql).toMatch(
-      /CREATE TABLE IF NOT EXISTS public\.voyage_escala_terminal_state[\s\S]+terminal_atb TIMESTAMPTZ[\s\S]+terminal_atd TIMESTAMPTZ[\s\S]+terminal_rtw TIMESTAMPTZ[\s\S]+revision INTEGER[\s\S]+UNIQUE \(voyage_id, port, terminal_id\)/i,
+      /CREATE TABLE IF NOT EXISTS public\.voyage_escala_terminal_state[\s\S]+terminal_atb TIMESTAMPTZ[\s\S]+terminal_atd TIMESTAMPTZ[\s\S]+terminal_rtw INTEGER[\s\S]+revision INTEGER[\s\S]+UNIQUE \(voyage_id, port, terminal_id\)/i,
     )
     expect(sql).toMatch(
       /CREATE TABLE IF NOT EXISTS public\.voyage_escala_operation_fronts[\s\S]+sentido TEXT[\s\S]+modalidade TEXT[\s\S]+terminal_id UUID[\s\S]+source TEXT[\s\S]+last_changed_by UUID/i,

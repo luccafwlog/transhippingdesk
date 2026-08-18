@@ -96,6 +96,38 @@ describe('saveVoyageExportScheduleTransactional', () => {
     ])
   })
 
+  it('mantém Restow inteiro e nulo no round-trip do payload transacional', async () => {
+    configureState()
+    rpcMock.mockResolvedValue({
+      data: { revision: 8, fronts: [], terminals: [], closed_blockers: [], blocked: false },
+      error: null,
+    })
+
+    await saveVoyageExportScheduleTransactional({
+      existingId: 'export-1',
+      voyageId: 12,
+      pol: 'BRVIX',
+      temExportacao: true,
+      hasGranite: true,
+      hasEmpty: false,
+      containersQty: null,
+      movementsQty: null,
+      dischargePorts: [],
+      ceStatus: 'waiting',
+      linked: false,
+    })
+
+    const payload = rpcMock.mock.calls[0][1] as {
+      p_terminals: Array<{ terminal_id: string; terminal_rtw: number | null }>
+    }
+    expect(payload.p_terminals).toEqual([
+      { terminal_id: 'terminal-import', terminal_atb: '2026-08-01T08:00:00Z', terminal_atd: null, terminal_rtw: 2 },
+      { terminal_id: 'terminal-granite', terminal_atb: null, terminal_atd: null, terminal_rtw: null },
+    ])
+    expect(payload.p_terminals[0].terminal_rtw).toBeTypeOf('number')
+    expect(payload.p_terminals[1].terminal_rtw).toBeNull()
+  })
+
   it('retorna bloqueio estruturado e não faz upsert direto', async () => {
     configureState()
     rpcMock.mockResolvedValue({
