@@ -43,11 +43,14 @@ ALTER TABLE public.depots
   ADD CONSTRAINT depots_code_normalized_check
     CHECK (btrim(code) <> '' AND code = upper(btrim(code))),
   DROP CONSTRAINT IF EXISTS depots_tipo_port_check,
+  -- NOT VALID preserva terminais portuarios legados ainda sem port_id.
+  -- A regra vale para novas insercoes/updates; a validacao plena depende do
+  -- mapeamento nao destrutivo desses legados. Nao ha backfill automatico.
   ADD CONSTRAINT depots_tipo_port_check
     CHECK (
       (tipo = 'terminal_portuario' AND port_id IS NOT NULL)
       OR (tipo = 'depot' AND port_id IS NULL)
-    ),
+    ) NOT VALID,
   DROP CONSTRAINT IF EXISTS depots_id_port_id_key,
   ADD CONSTRAINT depots_id_port_id_key UNIQUE (id, port_id);
 
@@ -1201,7 +1204,8 @@ BEGIN
         ON r.voyage_id = s.voyage_id AND r.port = s.port AND r.terminal_id = s.terminal_id
       WHERE s.voyage_id = p_voyage_id AND s.port = v_port
     ), '[]'::JSONB),
-    'closed_blockers', '[]'::JSONB
+    'closed_blockers', '[]'::JSONB,
+    'blocked', FALSE
   );
 END;
 $function$;

@@ -14,6 +14,10 @@ const legacyAdrSchema = readFileSync(
 describe('contrato SQL da escala com múltiplos terminais', () => {
   it('persiste estado por terminal e frente por escala com FK de porto', () => {
     expect(sql).toMatch(
+      /ADD CONSTRAINT depots_tipo_port_check[\s\S]+CHECK \([\s\S]+terminal_portuario[\s\S]+NOT VALID/i,
+    )
+    expect(sql).toContain('Nao ha backfill automatico.')
+    expect(sql).toMatch(
       /CREATE TABLE IF NOT EXISTS public\.voyage_escala_terminal_state[\s\S]+terminal_atb TIMESTAMPTZ[\s\S]+terminal_atd TIMESTAMPTZ[\s\S]+terminal_rtw TIMESTAMPTZ[\s\S]+revision INTEGER[\s\S]+UNIQUE \(voyage_id, port, terminal_id\)/i,
     )
     expect(sql).toMatch(
@@ -74,6 +78,9 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(
       /FOR v_report IN[\s\S]+FROM public\.agency_departure_reports AS r[\s\S]+FOR UPDATE OF r[\s\S]+LOOP[\s\S]+IF v_report\.status = 'open'/i,
     )
+    const normalReturnStart = sql.lastIndexOf('RETURN jsonb_build_object(')
+    expect(sql.slice(normalReturnStart)).toContain("'closed_blockers', '[]'::JSONB")
+    expect(sql.slice(normalReturnStart)).toContain("'blocked', FALSE")
   })
 
   it('adiciona terminalização de ADRs sem apagar o legado nem os filhos por report_id', () => {
