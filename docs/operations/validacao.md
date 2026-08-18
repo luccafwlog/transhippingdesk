@@ -320,7 +320,7 @@ Valide:
 2. rejeição da ordem de datas inválida;
 3. desconto e edição controlada;
 4. emissão, impressão, cancelamento e pagamento;
-5. aparição em `/faturamento` e no Portal.
+5. aparição em `/taxas-locais` e no Portal; `/faturamento` é apenas o redirect legado.
 
 ## 12. Conciliação PIX
 

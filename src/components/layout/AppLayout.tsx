@@ -25,6 +25,7 @@ import {
   getNavIndicator,
   importNavItems,
   primaryNavItems,
+  reportsNavItem,
   type NavItem,
 } from './appLayoutNav'
 
@@ -228,6 +229,8 @@ export function AppLayout() {
             onToggleMobile={() => setMobileFinancialOpen((current) => !current)}
             onNavigate={closeMobileMenus}
           />
+
+          <TopNavLink {...reportsNavItem} onNavigate={closeMobileMenus} />
 
           {isAdmin && (
             <TopNavDropdownMenu

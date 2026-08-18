@@ -52,7 +52,7 @@ describe('faturamento e historico do B/L', () => {
     )
 
     expect(screen.getByRole('link', { name: /Fatura ativa: INV-077/i }).getAttribute('href'))
-      .toBe('/faturamento?invoice=77')
+      .toBe('/taxas-locais?invoice=77')
   })
 
   it('renderiza eventos e carrega a proxima pagina', () => {
