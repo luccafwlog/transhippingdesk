@@ -13,6 +13,9 @@ escala como entidade pai. Os detectores atualizam um único alerta agregado por
 `(entity_type, entity_id)` e não criam uma linha por container ou BL: cada
 condição é um item de pendência dentro do agregado. A audiência é a união dos
 departamentos dos itens ativos.
+Alertas da viagem usam `entity_type = 'voyage'` e `entity_id = voyageId`; alertas
+da escala usam `entity_type = 'voyage_pod_schedule'` e
+`entity_id = voyageId::PORTO`, preservando o porto no destino.
 O D−7 pode forçar a avaliação Baplie de rotas ainda sem BL; isso não mistura o
 ciclo do alerta de BL faltante com o ciclo da divergência Baplie.
 Todos os detectores usam `America/Sao_Paulo` para a aritmética de D−7/D−5.
@@ -48,56 +51,68 @@ produtor do #517.
 Localizar as tabelas de viagem/escala e validar o contrato de alerts antes de
 escolher qualquer nome de coluna, enum, RPC ou número de migration.
 
+A escala não é uma tabela própria: a operação é reconstruída de `audit_logs`
+(`voyage_pod_schedule`, `voyageId::PORTO`), com `deleted` como soft-delete e
+`omitted` como omissão. A ADR 0027 mantém a promoção para tabela como evolução
+futura; este bloco não a promove. O planejamento de exportação continua em
+`voyage_export_schedules`, chaveado por `(voyage_id, pol)` e projetado na mesma
+identidade canônica da escala.
+
 Confirmar que o ATD da escala unificada continua sendo a fonte do prazo de
 `agency_report_deadline_missed` da migration 271; qualquer alerta desse fluxo
 permanece no #524 e não é duplicado aqui.
 
 ## Modelo de dados e configuração
 
-### Task 1: adicionar primeiro porto brasileiro externo e ETA
+### Task 1: indicar outro 1º porto brasileiro e ETA
 
 **Files:**
 
-- Modify: tabela/RPC existente de viagem ou programação, após inspeção do schema
+- Modify: escrita/auditoria existente de viagem, após inspeção do schema
 - Modify: modal de viagem
 - Test: comportamento do modal e contrato SQL
 
-- [ ] **Step 1: Persistir porto e ETA externo no agregado correto.**
+- [ ] **Step 1: Persistir a indicação no agregado correto.**
 
-O dado é uma âncora de prazo da viagem, não uma escala operacional. Deve ser
-opcional, auditável e representar o primeiro porto brasileiro não atendido pela
-empresa.
+O modal oferece o botão/toggle **“Indicar outro 1º porto brasileiro”**. Ao
+ativá-lo, porto e ETA são obrigatórios. O dado é uma âncora de prazo da viagem,
+não uma escala operacional, e deve ser auditado em `audit_logs` com
+`entity_type = 'voyages'`, `entity_id = voyageId`,
+`indicated_first_brazilian_port` e `indicated_first_brazilian_eta`.
 
 - [ ] **Step 2: Validar POD e precedência.**
 
-Ao informar ou alterar o ETA externo, bloquear sem POD, bloquear ETA externo que
+Ao ativar ou alterar a indicação, bloquear sem POD e bloquear ETA indicado que
 não seja anterior ao menor ETA das escalas próprias criadas por Chegadas e
-Saídas ou manualmente e bloquear mudança do ETA próprio que o torne anterior ao
-externo. Um ETA externo já salvo sobrevive à remoção do POD; salvar outros
-campos sem alterá-lo continua permitido.
+Saídas ou manualmente. Bloquear também a alteração do ETA próprio que o torne
+anterior ao indicado. Uma indicação existente sobrevive à remoção do POD, mas
+fica sem efeito enquanto não houver POD elegível.
 
 - [ ] **Step 3: Implementar suspensão e retomada.**
 
-Remover POD preserva ETA externo e suspende alertas de importação. Recolocar POD
+Remover POD preserva a indicação e suspende alertas de importação. Recolocar POD
 reativa a âncora e recalcula D−7/D−5.
 
 - [ ] **Step 4: Auditar alterações.**
 
 Alterações entram na timeline e só re-notificam se abrirem ou reabrirem
-condições.
+condições. Desativar o botão limpa porto e ETA, com auditoria; não deixar valores
+persistidos que a interface não considere na detecção.
 
-### Task 2: adicionar tipo esperado de exportação na escala
+### Task 2: explicitar expectativa de exportação na escala
 
 **Files:**
 
-- Modify: tabela/RPC existente de escala/schedule, após inspeção do schema
+- Modify: `voyage_export_schedules`/RPC existente, após inspeção do schema
 - Modify: modal da escala
 - Test: comportamento do modal e contrato SQL
 
-- [ ] **Step 1: Persistir valor controlado.**
+- [ ] **Step 1: Reorganizar a expectativa no modal.**
 
-Valores funcionais: somente granito, somente vazios ou ambos. Bloquear
-salvamento de escala com exportação sem o tipo.
+Manter `tem_exportacao` como declaração. Quando estiver ligado, o modal exige
+um seletor com: somente granito, somente vazios ou ambos. O seletor reorganiza
+`has_granite` e os vínculos de vazios existentes; não criar enum paralelo nem
+inferir a expectativa a partir de vínculos que ainda não existem.
 
 Bloquear também o salvamento de uma escala marcada como somente exportação se
 ela já tiver POD. A validação é por escala; outras escalas da mesma viagem
@@ -126,11 +141,13 @@ alteração.
 Registrar BL por cobertura POL/POD, Baplie ausente, cobertura documental
 Baplie/BL, CE ausente e exportação pós-ATD.
 
-- [ ] **Step 2: Persistir estado distinto de dispensa.**
+- [ ] **Step 2: Consumir a dispensa da fundação.**
 
-Guardar motivo, usuário, data/hora, revisão e histórico. Mostrar dispensados em
-filtros de exceção. A dispensa vigente deve ser distinta de `closed` para o
-predicado de idempotência dos detectores e impedir nova abertura/reabertura.
+Não criar reconhecimento nem usar a dispensa como resolução. Consumir o
+metadado/registro compartilhado com motivo, usuário, data/hora, revisão e
+histórico; a dispensa não fecha item ou alerta, não libera faturamento e deve
+ser incluída no predicado de idempotência para impedir nova abertura/reabertura
+antes do vencimento.
 
 - [ ] **Step 3: Implementar vencimento da revisão.**
 
@@ -183,7 +200,8 @@ imediatamente. Remoção reabre; remoção da expectativa retira o item.
 
 - [ ] **Step 1: Abrir alerta crítico por viagem no D−7.**
 
-Se houver fluxo de importação elegível, isto é, POD vinculado, exigir Baplie.
+Se houver fluxo de importação elegível, isto é, POD não `deleted` nem `omitted`,
+exigir Baplie.
 Escala mista sem POD não entra até que o POD seja informado. Somente exportação
 não entra. Respeitar a dispensa vigente e reabrir apenas no vencimento da
 revisão ou quando a condição for criada novamente.
@@ -216,19 +234,26 @@ próprias relevantes da viagem.
 - [ ] **Step 2: Abrir imediatamente com cobertura completa.**
 
 Quando todas as rotas estiverem cobertas e houver divergência de existência,
-abrir alerta crítico por viagem, notificar genericamente os usuários ativos de
-Documentação e apontar para Baplie. No fluxo normal, somente aceitar o resultado
+abrir alerta crítico por viagem, notificar os usuários ativos de Documentação e
+apontar para Baplie. No fluxo normal, somente aceitar o resultado
 quando `reconcileBaplieWithManifest` retornar `source === 'reconciled'`.
 No fluxo normal, se uma rota coberta por BL não tiver containers de BL
 disponíveis para confronto, o alerta continua unitário por viagem e o detalhe do
 alerta é resumido por rota, com quantidade de containers afetados. Os containers
 individuais permanecem consultáveis em `/baplie`.
 
+Quando `ediRoutes.size === 0`, preservar a compatibilidade do helper para
+fixtures legados, mas não tratar o retorno `true` como prova silenciosa de
+cobertura completa: o detector deve registrar ausência de rotas confrontáveis,
+não fechar por esse resultado e não produzir resumo por rota sem rota
+identificável. Cobrir esse caso em teste de contrato.
+
 - [ ] **Step 3: Forçar checagem em D−7.**
 
 Se houver Baplie importado e o prazo D−7 tiver sido atingido, forçar a avaliação
 mesmo quando o resultado normal seria `awaiting_route_coverage`. No modo forçado,
-uma rota EDI sem BL gera resumo por rota e quantidade de containers afetados;
+uma rota sem containers de BL para confronto — sem BL ou com BL sem containers —
+gera resumo por rota e quantidade de containers afetados;
 o detalhe dos containers fica em `/baplie`. Containers previstos pelo EDI podem gerar
 `missing_in_manifest` mesmo sem qualquer BL na rota; containers presentes em BL
 podem gerar `missing_in_baplie` quando houver dados para o confronto. Essa é a
@@ -237,8 +262,8 @@ de BL faltante.
 
 - [ ] **Step 4: Fechar e reabrir o agregado.**
 
-Fechar somente com todas as rotas cobertas por BL com containers e sem
-divergência. Atualização do item aberto não notifica novamente; recorrência
+Fechar somente com todas as rotas cobertas e sem divergência. Atualização do item
+aberto não notifica novamente; recorrência
 após fechamento reabre o mesmo alerta agregado, preservando a história. O modo D−7 deve continuar preservando a
 auditoria da aplicação das flags físicas soberanas do Baplie no B/L; flags
 físicas não são divergência.
@@ -260,8 +285,9 @@ na tela.
 
 - [ ] **Step 1: Abrir no D−5 por viagem.**
 
-Considerar os BLs da viagem que possuem POD; todos os BLs existentes no sistema
-são de importação. Sem BL, não abrir CE.
+Considerar exclusivamente `public.bls` da viagem que possuem POD elegível;
+`granite_bls` fica fora deste detector e Granito não participa de faturamento,
+cliente/Portal ou alerta financeiro. Sem BL, não abrir CE.
 
 - [ ] **Step 2: Fechar/reabrir por estado dos BLs.**
 
@@ -285,7 +311,7 @@ produz BL, Baplie ou CE; granito e vazios podem ser vinculados depois do ATD.
 
 - [ ] **Step 2: Aplicar tipos esperados.**
 
-Granito exige granito; vazios exige vazio; ambos exigem os dois. Tipo não
+O seletor explícito exige granito, vazios ou ambos conforme a opção. Tipo não
 esperado é ignorado: não fecha nem reabre o alerta.
 
 - [ ] **Step 3: Fechar/reabrir.**
@@ -295,21 +321,25 @@ Destino é a viagem com escala selecionada.
 
 ## Reavaliação, navegação e não duplicação
 
-### Task 9: importação de vazios all-or-nothing
+### Task 9: verificar e preservar importação de vazios all-or-nothing
 
 **Files:**
 
-- Modify: `src/services/vaziosImport.ts`
-- Modify: `src/pages/EmbarqueVazios.tsx`
-- Modify: RPC/migration da importação transacional, após inspeção do schema
+- Read: `src/services/vaziosImport.ts`
+- Read: `src/pages/EmbarqueVazios.tsx`
+- Read: RPC/migration da importação transacional
 - Test: `src/services/__tests__/vaziosImportAdrColumns.test.ts`
+- Test: `src/services/__tests__/vaziosImportsAtomic.test.ts`
 - Test: `src/pages/__tests__/EmbarqueVazios.flow.test.tsx`
 
-- [ ] **Step 1: Rejeitar o arquivo quando houver depot ou terminal inválido.**
+- [ ] **Step 1: Cobrir o veto de lote inteiro já existente.**
 
-Se qualquer linha contiver depot/terminal não cadastrado ou inativo, a
-importação inteira falha e nenhum subconjunto é persistido. O feedback deve
-identificar as linhas inválidas na própria tela.
+Verificar e testar que qualquer linha com depot/terminal não cadastrado ou
+inativo, depot sem entrada/saída, terminal com entrada/saída indevida ou outra
+falha em `manifest.rowErrors` aborta o lote inteiro. Nenhum subconjunto pode
+ser persistido; o feedback identifica as linhas inválidas na própria tela.
+Preservar a guarda existente em `importVaziosManifest` e a RPC transacional,
+sem reimplementar o fluxo nem introduzir sucesso parcial.
 
 - [ ] **Step 2: Preservar ausência de alerta persistente.**
 
@@ -351,8 +381,15 @@ duplicar o alerta da viagem.
 
 - [ ] **Step 1: Mapear unidades.**
 
-BL e CE abrem /viagens/:voyageId. Ausência e cobertura Baplie abrem
-/baplie?voyage=<id>. Exportação abre a viagem com a escala selecionada.
+BL e CE usam `entity_type = voyage`, `entity_id = voyageId` e abrem
+`/viagens/:voyageId`. Ausência e cobertura Baplie abrem
+`/baplie?voyage=<id>`. Exportação usa
+`entity_type = voyage_pod_schedule`, `entity_id = voyageId::PORTO` e abre
+`/viagens/:voyageId?escala=PORTO`, preservando a escala selecionada.
+
+Adicionar os tipos `voyage` e `voyage_pod_schedule` aos rótulos e à derivação de
+destino do roteador compartilhado, com testes em `Alertas.behavior.test.tsx` e
+`alertsEntityFormat.test.ts`.
 
 `/embarquevazios/depots` e `/vazios-importacao` não recebem produtores de
 alerta; seus estados são consulta/cadastro normal.
@@ -393,6 +430,17 @@ fechamento automático,
 dispensa/revisão e novos ciclos.
 
 ## Handoff
+
+### Registro de conflitos entre blocos
+
+- **X3 — ciclo de vida:** resolvido com a fundação do #517 e as decisões dos
+  blocos #543/#544/#545: sem reconhecimento; leitura individual; dispensa como
+  triagem temporária; resolução derivada da condição de origem.
+- **X6 — BL de Granito versus CE Mercante:** resolvido neste bloco usando apenas
+  `public.bls`; `granite_bls` fica fora do detector e não cria faturamento,
+  vínculo de cliente/Portal ou alerta financeiro.
+- **X7 — integração:** ordem recomendada #517 → #544 → #543 → #545 → #546;
+  a implementação deve revalidar conflitos de merge antes do desenvolvimento.
 
 Depois do merge desta documentação e da liberação das dependências, abrir PR de
 implementação separada com:
