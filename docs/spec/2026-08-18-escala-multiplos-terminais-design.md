@@ -83,6 +83,16 @@ dono e o mesmo sign-off. No caso GREEN PECEM os containers de importação foram
 ao TVV e a carga solta à PORTMAC — dois terminais dentro de uma seção só. Uma
 atribuição por seção não representaria o caso que motivou a mudança.
 
+**A atribuição é o único ato.** Não existe cadastro de "lista de terminais da
+escala" separado dela: os terminais distintos que aparecem na atribuição **são**
+os terminais da escala, e cada um faz nascer o seu ADR. Isso elimina por
+construção dois estados inconsistentes — terminal declarado sem nada operado
+nele (ADR vazio pedindo três sign-offs sobre nada) e carga atribuída a terminal
+fora da lista — sem precisar de regra de validação para nenhum dos dois.
+
+O custo aceito: não há como registrar um terminal *previsto* antes de existir
+carga atribuível a ele.
+
 ## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
 
 Chegadas e Saídas não é afetado.
@@ -93,17 +103,18 @@ Ordenadas por dependência.
 
 | # | Bloco | Questão |
 |---|---|---|
-| A2 | Modelo | ADR nasce só quando há terminal — e a escala sem terminal declarado? |
-| A3.1 | Modelo | Terminal cadastrado precisa de porto; e quem pode ser escolhido (`tipo`)? |
-| B1 | Atribuição | Qual é exatamente a lista de parcelas atribuíveis, e como chamá-la |
-| B2 | Atribuição | O que "impeditivo" bloqueia, e em que momento |
-| C1 | Datas | Quais datas são da escala e quais da atracação (o shifting cria uma segunda) |
+| A3 | Modelo | Terminal cadastrado precisa saber seu porto? Quem é selecionável? |
+| B1 | Atribuição | Qual é a lista exata de parcelas atribuíveis, e como chamá-la |
+| B2 | Atribuição | O que exatamente o "impeditivo" bloqueia |
+| C1 | Datas | Quais datas são da escala e quais são de cada terminal |
 | D1 | ADR | Embarque de Vazios: um por escala ou um por terminal |
-| D2 | ADR | Prazo departamental (ADR 0039) e alerta pós-ATD com dois ADRs |
 | D3 | ADR | Fechamento e impresso |
-| E1 | Superfícies | Terminal × sentido: quantas linhas exatamente |
+| E1 | Superfícies | Terminal × sentido: quantas linhas no Line-Up |
 | E2 | Superfícies | Aba de terminal no Painel — escopo |
 | F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
+
+Prazo departamental e alertas estão fora do escopo desta spec: correm em
+trabalho paralelo.
 
 ### Colisão de terminologia a resolver em B1
 
