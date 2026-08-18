@@ -49,10 +49,10 @@ faz a UI obedecer o vocabulário que já está escrito.
 4. Relatórios vira botão de primeiro nível **logo depois** do dropdown
    Financeiro; a aba "Financeiro" continua dentro de Relatórios.
 5. "Financeiro" continua dropdown, agora com 3 itens.
-6. `DemurrageMetricsStrip` sai de Taxas Locais. A segunda metade da decisão
-   ("levar o saldo em aberto para `/demurrage`") caiu: a premissa era falsa —
-   `/demurrage` já tem esse card. Ver Task 7, que passa a carregar uma decisão
-   pendente sobre o filtro do card existente.
+6. `DemurrageMetricsStrip` sai de Taxas Locais e o componente é apagado. A
+   segunda metade da decisão ("levar o saldo em aberto para `/demurrage`")
+   caiu: a premissa era falsa — `/demurrage` já tem esse card, e ele já está
+   completo. Ver Task 7.
 7. `/faturamento` vira redirect permanente **preservando a query string**.
 8. Link da ficha do cliente repontado para a sub-rota + rótulo para "Gerenciar
    em Tabelas"; a rota pai redireciona `?tab=overrides|tabelas` para a filha.
@@ -61,8 +61,9 @@ faz a UI obedecer o vocabulário que já está escrito.
 11. Renomeiam-se as **páginas** (não services/components).
 
 Todas as decisões acima foram confirmadas pelo autor em 2026-08-18. A decisão 6
-foi confirmada já na forma corrigida da Task 7: o strip é removido e a questão
-do filtro `overdue` fica pendente do departamento dono, fora deste plano.
+foi confirmada na forma corrigida da Task 7: o strip é removido e nada muda em
+`/demurrage` — não existe fatura de Demurrage vencida (ADR 0014), então não há
+decisão pendente sobre filtro de status.
 
 **Este plano não foi executado.** A sessão que o produziu foi de planejamento
 apenas, por decisão do autor; a implementação acontece em sessão separada.
@@ -209,39 +210,47 @@ com `/taxas-locais/tabelas` na mensagem — mesma assinatura, mesmo corpo, só o
 texto. Teste de contrato SQL no padrão `*Migration.test.ts`. Migrations
 existentes não são tocadas (protegidas por hook e históricas).
 
-### Task 7 — Métrica de Demurrage (commit separado)
+### Task 7 — Remover o strip de Demurrage (commit separado)
 
-**Premissa da decisão 6 corrigida** (review do Codex em #549, verificado no
-código): o saldo consolidado em aberto **não** existe só no strip.
-`Demurrage.tsx:340` já mostra o card "Aguardando pagamento (BRL)" a partir de
-`kpis.issuedInvoicesTotalBrl`. Logo, não há métrica a mover — mover criaria um
-segundo card de saldo na mesma página.
+**Premissa da decisão 6 corrigida:** o saldo consolidado em aberto **não**
+existe só no strip. `Demurrage.tsx:340` já mostra o card "Aguardando pagamento
+(BRL)" a partir de `kpis.issuedInvoicesTotalBrl`. Não há métrica a mover —
+mover criaria um segundo card de saldo na mesma página.
 
-Os dois números, porém, **não são o mesmo**:
+**E não há divergência de filtro a resolver.** O strip soma
+`status IN ('issued','overdue')` (`DemurrageMetricsStrip.tsx:23`) e o card da
+página soma só `'issued'` (`demurrageKpis.ts:120`), mas o ramo `overdue` do
+strip é **código morto**: fatura de Demurrage não vence.
 
-| Origem | Filtro | Arquivo |
-|---|---|---|
-| Card de `/demurrage` | `status = 'issued'` | `demurrageKpis.ts:120` |
-| Strip de Taxas Locais | `status = 'issued' OR 'overdue'` | `DemurrageMetricsStrip.tsx:23` |
+Pela [ADR 0014](../adr/0014-demurrage-recalculo-diario-substitui-roe-congelado.md)
+(aceita em 2026-06-24), enquanto a fatura não é paga o BRL é recalculado a cada
+nova PTAX, então ela está sempre em dia — a ADR diz literalmente "Não há
+`due_date`/`overdue`". A migration `157_demurrage_drop_overdue.sql` executou
+isso: tirou Demurrage de `mark_overdue_invoices` e fez backfill das faturas já
+marcadas de volta para `'issued'`. O mesmo já está registrado em
+`demurrageInvoiceTabs.ts:3`, que por isso não tem aba de vencidas.
 
-Ou seja, uma fatura de demurrage **vencida** sai do total "Aguardando
-pagamento" da página de Demurrage, embora continue aguardando pagamento.
+Logo, `.eq('status','issued')` no card da página **já é o total completo**, e
+os dois números sempre coincidem.
 
-A task passa a ser:
+A task é apenas:
 
 1. Remover `<DemurrageMetricsStrip />` da tela de Taxas Locais e apagar o
-   componente (sem outro chamador). Nada é acrescentado a `/demurrage`.
-2. **Decisão pendente do dono do processo (Equipamentos):** `overdue` deve
-   entrar em "Aguardando pagamento (BRL)"? Se sim, é uma linha em
-   `fetchDemurrageKPIs` (`.eq('status','issued')` → `.in('status',
-   ['issued','overdue'])`) mais o teste correspondente — **mas é mudança de
-   número exibido**, não reorganização de tela, então vai em commit próprio e
-   só com aprovação explícita. Se não, o strip morre sem substituto.
+   componente (sem outro chamador). Nada é acrescentado ou alterado em
+   `/demurrage`.
 
-As outras métricas do strip (contagem de faturas, contagem em aberto, total
-USD de todas) não têm equivalente em `/demurrage`, que mostra "Total USD
-(visível)" (recorte da grade filtrada) e "Containers em atraso". Nenhuma delas
-foi apontada como necessária; morrem com o strip.
+As demais métricas do strip (contagem de faturas, contagem em aberto, total USD
+de todas) não têm equivalente em `/demurrage`, que mostra "Total USD (visível)"
+(recorte da grade filtrada) e "Containers em atraso" — este último sobre
+`bl_containers.demurrage_status`, que é atraso de **devolução de container**,
+conceito distinto e vivo. Nenhuma das métricas do strip foi apontada como
+necessária; morrem com ele.
+
+**Observação fora do escopo, para registro:** a coluna
+`demurrage_invoices.due_date` sobreviveu à ADR 0014 — ainda é parâmetro de
+`create_demurrage_invoice_atomic` (migration `132`) e campo editável em
+`updateDemurrageInvoice` (`demurrageInvoices.ts:381`), embora nada mais a
+consuma para vencimento. Não é tocada por este plano.
 
 ### Task 8 — Documentação e ADR
 ADR novo: "Módulo financeiro segregado por processo faturável", registrando os
