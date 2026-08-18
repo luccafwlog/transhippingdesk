@@ -18,8 +18,8 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 |---|---|
 | [`2026-08-17-bloco-524-adr-alertas-design.md`](./2026-08-17-bloco-524-adr-alertas-design.md) | Contrato de Alertas e Notificações Internas do Relatório de Agência (ADR) |
 
-Há uma spec funcional viva em consolidação. Specs funcionais aprovadas cujo
-plano já foi concluído estão preservadas no
+Nenhuma no momento: todas as specs funcionais aprovadas até aqui tiveram seus
+planos concluídos e estão preservadas no
 [arquivo histórico](../archive/specs/). A spec comportamental abaixo é
 permanente e não entra nesta tabela.
 
