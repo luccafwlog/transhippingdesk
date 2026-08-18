@@ -3,7 +3,7 @@
 -- persistir a alocação por frente e manter ADRs legados sem terminal.
 -- Affected objects: depots, audit_logs, voyage_export_schedules,
 -- voyage_escala_terminal_state, voyage_escala_operation_fronts e
--- agency_departure_reports.
+-- voyage_escala_revision_state e agency_departure_reports.
 -- Consumers: RPC save_voyage_escala_terminal_state e as superfícies futuras da
 -- escala, ADR, Line-Up, Painel e TV.
 -- Rollback: em ambiente descartável, remover a RPC, os índices/policies e as
@@ -132,6 +132,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_voyage_escala_operation_front
 CREATE INDEX IF NOT EXISTS idx_voyage_escala_operation_fronts_terminal
   ON public.voyage_escala_operation_fronts (terminal_id);
 
+-- A revisão pertence à escala, não às linhas opcionais de frente/terminal.
+-- Assim, uma gravação válida de escala vazia também deixa um marcador
+-- concorrencial durável para o próximo expected_revision.
+CREATE TABLE IF NOT EXISTS public.voyage_escala_revision_state (
+  voyage_id BIGINT NOT NULL REFERENCES public.voyages(id) ON DELETE CASCADE,
+  port TEXT NOT NULL CHECK (port = upper(btrim(port)) AND btrim(port) <> ''),
+  port_id BIGINT NOT NULL REFERENCES public.ports(id) ON DELETE RESTRICT,
+  revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (voyage_id, port)
+);
+
+CREATE INDEX IF NOT EXISTS idx_voyage_escala_revision_state_port
+  ON public.voyage_escala_revision_state (port_id);
+
 CREATE OR REPLACE FUNCTION public.validate_escala_port_reference()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -182,6 +198,11 @@ CREATE TRIGGER validate_voyage_escala_front_port
   BEFORE INSERT OR UPDATE ON public.voyage_escala_operation_fronts
   FOR EACH ROW EXECUTE FUNCTION public.validate_escala_port_reference();
 
+DROP TRIGGER IF EXISTS validate_voyage_escala_revision_port ON public.voyage_escala_revision_state;
+CREATE TRIGGER validate_voyage_escala_revision_port
+  BEFORE INSERT OR UPDATE ON public.voyage_escala_revision_state
+  FOR EACH ROW EXECUTE FUNCTION public.validate_escala_port_reference();
+
 DROP TRIGGER IF EXISTS set_voyage_escala_terminal_state_updated_at ON public.voyage_escala_terminal_state;
 CREATE TRIGGER set_voyage_escala_terminal_state_updated_at
   BEFORE UPDATE ON public.voyage_escala_terminal_state
@@ -190,6 +211,11 @@ CREATE TRIGGER set_voyage_escala_terminal_state_updated_at
 DROP TRIGGER IF EXISTS set_voyage_escala_operation_fronts_updated_at ON public.voyage_escala_operation_fronts;
 CREATE TRIGGER set_voyage_escala_operation_fronts_updated_at
   BEFORE UPDATE ON public.voyage_escala_operation_fronts
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS set_voyage_escala_revision_state_updated_at ON public.voyage_escala_revision_state;
+CREATE TRIGGER set_voyage_escala_revision_state_updated_at
+  BEFORE UPDATE ON public.voyage_escala_revision_state
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- A coluna textual e os ADRs legados permanecem intactos. terminal_port_id é
@@ -282,6 +308,7 @@ ALTER TABLE public.audit_logs
 
 ALTER TABLE public.voyage_escala_terminal_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.voyage_escala_operation_fronts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.voyage_escala_revision_state ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS voyage_escala_terminal_state_select ON public.voyage_escala_terminal_state;
 CREATE POLICY voyage_escala_terminal_state_select
@@ -295,10 +322,18 @@ CREATE POLICY voyage_escala_operation_fronts_select
   FOR SELECT TO authenticated
   USING (public.is_active_read_user());
 
+DROP POLICY IF EXISTS voyage_escala_revision_state_select ON public.voyage_escala_revision_state;
+CREATE POLICY voyage_escala_revision_state_select
+  ON public.voyage_escala_revision_state
+  FOR SELECT TO authenticated
+  USING (public.is_active_read_user());
+
 REVOKE ALL ON TABLE public.voyage_escala_terminal_state FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.voyage_escala_operation_fronts FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.voyage_escala_revision_state FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE public.voyage_escala_terminal_state TO authenticated;
 GRANT SELECT ON TABLE public.voyage_escala_operation_fronts TO authenticated;
+GRANT SELECT ON TABLE public.voyage_escala_revision_state TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.save_voyage_escala_terminal_state(
   p_voyage_id BIGINT,
@@ -388,12 +423,15 @@ BEGIN
     RAISE EXCEPTION 'Porto brasileiro % nao encontrado.', v_port USING ERRCODE = 'P0002';
   END IF;
 
-  SELECT GREATEST(
-    COALESCE((SELECT MAX(s.revision) FROM public.voyage_escala_terminal_state AS s
-              WHERE s.voyage_id = p_voyage_id AND s.port = v_port), 0),
-    COALESCE((SELECT MAX(f.revision) FROM public.voyage_escala_operation_fronts AS f
-              WHERE f.voyage_id = p_voyage_id AND f.port = v_port), 0)
-  ) INTO v_current_revision;
+  INSERT INTO public.voyage_escala_revision_state (voyage_id, port, port_id, revision)
+  VALUES (p_voyage_id, v_port, v_port_id, 0)
+  ON CONFLICT (voyage_id, port) DO NOTHING;
+
+  SELECT rs.revision
+  INTO v_current_revision
+  FROM public.voyage_escala_revision_state AS rs
+  WHERE rs.voyage_id = p_voyage_id AND rs.port = v_port
+  FOR UPDATE;
   IF p_expected_revision <> v_current_revision THEN
     RAISE EXCEPTION 'REVISAO_OBSOLETA: esperada %, atual %.', p_expected_revision, v_current_revision
       USING ERRCODE = 'P0001';
@@ -717,6 +755,10 @@ BEGIN
     RAISE EXCEPTION 'Justificativa obrigatoria para alterar estado terminalizado existente.'
       USING ERRCODE = '22023';
   END IF;
+
+  UPDATE public.voyage_escala_revision_state
+  SET revision = v_next_revision, updated_at = now()
+  WHERE voyage_id = p_voyage_id AND port = v_port;
 
   UPDATE public.voyage_escala_terminal_state
   SET revision = v_next_revision, updated_at = now()

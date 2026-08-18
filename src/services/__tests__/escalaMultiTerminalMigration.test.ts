@@ -26,6 +26,16 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toContain('terminal_id UUID,')
   })
 
+  it('persiste revision mesmo quando a escala não tem linhas filhas', () => {
+    expect(sql).toMatch(
+      /CREATE TABLE IF NOT EXISTS public\.voyage_escala_revision_state[\s\S]+voyage_id BIGINT[\s\S]+port TEXT[\s\S]+port_id BIGINT[\s\S]+revision INTEGER[\s\S]+PRIMARY KEY \(voyage_id, port\)/i,
+    )
+    expect(sql).toContain('port_id BIGINT NOT NULL REFERENCES public.ports(id) ON DELETE RESTRICT')
+    expect(sql).toMatch(/SELECT rs\.revision[\s\S]+FROM public\.voyage_escala_revision_state[\s\S]+FOR UPDATE/i)
+    expect(sql).toMatch(/UPDATE public\.voyage_escala_revision_state[\s\S]+revision = v_next_revision/i)
+    expect(sql).toContain('voyage_escala_revision_state_select')
+  })
+
   it('adiciona terminalização de ADRs sem apagar o legado nem os filhos por report_id', () => {
     expect(sql).toMatch(/ALTER TABLE public\.agency_departure_reports[\s\S]+ADD COLUMN IF NOT EXISTS terminal_id UUID/i)
     expect(sql).toContain('DROP CONSTRAINT IF EXISTS agency_departure_reports_voyage_id_port_key')
@@ -71,11 +81,14 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/ALTER TABLE public\.voyage_escala_terminal_state ENABLE ROW LEVEL SECURITY/i)
     expect(sql).toMatch(/CREATE POLICY voyage_escala_terminal_state_select[\s\S]+FOR SELECT TO authenticated[\s\S]+is_active_read_user/i)
     expect(sql).toMatch(/ALTER TABLE public\.voyage_escala_operation_fronts ENABLE ROW LEVEL SECURITY/i)
+    expect(sql).toMatch(/ALTER TABLE public\.voyage_escala_revision_state ENABLE ROW LEVEL SECURITY/i)
     expect(sql).toMatch(/CREATE POLICY voyage_escala_operation_fronts_select[\s\S]+FOR SELECT TO authenticated[\s\S]+is_active_read_user/i)
     expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_terminal_state FROM PUBLIC, anon, authenticated/i)
     expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_operation_fronts FROM PUBLIC, anon, authenticated/i)
+    expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_revision_state FROM PUBLIC, anon, authenticated/i)
     expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_terminal_state TO authenticated/i)
     expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_operation_fronts TO authenticated/i)
+    expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_revision_state TO authenticated/i)
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.save_voyage_escala_terminal_state\(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT\) FROM PUBLIC, anon/i)
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.save_voyage_escala_terminal_state\(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT\) TO authenticated/i)
   })
