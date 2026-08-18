@@ -11,6 +11,7 @@ Quando um plano é totalmente executado, ele é movido para
 | Plano | Tema | Status |
 |---|---|---|
 | [`2026-08-13-correcao-regressao-inicializacao-login-navegacao.md`](./2026-08-13-correcao-regressao-inicializacao-login-navegacao.md) | Harness, cache do shell e checkpoints para diagnosticar a lentidão no acesso frio, login e primeira navegação | IN PROGRESS |
+| [`2026-08-18-financeiro-segregado-por-processo-faturavel.md`](./2026-08-18-financeiro-segregado-por-processo-faturavel.md) | Financeiro em três páginas por processo faturável, cadastro de tabelas em sub-rota e Relatórios fora do dropdown | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
