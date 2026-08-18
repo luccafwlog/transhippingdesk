@@ -1,4 +1,4 @@
-# 0050 — Alerta fecha pela origem; dispensa temporária exige revisão
+# ADR 0051 — Alerta fecha pela origem; dispensa temporária exige revisão
 
 Status: aceito — 2026-08-17
 
@@ -41,4 +41,3 @@ Esta decisão supersede parcialmente a ADR 0034 somente quanto ao estado
 `reconhecido`, ao reconhecimento e ao fechamento manual. A separação entre
 Alerta coletivo e Notificação Interna, a cópia congelada e as regras de
 destinatários permanecem vigentes.
-

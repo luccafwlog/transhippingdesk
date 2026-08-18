@@ -153,7 +153,7 @@ nulo; não deve inventar motivos de Portal ou de peso.
 Quando o problema for a ausência de e-mail ou a falta de prontidão do Portal, a
 pendência de cliente segue também a regra própria do bloco de Clientes. A
 prontidão do Portal é condição do gate de revisão/faturamento conforme a ADR
-0051; deve compor o alerta único do B/L, sem duplicar o alerta geral do cliente.
+0052; deve compor o alerta único do B/L, sem duplicar o alerta geral do cliente.
 Como a migration `188_review_gate_remove_portal.sql` é histórica e protegida, a
 restauração ocorre em migration nova e não por edição retroativa.
 

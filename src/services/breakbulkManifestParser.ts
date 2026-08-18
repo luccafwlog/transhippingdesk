@@ -4,10 +4,15 @@
 // (ParsedBreakbulkManifest) com erros por linha. A persistência vive em
 // breakbulkImport.ts.
 import { assertUploadFile } from '../lib/fileGuard'
-import { canonicalizeDocument, canonicalizeValidCnpj } from '../lib/cnpj'
+import { canonicalizeDocument, extractCnpjFromText } from '../lib/cnpj'
 import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
-import { extractNcmCodes } from '../lib/ncm'
 import { normalizePortCode } from './portCode'
+import {
+  extractCarrierMachineQty,
+  firstMeaningfulPartyLine,
+  isLikelyCompanyLine,
+  normalizeCarrierBreakbulkDescription,
+} from './breakbulkCargoText'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
 const headerMap = {
@@ -35,7 +40,9 @@ const bbRequiredHeaders = ['BL', 'CE', 'MAQUINAS', 'PACKAGES', 'PACKAGES TOTAL',
 const legacyRequiredHeaders = ['BL', 'CONSIGNATARIO', 'CNPJ', 'POL', 'POD', 'DESCRICAO', 'VOLUMES', 'PESO_KG', 'CBM'] as const
 
 type DestinationField = keyof typeof headerMap
-type BreakbulkLayout = 'summary' | 'legacy' | 'carrier'
+// 'bl_document' entra pelo importador de B/L avulso (blDocumentParser.ts),
+// que reaproveita este modelo para persistir pelo mesmo caminho.
+export type BreakbulkLayout = 'summary' | 'legacy' | 'carrier' | 'bl_document'
 const SUMMARY_SPEC: HeaderSpec<DestinationField> = {
   aliases: headerMap,
   required: ['bl_id', 'ce_mercante', 'machine_qty', 'packages_qty', 'packages_total', 'gross_weight_ton', 'cbm', 'shipper', 'consignee', 'notify_party'],
@@ -588,13 +595,6 @@ function extractCarrierPartySection(value: string, startPattern: RegExp, endPatt
   return firstMeaningfulPartyLine(section) || section
 }
 
-function firstMeaningfulPartyLine(value: string) {
-  return value
-    .split(/\r?\n/g)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .find((line) => !/^(SAME AS CONSIGNEE|CNPJ[:\s]|TAX ID[:\s]|TEL[:\s]|PHONE[:\s]|FAX[:\s]|EMAIL[:\s]|E-MAIL[:\s])/i.test(line)) ?? ''
-}
 
 function parseCarrierBreakbulkParties(value: string) {
   const lines = value
@@ -657,98 +657,7 @@ function parseLeadingNumber(value: unknown) {
   return parseNumber(match[1])
 }
 
-function normalizeCarrierBreakbulkDescription(value: string) {
-  const lines = value
-    .split(/\r?\n/g)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line, index) => !(index === 0 && /^\d+\s+.+$/i.test(line)))
-    .filter((line) => !/^(FCL|LCL)\/(FCL|LCL)$/i.test(line))
-    .filter((line) => !/^NET WEIGHT[:\s]/i.test(line))
-    .filter((line) => !/^NCM NUMBER[:\s]/i.test(line))
-    .filter((line) => !/^WOODEN PACKAGE[:\s]/i.test(line))
-    .filter((line) => !/FREE TIME/i.test(line))
 
-  return lines.join(' | ')
-}
-
-function extractCarrierMachineQty(value: string) {
-  const normalized = value.toUpperCase()
-  const hasMachineIdentifier = carrierMachineIdentifierPattern.test(normalized)
-  const hasMachineNcm = extractMachineNcmCodes(value).length > 0
-  const total = value
-    .split(/\r?\n/g)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .reduce((sum, line) => sum + extractCarrierMachineQtyFromLine(line, hasMachineIdentifier || hasMachineNcm), 0)
-
-  if (total > 0) return total
-
-  const identifierCount = hasMachineNcm ? countMachineModelIdentifiers(value) : 0
-  return identifierCount > 0 ? identifierCount : null
-}
-
-function extractCarrierMachineQtyFromLine(value: string, hasMachineIdentifier: boolean) {
-  const line = value.toUpperCase().replace(/\s+/g, ' ')
-  const hasMachineKeyword = carrierMachineKeywordPattern.test(line)
-  if (!hasMachineKeyword && !hasMachineIdentifier) return 0
-
-  const unitMatch = line.match(/(?:^|\D)(\d+(?:[.,]\d+)?)\s+(?:UNITS?|MACHINES?)\b/)
-  if (unitMatch) return parseNumber(unitMatch[1]) ?? 0
-
-  if (!hasMachineKeyword) return 0
-
-  const directEquipmentMatch = line.match(new RegExp(`(?:^|\\D)(\\d+(?:[.,]\\d+)?)\\s+(?:${carrierMachineKeywordPattern.source})\\b`))
-  return directEquipmentMatch ? parseNumber(directEquipmentMatch[1]) ?? 0 : 0
-}
-
-const carrierMachineKeywordPattern =
-  /\b(?:EXCAVATORS?|BUS(?:ES)?|MOBILE CRANES?|CRANES?|MOBILE JAW CRUSHERS?|JAW CRUSHERS?|CRUSHERS?|BULLDOZERS?|WHEEL LOADERS?|LOADERS?|FORKLIFTS?|DUMP TRUCKS?|TRUCKS?|CONVEYORS?|GRADERS?|ROLLERS?|TRACTORS?|DRILLING RIGS?)\b/
-
-const carrierMachineIdentifierPattern =
-  /\b(?:CHASSIS|VIN|ENGINE|FRAME|SERIAL|PRODUCT\s*ID|MACHINE\s*NO|EQUIPMENT\s*NO)\b/
-
-const machineNcmPrefixes = [
-  '8426', // guindastes, pontes rolantes e equipamentos de elevacao.
-  '8427', // empilhadeiras, plataformas e veiculos de movimentacao.
-  '8428', // outros equipamentos de elevacao, carga, descarga e movimentacao.
-  '8429', // tratores de esteira, escavadeiras, pa carregadeiras e similares.
-  '8430', // maquinas de terraplenagem, perfuracao e compactacao.
-  '8474', // britadores, peneiras e maquinas para minerais.
-  '8479', // maquinas e aparelhos mecanicos com funcao propria.
-  '8702', // onibus e veiculos para transporte de passageiros.
-  '8704', // caminhoes e veiculos para transporte de carga.
-  '8705', // veiculos automoveis para usos especiais.
-]
-
-function extractMachineNcmCodes(value: string) {
-  return extractNcmCodes(value).filter((code) => machineNcmPrefixes.some((prefix) => code.startsWith(prefix)))
-}
-
-
-function countMachineModelIdentifiers(value: string) {
-  const ignoredCodes = new Set(extractNcmCodes(value))
-  const matches = Array.from(value.toUpperCase().matchAll(/\b[A-Z]{2,}\d{2,}[A-Z]*-\d{2,}\b/g))
-    .map((match) => match[0])
-    .filter((code) => !ignoredCodes.has(code.replace(/\D/g, '')))
-
-  return new Set(matches).size
-}
-
-function isLikelyCompanyLine(value: string) {
-  const line = value.trim()
-  if (!line) return false
-  if (/@/.test(line)) return false
-  if (/^(TEL|PHONE|FAX|MOBILE|CEP|ZIP|RUA|ROAD|NO\.|ROOM|VIA\b|POLO\b|CITY\b|STATE\b|COUNTRY\b)/i.test(line)) return false
-  if (/^CNPJ[:\s]/i.test(line)) return false
-  if (/\d{4,}/.test(line) && !/(LTDA|LTD|S\.A|S\/A|CO\., LTD|COMERCIO|INDUSTRIA|SERVICOS|LOGISTICA|TRANSPORTES|TRADING|IMPORTACAO|EXPORTACAO|QUIMICA)/i.test(line)) {
-    return false
-  }
-
-  return /(LTDA|LTD|S\.A|S\/A|CO\., LTD|COMERCIO|INDUSTRIA|SERVICOS|LOGISTICA|TRANSPORTES|TRADING|IMPORTACAO|EXPORTACAO|QUIMICA|FLOCCULANT)/i.test(
-    line,
-  )
-}
 
 function findNearestCompanyBeforeIndex(lines: string[], endIndex: number, minIndex = 0) {
   if (endIndex < 0) return null
@@ -763,8 +672,7 @@ function findNearestCompanyBeforeIndex(lines: string[], endIndex: number, minInd
 }
 
 function extractTaxId(value: string) {
-  const match = value.match(/\bCNPJ\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})/i)
-  return canonicalizeValidCnpj(match?.[1] ?? '') ?? ''
+  return extractCnpjFromText(value) ?? ''
 }
 
 function asNullableString(value: unknown) {

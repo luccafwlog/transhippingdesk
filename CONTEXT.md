@@ -530,7 +530,15 @@ inclui endereço, telefone, CEP, cidade ou país. Quando nenhuma natureza juríd
 **Manifesto**
 Documento que agrupa B/Ls de uma operação marítima. Para carga de container,
 não é fonte de ingestão do sistema: os dados documentais entram pelos próprios
-arquivos de B/L.
+arquivos de B/L. Para carga solta, o manifesto BB continua sendo fonte de
+ingestão, agora ao lado do B/L avulso — as duas portas convivem e gravam o
+mesmo B/L.
+
+**B/L Avulso**
+Conhecimento de embarque recebido como documento individual do armador (.pdf
+ou .docx), e não consolidado em manifesto. É fonte de ingestão de carga solta:
+cada arquivo cria ou atualiza um B/L da viagem escolhida. Não carrega CE
+Mercante — esse dado continua entrando pela importação de CE Mercante.
 
 **CNTR**
 Abreviação de domínio para container.

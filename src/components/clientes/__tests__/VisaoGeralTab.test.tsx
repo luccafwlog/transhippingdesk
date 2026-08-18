@@ -35,8 +35,8 @@ afterEach(() => {
   mocks.timeline = { data: [], isLoading: false, isError: false }
 })
 
-function renderTab() {
-  render(<MemoryRouter><VisaoGeralTab data={baseData} onNavigateTab={() => {}} /></MemoryRouter>)
+function renderTab(data = baseData) {
+  render(<MemoryRouter><VisaoGeralTab data={data} onNavigateTab={() => {}} /></MemoryRouter>)
 }
 
 describe('VisaoGeralTab — pendencias', () => {
@@ -72,5 +72,13 @@ describe('VisaoGeralTab — pendencias', () => {
     }
     renderTab()
     expect(screen.getByText(/Portal não ativo/)).toBeTruthy()
+  })
+
+  it('mantem invoice local vencida legada como pendencia do cliente', () => {
+    renderTab(Object.assign({}, baseData, {
+      invoices: [{ id: 7, status: 'overdue', due_date: '2026-01-01' }],
+    }) as never)
+
+    expect(screen.getByText('1 invoice vencida →')).toBeTruthy()
   })
 })

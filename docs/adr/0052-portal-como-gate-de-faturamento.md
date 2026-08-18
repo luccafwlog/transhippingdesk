@@ -1,4 +1,4 @@
-# 0051 — Portal ativo e acesso do cliente como gate de faturamento
+# ADR 0052 — Portal ativo e acesso do cliente como gate de faturamento
 
 Status: aceito — 2026-08-17
 
@@ -33,4 +33,3 @@ Esta ADR supersede a nota editorial de 2026-08-16 da ADR 0006 e a parte da
 `188_review_gate_remove_portal.sql` que retirou o Portal do gate. As demais
 regras da ADR 0006, inclusive a ausência de backfill top-level, permanecem
 vigentes.
-
