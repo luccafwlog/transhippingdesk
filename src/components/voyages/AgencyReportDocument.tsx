@@ -74,6 +74,7 @@ type Snapshot = {
 
 type Metric = [string, string | number | null | undefined];
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildAgencyReportPrintFilename(snapshot: Snapshot): string {
   const header = snapshot.header ?? {};
   const parts = [

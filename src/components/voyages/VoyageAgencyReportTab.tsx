@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { AgencyReportDocument, buildAgencyReportPrintFilename } from './AgencyReportDocument'
@@ -270,9 +270,17 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const [selectedReportId, setSelectedReportId] = useState<string | null>(initialReportId ?? null)
   const { data: terminalState } = useAgencyReportTerminalState(voyageId, port)
   const terminalReports = terminalState?.agencyReports ?? []
-  const selectedTerminalReport = terminalReports.find((report) => report.reportId === selectedReportId)
+  const preferredReportId = initialReportId && terminalReports.some((report) => report.reportId === initialReportId)
+    ? initialReportId
+    : initialTerminalCode
+      ? terminalReports.find((report) => report.terminalCode === initialTerminalCode)?.reportId
+      : undefined
+  const effectiveSelectedReportId = selectedReportId && terminalReports.some((report) => report.reportId === selectedReportId)
+    ? selectedReportId
+    : preferredReportId ?? terminalReports[0]?.reportId ?? null
+  const selectedTerminalReport = terminalReports.find((report) => report.reportId === effectiveSelectedReportId)
   const terminalizedReports = terminalReports.filter((report) => report.terminalId || report.reportId === initialReportId)
-  const resolvedReportId = selectedTerminalReport?.reportId ?? (terminalizedReports.length ? selectedReportId : null)
+  const resolvedReportId = selectedTerminalReport?.reportId ?? (terminalizedReports.length ? effectiveSelectedReportId : null)
   const resolvedTerminalCode = selectedTerminalReport?.terminalCode ?? initialTerminalCode ?? null
   const resolvedTerminalName = selectedTerminalReport?.terminal ?? null
   const terminalViewFor = (section: AgencyReportSection) => {
@@ -283,15 +291,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       state: selected?.state ?? 'nothing_operated' as const,
     }
   }
-  useEffect(() => {
-    if (!terminalReports.length) return
-    const preferred = initialReportId && terminalReports.some((report) => report.reportId === initialReportId)
-      ? initialReportId
-      : initialTerminalCode
-        ? terminalReports.find((report) => report.terminalCode === initialTerminalCode)?.reportId
-        : undefined
-    setSelectedReportId((current) => preferred ?? (current && terminalReports.some((report) => report.reportId === current) ? current : terminalReports[0].reportId))
-  }, [initialReportId, initialTerminalCode, terminalReports])
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port, resolvedReportId)
   const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port, resolvedReportId)
