@@ -6,15 +6,15 @@
 
 Faturamento é o processo compartilhado de invoices que transforma B/Ls elegíveis em documentos financeiros, mantém a
 lista e o detalhe de invoices, cria consolidadas, registra pagamentos,
-cancelamentos e restituições e apresenta Demurrage como visão financeira
-agregada. Para taxas locais, o saldo canônico é o ledger por recebível; a tabela
+cancelamentos e restituições. Demurrage tem operação própria em `/demurrage`.
+Para taxas locais, o saldo canônico é o ledger por recebível; a tabela
 `invoices` continua sendo o documento emitido.
 
 - `/taxas-locais` é a rota interna definida em `src/App.tsx` e composta por
   `src/pages/TaxasLocais.tsx`; `/faturamento` apenas preserva links legados.
 - Alterações financeiras exigem usuário ativo/admin nas RPCs. A capacidade
   `faturamento_edit` existe em `src/hooks/useAuth.tsx`, mas
-  `src/pages/Faturamento.tsx` não a usa como gate da rota ou das abas.
+  `src/pages/TaxasLocais.tsx` não a usa como gate da rota ou das abas.
 - [Taxas Locais](taxas-locais.md) é dona do cálculo e do estado
   `ready_for_billing`.
 - Para B/Ls de container, carga solta e Granito, emissão automática de taxas
@@ -25,7 +25,7 @@ agregada. Para taxas locais, o saldo canônico é o ledger por recebível; a tab
   faturamento de cliente.
 - [Reconciliação PIX](reconciliacao-pix.md) é dona do upload, matching,
   confirmação por TXID e estorno a partir do histórico.
-- Demurrage aparece na mesma experiência, mas permanece em
+- Demurrage permanece em sua própria experiência em `/demurrage` e em
   `demurrage_invoices`, sem entrar no ledger local.
 
 ## Anatomia das telas
@@ -87,13 +87,12 @@ isolada em `src/components/billing/consolidatedInvoiceSelection.ts`.
 **Etapa 12 do plano de faturamento (ADR 0038; nota editorial em
 [ADR 0008](../adr/0008-demurrage-integrado-sem-unificar-persistencia.md)):** a
 aba Demurrage (lista, modal de detalhe e impressão) foi removida por duplicar
-`/demurrage` sem os filtros e a impressão de lá. `src/components/billing/DemurrageMetricsStrip.tsx`
-mostra só as quatro métricas agregadas (faturas, em aberto, saldo BRL, total
-USD) na aba Faturas, com link para `/demurrage`, onde a criação e gestão
-continuam. `?tab=demurrage` redireciona para `/demurrage`
-(`<Navigate to="/demurrage" replace />`, chamado só depois de todos os hooks
-do componente para não violar as Regras dos Hooks entre a renderização normal
-e a que redireciona). **Gap conhecido:** o plano pedia confirmar com a
+`/demurrage` sem os filtros e a impressão de lá. A faixa agregada de Demurrage
+também foi removida; `/demurrage` é a única superfície
+das métricas e da gestão desse processo. `?tab=demurrage` redireciona para
+`/demurrage`, consumindo `tab` e preservando os demais parâmetros (chamado só
+depois de todos os hooks do componente para não violar as Regras dos Hooks entre
+a renderização normal e a que redireciona). **Gap conhecido:** o plano pedia confirmar com a
 operação que ninguém imprime Demurrage a partir de `/faturamento` antes de
 remover esse caminho — essa confirmação não foi feita nesta sessão (sem
 acesso à operação); se alguém dependia da impressão a partir daqui, o caminho
@@ -102,7 +101,7 @@ agora é abrir `/demurrage` diretamente.
 ### Histórico de reconciliação
 
 `src/components/billing/ReconciliationHistoryTable.tsx` pertence à pasta de
-billing, mas não é montado em `Faturamento.tsx`; a superfície executável está em
+billing, mas não é montado em `TaxasLocais.tsx`; a superfície executável está em
 `src/pages/Reconciliacao.tsx`. Ela combina pagamentos locais e Demurrage,
 filtra, ordena, pagina, exporta e abre o detalhe para estorno.
 
@@ -118,11 +117,11 @@ impressão e chama `window.print()`; o nome sugerido é calculado por
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| `/faturamento` · filtrar/listar invoices | Sessão interna; filtros opcionais | `Faturamento` → `InvoiceFiltersBar` / `InvoicesTable` | `useInvoices` → `listInvoices` | `SELECT invoices`, `invoice_bls`, `invoice_receivable_links`, `payments`; filtros auxiliares consultam B/Ls/viagens | Query `queryKeys.invoices.list(filters)`; paginação remota da lista principal | Erro principal vira `InlineError`; filtros sem IDs retornam vazio sem consultar invoices | **Código:** `src/pages/Faturamento.tsx`, `src/services/billing.ts` · **Teste:** `src/services/__tests__/billing.test.ts` |
-| `/faturamento` · exportar lista | Mesmos filtros; ao menos uma invoice | `Faturamento.handleExport` | `listInvoicesForExport` → `exportInvoicesWorkbook` | Leituras paginadas de 1000; arquivo XLSX local | Não altera cache | Sem linhas gera aviso; leitura/geração propaga erro | **Código:** `src/pages/Faturamento.tsx`, `src/services/billing.ts`, `src/services/exports.ts` · **Teste:** `src/services/__tests__/billingHelpers.test.ts` |
-| `/faturamento` · abrir invoice | ID selecionado pela tabela ou query string | `InvoicesTable.onSelectInvoice` | `useInvoiceDetail` → `listInvoiceDetails` | RPC `list_invoice_details` lê documento, links diretos, itens e pagamentos | Query `queryKeys.invoices.detail(id)` | ID ausente desabilita query; erro mostra falha no modal | **Código:** `src/components/billing/InvoicesTable.tsx`, `src/components/billing/InvoiceDetailModal.tsx`, `src/services/billing.ts` · **Teste:** `src/pages/__tests__/Faturamento.behavior.test.tsx` |
+| `/taxas-locais` · filtrar/listar invoices | Sessão interna; filtros opcionais | `TaxasLocais` → `InvoiceFiltersBar` / `InvoicesTable` | `useInvoices` → `listInvoices` | `SELECT invoices`, `invoice_bls`, `invoice_receivable_links`, `payments`; filtros auxiliares consultam B/Ls/viagens | Query `queryKeys.invoices.list(filters)`; paginação remota da lista principal | Erro principal vira `InlineError`; filtros sem IDs retornam vazio sem consultar invoices | **Código:** `src/pages/TaxasLocais.tsx`, `src/services/billing.ts` · **Teste:** `src/services/__tests__/billing.test.ts` |
+| `/taxas-locais` · exportar lista | Mesmos filtros; ao menos uma invoice | `TaxasLocais.handleExport` | `listInvoicesForExport` → `exportInvoicesWorkbook` | Leituras paginadas de 1000; arquivo XLSX local | Não altera cache | Sem linhas gera aviso; leitura/geração propaga erro | **Código:** `src/pages/TaxasLocais.tsx`, `src/services/billing.ts`, `src/services/exports.ts` · **Teste:** `src/services/__tests__/billingHelpers.test.ts` |
+| `/taxas-locais` · abrir invoice | ID selecionado pela tabela ou query string | `InvoicesTable.onSelectInvoice` | `useInvoiceDetail` → `listInvoiceDetails` | RPC `list_invoice_details` lê documento, links diretos, itens e pagamentos | Query `queryKeys.invoices.detail(id)` | ID ausente desabilita query; erro mostra falha no modal | **Código:** `src/components/billing/InvoicesTable.tsx`, `src/components/billing/InvoiceDetailModal.tsx`, `src/services/billing.ts` · **Teste:** `src/pages/__tests__/TaxasLocais.behavior.test.tsx` |
 | Detalhe · carregar breakdown consolidado | Invoice sem itens diretos e com `invoice_receivable_links` | `listInvoiceDetails` após RPC base | Lê links/snapshots; RPC `get_consolidated_invoice_item_breakdown`; valida com Zod | `invoice_receivable_links`, `voyages`, leitura protegida de `charge_calculations` | Reusa `invoice-detail`; usa linha agregada por B/L se breakdown não reconciliar com subtotal | Erro/shape inválido do breakdown é best-effort e cai no agregado | **Código:** `src/services/billing.ts`, `supabase/migrations/086_consolidated_invoice_item_breakdown.sql`, `supabase/migrations/090_restrict_consolidated_invoice_breakdown.sql` |
-| `/faturamento` · marcar vencidas ao abrir | Montagem da página | `Faturamento.useEffect` | `detectOverdueInvoices` | RPC `detect_overdue_invoices` altera invoices e cria alertas em português, com `entity_id` igual ao número da invoice quando disponível | Invalida `['financial-alerts']`, `['invoices']`, `['op-count']` | Erro é enviado à telemetria best-effort sem rejeição não tratada | **Código:** `src/pages/Faturamento.tsx`, `src/services/alerts.ts`, `supabase/migrations/168_overdue_invoice_alerts_ptbr_entity.sql` · **Teste:** `src/pages/__tests__/Faturamento.behavior.test.tsx`; **Teste de contrato SQL:** `src/services/__tests__/overdueInvoiceAlertsMigration.test.ts` |
+| `/taxas-locais` · marcar vencidas ao abrir | Montagem da página | `TaxasLocais.useEffect` | `detectOverdueInvoices` | RPC `detect_overdue_invoices` altera invoices e cria alertas em português, com `entity_id` igual ao número da invoice quando disponível | Invalida `['financial-alerts']`, `['invoices']`, `['op-count']` | Erro é enviado à telemetria best-effort sem rejeição não tratada | **Código:** `src/pages/TaxasLocais.tsx`, `src/services/alerts.ts`, `supabase/migrations/168_overdue_invoice_alerts_ptbr_entity.sql` · **Teste:** `src/pages/__tests__/TaxasLocais.behavior.test.tsx`; **Teste de contrato SQL:** `src/services/__tests__/overdueInvoiceAlertsMigration.test.ts` |
 | Validação · recalcular selecionados | Seleção não vazia | `ValidacaoTab.runBatchOperation('recalculate')` | Hooks de Taxas Locais; Granito usa `runGraniteBatch` canônico | Uma operação por B/L | Invalida operações, invoices, B/Ls e resumo após o lote | Resultado parcial agrega erros sem interromper os demais B/Ls | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/hooks/useLocalCharges.ts`, `src/services/graniteBillingWorkflow.ts` · **Teste:** `src/services/__tests__/localCharges.test.ts`, `src/services/__tests__/graniteBillingWorkflow.test.ts` |
 | Validação · aprovar revisão selecionada | Seleção não vazia | `runBatchOperation('review')` | `useBatchMarkLocalChargesReviewed`; `runGraniteBatch` rejeita revisão Granito como não suportada | RPC `mark_bl_charges_reviewed` por B/L local | Invalida operações, pendências, B/Ls e detalhe-prefixo vazio | Falhas são isoladas por B/L; Granito não reporta sucesso sem escrita | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/services/charges/chargeOperationsService.ts`, `src/services/graniteBillingWorkflow.ts` · **Teste:** `src/services/__tests__/localCharges.test.ts`, `src/services/__tests__/validacaoGraniteWorkflowContract.test.ts` |
 | Validação · marcar pronto selecionados | Seleção; gates de cliente/taxas | `runBatchOperation('ready')` | Agrupa locais por cliente e usa `markBlsReadyAndCreateInvoice` | RPC `mark_bls_ready_and_create_invoice` promove e emite atomicamente por grupo | Invalida operações, invoices, B/Ls e resumo | Qualquer falha reverte promoção e emissão do grupo | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/services/localBatchBillingWorkflow.ts`, `src/services/billing.ts`, `supabase/migrations/133_mark_bls_ready_and_create_invoice_atomic.sql` |
@@ -151,7 +150,7 @@ impressão e chama `window.print()`; o nome sugerido é calculado por
 | Clientes do seletor | `queryKeys.billingReady.customers(search)` | `useBillingCustomers` |
 | Receivables consolidáveis | `queryKeys.billingLedger.consolidatableReceivables(filters)` | `useConsolidatableReceivables` |
 | Refunds | `['invoice-refunds', invoiceId]` | `useInvoiceRefunds` |
-| Alertas | `['financial-alerts']` | `Faturamento` |
+| Alertas | `['financial-alerts']` | `TaxasLocais` |
 | Histórico | `['reconciliation-history', filters]` | `ReconciliationHistoryTable` |
 
 `useLedgerInvalidation` invalida `billingLedger.all()`, `invoices.all()`,

@@ -72,6 +72,14 @@ vi.mock('../../hooks/useLocalCharges', () => ({
 }))
 
 describe('TaxasLocaisTabelas', () => {
+  it('identifica a superfície de cadastro no cabeçalho', () => {
+    authState.profile = { id: 'user-1' }
+    authState.user = { id: 'user-1' }
+    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocaisTabelas)))
+
+    expect(html).toContain('Tabelas de Taxas Locais')
+  })
+
   it('mantem somente cadastro de tabelas e overrides, sem fila operacional de pendencias', () => {
     authState.profile = { id: 'user-1' }
     authState.user = { id: 'user-1' }

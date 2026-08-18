@@ -95,9 +95,8 @@ describe('TaxasLocais', () => {
     expect(html).toContain('Valida')
     expect(html).toContain('Faturas')
     expect(html).not.toContain('Pendências')
-    // "Demurrage" ainda aparece como título da faixa de métricas na aba
-    // Faturas — o que não existe mais é a aba/lista/modal/impressão
-    // duplicados, então não deve haver um role="tab" com esse rótulo.
+    // Demurrage não é mais uma aba, lista, modal, faixa ou impressão duplicada
+    // nesta superfície; sua operação própria continua em /demurrage.
     expect(html).not.toContain('role="tab" aria-selected="false">Demurrage')
     expect(html).toContain('Vencidas')
   })

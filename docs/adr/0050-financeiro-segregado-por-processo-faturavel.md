@@ -24,6 +24,9 @@ compartilham persistência nem regras de cálculo.
 - `/faturamento` permanece como redirect compatível. `invoice`, `customer`,
   `tab=pendencias` e demais parâmetros são preservados; `tab=demurrage` segue
   para `/demurrage` e é consumido como seletor de módulo.
+- A faixa agregada de Demurrage que existia na operação legada foi removida;
+  `/demurrage` permanece a única superfície de métricas, emissão, pagamento e
+  impressão desse processo.
 
 "Departamento dono" descreve a responsabilidade do processo e não cria uma
 nova barreira de leitura ou escrita. As policies, grants, RPCs e gates de

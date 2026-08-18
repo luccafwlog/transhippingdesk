@@ -23,7 +23,7 @@ export function TaxasLocaisTabelas() {
   return (
     <>
       <PageHeader
-        title="Taxas Locais"
+        title="Tabelas de Taxas Locais"
         description="Motor de cálculo por POD/modo de carga, overrides por cliente e pendências de revisão."
       />
 

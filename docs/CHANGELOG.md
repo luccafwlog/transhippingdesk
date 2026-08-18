@@ -6,7 +6,8 @@
 - **Financeiro segregado por processo faturável:** `/taxas-locais` passa a ser
   a operação de Taxas Locais, `/taxas-locais/tabelas` concentra tabelas e
   overrides, `/demurrage` permanece separado e Relatórios sai do dropdown.
-  `/faturamento` continua como redirect compatível com os deep links antigos.
+  A faixa agregada de Demurrage sai da operação legada, e `/faturamento`
+  continua como redirect compatível com os deep links antigos.
 
 - **Carga solta passa a aceitar o B/L do armador, sem perder o manifesto:**
   `/carga-solta` ganha o modal **Importar B/Ls (PDF/DOCX)** ao lado da

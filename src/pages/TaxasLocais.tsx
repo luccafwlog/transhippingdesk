@@ -16,6 +16,7 @@ import { MetricCard } from '../components/ui/MetricCard'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useInvoices } from '../hooks/useBilling'
+import { resolveLegacyFaturamentoRedirect, toRouteTarget } from '../lib/routeRedirects'
 import { isConsolidatedInvoice, listInvoicesForExport } from '../services/billing'
 import { exportInvoicesWorkbook } from '../services/exports'
 import { detectOverdueInvoices, listFinancialAlerts } from '../services/alerts'
@@ -203,7 +204,7 @@ export function TaxasLocais() {
   // contagem/ordem de chamadas tem que ser igual em toda renderização deste
   // componente, inclusive na que redireciona.
   if (requestedTab === 'demurrage') {
-    return <Navigate to="/demurrage" replace />
+    return <Navigate to={toRouteTarget(resolveLegacyFaturamentoRedirect(`?${searchParams.toString()}`))} replace />
   }
 
   return (
@@ -213,9 +214,7 @@ export function TaxasLocais() {
         description="Emissão de taxas locais, validação de cálculos e acompanhamento financeiro por B/L."
         action={
           <>
-            <Link to="/taxas-locais/tabelas">
-              <Button variant="secondary">Gerenciar em Tabelas</Button>
-            </Link>
+            <Link className="app-btn app-btn--secondary" to="/taxas-locais/tabelas">Gerenciar em Tabelas</Link>
             <Button onClick={() => setConsolidatedOpen(true)}><FilePlus2 size={16} />Gerar fatura consolidada</Button>
           </>
         }
