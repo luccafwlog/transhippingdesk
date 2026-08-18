@@ -213,16 +213,16 @@ function alertEntityLink(alert: { type: string; entity_type: string | null; enti
   if (!alert.entity_id) return null
   if (alert.type.startsWith('portal_')) {
     if (alert.entity_type === 'invoice') return /^\d+$/.test(alert.entity_id)
-      ? `/faturamento?invoice=${encodeURIComponent(alert.entity_id)}`
-      : '/faturamento'
+      ? `/taxas-locais?invoice=${encodeURIComponent(alert.entity_id)}`
+      : '/taxas-locais'
     return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
   }
   if (alert.entity_type === 'invoice') {
     // entity_id pode ser o id numérico (abre o detalhe via ?invoice=) ou o
     // número da fatura (ex: FAT-2026-0016) — nesse caso só leva à página.
     return /^\d+$/.test(alert.entity_id)
-      ? `/faturamento?invoice=${encodeURIComponent(alert.entity_id)}`
-      : '/faturamento'
+      ? `/taxas-locais?invoice=${encodeURIComponent(alert.entity_id)}`
+      : '/taxas-locais'
   }
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`

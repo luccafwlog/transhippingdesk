@@ -3,17 +3,23 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { TaxasLocais } from '../TaxasLocais'
+import { isLedgerInvoicePayable } from '../faturamentoLedgerPayment'
+import { invoiceStatusLabel } from '../faturamentoInvoiceStatus'
 
-const authState = vi.hoisted(() => ({
-  profile: { id: 'user-1' } as { id: string } | null,
-  user: { id: 'user-1' } as { id: string } | null,
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ data: [], isLoading: false, error: null }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}))
+
+// billing/export inicializam o cliente Supabase ao importar; o mock mantém este
+// teste de render isolado de credenciais.
+vi.mock('../../services/supabase', () => ({
+  supabase: {},
+  isSupabaseConfigured: false,
 }))
 
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({
-    profile: authState.profile,
-    user: authState.user,
-  }),
+  useAuth: () => ({ user: { id: 'user-1' } }),
 }))
 
 vi.mock('../../components/ui/Toast', async () => {
@@ -24,107 +30,148 @@ vi.mock('../../components/ui/Toast', async () => {
   }
 })
 
-vi.mock('../../components/ui/ConfirmDialog', async () => {
-  const actual = await vi.importActual<typeof import('../../components/ui/ConfirmDialog')>('../../components/ui/ConfirmDialog')
-  return {
-    ...actual,
-    useConfirm: () => vi.fn(async () => true),
-  }
-})
+vi.mock('../../components/ui/ConfirmDialog', () => ({
+  useConfirm: () => vi.fn(),
+}))
+
+vi.mock('../../hooks/useBls', () => ({
+  useVoyageOptions: () => ({ data: [] }),
+}))
+
+vi.mock('../../hooks/useBilling', () => ({
+  useBillingCustomers: () => ({ data: [] }),
+  useCancelInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateInvoiceDueDate: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
+  useInvoices: () => ({ data: { rows: [], count: 0 }, isLoading: false, error: null }),
+  useRegisterInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useAddManualInvoiceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteManualInvoiceCharge: () => ({ mutateAsync: vi.fn(), isPending: false, variables: undefined }),
+}))
+
+vi.mock('../../hooks/useBillingLedger', () => ({
+  useConsolidatableReceivables: () => ({ data: [], isLoading: false }),
+  useCreateConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRegisterLedgerInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useInvoiceRefunds: () => ({ data: [] }),
+  useSettleInvoiceRefund: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}))
 
 vi.mock('../../hooks/useLocalCharges', () => ({
+  useBatchCalculateLocalCharges: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useLocalChargeOperations: () => ({
-    data: [
-      {
-        id: 'BL-BB-001',
-        cargo_mode: 'carga_solta',
-        pod: 'BRVIX',
-        charge_status: 'review_required',
-        customer_reconciliation_status: 'matched_document',
-        billing_hold_reason: null,
-        charges_calculated_at: '2026-05-28T10:00:00Z',
-        created_at: '2026-05-28T09:00:00Z',
-        voyage: { id: 1, voyage_number: 'V001', vessel: { name: 'NAVIO TESTE' } },
-        customer: { id: 10, name: 'Cliente Teste', cnpj_cpf: '123' },
-        totals: { total_brl: 0, total_usd: 0, line_count: 1, review_required_count: 1 },
-        trail: {
-          last_event_at: '2026-05-28T10:01:00Z',
-          last_event_by: null,
-          last_event_field: 'charge_status',
-          last_event_message: 'Nao existe tabela ativa para POD/mode na data de referencia',
-        },
-      },
-    ],
+    data: [],
     isLoading: false,
     error: null,
   }),
-  useLocalChargeTables: () => ({ data: [], isLoading: false, error: null }),
-  useCustomerRateOverrides: () => ({ data: [], isLoading: false, error: null }),
-  useOverrideChargeItems: () => ({ data: [] }),
-  useOverrideCustomers: () => ({ data: [] }),
-  useSaveCustomerRateOverride: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeleteCustomerRateOverride: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSaveChargeTable: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSetChargeTableActive: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSaveChargeTableItem: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useDeleteChargeTableItem: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useBatchCalculateLocalCharges: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}))
+
+vi.mock('../../services/alerts', () => ({
+  acknowledgeAlert: vi.fn(),
+  closeAlert: vi.fn(),
+  createAlert: vi.fn(),
+  detectOverdueInvoices: vi.fn(() => Promise.resolve()),
+  listFinancialAlerts: vi.fn(() => Promise.resolve([])),
+}))
+
+vi.mock('../../services/operationalEvents', () => ({
+  logOperationalEvent: vi.fn(),
+}))
+
+vi.mock('../../services/demurrage/demurrageInvoices', () => ({
+  listDemurrageInvoices: vi.fn(() => Promise.resolve([])),
+  getInvoiceDetail: vi.fn(),
+}))
+
+vi.mock('../../components/billing/ValidacaoTab', () => ({
+  ValidacaoTab: () => React.createElement('div', null, 'Validacao mock'),
 }))
 
 describe('TaxasLocais', () => {
-  it('mantem somente cadastro de tabelas e overrides, sem fila operacional de pendencias', () => {
-    authState.profile = { id: 'user-1' }
-    authState.user = { id: 'user-1' }
+  it('usa abas destacadas com apenas Faturas e Validação (etapa 12: Pendências e Demurrage saíram)', () => {
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
-    expect(html).toContain('Tabelas')
-    expect(html).toContain('Overrides')
-    expect(html).not.toContain('Pendencias de calculo')
-    expect(html).not.toContain('Recalcular pendencias')
+    expect(html).toContain('class="app-tab app-tab--active"')
+    expect(html).toContain('Valida')
+    expect(html).toContain('Faturas')
+    expect(html).not.toContain('Pendências')
+    // Demurrage não é mais uma aba, lista, modal, faixa ou impressão duplicada
+    // nesta superfície; sua operação própria continua em /demurrage.
+    expect(html).not.toContain('role="tab" aria-selected="false">Demurrage')
+    expect(html).toContain('Vencidas')
   })
 
-  it('mostra as duas abas mesmo sem nenhuma permissao de escrita (visualizacao e global)', () => {
-    authState.profile = null
-    authState.user = null
-
-    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
-
-    expect(html).toContain('Tabelas')
-    expect(html).toContain('Overrides')
-    expect(html).not.toContain('Nova tabela / Novo item')
-  })
-
-  it('esconde os controles de escrita da aba Tabelas para quem so tem charge_overrides', () => {
-    authState.profile = null
-    authState.user = null
-
-    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
-
-    expect(html).not.toContain('Nova tabela / Novo item')
-  })
-
-  it('abre a aba Overrides com o formulario de escrita quando charge_overrides esta presente', () => {
-    authState.profile = { id: 'user-1' }
-    authState.user = { id: 'user-1' }
-
+  it('redireciona ?tab=demurrage para /demurrage', () => {
     const html = renderToStaticMarkup(
-      React.createElement(MemoryRouter, { initialEntries: ['/taxas-locais?tab=overrides'] }, React.createElement(TaxasLocais)),
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/faturamento?tab=demurrage'] },
+        React.createElement(TaxasLocais),
+      ),
+    )
+    // Navigate não renderiza marcação própria em SSR estático; a ausência das
+    // abas confirma que o componente não montou a página normal.
+    expect(html).not.toContain('billing-page__tabs')
+  })
+
+  it('expoe somente a acao de consolidada no faturamento local', () => {
+    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
+
+    expect(html).toContain('Gerar fatura consolidada')
+    expect(html).not.toContain('Nova Invoice')
+    expect(html).not.toContain('B/L único')
+  })
+
+  it('exibe o cliente informado pelo atalho de Clientes no filtro de faturas', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        MemoryRouter,
+        { initialEntries: ['/taxas-locais?tab=invoices&customer=42&customerName=ACME%20EXPORTS'] },
+        React.createElement(TaxasLocais),
+      ),
     )
 
-    expect(html).toContain('Overrides por cliente')
-    expect(html).toContain('Novo override')
+    expect(html).toContain('value="ACME EXPORTS"')
   })
 
-  it('mostra a aba Overrides sem formulario de escrita para quem so tem charge_tables', () => {
-    authState.profile = null
-    authState.user = null
-    authState.user = null
-
+  it('reduz os status documentais a 3 estados operacionais e oculta os estados internos', () => {
     const html = renderToStaticMarkup(
-      React.createElement(MemoryRouter, { initialEntries: ['/taxas-locais?tab=overrides'] }, React.createElement(TaxasLocais)),
+      React.createElement(MemoryRouter, { initialEntries: ['/?tab=invoices'] }, React.createElement(TaxasLocais)),
     )
 
-    expect(html).toContain('Overrides por cliente')
-    expect(html).not.toContain('Novo override')
+    // O filtro de status nao expoe mais os estados internos do ledger.
+    expect(html).not.toContain('Coberta')
+    expect(html).not.toContain('Obsoleta')
+    // covered/obsolete sao absorvidos por Paga/Cancelada; issued vira Emitida.
+    expect(invoiceStatusLabel('issued')).toBe('Emitida')
+    expect(invoiceStatusLabel('partially_paid')).toBe('Emitida')
+    expect(invoiceStatusLabel('overdue')).toBe('Emitida')
+    expect(invoiceStatusLabel('covered')).toBe('Paga')
+    expect(invoiceStatusLabel('paid')).toBe('Paga')
+    expect(invoiceStatusLabel('obsolete')).toBe('Cancelada')
+    expect(invoiceStatusLabel('cancelled')).toBe('Cancelada')
+  })
+
+  it('mantem invoices locais parcialmente pagas no fluxo de baixa por ledger', () => {
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'individual',
+      status: 'partially_paid',
+      balance_brl: 25,
+    })).toBe(true)
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'consolidated',
+      status: 'overdue',
+      balance_brl: 100,
+    })).toBe(true)
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'individual',
+      status: 'covered',
+      balance_brl: 100,
+    })).toBe(false)
+    expect(isLedgerInvoicePayable({
+      invoice_type: 'granite',
+      status: 'issued',
+      balance_brl: 100,
+    })).toBe(false)
   })
 })
