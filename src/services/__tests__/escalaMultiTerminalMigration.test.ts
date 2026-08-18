@@ -46,7 +46,11 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     )
     expect(sql).toContain('Frente atribuida exige terminal no estado da escala.')
     expect(sql).toMatch(/agency_departure_report_signoffs[\s\S]+agency_departure_report_department_signoffs[\s\S]+agency_departure_report_occurrences/i)
+    expect(sql).toContain('FROM public.alerts AS a')
+    expect(sql).toContain("a.entity_type = 'agency_departure_report'")
+    expect(sql).toContain("a.entity_id LIKE v_entity_id || '::%'")
     expect(sql).toContain('adr_preserved')
+    expect(sql).toContain('Qualquer alerta do ADR')
     expect(sql).toMatch(/DELETE FROM public\.agency_departure_reports[\s\S]+status = 'open'/i)
   })
 
@@ -72,6 +76,9 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
 
   it('retorna bloqueio estável sem escrever e trava ADR antes da remoção', () => {
     expect(sql).toMatch(
+      /jsonb_agg\(\s*blocker[\s\S]+ORDER BY blocker->>'terminal_code', blocker->>'reason', blocker->>'report_id'[\s\S]+FROM jsonb_array_elements\(v_closed_blockers\) AS blockers\(blocker\)/i,
+    )
+    expect(sql).toMatch(
       /IF jsonb_array_length\(v_closed_blockers\) > 0 THEN[\s\S]+RETURN jsonb_build_object\([\s\S]+'revision', v_current_revision[\s\S]+'fronts'[\s\S]+'terminals'[\s\S]+'closed_blockers', v_closed_blockers[\s\S]+'blocked', TRUE[\s\S]+END IF;[\s\S]+INSERT INTO public\.voyage_escala_revision_state/i,
     )
     expect(sql).not.toContain("RAISE EXCEPTION 'ADR fechado; reabra antes de alterar a escala.")
@@ -81,6 +88,17 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     const normalReturnStart = sql.lastIndexOf('RETURN jsonb_build_object(')
     expect(sql.slice(normalReturnStart)).toContain("'closed_blockers', '[]'::JSONB")
     expect(sql.slice(normalReturnStart)).toContain("'blocked', FALSE")
+  })
+
+  it('expõe preflight read-only do mapeamento de terminais legados', () => {
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.preflight_depots_terminal_port_mapping\(\)[\s\S]+RETURNS JSONB[\s\S]+STABLE[\s\S]+SECURITY DEFINER[\s\S]+SET search_path = public, pg_temp[\s\S]+pending_count[\s\S]+codes/i,
+    )
+    expect(sql).toContain('Task 8 deve resolver ou marcar')
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.preflight_depots_terminal_port_mapping\(\)[\s\S]+GRANT EXECUTE ON FUNCTION public\.preflight_depots_terminal_port_mapping\(\) TO authenticated/i,
+    )
+    expect(sql).toContain('janela controlada')
   })
 
   it('adiciona terminalização de ADRs sem apagar o legado nem os filhos por report_id', () => {

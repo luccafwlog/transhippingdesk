@@ -9,11 +9,46 @@
 -- Rollback: em ambiente descartável, remover a RPC, os índices/policies e as
 -- tabelas novas; para reversão operacional, não remover terminais ou ADRs e
 -- reverter a aplicação para leitura das chaves legadas.
+-- Operacao: os UPDATE/ALTER e a criacao de indices desta migration exigem
+-- janela controlada, com acompanhamento de locks e impacto operacional.
 
 -- O código é normalizado no banco para que escrita direta do Cadastro não
 -- reintroduza diferenças de caixa ou espaços.
 ALTER TABLE public.depots
   ADD COLUMN IF NOT EXISTS port_id BIGINT REFERENCES public.ports(id) ON DELETE RESTRICT;
+
+-- Preflight somente leitura: informa o legado que ainda precisa de mapeamento.
+-- Nao faz backfill automatico. A Task 8 deve resolver ou marcar esses
+-- terminais antes de validar plenamente a constraint NOT VALID.
+CREATE OR REPLACE FUNCTION public.preflight_depots_terminal_port_mapping()
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN
+    RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'pending_count', (
+      SELECT count(*)
+      FROM public.depots AS d
+      WHERE d.tipo = 'terminal_portuario' AND d.port_id IS NULL
+    ),
+    'codes', COALESCE((
+      SELECT jsonb_agg(d.code ORDER BY d.code)
+      FROM public.depots AS d
+      WHERE d.tipo = 'terminal_portuario' AND d.port_id IS NULL
+    ), '[]'::JSONB)
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.preflight_depots_terminal_port_mapping() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.preflight_depots_terminal_port_mapping() TO authenticated;
 
 ALTER TABLE public.depots
   DROP CONSTRAINT IF EXISTS depots_code_key;
@@ -859,6 +894,16 @@ BEGIN
     END LOOP;
   END IF;
 
+  SELECT COALESCE(
+    jsonb_agg(
+      blocker
+      ORDER BY blocker->>'terminal_code', blocker->>'reason', blocker->>'report_id'
+    ),
+    '[]'::JSONB
+  )
+  INTO v_closed_blockers
+  FROM jsonb_array_elements(v_closed_blockers) AS blockers(blocker);
+
   IF jsonb_array_length(v_closed_blockers) > 0 THEN
     -- A tentativa bloqueada não escreve nada: a UI recebe o contrato estável
     -- e pode traduzir terminal_code/report_id sem parsear DETAIL.
@@ -1127,9 +1172,9 @@ BEGIN
     FOR UPDATE OF r
   LOOP
     IF v_report.status = 'open' THEN
-      -- Um ADR aberto só pode ser removido quando não há filhos nem histórico
-      -- associado. A guarda evita que o ON DELETE CASCADE apague sign-offs,
-      -- ocorrências ou evidência auditável da operação.
+      -- Um ADR aberto só pode ser removido quando não há filhos, histórico ou
+      -- alertas associados. Qualquer alerta do ADR, em qualquer status, preserva
+      -- o registro para não perder o histórico operacional.
       IF NOT EXISTS (
         SELECT 1
         FROM public.agency_departure_report_signoffs
@@ -1151,6 +1196,12 @@ BEGIN
         WHERE al.entity_id = v_report.id::TEXT
            OR al.old_value ILIKE '%' || v_report.id::TEXT || '%'
            OR al.new_value ILIKE '%' || v_report.id::TEXT || '%'
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.alerts AS a
+        WHERE a.entity_type = 'agency_departure_report'
+          AND a.entity_id LIKE v_entity_id || '::%'
       ) THEN
         INSERT INTO public.audit_logs (
           entity_type, entity_id, field_name, old_value, new_value,
