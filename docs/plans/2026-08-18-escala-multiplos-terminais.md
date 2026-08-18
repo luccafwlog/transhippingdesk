@@ -8,6 +8,10 @@
 
 **Stack:** React 19, TypeScript, TanStack Query, Supabase/Postgres/RLS/RPCs, Vitest, React Testing Library e as rotas atuais de Viagens, ADR, Line-Up, Painel e Line-Up TV.
 
+## Status da execução em 2026-08-18
+
+As Tasks 1–8 foram implementadas e verificadas no branch da PR #550. O relatório está em `docs/archive/reports/2026-08-18-escala-multiplos-terminais-verification.md`. Os gates locais estão verdes; a matriz descartável de Postgres/Supabase e a validação pós-deploy continuam pendentes porque o runtime Docker/Postgres não está disponível neste ambiente. Por isso este plano permanece vivo até a comprovação remota.
+
 ---
 
 ## Decisões e limites do plano
@@ -71,7 +75,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 
 ---
 
-### Task 1: Corrigir a spec viva e fixar o contrato de implementação
+### Task 1: Corrigir a spec viva e fixar o contrato de implementação — concluída
 
 **Arquivos:**
 - Modificar: `docs/spec/2026-08-18-escala-multiplos-terminais-design.md`
@@ -89,7 +93,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - [ ] Rodar `npm run docs:check` e confirmar que a spec aparece no índice correto.
 - [ ] Commitar somente a documentação desta tarefa com `docs: define multi-terminal scale contract`.
 
-### Task 2: Criar o modelo compatível de terminais, frentes e ADRs
+### Task 2: Criar o modelo compatível de terminais, frentes e ADRs — concluída
 
 **Arquivos:**
 - Criar: `supabase/migrations/306_escala_multiplos_terminais.sql`
@@ -112,7 +116,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - [ ] Testar por leitura textual da migration: FK de porto, filtro de terminal, unicidade terminalizada, preservação da unicidade legada, guard de ADR fechado, controle de revisão, auditoria e grants/revokes.
 - [ ] Commitar migration e testes com `feat: persist multi-terminal scale allocations`.
 
-### Task 3: Alinhar a declaração explícita de exportação
+### Task 3: Alinhar a declaração explícita de exportação — concluída
 
 **Arquivos:**
 - Modificar: migration criada na Task 2
@@ -130,7 +134,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - [ ] Cobrir os casos: somente granito, somente vazios, ambos, declaração sem operação, retirada com ADR aberto e retirada bloqueada por ADR fechado.
 - [ ] Commitar o contrato de exportação com `feat: model explicit granite and empty export fronts`.
 
-### Task 4: Implementar leitura e mutação no domínio de escala
+### Task 4: Implementar leitura e mutação no domínio de escala — concluída
 
 **Arquivos:**
 - Criar: `src/services/escalaTerminalAllocation.ts`
@@ -150,7 +154,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - [ ] Testar agrupamento de quatro frentes em dois ADRs, `TBC`, ausência de frente, dados de exportação sem operação, separação de seções por terminal e bloqueio por ADR fechado.
 - [ ] Commitar o domínio com `feat: expose terminalized escala and ADR services`.
 
-### Task 5: Colocar a atribuição e datas no modal da escala
+### Task 5: Colocar a atribuição e datas no modal da escala — concluída
 
 **Arquivos:**
 - Modificar: `src/components/shared/VoyageScheduleModals.tsx`
@@ -171,7 +175,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - [ ] Testar interação completa no modal: quatro frentes em dois terminais, `TBC`, terminal filtrado por porto, terminal inativo, datas inválidas, conflito de revisão e bloqueio por ADR fechado.
 - [ ] Commitar a superfície de operação com `feat: edit terminal fronts in escala modal`.
 
-### Task 6: Adaptar ADR, impressão e linha do tempo
+### Task 6: Adaptar ADR, impressão e linha do tempo — concluída
 
 **Arquivos:**
 - Modificar: `src/components/voyages/VoyageAgencyReportTab.tsx`
@@ -194,7 +198,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - [ ] Testar timeline com alteração manual e automática, operador/departamento, justificativa presente/ausente, reabertura, bloqueio e múltiplos terminais.
 - [ ] Commitar ADR, impressão e auditoria com `feat: render terminalized ADR history`.
 
-### Task 7: Adaptar Line-Up, Painel e TV
+### Task 7: Adaptar Line-Up, Painel e TV — concluída
 
 **Arquivos:**
 - Modificar: `src/services/lineup.ts`
@@ -213,7 +217,7 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - [ ] Cobrir escala somente importação, somente exportação, ambos, declaração sem operação, múltiplos terminais e terminal histórico inativo.
 - [ ] Commitar as superfícies de acompanhamento com `feat: show scale terminals in lineup surfaces`.
 
-### Task 8: Atualizar cadastro de terminal e documentação de domínio
+### Task 8: Atualizar cadastro de terminal e documentação de domínio — concluída
 
 **Arquivos:**
 - Modificar: `src/pages/DepotCadastro.tsx`
@@ -242,11 +246,11 @@ Os arquivos de teste que já existirem devem ser estendidos; não criar duplicat
 - Criar: `docs/archive/reports/2026-08-18-escala-multiplos-terminais-verification.md`
 - Revisar depois, fora deste plano: issue #519 e issue #524
 
-- [ ] Executar testes focados de migration, serviços, modal, ADR, timeline, Line-Up, Painel, TV e cadastro.
-- [ ] Executar `npm run docs:check`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` e `git diff --check`.
+- [x] Executar testes focados de migration, serviços, modal, ADR, timeline, Line-Up, Painel, TV e cadastro.
+- [x] Executar `npm run docs:check`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` e `git diff --check`.
 - [ ] Exercitar em banco descartável a matriz mínima: escala sem terminal; importação TVV; exportação PORTMAC sem operação; quatro frentes em dois ADRs; remoção de expectativa; troca bloqueada por ADR fechado; reabertura explícita; dois usuários com revisão obsoleta; terminal inativo histórico.
-- [ ] Confirmar que não houve execução de `supabase/scripts/reset_operational_data.sql`, reset amplo ou perda de registros legados.
-- [ ] Registrar no relatório de verificação o commit, migrations aplicadas, resultado de cada gate, cenários exercitados e limitações de validação remota.
+- [x] Confirmar que não houve execução de `supabase/scripts/reset_operational_data.sql`, reset amplo ou perda de registros legados.
+- [x] Registrar no relatório de verificação o commit, migrations aplicadas, resultado de cada gate, cenários exercitados e limitações de validação remota.
 - [ ] Depois de o núcleo estar comprovado, revisar #519/#524 contra as chaves reais e decidir separadamente o contrato de alertas por terminal, sem misturar essa mudança no commit do núcleo.
 - [ ] Atualizar o plano com os resultados e só então movê-lo para `docs/archive/plans/`; retirar sua linha de `docs/plans/README.md` e arquivar a spec quando a execução estiver comprovada.
 
