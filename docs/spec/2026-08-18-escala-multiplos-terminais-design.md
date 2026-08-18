@@ -150,6 +150,30 @@ nomeando a limitação (modalidade partida entre terminais) e o caminho de
 upgrade (descer o grão para o documento). O grão só desce, nunca precisa subir:
 a decisão não fecha essa porta.
 
+## Decisão 8 — a atribuição é impeditiva no fechamento, e olha a escala inteira
+
+A Frente de Operação **só existe quando tem dado**: escala sem veículo nenhum
+não tem frente de veículos e não tem o que atribuir. Sem essa premissa, toda
+escala nasceria com seis atribuições obrigatórias, cinco delas sobre nada — o
+ADR vazio que a Decisão 4 eliminou, de volta em outra forma.
+
+O bloqueio não pode morar na criação do ADR: como o ADR nasce da atribuição, a
+frente não atribuída simplesmente não produz ADR nenhum e nada acusa. Também
+não fica na entrada do dado — na importação documental o navio muitas vezes nem
+chegou, e travar ali pararia o pipeline, que corre independente da operação
+física.
+
+**Nenhum ADR da escala fecha enquanto houver frente com dado e sem terminal.**
+O bloqueio é da escala inteira, não do ADR isolado: fechar o ADR do TVV exige
+que todas as frentes da escala estejam atribuídas, inclusive as que foram para
+a PORTMAC. Enquanto a carga solta estiver sem terminal, ela ainda pode ser do
+TVV — fechar o TVV nesse estado é assinar "completo" sobre escala com carga sem
+dono. Mesma lógica que o `CONTEXT.md` já aplica às seções: "Ausência de dado não
+é conclusão".
+
+Recusado o bloqueio no sign-off da seção: não cobre a frente órfã, que não está
+em seção de ADR nenhum e portanto não tem sign-off para bloquear.
+
 ## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
 
 Chegadas e Saídas não é afetado.
