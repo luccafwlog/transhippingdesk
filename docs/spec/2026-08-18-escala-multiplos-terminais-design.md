@@ -174,6 +174,35 @@ dono. Mesma lógica que o `CONTEXT.md` já aplica às seções: "Ausência de da
 Recusado o bloqueio no sign-off da seção: não cobre a frente órfã, que não está
 em seção de ADR nenhum e portanto não tem sign-off para bloquear.
 
+## Decisão 9 — chegada e partida são da escala; atracação, desatracação e restow são do terminal
+
+A seção Escala do ADR impresso mostra hoje ATA, ATB, ATD e Restow
+(`AgencyReportDocument.tsx:558-562`). ETA/ETB/ETD são planejamento e vivem na
+Visão geral e no Line-Up.
+
+Com dois ADRs lendo as datas da escala, o ADR do TVV imprimiria o ATB da PORTMAC
+e, como ATD, o momento em que o navio zarpou **da PORTMAC** — um documento
+assinado pelos três departamentos afirmando que o navio saiu do TVV numa hora em
+que estava atracado em outro terminal. O Financeiro usa esse relatório para
+aprovar pagamento.
+
+Cada data passa a morar no nível em que o fato acontece:
+
+| Dado | Nível | Razão |
+|---|---|---|
+| ATA | Escala | o navio chega ao porto uma vez |
+| Atracação (ATB) | Terminal | o shifting cria uma segunda |
+| Desatracação | Terminal | **campo novo**; não existe hoje |
+| ATD | Escala | o navio deixa o porto uma vez |
+| Restow (`rtw`) | Terminal | é operação de berço; na escala, os dois ADRs imprimiriam o mesmo número e a soma dobraria |
+
+Nada que hoje lê `escala.atd` quebra. O Line-Up continua exibindo um ATB da
+escala: o do primeiro terminal na ordem de atracação.
+
+Recusada a inversão completa (todas as datas no terminal, escala derivando):
+a escala existe antes de qualquer terminal, porque a atribuição vem depois, e
+escala sem terminal ficaria sem data nenhuma.
+
 ## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
 
 Chegadas e Saídas não é afetado.
