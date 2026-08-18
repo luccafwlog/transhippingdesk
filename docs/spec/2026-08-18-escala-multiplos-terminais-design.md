@@ -93,6 +93,27 @@ fora da lista — sem precisar de regra de validação para nenhum dos dois.
 O custo aceito: não há como registrar um terminal *previsto* antes de existir
 carga atribuível a ele.
 
+## Decisão 6 — o terminal da escala sai do Cadastro de Terminais, com porto obrigatório
+
+O conceito já existe e já tem nome: o `tipo = 'terminal_portuario'` do Cadastro
+de Terminais é definido no `CONTEXT.md` como "o próprio terminal da escala
+(ex.: TVV)". Não se cria entidade nova.
+
+Duas mudanças no cadastro:
+
+- **Porto obrigatório** para `terminal_portuario`; ausente para `depot`, que é
+  pátio de vazio, atende região e não fica dentro de um porto. O seletor da
+  escala passa a oferecer só os terminais do porto daquela escala. Sem isso, um
+  erro de seleção não é cosmético: cria um ADR inteiro pendurado no porto
+  errado.
+- **Só `terminal_portuario` é selecionável** como terminal da escala. Depot
+  nunca — é onde o vazio dorme, não onde o navio atraca.
+
+Consequência aceita: o cadastro deixa de ser acessório do módulo de Vazios.
+Hoje um `terminal_portuario` só está lá se algum vazio veio dele (Embarque
+Direto); passa a precisar conter **todo terminal onde qualquer navio atraca**. É
+o que justifica tirá-lo de `/embarquevazios/depots` — ver E2.
+
 ## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
 
 Chegadas e Saídas não é afetado.
@@ -118,7 +139,13 @@ trabalho paralelo.
 
 ### Colisão de terminologia a resolver em B1
 
-"Natureza da carga" não serve como nome: **natureza** já é três coisas neste
-domínio — Natureza do Serviço (armazenagem/transporte/geral), a natureza da
-matriz de descarga (tipo × natureza) e a `natureza` do vazio de importação
-(cama/cover plate).
+O vocabulário livre é escasso. Já estão tomados:
+
+- **Natureza** — três conceitos: Natureza do Serviço (armazenagem/transporte/
+  geral), a natureza da matriz de descarga (tipo × natureza) e a `natureza` do
+  vazio de importação (cama/cover plate).
+- **Movimento** — FCL/LCL (`CONTEXT.md:784`).
+
+Livre e já usado no sentido certo: **modalidade**, na nota editorial da ADR 0035
+("Granito é modalidade de carga da exportação... A coluna 'Opera' diz sentido,
+não modalidade").
