@@ -1,8 +1,8 @@
 # Bloco 4 — Operação e Viagem: contrato de alertas e notificações
 
-**Status:** decisões funcionais fechadas; implementação pendente e bloqueada por dependências transversais  
-**Issue:** [#523](https://github.com/luccafwlog/transhippingdesk/issues/523)  
-**Épico:** [#519](https://github.com/luccafwlog/transhippingdesk/issues/519)  
+**Status:** decisões funcionais fechadas; implementação pendente e bloqueada por dependências transversais
+**Issue:** [#523](https://github.com/luccafwlog/transhippingdesk/issues/523)
+**Épico:** [#519](https://github.com/luccafwlog/transhippingdesk/issues/519)
 **PR desta etapa:** documentação; não encerra a issue #523
 
 ## Objetivo e limites
