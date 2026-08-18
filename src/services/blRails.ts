@@ -79,11 +79,11 @@ export function buildFinancialRail(input: { bl: RailBl; latestInvoice: RailInvoi
     ? { key: 'charges', label: 'Taxas Locais', detail: bl.charge_status === 'exempt' ? 'Isento' : 'Pronto p/ faturar', state: 'done' }
     : { key: 'charges', label: 'Taxas Locais', detail: bl.charge_status === 'not_calculated' || !bl.charge_status ? 'Calcular taxas' : 'Revisar taxas', state: 'pending', href: fichaFat }
   const invoice: RailStage = latestInvoice
-    ? { key: 'invoice', label: 'Fatura', detail: `#${latestInvoice.id} ${statusLabel(INVOICE_STATUS_LABELS, latestInvoice.status, '')}`.trim(), state: latestInvoice.status === 'cancelled' ? 'blocked' : 'done', href: `/faturamento?invoice=${latestInvoice.id}` }
+    ? { key: 'invoice', label: 'Fatura', detail: `#${latestInvoice.id} ${statusLabel(INVOICE_STATUS_LABELS, latestInvoice.status, '')}`.trim(), state: latestInvoice.status === 'cancelled' ? 'blocked' : 'done', href: `/taxas-locais?invoice=${latestInvoice.id}` }
     : { key: 'invoice', label: 'Fatura', detail: 'Não emitida', state: 'pending', href: fichaFat }
   const payment: RailStage = bl.financial_status === 'paid'
     ? { key: 'payment', label: 'Pagamento', detail: 'Pago', state: 'done' }
-    : { key: 'payment', label: 'Pagamento', detail: 'Pendente', state: 'pending', href: '/faturamento' }
+    : { key: 'payment', label: 'Pagamento', detail: 'Pendente', state: 'pending', href: '/taxas-locais' }
   const rail = [ce, review, charges, invoice, payment]
   if (demurrageInvoices.length > 0) {
     const allPaid = demurrageInvoices.every((d) => d.status === 'paid')

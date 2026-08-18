@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -33,12 +33,16 @@ vi.mock('../../components/billing/InvoiceDetailModal', () => ({
 }))
 vi.mock('../../components/billing/ValidacaoTab', () => ({ ValidacaoTab: () => null }))
 vi.mock('../../components/billing/FinancialAlertsPanel', () => ({ FinancialAlertsPanel: () => null }))
-vi.mock('../../components/billing/DemurrageMetricsStrip', () => ({ DemurrageMetricsStrip: () => null }))
 vi.mock('../../components/billing/InvoiceFiltersBar', () => ({ InvoiceFiltersBar: () => null }))
 vi.mock('../../components/billing/InvoicesTable', () => ({ InvoicesTable: () => null }))
 vi.mock('../../components/billing/ConsolidatedInvoiceModal', () => ({ ConsolidatedInvoiceModal: () => null }))
 
-import { Faturamento } from '../Faturamento'
+import { TaxasLocais } from '../TaxasLocais'
+
+function LocationProbe() {
+  const location = useLocation()
+  return <output data-testid="location">{location.pathname}{location.search}</output>
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -46,16 +50,27 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-it('opens the invoice supplied by the URL query string', () => {
-  render(<MemoryRouter initialEntries={['/faturamento?invoice=73']}><Faturamento /></MemoryRouter>)
+it('opens the invoice supplied by the canonical URL query string', () => {
+  render(<MemoryRouter initialEntries={['/taxas-locais?invoice=73']}><TaxasLocais /></MemoryRouter>)
   expect(screen.getByTestId('invoice-id').textContent).toBe('73')
+})
+
+it('preserves non-tab query parameters when redirecting demurrage', async () => {
+  render(
+    <MemoryRouter initialEntries={['/taxas-locais?tab=demurrage&busca=X']}>
+      <TaxasLocais />
+      <LocationProbe />
+    </MemoryRouter>,
+  )
+
+  await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/demurrage?busca=X'))
 })
 
 it('records overdue detection failure without producing an unhandled rejection', async () => {
   const failure = new Error('overdue unavailable')
   mocks.detectOverdue.mockRejectedValue(failure)
 
-  render(<MemoryRouter><Faturamento /></MemoryRouter>)
+  render(<MemoryRouter><TaxasLocais /></MemoryRouter>)
 
   await waitFor(() => expect(mocks.reportFailure).toHaveBeenCalledWith(
     'detectOverdueInvoices ao abrir Faturamento',

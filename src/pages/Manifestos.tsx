@@ -514,7 +514,7 @@ function InvoiceLink({
   const latest = links[0]
   const label = latest.invoice_number ?? `INV-${latest.id}`
   return (
-    <Link className="text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latest.id}`}>
+    <Link className="text-[#58a6ff] hover:underline" to={`/taxas-locais?invoice=${latest.id}`}>
       {label}
     </Link>
   )
