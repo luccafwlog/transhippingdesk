@@ -12,9 +12,10 @@ import { formatBRL } from '../../../lib/utils'
 // inalteradas em vez de repetir o provider em cada uma delas.
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: ToastProvider })
 
-const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
+const { useAgencyReportDerivedMock, useAgencyReportOwnMock, useAgencyReportTerminalStateMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
   useAgencyReportOwnMock: vi.fn(),
+  useAgencyReportTerminalStateMock: vi.fn(),
   closeMutateMock: vi.fn(),
   reopenMutateMock: vi.fn(),
   useAuthMock: vi.fn(),
@@ -31,6 +32,7 @@ const { signoffMutateMock, departmentSignoffMutateMock, observationMutateMock, u
 vi.mock('../../../hooks/useAgencyReport', () => ({
   useAgencyReportDerived: useAgencyReportDerivedMock,
   useAgencyReportOwn: useAgencyReportOwnMock,
+  useAgencyReportTerminalState: useAgencyReportTerminalStateMock,
   useAgencyReportSignoffEvents: useAgencyReportSignoffEventsMock,
   useAgencyReportDepartmentSignoffEvents: useAgencyReportDepartmentSignoffEventsMock,
   useSetAgencyReportSignoff: () => ({ mutate: signoffMutateMock, isPending: false }),
@@ -63,6 +65,7 @@ afterEach(cleanup)
 
 useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
 useAgencyReportOwnMock.mockReturnValue({ data: undefined })
+useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined })
 useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
 useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
 useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })

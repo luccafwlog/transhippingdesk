@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
-import { AgencyReportDocument } from './AgencyReportDocument'
+import { AgencyReportDocument, buildAgencyReportPrintFilename } from './AgencyReportDocument'
 import { Info, MetricPanel } from '../shared/VoyageSectionCards'
 import { SignoffControl } from './SignoffControl'
 import { DepartmentSignoffControl } from './DepartmentSignoffControl'
@@ -10,13 +10,13 @@ import {
   useAgencyReportDepartmentSignoffEvents,
   useAgencyReportDerived,
   useAgencyReportOwn,
+  useAgencyReportTerminalState,
   useAgencyReportSignoffEvents,
   useCloseAgencyReport,
   useReopenAgencyReport,
   useSetAgencyReportDepartmentSignoff,
   useSetAgencyReportSectionObservation,
   useSetAgencyReportSignoff,
-  useSetAgencyReportTerminal,
 } from '../../hooks/useAgencyReport'
 import {
   AGENCY_REPORT_SECTIONS,
@@ -49,6 +49,8 @@ type Props = {
   carrierName: string
   pods: AdrEscalaPod[]
   initialEscala?: string
+  reportId?: string | null
+  terminalCode?: string | null
 }
 
 function ReportSection({
@@ -63,6 +65,7 @@ function ReportSection({
   onSignoff,
   observation,
   onObservationChange,
+  terminalView,
   children,
 }: {
   title: string
@@ -76,8 +79,10 @@ function ReportSection({
   onSignoff?: (section: AgencyReportSection, state: SignoffState, justification?: string) => void
   observation?: string | null
   onObservationChange?: (section: AgencyReportSection, observation: string) => void
+  terminalView?: { assigned: boolean; state: 'operated' | 'nothing_operated' }
   children: ReactNode
 }) {
+  const showTerminalContent = !terminalView || (terminalView.assigned && terminalView.state === 'operated')
   return (
     <section className="app-panel app-panel--padded grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -105,7 +110,7 @@ function ReportSection({
           </div>
         ) : null}
       </div>
-      {children}
+      {showTerminalContent ? children : <NadaOperado>{terminalView?.assigned ? 'Nada operado nesta frente.' : 'Não há frente atribuída a este terminal.'}</NadaOperado>}
       {section ? (
         <SectionObservation
           observation={observation}
@@ -257,22 +262,46 @@ function OrphanDataWarning({ entries, label }: { entries: Array<{ port: string; 
   return <DivergenceWarning>{text}</DivergenceWarning>
 }
 
-export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala }: Props) {
+export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods, initialEscala, reportId: initialReportId, terminalCode: initialTerminalCode }: Props) {
   const { showToast } = useToast()
   const initialPortCode = normalizePortCode(initialEscala)
   const initialPort = initialPortCode && pods.some((entry) => normalizePortCode(entry.pod) === initialPortCode) ? initialPortCode : (normalizePortCode(pods[0]?.pod) ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(initialReportId ?? null)
+  const { data: terminalState } = useAgencyReportTerminalState(voyageId, port)
+  const terminalReports = terminalState?.agencyReports ?? []
+  const selectedTerminalReport = terminalReports.find((report) => report.reportId === selectedReportId)
+  const terminalizedReports = terminalReports.filter((report) => report.terminalId || report.reportId === initialReportId)
+  const resolvedReportId = selectedTerminalReport?.reportId ?? (terminalizedReports.length ? selectedReportId : null)
+  const resolvedTerminalCode = selectedTerminalReport?.terminalCode ?? initialTerminalCode ?? null
+  const resolvedTerminalName = selectedTerminalReport?.terminal ?? null
+  const terminalViewFor = (section: AgencyReportSection) => {
+    if (!resolvedReportId) return undefined
+    const selected = selectedTerminalReport?.sections.find((item) => item.section === section)
+    return {
+      assigned: Boolean(selected?.fronts.length),
+      state: selected?.state ?? 'nothing_operated' as const,
+    }
+  }
+  useEffect(() => {
+    if (!terminalReports.length) return
+    const preferred = initialReportId && terminalReports.some((report) => report.reportId === initialReportId)
+      ? initialReportId
+      : initialTerminalCode
+        ? terminalReports.find((report) => report.terminalCode === initialTerminalCode)?.reportId
+        : undefined
+    setSelectedReportId((current) => preferred ?? (current && terminalReports.some((report) => report.reportId === current) ? current : terminalReports[0].reportId))
+  }, [initialReportId, initialTerminalCode, terminalReports])
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
-  const { data: ownData } = useAgencyReportOwn(voyageId, port)
-  const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port)
-  const { data: departmentSignoffEvents } = useAgencyReportDepartmentSignoffEvents(voyageId, port)
+  const { data: ownData } = useAgencyReportOwn(voyageId, port, resolvedReportId)
+  const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port, resolvedReportId)
+  const { data: departmentSignoffEvents } = useAgencyReportDepartmentSignoffEvents(voyageId, port, resolvedReportId)
   const { effectiveRole, isAdmin } = useAuth()
-  const signoffMutation = useSetAgencyReportSignoff()
-  const departmentSignoffMutation = useSetAgencyReportDepartmentSignoff()
-  const observationMutation = useSetAgencyReportSectionObservation()
-  const terminalMutation = useSetAgencyReportTerminal()
-  const closeMutation = useCloseAgencyReport()
-  const reopenMutation = useReopenAgencyReport()
+  const signoffMutation = useSetAgencyReportSignoff(resolvedReportId)
+  const departmentSignoffMutation = useSetAgencyReportDepartmentSignoff(resolvedReportId)
+  const observationMutation = useSetAgencyReportSectionObservation(resolvedReportId)
+  const closeMutation = useCloseAgencyReport(resolvedReportId)
+  const reopenMutation = useReopenAgencyReport(resolvedReportId)
   const [printOpen, setPrintOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [reopenJustification, setReopenJustification] = useState('')
@@ -357,7 +386,6 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     const name = (signoff.signed_by && actorNames[signoff.signed_by]) || null
     return `${signoffLabels[signoff.state]} por ${name ?? '—'} em ${formatDate(signoff.signed_at)}`
   }
-  const canEditOperations = isAdmin || effectiveRole === 'operacoes'
   const canSignoff = (section: AgencyReportSection) => isAdmin || effectiveRole === AGENCY_REPORT_SECTIONS[section]
   const updateSignoff = (section: AgencyReportSection, state: SignoffState, justification?: string) => {
     if (port) signoffMutation.mutate({ voyageId, port, section, state, justification })
@@ -413,7 +441,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       carrierName,
       voyageLabel,
       port,
-      terminal: ownData?.terminal ?? null,
+      terminal: resolvedTerminalName ?? ownData?.terminal ?? null,
+      terminalCode: resolvedTerminalCode,
+      reportId: resolvedReportId,
       schedule: data?.schedule ?? null,
       // ADR 0039: marcos do Prazo de Conclusão congelados no fechamento —
       // usados por Task 5 (relatório agregado de SLA) para recalcular
@@ -460,6 +490,14 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const closedSnapshot = ownData?.closed_snapshot as typeof snapshot | null
   const isClosed = ownData?.status === 'closed' && closedSnapshot
 
+  const printClosedReport = () => {
+    if (!closedSnapshot) return
+    const previousTitle = document.title
+    document.title = buildAgencyReportPrintFilename(closedSnapshot)
+    window.print()
+    window.setTimeout(() => { document.title = previousTitle }, 0)
+  }
+
   const isOmittedEscala = pods.find((entry) => entry.pod === port)?.omitted ?? false
 
   return (
@@ -480,6 +518,29 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         ))}
       </div>
 
+      {terminalizedReports.length ? (
+        <div className="app-panel app-panel--padded grid gap-2" aria-label="Selecionar ADR por terminal">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">ADR por terminal</span>
+          <div className="flex flex-wrap gap-2">
+            {terminalizedReports.map((report) => {
+              const label = report.terminalCode ?? report.terminal ?? 'Terminal sem código'
+              const name = report.terminalCode && report.terminal && report.terminal !== report.terminalCode ? ` — ${report.terminal}` : ''
+              return (
+                <Button
+                  key={report.reportId}
+                  variant={resolvedReportId === report.reportId ? 'primary' : 'secondary'}
+                  aria-pressed={resolvedReportId === report.reportId}
+                  onClick={() => setSelectedReportId(report.reportId)}
+                  className="rounded-full"
+                >
+                  {label}{name}
+                </Button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {isLoading ? <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Carregando dados do ADR…</div> : null}
       {error ? <div className="app-panel app-panel--padded text-sm text-[var(--app-red)]">Não foi possível carregar os dados do ADR.</div> : null}
       {!isLoading && !error ? <>
@@ -498,7 +559,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             closedAt={ownData?.closed_at ?? null}
             closedByName={ownData?.closed_by_name ?? ownData?.closed_by ?? null}
           />
-          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={() => window.print()}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} /></Modal>
+          <Modal open={printOpen} title="Agency Departure Report" onClose={() => setPrintOpen(false)}><div className="flex justify-end pb-3"><Button variant="secondary" onClick={printClosedReport}>Imprimir</Button></div><AgencyReportDocument snapshot={closedSnapshot} actorNames={actorNames} /></Modal>
           <Modal open={reopenOpen} title="Reabrir ADR" onClose={() => setReopenOpen(false)}><label className="grid gap-2">Justificativa<textarea value={reopenJustification} onChange={(event) => setReopenJustification(event.target.value)} className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2" /></label><Button variant="primary" className="mt-3" disabled={!reopenJustification.trim() || reopenMutation.isPending} onClick={() => { if (port) reopenMutation.mutate({ voyageId, port, justification: reopenJustification.trim() }, { onSuccess: () => { setReopenOpen(false); setReopenJustification('') } }) }}>Confirmar reabertura</Button></Modal>
         </> : <>
         <div className="app-panel app-panel--padded grid gap-3">
@@ -545,16 +606,18 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportSection
             title="Escala"
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation}
+            observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('datas')}
           >
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               <Info label="Armador" value={carrierName} />
               <Info label="Navio / viagem" value={voyageLabel} />
               <Info label="Porto" value={port ?? '—'} />
-              <label className="app-voyage-info">
-                <span className="app-voyage-info__label">Terminal</span>
-                {canEditOperations ? <input key={`${port}:${ownData?.terminal ?? ''}`} aria-label="Terminal" className="app-voyage-info__value border border-[var(--app-border)] bg-transparent px-2 py-1" defaultValue={ownData?.terminal ?? ''} onBlur={(event) => { if (port && event.target.value !== (ownData?.terminal ?? '')) terminalMutation.mutate({ voyageId, port, terminal: event.target.value }) }} /> : <span className="app-voyage-info__value">{ownData?.terminal ?? '—'}</span>}
-              </label>
+              <Info
+                label="Terminal"
+                value={resolvedTerminalCode
+                  ? `${resolvedTerminalCode}${resolvedTerminalName && resolvedTerminalName !== resolvedTerminalCode ? ` — ${resolvedTerminalName}` : ''}`
+                  : (ownData?.terminal ?? '—')}
+              />
               <Info label="ATA" value={formatDate(data?.schedule?.ata)} />
               <Info label="ATB" value={formatDate(data?.schedule?.atb)} />
               <Info label="ATD" value={formatDate(unifiedAtd)} />
@@ -566,7 +629,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           <ReportSection
             title="Carga descarregada"
             section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} events={eventsBySection('carga_descarregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('carga_descarregada')?.observation} onObservationChange={updateObservation}
+            observation={signoffRows.get('carga_descarregada')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('carga_descarregada')}
           >
             {containers.length === 0 && !data?.cargaSolta?.bls && !data?.cargaSolta?.transshipment?.bls ? <NadaOperado /> : <>
               <div className="flex flex-wrap items-baseline gap-4">
@@ -602,7 +665,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           <ReportSection
             title="Vazios descarregados"
             section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('vazios_descarregados')?.observation} onObservationChange={updateObservation}
+            observation={signoffRows.get('vazios_descarregados')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('vazios_descarregados')}
           >
             {data?.vaziosImp.length ? <>
               <Hero value={String(data.vaziosImp.length)} unit="vazios descarregados" />
@@ -619,7 +682,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           <ReportSection
             title="Veículos"
             section="veiculos" state={sectionState('veiculos')} attribution={sectionAttribution('veiculos')} canSignoff={canSignoff('veiculos')} events={eventsBySection('veiculos')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('veiculos')?.observation} onObservationChange={updateObservation}
+            observation={signoffRows.get('veiculos')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('veiculos')}
           >
             {vehicleVinTotal ? <>
               <Hero value={String(vehicleVinTotal)} unit="VINs" />
@@ -640,7 +703,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           <ReportSection
             title="Granito"
             section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('carga_carregada')?.observation} onObservationChange={updateObservation}
+            observation={signoffRows.get('carga_carregada')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('carga_carregada')}
           >
             {data?.granite.length ? <>
               <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
@@ -656,7 +719,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
           <ReportSection
             title="Embarque de vazios"
             section="vazios_embarcados" state={sectionState('vazios_embarcados')} attribution={sectionAttribution('vazios_embarcados')} canSignoff={canSignoff('vazios_embarcados')} events={eventsBySection('vazios_embarcados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('vazios_embarcados')?.observation} onObservationChange={updateObservation}
+            observation={signoffRows.get('vazios_embarcados')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('vazios_embarcados')}
           >
             <Subsection title="Containers embarcados">
               {bookings.length ? <>

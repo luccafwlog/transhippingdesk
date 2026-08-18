@@ -363,6 +363,7 @@ const TIMELINE_DOT: Record<VoyageTimelineEvent['kind'], string> = {
   import: '#2a9d63',
   'baplie-import': '#0f766e',
   'escala-date': '#1d4d88',
+  'escala-terminal': '#0e7490',
   'escala-number': '#b8860b',
   'manifestos-linked': '#2563a8',
   'ce-status': '#7c3aed',

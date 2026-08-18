@@ -1,17 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   closeReport,
+  closeReportByReportId,
+  getAgencyReportOwnDataByReportId,
   getAgencyReportDerivedData,
   getAgencyReportOwnData,
   listClosedAgencyReportPorts,
   listDepartmentSignoffEvents,
+  listDepartmentSignoffEventsByReportId,
   listSignoffEvents,
+  listSignoffEventsByReportId,
   reopenReport,
+  reopenReportByReportId,
   setDepartmentSignoff,
+  setDepartmentSignoffByReportId,
   setSectionObservation,
+  setSectionObservationByReportId,
   setSignoff,
+  setSignoffByReportId,
   setTerminal,
 } from '../services/agencyDepartureReport'
+import { fetchEscalaTerminalState } from '../services/escalaTerminalAllocation'
 import { listAgencyReportSlaRows, type AgencyReportSlaDateRange } from '../services/agencyReportSla'
 
 export function useAgencyReportDerived(voyageId: number, port: string | null) {
@@ -22,10 +31,18 @@ export function useAgencyReportDerived(voyageId: number, port: string | null) {
   })
 }
 
-export function useAgencyReportOwn(voyageId: number, port: string | null) {
+export function useAgencyReportOwn(voyageId: number, port: string | null, reportId?: string | null) {
   return useQuery({
-    queryKey: ['agency-report-own', voyageId, port],
-    queryFn: () => getAgencyReportOwnData(voyageId, port as string),
+    queryKey: reportId ? ['agency-report-own', 'report', reportId] : ['agency-report-own', voyageId, port],
+    queryFn: () => reportId ? getAgencyReportOwnDataByReportId(reportId) : getAgencyReportOwnData(voyageId, port as string),
+    enabled: Boolean(reportId || port),
+  })
+}
+
+export function useAgencyReportTerminalState(voyageId: number, port: string | null) {
+  return useQuery({
+    queryKey: ['agency-report-terminal-state', voyageId, port],
+    queryFn: () => fetchEscalaTerminalState(voyageId, port as string),
     enabled: Boolean(port),
   })
 }
@@ -55,31 +72,37 @@ function useAgencyReportOwnMutation<T>(mutationFn: (input: T) => Promise<void>, 
   })
 }
 
-export function useSetAgencyReportSignoff() {
-  return useAgencyReportOwnMutation(setSignoff, ['agency-report-signoff-events'])
+export function useSetAgencyReportSignoff(reportId?: string | null) {
+  return useAgencyReportOwnMutation((input: Parameters<typeof setSignoff>[0]) => (
+    reportId ? setSignoffByReportId({ ...input, reportId }) : setSignoff(input)
+  ), ['agency-report-signoff-events'])
 }
 
-export function useSetAgencyReportDepartmentSignoff() {
-  return useAgencyReportOwnMutation(setDepartmentSignoff, ['agency-report-department-signoff-events'])
+export function useSetAgencyReportDepartmentSignoff(reportId?: string | null) {
+  return useAgencyReportOwnMutation((input: Parameters<typeof setDepartmentSignoff>[0]) => (
+    reportId ? setDepartmentSignoffByReportId({ ...input, reportId }) : setDepartmentSignoff(input)
+  ), ['agency-report-department-signoff-events'])
 }
 
-export function useSetAgencyReportSectionObservation() {
-  return useAgencyReportOwnMutation(setSectionObservation)
+export function useSetAgencyReportSectionObservation(reportId?: string | null) {
+  return useAgencyReportOwnMutation((input: Parameters<typeof setSectionObservation>[0]) => (
+    reportId ? setSectionObservationByReportId({ ...input, reportId }) : setSectionObservation(input)
+  ))
 }
 
-export function useAgencyReportSignoffEvents(voyageId: number, port: string | null) {
+export function useAgencyReportSignoffEvents(voyageId: number, port: string | null, reportId?: string | null) {
   return useQuery({
-    queryKey: ['agency-report-signoff-events', voyageId, port],
-    queryFn: () => listSignoffEvents(voyageId, port as string),
-    enabled: Boolean(port),
+    queryKey: reportId ? ['agency-report-signoff-events', 'report', reportId] : ['agency-report-signoff-events', voyageId, port],
+    queryFn: () => reportId ? listSignoffEventsByReportId(reportId) : listSignoffEvents(voyageId, port as string),
+    enabled: Boolean(reportId || port),
   })
 }
 
-export function useAgencyReportDepartmentSignoffEvents(voyageId: number, port: string | null) {
+export function useAgencyReportDepartmentSignoffEvents(voyageId: number, port: string | null, reportId?: string | null) {
   return useQuery({
-    queryKey: ['agency-report-department-signoff-events', voyageId, port],
-    queryFn: () => listDepartmentSignoffEvents(voyageId, port as string),
-    enabled: Boolean(port),
+    queryKey: reportId ? ['agency-report-department-signoff-events', 'report', reportId] : ['agency-report-department-signoff-events', voyageId, port],
+    queryFn: () => reportId ? listDepartmentSignoffEventsByReportId(reportId) : listDepartmentSignoffEvents(voyageId, port as string),
+    enabled: Boolean(reportId || port),
   })
 }
 
@@ -91,12 +114,16 @@ export function useSetAgencyReportTerminal() {
 // header, no Painel e na tela de Alertas.
 const CLOSE_REOPEN_KEYS = ['agency-report', 'agency-report-signoff-events', 'alerts', 'op-count', 'header-alert', 'dashboard']
 
-export function useCloseAgencyReport() {
-  return useAgencyReportOwnMutation(closeReport, CLOSE_REOPEN_KEYS)
+export function useCloseAgencyReport(reportId?: string | null) {
+  return useAgencyReportOwnMutation((input: Parameters<typeof closeReport>[0]) => (
+    reportId ? closeReportByReportId({ ...input, reportId }) : closeReport(input)
+  ), CLOSE_REOPEN_KEYS)
 }
 
-export function useReopenAgencyReport() {
-  return useAgencyReportOwnMutation(reopenReport, CLOSE_REOPEN_KEYS)
+export function useReopenAgencyReport(reportId?: string | null) {
+  return useAgencyReportOwnMutation((input: Parameters<typeof reopenReport>[0]) => (
+    reportId ? reopenReportByReportId({ ...input, reportId }) : reopenReport(input)
+  ), CLOSE_REOPEN_KEYS)
 }
 
 // Agregado de SLA do Prazo de Conclusão do ADR (Task 5 do ADR 0039), exibido

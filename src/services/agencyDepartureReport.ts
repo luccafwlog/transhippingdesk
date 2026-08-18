@@ -141,7 +141,9 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
   }
 }
 
-type TerminalizedReportRow = AgencyReportOwnData & {
+type TerminalizedReportRow = Omit<AgencyReportOwnData, 'actor_names' | 'closed_by_name'> & {
+  actor_names: Record<string, string>
+  closed_by_name: string | null
   terminal_id?: string | null
   terminal_port_id?: number | null
 }
@@ -167,7 +169,16 @@ export async function getAgencyReportOwnDataByReportId(reportId: string): Promis
     .eq('id', reportId)
     .maybeSingle()
   if (error) throw error
-  return (data as TerminalizedReportRow | null) ?? null
+  if (!data) return null
+  const report = data as TerminalizedReportRow
+  return {
+    ...report,
+    signoffs: report.signoffs ?? [],
+    departmentSignoffs: report.departmentSignoffs ?? [],
+    occurrences: report.occurrences ?? [],
+    actor_names: report.actor_names ?? {},
+    closed_by_name: report.closed_by_name ?? null,
+  }
 }
 
 /** Retorna o ADR terminalizado da escala, sem transformar terminal em chave textual. */
@@ -180,7 +191,16 @@ export async function getAgencyReportOwnDataByTerminal(voyageId: number, port: s
     .eq('terminal_id', terminalId)
     .maybeSingle()
   if (error) throw error
-  return (data as TerminalizedReportRow | null) ?? null
+  if (!data) return null
+  const report = data as TerminalizedReportRow
+  return {
+    ...report,
+    signoffs: report.signoffs ?? [],
+    departmentSignoffs: report.departmentSignoffs ?? [],
+    occurrences: report.occurrences ?? [],
+    actor_names: report.actor_names ?? {},
+    closed_by_name: report.closed_by_name ?? null,
+  }
 }
 
 /** Lista ADRs da escala; registros legados (terminal_id nulo) continuam incluídos. */
@@ -386,6 +406,27 @@ export async function listSignoffEvents(voyageId: number, port: string) {
   }))
 }
 
+/** Histórico de sign-off do ADR terminalizado; o legado continua por escala. */
+export async function listSignoffEventsByReportId(reportId: string) {
+  const prefix = `${reportId}::`
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')
+    .eq('entity_type', 'agency_departure_report_signoff')
+    .like('entity_id', `${prefix}%`)
+    .order('changed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row): AgencyReportSignoffEvent => ({
+    id: row.id,
+    section: row.entity_id.slice(prefix.length) as AgencyReportSection,
+    old_value: row.old_value,
+    new_value: row.new_value,
+    justification: row.justification,
+    changed_by: row.changed_by,
+    changed_at: row.changed_at,
+  }))
+}
+
 export type AgencyReportDepartmentSignoffEvent = {
   id: number
   department: AgencyReportDepartmentKey
@@ -403,6 +444,26 @@ export type AgencyReportDepartmentSignoffEvent = {
 // ADR); new_value='true' é a (re)assinatura, sem justificativa.
 export async function listDepartmentSignoffEvents(voyageId: number, port: string) {
   const prefix = `${voyageId}::${port.toUpperCase()}::`
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')
+    .eq('entity_type', 'agency_departure_report_department_signoff')
+    .like('entity_id', `${prefix}%`)
+    .order('changed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row): AgencyReportDepartmentSignoffEvent => ({
+    id: row.id,
+    department: row.entity_id.slice(prefix.length) as AgencyReportDepartmentKey,
+    old_value: row.old_value,
+    new_value: row.new_value,
+    justification: row.justification,
+    changed_by: row.changed_by,
+    changed_at: row.changed_at,
+  }))
+}
+
+export async function listDepartmentSignoffEventsByReportId(reportId: string) {
+  const prefix = `${reportId}::`
   const { data, error } = await supabase
     .from('audit_logs')
     .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')

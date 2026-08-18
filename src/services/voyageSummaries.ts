@@ -527,6 +527,7 @@ export type VoyageTimelineEventKind =
   | 'import'
   | 'baplie-import'
   | 'escala-date'
+  | 'escala-terminal'
   | 'escala-number'
   | 'manifestos-linked'
   | 'ce-status'
@@ -621,11 +622,12 @@ const TIMELINE_KIND_ORDER: Record<VoyageTimelineEventKind, number> = {
   'manifestos-linked': 9,
   'escala-number': 10,
   'escala-date': 11,
-  'divergence-resolved': 12,
-  'voyage-data': 13,
-  'pod-removed': 14,
-  omission: 15,
-  'transshipment-info': 16,
+  'escala-terminal': 12,
+  'divergence-resolved': 13,
+  'voyage-data': 14,
+  'pod-removed': 15,
+  omission: 16,
+  'transshipment-info': 17,
 }
 
 export function buildVoyageTimeline({
@@ -791,6 +793,44 @@ function buildScheduleTimeline(
     const port = row.entity_id.split('::')[1] || '-'
     const value = (row.new_value ?? '').trim()
     const oldValue = (row.old_value ?? '').trim()
+
+    if (['front_created', 'front_removed', 'terminal_assignment', 'front_source', 'terminal_dates', 'export_expectation', 'adr_created', 'adr_removed', 'adr_preserved'].includes(row.field_name)) {
+      let parsed: Record<string, unknown> = {}
+      try {
+        const candidate = JSON.parse(value || oldValue)
+        if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) parsed = candidate as Record<string, unknown>
+      } catch {
+        // Audit logs anteriores podem conter texto simples; o evento continua legível.
+      }
+      const front = typeof parsed.modalidade === 'string' ? parsed.modalidade : null
+      const terminal = typeof parsed.terminal_code === 'string' ? parsed.terminal_code : null
+      const label = terminal ? `terminal ${terminal}` : 'terminal registrado'
+      const title = row.field_name === 'front_created'
+        ? `Frente ${front ?? 'operacional'} atribuída`
+        : row.field_name === 'front_removed'
+          ? `Frente ${front ?? 'operacional'} removida`
+          : row.field_name === 'terminal_assignment'
+            ? `Terminal da frente alterado`
+            : row.field_name === 'terminal_dates'
+              ? 'Datas do terminal alteradas'
+              : row.field_name === 'export_expectation'
+                ? 'Expectativa de exportação alterada'
+                : row.field_name === 'adr_created'
+                  ? 'ADR terminalizado criado'
+                  : row.field_name === 'adr_removed'
+                    ? 'ADR terminalizado removido'
+                    : row.field_name === 'adr_preserved'
+                      ? 'ADR terminalizado preservado'
+                      : 'Origem da frente alterada'
+      events.push({
+        id: `sched-${index}`,
+        kind: 'escala-terminal',
+        at,
+        title: `${title} em ${port}`,
+        detail: appendActor(front ? `${front} · ${label}` : label, row),
+      })
+      continue
+    }
 
     if (TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]) {
       if (!value) continue
