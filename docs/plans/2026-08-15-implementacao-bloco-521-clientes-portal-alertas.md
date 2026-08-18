@@ -286,7 +286,7 @@ componentes do sino/Portal, conforme o bloco transversal.
 - [ ] Usar os destinos canônicos: pendência geral em
   `/clientes/portal?cliente={id}`; bloqueio ou falha de B/L em
   `/manifestos/{blId}?tab=faturamento`; invoice em
-  `/faturamento?invoice={invoiceId}`; reconciliação em
+  `/taxas-locais?invoice={invoiceId}`; reconciliação em
   `/manifestos/{blId}?tab=detalhes`; e Dispute diretamente na conversa de
   `/demurrage` ou `/portal/billing` conforme o ambiente.
 - [ ] Garantir Documentação como destinatário das pendências de Portal,
@@ -299,7 +299,7 @@ componentes do sino/Portal, conforme o bloco transversal.
   resolvidos.
 - [ ] Normalizar o identificador canônico usado nos destinos de invoice e
   disponibilizar os links de cada item, evitando que número textual de invoice
-  caia em `/faturamento` sem selecionar a fatura.
+  caia em `/taxas-locais` sem selecionar a fatura.
 - [ ] Delegar o envio de e-mail ao cliente e a notificação in-app do Portal ao
   bloco transversal, com contrato versionado.
 - [ ] Testar que uma mensagem não cria notificações duplicadas nem altera a
