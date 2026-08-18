@@ -55,26 +55,59 @@ os três sign-offs.
 | `docs/ARCHITECTURE.md` | documenta a âncora `(voyage_id, port)` |
 | `CONTEXT.md` (Embarque de Vazios, Cadastro de Terminais) | repetem a identidade `(viagem, porto)` |
 
+## Decisão 2 — a Escala planeja seus terminais; os ADRs derivam da lista
+
+Uma escala pode ter mais de um terminal. A lista vive na **Escala**, não no ADR:
+é ela que o Line-Up, o Painel e a TV leem. O ADR não inventa terminal — deriva.
+
+## Decisão 3 — terminal é sempre um terminal cadastrado, nunca texto livre
+
+O `agency_departure_reports.terminal` de texto livre acaba. O terminal passa a
+referenciar o cadastro do sistema.
+
+Pendência que isso abre: a tabela `depots` **não tem porto** (colunas: `code`,
+`name`, `tipo`, `free_time_*`, `active`). Um terminal cadastrado hoje não sabe a
+que porto pertence, então nada impediria vincular um terminal de Santos a uma
+escala de Vitória.
+
+## Decisão 4 — a atribuição do operado ao terminal é manual e obrigatória
+
+Nenhum módulo de origem carrega terminal, e não haverá inferência. O usuário
+**aponta** a que terminal cada parcela da operação pertence, e o preenchimento é
+**impeditivo** — sem ele a operação não segue.
+
+O grão da atribuição **não é a seção do ADR**. Verificado em
+`src/components/voyages/AgencyReportDocument.tsx:583` e `:621`: "Carga solta" e
+"Matriz de descarga" pertencem ambas à seção `carga_descarregada`, com o mesmo
+dono e o mesmo sign-off. No caso GREEN PECEM os containers de importação foram
+ao TVV e a carga solta à PORTMAC — dois terminais dentro de uma seção só. Uma
+atribuição por seção não representaria o caso que motivou a mudança.
+
+## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
+
+Chegadas e Saídas não é afetado.
+
 ## Questões em aberto
 
-1. **Ciclo de vida.** Quando os dois ADRs passam a existir? O shifting costuma
-   ser decidido com o navio já atracado, então o segundo terminal não é
-   previsível no cadastro da escala. Escala sem terminal declarado produziria
-   zero ADRs — regressão do buraco de alerta silencioso que a ADR 0035 fechou.
-2. **Atribuição do operado.** Nenhum módulo de origem carrega terminal: B/L,
-   carga solta, granito e veículos não têm o campo. Sem isso, dois ADRs
-   mostrariam os mesmos números duplicados. Só a Unidade Embarcada tem `local`,
-   e ainda assim é o local de *origem* do vazio, não o terminal de operação.
-3. **Datas.** Quais pertencem à escala e quais ao terminal. ATA e ATD do porto
-   são um só; a atracação (ATB) é por terminal, e o shifting cria uma segunda.
-4. **Natureza do terminal.** Continua texto livre ou passa a referenciar o
-   Cadastro de Terminais (tipo `terminal_portuario`)?
-5. **Embarque de Vazios.** Hoje existe um por escala, "com a mesma identidade do
-   ADR". Passa a ser um por terminal?
-6. **Prazo e alertas.** ADR 0039 mede o prazo de conclusão por departamento;
-   com dois ADRs, o SLA passa a contar duas vezes na mesma escala.
-7. **Line-Up, Painel e Programação do Portal.** A escala com dois terminais
-   vira duas linhas, ou continua uma?
-8. **Aba de terminal no Painel.** Escopo e conteúdo ainda não definidos.
-9. **Dados existentes.** O que fazer com os `terminal` de texto livre já
-   gravados.
+Ordenadas por dependência.
+
+| # | Bloco | Questão |
+|---|---|---|
+| A2 | Modelo | ADR nasce só quando há terminal — e a escala sem terminal declarado? |
+| A3.1 | Modelo | Terminal cadastrado precisa de porto; e quem pode ser escolhido (`tipo`)? |
+| B1 | Atribuição | Qual é exatamente a lista de parcelas atribuíveis, e como chamá-la |
+| B2 | Atribuição | O que "impeditivo" bloqueia, e em que momento |
+| C1 | Datas | Quais datas são da escala e quais da atracação (o shifting cria uma segunda) |
+| D1 | ADR | Embarque de Vazios: um por escala ou um por terminal |
+| D2 | ADR | Prazo departamental (ADR 0039) e alerta pós-ATD com dois ADRs |
+| D3 | ADR | Fechamento e impresso |
+| E1 | Superfícies | Terminal × sentido: quantas linhas exatamente |
+| E2 | Superfícies | Aba de terminal no Painel — escopo |
+| F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
+
+### Colisão de terminologia a resolver em B1
+
+"Natureza da carga" não serve como nome: **natureza** já é três coisas neste
+domínio — Natureza do Serviço (armazenagem/transporte/geral), a natureza da
+matriz de descarga (tipo × natureza) e a `natureza` do vazio de importação
+(cama/cover plate).
