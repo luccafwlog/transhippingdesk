@@ -64,6 +64,17 @@ export const queryKeys = {
     routeCeMasters: (voyageIds: number[]) => ['voyage-route-ce-masters', voyageIds] as const,
     exportSchedules: (voyageIds: number[]) => ['voyage-export-schedules', voyageIds] as const,
     vaziosExportPorts: (voyageId: number) => ['voyage-vazios-export-ports', voyageId] as const,
+    escalaTerminal: (voyageId: number, port: string) => ['voyage-escala-terminal', voyageId, port] as const,
+    escalaTerminalAll: () => ['voyage-escala-terminal'] as const,
+    timeline: (voyageId: number, port?: string) => ['voyage-timeline', voyageId, port ?? null] as const,
+  },
+  agencyReports: {
+    all: () => ['agency-report'] as const,
+    byScale: (voyageId: number, port: string) => ['agency-report', voyageId, port] as const,
+    ownByScale: (voyageId: number, port: string) => ['agency-report-own', voyageId, port] as const,
+    byReportId: (reportId: string) => ['agency-report', 'report', reportId] as const,
+    signoffEvents: (voyageId: number, port: string) => ['agency-report-signoff-events', voyageId, port] as const,
+    departmentSignoffEvents: (voyageId: number, port: string) => ['agency-report-department-signoff-events', voyageId, port] as const,
   },
   transshipments: {
     byVoyage: (voyageId: number) => ['transshipments', 'voyage', voyageId] as const,

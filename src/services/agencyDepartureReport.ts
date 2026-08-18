@@ -18,6 +18,7 @@ import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, getVoyageUnifiedAtd, listVoyagePodSchedules } from './voyageRouteSchedules'
 import { normalizePortCode, portCodeVariants } from './portCode'
+import type { AgencyReportByTerminal, OperationFront, OperationFrontKind } from './escalaTerminalAllocation'
 
 // Seis seções assináveis (ADR 0036). 'operacao_patio' foi absorvida por
 // 'vazios_embarcados' — Embarque de Vazios é UM agregado por escala
@@ -140,6 +141,86 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
   }
 }
 
+type TerminalizedReportRow = AgencyReportOwnData & {
+  terminal_id?: string | null
+  terminal_port_id?: number | null
+}
+
+const terminalizedReportSelect = '*, signoffs:agency_departure_report_signoffs(*), departmentSignoffs:agency_departure_report_department_signoffs(*), occurrences:agency_departure_report_occurrences(*)'
+
+type AgencyReportQueryResult = { data: unknown; error: unknown | null }
+type AgencyReportQuery = {
+  select: (columns: string) => AgencyReportQuery
+  eq: (column: string, value: unknown) => AgencyReportQuery
+  maybeSingle: () => Promise<AgencyReportQueryResult>
+  then: Promise<AgencyReportQueryResult>['then']
+}
+
+function terminalizedReportsTable(): AgencyReportQuery {
+  return (supabase.from as unknown as (table: string) => AgencyReportQuery)('agency_departure_reports')
+}
+
+/** Leitura por identidade estável do ADR terminalizado. O caminho antigo acima permanece por (viagem, porto). */
+export async function getAgencyReportOwnDataByReportId(reportId: string): Promise<TerminalizedReportRow | null> {
+  const { data, error } = await terminalizedReportsTable()
+    .select(terminalizedReportSelect)
+    .eq('id', reportId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as TerminalizedReportRow | null) ?? null
+}
+
+/** Retorna o ADR terminalizado da escala, sem transformar terminal em chave textual. */
+export async function getAgencyReportOwnDataByTerminal(voyageId: number, port: string, terminalId: string): Promise<TerminalizedReportRow | null> {
+  const normalizedPort = normalizePortCode(port) ?? port.trim().toUpperCase()
+  const { data, error } = await terminalizedReportsTable()
+    .select(terminalizedReportSelect)
+    .eq('voyage_id', voyageId)
+    .eq('port', normalizedPort)
+    .eq('terminal_id', terminalId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as TerminalizedReportRow | null) ?? null
+}
+
+/** Lista ADRs da escala; registros legados (terminal_id nulo) continuam incluídos. */
+export async function listAgencyReportOwnDataByScale(voyageId: number, port: string): Promise<TerminalizedReportRow[]> {
+  const normalizedPort = normalizePortCode(port) ?? port.trim().toUpperCase()
+  const { data, error } = await terminalizedReportsTable()
+    .select(terminalizedReportSelect)
+    .eq('voyage_id', voyageId)
+    .eq('port', normalizedPort)
+  if (error) throw error
+  return (data ?? []) as TerminalizedReportRow[]
+}
+
+/**
+ * Projeta as seções de um ADR terminalizado. A ausência de dados não remove a
+ * frente: ela vira `nothing_operated` e continua sujeita a resolução/sign-off.
+ */
+export function deriveAgencyReportByTerminal(
+  report: Pick<TerminalizedReportRow, 'id' | 'voyage_id' | 'port' | 'terminal_id' | 'terminal' | 'status'>,
+  fronts: OperationFront[],
+): AgencyReportByTerminal {
+  const sections = ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados'].map((section) => {
+    const assigned = fronts.filter((front) => front.terminalId === (report.terminal_id ?? null) && front.section === section)
+    return {
+      section,
+      state: assigned.length ? 'operated' as const : 'nothing_operated' as const,
+      fronts: assigned.map((front) => front.modalidade as OperationFrontKind),
+    }
+  })
+  return {
+    reportId: report.id,
+    voyageId: report.voyage_id,
+    port: report.port,
+    terminalId: report.terminal_id ?? null,
+    terminal: report.terminal ?? null,
+    status: report.status,
+    sections,
+  }
+}
+
 export async function setSignoff(input: {
   voyageId: number
   port: string
@@ -155,6 +236,85 @@ export async function setSignoff(input: {
     p_justification: input.justification,
   })
   if (error) throw error
+}
+
+export class TerminalizedAgencyReportRpcUnavailableError extends Error {
+  readonly code = 'TERMINALIZED_ADR_RPC_UNAVAILABLE'
+  readonly rpcName: string
+
+  constructor(rpcName: string) {
+    super(`A RPC ${rpcName} para ADR terminalizado não está disponível no projeto remoto. O caminho legado permanece inalterado.`)
+    this.name = 'TerminalizedAgencyReportRpcUnavailableError'
+    this.rpcName = rpcName
+  }
+}
+
+type ReportIdRpcResult = { data: unknown; error: { code?: string; message?: string } | null }
+
+function isMissingReportIdRpc(error: { code?: string; message?: string } | null) {
+  const text = `${error?.code ?? ''} ${error?.message ?? ''}`.toLowerCase()
+  return text.includes('42883') || text.includes('pgrst202') || text.includes('does not exist') || text.includes('not found')
+}
+
+async function callReportIdAwareRpc(rpcName: string, args: Record<string, unknown>) {
+  const rpc = supabase.rpc as unknown as (name: string, parameters: Record<string, unknown>) => Promise<ReportIdRpcResult>
+  const { error } = await rpc(rpcName, args)
+  if (!error) return
+  if (isMissingReportIdRpc(error)) throw new TerminalizedAgencyReportRpcUnavailableError(rpcName)
+  throw error
+}
+
+/** Mutação terminalizada: não cai no RPC legado quando a RPC nova não existe. */
+export async function setSignoffByReportId(input: {
+  reportId: string
+  voyageId: number
+  port: string
+  section: AgencyReportSection
+  state: AgencyReportSignoff['state']
+  justification?: string
+}) {
+  await callReportIdAwareRpc('set_agency_report_signoff_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_section: input.section,
+    p_state: input.state,
+    p_justification: input.justification,
+  })
+}
+
+export async function setSectionObservationByReportId(input: {
+  reportId: string
+  voyageId: number
+  port: string
+  section: AgencyReportSection
+  observation: string
+}) {
+  await callReportIdAwareRpc('set_agency_report_section_observation_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_section: input.section,
+    p_observation: input.observation,
+  })
+}
+
+export async function setDepartmentSignoffByReportId(input: {
+  reportId: string
+  voyageId: number
+  port: string
+  department: AgencyReportDepartmentKey
+  signed: boolean
+  justification?: string
+}) {
+  await callReportIdAwareRpc('set_agency_report_department_signoff_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_department: input.department,
+    p_signed: input.signed,
+    p_justification: input.justification,
+  })
 }
 
 // Observação por seção (ADR 0030): edição livre do dono da seção, sem
@@ -307,6 +467,15 @@ export async function closeReport(input: { voyageId: number; port: string; snaps
   }
 }
 
+export async function closeReportByReportId(input: { reportId: string; voyageId: number; port: string; snapshot: Json }) {
+  await callReportIdAwareRpc('close_agency_departure_report_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_snapshot: input.snapshot,
+  })
+}
+
 // Portos com ADR fechado da viagem (Task 2 do ADR 2026-07-31): uma escala
 // omitida DEPOIS de o ADR ter sido fechado continua reachable para consulta —
 // o fechamento é um registro imutável. Só o porto (não o registro inteiro)
@@ -328,6 +497,15 @@ export async function reopenReport(input: { voyageId: number; port: string; just
     p_justification: input.justification,
   })
   if (error) throw error
+}
+
+export async function reopenReportByReportId(input: { reportId: string; voyageId: number; port: string; justification: string }) {
+  await callReportIdAwareRpc('reopen_agency_departure_report_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_justification: input.justification,
+  })
 }
 
 export type MatrixCategory =

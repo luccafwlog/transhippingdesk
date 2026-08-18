@@ -84,6 +84,17 @@ export type VoyageEscalaSchedule = {
   divergences: VoyageEscalaDivergence[]
 }
 
+/** Estado terminalizado da escala, separado da linha física POD/POL legada. */
+export type VoyageTerminalScaleState = {
+  voyageId: number
+  port: string
+  terminalId: string
+  terminalAtb: string | null
+  terminalAtd: string | null
+  terminalRtw: number | null
+  revision: number
+}
+
 type ProjectVoyageEscalaInput = {
   podSchedules?: Iterable<VoyagePodSchedule>
   polSchedules?: Iterable<VoyagePolSchedule>
@@ -242,6 +253,38 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
     }))
   }
 
+  return result
+}
+
+/** Leitura compartilhada para timeline e superfícies operacionais futuras. */
+export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number[]) {
+  const result = new Map<number, VoyageTerminalScaleState[]>()
+  if (!voyageIds.length) return result
+
+  type TerminalStateQuery = {
+    select: (columns: string) => TerminalStateQuery
+    in: (column: string, values: number[]) => TerminalStateQuery
+    then: Promise<{ data: unknown; error: unknown | null }>['then']
+  }
+  const { data, error } = await (supabase.from as unknown as (table: string) => TerminalStateQuery)('voyage_escala_terminal_state')
+    .select('voyage_id, port, terminal_id, terminal_atb, terminal_atd, terminal_rtw, revision')
+    .in('voyage_id', voyageIds)
+  if (error) throw error
+
+  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string' || typeof row.terminal_id !== 'string') continue
+    const states = result.get(row.voyage_id) ?? []
+    states.push({
+      voyageId: row.voyage_id,
+      port: row.port,
+      terminalId: row.terminal_id,
+      terminalAtb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
+      terminalAtd: typeof row.terminal_atd === 'string' ? row.terminal_atd : null,
+      terminalRtw: row.terminal_rtw == null ? null : Number(row.terminal_rtw),
+      revision: typeof row.revision === 'number' ? row.revision : 0,
+    })
+    result.set(row.voyage_id, states)
+  }
   return result
 }
 

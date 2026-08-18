@@ -1,0 +1,396 @@
+import type { QueryClient } from '@tanstack/react-query'
+import type { Json } from '../types/database'
+import { fetchExportSchedulesByVoyageIds, type VoyageExportSchedule } from './voyageExportSchedules'
+import { listDepots } from './depots'
+import { normalizePortCode, portCodeVariants } from './portCode'
+import { queryKeys } from './queryKeys'
+import { listVoyageEscalaSchedulesByVoyageIds } from './voyageRouteSchedules'
+import { supabase } from './supabase'
+
+export type OperationFrontKind =
+  | 'carga_cheia'
+  | 'carga_solta'
+  | 'vazio'
+  | 'veiculo'
+  | 'granito'
+
+export type OperationFrontDirection = 'importacao' | 'exportacao'
+
+export type OperationFront = {
+  id?: string | null
+  sentido: OperationFrontDirection
+  modalidade: OperationFrontKind
+  terminalId: string | null
+  source: 'operational_data' | 'export_declaration'
+  hasData: boolean
+  section: 'carga_descarregada' | 'carga_carregada' | 'veiculos' | 'vazios_descarregados' | 'vazios_embarcados' | null
+}
+
+export type TerminalDateState = {
+  terminalId: string
+  atb: string | null
+  atd: string | null
+  restow: number | null
+  reportId?: string | null
+}
+
+export type TerminalOption = {
+  id: string
+  code: string
+  name: string | null
+  active: boolean
+  portId: number | null
+  historical: boolean
+}
+
+export type AgencyReportByTerminal = {
+  reportId: string
+  voyageId: number
+  port: string
+  terminalId: string | null
+  terminal: string | null
+  status: string
+  sections: Array<{
+    section: string
+    state: 'operated' | 'nothing_operated'
+    fronts: OperationFrontKind[]
+  }>
+}
+
+export type TerminalScaleState = {
+  voyageId: number
+  port: string
+  portId: number | null
+  revision: number
+  fronts: OperationFront[]
+  tbcFronts: OperationFront[]
+  terminals: TerminalDateState[]
+  activeTerminals: TerminalOption[]
+  historicalTerminals: TerminalOption[]
+  agencyReports: AgencyReportByTerminal[]
+}
+
+export type SaveEscalaTerminalStatePayload = {
+  voyageId: number
+  port: string
+  expectedRevision: number
+  fronts: Array<{
+    sentido: OperationFrontDirection
+    modalidade: OperationFrontKind
+    terminalId: string | null
+    source?: OperationFront['source']
+  }>
+  terminals: Array<{
+    terminalId: string
+    atb: string | null
+    atd: string | null
+    restow: number | null
+  }>
+  exportExpectation?: Record<string, unknown> | null
+  justification?: string | null
+  queryClient?: Pick<QueryClient, 'invalidateQueries'>
+}
+
+export type ClosedAdrBlocker = {
+  reportId: string | null
+  terminalId: string | null
+  terminalCode: string | null
+  reason: string | null
+}
+
+export type SaveEscalaTerminalStateResult = {
+  revision: number
+  fronts: OperationFront[]
+  terminals: TerminalDateState[]
+  closedBlockers: ClosedAdrBlocker[]
+  blocked: boolean
+}
+
+export class EscalaTerminalBlockedError extends Error {
+  readonly code = 'ADR_CLOSED_BLOCKED'
+  readonly blockers: ClosedAdrBlocker[]
+
+  constructor(blockers: ClosedAdrBlocker[]) {
+    const labels = blockers.map((blocker) => blocker.terminalCode ?? blocker.reportId ?? 'terminal sem código')
+    super(`A alteração está bloqueada por ADR fechado: ${labels.join(', ')}. Reabra o ADR antes de continuar.`)
+    this.name = 'EscalaTerminalBlockedError'
+    this.blockers = blockers
+  }
+}
+
+type JsonRecord = Record<string, unknown>
+type QueryResult = { data: unknown; error: unknown | null }
+type SupabaseTable = {
+  select: (columns?: string) => SupabaseTable
+  eq: (column: string, value: unknown) => SupabaseTable
+  in: (column: string, values: unknown[]) => SupabaseTable
+  maybeSingle: () => Promise<QueryResult>
+  then: Promise<QueryResult>['then']
+}
+
+function table(name: string): SupabaseTable {
+  return (supabase.from as unknown as (tableName: string) => SupabaseTable)(name)
+}
+
+const IMPORT_SECTION_BY_KIND: Record<Exclude<OperationFrontKind, 'granito'>, OperationFront['section']> = {
+  carga_cheia: 'carga_descarregada',
+  carga_solta: 'carga_descarregada',
+  vazio: 'vazios_descarregados',
+  veiculo: 'veiculos',
+}
+
+const EXPORT_SECTION_BY_KIND: Record<'granito' | 'vazio', OperationFront['section']> = {
+  granito: 'carga_carregada',
+  vazio: 'vazios_embarcados',
+}
+
+function normalizePort(port: string) {
+  return normalizePortCode(port) ?? port.trim().toUpperCase()
+}
+
+function frontKey(front: Pick<OperationFront, 'sentido' | 'modalidade'>) {
+  return `${front.sentido}:${front.modalidade}`
+}
+
+function makeFront(
+  sentido: OperationFrontDirection,
+  modalidade: OperationFrontKind,
+  terminalId: string | null,
+  source: OperationFront['source'],
+  hasData: boolean,
+  id?: string | null,
+): OperationFront {
+  return {
+    id: id ?? null,
+    sentido,
+    modalidade,
+    terminalId,
+    source,
+    hasData,
+    section: sentido === 'importacao' ? IMPORT_SECTION_BY_KIND[modalidade as Exclude<OperationFrontKind, 'granito'>] : EXPORT_SECTION_BY_KIND[modalidade as 'granito' | 'vazio'],
+  }
+}
+
+export type DeriveOperationFrontInput = {
+  existing?: Array<Pick<OperationFront, 'id' | 'sentido' | 'modalidade' | 'terminalId' | 'source'>>
+  importKinds?: Iterable<Exclude<OperationFrontKind, 'granito'>>
+  exportSchedule?: Pick<VoyageExportSchedule, 'temExportacao' | 'hasGranite' | 'hasEmpty'> | null
+}
+
+/** Pure projection used by the reader and by tests. Existing persisted fronts win over source absence. */
+export function deriveOperationFronts(input: DeriveOperationFrontInput): OperationFront[] {
+  const fronts = new Map<string, OperationFront>()
+  for (const existing of input.existing ?? []) {
+    fronts.set(frontKey(existing), makeFront(existing.sentido, existing.modalidade, existing.terminalId, existing.source, true, existing.id))
+  }
+  for (const kind of new Set(input.importKinds ?? [])) {
+    fronts.set(frontKey({ sentido: 'importacao', modalidade: kind }), makeFront('importacao', kind, null, 'operational_data', true))
+  }
+  const exportSchedule = input.exportSchedule
+  if (exportSchedule?.temExportacao) {
+    if (exportSchedule.hasGranite) fronts.set('exportacao:granito', makeFront('exportacao', 'granito', null, 'export_declaration', false))
+    if (exportSchedule.hasEmpty) fronts.set('exportacao:vazio', makeFront('exportacao', 'vazio', null, 'export_declaration', false))
+  }
+  return [...fronts.values()].sort((left, right) => left.sentido.localeCompare(right.sentido) || left.modalidade.localeCompare(right.modalidade))
+}
+
+function parseFront(row: JsonRecord): OperationFront | null {
+  const sentido = row.sentido === 'importacao' || row.sentido === 'exportacao' ? row.sentido : null
+  const modalidade = typeof row.modalidade === 'string' ? row.modalidade as OperationFrontKind : null
+  if (!sentido || !modalidade) return null
+  return makeFront(sentido, modalidade, typeof row.terminal_id === 'string' ? row.terminal_id : null, row.source === 'export_declaration' ? 'export_declaration' : 'operational_data', true, typeof row.id === 'string' ? row.id : null)
+}
+
+function parseTerminal(row: JsonRecord): TerminalDateState | null {
+  if (typeof row.terminal_id !== 'string') return null
+  return {
+    terminalId: row.terminal_id,
+    atb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
+    atd: typeof row.terminal_atd === 'string' ? row.terminal_atd : null,
+    restow: typeof row.terminal_rtw === 'number' ? row.terminal_rtw : row.terminal_rtw == null ? null : Number(row.terminal_rtw),
+    reportId: typeof row.report_id === 'string' ? row.report_id : null,
+  }
+}
+
+function parseBlockers(value: unknown): ClosedAdrBlocker[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+    const row = item as JsonRecord
+    return [{
+      reportId: typeof row.report_id === 'string' ? row.report_id : null,
+      terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
+      terminalCode: typeof row.terminal_code === 'string' ? row.terminal_code : null,
+      reason: typeof row.reason === 'string' ? row.reason : null,
+    }]
+  })
+}
+
+function parseSaveResult(value: unknown): SaveEscalaTerminalStateResult {
+  const record = value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : {}
+  const fronts = Array.isArray(record.fronts) ? record.fronts.flatMap((row) => row && typeof row === 'object' ? [parseFront(row as JsonRecord)].filter(Boolean) as OperationFront[] : []) : []
+  const terminals = Array.isArray(record.terminals) ? record.terminals.flatMap((row) => row && typeof row === 'object' ? [parseTerminal(row as JsonRecord)].filter(Boolean) as TerminalDateState[] : []) : []
+  const closedBlockers = parseBlockers(record.closed_blockers)
+  return {
+    revision: typeof record.revision === 'number' ? record.revision : 0,
+    fronts,
+    terminals,
+    closedBlockers,
+    blocked: record.blocked === true || closedBlockers.length > 0,
+  }
+}
+
+async function readAgencyReports(voyageId: number, port: string): Promise<JsonRecord[]> {
+  const result = await table('agency_departure_reports')
+    .select('id, voyage_id, port, terminal, terminal_id, status')
+    .eq('voyage_id', voyageId)
+    .eq('port', port)
+  if (result.error) throw result.error
+  return (result.data ?? []) as JsonRecord[]
+}
+
+function reportSections(fronts: OperationFront[], terminalId: string | null): AgencyReportByTerminal['sections'] {
+  const bySection = new Map<string, OperationFrontKind[]>()
+  for (const front of fronts.filter((item) => item.terminalId === terminalId)) {
+    if (!front.section) continue
+    const kinds = bySection.get(front.section) ?? []
+    kinds.push(front.modalidade)
+    bySection.set(front.section, kinds)
+  }
+  const sections = ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados']
+  return sections.map((section) => ({
+    section,
+    state: bySection.has(section) ? 'operated' : 'nothing_operated',
+    fronts: bySection.get(section) ?? [],
+  }))
+}
+
+export type AgencyReportProjectionInput = Pick<AgencyReportByTerminal, 'reportId' | 'voyageId' | 'port' | 'terminalId' | 'terminal' | 'status'>
+
+export function groupAgencyReportsByTerminal(reports: AgencyReportProjectionInput[], fronts: OperationFront[]): AgencyReportByTerminal[] {
+  return reports.map((report) => ({
+    ...report,
+    sections: reportSections(fronts, report.terminalId),
+  }))
+}
+
+export async function fetchEscalaTerminalState(voyageId: number, port: string): Promise<TerminalScaleState> {
+  const normalizedPort = normalizePort(port)
+  const [frontsResult, terminalsResult, revisionResult, portResult, depots, exportsByVoyage, schedules, reports] = await Promise.all([
+    table('voyage_escala_operation_fronts').select('id, sentido, modalidade, terminal_id, source').eq('voyage_id', voyageId).eq('port', normalizedPort),
+    table('voyage_escala_terminal_state').select('terminal_id, terminal_atb, terminal_atd, terminal_rtw').eq('voyage_id', voyageId).eq('port', normalizedPort),
+    table('voyage_escala_revision_state').select('revision, port_id').eq('voyage_id', voyageId).eq('port', normalizedPort).maybeSingle(),
+    table('ports').select('id, locode'),
+    listDepots(),
+    fetchExportSchedulesByVoyageIds([voyageId]),
+    listVoyageEscalaSchedulesByVoyageIds([voyageId]),
+    readAgencyReports(voyageId, normalizedPort),
+  ])
+  for (const result of [frontsResult, terminalsResult, revisionResult, portResult]) if (result.error) throw result.error
+
+  const existing = (frontsResult.data ?? []) as JsonRecord[]
+  const existingFronts = existing.flatMap((row) => {
+    const front = parseFront(row)
+    return front ? [front] : []
+  })
+  const exportSchedule = exportsByVoyage.get(voyageId)?.get(normalizedPort) ?? null
+  const importKinds = new Set<Exclude<OperationFrontKind, 'granito'>>()
+  const operationalScale = schedules.get(voyageId)?.find((schedule) => normalizePort(schedule.port) === normalizedPort)
+  if (operationalScale?.temImportacao) importKinds.add('carga_cheia')
+  const bls = await table('bls').select('cargo_mode, pod').eq('voyage_id', voyageId).in('pod', portCodeVariants(normalizedPort))
+  if (bls.error) throw bls.error
+  for (const row of (bls.data ?? []) as JsonRecord[]) {
+    if (row.cargo_mode === 'carga_solta') importKinds.add('carga_solta')
+    else if (row.cargo_mode === 'veiculo' || row.cargo_mode === 'veiculos') importKinds.add('veiculo')
+    else importKinds.add('carga_cheia')
+  }
+  const emptyImports = await table('vazios_importacao_containers')
+    .select('pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
+    .eq('manifest.voyage_id', voyageId)
+    .in('pod', portCodeVariants(normalizedPort))
+  if (emptyImports.error) throw emptyImports.error
+  if (Array.isArray(emptyImports.data) && emptyImports.data.length) importKinds.add('vazio')
+
+  const fronts = deriveOperationFronts({ existing: existingFronts, importKinds, exportSchedule })
+  const depotRows = depots as unknown as Array<{ id: string; code: string; name: string | null; active: boolean; tipo: string; port_id?: number | null }>
+  const stateRows = (terminalsResult.data ?? []) as JsonRecord[]
+  const historicalIds = new Set(stateRows.flatMap((row) => typeof row.terminal_id === 'string' ? [row.terminal_id] : []))
+  const revisionRow = revisionResult.data && typeof revisionResult.data === 'object' ? revisionResult.data as JsonRecord : {}
+  const portRows = Array.isArray(portResult.data) ? portResult.data as JsonRecord[] : []
+  const scalePortId = typeof revisionRow.port_id === 'number'
+    ? revisionRow.port_id
+    : portRows.find((row) => normalizePort(String(row.locode ?? '')) === normalizedPort)?.id
+  const options = depotRows.filter((depot) => depot.tipo === 'terminal_portuario' && scalePortId != null && Number(depot.port_id) === Number(scalePortId))
+  const toOption = (depot: (typeof depotRows)[number], historical: boolean): TerminalOption => ({ id: depot.id, code: depot.code, name: depot.name, active: depot.active, portId: depot.port_id ?? null, historical })
+  const activeTerminals = options.filter((depot) => depot.active).map((depot) => toOption(depot, false))
+  const historicalTerminals = [...historicalIds].map((id) => {
+    const depot = depotRows.find((row) => row.id === id)
+    return depot ? toOption(depot, true) : { id, code: id, name: null, active: false, portId: null, historical: true }
+  })
+  const terminalStates = stateRows.flatMap((row) => {
+    const state = parseTerminal(row)
+    return state ? [state] : []
+  })
+  const reportInputs = reports.map((report) => ({
+    reportId: String(report.id),
+    voyageId,
+    port: String(report.port ?? normalizedPort),
+    terminalId: typeof report.terminal_id === 'string' ? report.terminal_id : null,
+    terminal: typeof report.terminal === 'string' ? report.terminal : null,
+    status: typeof report.status === 'string' ? report.status : 'open',
+  }))
+  const agencyReports = groupAgencyReportsByTerminal(reportInputs, fronts)
+  return {
+    voyageId,
+    port: normalizedPort,
+    portId: typeof revisionRow.port_id === 'number' ? revisionRow.port_id : null,
+    revision: typeof revisionRow.revision === 'number' ? revisionRow.revision : 0,
+    fronts,
+    tbcFronts: fronts.filter((front) => front.terminalId === null),
+    terminals: terminalStates,
+    activeTerminals,
+    historicalTerminals,
+    agencyReports,
+  }
+}
+
+export function invalidateEscalaTerminalQueries(queryClient: Pick<QueryClient, 'invalidateQueries'>, voyageId: number, port: string) {
+  const normalizedPort = normalizePort(port)
+  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaTerminal(voyageId, normalizedPort) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaSchedules([voyageId]) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.timeline(voyageId, normalizedPort) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.timeline(voyageId) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.byScale(voyageId, normalizedPort) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.ownByScale(voyageId, normalizedPort) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.all() })
+  void queryClient.invalidateQueries({ queryKey: ['agency-report-own'] })
+  void queryClient.invalidateQueries({ queryKey: ['agency-report-closed-ports', voyageId] })
+  void queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] })
+  void queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] })
+  void queryClient.invalidateQueries({ queryKey: ['painel'] })
+  void queryClient.invalidateQueries({ queryKey: ['tv'] })
+}
+
+export async function saveEscalaTerminalState(payload: SaveEscalaTerminalStatePayload): Promise<SaveEscalaTerminalStateResult> {
+  const normalizedPort = normalizePort(payload.port)
+  if (!normalizedPort) throw new Error('O porto da escala é obrigatório.')
+  if (!Number.isInteger(payload.expectedRevision) || payload.expectedRevision < 0) throw new Error('A revisão esperada da escala é inválida.')
+  const { data, error } = await supabase.rpc('save_voyage_escala_terminal_state', {
+    p_voyage_id: payload.voyageId,
+    p_port: normalizedPort,
+    p_expected_revision: payload.expectedRevision,
+    p_fronts: payload.fronts.map((front) => ({ sentido: front.sentido, modalidade: front.modalidade, terminal_id: front.terminalId, source: front.source ?? (front.sentido === 'exportacao' ? 'export_declaration' : 'operational_data') })),
+    p_terminals: payload.terminals.map((terminal) => ({ terminal_id: terminal.terminalId, terminal_atb: terminal.atb, terminal_atd: terminal.atd, terminal_rtw: terminal.restow })),
+    p_export_expectation: (payload.exportExpectation ?? null) as Json | null,
+    p_justification: payload.justification ?? '',
+  })
+  if (error) throw error
+  const result = parseSaveResult(data)
+  if (result.blocked) throw new EscalaTerminalBlockedError(result.closedBlockers)
+  if (payload.queryClient) invalidateEscalaTerminalQueries(payload.queryClient, payload.voyageId, normalizedPort)
+  return result
+}
+
+export function deriveAgencyReportSections(fronts: OperationFront[], terminalId: string | null) {
+  return reportSections(fronts, terminalId)
+}
