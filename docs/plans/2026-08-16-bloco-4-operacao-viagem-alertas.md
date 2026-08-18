@@ -3,8 +3,8 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
 
 **Goal:** Implementar os contratos funcionais do Bloco 4 para BL, Baplie, CE
-Mercante e exportação, preservando os eventos nulos e sem duplicar os ADRs do
-#524.
+Mercante, exportação e a cadeia sequencial ETA/ATA/ETB/ATB/ETD/ATD, preservando
+os eventos nulos e sem duplicar os ADRs do #524.
 
 **Architecture:** A fundação transversal #517 fornece catálogo de gravidade,
 detecção server-only, estado de dispensa/revisão e fan-out de Notificações.
@@ -18,7 +18,8 @@ da escala usam `entity_type = 'voyage_pod_schedule'` e
 `entity_id = voyageId::PORTO`, preservando o porto no destino.
 O D−7 pode forçar a avaliação Baplie de rotas ainda sem BL; isso não mistura o
 ciclo do alerta de BL faltante com o ciclo da divergência Baplie.
-Todos os detectores usam `America/Sao_Paulo` para a aritmética de D−7/D−5.
+Todos os detectores usam `America/Sao_Paulo` para a aritmética de D−7/D−5 e
+para comparar ETA, ETB e ETD com a data local da escala.
 
 **Tech Stack:** React/TypeScript, Supabase PostgreSQL/RPCs, migrations,
 TanStack Query, Vitest e testes de contrato SQL.
@@ -128,6 +129,71 @@ não houver POD, não abrir BL, Baplie ausente, divergência Baplie ou CE.
 Mudança de tipo recalcula imediatamente a pendência pós-ATD e registra a
 alteração.
 
+### Task 2A: implementar a cadeia sequencial de datas da escala
+
+**Files:**
+
+- Modify: gravação/projeção de `voyage_pod_schedule` e detector server-only
+- Modify: catálogo compartilhado de tipos, audiência, dedupe e Notificações
+- Test: contrato SQL e serviço de alertas da escala
+
+- [ ] **Step 1: Fixar a identidade e a audiência.**
+
+Usar `entity_type = 'voyage_pod_schedule'` e
+`entity_id = voyageId::PORTO`. Registrar o item
+`voyage_schedule_date_pending` com a dimensão `milestone`; não criar
+agregado por data, por pessoa ou por departamento. A audiência do item é a
+união de Operações e Documentação, com uma entrega por usuário ativo de cada
+departamento e nenhuma entrega para Financeiro.
+
+- [ ] **Step 2: Implementar o predicado de uma única etapa ativa.**
+
+Aplicar esta ordem, sempre materializando somente o primeiro marco ainda
+pendente:
+
+```text
+ETA atingido + ATA vazia → ATA pendente
+ATA preenchida + ETB vazia → ETB pendente
+ETB atingido + ATB vazia → ATB pendente
+ATB preenchida + ETD vazia → ETD pendente
+ETD atingido + ATD vazia → ATD pendente
+ATD preenchida → nenhum alerta de data
+```
+
+Se uma data já estiver preenchida, a etapa é considerada resolvida e o
+detector avança para a seguinte. Datas estimadas ausentes não criam uma etapa
+que não possa ser avaliada; a cadeia aguarda o pré-requisito correspondente.
+
+- [ ] **Step 3: Fechar e abrir de forma sequencial.**
+
+Cada preenchimento fecha o item atual e pode abrir somente o próximo item.
+ETA/ETB/ETD são comparados pela data local de
+`America/Sao_Paulo`, com o dia previsto incluído. Se várias mutações
+ocorrerem no mesmo dia, cada mutação produz no máximo um avanço e nenhuma
+execução cria itens paralelos ou duplicados.
+
+- [ ] **Step 4: Aplicar ciclo de vida e dispensa globais.**
+
+Os itens são de gravidade `normal`, resolvidos pela origem e nunca por
+leitura, reconhecimento ou fechamento manual da fila. A dispensa segue a
+fundação #517; quando a revisão vencer com a condição persistente, o mesmo
+item reabre e a Notificação Interna é criada novamente para os destinatários
+ativos.
+
+- [ ] **Step 5: Reavaliar nos pontos certos.**
+
+As mutações de ETA, ATA, ETB, ATB, ETD e ATD devem chamar a reconciliação
+idempotente. A varredura server-only protegida de 15 minutos é a rede de
+segurança; a página `/alertas` apenas lê a fila.
+
+- [ ] **Step 6: Cobrir os casos didáticos.**
+
+Testar ETA atingido sem ATA; ATA preenchida antes do ETA; ETA/ATA/ETB/ATB/ETD
+preenchidos no mesmo dia; ETB ou ETD vencidos sem a data real; data real
+preenchida antecipadamente; ATD preenchido encerrando o ciclo; escala com
+outros itens do Bloco 4; dispensa vencida com nova Notificação; dedupe e
+isolamento entre Operações, Documentação e Financeiro.
+
 ### Task 3: completar modelo comum de alertas e dispensa
 
 **Files:**
@@ -139,7 +205,9 @@ alteração.
 - [ ] **Step 1: Registrar tipos funcionais.**
 
 Registrar BL por cobertura POL/POD, Baplie ausente, cobertura documental
-Baplie/BL, CE ausente e exportação pós-ATD.
+Baplie/BL, CE ausente, exportação pós-ATD e
+`voyage_schedule_date_pending` com `milestone` para ATA, ETB, ATB, ETD e
+ATD.
 
 - [ ] **Step 2: Consumir a dispensa da fundação.**
 
@@ -357,8 +425,8 @@ reenviar o arquivo é a ação de resolução.
 
 - [ ] **Step 1: Disparar reavaliação sem depender do render.**
 
-BL, Baplie, POD, POL, ETA e tipo de exportação devem chamar o detector ou
-invalidar o mecanismo central previsto no #517.
+BL, Baplie, POD, POL, ETA, ATA, ETB, ATB, ETD, ATD e tipo de exportação devem
+chamar o detector ou invalidar o mecanismo central previsto no #517.
 
 A validação "somente exportação não pode ter POD" deve estar no ponto
 compartilhado de gravação de POD, depois de verificar todos os callers, e não
@@ -421,8 +489,9 @@ alerts.
 
 - [ ] **Step 3: Validar contratos SQL.**
 
-Provar abertura idempotente com dispensa vigente e vencida, D−7, cobertura
-POL/POD, BL com rota e zero containers, Baplie normal e forçado
+Provar abertura idempotente com dispensa vigente e vencida, a cadeia
+ETA/ATA/ETB/ATB/ETD/ATD inclusive com várias datas no mesmo dia, D−7,
+cobertura POL/POD, BL com rota e zero containers, Baplie normal e forçado
 (inclusive rota EDI sem BL), Baplie somente com POD elegível, CE apenas para
 BLs com POD, escala somente exportação com POD bloqueada em todos os caminhos,
 exportação por escala, falha all-or-nothing de depot/terminal desconhecido,
