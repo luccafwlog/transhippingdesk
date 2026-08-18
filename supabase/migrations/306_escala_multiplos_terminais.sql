@@ -303,9 +303,9 @@ $function$;
 REVOKE ALL ON FUNCTION public.ensure_agency_departure_report(BIGINT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.ensure_agency_departure_report(BIGINT, TEXT) TO authenticated;
 
--- Task 4 integration point: os RPCs de close/reopen/signoff por report_id
--- devem chamar esta guarda antes das transições de lifecycle. Os serviços e
--- as assinaturas existentes ficam fora do escopo desta Task 2.
+-- Task 4 integration point: esta guarda e somente uma precondition de close
+-- para ADR terminalizado. Nao deve ser chamada por reopen/signoff; a Task 4
+-- deve manter ramos explicitos para legado, reopen e signoff.
 CREATE OR REPLACE FUNCTION public.assert_voyage_escala_ready_for_report_close(
   p_voyage_id BIGINT,
   p_port TEXT,
@@ -337,6 +337,11 @@ BEGIN
   LIMIT 1;
   IF v_port_id IS NULL THEN
     RAISE EXCEPTION 'Porto brasileiro % nao encontrado.', v_port USING ERRCODE = 'P0002';
+  END IF;
+
+  PERFORM 1 FROM public.voyages WHERE id = p_voyage_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Viagem nao encontrada.' USING ERRCODE = 'P0002';
   END IF;
 
   SELECT r.id, r.voyage_id, r.port, r.terminal_id, r.terminal_port_id
@@ -852,11 +857,37 @@ BEGIN
   END IF;
 
   IF jsonb_array_length(v_closed_blockers) > 0 THEN
-    -- A tentativa bloqueada é devolvida com código e report_id. Persistir uma
-    -- auditoria aqui violaria o rollback integral; a reabertura explícita usa
-    -- reopen_agency_departure_report, que já audita o evento de reabertura.
-    RAISE EXCEPTION 'ADR fechado; reabra antes de alterar a escala. closed_blockers=%', v_closed_blockers::TEXT
-      USING ERRCODE = 'P0001', DETAIL = v_closed_blockers::TEXT;
+    -- A tentativa bloqueada não escreve nada: a UI recebe o contrato estável
+    -- e pode traduzir terminal_code/report_id sem parsear DETAIL.
+    RETURN jsonb_build_object(
+      'revision', v_current_revision,
+      'fronts', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'sentido', f.sentido, 'modalidade', f.modalidade,
+          'terminal_id', f.terminal_id, 'source', f.source,
+          'last_changed_at', f.last_changed_at, 'last_changed_by', f.last_changed_by,
+          'revision', f.revision
+        ) ORDER BY f.sentido, f.modalidade)
+        FROM public.voyage_escala_operation_fronts AS f
+        WHERE f.voyage_id = p_voyage_id AND f.port = v_port
+      ), '[]'::JSONB),
+      'terminals', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'terminal_id', s.terminal_id, 'code', d.code, 'name', d.name,
+          'active', d.active, 'port_id', s.port_id,
+          'terminal_atb', s.terminal_atb, 'terminal_atd', s.terminal_atd,
+          'terminal_rtw', s.terminal_rtw, 'revision', s.revision,
+          'report_id', r.id
+        ) ORDER BY s.terminal_atb NULLS LAST, d.code)
+        FROM public.voyage_escala_terminal_state AS s
+        JOIN public.depots AS d ON d.id = s.terminal_id
+        LEFT JOIN public.agency_departure_reports AS r
+          ON r.voyage_id = s.voyage_id AND r.port = s.port AND r.terminal_id = s.terminal_id
+        WHERE s.voyage_id = p_voyage_id AND s.port = v_port
+      ), '[]'::JSONB),
+      'closed_blockers', v_closed_blockers,
+      'blocked', TRUE
+    );
   END IF;
   IF v_requires_justification AND NULLIF(btrim(COALESCE(p_justification, '')), '') IS NULL THEN
     RAISE EXCEPTION 'Justificativa obrigatoria para alterar estado terminalizado existente.'
@@ -1090,6 +1121,7 @@ BEGIN
         WHERE f.voyage_id = p_voyage_id AND f.port = v_port
           AND f.terminal_id = r.terminal_id
       )
+    FOR UPDATE OF r
   LOOP
     IF v_report.status = 'open' THEN
       -- Um ADR aberto só pode ser removido quando não há filhos nem histórico

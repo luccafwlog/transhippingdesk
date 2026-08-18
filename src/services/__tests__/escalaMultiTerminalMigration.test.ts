@@ -54,8 +54,26 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toContain('SECURITY DEFINER')
     expect(sql).toContain('Frente TBC impede o fechamento do ADR.')
     expect(sql).toContain('terminal_port_id')
-    expect(sql).toContain('Task 4')
+    expect(sql).toContain('somente uma precondition de close')
+    expect(sql).toContain('Nao deve ser chamada por reopen/signoff')
+    expect(sql).toContain('ramos explicitos para legado, reopen e signoff')
+    const closeGuardStart = sql.indexOf('CREATE OR REPLACE FUNCTION public.assert_voyage_escala_ready_for_report_close')
+    const closeGuardLock = sql.indexOf('PERFORM 1 FROM public.voyages WHERE id = p_voyage_id FOR UPDATE;', closeGuardStart)
+    const closeGuardReportSelect = sql.indexOf('SELECT r.id, r.voyage_id', closeGuardStart)
+    expect(closeGuardStart).toBeGreaterThanOrEqual(0)
+    expect(closeGuardLock).toBeGreaterThan(closeGuardStart)
+    expect(closeGuardReportSelect).toBeGreaterThan(closeGuardLock)
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.assert_voyage_escala_ready_for_report_close\(BIGINT, TEXT, UUID\)[\s\S]+FROM PUBLIC, anon/i)
+  })
+
+  it('retorna bloqueio estável sem escrever e trava ADR antes da remoção', () => {
+    expect(sql).toMatch(
+      /IF jsonb_array_length\(v_closed_blockers\) > 0 THEN[\s\S]+RETURN jsonb_build_object\([\s\S]+'revision', v_current_revision[\s\S]+'fronts'[\s\S]+'terminals'[\s\S]+'closed_blockers', v_closed_blockers[\s\S]+'blocked', TRUE[\s\S]+END IF;[\s\S]+INSERT INTO public\.voyage_escala_revision_state/i,
+    )
+    expect(sql).not.toContain("RAISE EXCEPTION 'ADR fechado; reabra antes de alterar a escala.")
+    expect(sql).toMatch(
+      /FOR v_report IN[\s\S]+FROM public\.agency_departure_reports AS r[\s\S]+FOR UPDATE OF r[\s\S]+LOOP[\s\S]+IF v_report\.status = 'open'/i,
+    )
   })
 
   it('adiciona terminalização de ADRs sem apagar o legado nem os filhos por report_id', () => {
