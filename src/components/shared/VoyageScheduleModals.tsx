@@ -91,7 +91,7 @@ export type EscalaModalData = {
   exportExistingId: string | null
   temExportacao: boolean
   hasGranite: boolean
-  hasEmpty?: boolean
+  hasEmpty: boolean
   containersQty: number | null
   movementsQty: number | null
   dischargePorts: string[]
@@ -510,7 +510,7 @@ export function EscalaModal({
     setEscalaNumber(escala.escalaNumber ?? '')
     setTemExportacao(escala.temExportacao)
     setHasGranite(escala.hasGranite)
-    setHasEmpty(escala.hasEmpty ?? false)
+    setHasEmpty(escala.hasEmpty)
     setContainersQty(escala.containersQty === null ? '' : String(escala.containersQty))
     setMovementsQty(escala.movementsQty === null ? '' : String(escala.movementsQty))
     setDischargePorts(escala.dischargePorts.join(', '))

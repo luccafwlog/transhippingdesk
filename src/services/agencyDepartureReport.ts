@@ -191,7 +191,9 @@ export async function listAgencyReportOwnDataByScale(voyageId: number, port: str
     .eq('voyage_id', voyageId)
     .eq('port', normalizedPort)
   if (error) throw error
-  return (data ?? []) as TerminalizedReportRow[]
+  return [...(data ?? []) as TerminalizedReportRow[]].sort((left, right) =>
+    (left.terminal ?? '').localeCompare(right.terminal ?? '', 'pt-BR') || left.id.localeCompare(right.id),
+  )
 }
 
 /**
@@ -206,8 +208,8 @@ export function deriveAgencyReportByTerminal(
     const assigned = fronts.filter((front) => front.terminalId === (report.terminal_id ?? null) && front.section === section)
     return {
       section,
-      state: assigned.length ? 'operated' as const : 'nothing_operated' as const,
-      fronts: assigned.map((front) => front.modalidade as OperationFrontKind),
+      state: assigned.some((front) => front.hasData) ? 'operated' as const : 'nothing_operated' as const,
+      fronts: assigned.map((front) => front.modalidade as OperationFrontKind).sort((left, right) => left.localeCompare(right, 'pt-BR')),
     }
   })
   return {

@@ -10,7 +10,8 @@ export type VoyageExportSchedule = {
   pol: string | null
   temExportacao: boolean
   hasGranite: boolean
-  hasEmpty?: boolean
+  /** Sempre booleano para consumidores; linhas legadas sem a coluna viram false na leitura. */
+  hasEmpty: boolean
   containersQty: number | null
   movementsQty: number | null
   ceStatus: ExportCeStatus | null
@@ -82,7 +83,9 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
       pol: row.pol,
       temExportacao: row.tem_exportacao,
       hasGranite: row.has_granite,
-      hasEmpty: row.has_empty,
+      // Compatibilidade somente na leitura: linhas anteriores à migration 306
+      // podem não trazer a coluna, mas o domínio nunca propaga undefined.
+      hasEmpty: row.has_empty === true,
       containersQty: row.containers_qty,
       movementsQty: row.movements_qty,
       ceStatus: (row.ce_status as ExportCeStatus | null) ?? 'waiting',

@@ -28,6 +28,7 @@ export type OperationFront = {
 
 export type TerminalDateState = {
   terminalId: string
+  terminalCode?: string | null
   atb: string | null
   atd: string | null
   restow: number | null
@@ -48,6 +49,8 @@ export type AgencyReportByTerminal = {
   voyageId: number
   port: string
   terminalId: string | null
+  terminalCode?: string | null
+  terminalAtb?: string | null
   terminal: string | null
   status: string
   sections: Array<{
@@ -86,7 +89,7 @@ export type SaveEscalaTerminalStatePayload = {
     atd: string | null
     restow: number | null
   }>
-  exportExpectation?: Record<string, unknown> | null
+  exportExpectation: Record<string, unknown>
   justification?: string | null
   queryClient?: Pick<QueryClient, 'invalidateQueries'>
 }
@@ -181,7 +184,7 @@ export type DeriveOperationFrontInput = {
 export function deriveOperationFronts(input: DeriveOperationFrontInput): OperationFront[] {
   const fronts = new Map<string, OperationFront>()
   for (const existing of input.existing ?? []) {
-    fronts.set(frontKey(existing), makeFront(existing.sentido, existing.modalidade, existing.terminalId, existing.source, true, existing.id))
+    fronts.set(frontKey(existing), makeFront(existing.sentido, existing.modalidade, existing.terminalId, existing.source, existing.source === 'operational_data', existing.id))
   }
   for (const kind of new Set(input.importKinds ?? [])) {
     fronts.set(frontKey({ sentido: 'importacao', modalidade: kind }), makeFront('importacao', kind, null, 'operational_data', true))
@@ -198,13 +201,15 @@ function parseFront(row: JsonRecord): OperationFront | null {
   const sentido = row.sentido === 'importacao' || row.sentido === 'exportacao' ? row.sentido : null
   const modalidade = typeof row.modalidade === 'string' ? row.modalidade as OperationFrontKind : null
   if (!sentido || !modalidade) return null
-  return makeFront(sentido, modalidade, typeof row.terminal_id === 'string' ? row.terminal_id : null, row.source === 'export_declaration' ? 'export_declaration' : 'operational_data', true, typeof row.id === 'string' ? row.id : null)
+  const source = row.source === 'export_declaration' ? 'export_declaration' : 'operational_data'
+  return makeFront(sentido, modalidade, typeof row.terminal_id === 'string' ? row.terminal_id : null, source, source === 'operational_data', typeof row.id === 'string' ? row.id : null)
 }
 
 function parseTerminal(row: JsonRecord): TerminalDateState | null {
   if (typeof row.terminal_id !== 'string') return null
   return {
     terminalId: row.terminal_id,
+    terminalCode: typeof row.code === 'string' ? row.code : null,
     atb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
     atd: typeof row.terminal_atd === 'string' ? row.terminal_atd : null,
     restow: typeof row.terminal_rtw === 'number' ? row.terminal_rtw : row.terminal_rtw == null ? null : Number(row.terminal_rtw),
@@ -251,27 +256,52 @@ async function readAgencyReports(voyageId: number, port: string): Promise<JsonRe
 
 function reportSections(fronts: OperationFront[], terminalId: string | null): AgencyReportByTerminal['sections'] {
   const bySection = new Map<string, OperationFrontKind[]>()
-  for (const front of fronts.filter((item) => item.terminalId === terminalId)) {
+  const assigned = fronts.filter((item) => item.terminalId === terminalId)
+  for (const front of assigned) {
     if (!front.section) continue
     const kinds = bySection.get(front.section) ?? []
-    kinds.push(front.modalidade)
+    if (!kinds.includes(front.modalidade)) kinds.push(front.modalidade)
     bySection.set(front.section, kinds)
   }
   const sections = ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados']
   return sections.map((section) => ({
     section,
-    state: bySection.has(section) ? 'operated' : 'nothing_operated',
-    fronts: bySection.get(section) ?? [],
+    state: assigned.some((front) => front.section === section && front.hasData) ? 'operated' : 'nothing_operated',
+    fronts: (bySection.get(section) ?? []).sort((left, right) => left.localeCompare(right, 'pt-BR')),
   }))
 }
 
-export type AgencyReportProjectionInput = Pick<AgencyReportByTerminal, 'reportId' | 'voyageId' | 'port' | 'terminalId' | 'terminal' | 'status'>
+export type AgencyReportProjectionInput = Pick<AgencyReportByTerminal, 'reportId' | 'voyageId' | 'port' | 'terminalId' | 'terminal' | 'status' | 'terminalCode' | 'terminalAtb'>
 
 export function groupAgencyReportsByTerminal(reports: AgencyReportProjectionInput[], fronts: OperationFront[]): AgencyReportByTerminal[] {
   return reports.map((report) => ({
     ...report,
     sections: reportSections(fronts, report.terminalId),
-  }))
+  })).sort(compareAgencyReports)
+}
+
+function compareNullableAtb(left: string | null | undefined, right: string | null | undefined) {
+  if (left === right) return 0
+  if (left == null) return 1
+  if (right == null) return -1
+  return left.localeCompare(right)
+}
+
+function compareAgencyReports(left: AgencyReportByTerminal, right: AgencyReportByTerminal) {
+  return compareNullableAtb(left.terminalAtb, right.terminalAtb)
+    || (left.terminalCode ?? '').localeCompare(right.terminalCode ?? '', 'pt-BR')
+    || (left.terminalId ?? '').localeCompare(right.terminalId ?? '')
+    || left.reportId.localeCompare(right.reportId)
+}
+
+function compareTerminalStates(left: TerminalDateState, right: TerminalDateState) {
+  return compareNullableAtb(left.atb, right.atb)
+    || (left.terminalCode ?? '').localeCompare(right.terminalCode ?? '', 'pt-BR')
+    || left.terminalId.localeCompare(right.terminalId)
+}
+
+function compareTerminalOptions(left: TerminalOption, right: TerminalOption) {
+  return (left.code ?? '').localeCompare(right.code ?? '', 'pt-BR') || left.id.localeCompare(right.id)
 }
 
 export async function fetchEscalaTerminalState(voyageId: number, port: string): Promise<TerminalScaleState> {
@@ -322,20 +352,23 @@ export async function fetchEscalaTerminalState(voyageId: number, port: string): 
     : portRows.find((row) => normalizePort(String(row.locode ?? '')) === normalizedPort)?.id
   const options = depotRows.filter((depot) => depot.tipo === 'terminal_portuario' && scalePortId != null && Number(depot.port_id) === Number(scalePortId))
   const toOption = (depot: (typeof depotRows)[number], historical: boolean): TerminalOption => ({ id: depot.id, code: depot.code, name: depot.name, active: depot.active, portId: depot.port_id ?? null, historical })
-  const activeTerminals = options.filter((depot) => depot.active).map((depot) => toOption(depot, false))
+  const activeTerminals = options.filter((depot) => depot.active).map((depot) => toOption(depot, false)).sort(compareTerminalOptions)
   const historicalTerminals = [...historicalIds].map((id) => {
     const depot = depotRows.find((row) => row.id === id)
     return depot ? toOption(depot, true) : { id, code: id, name: null, active: false, portId: null, historical: true }
-  })
+  }).sort(compareTerminalOptions)
+  const depotById = new Map(depotRows.map((depot) => [depot.id, depot]))
   const terminalStates = stateRows.flatMap((row) => {
-    const state = parseTerminal(row)
+    const state = parseTerminal({ ...row, code: depotById.get(String(row.terminal_id))?.code })
     return state ? [state] : []
-  })
+  }).sort(compareTerminalStates)
   const reportInputs = reports.map((report) => ({
     reportId: String(report.id),
     voyageId,
     port: String(report.port ?? normalizedPort),
     terminalId: typeof report.terminal_id === 'string' ? report.terminal_id : null,
+    terminalCode: typeof report.terminal_id === 'string' ? depotById.get(report.terminal_id)?.code ?? null : null,
+    terminalAtb: typeof report.terminal_id === 'string' ? terminalStates.find((state) => state.terminalId === report.terminal_id)?.atb ?? null : null,
     terminal: typeof report.terminal === 'string' ? report.terminal : null,
     status: typeof report.status === 'string' ? report.status : 'open',
   }))
@@ -375,13 +408,16 @@ export async function saveEscalaTerminalState(payload: SaveEscalaTerminalStatePa
   const normalizedPort = normalizePort(payload.port)
   if (!normalizedPort) throw new Error('O porto da escala é obrigatório.')
   if (!Number.isInteger(payload.expectedRevision) || payload.expectedRevision < 0) throw new Error('A revisão esperada da escala é inválida.')
+  if (!payload.exportExpectation || typeof payload.exportExpectation !== 'object' || Array.isArray(payload.exportExpectation)) {
+    throw new Error('A expectativa de exportação da escala é obrigatória.')
+  }
   const { data, error } = await supabase.rpc('save_voyage_escala_terminal_state', {
     p_voyage_id: payload.voyageId,
     p_port: normalizedPort,
     p_expected_revision: payload.expectedRevision,
     p_fronts: payload.fronts.map((front) => ({ sentido: front.sentido, modalidade: front.modalidade, terminal_id: front.terminalId, source: front.source ?? (front.sentido === 'exportacao' ? 'export_declaration' : 'operational_data') })),
     p_terminals: payload.terminals.map((terminal) => ({ terminal_id: terminal.terminalId, terminal_atb: terminal.atb, terminal_atd: terminal.atd, terminal_rtw: terminal.restow })),
-    p_export_expectation: (payload.exportExpectation ?? null) as Json | null,
+    p_export_expectation: payload.exportExpectation as Json,
     p_justification: payload.justification ?? '',
   })
   if (error) throw error

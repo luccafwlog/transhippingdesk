@@ -80,6 +80,7 @@ describe('escalaTerminalAllocation', () => {
       expectedRevision: 3,
       fronts: [{ sentido: 'importacao', modalidade: 'carga_cheia', terminalId: 'terminal-1' }],
       terminals: [{ terminalId: 'terminal-1', atb: null, atd: null, restow: null }],
+      exportExpectation: { tem_exportacao: false, granito: false, has_empty: false },
     })).rejects.toMatchObject({ code: 'ADR_CLOSED_BLOCKED' })
 
     expect(rpcMock).toHaveBeenCalledWith('save_voyage_escala_terminal_state', expect.objectContaining({
@@ -99,10 +100,13 @@ describe('escalaTerminalAllocation', () => {
       expectedRevision: 3,
       fronts: [],
       terminals: [],
+      exportExpectation: { tem_exportacao: false, granito: false, has_empty: false },
       queryClient: { invalidateQueries },
     })
 
     expect(result.revision).toBe(4)
+    expect(rpcMock.mock.calls[0][1].p_export_expectation).toEqual({ tem_exportacao: false, granito: false, has_empty: false })
+    expect(rpcMock.mock.calls[0][1].p_export_expectation).not.toBeNull()
     expect(invalidateQueries).toHaveBeenCalled()
     expect(invalidateQueries.mock.calls.map(([input]) => input.queryKey[0])).toEqual(expect.arrayContaining([
       'voyage-escala-terminal', 'voyage-escala-schedules', 'voyage-timeline', 'agency-report', 'lineup-tv-v3', 'painel', 'tv',

@@ -134,7 +134,9 @@ export function VoyageVisaoTab({
       exportExistingId: exportSchedule?.id ?? null,
       temExportacao: exportSchedule?.temExportacao ?? false,
       hasGranite: exportSchedule?.hasGranite ?? false,
-      hasEmpty: exportSchedule?.hasEmpty ?? row?.temVazios ?? false,
+      // `fetchExportSchedulesByVoyageIds` normaliza linha legada sem coluna para
+      // false; só usamos o marcador agregado quando não existe declaração.
+      hasEmpty: exportSchedule ? exportSchedule.hasEmpty : Boolean(row?.temVazios),
       containersQty: exportSchedule?.containersQty ?? null,
       movementsQty: exportSchedule?.movementsQty ?? null,
       dischargePorts: exportSchedule?.dischargePorts ?? [],

@@ -285,6 +285,16 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
     })
     result.set(row.voyage_id, states)
   }
+  for (const states of result.values()) {
+    states.sort((left, right) => {
+      if (left.terminalAtb !== right.terminalAtb) {
+        if (left.terminalAtb == null) return 1
+        if (right.terminalAtb == null) return -1
+        return left.terminalAtb.localeCompare(right.terminalAtb)
+      }
+      return left.terminalId.localeCompare(right.terminalId)
+    })
+  }
   return result
 }
 

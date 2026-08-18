@@ -59,7 +59,7 @@ describe('agencyDepartureReport terminalizado', () => {
     ])
     expect(result.sections.find((section) => section.section === 'carga_descarregada')).toMatchObject({ state: 'operated', fronts: ['carga_cheia'] })
     expect(result.sections.find((section) => section.section === 'vazios_descarregados')).toMatchObject({ state: 'nothing_operated', fronts: [] })
-    expect(result.sections.find((section) => section.section === 'carga_carregada')).toMatchObject({ state: 'operated', fronts: ['granito'] })
+    expect(result.sections.find((section) => section.section === 'carga_carregada')).toMatchObject({ state: 'nothing_operated', fronts: ['granito'] })
   })
 
   it('roteia sign-off, observação, departamento, fechamento e reabertura por report_id', async () => {
