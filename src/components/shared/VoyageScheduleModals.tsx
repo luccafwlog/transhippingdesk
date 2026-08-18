@@ -230,8 +230,17 @@ export function EscalaModal({
 
   const isNew = escala?.port === null
 
-  function handleToggleExportacao(next: boolean) {
+  async function handleToggleExportacao(next: boolean) {
     if (!next && escala?.exportLocked) return
+    if (!next) {
+      const confirmed = await confirm({
+        title: 'Retirar a exportação desta escala',
+        message: 'As frentes de exportação e o planejamento digitado (containers, movimentos e portos de descarga) serão removidos ao salvar. Continuar?',
+        confirmLabel: 'Retirar',
+        tone: 'danger',
+      })
+      if (!confirmed) return
+    }
     setTemExportacao(next)
     setExportError(null)
   }
@@ -402,7 +411,7 @@ export function EscalaModal({
                 type="checkbox"
                 checked={temExportacao}
                 disabled={escala.exportLocked && temExportacao}
-                onChange={(event) => handleToggleExportacao(event.target.checked)}
+                onChange={(event) => { void handleToggleExportacao(event.target.checked) }}
                 className="h-4 w-4 rounded border-slate-500 accent-amber-500"
               />
               <span className="text-sm text-[var(--app-text)]">Esta escala terá exportação</span>

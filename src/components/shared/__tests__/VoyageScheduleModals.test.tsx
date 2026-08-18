@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // voyageRouteSchedules importa o cliente Supabase no topo do modulo; os modais
@@ -243,6 +243,73 @@ describe('EscalaModal', () => {
         },
       }),
     )
+  })
+
+  it('confirma a retirada principal e preserva dados quando o cancelamento é escolhido', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      exportExistingId: 'export-existing-id',
+      temExportacao: true,
+      hasEmpty: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+    })
+
+    const toggle = screen.getByLabelText('Esta escala terá exportação') as HTMLInputElement
+    await user.click(toggle)
+
+    const confirmation = screen.getByRole('dialog', { name: 'Retirar a exportação desta escala' })
+    expect(toggle.checked).toBe(true)
+    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('4')
+    expect((screen.getByLabelText('Portos de descarga') as HTMLInputElement).value).toBe('ITGOA')
+
+    await user.click(within(confirmation).getByRole('button', { name: 'Cancelar' }))
+
+    expect(toggle.checked).toBe(true)
+    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('4')
+    expect((screen.getByLabelText('Portos de descarga') as HTMLInputElement).value).toBe('ITGOA')
+
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      exportacao: expect.objectContaining({
+        temExportacao: true,
+        hasEmpty: true,
+        containersQty: 4,
+        movementsQty: 2,
+        dischargePorts: ['ITGOA'],
+      }),
+    }))
+  })
+
+  it('só permite remover fronts e planejamento depois da confirmação principal', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      exportExistingId: 'export-existing-id',
+      temExportacao: true,
+      hasEmpty: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+    })
+
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    const confirmation = screen.getByRole('dialog', { name: 'Retirar a exportação desta escala' })
+    await user.click(within(confirmation).getByRole('button', { name: 'Retirar' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      exportacao: {
+        temExportacao: false,
+        hasGranite: false,
+        hasEmpty: false,
+        containersQty: null,
+        movementsQty: null,
+        dischargePorts: [],
+      },
+    }))
   })
 
   it('trava a retirada da exportacao quando ha carga vinculada', () => {
