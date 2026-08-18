@@ -114,6 +114,42 @@ Hoje um `terminal_portuario` só está lá se algum vazio veio dele (Embarque
 Direto); passa a precisar conter **todo terminal onde qualquer navio atraca**. É
 o que justifica tirá-lo de `/embarquevazios/depots` — ver E2.
 
+## Decisão 7 — a unidade atribuível é a Frente de Operação `(sentido, modalidade)`
+
+**Frente de Operação** é o nome canônico. "Natureza da carga" não serve —
+natureza já nomeia três conceitos; "movimento" também não — é FCL/LCL.
+
+São seis, e elas **não** coincidem com as seis seções do ADR: `carga_descarregada`
+contém duas, e `datas` não é carga. Vazio aparece nos dois sentidos, então a
+modalidade sozinha não identifica: a chave é o par.
+
+| Sentido | Modalidade | Seção do ADR | Fonte |
+|---|---|---|---|
+| Importação | Container cheio | `carga_descarregada` | `bls`, `cargo_mode = 'container'` |
+| Importação | Carga solta | `carga_descarregada` | `bls`, `cargo_mode = 'carga_solta'` |
+| Importação | Vazio | `vazios_descarregados` | Baplie / vazios importação |
+| Importação | Veículo | `veiculos` | módulo RoRo |
+| Exportação | Granito | `carga_carregada` | `granite_bls` |
+| Exportação | Vazio | `vazios_embarcados` | `vazios_export_operations` |
+
+No caso GREEN PECEM: containers → TVV; carga solta, granito e vazios embarcados
+→ PORTMAC. Quatro atribuições, dois terminais, dois ADRs.
+
+### Teto aceito: uma frente inteira vai para um terminal só
+
+O shifting pode partir uma modalidade no meio — 200 containers no TVV, shifting,
+50 na PORTMAC. O modelo não representa isso: a frente aponta um terminal só.
+Quando acontecer, o registro vai na Observação da seção.
+
+A alternativa recusada era atribuir no grão do documento (cada B/L, cada
+veículo, cada unidade). Representa tudo, mas troca quatro cliques por centenas
+de atribuições manuais impeditivas por escala — o oposto de simplificar.
+
+O teto deve ser marcado com `ponytail:` no código conforme o `CLAUDE.md`,
+nomeando a limitação (modalidade partida entre terminais) e o caminho de
+upgrade (descer o grão para o documento). O grão só desce, nunca precisa subir:
+a decisão não fecha essa porta.
+
 ## Decisão 5 — cada terminal gera uma linha no Line-Up, no Painel e na TV
 
 Chegadas e Saídas não é afetado.
@@ -125,7 +161,6 @@ Ordenadas por dependência.
 | # | Bloco | Questão |
 |---|---|---|
 | A3 | Modelo | Terminal cadastrado precisa saber seu porto? Quem é selecionável? |
-| B1 | Atribuição | Qual é a lista exata de parcelas atribuíveis, e como chamá-la |
 | B2 | Atribuição | O que exatamente o "impeditivo" bloqueia |
 | C1 | Datas | Quais datas são da escala e quais são de cada terminal |
 | D1 | ADR | Embarque de Vazios: um por escala ou um por terminal |
