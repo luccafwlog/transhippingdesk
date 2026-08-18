@@ -13,6 +13,12 @@ no repo — operação na rota pai, cadastro na filha (`/demurrage` →
 `/embarquevazios/depots`). Taxas Locais era a única exceção: expunha o cadastro
 como se fosse a operação.
 
+`/taxas-locais/tabelas` é, portanto, a tela de cadastro de valores de Taxas
+Locais que hoje está em `/taxas-locais`: mantém as abas **Tabelas** (POD, modo
+de carga e itens tarifários) e **Overrides** (valores específicos por cliente).
+`/taxas-locais` passa a ser a operação de faturamento que hoje está em
+`/faturamento`.
+
 **Tech Stack:** React + TypeScript, React Router, TanStack Query, Vitest,
 Supabase (uma migration de texto de mensagem).
 
@@ -43,8 +49,10 @@ faz a UI obedecer o vocabulário que já está escrito.
 1. `/taxas-locais` serve a tela de faturamento; tabelas descem para
    `/taxas-locais/tabelas`. `/taxaslocais` sem hífen foi descartado: duas URLs
    quase idênticas para telas diferentes.
-2. "Tabelas" é **sub-rota**, não modal — a tela tem estado endereçável (aba,
-   POD, modo de carga, busca de cliente) e é alvo de deep link.
+2. "Tabelas" é **sub-rota**, não modal — a tela de cadastro é alvo de deep link
+   por aba e cliente (`?tab=overrides|tabelas&cliente=`), como já ocorre no link
+   da ficha do cliente. POD e modo de carga continuam filtros internos da tela;
+   não ganham um novo contrato de URL nesta reorganização.
 3. Documentação viva realinhada + ADR novo registrando a segregação.
 4. Relatórios vira botão de primeiro nível **logo depois** do dropdown
    Financeiro; a aba "Financeiro" continua dentro de Relatórios.
@@ -62,8 +70,9 @@ faz a UI obedecer o vocabulário que já está escrito.
 
 Todas as decisões acima foram confirmadas pelo autor em 2026-08-18. A decisão 6
 foi confirmada na forma corrigida da Task 7: o strip é removido e nada muda em
-`/demurrage` — não existe fatura de Demurrage vencida (ADR 0014), então não há
-decisão pendente sobre filtro de status.
+`/demurrage` — no estado vigente não existe fatura de Demurrage vencida (ADR
+0014); dados legados continuam cobertos pelos consumidores que já os exibem,
+sem criar uma decisão nova de filtro de status.
 
 **Este plano não foi executado.** A sessão que o produziu foi de planejamento
 apenas, por decisão do autor; a implementação acontece em sessão separada.
@@ -73,16 +82,34 @@ referências como a lista de verificação de "nenhuma referência quebrada".
 ## Global Constraints
 
 - Zero mudança de lógica de negócio: nenhuma RPC, policy, grant, hook de dados,
-  chave de cache ou regra de cálculo é tocada.
+  chave de cache ou regra de cálculo muda de assinatura, comportamento ou
+  autorização. A única redefinição de RPC é a migration textual da Task 6, que
+  preserva assinatura, corpo lógico e grants e troca somente a rota da
+  mensagem de erro.
 - Nenhum link pode terminar em tela errada **em silêncio** — é o modo de falha
   desta mudança. Todo destino antigo redireciona ou é atualizado.
-- Query string sobrevive a todo redirect. `<Navigate to="/x" replace />`
+- Query string sobrevive a todo redirect aplicável. `<Navigate to="/x" replace />`
   descarta `?invoice=`, então o redirect de `/faturamento` usa componente
-  próprio que reanexa `location.search`.
+  próprio que reanexa `location.search`; a única exceção é consumir
+  explicitamente `tab=demurrage` para escolher o módulo `/demurrage`, mantendo
+  os demais parâmetros.
 - Documentos históricos (`docs/archive/**`) e ADRs existentes **não** são
   reescritos. A decisão nova entra como ADR novo.
 - `npm run docs:check` falha se qualquer rota de `App.tsx` não aparecer entre
   crases em `ARCHITECTURE.md` e `RASTREABILIDADE.md` (`check-docs.mjs:133-148`).
+
+### Compatibilidade de URLs
+
+- `/faturamento?invoice=...`, `?customer=...` e `?tab=validacao|invoices|pendencias`
+  vão para `/taxas-locais` com os parâmetros preservados.
+- `/faturamento?tab=demurrage` continua indo para `/demurrage`, como no fluxo
+  atual; o parâmetro de seleção de módulo é consumido pelo redirect, mas outros
+  parâmetros presentes na URL permanecem.
+- `/taxas-locais?tab=overrides|tabelas&cliente=...` vai para
+  `/taxas-locais/tabelas` com a query preservada. A URL sem `tab` passa a ser a
+  operação de faturamento por decisão deste plano.
+- Nenhum redirect novo pode abrir a tela errada silenciosamente; cada caso
+  precisa de teste de destino e de query string.
 
 ## Inventário de referências
 
@@ -132,6 +159,7 @@ Levantamento completo — a base do requisito de "zero quebra".
 `docs/modules/clientes.md`, `docs/modules/operacao-suporte.md`,
 `docs/operations/validacao.md`, `docs/operations/regras-de-negocio.md`,
 `docs/design-audit/README.md`, `skills/design-audit/SKILL.md:64`,
+`docs/adr/README.md` (índice do ADR novo),
 `docs/spec/2026-08-12-behavioral-spec.csv:57,72` (+ `.xlsx` regenerado por
 `node scripts/build-behavioral-spec.mjs`), `docs/CHANGELOG.md` (entrada nova).
 
@@ -152,8 +180,11 @@ Levantamento completo — a base do requisito de "zero quebra".
   não perder o preload.
 - `pageTitle`: `^/taxas-locais/tabelas` → "Tabelas de Taxas Locais", antes de
   `^/taxas-locais` → "Taxas Locais"; `^/faturamento` sai.
-- **Check:** teste do redirect com `?invoice=` chegando com a query intacta;
-  teste de `routeTitle` para pai e filha.
+- O redirect conserva o comportamento legado de `?tab=demurrage` para
+  `/demurrage` e de `?tab=pendencias` para a Validação com o filtro inicial;
+  `?invoice=` e os demais parâmetros continuam chegando à tela de faturamento.
+- **Check:** testes de destino e query para `?invoice=`, `?tab=pendencias`,
+  `?tab=demurrage` e `?tab=overrides`; teste de `routeTitle` para pai e filha.
 
 ### Task 2 — Renomear as páginas
 `src/pages/Faturamento.tsx` → `src/pages/TaxasLocais.tsx`;
@@ -217,10 +248,14 @@ existe só no strip. `Demurrage.tsx:340` já mostra o card "Aguardando pagamento
 (BRL)" a partir de `kpis.issuedInvoicesTotalBrl`. Não há métrica a mover —
 mover criaria um segundo card de saldo na mesma página.
 
-**E não há divergência de filtro a resolver.** O strip soma
+**E não há divergência de filtro a resolver no estado vigente.** O strip soma
 `status IN ('issued','overdue')` (`DemurrageMetricsStrip.tsx:23`) e o card da
 página soma só `'issued'` (`demurrageKpis.ts:120`), mas o ramo `overdue` do
-strip é **código morto**: fatura de Demurrage não vence.
+strip não é produzido pelo job vigente: fatura de Demurrage não vence sob a
+ADR 0014. Ainda assim, o schema e a leitura da ficha preservam compatibilidade
+com dados legados: `VisaoGeralTab.tsx:26-42` inclui invoices Demurrage com
+`status = 'overdue'` ou `due_date` vencida nas pendências do cliente. Essa
+leitura não pode ser removida nem alterada por esta task.
 
 Pela [ADR 0014](../adr/0014-demurrage-recalculo-diario-substitui-roe-congelado.md)
 (aceita em 2026-06-24), enquanto a fatura não é paga o BRL é recalculado a cada
@@ -230,14 +265,18 @@ isso: tirou Demurrage de `mark_overdue_invoices` e fez backfill das faturas já
 marcadas de volta para `'issued'`. O mesmo já está registrado em
 `demurrageInvoiceTabs.ts:3`, que por isso não tem aba de vencidas.
 
-Logo, `.eq('status','issued')` no card da página **já é o total completo**, e
-os dois números sempre coincidem.
+Logo, `.eq('status','issued')` no card da página é o total completo do estado
+vigente; o fluxo legado da ficha do cliente continua sendo tratado
+separadamente.
 
 A task é apenas:
 
 1. Remover `<DemurrageMetricsStrip />` da tela de Taxas Locais e apagar o
-   componente (sem outro chamador). Nada é acrescentado ou alterado em
-   `/demurrage`.
+   componente e seu teste `src/components/billing/__tests__/DemurrageMetricsStrip.test.tsx`
+   (sem outro chamador). Nada é acrescentado ou alterado em `/demurrage`.
+2. Preservar o consumidor de `overdue` da ficha do cliente e adicionar uma
+   regressão que demonstre que uma invoice legada vencida continua aparecendo
+   como pendência, sem reintroduzir a faixa removida.
 
 As demais métricas do strip (contagem de faturas, contagem em aberto, total USD
 de todas) não têm equivalente em `/demurrage`, que mostra "Total USD (visível)"
@@ -253,10 +292,13 @@ necessária; morrem com ele.
 consuma para vencimento. Não é tocada por este plano.
 
 ### Task 8 — Documentação e ADR
-ADR novo: "Módulo financeiro segregado por processo faturável", registrando os
-dois processos, os departamentos donos e por que a tela de invoices chama-se
-Taxas Locais. Realinhar toda a documentação viva do inventário; `docs/archive/**`
-e ADRs anteriores ficam intactos. Regenerar o XLSX da spec comportamental.
+Criar o ADR `docs/adr/0050-financeiro-segregado-por-processo-faturavel.md` e
+adicioná-lo a `docs/adr/README.md`, registrando os dois processos, os
+departamentos donos e por que a tela de invoices chama-se Taxas Locais.
+"Departamento dono" é responsabilidade do processo, não uma nova barreira de
+leitura ou escrita: as regras atuais de acesso interno permanecem vigentes.
+Realinhar toda a documentação viva do inventário; `docs/archive/**` e ADRs
+anteriores ficam intactos. Regenerar o XLSX da spec comportamental.
 
 **Os arquivos `docs/modules/*.md` mantêm os nomes atuais.** `check-docs.mjs:92-105`
 tem a lista de módulos hardcoded e valida a estrutura de seções de cada um;
