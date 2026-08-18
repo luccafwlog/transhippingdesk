@@ -7,10 +7,10 @@ já entregue.
 Esta spec registra decisões de domínio já fechadas que **ainda não estão
 implementadas**. Enquanto ela viver aqui, o `CONTEXT.md`, o
 `docs/ARCHITECTURE.md` e o schema continuam descrevendo o comportamento atual
-— identidade `(viagem, porto)`. O `CONTEXT.md` só será promovido depois que a
-implementação, a migration, os testes e os gates de execução forem concluídos;
-essa promoção acontecerá na mesma mudança que comprovar o modelo, junto com a
-ADR de engenharia.
+— identidade `(viagem, porto)`. O `CONTEXT.md` e o `docs/ARCHITECTURE.md` só
+serão promovidos depois que a implementação, a migration, os testes e os gates
+de execução forem concluídos; essa atualização documental acontecerá na mesma
+mudança que comprovar o modelo, junto com a ADR de engenharia.
 
 ## Caso operacional que motiva a mudança
 
@@ -60,8 +60,12 @@ os três sign-offs.
 
 ## Decisão 2 — a Escala planeja seus terminais; os ADRs derivam da lista
 
-Uma escala pode ter mais de um terminal. A lista vive na **Escala**, não no ADR:
-é ela que o Line-Up, o Painel e a TV leem. O ADR não inventa terminal — deriva.
+Uma escala pode ter mais de um terminal. A lista é derivada das atribuições de
+frentes persistidas no estado da escala, não é uma lista independente mantida à
+parte: é esse estado que o Line-Up, o Painel e a TV leem. O ADR não inventa
+terminal — deriva. Os valores válidos, porém, vêm do Cadastro de Terminais: cada
+terminal atribuído é um terminal portuário registrado e ligado ao porto da
+escala.
 
 ## Decisão 3 — terminal é registrado e escolhido no modal da escala
 
@@ -106,7 +110,7 @@ uma linha de importação e uma de exportação. O terminal é uma coluna/atribu
 da linha, nunca um novo eixo de agrupamento: vários terminais do mesmo sentido
 aparecem na mesma célula, em ordem determinística. A ausência de terminal é
 exibida como `TBC`, sem salvar o placeholder e sem criar ADR. Chegadas e Saídas
-não é afetado.
+não são afetadas.
 
 ## Decisão 6 — o terminal da escala sai do Cadastro de Terminais, com porto obrigatório
 
@@ -179,10 +183,16 @@ a decisão não fecha essa porta.
 
 ## Decisão 8 — a atribuição é impeditiva no fechamento, e olha a escala inteira
 
-A Frente de Operação **só existe quando tem dado**: escala sem veículo nenhum
-não tem frente de veículos e não tem o que atribuir. Sem essa premissa, toda
-escala nasceria com seis atribuições obrigatórias, cinco delas sobre nada — o
-ADR vazio que a Decisão 4 eliminou, de volta em outra forma.
+Uma Frente de Operação existe quando sua condição de origem tem dado: nas quatro
+frentes de importação, isso significa dado operacional real; nas duas frentes
+de exportação, uma declaração explícita de granito e/ou vazios já é dado
+suficiente, mesmo sem linhas operacionais realizadas. Portanto, exportação
+declarada cria frente e pode exigir atribuição; ausência total de dado significa
+não haver operação de importação nem declaração de exportação, e não cria frente
+alguma para atribuir.
+
+Sem essa distinção, toda escala nasceria com seis atribuições obrigatórias, cinco
+delas sobre nada — o ADR vazio que a Decisão 4 eliminou, de volta em outra forma.
 
 O bloqueio não pode morar na criação do ADR: como o ADR nasce da atribuição, a
 frente não atribuída simplesmente não produz ADR nenhum e nada acusa. Também
@@ -314,7 +324,8 @@ A Decisão 5 fixa a cardinalidade das linhas. A coluna de terminais lista, na
 mesma linha daquele sentido, os terminais das Frentes de Operação atribuídas a
 ele. A escala que opera nos dois sentidos continua com duas linhas, não com uma
 linha por terminal ou por `(escala, terminal, sentido)`. A implementação usa
-`src/components/lineup/LineUpTable.tsx:57-73`.
+[`src/components/lineup/LineUpTable.tsx`](../../src/components/lineup/LineUpTable.tsx),
+linhas 57–73.
 
 A coluna lista os terminais das Frentes de Operação **daquele sentido**, coerente
 com o resto da linha — que já só exibe dado do próprio sentido (VIN só aparece
@@ -345,6 +356,15 @@ seus sign-offs, ocorrências, snapshots e histórico; a coluna textual legada n�
 é apagada nem reinterpretada automaticamente. ADRs novos usam a identidade
 `(viagem, porto, terminal)` e o terminal registrado atribuído pelas frentes.
 
+Na base atual, `UNIQUE (voyage_id, port)` é a unicidade legada. Ela não pode
+continuar global, porque impediria dois ADRs novos para a mesma escala. A
+migration adapta a restrição sem apagar linhas: substitui a unicidade global
+por uma unicidade parcial de `(voyage_id, port)` somente onde `terminal_id IS
+NULL`, preservando a regra de um ADR legado por escala, e cria uma unicidade
+parcial de `(voyage_id, port, terminal_id)` onde `terminal_id IS NOT NULL`,
+garantindo um ADR novo por terminal. Assim, um ADR legado permanece coexistindo
+com vários ADRs novos terminalizados da mesma escala, sem backfill automático.
+
 Não haverá reset da base, limpeza ampla, exclusão/recriação de registros ou
 backfill destrutivo. A transição deve adicionar o modelo terminalizado sem
 perder dados históricos e sem escolher terminal automaticamente para um ADR
@@ -366,5 +386,5 @@ revisão dessas dependências só ocorre depois que o núcleo terminalizado esti
 implementado e validado contra o modelo real.
 
 O próximo passo é a ADR de engenharia e a execução do plano em
-`docs/plans/`; o `CONTEXT.md` só será atualizado após os gates definidos para
-essa execução.
+`docs/plans/`; o `CONTEXT.md` e o `docs/ARCHITECTURE.md` só serão atualizados
+após os gates definidos para essa execução.

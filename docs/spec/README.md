@@ -20,8 +20,9 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 A spec de múltiplos terminais está **com implementação pendente**. Ela fixa o
 contrato de execução, mas não promove o comportamento para o `CONTEXT.md` nem
-para a arquitetura atual antes da implementação, dos testes e dos gates do
-plano serem concluídos.
+atualiza o `docs/ARCHITECTURE.md` antes da implementação, dos testes e dos gates
+do plano serem concluídos. Os dois documentos serão promovidos/atualizados na
+mesma mudança que comprovar o modelo.
 
 A spec comportamental abaixo é permanente e não entra nesta tabela.
 
