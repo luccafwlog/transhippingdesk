@@ -234,20 +234,46 @@ presumir lançamento ("o sistema não presume nenhuma").
 
 Chegadas e Saídas não é afetado.
 
+## Decisão 11 — cada ADR fecha por conta própria; reatribuir sobre ADR fechado exige reabrir
+
+Fechamento é independente por terminal. No GREEN PECEM, o TVV termina sua
+descarga e o navio segue — não faz sentido segurar o fechamento do TVV
+esperando a PORTMAC terminar de embarcar granito dias depois. A trava da
+Decisão 8 já garante o necessário: nenhum dos dois fecha enquanto houver frente
+sem terminal na escala.
+
+A aba ADR da viagem passa a listar uma entrada por `(escala, terminal)`, em vez
+de uma por escala brasileira.
+
+**Reatribuir uma frente cujo ADR já fechou exige reabrir aquele ADR primeiro.**
+Se o TVV fechou com "Importação × Carga solta" atribuída por engano, e a
+correção manda essa frente para a PORTMAC, o ADR do TVV precisa reabrir antes.
+Reusa o mecanismo que já existe — `reopen_agency_departure_report`, que exige
+justificativa e registra em histórico — em vez de criar um novo. Coerente com a
+regra que o `CONTEXT.md` já aplica às seções: "alterar uma decisão já tomada...
+exige justificativa".
+
+Recusado deixar a reatribuição mudar o conteúdo de um ADR fechado
+silenciosamente: um `closed_snapshot` assinado deixaria de bater com o que a
+tela mostra, sem que ninguém percebesse — o mesmo relatório que o Financeiro usa
+para aprovar pagamento.
+
+O `closed_snapshot` de um ADR reaberto por reatribuição é regravado no novo
+fechamento, como já acontece hoje para reabertura por qualquer outro motivo.
+
 ## Questões em aberto
 
 Ordenadas por dependência.
 
 | # | Bloco | Questão |
 |---|---|---|
-| A3 | Modelo | Terminal cadastrado precisa saber seu porto? Quem é selecionável? |
-| B2 | Atribuição | O que exatamente o "impeditivo" bloqueia |
-| C1 | Datas | Quais datas são da escala e quais são de cada terminal |
-| D1 | ADR | Embarque de Vazios: um por escala ou um por terminal |
-| D3 | ADR | Fechamento e impresso |
+| D3.1 | ADR | Impresso: como layout e PDF distinguem os ADRs de terminais diferentes da mesma escala |
 | E1 | Superfícies | Terminal × sentido: quantas linhas no Line-Up |
 | E2 | Superfícies | Aba de terminal no Painel — escopo |
 | F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
+
+Decididas: A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
+(Decisão 10), D3 — fechamento (Decisão 11).
 
 Prazo departamental e alertas estão fora do escopo desta spec: correm em
 trabalho paralelo.
