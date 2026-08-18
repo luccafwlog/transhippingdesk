@@ -88,9 +88,19 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(
       /FOR v_report IN[\s\S]+FROM public\.agency_departure_reports AS r[\s\S]+FOR UPDATE OF r[\s\S]+LOOP[\s\S]+IF v_report\.status = 'open'/i,
     )
-    const normalReturnStart = sql.lastIndexOf('RETURN jsonb_build_object(')
-    expect(sql.slice(normalReturnStart)).toContain("'closed_blockers', '[]'::JSONB")
-    expect(sql.slice(normalReturnStart)).toContain("'blocked', FALSE")
+    const reportIdRpcStart = sql.indexOf('-- ADR terminalizado: as mutacoes usam report_id')
+    const saveSql = sql.slice(0, reportIdRpcStart)
+    const normalReturnStart = saveSql.lastIndexOf('RETURN jsonb_build_object(')
+    expect(saveSql.slice(normalReturnStart)).toContain("'closed_blockers', '[]'::JSONB")
+    expect(saveSql.slice(normalReturnStart)).toContain("'blocked', FALSE")
+  })
+
+  it('expõe mutações de ADR terminalizado por report_id sem reusar o identificador legado', () => {
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.set_agency_report_signoff_by_report_id\(\s*p_report_id UUID/i)
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.set_agency_report_department_signoff_by_report_id\(\s*p_report_id UUID/i)
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.close_agency_departure_report_by_report_id\(\s*p_report_id UUID/i)
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.reopen_agency_departure_report_by_report_id\(\s*p_report_id UUID/i)
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.close_agency_departure_report_by_report_id\(UUID, BIGINT, TEXT, JSONB\) TO authenticated/i)
   })
 
   it('expõe preflight read-only do mapeamento de terminais legados', () => {

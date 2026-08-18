@@ -1345,6 +1345,211 @@ BEGIN
 END;
 $function$;
 
+-- ADR terminalizado: as mutacoes usam report_id como identidade estavel. As
+-- RPCs legadas acima continuam por (viagem, porto) para registros historicos.
+CREATE OR REPLACE FUNCTION public.set_agency_report_signoff_by_report_id(
+  p_report_id UUID,
+  p_voyage_id BIGINT,
+  p_port TEXT,
+  p_section TEXT,
+  p_state TEXT,
+  p_justification TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_role TEXT;
+  v_owner TEXT;
+  v_current TEXT;
+  v_report RECORD;
+  v_justification TEXT := NULLIF(btrim(COALESCE(p_justification, '')), '');
+BEGIN
+  SELECT role INTO v_role FROM public.user_profiles WHERE id = auth.uid() AND active = TRUE;
+  IF v_role IS NULL THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  v_role := CASE v_role WHEN 'admin' THEN 'administrativo' WHEN 'operator' THEN 'documentacao' ELSE v_role END;
+  v_owner := public.agency_report_section_owner(p_section);
+  IF v_owner IS NULL OR p_state NOT IN ('pending', 'confirmed', 'nothing_to_declare') THEN
+    RAISE EXCEPTION 'Secao ou estado invalido.' USING ERRCODE = '22023';
+  END IF;
+  IF v_role NOT IN ('administrativo', v_owner) THEN
+    RAISE EXCEPTION 'Secao pertence ao departamento %.', v_owner USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_report FROM public.agency_departure_reports WHERE id = p_report_id FOR UPDATE;
+  IF NOT FOUND OR v_report.voyage_id <> p_voyage_id OR upper(btrim(v_report.port)) <> upper(btrim(p_port))
+     OR v_report.terminal_id IS NULL THEN
+    RAISE EXCEPTION 'report_id nao pertence a ADR terminalizado da escala %::%.', p_voyage_id, upper(btrim(p_port)) USING ERRCODE = '23514';
+  END IF;
+  IF v_report.status = 'closed' THEN RAISE EXCEPTION 'ADR fechado: reabra antes de alterar sign-offs.' USING ERRCODE = '42501'; END IF;
+
+  SELECT state INTO v_current FROM public.agency_departure_report_signoffs
+  WHERE report_id = p_report_id AND section = p_section FOR UPDATE;
+  v_current := COALESCE(v_current, 'pending');
+  IF v_current = p_state THEN RETURN jsonb_build_object('report_id', p_report_id, 'unchanged', TRUE); END IF;
+  IF v_current <> 'pending' AND v_justification IS NULL THEN
+    RAISE EXCEPTION 'Alterar uma decisao ja registrada exige justificativa.' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.agency_departure_report_signoffs
+    (report_id, section, state, department, signed_by, signed_at)
+  VALUES (p_report_id, p_section, p_state, v_owner, auth.uid(), CASE WHEN p_state = 'pending' THEN NULL ELSE now() END)
+  ON CONFLICT (report_id, section) DO UPDATE SET state = EXCLUDED.state, department = EXCLUDED.department,
+    signed_by = EXCLUDED.signed_by, signed_at = EXCLUDED.signed_at;
+  INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+  VALUES ('agency_departure_report_signoff', p_report_id::TEXT || '::' || p_section, 'state', v_current, p_state, auth.uid(), v_justification);
+  RETURN jsonb_build_object('report_id', p_report_id);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.set_agency_report_section_observation_by_report_id(
+  p_report_id UUID, p_voyage_id BIGINT, p_port TEXT, p_section TEXT, p_observation TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_role TEXT;
+  v_owner TEXT;
+  v_report RECORD;
+BEGIN
+  SELECT role INTO v_role FROM public.user_profiles WHERE id = auth.uid() AND active = TRUE;
+  IF v_role IS NULL THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  v_role := CASE v_role WHEN 'admin' THEN 'administrativo' WHEN 'operator' THEN 'documentacao' ELSE v_role END;
+  v_owner := public.agency_report_section_owner(p_section);
+  IF v_owner IS NULL THEN RAISE EXCEPTION 'Secao invalida.' USING ERRCODE = '22023'; END IF;
+  IF v_role NOT IN ('administrativo', v_owner) THEN RAISE EXCEPTION 'Secao pertence ao departamento %.', v_owner USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_report FROM public.agency_departure_reports WHERE id = p_report_id FOR UPDATE;
+  IF NOT FOUND OR v_report.voyage_id <> p_voyage_id OR upper(btrim(v_report.port)) <> upper(btrim(p_port))
+     OR v_report.terminal_id IS NULL THEN
+    RAISE EXCEPTION 'report_id nao pertence a ADR terminalizado da escala %::%.', p_voyage_id, upper(btrim(p_port)) USING ERRCODE = '23514';
+  END IF;
+  IF v_report.status = 'closed' THEN RAISE EXCEPTION 'ADR fechado: reabra antes de alterar a observacao.' USING ERRCODE = '42501'; END IF;
+  INSERT INTO public.agency_departure_report_signoffs (report_id, section, department, observation)
+  VALUES (p_report_id, p_section, v_owner, NULLIF(btrim(COALESCE(p_observation, '')), ''))
+  ON CONFLICT (report_id, section) DO UPDATE SET observation = EXCLUDED.observation;
+  RETURN jsonb_build_object('report_id', p_report_id);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.set_agency_report_department_signoff_by_report_id(
+  p_report_id UUID, p_voyage_id BIGINT, p_port TEXT, p_department TEXT, p_signed BOOLEAN, p_justification TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_role TEXT;
+  v_report RECORD;
+  v_current BOOLEAN;
+  v_justification TEXT := NULLIF(btrim(COALESCE(p_justification, '')), '');
+BEGIN
+  SELECT role INTO v_role FROM public.user_profiles WHERE id = auth.uid() AND active = TRUE;
+  IF v_role IS NULL THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  v_role := CASE v_role WHEN 'admin' THEN 'administrativo' WHEN 'operator' THEN 'documentacao' ELSE v_role END;
+  IF p_department NOT IN ('operacoes', 'documentacao', 'equipamentos') THEN RAISE EXCEPTION 'Departamento invalido.' USING ERRCODE = '22023'; END IF;
+  IF v_role NOT IN ('administrativo', p_department) THEN RAISE EXCEPTION 'Sign-off pertence ao departamento %.', p_department USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_report FROM public.agency_departure_reports WHERE id = p_report_id FOR UPDATE;
+  IF NOT FOUND OR v_report.voyage_id <> p_voyage_id OR upper(btrim(v_report.port)) <> upper(btrim(p_port))
+     OR v_report.terminal_id IS NULL THEN
+    RAISE EXCEPTION 'report_id nao pertence a ADR terminalizado da escala %::%.', p_voyage_id, upper(btrim(p_port)) USING ERRCODE = '23514';
+  END IF;
+  IF v_report.status = 'closed' THEN RAISE EXCEPTION 'ADR fechado: reabra antes de alterar o sign-off departamental.' USING ERRCODE = '42501'; END IF;
+  SELECT signed_at IS NOT NULL INTO v_current FROM public.agency_departure_report_department_signoffs
+  WHERE report_id = p_report_id AND department = p_department FOR UPDATE;
+  v_current := COALESCE(v_current, FALSE);
+  IF v_current = p_signed THEN RETURN jsonb_build_object('report_id', p_report_id, 'unchanged', TRUE); END IF;
+  IF NOT p_signed AND v_current AND v_justification IS NULL THEN
+    RAISE EXCEPTION 'Reabrir o sign-off departamental exige justificativa.' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.agency_departure_report_department_signoffs (report_id, department, signed_by, signed_at)
+  VALUES (p_report_id, p_department, auth.uid(), CASE WHEN p_signed THEN now() ELSE NULL END)
+  ON CONFLICT (report_id, department) DO UPDATE SET signed_by = EXCLUDED.signed_by, signed_at = EXCLUDED.signed_at;
+  INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+  VALUES ('agency_departure_report_department_signoff', p_report_id::TEXT || '::' || p_department, 'signed', v_current::TEXT, p_signed::TEXT, auth.uid(), v_justification);
+  RETURN jsonb_build_object('report_id', p_report_id);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.close_agency_departure_report_by_report_id(
+  p_report_id UUID, p_voyage_id BIGINT, p_port TEXT, p_snapshot JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_report RECORD;
+  v_signed INTEGER;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  PERFORM public.assert_voyage_escala_ready_for_report_close(p_voyage_id, p_port, p_report_id);
+  SELECT * INTO v_report FROM public.agency_departure_reports WHERE id = p_report_id FOR UPDATE;
+  IF v_report.voyage_id <> p_voyage_id OR upper(btrim(v_report.port)) <> upper(btrim(p_port)) OR v_report.terminal_id IS NULL THEN
+    RAISE EXCEPTION 'report_id nao pertence a ADR terminalizado da escala %::%.', p_voyage_id, upper(btrim(p_port)) USING ERRCODE = '23514';
+  END IF;
+  IF p_snapshot IS NULL OR jsonb_typeof(p_snapshot) <> 'object' OR jsonb_typeof(p_snapshot->'header') <> 'object'
+     OR jsonb_typeof(p_snapshot->'sections') <> 'object' OR jsonb_typeof(p_snapshot->'occurrences') <> 'array'
+     OR jsonb_typeof(p_snapshot->'signoffs') <> 'array' OR octet_length(p_snapshot::TEXT) > 8388608 THEN
+    RAISE EXCEPTION 'Snapshot invalido.' USING ERRCODE = '22023';
+  END IF;
+  SELECT COUNT(*) INTO v_signed FROM public.agency_departure_report_department_signoffs
+  WHERE report_id = p_report_id AND signed_at IS NOT NULL;
+  IF v_signed <> 3 THEN RAISE EXCEPTION 'Fechamento exige os 3 departamentos assinados (% pendentes).', 3 - v_signed USING ERRCODE = '23514'; END IF;
+  UPDATE public.agency_departure_reports SET status = 'closed', closed_at = now(), closed_by = auth.uid(), closed_snapshot = p_snapshot
+  WHERE id = p_report_id AND status = 'open';
+  IF NOT FOUND THEN RAISE EXCEPTION 'ADR ja fechado.' USING ERRCODE = '23505'; END IF;
+  UPDATE public.alerts SET status = 'closed', closed_at = now()
+  WHERE type IN ('agency_report_section_pending', 'agency_report_deadline_missed')
+    AND entity_type = 'agency_departure_report' AND (entity_id LIKE p_voyage_id || '::' || upper(btrim(p_port)) || '::%' OR entity_id LIKE p_report_id::TEXT || '::%')
+    AND status <> 'closed';
+  RETURN jsonb_build_object('report_id', p_report_id);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.reopen_agency_departure_report_by_report_id(
+  p_report_id UUID, p_voyage_id BIGINT, p_port TEXT, p_justification TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_report RECORD;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  IF btrim(COALESCE(p_justification, '')) = '' THEN RAISE EXCEPTION 'Reabertura exige justificativa.' USING ERRCODE = '22023'; END IF;
+  SELECT * INTO v_report FROM public.agency_departure_reports WHERE id = p_report_id FOR UPDATE;
+  IF NOT FOUND OR v_report.voyage_id <> p_voyage_id OR upper(btrim(v_report.port)) <> upper(btrim(p_port))
+     OR v_report.terminal_id IS NULL THEN RAISE EXCEPTION 'report_id nao pertence a ADR terminalizado da escala %::%.', p_voyage_id, upper(btrim(p_port)) USING ERRCODE = '23514'; END IF;
+  IF v_report.status <> 'closed' THEN RAISE EXCEPTION 'ADR nao esta fechado.' USING ERRCODE = 'P0002'; END IF;
+  UPDATE public.agency_departure_reports SET status = 'open', closed_at = NULL, closed_by = NULL, closed_snapshot = NULL WHERE id = p_report_id;
+  UPDATE public.agency_departure_report_signoffs SET state = 'pending', signed_by = NULL, signed_at = NULL WHERE report_id = p_report_id;
+  UPDATE public.agency_departure_report_department_signoffs SET signed_by = NULL, signed_at = NULL WHERE report_id = p_report_id;
+  INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+  VALUES ('agency_departure_report', p_report_id::TEXT, 'status', 'closed', 'open', auth.uid(), btrim(p_justification));
+  RETURN jsonb_build_object('report_id', p_report_id);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.set_agency_report_signoff_by_report_id(UUID, BIGINT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.set_agency_report_section_observation_by_report_id(UUID, BIGINT, TEXT, TEXT, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.set_agency_report_department_signoff_by_report_id(UUID, BIGINT, TEXT, TEXT, BOOLEAN, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.close_agency_departure_report_by_report_id(UUID, BIGINT, TEXT, JSONB) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.reopen_agency_departure_report_by_report_id(UUID, BIGINT, TEXT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_agency_report_signoff_by_report_id(UUID, BIGINT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_agency_report_section_observation_by_report_id(UUID, BIGINT, TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_agency_report_department_signoff_by_report_id(UUID, BIGINT, TEXT, TEXT, BOOLEAN, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.close_agency_departure_report_by_report_id(UUID, BIGINT, TEXT, JSONB) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reopen_agency_departure_report_by_report_id(UUID, BIGINT, TEXT, TEXT) TO authenticated;
+
 REVOKE ALL ON FUNCTION public.validate_escala_port_reference() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.validate_agency_departure_report_port() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.save_voyage_escala_terminal_state(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT) FROM PUBLIC, anon;
