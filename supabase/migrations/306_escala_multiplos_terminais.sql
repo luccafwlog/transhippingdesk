@@ -553,7 +553,7 @@ BEGIN
   END IF;
   IF p_fronts IS NULL OR jsonb_typeof(p_fronts) <> 'array'
      OR p_terminals IS NULL OR jsonb_typeof(p_terminals) <> 'array'
-     OR (p_export_expectation IS NOT NULL AND jsonb_typeof(p_export_expectation) <> 'object')
+     OR p_export_expectation IS NULL OR jsonb_typeof(p_export_expectation) <> 'object'
      OR (p_export_expectation ? 'discharge_ports'
          AND jsonb_typeof(p_export_expectation->'discharge_ports') <> 'array') THEN
     RAISE EXCEPTION 'Payload de escala invalido.' USING ERRCODE = '22023';
@@ -1524,15 +1524,14 @@ AS $function$
 DECLARE
   v_report RECORD;
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR NOT public.is_admin() THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
   IF btrim(COALESCE(p_justification, '')) = '' THEN RAISE EXCEPTION 'Reabertura exige justificativa.' USING ERRCODE = '22023'; END IF;
   SELECT * INTO v_report FROM public.agency_departure_reports WHERE id = p_report_id FOR UPDATE;
   IF NOT FOUND OR v_report.voyage_id <> p_voyage_id OR upper(btrim(v_report.port)) <> upper(btrim(p_port))
      OR v_report.terminal_id IS NULL THEN RAISE EXCEPTION 'report_id nao pertence a ADR terminalizado da escala %::%.', p_voyage_id, upper(btrim(p_port)) USING ERRCODE = '23514'; END IF;
   IF v_report.status <> 'closed' THEN RAISE EXCEPTION 'ADR nao esta fechado.' USING ERRCODE = 'P0002'; END IF;
   UPDATE public.agency_departure_reports SET status = 'open', closed_at = NULL, closed_by = NULL, closed_snapshot = NULL WHERE id = p_report_id;
-  UPDATE public.agency_departure_report_signoffs SET state = 'pending', signed_by = NULL, signed_at = NULL WHERE report_id = p_report_id;
-  UPDATE public.agency_departure_report_department_signoffs SET signed_by = NULL, signed_at = NULL WHERE report_id = p_report_id;
+  -- Reabrir destrava a edição sem apagar decisões, assinaturas ou histórico.
   INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
   VALUES ('agency_departure_report', p_report_id::TEXT, 'status', 'closed', 'open', auth.uid(), btrim(p_justification));
   RETURN jsonb_build_object('report_id', p_report_id);

@@ -101,6 +101,9 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.close_agency_departure_report_by_report_id\(\s*p_report_id UUID/i)
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.reopen_agency_departure_report_by_report_id\(\s*p_report_id UUID/i)
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.close_agency_departure_report_by_report_id\(UUID, BIGINT, TEXT, JSONB\) TO authenticated/i)
+    expect(sql).toMatch(/reopen_agency_departure_report_by_report_id\([\s\S]+public\.is_admin\(\)/i)
+    expect(sql).toMatch(/reopen_agency_departure_report_by_report_id[\s\S]+Reabrir destrava a edição sem apagar decisões/i)
+    expect(sql).toMatch(/p_export_expectation IS NULL OR jsonb_typeof\(p_export_expectation\) <> 'object'/i)
   })
 
   it('expõe preflight read-only do mapeamento de terminais legados', () => {
