@@ -60,6 +60,15 @@ faz a UI obedecer o vocabulário que já está escrito.
 10. Um único indicador no nav: badge numérico de `chargeReviewRequired`.
 11. Renomeiam-se as **páginas** (não services/components).
 
+Todas as decisões acima foram confirmadas pelo autor em 2026-08-18. A decisão 6
+foi confirmada já na forma corrigida da Task 7: o strip é removido e a questão
+do filtro `overdue` fica pendente do departamento dono, fora deste plano.
+
+**Este plano não foi executado.** A sessão que o produziu foi de planejamento
+apenas, por decisão do autor; a implementação acontece em sessão separada.
+Quem executar deve seguir as tasks na ordem e tratar o inventário de
+referências como a lista de verificação de "nenhuma referência quebrada".
+
 ## Global Constraints
 
 - Zero mudança de lógica de negócio: nenhuma RPC, policy, grant, hook de dados,
@@ -133,8 +142,13 @@ Levantamento completo — a base do requisito de "zero quebra".
 - `/taxas-locais` → página de faturamento; `/taxas-locais/tabelas` → página de
   tabelas (rota irmã, como `/demurrage/taxas`).
 - `/faturamento` → redirect que **preserva** `location.search`.
-- `routePreloads`: `/taxas-locais/tabelas` antes de `/taxas-locais` (o matcher
-  é por prefixo); `/faturamento` mantido apontando para o chunk certo.
+- `routePreloads`: **entrada nova e obrigatória** para `/taxas-locais/tabelas`.
+  `matchRoutePreload` usa `matchPath` com `end: true` (`src/lib/routePreload.ts`),
+  ou seja, casamento **exato** — sem entrada própria, a sub-rota cai no padrão
+  `'*'` e pré-carrega o chunk do Painel, o errado. A ordem entre as duas
+  entradas não afeta correção (diferente de `pageTitle`, onde afeta).
+  `/faturamento` mantém entrada apontando para o chunk certo, para o redirect
+  não perder o preload.
 - `pageTitle`: `^/taxas-locais/tabelas` → "Tabelas de Taxas Locais", antes de
   `^/taxas-locais` → "Taxas Locais"; `^/faturamento` sai.
 - **Check:** teste do redirect com `?invoice=` chegando com a query intacta;
@@ -234,6 +248,14 @@ ADR novo: "Módulo financeiro segregado por processo faturável", registrando os
 dois processos, os departamentos donos e por que a tela de invoices chama-se
 Taxas Locais. Realinhar toda a documentação viva do inventário; `docs/archive/**`
 e ADRs anteriores ficam intactos. Regenerar o XLSX da spec comportamental.
+
+**Os arquivos `docs/modules/*.md` mantêm os nomes atuais.** `check-docs.mjs:92-105`
+tem a lista de módulos hardcoded e valida a estrutura de seções de cada um;
+renomear `faturamento.md`/`taxas-locais.md` obrigaria a editar o próprio
+validador. Muda o conteúdo e o escopo declarado de cada documento, não o
+caminho — e `faturamento.md` segue existindo porque emissão, ledger e pagamento
+continuam sendo um assunto próprio, agora explicitamente compartilhado pelos
+dois processos faturáveis.
 
 ### Task 9 — Verificação
 `npm run docs:check`, `npm run lint`, `npm test`, `npm run build`. Varredura
