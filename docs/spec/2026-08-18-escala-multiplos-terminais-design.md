@@ -1,6 +1,7 @@
 # Escala com múltiplos terminais e ADR por terminal
 
-Status: **em desenho** — sessão de grilling aberta em 2026-08-18.
+Status: **desenho concluído** — sessão de grilling em 2026-08-18. Aguarda ADR de
+engenharia e plano de implementação.
 
 Esta spec registra decisões de domínio já fechadas que **ainda não estão
 implementadas**. Enquanto ela viver aqui, o `CONTEXT.md`, o
@@ -312,20 +313,32 @@ atribuir Frentes de Operação, entra por um módulo que não é o seu
 (`/embarquevazios/depots`) até que a tela mude de lugar, se mudar. Vira item de
 UI separado, decidido depois.
 
+## Decisão 15 — sem transição: a base é resetada antes da implementação
+
+Verificado antes de decidir: hoje a base tem 2 `agency_departure_reports`
+(nenhum com `terminal` preenchido) e 4 terminais já cadastrados como
+`terminal_portuario` — TVV e PORTMAC, do próprio caso GREEN PECEM, entre eles.
+Um dos dois ADRs já está **fechado** (`BRSSA`, 2026-08-10), com histórico real,
+o que descartaria um simples "deixar órfão".
+
+A pergunta ficou sem objeto: a base será resetada para a implementação. A
+migration cria o modelo `(viagem, porto, terminal)` direto, sem backfill de
+texto livre nem preservação de ADR fechado sob a identidade antiga.
+
 ## Questões em aberto
 
 Ordenadas por dependência.
 
-| # | Bloco | Questão |
-|---|---|---|
-| F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
+Nenhuma pendência de domínio restante. Todas as decisões:
 
-Decididas: A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
+A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
 (Decisão 10), D3 — fechamento (Decisão 11), D3.1 — impresso (Decisão 12), E1 —
-Line-Up (Decisão 13), E2 — cadastro adiado (Decisão 14).
+Line-Up (Decisão 13), E2 — cadastro adiado (Decisão 14), F1 — sem transição
+(Decisão 15).
 
 Prazo departamental e alertas estão fora do escopo desta spec: correm em
-trabalho paralelo.
+trabalho paralelo. O próximo passo é a ADR de engenharia e o plano de
+implementação (`docs/plans/`).
 
 ### Colisão de terminologia a resolver em B1
 
