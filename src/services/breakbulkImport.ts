@@ -71,12 +71,16 @@ export async function importBreakbulkManifest({
       reviewReasons.add('Cliente nao vinculado automaticamente')
     }
 
+    const ceMercante = bl.ce_mercante == null ? {} : { ce_mercante: bl.ce_mercante }
+
     return [
       {
         id: bl.bl_id,
         voyage_id: voyageId,
         cargo_mode: 'carga_solta' as const,
-        ce_mercante: bl.ce_mercante,
+        // A ausência do campo é intencional: a RPC preserva atomicamente o CE
+        // existente quando o layout não é autoridade sobre esse dado.
+        ...ceMercante,
         bb_machine_qty: bl.bb_machine_qty,
         bb_packages_qty: bl.bb_packages_qty,
         bb_packages_total: bl.bb_packages_total,
