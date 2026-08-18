@@ -277,18 +277,35 @@ precisa diferenciar antes de abrir.
 O título da aba e o nome do PDF exportado passam a incluir o terminal:
 `ADR - GREEN PECEM V.9 - BRVIX - TVV.pdf`.
 
+## Decisão 13 — Line-Up, Painel e TV mantêm a linha por sentido; terminal vira coluna
+
+A estrutura atual não muda: a ADR 0035 já segrega o Line-Up por sentido — uma
+escala que opera nos dois vira duas linhas, com as mesmas datas da escala,
+diferindo no conteúdo operado. Esta sessão não substitui esse critério por um
+novo eixo de linhas; acrescenta uma **coluna de terminais** ao final da tabela
+(`LineUpTable.tsx:57-73`).
+
+A coluna lista os terminais das Frentes de Operação **daquele sentido**, coerente
+com o resto da linha — que já só exibe dado do próprio sentido (VIN só aparece
+na linha de importação, granito só na de exportação). No GREEN PECEM: a linha de
+Importação mostra "TVV, PORTMAC"; a de Exportação mostra "PORTMAC".
+
+Recusadas as alternativas que criavam um segundo eixo de linhas — uma linha por
+`(escala, terminal)` ou por `(escala, terminal, sentido)` — por reabrirem uma
+partição que a ADR 0035 já resolveu, sem necessidade.
+
 ## Questões em aberto
 
 Ordenadas por dependência.
 
 | # | Bloco | Questão |
 |---|---|---|
-| E1 | Superfícies | Terminal × sentido: quantas linhas no Line-Up |
 | E2 | Superfícies | Aba de terminal no Painel — escopo |
 | F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
 
 Decididas: A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
-(Decisão 10), D3 — fechamento (Decisão 11), D3.1 — impresso (Decisão 12).
+(Decisão 10), D3 — fechamento (Decisão 11), D3.1 — impresso (Decisão 12), E1 —
+Line-Up (Decisão 13).
 
 Prazo departamental e alertas estão fora do escopo desta spec: correm em
 trabalho paralelo.
