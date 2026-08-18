@@ -77,7 +77,7 @@ existentes.
 
 - Modificar: `src/services/reviewBillingAutomation.ts`
 - Modificar: `src/components/billing/validacaoPipeline.ts`
-- Modificar: `src/pages/Faturamento.tsx`
+- Modificar: `src/pages/TaxasLocais.tsx`
 - Modificar: `src/pages/Granite.tsx` e `src/services/graniteBillingWorkflow.ts`
 - Testar: testes de `reviewBillingAutomation`, pipeline de validação e fluxos
   locais
@@ -87,7 +87,7 @@ existentes.
   inválidas e ausência inesperada de valor de `aguardando_ce`, `sem_cliente`,
   isenção e retornos previstos de `awaiting_flow`.
 - [ ] Rotear causas de tabela/configuração para `/taxas-locais` e as demais
-  causas locais para `/faturamento`.
+  causas locais para `/taxas-locais`.
 - [ ] Manter `billing_auto_issue_failed` apenas para falhas efetivas de
   emissão local, em Documentação.
 - [ ] Não criar cálculo, emissão, vencimento, reconciliação PIX, vínculo de
@@ -105,7 +105,7 @@ existentes.
 **Arquivos prováveis:**
 
 - Modificar: `src/services/alerts.ts`
-- Modificar: `src/pages/Faturamento.tsx`
+- Modificar: `src/pages/TaxasLocais.tsx`
 - Revisar sem alterar retroativamente: migrations que produzem
   `invoice_overdue`
 - Testar: detector de vencimento e classificação de invoices locais
@@ -117,12 +117,12 @@ existentes.
   `supabase/migrations/157_demurrage_drop_overdue.sql`.
 - [ ] Executar o detector por cron server-side protegido, conforme E2 do
   catálogo central; não chamar diretamente uma RPC que exige `auth.uid()` a
-  partir de `pg_cron` e não depender de `/faturamento`.
+  partir de `pg_cron` e não depender de `/taxas-locais`.
 - [ ] Fechar a ocorrência apenas com saldo zero/pagamento confirmado e cobrir
   reversão ou novo vencimento como reabertura.
 - [ ] Manter severidade Normal e não implementar escalonamento por idade.
-- [ ] Validar que `/faturamento` continua sendo a tela de correção para ambas
-  as famílias.
+- [ ] Validar que `/taxas-locais` é a tela de correção da operação local e que
+  Demurrage permanece em `/demurrage`; `/faturamento` é apenas redirect legado.
 
 ## Task 4: Persistir e resolver PIX sem conciliação segura
 

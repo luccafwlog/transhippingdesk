@@ -2,12 +2,21 @@
 
 **Issue:** #522, filha do épico #519
 **Status:** decisão funcional aprovada; implementação pendente
-**Escopo:** `/taxas-locais`, `/faturamento`, `/demurrage`,
+**Escopo:** `/taxas-locais`, `/taxas-locais/tabelas`, `/demurrage`,
 `/demurrage/taxas`, `/reconciliacao`, `/granito` e `/granito/taxas`
 
 Este documento fecha as decisões do Bloco 3. Ele é um contrato para uma PR de
 implementação posterior; não cria produtores, tabelas, migrations ou mudanças
 de comportamento nesta etapa.
+
+### Nota de integração após a PR #549
+
+A operação de Taxas Locais passou a viver em `/taxas-locais`, enquanto o
+cadastro de tabelas e overrides vive em `/taxas-locais/tabelas`. A rota
+`/faturamento` permanece apenas como redirect compatível para deep links
+legados. Essa reorganização de telas não altera a audiência: eventos de Taxas
+Locais continuam sendo tratados por Documentação, e Financeiro permanece fora
+do fan-out de Alertas/Notificações deste bloco.
 
 ## Princípios do contrato
 
@@ -64,15 +73,15 @@ do catálogo, mesmo que exiba indicadores, estados ou erros inline.
 
 | Tela | Evento candidato | Decisão | Audiência | Unidade | Fechamento e reabertura | Detecção | Tela de correção |
 |---|---|---|---|---|---|---|---|
-| `/taxas-locais` | Tabela ativa ausente ou configuração insuficiente descoberta pela tentativa de cálculo | **Alerta + Notificação Interna** | Departamental: Documentação | BL / cobrança local | Fecha quando a configuração válida permite cálculo faturável ou isenção válida; reabre se o bloqueio voltar | Ação/RPC de cálculo autoritativo | `/taxas-locais`; quando a tabela está correta e o problema é outro, `/faturamento` |
-| `/taxas-locais` | Criar, editar, inativar tabela; aviso de validade ou sobreposição | **Nenhum** | — | — | — | Ação normal de manutenção | A própria tela, sem ocorrência |
-| `/faturamento` | Cálculo local bloqueado após tentativa autoritativa, impedindo dinheiro faturável | **Alerta + Notificação Interna** | Departamental: Documentação | BL / cobrança local | Fecha quando há cálculo faturável válido ou isenção válida; reabre se `review_status`, `billing_hold_reason` ou linhas inválidas voltarem | Ação/RPC; cron é somente backstop se o contrato central assim permitir | `/faturamento` ou `/taxas-locais`, conforme a causa |
-| `/faturamento` | Falha inesperada na emissão automática local | **Alerta + Notificação Interna** | Departamental: Documentação | BL | Fecha após emissão bem-sucedida ou correção operacional comprovada; reabre na próxima falha da mesma unidade | Ação de emissão automática | `/faturamento` |
-| `/faturamento` | Invoice local vencida com saldo | **Alerta + Notificação Interna** | Departamental: Documentação | Invoice | Fecha com saldo zero/pagamento; reabre se pagamento for revertido ou o saldo voltar a vencer | Cron diário | `/faturamento` |
-| `/faturamento` | Exceção crítica de Portal na emissão da invoice (`portal_excecao_critica_fatura`, propriedade do #521) | **Nenhum neste bloco** | — | — | A implementação do #521 mantém o item no B/L agregado, com referência à invoice; este bloco não duplica o evento por invoice | Produtor e reprocessamento do #521 | `/manifestos/{blId}?tab=faturamento`, conforme o #521 |
-| `/faturamento` | `Aguardando CE` local | **Nenhum** | — | — | — | Mudança normal de estado | `/faturamento`, como operação normal |
-| `/faturamento` | Fatura consolidada criada ou tornada obsoleta pelo Portal | **Nenhum** | — | — | — | Evento de histórico do Portal | Portal/histórico; não há correção interna |
-| `/faturamento` | Falha transitória de pagamento manual ou bloqueio de cancelamento (`invoice_payment_invalid`, `invoice_cancel_blocked`) | **Nenhum** | — | — | — | Ação/guard de interface | Feedback da própria ação; não persistir ocorrência de trabalho |
+| `/taxas-locais` | Tabela ativa ausente ou configuração insuficiente descoberta pela tentativa de cálculo | **Alerta + Notificação Interna** | Departamental: Documentação | BL / cobrança local | Fecha quando a configuração válida permite cálculo faturável ou isenção válida; reabre se o bloqueio voltar | Ação/RPC de cálculo autoritativo | `/taxas-locais/tabelas` para tabela/configuração; `/taxas-locais` quando a configuração está correta e o problema é outro |
+| `/taxas-locais/tabelas` | Criar, editar, inativar tabela; aviso de validade ou sobreposição | **Nenhum** | — | — | — | Ação normal de manutenção | A própria tela, sem ocorrência |
+| `/taxas-locais` | Cálculo local bloqueado após tentativa autoritativa, impedindo dinheiro faturável | **Alerta + Notificação Interna** | Departamental: Documentação | BL / cobrança local | Fecha quando há cálculo faturável válido ou isenção válida; reabre se `review_status`, `billing_hold_reason` ou linhas inválidas voltarem | Ação/RPC; cron é somente backstop se o contrato central assim permitir | `/taxas-locais` |
+| `/taxas-locais` | Falha inesperada na emissão automática local | **Alerta + Notificação Interna** | Departamental: Documentação | BL | Fecha após emissão bem-sucedida ou correção operacional comprovada; reabre na próxima falha da mesma unidade | Ação de emissão automática | `/taxas-locais` |
+| `/taxas-locais` | Invoice local vencida com saldo | **Alerta + Notificação Interna** | Departamental: Documentação | Invoice | Fecha com saldo zero/pagamento; reabre se pagamento for revertido ou o saldo voltar a vencer | Cron diário | `/taxas-locais` |
+| `/taxas-locais` | Exceção crítica de Portal na emissão da invoice (`portal_excecao_critica_fatura`, propriedade do #521) | **Nenhum neste bloco** | — | — | A implementação do #521 mantém o item no B/L agregado, com referência à invoice; este bloco não duplica o evento por invoice | Produtor e reprocessamento do #521 | `/manifestos/{blId}?tab=faturamento`, conforme o #521 |
+| `/taxas-locais` | `Aguardando CE` local | **Nenhum** | — | — | — | Mudança normal de estado | `/taxas-locais`, como operação normal |
+| `/taxas-locais` | Fatura consolidada criada ou tornada obsoleta pelo Portal | **Nenhum** | — | — | — | Evento de histórico do Portal | Portal/histórico; não há correção interna |
+| `/taxas-locais` | Falha transitória de pagamento manual ou bloqueio de cancelamento (`invoice_payment_invalid`, `invoice_cancel_blocked`) | **Nenhum** | — | — | — | Ação/guard de interface | Feedback da própria ação; não persistir ocorrência de trabalho |
 | `/demurrage` | Disputa de invoice aberta no Portal | **Alerta + Notificação Interna** | Departamental: Equipamentos quando a próxima ação for interna | Invoice Demurrage | Item interno existe somente enquanto a próxima ação for de Equipamentos; ao aguardar o cliente ou resolver, sai da lista corrente; volta a ser criado/reaberto quando a próxima ação retornar a Equipamentos | Trigger/ação na mudança da próxima ação, conforme o contrato do #521 | `/demurrage` |
 | `/demurrage` | Contagem de vencidos, free-time, container não devolvido ou ausência de invoice | **Nenhum** | — | — | — | Indicador operacional e estado do módulo | `/demurrage`, sem ocorrência |
 | `/demurrage` | Taxa ausente, PTAX fora da janela ou falha inline de cálculo | **Nenhum** | — | — | — | Ação/validação inline | `/demurrage` ou `/demurrage/taxas`, sem alerta neste bloco |
@@ -101,8 +110,8 @@ do #520, isenção válida ou manutenção informativa da tabela.
   recuperação definido pela fundação, não o produtor primário.
 - Fechamento: cálculo faturável válido ou isenção válida. Reabertura: a mesma
   causa volta a bloquear a unidade.
-- Correção: `/taxas-locais` para tabela/configuração; `/faturamento` para
-  revisão de cálculo ou correção operacional.
+- Correção: `/taxas-locais/tabelas` para tabela/configuração; `/taxas-locais`
+  para revisão de cálculo ou correção operacional.
 
 ### Falha de emissão automática
 
@@ -119,7 +128,7 @@ não é ocorrência financeira.
 - Detecção: ação de emissão automática.
 - Fechamento: emissão bem-sucedida ou resolução operacional verificável;
   reabertura na próxima falha.
-- Correção: `/faturamento`.
+- Correção: `/taxas-locais`.
 
 ### Invoice vencida
 
@@ -132,10 +141,10 @@ enforcement de atraso foi removido.
 - Unidade: invoice local.
 - Gravidade: **Normal**; não há promoção genérica por idade.
 - Detecção: cron diário server-side, por wrapper protegido conforme E2 do
-  catálogo central; não depende de abrir `/faturamento`.
+  catálogo central; não depende de abrir `/taxas-locais`.
 - Fechamento: saldo zero/pagamento; reabertura se a liquidação for revertida
   ou a invoice voltar a ficar vencida.
-- Correção: `/faturamento`.
+- Correção: `/taxas-locais`.
 
 ### PIX sem conciliação segura
 
