@@ -36,6 +36,28 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toContain('voyage_escala_revision_state_select')
   })
 
+  it('valida o payload inversamente e preserva ADR com dependentes', () => {
+    expect(sql).toMatch(
+      /FROM jsonb_to_recordset\(p_fronts\)[\s\S]+WHERE f\.terminal_id IS NOT NULL[\s\S]+FROM jsonb_to_recordset\(p_terminals\)[\s\S]+t\.terminal_id = f\.terminal_id/i,
+    )
+    expect(sql).toContain('Frente atribuida exige terminal no estado da escala.')
+    expect(sql).toMatch(/agency_departure_report_signoffs[\s\S]+agency_departure_report_department_signoffs[\s\S]+agency_departure_report_occurrences/i)
+    expect(sql).toContain('adr_preserved')
+    expect(sql).toMatch(/DELETE FROM public\.agency_departure_reports[\s\S]+status = 'open'/i)
+  })
+
+  it('audita expectativa inicial e expõe guarda de fechamento por report_id', () => {
+    expect(sql).toMatch(/v_export_old IS DISTINCT FROM v_export_new[\s\S]+INSERT INTO public\.audit_logs/i)
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.assert_voyage_escala_ready_for_report_close\(\s*p_voyage_id BIGINT,\s*p_port TEXT,\s*p_report_id UUID\s*\)/i,
+    )
+    expect(sql).toContain('SECURITY DEFINER')
+    expect(sql).toContain('Frente TBC impede o fechamento do ADR.')
+    expect(sql).toContain('terminal_port_id')
+    expect(sql).toContain('Task 4')
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.assert_voyage_escala_ready_for_report_close\(BIGINT, TEXT, UUID\)[\s\S]+FROM PUBLIC, anon/i)
+  })
+
   it('adiciona terminalização de ADRs sem apagar o legado nem os filhos por report_id', () => {
     expect(sql).toMatch(/ALTER TABLE public\.agency_departure_reports[\s\S]+ADD COLUMN IF NOT EXISTS terminal_id UUID/i)
     expect(sql).toContain('DROP CONSTRAINT IF EXISTS agency_departure_reports_voyage_id_port_key')

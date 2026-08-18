@@ -303,6 +303,96 @@ $function$;
 REVOKE ALL ON FUNCTION public.ensure_agency_departure_report(BIGINT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.ensure_agency_departure_report(BIGINT, TEXT) TO authenticated;
 
+-- Task 4 integration point: os RPCs de close/reopen/signoff por report_id
+-- devem chamar esta guarda antes das transições de lifecycle. Os serviços e
+-- as assinaturas existentes ficam fora do escopo desta Task 2.
+CREATE OR REPLACE FUNCTION public.assert_voyage_escala_ready_for_report_close(
+  p_voyage_id BIGINT,
+  p_port TEXT,
+  p_report_id UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_port TEXT := upper(btrim(COALESCE(p_port, '')));
+  v_port_id BIGINT;
+  v_report RECORD;
+  v_terminal_code TEXT;
+  v_terminal_tipo TEXT;
+  v_terminal_port_id BIGINT;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN
+    RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT p.id
+  INTO v_port_id
+  FROM public.ports AS p
+  WHERE upper(btrim(p.locode)) = v_port
+    AND upper(btrim(p.locode)) LIKE 'BR%'
+  ORDER BY p.id
+  LIMIT 1;
+  IF v_port_id IS NULL THEN
+    RAISE EXCEPTION 'Porto brasileiro % nao encontrado.', v_port USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT r.id, r.voyage_id, r.port, r.terminal_id, r.terminal_port_id
+  INTO v_report
+  FROM public.agency_departure_reports AS r
+  WHERE r.id = p_report_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'report_id nao pertence a escala %::%.', p_voyage_id, v_port
+      USING ERRCODE = '23514';
+  END IF;
+  IF v_report.voyage_id <> p_voyage_id
+     OR upper(btrim(v_report.port)) <> v_port THEN
+    RAISE EXCEPTION 'report_id nao pertence a escala %::%.', p_voyage_id, v_port
+      USING ERRCODE = '23514';
+  END IF;
+
+  SELECT d.code, d.tipo, d.port_id
+  INTO v_terminal_code, v_terminal_tipo, v_terminal_port_id
+  FROM public.depots AS d
+  WHERE d.id = v_report.terminal_id;
+  IF v_report.terminal_id IS NULL OR v_report.terminal_port_id IS NULL THEN
+    RAISE EXCEPTION 'report_id deve referenciar ADR terminalizado do porto %.', v_port
+      USING ERRCODE = '23514';
+  END IF;
+  IF v_terminal_tipo IS DISTINCT FROM 'terminal_portuario'
+     OR v_terminal_port_id IS DISTINCT FROM v_port_id
+     OR v_report.terminal_port_id IS DISTINCT FROM v_port_id THEN
+    RAISE EXCEPTION 'report_id deve referenciar ADR terminalizado do porto %.', v_port
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.voyage_escala_operation_fronts AS f
+    WHERE f.voyage_id = p_voyage_id AND f.port = v_port AND f.terminal_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Frente TBC impede o fechamento do ADR.'
+      USING ERRCODE = '23514', DETAIL = 'Atribua todas as frentes a um terminal antes do fechamento.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.voyage_escala_operation_fronts AS f
+    WHERE f.voyage_id = p_voyage_id AND f.port = v_port
+      AND f.terminal_id = v_report.terminal_id
+  ) THEN
+    RAISE EXCEPTION 'ADR % nao corresponde a terminal atribuido na escala.', v_terminal_code
+      USING ERRCODE = '23514';
+  END IF;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.assert_voyage_escala_ready_for_report_close(BIGINT, TEXT, UUID)
+  FROM PUBLIC, anon, authenticated;
+
 ALTER TABLE public.audit_logs
   ADD COLUMN IF NOT EXISTS actor_department TEXT;
 
@@ -423,15 +513,14 @@ BEGIN
     RAISE EXCEPTION 'Porto brasileiro % nao encontrado.', v_port USING ERRCODE = 'P0002';
   END IF;
 
-  INSERT INTO public.voyage_escala_revision_state (voyage_id, port, port_id, revision)
-  VALUES (p_voyage_id, v_port, v_port_id, 0)
-  ON CONFLICT (voyage_id, port) DO NOTHING;
-
   SELECT rs.revision
   INTO v_current_revision
   FROM public.voyage_escala_revision_state AS rs
   WHERE rs.voyage_id = p_voyage_id AND rs.port = v_port
   FOR UPDATE;
+  IF NOT FOUND THEN
+    v_current_revision := 0;
+  END IF;
   IF p_expected_revision <> v_current_revision THEN
     RAISE EXCEPTION 'REVISAO_OBSOLETA: esperada %, atual %.', p_expected_revision, v_current_revision
       USING ERRCODE = 'P0001';
@@ -504,6 +593,24 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_to_recordset(p_fronts) AS f(
+      sentido TEXT, modalidade TEXT, terminal_id UUID, source TEXT
+    )
+    WHERE f.terminal_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM jsonb_to_recordset(p_terminals) AS t(
+          terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw TIMESTAMPTZ
+        )
+        WHERE t.terminal_id = f.terminal_id
+      )
+  ) THEN
+    RAISE EXCEPTION 'Frente atribuida exige terminal no estado da escala.'
+      USING ERRCODE = '23514';
+  END IF;
 
   FOR v_terminal IN
     SELECT t.terminal_id, t.terminal_atb, t.terminal_atd, t.terminal_rtw
@@ -756,6 +863,10 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  INSERT INTO public.voyage_escala_revision_state (voyage_id, port, port_id, revision)
+  VALUES (p_voyage_id, v_port, v_port_id, 0)
+  ON CONFLICT (voyage_id, port) DO NOTHING;
+
   UPDATE public.voyage_escala_revision_state
   SET revision = v_next_revision, updated_at = now()
   WHERE voyage_id = p_voyage_id AND port = v_port;
@@ -913,14 +1024,16 @@ BEGIN
   END LOOP;
 
   IF p_export_expectation IS NOT NULL OR v_old_export_exists OR v_export_declared THEN
-    IF v_old_export_exists AND v_export_old IS DISTINCT FROM v_export_new THEN
+    IF (p_export_expectation IS NOT NULL OR v_export_declared)
+       AND (NOT v_old_export_exists OR v_export_old IS DISTINCT FROM v_export_new) THEN
       INSERT INTO public.audit_logs (
         entity_type, entity_id, field_name, old_value, new_value,
         changed_by, changed_at, justification, actor_role, actor_department
       )
       VALUES (
         'voyage_pod_schedule', v_entity_id, 'export_expectation',
-        v_export_old::TEXT, v_export_new::TEXT,
+        CASE WHEN v_old_export_exists THEN v_export_old::TEXT ELSE NULL END,
+        v_export_new::TEXT,
         auth.uid(), clock_timestamp(), p_justification, v_role, v_department
       );
     END IF;
@@ -979,17 +1092,54 @@ BEGIN
       )
   LOOP
     IF v_report.status = 'open' THEN
-      INSERT INTO public.audit_logs (
-        entity_type, entity_id, field_name, old_value, new_value,
-        changed_by, changed_at, justification, actor_role, actor_department
+      -- Um ADR aberto só pode ser removido quando não há filhos nem histórico
+      -- associado. A guarda evita que o ON DELETE CASCADE apague sign-offs,
+      -- ocorrências ou evidência auditável da operação.
+      IF NOT EXISTS (
+        SELECT 1
+        FROM public.agency_departure_report_signoffs
+        WHERE report_id = v_report.id
       )
-      VALUES (
-        'voyage_pod_schedule', v_entity_id, 'adr_removed',
-        jsonb_build_object('terminal_code', v_report.code, 'report_id', v_report.id)::TEXT,
-        NULL, auth.uid(), clock_timestamp(), p_justification, v_role, v_department
-      );
-      DELETE FROM public.agency_departure_reports
-      WHERE id = v_report.id AND status = 'open';
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.agency_departure_report_department_signoffs
+        WHERE report_id = v_report.id
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.agency_departure_report_occurrences
+        WHERE report_id = v_report.id
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.audit_logs AS al
+        WHERE al.entity_id = v_report.id::TEXT
+           OR al.old_value ILIKE '%' || v_report.id::TEXT || '%'
+           OR al.new_value ILIKE '%' || v_report.id::TEXT || '%'
+      ) THEN
+        INSERT INTO public.audit_logs (
+          entity_type, entity_id, field_name, old_value, new_value,
+          changed_by, changed_at, justification, actor_role, actor_department
+        )
+        VALUES (
+          'voyage_pod_schedule', v_entity_id, 'adr_removed',
+          jsonb_build_object('terminal_code', v_report.code, 'report_id', v_report.id)::TEXT,
+          NULL, auth.uid(), clock_timestamp(), p_justification, v_role, v_department
+        );
+        DELETE FROM public.agency_departure_reports
+        WHERE id = v_report.id AND status = 'open';
+      ELSE
+        INSERT INTO public.audit_logs (
+          entity_type, entity_id, field_name, old_value, new_value,
+          changed_by, changed_at, justification, actor_role, actor_department
+        )
+        VALUES (
+          'voyage_pod_schedule', v_entity_id, 'adr_preserved',
+          jsonb_build_object('terminal_code', v_report.code, 'report_id', v_report.id)::TEXT,
+          'dependentes ou historico preservados', auth.uid(), clock_timestamp(),
+          p_justification, v_role, v_department
+        );
+      END IF;
     END IF;
   END LOOP;
 
