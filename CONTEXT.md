@@ -4,7 +4,7 @@ Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
 negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
 aos ADRs.
 
-Verificado em 2026-08-03.
+Verificado em 2026-08-18.
 
 ## Operação marítima
 
@@ -61,7 +61,13 @@ integram sua linha do tempo.
 **Omissao de Escala**
 Evento operacional em que o armador nao realiza a escala prevista em um POD. A
 carga afetada e descarregada em outro porto da mesma viagem para seguir em
-transbordo ou ser convertida em COD. Nao calcula nem automatiza financeiro.
+transbordo ou ser convertida em COD. A omissao em si nao tem efeito financeiro;
+so o COD reprecifica a Taxa Local, no destino final (ADR 0051). CE Mercante e
+Demurrage seguem manuais.
+
+Uma omissao registrada por engano e reversivel por Admin, com justificativa e
+notificacao de correcao ao cliente, enquanto nenhum B/L afetado estiver em COD.
+Omitir duas vezes o mesmo POD e erro, nao atualizacao silenciosa.
 
 **Porto de Transbordo**
 Porto onde a carga de uma escala omitida é efetivamente descarregada para seguir
@@ -94,13 +100,33 @@ Transbordo; complementos posteriores atualizam esse card sem criar uma nova
 notificacao a cada edicao.
 
 **COD (Change of Destination)**
-Alteracao operacional do destino final do B/L para o Porto de Transbordo apos
-omissao de escala. E uma excecao por B/L e mantem efeitos financeiros manuais.
-Nao reprecifica Taxas Locais: o fato gerador delas e a emissao do CE Mercante,
-e a taxa devida continua sendo a do porto declarado no CE mesmo quando a carga
-e retirada em outro porto.
+Alteracao do destino final do B/L para o Porto de Transbordo apos omissao de
+escala. E uma excecao por B/L, marcada deliberadamente pelo operador com
+justificativa registrada.
 
-- **Related:** Taxas Locais, Omissao de Escala, Porto de Transbordo
+Reprecifica a Taxa Local: ela e devida no destino final, e o COD muda o destino
+final (ADR 0051). O Transbordo nao reprecifica, porque nele o destino final e
+preservado — a carga segue por navio de terceiro ate o POD original. A diferenca
+apurada vira um Ajuste de COD; CE Mercante e Demurrage seguem manuais.
+
+O CE Mercante do B/L nunca muda. O CE Master tambem nao muda de numero, mas o
+B/L em COD deixa de constar no manifesto do porto omitido e passa a constar no
+manifesto do novo destino; se essa rota ainda nao existir na viagem, ela nasce
+sem manifesto e o pendente fica visivel ate alguem informar o numero.
+
+- **Related:** Ajuste de COD, Taxas Locais, Omissao de Escala, Porto de Transbordo
+
+**Ajuste de COD**
+Diferenca financeira apurada quando um COD reprecifica a Taxa Local de um B/L ja
+faturado e pago. Quando falta valor, e cobrada por Fatura Complementar de COD;
+quando sobra, vira restituicao ao cliente. Antes do pagamento nao ha ajuste:
+B/L nao faturado e recalculado, e B/L faturado e nao pago tem a fatura cancelada
+e reemitida.
+
+O COD apura e registra a diferenca; a emissao do documento e a liberacao da
+restituicao sao atos do Financeiro, nunca automaticos.
+
+- **Related:** COD, Taxas Locais, Recebivel Local, Invoice Individual
 
 **Visao Geral do B/L**
 Informa a aba padrao da ficha do B/L que consolida viagem e escalas,
