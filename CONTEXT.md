@@ -160,8 +160,8 @@ sentido único produz uma linha só. É granularidade de exibição, não um seg
 registro: o planejamento da Viagem continua mostrando uma linha por Escala.
 
 **ADR (Agency Departure Report)**
-Relatório de operação do navio num terminal: cada Terminal da Escala de uma
-escala brasileira gera um ADR, com ou sem importação; portos de origem
+Relatório de escala do navio: cada escala brasileira de uma viagem gera um ADR
+(duas escalas brasileiras, dois ADRs), com ou sem importação; portos de origem
 estrangeiros não geram ADR. Escala
 que só embarca gera ADR como qualquer outra, e o fechamento exige os três
 sign-offs departamentais mesmo quando um departamento não tem nada a declarar.
@@ -183,12 +183,9 @@ origem, não uma redigitação: carga, veículos, vazios, depot e overtime nasce
 nos seus módulos; apenas ocorrências e sign-offs nascem no próprio ADR. Existe
 desde que a escala existe; suas pendências só alertam após o ATD da escala.
 
-A identidade do ADR é (viagem, porto, terminal): uma escala que opera em dois
-terminais gera **dois ADRs**, cada um com as suas seis seções, os seus três
-sign-offs e o seu fechamento próprios, e cada um declarando apenas o que foi
-operado naquele terminal. O terminal deixa de ser rótulo do cabeçalho e passa a
-ser parte da identidade. O armador exibido no cabeçalho deriva do navio da
-viagem.
+A identidade do ADR é (viagem, porto): uma escala que opera em dois terminais
+mantém um único ADR, com o terminal como atributo do cabeçalho. O armador
+exibido no cabeçalho deriva do navio da viagem.
 
 - **Related:** Seção do ADR, Resolução de Seção, Sign-off Departamental, Fechamento do ADR, Listagem do operado
 

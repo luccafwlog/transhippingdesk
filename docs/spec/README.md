@@ -16,11 +16,9 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
+| [`2026-08-18-escala-multiplos-terminais-design.md`](./2026-08-18-escala-multiplos-terminais-design.md) | Escala com múltiplos terminais e ADR por terminal |
 
-Nenhuma no momento: todas as specs funcionais aprovadas até aqui tiveram seus
-planos concluídos e estão preservadas no
-[arquivo histórico](../archive/specs/). A spec comportamental abaixo é
-permanente e não entra nesta tabela.
+A spec comportamental abaixo é permanente e não entra nesta tabela.
 
 ## Behavioral Specification
 
