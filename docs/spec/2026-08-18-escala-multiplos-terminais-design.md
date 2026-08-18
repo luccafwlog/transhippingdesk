@@ -111,8 +111,14 @@ Duas mudanças no cadastro:
 
 Consequência aceita: o cadastro deixa de ser acessório do módulo de Vazios.
 Hoje um `terminal_portuario` só está lá se algum vazio veio dele (Embarque
-Direto); passa a precisar conter **todo terminal onde qualquer navio atraca**. É
-o que justifica tirá-lo de `/embarquevazios/depots` — ver E2.
+Direto); passa a precisar conter **todo terminal onde qualquer navio atraca**.
+
+Isso deixa em aberto **onde esse cadastro é mantido**. "Aba de terminal no
+Painel", da nota original, acabou resolvida como a coluna de terminais do
+Line-Up (Decisão 13) — não uma tela nova. Não há mais lugar óbvio para o
+cadastro sair de `/embarquevazios/depots`; ou ele continua lá (mesmo que o
+consumidor principal passe a ser a atribuição de escala, não Vazios), ou ganha
+uma tela própria fora do módulo. Fica como questão aberta (E2).
 
 ## Decisão 7 — a unidade atribuível é a Frente de Operação `(sentido, modalidade)`
 
@@ -300,7 +306,7 @@ Ordenadas por dependência.
 
 | # | Bloco | Questão |
 |---|---|---|
-| E2 | Superfícies | Aba de terminal no Painel — escopo |
+| E2 | Superfícies | Onde vive o cadastro de terminais, já que não há aba nova no Painel |
 | F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
 
 Decididas: A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
