@@ -49,9 +49,10 @@ faz a UI obedecer o vocabulário que já está escrito.
 4. Relatórios vira botão de primeiro nível **logo depois** do dropdown
    Financeiro; a aba "Financeiro" continua dentro de Relatórios.
 5. "Financeiro" continua dropdown, agora com 3 itens.
-6. `DemurrageMetricsStrip` sai de Taxas Locais; a métrica de saldo consolidado
-   em aberto vai para o topo de `/demurrage` (**commit separado** — é a única
-   parte que não é pura reorganização de tela).
+6. `DemurrageMetricsStrip` sai de Taxas Locais. A segunda metade da decisão
+   ("levar o saldo em aberto para `/demurrage`") caiu: a premissa era falsa —
+   `/demurrage` já tem esse card. Ver Task 7, que passa a carregar uma decisão
+   pendente sobre o filtro do card existente.
 7. `/faturamento` vira redirect permanente **preservando a query string**.
 8. Link da ficha do cliente repontado para a sub-rota + rótulo para "Gerenciar
    em Tabelas"; a rota pai redireciona `?tab=overrides|tabelas` para a filha.
@@ -195,9 +196,38 @@ texto. Teste de contrato SQL no padrão `*Migration.test.ts`. Migrations
 existentes não são tocadas (protegidas por hook e históricas).
 
 ### Task 7 — Métrica de Demurrage (commit separado)
-Remover `<DemurrageMetricsStrip />` da tela de Taxas Locais e levar o saldo
-consolidado em aberto para o topo de `/demurrage` — a informação existe só ali
-porque `/demurrage` segrega por status em abas.
+
+**Premissa da decisão 6 corrigida** (review do Codex em #549, verificado no
+código): o saldo consolidado em aberto **não** existe só no strip.
+`Demurrage.tsx:340` já mostra o card "Aguardando pagamento (BRL)" a partir de
+`kpis.issuedInvoicesTotalBrl`. Logo, não há métrica a mover — mover criaria um
+segundo card de saldo na mesma página.
+
+Os dois números, porém, **não são o mesmo**:
+
+| Origem | Filtro | Arquivo |
+|---|---|---|
+| Card de `/demurrage` | `status = 'issued'` | `demurrageKpis.ts:120` |
+| Strip de Taxas Locais | `status = 'issued' OR 'overdue'` | `DemurrageMetricsStrip.tsx:23` |
+
+Ou seja, uma fatura de demurrage **vencida** sai do total "Aguardando
+pagamento" da página de Demurrage, embora continue aguardando pagamento.
+
+A task passa a ser:
+
+1. Remover `<DemurrageMetricsStrip />` da tela de Taxas Locais e apagar o
+   componente (sem outro chamador). Nada é acrescentado a `/demurrage`.
+2. **Decisão pendente do dono do processo (Equipamentos):** `overdue` deve
+   entrar em "Aguardando pagamento (BRL)"? Se sim, é uma linha em
+   `fetchDemurrageKPIs` (`.eq('status','issued')` → `.in('status',
+   ['issued','overdue'])`) mais o teste correspondente — **mas é mudança de
+   número exibido**, não reorganização de tela, então vai em commit próprio e
+   só com aprovação explícita. Se não, o strip morre sem substituto.
+
+As outras métricas do strip (contagem de faturas, contagem em aberto, total
+USD de todas) não têm equivalente em `/demurrage`, que mostra "Total USD
+(visível)" (recorte da grade filtrada) e "Containers em atraso". Nenhuma delas
+foi apontada como necessária; morrem com o strip.
 
 ### Task 8 — Documentação e ADR
 ADR novo: "Módulo financeiro segregado por processo faturável", registrando os
