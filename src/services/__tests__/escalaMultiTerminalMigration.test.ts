@@ -24,9 +24,10 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
       /CREATE TABLE IF NOT EXISTS public\.voyage_escala_operation_fronts[\s\S]+sentido TEXT[\s\S]+modalidade TEXT[\s\S]+terminal_id UUID[\s\S]+source TEXT[\s\S]+last_changed_by UUID/i,
     )
     expect(sql).toMatch(/FOREIGN KEY \(terminal_id, port_id\)[\s\S]+REFERENCES public\.depots\(id, port_id\) ON DELETE RESTRICT/i)
+    expect(sql).not.toMatch(/terminal_id UUID(?: NOT NULL)? REFERENCES public\.depots\(id\)/i)
+    expect(sql).toContain('A FK composta (terminal_id, port_id) é a única relação terminal->depot')
     expect(sql).toContain("source IN ('operational_data', 'export_declaration')")
     expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS uq_voyage_escala_operation_front[\s\S]+\(voyage_id, port, sentido, modalidade\)/i)
-    expect(sql).toMatch(/terminal_id UUID\s*REFERENCES public\.depots\(id\)\s*ON DELETE RESTRICT/i)
     expect(sql).toContain('terminal_id UUID,')
   })
 
@@ -151,6 +152,9 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_terminal_state FROM PUBLIC, anon, authenticated/i)
     expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_operation_fronts FROM PUBLIC, anon, authenticated/i)
     expect(sql).toMatch(/REVOKE ALL ON TABLE public\.voyage_escala_revision_state FROM PUBLIC, anon, authenticated/i)
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.normalize_depot_code\(\) FROM PUBLIC, anon, authenticated/i)
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.validate_escala_port_reference\(\) FROM PUBLIC, anon, authenticated/i)
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.validate_agency_departure_report_port\(\) FROM PUBLIC, anon, authenticated/i)
     expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_terminal_state TO authenticated/i)
     expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_operation_fronts TO authenticated/i)
     expect(sql).toMatch(/GRANT SELECT ON TABLE public\.voyage_escala_revision_state TO authenticated/i)

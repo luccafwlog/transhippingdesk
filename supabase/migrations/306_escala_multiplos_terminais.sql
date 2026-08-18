@@ -109,16 +109,17 @@ CREATE TRIGGER normalize_depot_code
   BEFORE INSERT OR UPDATE OF code ON public.depots
   FOR EACH ROW EXECUTE FUNCTION public.normalize_depot_code();
 
-REVOKE ALL ON FUNCTION public.normalize_depot_code() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.normalize_depot_code() FROM PUBLIC, anon, authenticated;
 
--- A FK composta torna impossível apontar uma frente para um depot comum ou
--- para um terminal portuário cadastrado em outro porto.
+-- A FK composta (terminal_id, port_id) é a única relação terminal->depot nas
+-- entidades novas; ela evita ambiguidade no PostgREST e impede depot comum ou
+-- terminal portuário cadastrado em outro porto.
 CREATE TABLE IF NOT EXISTS public.voyage_escala_terminal_state (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   voyage_id BIGINT NOT NULL REFERENCES public.voyages(id) ON DELETE CASCADE,
   port TEXT NOT NULL CHECK (port = upper(btrim(port)) AND btrim(port) <> ''),
   port_id BIGINT NOT NULL REFERENCES public.ports(id) ON DELETE RESTRICT,
-  terminal_id UUID NOT NULL REFERENCES public.depots(id) ON DELETE RESTRICT,
+  terminal_id UUID NOT NULL,
   terminal_atb TIMESTAMPTZ,
   terminal_atd TIMESTAMPTZ,
   terminal_rtw TIMESTAMPTZ,
@@ -143,7 +144,7 @@ CREATE TABLE IF NOT EXISTS public.voyage_escala_operation_fronts (
   port_id BIGINT NOT NULL REFERENCES public.ports(id) ON DELETE RESTRICT,
   sentido TEXT NOT NULL,
   modalidade TEXT NOT NULL,
-  terminal_id UUID REFERENCES public.depots(id) ON DELETE RESTRICT,
+  terminal_id UUID,
   source TEXT NOT NULL,
   revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -258,6 +259,7 @@ CREATE TRIGGER set_voyage_escala_revision_state_updated_at
 
 -- A coluna textual e os ADRs legados permanecem intactos. terminal_port_id é
 -- nulo para legado e permite uma FK composta restrita ao porto nos novos ADRs.
+-- Para ADRs terminalizados, essa FK composta é a única relação com depots.
 ALTER TABLE public.agency_departure_reports
   ADD COLUMN IF NOT EXISTS terminal_id UUID,
   ADD COLUMN IF NOT EXISTS terminal_port_id BIGINT;
@@ -269,8 +271,6 @@ ALTER TABLE public.agency_departure_reports
   DROP CONSTRAINT IF EXISTS agency_departure_reports_terminal_pair_check;
 
 ALTER TABLE public.agency_departure_reports
-  ADD CONSTRAINT agency_departure_reports_terminal_id_fkey
-    FOREIGN KEY (terminal_id) REFERENCES public.depots(id) ON DELETE RESTRICT,
   ADD CONSTRAINT agency_departure_reports_terminal_port_fk
     FOREIGN KEY (terminal_id, terminal_port_id)
     REFERENCES public.depots(id, port_id) ON DELETE RESTRICT,
@@ -1261,7 +1261,7 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.validate_escala_port_reference() FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.validate_agency_departure_report_port() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.validate_escala_port_reference() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.validate_agency_departure_report_port() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.save_voyage_escala_terminal_state(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_voyage_escala_terminal_state(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT) TO authenticated;
