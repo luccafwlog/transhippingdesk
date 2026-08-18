@@ -18,6 +18,7 @@ const ESCALA_PORT_SUGGESTIONS = ['BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'B
 export type EscalaExportPayload = {
   temExportacao: boolean
   hasGranite: boolean
+  hasEmpty: boolean
   containersQty: number | null
   movementsQty: number | null
   dischargePorts: string[]
@@ -60,6 +61,7 @@ export type EscalaModalData = {
   exportExistingId: string | null
   temExportacao: boolean
   hasGranite: boolean
+  hasEmpty?: boolean
   containersQty: number | null
   movementsQty: number | null
   dischargePorts: string[]
@@ -189,8 +191,8 @@ export function EscalaModal({
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [escalaNumber, setEscalaNumber] = useState('')
-  const [temExportacao, setTemExportacao] = useState(false)
   const [hasGranite, setHasGranite] = useState(false)
+  const [hasEmpty, setHasEmpty] = useState(false)
   const [containersQty, setContainersQty] = useState('')
   const [movementsQty, setMovementsQty] = useState('')
   const [dischargePorts, setDischargePorts] = useState('')
@@ -214,8 +216,8 @@ export function EscalaModal({
     setCeStatus(getEditableVoyagePodCeStatus(escala.ceStatus))
     setLinked(escala.linked ? 'true' : 'false')
     setEscalaNumber(escala.escalaNumber ?? '')
-    setTemExportacao(escala.temExportacao)
     setHasGranite(escala.hasGranite)
+    setHasEmpty(escala.hasEmpty ?? false)
     setContainersQty(escala.containersQty === null ? '' : String(escala.containersQty))
     setMovementsQty(escala.movementsQty === null ? '' : String(escala.movementsQty))
     setDischargePorts(escala.dischargePorts.join(', '))
@@ -224,29 +226,26 @@ export function EscalaModal({
 
   const isNew = escala?.port === null
 
-  async function handleToggleExportacao(next: boolean) {
-    if (next) {
-      setTemExportacao(true)
-      return
-    }
-    // A carga vinculada trava o toggle antes de chegar aqui; o que resta é o
-    // planejamento digitado, e descartá-lo pede confirmação.
-    if (escala?.exportLocked) return
-    const hasPlanning = hasGranite || containersQty.trim() !== '' || movementsQty.trim() !== '' || dischargePorts.trim() !== ''
-    if (hasPlanning) {
+  async function handleDeclarationChange(kind: 'granito' | 'vazios', next: boolean) {
+    if (escala?.exportLocked && !next) return
+
+    const nextHasGranite = kind === 'granito' ? next : hasGranite
+    const nextHasEmpty = kind === 'vazios' ? next : hasEmpty
+    const hasPlanning = containersQty.trim() !== '' || movementsQty.trim() !== '' || dischargePorts.trim() !== ''
+    if (!nextHasGranite && !nextHasEmpty && hasPlanning) {
       const confirmed = await confirm({
         title: 'Retirar a exportação desta escala',
-        message: 'O planejamento de exportação digitado (granito, containers, movimentos e portos de descarga) será descartado. Continuar?',
+        message: 'O planejamento de exportação digitado (containers, movimentos e portos de descarga) será descartado. Continuar?',
         confirmLabel: 'Retirar',
         tone: 'danger',
       })
       if (!confirmed) return
+      setContainersQty('')
+      setMovementsQty('')
+      setDischargePorts('')
     }
-    setHasGranite(false)
-    setContainersQty('')
-    setMovementsQty('')
-    setDischargePorts('')
-    setTemExportacao(false)
+    setHasGranite(nextHasGranite)
+    setHasEmpty(nextHasEmpty)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -281,11 +280,12 @@ export function EscalaModal({
         linked: linked === 'true',
         escalaNumber: escalaNumber.trim() || null,
         exportacao: {
-          temExportacao,
-          hasGranite: temExportacao ? hasGranite : false,
-          containersQty: temExportacao && containersQty.trim() ? Number(containersQty) : null,
-          movementsQty: temExportacao && movementsQty.trim() ? Number(movementsQty) : null,
-          dischargePorts: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
+          temExportacao: hasGranite || hasEmpty,
+          hasGranite,
+          hasEmpty,
+          containersQty: hasEmpty && containersQty.trim() ? Number(containersQty) : null,
+          movementsQty: hasEmpty && movementsQty.trim() ? Number(movementsQty) : null,
+          dischargePorts: (hasGranite || hasEmpty) ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
         },
         exportExistingId: escala.exportExistingId,
       })
@@ -376,58 +376,63 @@ export function EscalaModal({
           </div>
 
           <div className="grid gap-3 rounded-lg border border-[var(--app-border)] p-3">
+            <div className="text-sm font-semibold text-[var(--app-text-strong)]">Declaração de exportação</div>
+
             <label className="flex cursor-pointer items-center gap-3">
               <input
                 type="checkbox"
-                checked={temExportacao}
-                disabled={escala.exportLocked && temExportacao}
-                onChange={(event) => { void handleToggleExportacao(event.target.checked) }}
+                checked={hasGranite}
+                disabled={escala.exportLocked && hasGranite}
+                onChange={(event) => { void handleDeclarationChange('granito', event.target.checked) }}
                 className="h-4 w-4 rounded border-slate-500 accent-amber-500"
               />
-              <span className="text-sm text-[var(--app-text)]">Esta escala terá exportação</span>
+              <span className="text-sm text-[var(--app-text)]">Terá embarque de granito</span>
             </label>
 
-            {escala.exportLocked && temExportacao ? (
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                checked={hasEmpty}
+                disabled={escala.exportLocked && hasEmpty}
+                onChange={(event) => { void handleDeclarationChange('vazios', event.target.checked) }}
+                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
+              />
+              <span className="text-sm text-[var(--app-text)]">Terá embarque de vazios</span>
+            </label>
+
+            {escala.exportLocked && (hasGranite || hasEmpty) ? (
               <p className="text-xs text-[var(--app-muted)]">
                 Há carga de exportação vinculada a esta escala (granito ou embarque de vazios); a
                 declaração só pode ser retirada depois que a carga deixar de existir.
               </p>
             ) : null}
 
-            {temExportacao ? (
+            {hasGranite || hasEmpty ? (
               <>
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={hasGranite}
-                    onChange={(event) => setHasGranite(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-500 accent-amber-500"
-                  />
-                  <span className="text-sm text-[var(--app-text)]">Terá embarque de granito</span>
-                </label>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="CNTR (Vazios Exp.)">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={containersQty}
-                      onChange={(event) => setContainersQty(event.target.value)}
-                      placeholder="Qtd. de containers"
-                    />
-                  </Field>
-                  <Field label="Movimentos">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={movementsQty}
-                      onChange={(event) => setMovementsQty(event.target.value)}
-                      placeholder="Qtd. de movimentos"
-                    />
-                  </Field>
-                </div>
+                {hasEmpty ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="CNTR (Vazios Exp.)">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={containersQty}
+                        onChange={(event) => setContainersQty(event.target.value)}
+                        placeholder="Opcional; quantidade operada"
+                      />
+                    </Field>
+                    <Field label="Movimentos">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={movementsQty}
+                        onChange={(event) => setMovementsQty(event.target.value)}
+                        placeholder="Opcional; quantidade operada"
+                      />
+                    </Field>
+                  </div>
+                ) : null}
 
                 <Field label="Portos de descarga">
                   <Input
@@ -437,8 +442,8 @@ export function EscalaModal({
                   />
                 </Field>
                 <p className="text-xs text-[var(--app-muted)]">
-                  Destino da carga embarcada nesta escala (granito e containers). Separe por vírgula;
-                  é o que forma a perna de exportação na rota da viagem.
+                  Destino da carga embarcada nesta escala. Separe por vírgula; é o que forma a
+                  perna de exportação na rota da viagem. A declaração não exige quantidades.
                 </p>
               </>
             ) : null}

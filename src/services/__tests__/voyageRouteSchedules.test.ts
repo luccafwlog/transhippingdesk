@@ -187,6 +187,7 @@ describe('projectVoyageEscalaSchedules', () => {
           pol: 'SALVADOR',
           temExportacao: true,
           hasGranite: true,
+          hasEmpty: false,
           containersQty: 10,
           movementsQty: 14,
           ceStatus: 'waiting',
@@ -198,6 +199,7 @@ describe('projectVoyageEscalaSchedules', () => {
           pol: 'CNSHA',
           temExportacao: true,
           hasGranite: false,
+          hasEmpty: true,
           containersQty: 99,
           movementsQty: 99,
           ceStatus: 'waiting',
@@ -213,6 +215,7 @@ describe('projectVoyageEscalaSchedules', () => {
       temImportacao: false,
           temExportacao: true,
       temGranito: true,
+      temVazios: false,
       containersQty: 10,
       movementsQty: 14,
     })])
@@ -245,6 +248,7 @@ describe('projectVoyageEscalaSchedules', () => {
           pol: 'BRVIX',
           temExportacao: true,
           hasGranite: false,
+          hasEmpty: false,
           containersQty: 4,
           movementsQty: 2,
           ceStatus: 'waiting',
@@ -264,6 +268,84 @@ describe('projectVoyageEscalaSchedules', () => {
       containersQty: 4,
       movementsQty: 2,
     })])
+  })
+
+  it.each([
+    ['somente granito', true, false],
+    ['somente vazios', false, true],
+    ['granito e vazios', true, true],
+  ])('projeta %s sem depender de quantidades', (_label, hasGranite, hasEmpty) => {
+    const [escala] = projectVoyageEscalaSchedules({
+      exportSchedulesByPort: new Map([
+        ['BRVIX', {
+          id: `exp-${String(hasGranite)}-${String(hasEmpty)}`,
+          voyageId: 12,
+          pol: 'BRVIX',
+          temExportacao: true,
+          hasGranite,
+          hasEmpty,
+          containersQty: null,
+          movementsQty: null,
+          ceStatus: 'waiting',
+          linked: false,
+        }],
+      ]),
+    })
+
+    expect(escala).toEqual(expect.objectContaining({
+      temExportacao: true,
+      temGranito: hasGranite,
+      temVazios: hasEmpty,
+      containersQty: null,
+      movementsQty: null,
+    }))
+  })
+
+  it('mantem a escala sem operação quando a declaração existe mas não há quantidades', () => {
+    const [escala] = projectVoyageEscalaSchedules({
+      exportSchedulesByPort: new Map([
+        ['BRVIX', {
+          id: 'exp-declarada',
+          voyageId: 12,
+          pol: 'BRVIX',
+          temExportacao: true,
+          hasGranite: false,
+          hasEmpty: true,
+          containersQty: null,
+          movementsQty: null,
+          ceStatus: 'waiting',
+          linked: false,
+        }],
+      ]),
+    })
+
+    expect(escala).toEqual(expect.objectContaining({
+      temExportacao: true,
+      temGranito: false,
+      temVazios: true,
+      containersQty: null,
+      movementsQty: null,
+    }))
+  })
+
+  it('ordena a projeção de exportações de forma determinística', () => {
+    const build = (entries: Array<[string, string]>) => projectVoyageEscalaSchedules({
+      exportSchedulesByPort: new Map(entries.map(([port, id]) => [port, {
+        id,
+        voyageId: 12,
+        pol: port,
+        temExportacao: true,
+        hasGranite: false,
+        hasEmpty: true,
+        containersQty: null,
+        movementsQty: null,
+        ceStatus: 'waiting' as const,
+        linked: false,
+      }])),
+    }).map(({ port, temVazios }) => ({ port, temVazios }))
+
+    expect(build([['BRSSZ', 'exp-2'], ['BRVIX', 'exp-1']]))
+      .toEqual(build([['BRVIX', 'exp-1'], ['BRSSZ', 'exp-2']]))
   })
 
   it('preserva a escala pela linha de POL quando o POD foi soft-deletado', () => {

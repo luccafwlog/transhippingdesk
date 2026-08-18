@@ -120,6 +120,7 @@ const escalaBase: EscalaModalData = {
   exportExistingId: null,
   temExportacao: false,
   hasGranite: false,
+  hasEmpty: false,
   containersQty: null,
   movementsQty: null,
   dischargePorts: [],
@@ -155,7 +156,7 @@ describe('EscalaModal', () => {
         atb: '2026-03-02',
         rtw: 3,
         linked: true,
-        exportacao: { temExportacao: false, hasGranite: false, containersQty: null, movementsQty: null, dischargePorts: [] },
+        exportacao: { temExportacao: false, hasGranite: false, hasEmpty: false, containersQty: null, movementsQty: null, dischargePorts: [] },
       }),
     )
   })
@@ -179,14 +180,14 @@ describe('EscalaModal', () => {
     expect(screen.getByRole('alert').textContent).toContain('porto brasileiro')
   })
 
-  it('so revela os campos de exportacao depois do toggle e os envia juntos', async () => {
+  it('declara vazios sem exigir quantidades e envia o planejamento quando informado', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala({ ...escalaBase, port: null })
 
     expect(screen.queryByLabelText('CNTR (Vazios Exp.)')).toBeNull()
 
     await user.type(screen.getByLabelText('Porto da escala'), 'brvix')
-    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByLabelText('Terá embarque de vazios'))
     await user.type(screen.getByLabelText('CNTR (Vazios Exp.)'), '10')
     await user.type(screen.getByLabelText('Portos de descarga'), 'itgoa, nlrtm brssz')
     await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
@@ -197,6 +198,7 @@ describe('EscalaModal', () => {
         exportacao: {
           temExportacao: true,
           hasGranite: false,
+          hasEmpty: true,
           containersQty: 10,
           movementsQty: null,
           dischargePorts: ['BRSSZ', 'ITGOA', 'NLRTM'],
@@ -206,9 +208,9 @@ describe('EscalaModal', () => {
   })
 
   it('trava a retirada da exportacao quando ha carga vinculada', () => {
-    renderEscala({ ...escalaBase, temExportacao: true, exportLocked: true, containersQty: 4 })
+    renderEscala({ ...escalaBase, temExportacao: true, hasEmpty: true, exportLocked: true, containersQty: 4 })
 
-    const toggle = screen.getByLabelText('Esta escala terá exportação') as HTMLInputElement
+    const toggle = screen.getByLabelText('Terá embarque de vazios') as HTMLInputElement
     expect(toggle.checked).toBe(true)
     expect(toggle.disabled).toBe(true)
     expect(screen.getByText(/carga de exportação vinculada/i)).toBeTruthy()

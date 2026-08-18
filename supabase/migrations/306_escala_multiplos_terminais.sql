@@ -12,6 +12,14 @@
 -- Operacao: os UPDATE/ALTER e a criacao de indices desta migration exigem
 -- janela controlada, com acompanhamento de locks e impacto operacional.
 
+-- A declaração de vazios é uma decisão explícita da escala. Quantidades são
+-- dados de operação e não podem criar ou remover a frente de exportação.
+ALTER TABLE public.voyage_export_schedules
+  ADD COLUMN IF NOT EXISTS has_empty BOOLEAN NOT NULL DEFAULT FALSE;
+
+COMMENT ON COLUMN public.voyage_export_schedules.has_empty IS
+  'Declaração explícita de embarque de vazios na escala; independente das quantidades realizadas.';
+
 -- O código é normalizado no banco para que escrita direta do Cadastro não
 -- reintroduza diferenças de caixa ou espaços.
 ALTER TABLE public.depots
@@ -694,18 +702,12 @@ BEGIN
     END IF;
   END LOOP;
 
-  SELECT COALESCE(ves.tem_exportacao, FALSE), COALESCE(ves.has_granite, FALSE)
-  INTO v_old_export_declared, v_old_export_granite
+  SELECT COALESCE(ves.tem_exportacao, FALSE), COALESCE(ves.has_granite, FALSE), COALESCE(ves.has_empty, FALSE)
+  INTO v_old_export_declared, v_old_export_granite, v_old_export_empty
   FROM public.voyage_export_schedules AS ves
   WHERE ves.voyage_id = p_voyage_id AND ves.pol = v_port
   FOR UPDATE;
   v_old_export_exists := FOUND;
-  SELECT EXISTS (
-    SELECT 1 FROM public.voyage_escala_operation_fronts AS f
-    WHERE f.voyage_id = p_voyage_id AND f.port = v_port
-      AND f.sentido = 'exportacao' AND f.modalidade = 'vazio'
-  ) INTO v_old_export_empty;
-
   IF COALESCE(p_export_expectation, '{}'::JSONB) ? 'granito' THEN
     v_export_granite := COALESCE((p_export_expectation->>'granito')::BOOLEAN, FALSE);
   ELSE
@@ -1117,12 +1119,13 @@ BEGIN
       );
     END IF;
     INSERT INTO public.voyage_export_schedules (
-      voyage_id, pol, tem_exportacao, has_granite, updated_at
+      voyage_id, pol, tem_exportacao, has_granite, has_empty, updated_at
     )
-    VALUES (p_voyage_id, v_port, v_export_declared, v_export_granite, now())
+    VALUES (p_voyage_id, v_port, v_export_declared, v_export_granite, v_export_empty, now())
     ON CONFLICT (voyage_id, pol) DO UPDATE SET
       tem_exportacao = EXCLUDED.tem_exportacao,
       has_granite = EXCLUDED.has_granite,
+      has_empty = EXCLUDED.has_empty,
       updated_at = now();
   END IF;
 

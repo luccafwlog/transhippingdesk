@@ -13,6 +13,8 @@ const legacyAdrSchema = readFileSync(
 
 describe('contrato SQL da escala com múltiplos terminais', () => {
   it('persiste estado por terminal e frente por escala com FK de porto', () => {
+    expect(sql).toMatch(/ALTER TABLE public\.voyage_export_schedules[\s\S]+ADD COLUMN IF NOT EXISTS has_empty BOOLEAN NOT NULL DEFAULT FALSE/i)
+    expect(sql).toMatch(/INSERT INTO public\.voyage_export_schedules[\s\S]+has_granite[\s\S]+has_empty/i)
     expect(sql).toMatch(
       /ADD CONSTRAINT depots_tipo_port_check[\s\S]+CHECK \([\s\S]+terminal_portuario[\s\S]+NOT VALID/i,
     )

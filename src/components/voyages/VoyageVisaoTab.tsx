@@ -134,6 +134,7 @@ export function VoyageVisaoTab({
       exportExistingId: exportSchedule?.id ?? null,
       temExportacao: exportSchedule?.temExportacao ?? false,
       hasGranite: exportSchedule?.hasGranite ?? false,
+      hasEmpty: exportSchedule?.hasEmpty ?? row?.temVazios ?? false,
       containersQty: exportSchedule?.containersQty ?? null,
       movementsQty: exportSchedule?.movementsQty ?? null,
       dischargePorts: exportSchedule?.dischargePorts ?? [],

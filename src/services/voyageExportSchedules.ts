@@ -10,6 +10,7 @@ export type VoyageExportSchedule = {
   pol: string | null
   temExportacao: boolean
   hasGranite: boolean
+  hasEmpty?: boolean
   containersQty: number | null
   movementsQty: number | null
   ceStatus: ExportCeStatus | null
@@ -22,7 +23,7 @@ export type VoyageExportSchedulesByPort = Map<string, VoyageExportSchedule>
 
 type ExportSchedulePickedRow = Pick<
   VoyageExportScheduleRow,
-  'id' | 'voyage_id' | 'pol' | 'tem_exportacao' | 'has_granite' | 'containers_qty' | 'movements_qty' | 'ce_status' | 'linked' | 'discharge_ports'
+  'id' | 'voyage_id' | 'pol' | 'tem_exportacao' | 'has_granite' | 'has_empty' | 'containers_qty' | 'movements_qty' | 'ce_status' | 'linked' | 'discharge_ports'
 >
 
 export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Promise<Map<number, VoyageExportSchedulesByPort>> {
@@ -30,7 +31,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
 
   const { data, error } = await supabase
     .from('voyage_export_schedules')
-    .select('id, voyage_id, pol, tem_exportacao, has_granite, containers_qty, movements_qty, ce_status, linked, discharge_ports')
+    .select('id, voyage_id, pol, tem_exportacao, has_granite, has_empty, containers_qty, movements_qty, ce_status, linked, discharge_ports')
     .in('voyage_id', voyageIds)
 
   if (error) throw error
@@ -43,6 +44,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
       pol: row.pol,
       temExportacao: row.tem_exportacao,
       hasGranite: row.has_granite,
+      hasEmpty: row.has_empty,
       containersQty: row.containers_qty,
       movementsQty: row.movements_qty,
       ceStatus: (row.ce_status as ExportCeStatus | null) ?? 'waiting',
@@ -57,7 +59,7 @@ export async function fetchExportSchedulesByVoyageIds(voyageIds: number[]): Prom
   const result = new Map<number, VoyageExportSchedulesByPort>()
   for (const [voyageId, schedules] of grouped) {
     const byPort = new Map<string, VoyageExportSchedule>()
-    for (const { portKey, schedule } of schedules.sort((left, right) => left.portKey.localeCompare(right.portKey, 'pt-BR'))) {
+    for (const { portKey, schedule } of schedules.sort((left, right) => left.portKey.localeCompare(right.portKey, 'pt-BR') || left.schedule.id.localeCompare(right.schedule.id))) {
       byPort.set(portKey, schedule)
     }
     result.set(voyageId, byPort)
@@ -71,6 +73,7 @@ export async function saveVoyageExportSchedule(data: {
   pol: string | null
   temExportacao: boolean
   hasGranite: boolean
+  hasEmpty?: boolean
   containersQty: number | null
   movementsQty: number | null
   ceStatus: ExportCeStatus | null
@@ -88,6 +91,7 @@ export async function saveVoyageExportSchedule(data: {
     pol: normalizedPol,
     tem_exportacao: data.temExportacao,
     has_granite: data.hasGranite,
+    has_empty: data.hasEmpty ?? false,
     containers_qty: data.containersQty,
     movements_qty: data.movementsQty,
     ce_status: data.ceStatus,

@@ -115,7 +115,7 @@ export function Viagens() {
           (schedule) => schedule.hasGranite,
         ),
         hasVaziosExportacao: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
-          (schedule) => schedule.temExportacao && ((schedule.containersQty ?? 0) > 0 || (schedule.movementsQty ?? 0) > 0),
+          (schedule) => schedule.hasEmpty,
         ),
       })
     }
@@ -365,6 +365,7 @@ export function Viagens() {
                 pol: payload.port,
                 temExportacao: payload.exportacao.temExportacao,
                 hasGranite: payload.exportacao.hasGranite,
+                hasEmpty: payload.exportacao.hasEmpty,
                 containersQty: payload.exportacao.containersQty,
                 movementsQty: payload.exportacao.movementsQty,
                 dischargePorts: payload.exportacao.dischargePorts,

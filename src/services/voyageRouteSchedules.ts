@@ -76,6 +76,7 @@ export type VoyageEscalaSchedule = {
   temImportacao: boolean
   temExportacao: boolean
   temGranito: boolean
+  temVazios?: boolean
   containersQty: number | null
   movementsQty: number | null
   /** Portos de descarga declarados no cadastro da exportacao desta escala. */
@@ -325,6 +326,7 @@ export function projectVoyageEscalaSchedules({
     escala.temExportacao = exportSchedule.temExportacao
     escala.exportCeStatus = exportSchedule.ceStatus
     escala.temGranito = escala.temGranito || exportSchedule.hasGranite
+    escala.temVazios = Boolean(escala.temVazios || exportSchedule.hasEmpty)
     escala.dischargePorts = exportSchedule.dischargePorts ?? []
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty
@@ -685,6 +687,7 @@ function ensureEscala(escalasByKey: Map<string, VoyageEscalaSchedule>, voyageId:
     temImportacao: false,
     temExportacao: false,
     temGranito: false,
+    temVazios: false,
     containersQty: null,
     movementsQty: null,
     dischargePorts: [],

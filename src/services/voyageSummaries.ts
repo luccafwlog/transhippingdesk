@@ -417,6 +417,8 @@ type EscalaScheduleRow = {
   omitted?: boolean
   temExportacao?: boolean
   hasGranite?: boolean
+  temGranito?: boolean
+  temVazios?: boolean
   containersQty?: number | null
   movementsQty?: number | null
 }
@@ -448,8 +450,8 @@ function collectEscalasBrasileiras(
     const current = byPort.get(port)
     const modules = 'temExportacao' in row
       ? {
-          ...(row.temExportacao && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0) ? { vaziosExp: true } : {}),
-          ...(row.hasGranite ? { granito: true } : {}),
+          ...(row.temVazios ? { vaziosExp: true } : {}),
+          ...(row.hasGranite || row.temGranito ? { granito: true } : {}),
         }
       : {}
     if (!current) byPort.set(port, { eta: row.eta ?? null, modules })

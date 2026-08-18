@@ -3992,6 +3992,7 @@ export type Database = {
           containers_qty: number | null
           created_at: string | null
           discharge_ports: string[]
+          has_empty: boolean
           has_granite: boolean
           id: string
           linked: boolean
@@ -4006,6 +4007,7 @@ export type Database = {
           containers_qty?: number | null
           created_at?: string | null
           discharge_ports?: string[]
+          has_empty?: boolean
           has_granite?: boolean
           id?: string
           linked?: boolean
@@ -4020,6 +4022,7 @@ export type Database = {
           containers_qty?: number | null
           created_at?: string | null
           discharge_ports?: string[]
+          has_empty?: boolean
           has_granite?: boolean
           id?: string
           linked?: boolean
