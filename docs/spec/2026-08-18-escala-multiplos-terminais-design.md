@@ -261,19 +261,34 @@ para aprovar pagamento.
 O `closed_snapshot` de um ADR reaberto por reatribuição é regravado no novo
 fechamento, como já acontece hoje para reabertura por qualquer outro motivo.
 
+## Decisão 12 — o terminal entra no título da aba e no nome do PDF exportado
+
+O cabeçalho impresso já mostra o campo Terminal
+(`AgencyReportDocument.tsx:558-562`); com a Decisão 3 ele passa a vir do
+cadastro em vez de texto livre, e já basta para diferenciar os dois ADRs *dentro*
+do documento aberto.
+
+O motivo para ir além do cabeçalho é operacional, não estético: dois PDFs
+salvos com o mesmo nome de arquivo (`ADR - GREEN PECEM V.9 - BRVIX.pdf` para os
+dois) numa mesma pasta de e-mail é erro de usuário esperando para acontecer —
+alguém anexa o errado numa cobrança sem abrir para conferir. O nome do arquivo
+precisa diferenciar antes de abrir.
+
+O título da aba e o nome do PDF exportado passam a incluir o terminal:
+`ADR - GREEN PECEM V.9 - BRVIX - TVV.pdf`.
+
 ## Questões em aberto
 
 Ordenadas por dependência.
 
 | # | Bloco | Questão |
 |---|---|---|
-| D3.1 | ADR | Impresso: como layout e PDF distinguem os ADRs de terminais diferentes da mesma escala |
 | E1 | Superfícies | Terminal × sentido: quantas linhas no Line-Up |
 | E2 | Superfícies | Aba de terminal no Painel — escopo |
 | F1 | Transição | Os `terminal` de texto livre já gravados, e a migration |
 
 Decididas: A3 (Decisão 6), B1 (Decisão 7), B2 (Decisão 8), C1 (Decisão 9), D1
-(Decisão 10), D3 — fechamento (Decisão 11).
+(Decisão 10), D3 — fechamento (Decisão 11), D3.1 — impresso (Decisão 12).
 
 Prazo departamental e alertas estão fora do escopo desta spec: correm em
 trabalho paralelo.
