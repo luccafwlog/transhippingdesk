@@ -8,7 +8,7 @@ de requests no relatório.
 Requisitos:
 
 ```powershell
-$env:PERF_BASE_URL = 'https://transhipping-desk.web.app'
+$env:PERF_BASE_URL = 'https://transhippingdesk.com.br'
 $env:PERF_USER_EMAIL = 'usuario-de-teste@example.com'
 $env:PERF_USER_PASSWORD = 'senha-de-teste'
 npx playwright install chromium

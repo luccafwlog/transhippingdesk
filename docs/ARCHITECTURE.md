@@ -18,7 +18,7 @@ flowchart LR
     Resend["Resend"]
     BCB["Banco Central / PTAX"]
     Sentry["Sentry"]
-    Firebase["Firebase Hosting"]
+    Vercel["Vercel"]
 
     Browser --> Internal
     Browser --> Portal
@@ -29,12 +29,20 @@ flowchart LR
     Functions --> Resend
     Browser --> BCB
     Browser --> Sentry
-    Firebase --> Browser
+    Vercel --> Browser
 ```
 
 O frontend é uma SPA estática. A segurança real não depende do roteador: tabelas,
 views e funções do Supabase aplicam escopo e autorização por RLS, grants e
 validações dentro das RPCs.
+
+O hosting é um único projeto Vercel para a SPA Vite. Preview Deployments vêm da
+integração com GitHub em pull requests; o branch `main` gera o Production
+Deployment. `https://transhippingdesk.com.br` e
+`https://portal.transhippingdesk.com.br` são aliases do mesmo projeto, e o
+roteamento entre operação interna e Portal continua sendo responsabilidade do
+host/rota/autenticação da aplicação. O Firebase permanece apenas como rollback
+temporário durante a troca de DNS.
 
 ## Fronteiras de autenticação
 
@@ -376,7 +384,7 @@ pendência geral separada do ciclo da fatura.
   (sem webhook, sem chave, sem plano atual de envio ao cliente);
 - **Banco Central:** cotação PTAX;
 - **Sentry:** erros do frontend em produção;
-- **Firebase Hosting:** distribuição da SPA;
+- **Vercel:** distribuição da SPA e Preview/Production Deployments;
 - **PIX:** payload persistido e QR renderizado nos documentos financeiros.
 
 ### Telemetria do Portal
@@ -390,7 +398,7 @@ cliente é carregado; no logout ou `SIGNED_OUT`, limpa o usuário com
 email, nome, documento ou contato do cliente como identidade Sentry.
 
 Domínios usados pelo navegador precisam permanecer compatíveis com a CSP de
-`firebase.json`.
+`vercel.json`.
 
 ## Mapa de rotas
 
