@@ -1,16 +1,12 @@
 # Escala com múltiplos terminais e ADR por terminal
 
-Status: **implementação pendente** — desenho concluído na sessão de grilling em
-2026-08-18. Esta spec é o contrato de implementação; não descreve comportamento
-já entregue.
+Status: **implementada e arquivada** na PR #550, com as correções da revisão
+registradas no plano `2026-08-18-pr-550-review-fixes.md`.
 
-Esta spec registra decisões de domínio já fechadas que **ainda não estão
-implementadas**. Enquanto ela viver aqui, o `CONTEXT.md`, o
-`docs/ARCHITECTURE.md` e o schema continuam descrevendo o comportamento atual
-— identidade `(viagem, porto)`. O `CONTEXT.md` e o `docs/ARCHITECTURE.md` só
-serão promovidos depois que a implementação, a migration, os testes e os gates
-de execução forem concluídos; essa atualização documental acontecerá na mesma
-mudança que comprovar o modelo, junto com a ADR de engenharia.
+Esta spec registra as decisões que orientaram a implementação. O comportamento
+vigente está promovido no `CONTEXT.md`, no `docs/ARCHITECTURE.md` e na migration
+306; ADRs legados continuam usando `(viagem, porto)` e os novos usam
+`(viagem, porto, terminal)` materializado por `report_id`.
 
 ## Caso operacional que motiva a mudança
 

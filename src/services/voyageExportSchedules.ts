@@ -173,6 +173,8 @@ export type SaveVoyageExportScheduleTransactionalInput = {
   dischargePorts: string[]
   ceStatus: ExportCeStatus | null
   linked: boolean
+  /** Revisão capturada pelo editor antes da edição; não é relida aqui. */
+  expectedRevision: number
   justification?: string | null
 }
 
@@ -190,7 +192,11 @@ export async function saveVoyageExportScheduleTransactional(
     throw new Error('Uma nova declaração de exportação exige granito ou vazios.')
   }
 
-  const [frontsResult, terminalsResult, revisionResult] = await Promise.all([
+  if (!Number.isInteger(input.expectedRevision) || input.expectedRevision < 0) {
+    throw new Error('Revisão esperada inválida.')
+  }
+
+  const [frontsResult, terminalsResult] = await Promise.all([
     supabase
       .from('voyage_escala_operation_fronts')
       .select('sentido, modalidade, terminal_id, source')
@@ -201,17 +207,10 @@ export async function saveVoyageExportScheduleTransactional(
       .select('terminal_id, terminal_atb, terminal_atd, terminal_rtw')
       .eq('voyage_id', input.voyageId)
       .eq('port', normalizedPol),
-    supabase
-      .from('voyage_escala_revision_state')
-      .select('revision')
-      .eq('voyage_id', input.voyageId)
-      .eq('port', normalizedPol)
-      .maybeSingle(),
   ])
 
   if (frontsResult.error) throw frontsResult.error
   if (terminalsResult.error) throw terminalsResult.error
-  if (revisionResult.error) throw revisionResult.error
 
   const currentFronts = (frontsResult.data ?? []) as EscalaOperationFront[]
   const currentExportFronts = currentFronts.filter(
@@ -249,7 +248,7 @@ export async function saveVoyageExportScheduleTransactional(
   const { data, error } = await supabase.rpc('save_voyage_escala_terminal_state', {
     p_voyage_id: input.voyageId,
     p_port: normalizedPol,
-    p_expected_revision: revisionResult.data?.revision ?? 0,
+    p_expected_revision: input.expectedRevision,
     p_fronts: fronts,
     p_terminals: terminalsResult.data ?? [],
     p_export_expectation: exportExpectation,

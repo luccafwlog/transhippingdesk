@@ -69,6 +69,7 @@ describe('saveVoyageExportScheduleTransactional', () => {
       dischargePorts: ['nlrtm'],
       ceStatus: 'waiting',
       linked: false,
+      expectedRevision: 7,
     })
 
     expect(rpcMock).toHaveBeenCalledWith('save_voyage_escala_terminal_state', expect.objectContaining({
@@ -115,6 +116,7 @@ describe('saveVoyageExportScheduleTransactional', () => {
       dischargePorts: [],
       ceStatus: 'waiting',
       linked: false,
+      expectedRevision: 7,
     })
 
     const payload = rpcMock.mock.calls[0][1] as {
@@ -153,6 +155,7 @@ describe('saveVoyageExportScheduleTransactional', () => {
       dischargePorts: [],
       ceStatus: 'waiting',
       linked: false,
+      expectedRevision: 7,
     })).rejects.toBeInstanceOf(VoyageExportScheduleBlockedError)
 
     expect(fromMock).not.toHaveBeenCalledWith('voyage_export_schedules')
@@ -170,6 +173,7 @@ describe('saveVoyageExportScheduleTransactional', () => {
       dischargePorts: [],
       ceStatus: 'waiting',
       linked: false,
+      expectedRevision: 0,
     })).rejects.toThrow(/granito ou vazios/i)
 
     expect(fromMock).not.toHaveBeenCalled()

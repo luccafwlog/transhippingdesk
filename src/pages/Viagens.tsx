@@ -96,6 +96,8 @@ export function Viagens() {
     ? tabParam
     : undefined
   const initialEscala = searchParams.get('escala') ?? undefined
+  const initialReportId = searchParams.get('report') ?? searchParams.get('reportId') ?? undefined
+  const initialTerminalCode = searchParams.get('terminal') ?? searchParams.get('terminalCode') ?? undefined
   const [filters, setFilters] = useState<VoyageFiltersState>({
     ...emptyFilters(),
     search: initialVessel,
@@ -288,6 +290,8 @@ export function Viagens() {
             onEditPol={setEditingPol}
             initialTab={initialTab}
             initialEscala={initialEscala}
+            initialReportId={initialReportId}
+            initialTerminalCode={initialTerminalCode}
           />
         ) : isLoading ? (
           <SkeletonCard lines={4} />
@@ -382,12 +386,15 @@ export function Viagens() {
         open={editingEscala !== null}
         escala={editingEscala}
         onClose={() => setEditingEscala(null)}
-        onReopenAdr={() => {
+        onReopenAdr={(blocker) => {
           const port = editingEscala?.port
           if (!port) return
           const target = editingEscala
           setEditingEscala(null)
-          navigate(`/viagens/${target.voyageId}?tab=adr&escala=${encodeURIComponent(port)}`)
+          const params = new URLSearchParams({ tab: 'adr', escala: port })
+          if (blocker.reportId) params.set('report', blocker.reportId)
+          if (blocker.terminalCode) params.set('terminal', blocker.terminalCode)
+          navigate(`/viagens/${target.voyageId}?${params.toString()}`)
         }}
         onSaved={async (payload) => {
           if (!user?.id) {
@@ -402,7 +409,25 @@ export function Viagens() {
                 expectedRevision: payload.terminalState.expectedRevision,
                 fronts: payload.terminalState.fronts,
                 terminals: payload.terminalState.terminals,
-                exportExpectation: payload.terminalState.exportExpectation,
+                exportExpectation: {
+                  ...payload.terminalState.exportExpectation,
+                  // A escala terminalizada e o POD pertencem à mesma
+                  // transação: a RPC registra estes campos junto das frentes.
+                  schedule: {
+                    eta: payload.eta,
+                    etb: payload.etb,
+                    ata: payload.ata,
+                    atb: payload.atb,
+                    etd: payload.etd,
+                    atd: payload.atd,
+                    rtw: payload.rtw,
+                    ce_status: payload.ceStatus,
+                    linked: payload.linked,
+                    escala_number: payload.escalaNumber,
+                    tem_importacao: payload.temImportacao,
+                    changed_by: user.id,
+                  },
+                },
                 justification: payload.terminalState.justification,
                 queryClient,
               })
@@ -421,9 +446,13 @@ export function Viagens() {
                 dischargePorts: payload.exportacao.dischargePorts,
                 ceStatus: payload.ceStatus,
                 linked: payload.linked,
+                // O modal legado não edita estado terminalizado; a revisão
+                // inicial da escala ainda sem state é zero. A RPC não relê a
+                // revisão, preservando a semântica de compare-and-swap.
+                expectedRevision: 0,
               })
             }
-            await saveVoyageEscalaSchedule({
+            if (!payload.terminalState) await saveVoyageEscalaSchedule({
               voyageId: payload.voyageId,
               port: payload.port,
               eta: payload.eta,

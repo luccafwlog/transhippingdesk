@@ -290,6 +290,15 @@ Consumidores principais:
   enquanto ADRs novos usam `(voyage_id, port, terminal_id)`, e
   `detect_agency_report_pending` passa a considerar ATD vindo de POD ou POL,
   com baseline próprio para a nova fonte POL.
+- A RPC transacional também recebe o snapshot dos campos do POD quando o modal
+  terminalizado salva a escala; os audit rows de datas, CE, vínculo e número de
+  escala entram na mesma transação das frentes. A expectativa de vazios faz
+  backfill somente pela heurística legada de quantidades e depois permanece
+  explícita.
+- `depots.port_id` é obrigatório para novos terminais portuários. A trigger
+  `validate_depot_terminal_port` mantém terminais legados sem mapeamento
+  editáveis por SQL, enquanto o preflight e o Cadastro orientam o mapeamento;
+  a lista de opções da escala filtra pelo porto brasileiro.
 - Timeline: `src/services/voyageSummaries.ts` humaniza atribuição, remoção,
   datas, expectativa de exportação e criação/preservação de ADR terminalizado.
 - Acompanhamento: `src/components/lineup/LineUpTable.tsx`,

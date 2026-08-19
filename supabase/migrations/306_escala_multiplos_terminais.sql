@@ -20,6 +20,14 @@ ALTER TABLE public.voyage_export_schedules
 COMMENT ON COLUMN public.voyage_export_schedules.has_empty IS
   'Declaração explícita de embarque de vazios na escala; independente das quantidades realizadas.';
 
+-- Compatibilidade com o legado: antes de has_empty, a única pista persistida
+-- de vazios era a quantidade operacional. Isso recupera somente essa
+-- declaração antiga; novas alterações continuam exigindo a decisão explícita.
+UPDATE public.voyage_export_schedules
+SET has_empty = TRUE
+WHERE has_empty = FALSE
+  AND (COALESCE(containers_qty, 0) > 0 OR COALESCE(movements_qty, 0) > 0);
+
 -- O código é normalizado no banco para que escrita direta do Cadastro não
 -- reintroduza diferenças de caixa ou espaços.
 ALTER TABLE public.depots
@@ -86,19 +94,22 @@ ALTER TABLE public.depots
   ADD CONSTRAINT depots_code_normalized_check
     CHECK (btrim(code) <> '' AND code = upper(btrim(code))),
   DROP CONSTRAINT IF EXISTS depots_tipo_port_check,
-  -- NOT VALID preserva terminais portuarios legados ainda sem port_id.
-  -- A regra vale para novas insercoes/updates; a validacao plena depende do
-  -- mapeamento nao destrutivo desses legados. Nao ha backfill automatico.
+  -- A coluna é compatível com terminais legados sem mapeamento. A trigger
+  -- abaixo impede novos terminais sem porto sem invalidar o legado existente;
+  -- depois do preflight e do mapeamento, a constraint pode ser validada.
   ADD CONSTRAINT depots_tipo_port_check
     CHECK (
-      (tipo = 'terminal_portuario' AND port_id IS NOT NULL)
+      (tipo = 'terminal_portuario')
       OR (tipo = 'depot' AND port_id IS NULL)
-    ) NOT VALID,
+    ),
   DROP CONSTRAINT IF EXISTS depots_id_port_id_key,
   ADD CONSTRAINT depots_id_port_id_key UNIQUE (id, port_id);
 
 CREATE INDEX IF NOT EXISTS idx_depots_port_id_active
   ON public.depots (port_id, active);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_id
+  ON public.audit_logs (entity_id);
 
 CREATE OR REPLACE FUNCTION public.normalize_depot_code()
 RETURNS TRIGGER
@@ -116,6 +127,30 @@ DROP TRIGGER IF EXISTS normalize_depot_code ON public.depots;
 CREATE TRIGGER normalize_depot_code
   BEFORE INSERT OR UPDATE OF code ON public.depots
   FOR EACH ROW EXECUTE FUNCTION public.normalize_depot_code();
+
+CREATE OR REPLACE FUNCTION public.validate_depot_terminal_port()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF NEW.tipo = 'depot' AND NEW.port_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Depot comum nao pode ter porto brasileiro.' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.tipo = 'terminal_portuario'
+     AND NEW.port_id IS NULL
+     AND (TG_OP = 'INSERT' OR OLD.tipo <> 'terminal_portuario' OR OLD.port_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'Novo terminal portuario exige porto brasileiro.' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS validate_depot_terminal_port ON public.depots;
+CREATE TRIGGER validate_depot_terminal_port
+  BEFORE INSERT OR UPDATE OF tipo, port_id ON public.depots
+  FOR EACH ROW EXECUTE FUNCTION public.validate_depot_terminal_port();
 
 REVOKE ALL ON FUNCTION public.normalize_depot_code() FROM PUBLIC, anon, authenticated;
 
@@ -535,17 +570,27 @@ DECLARE
   v_report_status TEXT;
   v_terminal_code TEXT;
   v_blocked_report_id UUID;
+  v_schedule JSONB;
+  v_schedule_entity_id TEXT;
+  v_schedule_field TEXT;
+  v_schedule_old_value TEXT;
+  v_schedule_new_value TEXT;
 BEGIN
   SELECT up.role INTO v_role
   FROM public.user_profiles AS up
   WHERE up.id = auth.uid() AND up.active = TRUE;
 
   IF auth.uid() IS NULL OR v_role IS NULL
-     OR v_role NOT IN ('admin', 'administrativo', 'operacoes') THEN
-    RAISE EXCEPTION 'Somente Operações/Admin podem editar terminais da escala.'
+     OR v_role NOT IN ('admin', 'administrativo', 'operacoes', 'operator', 'documentacao', 'equipamentos', 'financeiro') THEN
+    RAISE EXCEPTION 'Usuario ativo sem permissao para editar a escala.'
       USING ERRCODE = '42501';
   END IF;
-  v_department := CASE WHEN v_role IN ('admin', 'administrativo') THEN 'administrativo' ELSE 'operacoes' END;
+  v_department := CASE
+    WHEN v_role IN ('admin', 'administrativo') THEN 'administrativo'
+    WHEN v_role = 'documentacao' THEN 'documentacao'
+    WHEN v_role = 'equipamentos' THEN 'equipamentos'
+    ELSE 'operacoes'
+  END;
   v_entity_id := p_voyage_id::TEXT || '::' || v_port;
 
   IF p_expected_revision IS NULL THEN
@@ -555,7 +600,9 @@ BEGIN
      OR p_terminals IS NULL OR jsonb_typeof(p_terminals) <> 'array'
      OR p_export_expectation IS NULL OR jsonb_typeof(p_export_expectation) <> 'object'
      OR (p_export_expectation ? 'discharge_ports'
-         AND jsonb_typeof(p_export_expectation->'discharge_ports') <> 'array') THEN
+         AND jsonb_typeof(p_export_expectation->'discharge_ports') <> 'array')
+     OR (p_export_expectation ? 'schedule'
+         AND jsonb_typeof(p_export_expectation->'schedule') <> 'object') THEN
     RAISE EXCEPTION 'Payload de escala invalido.' USING ERRCODE = '22023';
   END IF;
 
@@ -589,6 +636,57 @@ BEGIN
       USING ERRCODE = 'P0001';
   END IF;
   v_next_revision := v_current_revision + 1;
+
+  -- A declaração de exportação usa esta RPC para manter a mesma proteção de
+  -- revisão, mas perfis operacionais já existentes não podem ganhar poder de
+  -- trocar terminal/data só por passarem pelo caminho transacional. Eles
+  -- podem alterar a expectativa exportadora; qualquer mudança de state físico
+  -- continua exclusiva de Operações/Admin.
+  IF v_role NOT IN ('admin', 'administrativo', 'operacoes') AND (
+    EXISTS (
+      SELECT 1
+      FROM jsonb_to_recordset(p_fronts) AS f(sentido TEXT, modalidade TEXT, terminal_id UUID, source TEXT)
+      LEFT JOIN public.voyage_escala_operation_fronts AS old_f
+        ON old_f.voyage_id = p_voyage_id AND old_f.port = v_port
+       AND old_f.sentido = lower(btrim(f.sentido))
+       AND old_f.modalidade = lower(btrim(f.modalidade))
+      WHERE f.terminal_id IS DISTINCT FROM old_f.terminal_id
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.voyage_escala_operation_fronts AS old_f
+      WHERE old_f.voyage_id = p_voyage_id AND old_f.port = v_port
+        AND old_f.terminal_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM jsonb_to_recordset(p_fronts) AS f(sentido TEXT, modalidade TEXT, terminal_id UUID, source TEXT)
+          WHERE lower(btrim(f.sentido)) = old_f.sentido
+            AND lower(btrim(f.modalidade)) = old_f.modalidade
+        )
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM jsonb_to_recordset(p_terminals) AS t(terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw INTEGER)
+      LEFT JOIN public.voyage_escala_terminal_state AS old_t
+        ON old_t.voyage_id = p_voyage_id AND old_t.port = v_port AND old_t.terminal_id = t.terminal_id
+      WHERE old_t.terminal_id IS NULL
+         OR old_t.terminal_atb IS DISTINCT FROM t.terminal_atb
+         OR old_t.terminal_atd IS DISTINCT FROM t.terminal_atd
+         OR old_t.terminal_rtw IS DISTINCT FROM t.terminal_rtw
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.voyage_escala_terminal_state AS old_t
+      WHERE old_t.voyage_id = p_voyage_id AND old_t.port = v_port
+        AND NOT EXISTS (
+          SELECT 1
+          FROM jsonb_to_recordset(p_terminals) AS t(terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw INTEGER)
+          WHERE t.terminal_id = old_t.terminal_id
+        )
+    )
+  ) THEN
+    RAISE EXCEPTION 'Somente Operações/Admin podem editar terminais da escala.' USING ERRCODE = '42501';
+  END IF;
 
   IF EXISTS (
     SELECT 1
@@ -1157,7 +1255,14 @@ BEGIN
         )
         VALUES (
           'voyage_pod_schedule', v_entity_id, 'terminal_assignment',
-          v_old_front.terminal_id::TEXT, v_front.terminal_id::TEXT,
+          jsonb_build_object(
+            'terminal_id', v_old_front.terminal_id,
+            'terminal_code', (SELECT d.code FROM public.depots AS d WHERE d.id = v_old_front.terminal_id)
+          )::TEXT,
+          jsonb_build_object(
+            'terminal_id', v_front.terminal_id,
+            'terminal_code', (SELECT d.code FROM public.depots AS d WHERE d.id = v_front.terminal_id)
+          )::TEXT,
           auth.uid(), clock_timestamp(), p_justification, v_role, v_department
         );
       END IF;
@@ -1208,6 +1313,45 @@ BEGIN
       ce_status = EXCLUDED.ce_status,
       linked = EXCLUDED.linked,
       updated_at = now();
+  END IF;
+
+  -- O editor terminalizado envia também o snapshot dos campos do POD. Como
+  -- esta função já segura o lock da escala, os audit rows são gravados na
+  -- mesma transação das frentes, evitando o estado parcial antigo (frentes
+  -- salvas, datas do POD falhando em uma segunda chamada).
+  v_schedule := p_export_expectation->'schedule';
+  IF v_schedule IS NOT NULL THEN
+    v_schedule_entity_id := p_voyage_id::TEXT || '::' || v_port;
+    FOREACH v_schedule_field IN ARRAY ARRAY[
+      'eta', 'etb', 'ata', 'atb', 'etd', 'atd', 'rtw', 'ce_status',
+      'linked', 'escala_number', 'tem_importacao'
+    ] LOOP
+      IF v_schedule ? v_schedule_field THEN
+        SELECT al.new_value
+        INTO v_schedule_old_value
+        FROM public.audit_logs AS al
+        WHERE al.entity_type = 'voyage_pod_schedule'
+          AND al.entity_id = v_schedule_entity_id
+          AND al.field_name = v_schedule_field
+        ORDER BY al.changed_at DESC, al.id DESC
+        LIMIT 1;
+        v_schedule_new_value := CASE
+          WHEN v_schedule->v_schedule_field IS NULL OR v_schedule->v_schedule_field = 'null'::JSONB THEN NULL
+          ELSE v_schedule->>v_schedule_field
+        END;
+        IF v_schedule_old_value IS DISTINCT FROM v_schedule_new_value THEN
+          INSERT INTO public.audit_logs (
+            entity_type, entity_id, field_name, old_value, new_value,
+            changed_by, changed_at, justification, actor_role, actor_department
+          )
+          VALUES (
+            'voyage_pod_schedule', v_schedule_entity_id, v_schedule_field,
+            v_schedule_old_value, v_schedule_new_value,
+            auth.uid(), clock_timestamp(), p_justification, v_role, v_department
+          );
+        END IF;
+      END IF;
+    END LOOP;
   END IF;
 
   -- A primeira frente cria/reutiliza o ADR do terminal. Um ADR aberto sem
@@ -1278,14 +1422,20 @@ BEGIN
         SELECT 1
         FROM public.audit_logs AS al
         WHERE al.entity_id = v_report.id::TEXT
-           OR al.old_value ILIKE '%' || v_report.id::TEXT || '%'
-           OR al.new_value ILIKE '%' || v_report.id::TEXT || '%'
+           OR (
+             (al.old_value ILIKE '%' || v_report.id::TEXT || '%'
+              OR al.new_value ILIKE '%' || v_report.id::TEXT || '%')
+             AND NOT (
+               al.entity_type = 'voyage_pod_schedule'
+               AND al.field_name IN ('adr_created', 'adr_removed', 'adr_preserved')
+             )
+           )
       )
       AND NOT EXISTS (
         SELECT 1
         FROM public.alerts AS a
         WHERE a.entity_type = 'agency_departure_report'
-          AND a.entity_id LIKE v_entity_id || '::%'
+          AND a.entity_id LIKE v_report.id::TEXT || '::%'
       ) THEN
         INSERT INTO public.audit_logs (
           entity_type, entity_id, field_name, old_value, new_value,
@@ -1507,7 +1657,8 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'ADR ja fechado.' USING ERRCODE = '23505'; END IF;
   UPDATE public.alerts SET status = 'closed', closed_at = now()
   WHERE type IN ('agency_report_section_pending', 'agency_report_deadline_missed')
-    AND entity_type = 'agency_departure_report' AND (entity_id LIKE p_voyage_id || '::' || upper(btrim(p_port)) || '::%' OR entity_id LIKE p_report_id::TEXT || '::%')
+    AND entity_type = 'agency_departure_report'
+    AND entity_id LIKE p_report_id::TEXT || '::%'
     AND status <> 'closed';
   RETURN jsonb_build_object('report_id', p_report_id);
 END;

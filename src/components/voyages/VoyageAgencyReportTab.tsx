@@ -33,6 +33,7 @@ import {
   type AgencyReportSignoffEvent,
   type SignoffState,
 } from '../../services/agencyDepartureReport'
+import type { OperationFrontKind } from '../../services/escalaTerminalAllocation'
 import { calculateAgencyReportDeadlineDate } from '../../services/agencyReportDeadline'
 import type { AgencyReportDepartmentKey, Json } from '../../types/database'
 import type { AdrEscalaPod } from '../../services/voyageSummaries'
@@ -79,7 +80,7 @@ function ReportSection({
   onSignoff?: (section: AgencyReportSection, state: SignoffState, justification?: string) => void
   observation?: string | null
   onObservationChange?: (section: AgencyReportSection, observation: string) => void
-  terminalView?: { assigned: boolean; state: 'operated' | 'nothing_operated' }
+  terminalView?: { assigned: boolean; state: 'operated' | 'nothing_operated'; fronts?: OperationFrontKind[] }
   children: ReactNode
 }) {
   const showTerminalContent = !terminalView || (terminalView.assigned && terminalView.state === 'operated')
@@ -289,8 +290,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     return {
       assigned: Boolean(selected?.fronts.length),
       state: selected?.state ?? 'nothing_operated' as const,
+      fronts: selected?.fronts ?? [],
     }
   }
+  const selectedFrontKinds = new Set(terminalReports.find((report) => report.reportId === resolvedReportId)?.sections.flatMap((section) => section.fronts) ?? [])
+  const frontIsVisible = (kind: OperationFrontKind) => !resolvedReportId || selectedFrontKinds.has(kind)
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port, resolvedReportId)
   const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port, resolvedReportId)
@@ -309,17 +313,26 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     return <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Nenhuma escala ativa para compor o ADR.</div>
   }
 
-  const containers = data?.containers ?? []
+  // Dados operacionais continuam sendo consultados por escala, mas um ADR
+  // terminalizado precisa mostrar somente as frentes atribuídas ao terminal
+  // selecionado. Sem este recorte, dois terminais da mesma escala imprimem o
+  // mesmo conteúdo e o sign-off deixa de ser auditável.
+  const containers = frontIsVisible('carga_cheia') ? (data?.containers ?? []) : []
+  const cargaSolta = frontIsVisible('carga_solta') ? data?.cargaSolta : undefined
+  const vaziosImp = frontIsVisible('vazio') ? (data?.vaziosImp ?? []) : []
+  const vaziosExp = frontIsVisible('vazio') ? (data?.vaziosExp ?? []) : []
+  const vehiclesData = frontIsVisible('veiculo') ? (data?.vehicles ?? []) : []
+  const graniteData = frontIsVisible('granito') ? (data?.granite ?? []) : []
   const imoCount = containers.filter((container) => container.is_imo).length
   const dischargeMatrix = buildContainerTypeMatrix(containers.map((container) => ({
     type: container.size_type ?? '—',
     category: container.category,
   })))
-  const emptyDischargeMatrix = buildContainerTypeMatrix((data?.vaziosImp ?? []).map((container) => ({
+  const emptyDischargeMatrix = buildContainerTypeMatrix(vaziosImp.map((container) => ({
     type: container.container_type ?? '—',
     category: container.natureza === 'cama' ? 'vazio_cama' : 'vazio_cover_plate',
   })))
-  const emptyEmbarkRows = groupEmptyEmbarkBookings((data?.vaziosExp ?? []).map((booking) => ({
+  const emptyEmbarkRows = groupEmptyEmbarkBookings(vaziosExp.map((booking) => ({
     type: booking.container_type ?? '—',
     condition: booking.condition,
     localLabel: booking.local?.name ?? booking.local?.code ?? null,
@@ -344,8 +357,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       types: [...byType.entries()].sort(([a], [b]) => a.localeCompare(b)),
     }))
     .sort((a, b) => a.localLabel.localeCompare(b.localLabel))
-  const vehicles = groupVehiclesByBrand(data?.vehicles ?? [])
-  const vehicleBreakdown = summarizeVehiclesByContainerTypeAndModel((data?.vehicles ?? []).map((vehicle) => ({
+  const vehicles = groupVehiclesByBrand(vehiclesData)
+  const vehicleBreakdown = summarizeVehiclesByContainerTypeAndModel(vehiclesData.map((vehicle) => ({
     chassis: vehicle.chassis,
     model: vehicle.model,
     containerNumber: vehicle.container?.container_number ?? null,
@@ -353,13 +366,13 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   })))
   const vehicleVinTotal = vehicles.reduce((total, vehicle) => total + vehicle.vinCount, 0)
   const vehicleLocations = new Map<string, string[]>()
-  for (const vehicle of data?.vehicles ?? []) {
+  for (const vehicle of vehiclesData) {
     const locations = vehicleLocations.get(vehicle.brand) ?? []
     const location = vehicle.container?.unpacking_location
     if (location && !locations.includes(location)) locations.push(location)
     vehicleLocations.set(vehicle.brand, locations)
   }
-  const bookings = data?.vaziosExp ?? []
+  const bookings = vaziosExp
   const depots = [...new Set(bookings
     .filter((booking) => booking.local?.tipo === 'depot')
     .map((booking) => booking.local?.name ?? booking.local?.code)
@@ -368,12 +381,12 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   // A subseção de pátio só afirma "nada" quando nenhuma das suas fontes tem
   // dado — storage, embarque direto, locais ou linhas de serviço.
   const hasPatioOperation = Boolean(
-    data?.storage.days || data?.storage.containers || directEmbarkCount || depots.length || data?.costs?.serviceLines?.length,
+    (frontIsVisible('vazio') && data?.storage.days) || (frontIsVisible('vazio') && data?.storage.containers) || directEmbarkCount || depots.length || (frontIsVisible('vazio') && data?.costs?.serviceLines?.length),
   )
   const granite = {
-    bls: data?.granite.length ?? 0,
-    blocks: (data?.granite ?? []).reduce((total, item) => total + (item.blocks_qty ?? 0), 0),
-    weightTon: (data?.granite ?? []).reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000,
+    bls: graniteData.length,
+    blocks: graniteData.reduce((total, item) => total + (item.blocks_qty ?? 0), 0),
+    weightTon: graniteData.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000,
   }
   const signoffs = new Map((ownData?.signoffs ?? []).map((signoff) => [signoff.section, signoff.state]))
   const sectionState = (section: AgencyReportSection) => signoffs.get(section) ?? 'pending'
@@ -455,7 +468,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     },
     sections: {
       cargaDescarregada: dischargeMatrix,
-      cargaSolta: data?.cargaSolta ?? null,
+      cargaSolta: cargaSolta ?? null,
       vaziosDescarregados: emptyDischargeMatrix,
       veiculos: vehicles,
       // Task 4 do ADR 2026-07-31: passa a listar (tipo, condição, local) em
@@ -463,14 +476,14 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       // local). Shape é EmptyEmbarkRow[] — o impresso (AgencyReportDocument.tsx)
       // lê via EmptyEmbarkTable/asEmptyEmbarkRows.
       vaziosEmbarcados: emptyEmbarkRows,
-      vaziosUnidades: data?.vaziosExp ?? [],
+      vaziosUnidades: vaziosExp,
       vehicleLocations: Object.fromEntries(vehicleLocations),
       depots,
       directEmbarkCount,
       granito: granite,
-      storage: data?.storage ?? null,
+      storage: frontIsVisible('vazio') ? data?.storage ?? null : null,
       operation: data?.operation ?? null,
-      costs: data?.costs ?? null,
+      costs: frontIsVisible('vazio') ? data?.costs ?? null : null,
     },
     occurrences: ownData?.occurrences ?? [],
     signoffs: ownData?.signoffs ?? [],
@@ -492,9 +505,19 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const printClosedReport = () => {
     if (!closedSnapshot) return
     const previousTitle = document.title
+    let restored = false
+    const restoreTitle = () => {
+      if (restored) return
+      restored = true
+      document.title = previousTitle
+      window.removeEventListener('afterprint', restoreTitle)
+    }
     document.title = buildAgencyReportPrintFilename(closedSnapshot)
+    window.addEventListener('afterprint', restoreTitle, { once: true })
     window.print()
-    window.setTimeout(() => { document.title = previousTitle }, 0)
+    // Alguns browsers não disparam afterprint quando a janela de impressão é
+    // bloqueada; o fallback não pode restaurar o título no mesmo tick de print.
+    window.setTimeout(restoreTitle, 1000)
   }
 
   const isOmittedEscala = pods.find((entry) => entry.pod === port)?.omitted ?? false
@@ -605,7 +628,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         <ReportSection
             title="Escala"
             section="datas" state={sectionState('datas')} attribution={sectionAttribution('datas')} canSignoff={canSignoff('datas')} events={eventsBySection('datas')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
-            observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('datas')}
+            observation={signoffRows.get('datas')?.observation} onObservationChange={updateObservation}
           >
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               <Info label="Armador" value={carrierName} />
@@ -630,23 +653,23 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="carga_descarregada" state={sectionState('carga_descarregada')} attribution={sectionAttribution('carga_descarregada')} canSignoff={canSignoff('carga_descarregada')} events={eventsBySection('carga_descarregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('carga_descarregada')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('carga_descarregada')}
           >
-            {containers.length === 0 && !data?.cargaSolta?.bls && !data?.cargaSolta?.transshipment?.bls ? <NadaOperado /> : <>
+            {containers.length === 0 && !cargaSolta?.bls && !cargaSolta?.transshipment?.bls ? <NadaOperado /> : <>
               <div className="flex flex-wrap items-baseline gap-4">
                 <Hero value={String(containers.length)} unit="containers descarregados" />
                 {imoCount > 0 ? <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-xs font-semibold text-[var(--app-text)]">IMO: {imoCount}</span> : null}
               </div>
               <div className="grid gap-4 xl:grid-cols-2">
-                {data?.cargaSolta?.bls || data?.cargaSolta?.transshipment?.bls ? (
+                {cargaSolta?.bls || cargaSolta?.transshipment?.bls ? (
                   <MetricPanel title="Carga solta">
-                    {data?.cargaSolta?.bls ? <><Hero value={data.cargaSolta.weightTon.toLocaleString('pt-BR')} unit="ton" /><Info label="B/Ls" value={String(data.cargaSolta.bls)} /><Info label="Máquinas" value={String(data.cargaSolta.machines)} /><Info label="Packages" value={String(data.cargaSolta.packages)} /><Info label="Peso" value={`${data.cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={data.cargaSolta.cbm.toLocaleString('pt-BR')} /></> : null}
-                    {data?.cargaSolta?.transshipment?.bls ? (
+                    {cargaSolta?.bls ? <><Hero value={cargaSolta.weightTon.toLocaleString('pt-BR')} unit="ton" /><Info label="B/Ls" value={String(cargaSolta.bls)} /><Info label="Máquinas" value={String(cargaSolta.machines)} /><Info label="Packages" value={String(cargaSolta.packages)} /><Info label="Peso" value={`${cargaSolta.weightTon.toLocaleString('pt-BR')} ton`} /><Info label="CBM" value={cargaSolta.cbm.toLocaleString('pt-BR')} /></> : null}
+                    {cargaSolta?.transshipment?.bls ? (
                       <div className="mt-2 grid gap-1 border-t border-[var(--app-border)] pt-2">
                         <span className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Em transbordo</span>
-                        <Info label="B/Ls" value={String(data.cargaSolta.transshipment.bls)} />
-                        <Info label="Máquinas" value={String(data.cargaSolta.transshipment.machines)} />
-                        <Info label="Packages" value={String(data.cargaSolta.transshipment.packages)} />
-                        <Info label="Peso" value={`${data.cargaSolta.transshipment.weightTon.toLocaleString('pt-BR')} ton`} />
-                        <Info label="CBM" value={data.cargaSolta.transshipment.cbm.toLocaleString('pt-BR')} />
+                        <Info label="B/Ls" value={String(cargaSolta.transshipment.bls)} />
+                        <Info label="Máquinas" value={String(cargaSolta.transshipment.machines)} />
+                        <Info label="Packages" value={String(cargaSolta.transshipment.packages)} />
+                        <Info label="Peso" value={`${cargaSolta.transshipment.weightTon.toLocaleString('pt-BR')} ton`} />
+                        <Info label="CBM" value={cargaSolta.transshipment.cbm.toLocaleString('pt-BR')} />
                       </div>
                     ) : null}
                   </MetricPanel>
@@ -666,8 +689,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('vazios_descarregados')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('vazios_descarregados')}
           >
-            {data?.vaziosImp.length ? <>
-              <Hero value={String(data.vaziosImp.length)} unit="vazios descarregados" />
+            {vaziosImp.length ? <>
+              <Hero value={String(vaziosImp.length)} unit="vazios descarregados" />
               <OperatedListing rows={emptyDischargeMatrix.rows} />
             </> : <NadaOperado />}
             {data?.vaziosDivergence?.diverges ? (
@@ -704,9 +727,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="carga_carregada" state={sectionState('carga_carregada')} attribution={sectionAttribution('carga_carregada')} canSignoff={canSignoff('carga_carregada')} events={eventsBySection('carga_carregada')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('carga_carregada')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('carga_carregada')}
           >
-            {data?.granite.length ? <>
-              <Hero value={(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
-              <MetricPanel title="Granito"><Info label="B/Ls" value={String(data.granite.length)} /><Info label="Blocos" value={String(data.granite.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(data.granite.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
+            {graniteData.length ? <>
+              <Hero value={(graniteData.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} unit="ton" />
+              <MetricPanel title="Granito"><Info label="B/Ls" value={String(graniteData.length)} /><Info label="Blocos" value={String(graniteData.reduce((total, item) => total + (item.blocks_qty ?? 0), 0))} /><Info label="Peso" value={`${(graniteData.reduce((total, item) => total + (item.real_weight_kg ?? 0), 0) / 1000).toLocaleString('pt-BR')} ton`} /></MetricPanel>
             </> : data?.orphanData?.granito.length ? null : <NadaOperado />}
             <OrphanDataWarning entries={data?.orphanData?.granito ?? []} label="B/L(s) de granito" />
           </ReportSection>

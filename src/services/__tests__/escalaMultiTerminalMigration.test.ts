@@ -16,9 +16,11 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/ALTER TABLE public\.voyage_export_schedules[\s\S]+ADD COLUMN IF NOT EXISTS has_empty BOOLEAN NOT NULL DEFAULT FALSE/i)
     expect(sql).toMatch(/INSERT INTO public\.voyage_export_schedules[\s\S]+has_granite[\s\S]+has_empty/i)
     expect(sql).toMatch(
-      /ADD CONSTRAINT depots_tipo_port_check[\s\S]+CHECK \([\s\S]+terminal_portuario[\s\S]+NOT VALID/i,
+      /ADD CONSTRAINT depots_tipo_port_check[\s\S]+CHECK \([\s\S]+terminal_portuario[\s\S]+port_id IS NULL/i,
     )
-    expect(sql).toContain('Nao ha backfill automatico.')
+    expect(sql).toContain('validate_depot_terminal_port')
+    expect(sql).toContain('Novo terminal portuario exige porto brasileiro.')
+    expect(sql).toContain('SET has_empty = TRUE')
     expect(sql).toMatch(
       /CREATE TABLE IF NOT EXISTS public\.voyage_escala_terminal_state[\s\S]+terminal_atb TIMESTAMPTZ[\s\S]+terminal_atd TIMESTAMPTZ[\s\S]+terminal_rtw INTEGER[\s\S]+revision INTEGER[\s\S]+UNIQUE \(voyage_id, port, terminal_id\)/i,
     )
@@ -51,7 +53,7 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/agency_departure_report_signoffs[\s\S]+agency_departure_report_department_signoffs[\s\S]+agency_departure_report_occurrences/i)
     expect(sql).toContain('FROM public.alerts AS a')
     expect(sql).toContain("a.entity_type = 'agency_departure_report'")
-    expect(sql).toContain("a.entity_id LIKE v_entity_id || '::%'")
+    expect(sql).toContain("a.entity_id LIKE v_report.id::TEXT || '::%'")
     expect(sql).toContain('adr_preserved')
     expect(sql).toContain('Qualquer alerta do ADR')
     expect(sql).toMatch(/DELETE FROM public\.agency_departure_reports[\s\S]+status = 'open'/i)

@@ -16,13 +16,10 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
-| [`2026-08-18-escala-multiplos-terminais-design.md`](./2026-08-18-escala-multiplos-terminais-design.md) | Escala com múltiplos terminais e ADR por terminal |
 
-A spec de múltiplos terminais está **com implementação pendente**. Ela fixa o
-contrato de execução, mas não promove o comportamento para o `CONTEXT.md` nem
-atualiza o `docs/ARCHITECTURE.md` antes da implementação, dos testes e dos gates
-do plano serem concluídos. Os dois documentos serão promovidos/atualizados na
-mesma mudança que comprovar o modelo.
+A spec de múltiplos terminais foi concluída na PR #550 e está arquivada em
+[`../archive/specs/`](../archive/specs/). O comportamento vigente foi promovido
+para `CONTEXT.md` e `docs/ARCHITECTURE.md`.
 
 A spec comportamental abaixo é permanente e não entra nesta tabela.
 

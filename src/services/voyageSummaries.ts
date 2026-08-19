@@ -450,7 +450,7 @@ function collectEscalasBrasileiras(
     const current = byPort.get(port)
     const modules = 'temExportacao' in row
       ? {
-          ...(row.temVazios ? { vaziosExp: true } : {}),
+          ...(row.temVazios || (row.temVazios === undefined && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0)) ? { vaziosExp: true } : {}),
           ...(row.hasGranite || row.temGranito ? { granito: true } : {}),
         }
       : {}
@@ -559,6 +559,7 @@ type TimelineAuditEvent = {
   new_value: string | null
   changed_by?: string | null
   actor_role?: string | null
+  actor_department?: string | null
   changed_at: string | null
   justification?: string | null
 }
@@ -644,12 +645,14 @@ export function buildVoyageTimeline({
 }: VoyageTimelineInput): VoyageTimelineEvent[] {
   const imports = buildImportTimeline(importBatches, actorNames, actorDepartments)
   const events = [...imports.events]
-  const appendActor = (detail: string, row: { changed_by?: string | null; actor_role?: string | null }) =>
+  const appendActor = (detail: string, row: { changed_by?: string | null; actor_role?: string | null; actor_department?: string | null }) =>
     appendTimelineActor(
       detail,
       row.changed_by,
       actorNames,
-      row.actor_role ? TIMELINE_ROLE_LABELS[row.actor_role] ?? row.actor_role : null,
+      row.actor_department
+        ? TIMELINE_ROLE_LABELS[row.actor_department] ?? row.actor_department
+        : row.actor_role ? TIMELINE_ROLE_LABELS[row.actor_role] ?? row.actor_role : null,
     )
   events.push(...buildCeCoverageTimeline(ceCoverage, imports.latestImportAt))
 

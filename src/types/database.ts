@@ -225,6 +225,7 @@ export type Database = {
       }
       audit_logs: {
         Row: {
+          actor_department: string | null
           actor_role: string | null
           changed_at: string | null
           changed_by: string | null
@@ -237,6 +238,7 @@ export type Database = {
           old_value: string | null
         }
         Insert: {
+          actor_department?: string | null
           actor_role?: string | null
           changed_at?: string | null
           changed_by?: string | null
@@ -249,6 +251,7 @@ export type Database = {
           old_value?: string | null
         }
         Update: {
+          actor_department?: string | null
           actor_role?: string | null
           changed_at?: string | null
           changed_by?: string | null
@@ -2009,6 +2012,7 @@ export type Database = {
           free_time_vazio_days: number
           id: string
           name: string | null
+          port_id: number | null
           tipo: string
           updated_at: string
         }
@@ -2020,6 +2024,7 @@ export type Database = {
           free_time_vazio_days?: number
           id?: string
           name?: string | null
+          port_id?: number | null
           tipo?: string
           updated_at?: string
         }
@@ -2031,6 +2036,7 @@ export type Database = {
           free_time_vazio_days?: number
           id?: string
           name?: string | null
+          port_id?: number | null
           tipo?: string
           updated_at?: string
         }
@@ -5276,6 +5282,10 @@ export type Database = {
           p_terminals: Json
           p_voyage_id: number
         }
+        Returns: Json
+      }
+      preflight_depots_terminal_port_mapping: {
+        Args: Record<PropertyKey, never>
         Returns: Json
       }
       set_agency_report_department_signoff: {

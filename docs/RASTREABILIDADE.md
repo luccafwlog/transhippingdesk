@@ -22,6 +22,17 @@ Testes que apenas inspecionam texto ou regex de migrations são classificados
 como **Teste de contrato SQL**. Eles detectam drift no SQL versionado, mas não
 provam migration aplicada, grants remotos, RLS em execução ou atomicidade real.
 
+## Atualização da PR 550
+
+O fluxo terminalizado da PR 550 acrescenta `report_id` e `terminalCode` aos
+deep-links do ADR, filtra o conteúdo exibido pelas frentes atribuídas, usa as
+chaves reais de `useAgencyReport` (`agency-report-terminal-state` incluída) e
+registra datas do POD na mesma RPC transacional da escala. O Cadastro de
+Terminais consulta `preflight_depots_terminal_port_mapping`; novos terminais
+exigem `depots.port_id`, enquanto o legado sem mapeamento permanece preservado.
+As evidências desta revisão são os testes de comportamento, o contrato SQL da
+migration 306 e a aplicação da migration em Postgres local descartável.
+
 ## Índice por rota e ação
 
 Este índice é o ponto de entrada curto. A explicação completa, as invariantes e

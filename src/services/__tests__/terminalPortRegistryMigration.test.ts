@@ -11,9 +11,9 @@ describe('contrato SQL do cadastro de terminais por porto', () => {
   it('liga terminal portuário ao porto e mantém depot comum sem porto', () => {
     expect(sql).toMatch(/ALTER TABLE public\.depots[\s\S]+ADD COLUMN IF NOT EXISTS port_id BIGINT/i)
     expect(sql).toContain('port_id BIGINT REFERENCES public.ports(id) ON DELETE RESTRICT')
-    expect(sql).toMatch(
-      /tipo = 'terminal_portuario' AND port_id IS NOT NULL[\s\S]+tipo = 'depot' AND port_id IS NULL/i,
-    )
+    expect(sql).toMatch(/tipo = 'terminal_portuario'[\s\S]+tipo = 'depot' AND port_id IS NULL/i)
+    expect(sql).toContain('CREATE TRIGGER validate_depot_terminal_port')
+    expect(sql).toContain('Novo terminal portuario exige porto brasileiro.')
     expect(sql).toMatch(/UNIQUE \(id, port_id\)/i)
     expect(sql).toContain('idx_depots_port_id_active')
   })

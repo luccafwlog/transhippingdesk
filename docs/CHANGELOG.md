@@ -3,6 +3,16 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **PR #550 — correções da revisão de múltiplos terminais:** o Cadastro de
+  Terminais passou a exigir porto brasileiro para novos terminais e ganhou
+  preflight do legado; a projeção preserva frentes persistidas; ADRs
+  terminalizados filtram cada conteúdo pela frente atribuída e mantêm o
+  cabeçalho da escala; alertas e remoção são escopados por `report_id`; a
+  gravação terminalizada de datas do POD ficou atômica com a RPC da escala;
+  caches, deep-links, auditoria por código/departamento e queries chunked foram
+  alinhados. A migration 306 recupera a declaração legada de vazios sem
+  substituir a decisão explícita futura. Plano arquivado em
+  `docs/archive/plans/2026-08-18-pr-550-review-fixes.md`.
 - **Carga solta passa a aceitar o B/L do armador, sem perder o manifesto:**
   `/carga-solta` ganha o modal **Importar B/Ls (PDF/DOCX)** ao lado da
   importação de Manifesto BB, que continua igual. O PDF do formulário com

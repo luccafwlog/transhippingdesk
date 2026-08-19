@@ -10,7 +10,12 @@
 
 ## Status da execução em 2026-08-18
 
-As Tasks 1–8 foram implementadas e verificadas no branch da PR #550. O relatório está em `docs/archive/reports/2026-08-18-escala-multiplos-terminais-verification.md`. Os gates locais estão verdes; a matriz descartável de Postgres/Supabase e a validação pós-deploy continuam pendentes porque o runtime Docker/Postgres não está disponível neste ambiente. Por isso este plano permanece vivo até a comprovação remota.
+As Tasks 1–8 foram implementadas e verificadas no branch da PR #550. As
+correções da revisão estão registradas em
+`docs/archive/plans/2026-08-18-pr-550-review-fixes.md`. Os gates locais estão
+verdes e a migration 306 foi reaplicada em Postgres local descartável; a
+validação pós-deploy remoto continua sendo responsabilidade do ambiente de
+deploy.
 
 ---
 
@@ -32,7 +37,10 @@ As Tasks 1–8 foram implementadas e verificadas no branch da PR #550. O relató
 
 ## Evidência da revisão da PR #550
 
-A PR contém a decisão de produto, mas não implementação. Antes de iniciar código, a documentação da PR precisa corrigir quatro pontos: remover a recomendação de reset da Decisão 15; eliminar a contradição entre “uma linha por terminal” e “terminal como coluna”; mover a Decisão 5 para a ordem cronológica; e corrigir a referência do `LineUpTable.tsx` para `src/components/lineup/LineUpTable.tsx`. A regra de existência de exportação também deve refletir a declaração explícita de granito/vazios, conforme a reformulação da PR #546.
+A revisão final da PR 550 foi incorporada: a descrição da PR reflete os 39
+arquivos alterados, a regra de terminal legado tem preflight e consumidor, a
+expectativa de exportação é explícita e os documentos vivos apontam para o
+comportamento terminalizado efetivo.
 
 ## Mapa de arquivos
 

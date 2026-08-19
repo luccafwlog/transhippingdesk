@@ -378,22 +378,24 @@ async function fetchTerminalFrontsByVoyageIds(voyageIds: number[]) {
   const result = new Map<number, LineUpTerminalFront[]>()
   if (!voyageIds.length) return result
 
-  const { data, error } = await (supabase.from as unknown as (table: string) => TerminalFrontQuery)('voyage_escala_operation_fronts')
-    .select('voyage_id, port, sentido, terminal_id')
-    .in('voyage_id', voyageIds)
-  if (error) throw error
+  for (const voyageChunk of chunkArray(voyageIds, 25)) {
+    const { data, error } = await (supabase.from as unknown as (table: string) => TerminalFrontQuery)('voyage_escala_operation_fronts')
+      .select('voyage_id, port, sentido, terminal_id')
+      .in('voyage_id', voyageChunk)
+    if (error) throw error
 
-  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
-    if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string') continue
-    if (row.sentido !== 'importacao' && row.sentido !== 'exportacao') continue
-    const fronts = result.get(row.voyage_id) ?? []
-    fronts.push({
-      voyageId: row.voyage_id,
-      port: row.port,
-      sentido: row.sentido,
-      terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
-    })
-    result.set(row.voyage_id, fronts)
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string') continue
+      if (row.sentido !== 'importacao' && row.sentido !== 'exportacao') continue
+      const fronts = result.get(row.voyage_id) ?? []
+      fronts.push({
+        voyageId: row.voyage_id,
+        port: row.port,
+        sentido: row.sentido,
+        terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
+      })
+      result.set(row.voyage_id, fronts)
+    }
   }
   return result
 }
@@ -556,15 +558,7 @@ async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
 
 async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], scheduleEntityIds: string[]) {
   const [voyageLatest, blLatest, containerLatest, vehicleLatest, scheduleLatest] = await Promise.all([
-    fetchLatestTimestamp(
-      supabase
-        .from('voyages')
-        .select('created_at')
-        .in('id', voyageIds)
-        .order('created_at', { ascending: false })
-        .limit(1),
-      'created_at',
-    ),
+    fetchLatestTimestampForVoyages('voyages', 'id', voyageIds, 'created_at'),
     blIds.length
       ? fetchLatestTimestamp(
           supabase
@@ -587,15 +581,7 @@ async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], sch
           'created_at',
         )
       : Promise.resolve<string | null>(null),
-    fetchLatestTimestamp(
-      supabase
-        .from('vehicles')
-        .select('created_at')
-        .in('voyage_id', voyageIds)
-        .order('created_at', { ascending: false })
-        .limit(1),
-      'created_at',
-    ),
+    fetchLatestTimestampForVoyages('vehicles', 'voyage_id', voyageIds, 'created_at'),
     scheduleEntityIds.length
       ? fetchLatestTimestamp(
           supabase
@@ -613,6 +599,17 @@ async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], sch
   return [voyageLatest, blLatest, containerLatest, vehicleLatest, scheduleLatest]
     .filter(Boolean)
     .sort((left, right) => new Date(right!).getTime() - new Date(left!).getTime())[0] ?? null
+}
+
+async function fetchLatestTimestampForVoyages(table: string, column: string, voyageIds: number[], field: string) {
+  const values = await Promise.all(chunkArray(voyageIds, 25).map((voyageChunk) => fetchLatestTimestamp(
+    (supabase.from as unknown as (tableName: string) => {
+      select: (columns: string) => { in: (name: string, ids: number[]) => { order: (fieldName: string, options: { ascending: boolean }) => { limit: (limit: number) => PromiseLike<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }> } } }
+    }
+    )(table).select(field).in(column, voyageChunk).order(field, { ascending: false }).limit(1),
+    field,
+  )))
+  return values.filter(Boolean).sort((left, right) => new Date(right!).getTime() - new Date(left!).getTime())[0] ?? null
 }
 
 async function fetchLatestTimestamp<T extends Record<string, unknown>>(

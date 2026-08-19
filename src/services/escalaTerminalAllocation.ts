@@ -184,15 +184,20 @@ export type DeriveOperationFrontInput = {
 export function deriveOperationFronts(input: DeriveOperationFrontInput): OperationFront[] {
   const fronts = new Map<string, OperationFront>()
   for (const existing of input.existing ?? []) {
-    fronts.set(frontKey(existing), makeFront(existing.sentido, existing.modalidade, existing.terminalId, existing.source, existing.source === 'operational_data', existing.id))
+    // A persisted front is already a declaration that the operation exists.
+    // Keeping hasData=true here is important for export_declaration fronts:
+    // otherwise a terminalized ADR is projected as "nothing operated" after
+    // the export schedule has been saved.
+    fronts.set(frontKey(existing), makeFront(existing.sentido, existing.modalidade, existing.terminalId, existing.source, true, existing.id))
   }
   for (const kind of new Set(input.importKinds ?? [])) {
-    fronts.set(frontKey({ sentido: 'importacao', modalidade: kind }), makeFront('importacao', kind, null, 'operational_data', true))
+    const key = frontKey({ sentido: 'importacao', modalidade: kind })
+    if (!fronts.has(key)) fronts.set(key, makeFront('importacao', kind, null, 'operational_data', true))
   }
   const exportSchedule = input.exportSchedule
   if (exportSchedule?.temExportacao) {
-    if (exportSchedule.hasGranite) fronts.set('exportacao:granito', makeFront('exportacao', 'granito', null, 'export_declaration', false))
-    if (exportSchedule.hasEmpty) fronts.set('exportacao:vazio', makeFront('exportacao', 'vazio', null, 'export_declaration', false))
+    if (exportSchedule.hasGranite && !fronts.has('exportacao:granito')) fronts.set('exportacao:granito', makeFront('exportacao', 'granito', null, 'export_declaration', true))
+    if (exportSchedule.hasEmpty && !fronts.has('exportacao:vazio')) fronts.set('exportacao:vazio', makeFront('exportacao', 'vazio', null, 'export_declaration', true))
   }
   return [...fronts.values()].sort((left, right) => left.sentido.localeCompare(right.sentido) || left.modalidade.localeCompare(right.modalidade))
 }
@@ -202,7 +207,7 @@ function parseFront(row: JsonRecord): OperationFront | null {
   const modalidade = typeof row.modalidade === 'string' ? row.modalidade as OperationFrontKind : null
   if (!sentido || !modalidade) return null
   const source = row.source === 'export_declaration' ? 'export_declaration' : 'operational_data'
-  return makeFront(sentido, modalidade, typeof row.terminal_id === 'string' ? row.terminal_id : null, source, source === 'operational_data', typeof row.id === 'string' ? row.id : null)
+  return makeFront(sentido, modalidade, typeof row.terminal_id === 'string' ? row.terminal_id : null, source, true, typeof row.id === 'string' ? row.id : null)
 }
 
 function parseTerminal(row: JsonRecord): TerminalDateState | null {
@@ -395,6 +400,7 @@ export function invalidateEscalaTerminalQueries(queryClient: Pick<QueryClient, '
   void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.timeline(voyageId) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.byScale(voyageId, normalizedPort) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.ownByScale(voyageId, normalizedPort) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.terminalState(voyageId, normalizedPort) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.all() })
   void queryClient.invalidateQueries({ queryKey: ['agency-report-own'] })
   void queryClient.invalidateQueries({ queryKey: ['agency-report-closed-ports', voyageId] })

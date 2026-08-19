@@ -275,7 +275,10 @@ type ReportIdRpcResult = { data: unknown; error: { code?: string; message?: stri
 
 function isMissingReportIdRpc(error: { code?: string; message?: string } | null) {
   const text = `${error?.code ?? ''} ${error?.message ?? ''}`.toLowerCase()
-  return text.includes('42883') || text.includes('pgrst202') || text.includes('does not exist') || text.includes('not found')
+  return text.includes('42883')
+    || text.includes('pgrst202')
+    || /function .* does not exist/.test(text)
+    || text.includes('could not find the function')
 }
 
 async function callReportIdAwareRpc(rpcName: string, args: Record<string, unknown>) {

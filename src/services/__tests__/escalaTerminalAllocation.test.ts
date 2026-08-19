@@ -32,6 +32,20 @@ describe('escalaTerminalAllocation', () => {
     expect(fronts.find((front) => front.modalidade === 'carga_cheia')).toMatchObject({ terminalId: 'tvv', hasData: true })
   })
 
+  it('preserva terminal e identidade de frente quando a fonte operacional continua presente', () => {
+    const fronts = deriveOperationFronts({
+      existing: [
+        { id: 'front-import', sentido: 'importacao', modalidade: 'carga_cheia', terminalId: 'tvv', source: 'operational_data' },
+        { id: 'front-export', sentido: 'exportacao', modalidade: 'granito', terminalId: 'portmac', source: 'export_declaration' },
+      ],
+      importKinds: ['carga_cheia'],
+      exportSchedule: { temExportacao: true, hasGranite: true, hasEmpty: false },
+    })
+
+    expect(fronts.find((front) => front.modalidade === 'carga_cheia')).toMatchObject({ id: 'front-import', terminalId: 'tvv' })
+    expect(fronts.find((front) => front.modalidade === 'granito')).toMatchObject({ id: 'front-export', terminalId: 'portmac' })
+  })
+
   it('projeta seção Nada operado para uma frente ausente de um ADR terminalizado', () => {
     const sections = deriveAgencyReportSections([
       { sentido: 'importacao', modalidade: 'carga_cheia', terminalId: 'tvv', source: 'operational_data', hasData: false, section: 'carga_descarregada' },

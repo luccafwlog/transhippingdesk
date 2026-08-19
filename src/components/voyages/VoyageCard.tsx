@@ -108,6 +108,8 @@ type VoyageCardProps = {
   onEditPol: (payload: EditingPolPayload) => void
   initialTab?: VoyageTabKey
   initialEscala?: string
+  initialReportId?: string
+  initialTerminalCode?: string
 }
 
 export function VoyageCard({
@@ -126,6 +128,8 @@ export function VoyageCard({
   onEditPol,
   initialTab = 'visao',
   initialEscala,
+  initialReportId,
+  initialTerminalCode,
 }: VoyageCardProps) {
   const [activeTab, setActiveTab] = useState<VoyageTabKey>(initialTab)
   const [omitTarget, setOmitTarget] = useState<string | null>(null)
@@ -454,6 +458,8 @@ export function VoyageCard({
               carrierName={voyage.vessel?.carrier?.name ?? 'Armador não informado'}
               pods={adrPods}
               initialEscala={initialEscala}
+              reportId={initialReportId}
+              terminalCode={initialTerminalCode}
             />
           ) : null}
         </div>

@@ -22,10 +22,11 @@ import {
 } from '../services/agencyDepartureReport'
 import { fetchEscalaTerminalState } from '../services/escalaTerminalAllocation'
 import { listAgencyReportSlaRows, type AgencyReportSlaDateRange } from '../services/agencyReportSla'
+import { queryKeys } from '../services/queryKeys'
 
 export function useAgencyReportDerived(voyageId: number, port: string | null) {
   return useQuery({
-    queryKey: ['agency-report', voyageId, port],
+    queryKey: queryKeys.agencyReports.byScale(voyageId, port ?? ''),
     queryFn: () => getAgencyReportDerivedData(voyageId, port as string),
     enabled: Boolean(port),
   })
@@ -33,7 +34,7 @@ export function useAgencyReportDerived(voyageId: number, port: string | null) {
 
 export function useAgencyReportOwn(voyageId: number, port: string | null, reportId?: string | null) {
   return useQuery({
-    queryKey: reportId ? ['agency-report-own', 'report', reportId] : ['agency-report-own', voyageId, port],
+    queryKey: reportId ? queryKeys.agencyReports.ownByReportId(reportId) : queryKeys.agencyReports.ownByScale(voyageId, port ?? ''),
     queryFn: () => reportId ? getAgencyReportOwnDataByReportId(reportId) : getAgencyReportOwnData(voyageId, port as string),
     enabled: Boolean(reportId || port),
   })
@@ -41,7 +42,7 @@ export function useAgencyReportOwn(voyageId: number, port: string | null, report
 
 export function useAgencyReportTerminalState(voyageId: number, port: string | null) {
   return useQuery({
-    queryKey: ['agency-report-terminal-state', voyageId, port],
+    queryKey: queryKeys.agencyReports.terminalState(voyageId, port ?? ''),
     queryFn: () => fetchEscalaTerminalState(voyageId, port as string),
     enabled: Boolean(port),
   })

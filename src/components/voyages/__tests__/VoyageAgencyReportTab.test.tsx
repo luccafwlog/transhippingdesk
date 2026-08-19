@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render as rtlRender, screen, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
 import { ToastProvider } from '../../ui/Toast'
 import { formatBRL } from '../../../lib/utils'
@@ -61,14 +61,16 @@ function allDepartmentsSigned() {
   ]
 }
 
-afterEach(cleanup)
+beforeEach(() => {
+  useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
+  useAgencyReportOwnMock.mockReturnValue({ data: undefined })
+  useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined })
+  useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
+  useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+})
 
-useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
-useAgencyReportOwnMock.mockReturnValue({ data: undefined })
-useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined })
-useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
-useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
-useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+afterEach(cleanup)
 
 it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () => {
   render(
@@ -116,6 +118,35 @@ it('exibe a linha de serviço pelo nome, nao pelo id', () => {
   const serviceTable = screen.getByText('Bundle Composition').closest('table')!
   expect(within(serviceTable).queryByRole('columnheader', { name: '%' })).toBeNull()
   expect(within(serviceTable).queryByText('100')).toBeNull()
+})
+
+it('mantém o cabeçalho da escala e exibe granito no ADR terminalizado', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'report-portmac', voyageId: 7, port: 'BRVIX', terminalId: 'portmac', terminalCode: 'PORTMAC', terminal: 'Porto Macuco', status: 'open',
+        sections: [
+          { section: 'datas', state: 'nothing_operated', fronts: [] },
+          { section: 'carga_carregada', state: 'operated', fronts: ['granito'] },
+        ],
+      }],
+    },
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { status: 'open', terminal: 'Porto Macuco', signoffs: [], departmentSignoffs: [], occurrences: [], actor_names: {} } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [{ real_weight_kg: 25_000, blocks_qty: 25 }], vaziosExp: [],
+      storage: { containers: 0, days: 0 }, operation: {}, schedule: { ata: '2026-08-18', atb: '2026-08-18', atd: null, rtw: 0 }, unifiedAtd: { atd: null, atdSource: null, atdRegisteredAt: null },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="report-portmac" terminalCode="PORTMAC" />)
+
+  expect(screen.getByText('Armador teste')).toBeTruthy()
+  expect(screen.getAllByText(/PORTMAC/).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('25').length).toBeGreaterThan(0)
 })
 
 it('a soma das linhas exibidas bate com o "Total da operação" para uma linha legada de armazenagem com percentual não nulo', () => {

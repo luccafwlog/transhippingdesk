@@ -250,7 +250,7 @@ Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 **Embarque de Vazios (EXP)**
 Registro operacional do embarque de containers vazios de exportação de uma
 escala, criado do zero por Equipamentos no módulo VAZIOS EXP. Existe **um por
-escala**, com a mesma identidade do ADR — (viagem, porto) —, e reúne duas partes
+escala** — (viagem, porto), a identidade da Escala —, e reúne duas partes
 de naturezas distintas:
 
 - a **Lista de Unidades Embarcadas** — o fato: quais containers foram
