@@ -437,7 +437,6 @@ export async function fetchEscalaTerminalRevision(voyageId: number, port: string
 export function invalidateEscalaTerminalQueries(queryClient: Pick<QueryClient, 'invalidateQueries'>, voyageId: number, port: string) {
   const normalizedPort = normalizePort(port)
   void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaSchedules() })
-  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.timeline(voyageId, normalizedPort) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.timeline(voyageId) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.byScale(voyageId, normalizedPort) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.ownByScale(voyageId, normalizedPort) })

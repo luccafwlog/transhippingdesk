@@ -347,7 +347,7 @@ function buildTerminalPayload({
     .map((terminal) => `${terminal.terminalId}:${terminal.atb ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`)
     .sort()
   const persistedTerminals = terminalScale.terminals
-    .map((terminal) => `${terminal.terminalId}:${terminal.atb ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`)
+    .map((terminal) => `${terminal.terminalId}:${dateInputValue(terminal.atb)}:${dateInputValue(terminal.atd)}:${terminal.restow ?? ''}`)
     .sort()
   const terminalizedStateChanged = terminalStateChanged
     || JSON.stringify(submittedFronts) !== JSON.stringify(persistedFronts)
@@ -753,12 +753,12 @@ export function EscalaModal({
       },
       initialExportExpectation: {
         tem_exportacao: escala.temExportacao,
-        granito: escala.hasGranite,
-        vazios: escala.hasEmpty,
-        has_empty: escala.hasEmpty,
-        containers_qty: escala.containersQty,
-        movements_qty: escala.movementsQty,
-        discharge_ports: escala.dischargePorts,
+        granito: escala.temExportacao ? escala.hasGranite : false,
+        vazios: escala.temExportacao ? escala.hasEmpty : false,
+        has_empty: escala.temExportacao ? escala.hasEmpty : false,
+        containers_qty: escala.temExportacao ? escala.containersQty : null,
+        movements_qty: escala.temExportacao ? escala.movementsQty : null,
+        discharge_ports: escala.temExportacao ? escala.dischargePorts : [],
         ce_status: getEditableVoyagePodCeStatus(escala.ceStatus),
         linked: Boolean(escala.linked),
       },

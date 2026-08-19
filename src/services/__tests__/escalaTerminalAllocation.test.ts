@@ -207,7 +207,7 @@ describe('escalaTerminalAllocation', () => {
       'voyage-escala-schedules', 'voyage-timeline', 'agency-report', 'lineup-tv-v3', 'painel', 'tv',
     ]))
     expect(invalidateQueries.mock.calls).toContainEqual([{ queryKey: ['voyage-escala-schedules'] }])
-    expect(invalidateQueries.mock.calls).toContainEqual([{ queryKey: ['voyage-timeline', '9', null] }])
+    expect(invalidateQueries.mock.calls).toContainEqual([{ queryKey: ['voyage-timeline', '9'] }])
   })
 })
 

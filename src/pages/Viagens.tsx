@@ -425,6 +425,7 @@ export function Viagens() {
                 terminals: payload.terminalState.terminals,
                 exportExpectation: {
                   ...payload.terminalState.exportExpectation,
+                  existing_id: payload.exportExistingId,
                   // A escala terminalizada e o POD pertencem à mesma
                   // transação: a RPC registra estes campos junto das frentes.
                   schedule: {

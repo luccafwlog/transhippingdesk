@@ -68,7 +68,7 @@ export const queryKeys = {
     vaziosExportPorts: (voyageId: number) => ['voyage-vazios-export-ports', voyageId] as const,
     escalaTerminal: (voyageId: number, port: string) => ['voyage-escala-terminal', voyageId, port] as const,
     escalaTerminalAll: () => ['voyage-escala-terminal'] as const,
-    timeline: (voyageId: number, port?: string) => ['voyage-timeline', String(voyageId), port ?? null] as const,
+    timeline: (voyageId: number) => ['voyage-timeline', String(voyageId)] as const,
   },
   agencyReports: {
     all: () => ['agency-report'] as const,

@@ -551,6 +551,8 @@ DECLARE
   v_old_export_ce_status TEXT;
   v_old_export_linked BOOLEAN := FALSE;
   v_export_existing_id UUID;
+  v_export_existing_id_found BOOLEAN := FALSE;
+  v_export_canonical_id UUID;
   v_export_granite BOOLEAN := FALSE;
   v_export_empty BOOLEAN := FALSE;
   v_export_declared BOOLEAN := FALSE;
@@ -840,7 +842,8 @@ BEGIN
   FROM public.voyage_export_schedules AS ves
   WHERE ves.id = v_export_existing_id AND ves.voyage_id = p_voyage_id
   FOR UPDATE;
-  IF NOT FOUND THEN
+  v_export_existing_id_found := FOUND;
+  IF NOT v_export_existing_id_found THEN
     SELECT COALESCE(ves.tem_exportacao, FALSE), COALESCE(ves.has_granite, FALSE), COALESCE(ves.has_empty, FALSE),
            ves.containers_qty, ves.movements_qty, COALESCE(ves.discharge_ports, '{}'::TEXT[]),
            ves.ce_status, COALESCE(ves.linked, FALSE)
@@ -1355,19 +1358,42 @@ BEGIN
         auth.uid(), clock_timestamp(), p_justification, v_role, v_department
       );
     END IF;
-    IF v_export_existing_id IS NOT NULL AND v_old_export_exists THEN
-      UPDATE public.voyage_export_schedules
-      SET pol = v_port,
-          tem_exportacao = v_export_declared,
-          has_granite = v_export_granite,
-          has_empty = v_export_empty,
-          containers_qty = v_export_containers_qty,
-          movements_qty = v_export_movements_qty,
-          discharge_ports = v_export_discharge_ports,
-          ce_status = v_export_ce_status,
-          linked = v_export_linked,
-          updated_at = now()
-      WHERE id = v_export_existing_id AND voyage_id = p_voyage_id;
+    IF v_export_existing_id_found THEN
+      SELECT ves.id
+      INTO v_export_canonical_id
+      FROM public.voyage_export_schedules AS ves
+      WHERE ves.voyage_id = p_voyage_id
+        AND ves.pol = v_port
+        AND ves.id <> v_export_existing_id
+      FOR UPDATE;
+      IF FOUND THEN
+        UPDATE public.voyage_export_schedules
+        SET tem_exportacao = v_export_declared,
+            has_granite = v_export_granite,
+            has_empty = v_export_empty,
+            containers_qty = v_export_containers_qty,
+            movements_qty = v_export_movements_qty,
+            discharge_ports = v_export_discharge_ports,
+            ce_status = v_export_ce_status,
+            linked = v_export_linked,
+            updated_at = now()
+        WHERE id = v_export_canonical_id AND voyage_id = p_voyage_id;
+        DELETE FROM public.voyage_export_schedules
+        WHERE id = v_export_existing_id AND voyage_id = p_voyage_id;
+      ELSE
+        UPDATE public.voyage_export_schedules
+        SET pol = v_port,
+            tem_exportacao = v_export_declared,
+            has_granite = v_export_granite,
+            has_empty = v_export_empty,
+            containers_qty = v_export_containers_qty,
+            movements_qty = v_export_movements_qty,
+            discharge_ports = v_export_discharge_ports,
+            ce_status = v_export_ce_status,
+            linked = v_export_linked,
+            updated_at = now()
+        WHERE id = v_export_existing_id AND voyage_id = p_voyage_id;
+      END IF;
     ELSE
       INSERT INTO public.voyage_export_schedules (
         voyage_id, pol, tem_exportacao, has_granite, has_empty,

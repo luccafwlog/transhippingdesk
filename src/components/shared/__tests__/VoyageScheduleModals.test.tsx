@@ -427,6 +427,30 @@ describe('EscalaModal', () => {
     expect(screen.getByRole('alert').textContent).toContain('justificativa')
   })
 
+  it('não exige justificativa por diferença de formato nas datas nem por resíduos com exportação desligada', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      temExportacao: false,
+      hasGranite: true,
+      hasEmpty: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+      terminalScale: {
+        ...terminalScaleBase,
+        revision: 1,
+        fronts: terminalScaleBase.fronts.filter((front) => front.sentido === 'importacao'),
+        terminals: [{ terminalId: 't-norte', atb: '2026-03-02T00:00:00Z', atd: null, restow: null }],
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('edita quatro frentes em dois terminais, mantém TBC e envia datas sem placeholder', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala(terminalEscala())

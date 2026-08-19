@@ -182,6 +182,8 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     )
     expect(sql).toContain('SECURITY DEFINER')
     expect(sql).toContain("p_export_expectation->>'existing_id'")
+    expect(sql).toContain('v_export_existing_id_found := FOUND;')
+    expect(sql).toMatch(/IF v_export_existing_id_found THEN[\s\S]+v_export_canonical_id[\s\S]+DELETE FROM public\.voyage_export_schedules/i)
     expect(sql).toMatch(/UPDATE public\.voyage_export_schedules[\s\S]+SET pol = v_port[\s\S]+WHERE id = v_export_existing_id/i)
     expect(sql).toContain('SET search_path = public, pg_temp')
     expect(sql).toMatch(/FROM public\.voyages[\s\S]+FOR UPDATE/i)
