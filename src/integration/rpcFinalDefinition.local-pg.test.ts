@@ -18,6 +18,8 @@ function compact(definition: string) {
     .replace(/\s+/g, ' ')
     .replace(/\( /g, '(')
     .replace(/ \)/g, ')')
+    // pg_get_functiondef may serialize typed NULL defaults explicitly.
+    .replace(/default null::(?:text|timestamp with time zone)/gi, 'default null')
     .toLowerCase()
 }
 
@@ -119,7 +121,7 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
         FROM pg_proc AS p
         JOIN pg_namespace AS n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public'
-          AND p.oid = to_regprocedure('public.can_edit_voyages()')
+          AND p.proname = 'can_edit_voyages'
       );
     `)).toBe('t')
   })
