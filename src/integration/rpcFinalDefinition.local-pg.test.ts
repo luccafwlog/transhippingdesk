@@ -111,4 +111,16 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
       expect(psql(`SELECT has_function_privilege('anon', '${signature}', 'EXECUTE');`)).toBe('f')
     }
   })
+
+  it('confirma no catálogo que can_edit_voyages não existe após o replay', () => {
+    expect(psql(`
+      SELECT NOT EXISTS (
+        SELECT 1
+        FROM pg_proc AS p
+        JOIN pg_namespace AS n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.oid = to_regprocedure('public.can_edit_voyages()')
+      );
+    `)).toBe('t')
+  })
 })
