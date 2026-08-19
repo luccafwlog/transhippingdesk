@@ -5,6 +5,9 @@ permissions:
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 # Um PR só precisa do resultado do commit mais recente. Runs antigos do mesmo
 # ref são cancelados para liberar runners e encurtar a fila.

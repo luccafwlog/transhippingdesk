@@ -28,6 +28,10 @@ VITE_SUPABASE_URL=https://<projeto>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key>
 ```
 
+No Vercel, essas mesmas duas variáveis são cadastradas separadamente nos
+ambientes Production, Preview e Development do projeto. Como todo `VITE_*`
+chega ao bundle do navegador, não coloque segredos server-side nelas.
+
 Sem `VITE_SUPABASE_*` a aplicação loga erro e o cliente Supabase fica vazio. As demais variáveis (`SUPABASE_*`) são usadas apenas nos [testes de integração](testing.md).
 
 ## 3. Banco de dados
@@ -61,6 +65,7 @@ Variáveis necessárias nas Edge Functions do Supabase:
 | `FROM_EMAIL` | Remetente (ex: `Transhipping <noreply@…>`) |
 | `PORTAL_URL` | URL base do portal do cliente |
 | `APP_URL` | URL do app usada pelas Edge Functions do Portal |
+| `VERCEL_PREVIEW_ORIGINS` | Opcional; URLs HTTPS exatas de Preview, separadas por vírgula, para CORS sem wildcard |
 
 ## 6. Rodar
 
