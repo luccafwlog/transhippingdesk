@@ -27,7 +27,7 @@ removeu o `EXECUTE` padrão. Helpers financeiros internos não recebem
 recebido contra ele.
 
 **Tech Stack:** React + TypeScript, TanStack Query, Vitest, Supabase
-(migrations SQL numeradas sequencialmente a partir de `306` — ADR 0016),
+(migrations SQL numeradas sequencialmente a partir de `308` — ADR 0016),
 PostgreSQL local descartável via `scripts/setup-local-pg.sh` para contratos de
 definição final.
 
@@ -50,6 +50,47 @@ Se essa premissa mudar, parar antes dessas tasks e abrir uma decisão de domíni
 com um caminho explícito de relink/backfill para B/L tardio; não reintroduzir o
 fallback silenciosamente.
 
+## Base: o que a PR 550 mudou embaixo deste plano
+
+A auditoria que originou este plano foi escrita contra `1d95a7c`. Depois dela a
+PR 550 (escala com múltiplos terminais, migrations `306` e `307`) entrou no
+`main`. Nenhum achado caiu — a `306` não recria `omit_voyage_escala`,
+`set_bl_cod` nem `set_bl_transshipment`, então as duas regressões P0 continuam
+vivas exatamente como descritas. O que mudou é o terreno:
+
+- **Números de migration.** `306` e `307` estão ocupados; este plano começa em
+  `308`.
+- **A flag `omitted` ganhou consumidores novos.** Além de
+  `voyageRouteSchedules.ts`, a migration `306` lê o último `audit_logs` de
+  `voyage_pod_schedule`/`omitted` em `save_voyage_escala_terminal_state` (para
+  recomputar o status da viagem ignorando escalas omitidas) e em
+  `detect_agency_report_deadline_missed`. A reversão da Task 3 escreve
+  `new_value='false'` e portanto *volta* a escala para essas contagens — é
+  efeito desejado, mas precisa estar no teste.
+- **Escala e terminal são ortogonais à omissão.** A identidade da escala
+  continua `(voyage_id, port)`, a mesma da omissão. Terminais
+  (`voyage_escala_terminal_state`), frentes (`voyage_escala_operation_fronts`) e
+  ADRs (`agency_departure_reports`, agora `(viagem, porto, terminal)`) penduram
+  nessa mesma chave. **Nenhuma task deste plano cria, move ou apaga essas
+  linhas**: omitir ou reverter não mexe em terminal, frente nem ADR. Um ADR de
+  escala omitida simplesmente não gera alerta, porque
+  `detect_agency_report_department_pending` só dispara depois do ATD e escala
+  omitida nunca recebe ATD.
+- **A carga em transbordo continua contada pelo porto de descarga real.**
+  `getAgencyReportDerivedData(voyageId, port)` apura por porto; o recorte por
+  terminal vem da atribuição da frente em `deriveAgencyReportByTerminal`. Isso
+  já funciona e não é escopo deste plano — não reabrir.
+- **Line-Up foi reescrito.** `fetchLineUpSnapshot` agora emite até duas linhas
+  por escala (`rowType: 'import' | 'export'`) e projeta terminais em
+  `importTerminal`/`exportTerminal`. A Task 10 mudou de alvo por causa disso.
+- **Query keys novas.** `queryKeys.voyages.escalaTerminalAll()`,
+  `queryKeys.voyages.escalaSchedules()` (sem argumento) e
+  `queryKeys.agencyReports.all()` existem desde a `550`; toda invalidação de
+  omissão precisa considerá-las.
+- **`/taxas-locais` é a operação e `/taxas-locais/tabelas` é o cadastro**
+  (ADR 0050, PR 549). `Faturamento.tsx` não existe mais e `/faturamento` é
+  apenas redirect — nenhuma task pode apontar para lá.
+
 ---
 
 ## Onda 1 — Regressões P0 (independentes, podem ir primeiro)
@@ -63,14 +104,18 @@ fallback silenciosamente.
 Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
 `215` desfez a `201` sem que nada quebrasse.
 
-- [ ] **Step 1: Write the failing test** — usar o banco descartável criado por
-  `bash scripts/setup-local-pg.sh --reset` e `LOCAL_PG_INTEGRATION=1`, reaplicar
-  todas as migrations e consultar `pg_get_functiondef` no banco para as
+- [ ] **Step 1: Write the failing test** — seguir o padrão já existente em
+  `src/integration/*.local-pg.test.ts` (`adminUsuarios`,
+  `agencyReportCloserName`): `describe.skip` sem `LOCAL_PG_INTEGRATION=1` e
+  `psql -v ON_ERROR_STOP=1` contra `LOCAL_DATABASE_URL`. Usar o banco
+  descartável criado por `bash scripts/setup-local-pg.sh --reset`, reaplicar
+  todas as migrations — incluindo a `306` e a `307` — e consultar
+  `pg_get_functiondef` no banco para as
   assinaturas finais de `omit_voyage_escala`, `set_bl_cod`,
   `set_bl_transshipment` e `update_voyage_omission`. Para
   `omit_voyage_escala`, asserir os cinco campos `onward_*`, ausência de
   `v_omitted = v_discharge` e `bl_id` na notificação. O teste deve ser rodado
-  **antes da migration 306** e falhar por observar a definição efetiva da
+  **antes da migration 308** e falhar por observar a definição efetiva da
   `215`, não por uma regex.
 - [ ] **Step 2:** Manter um scanner textual como rede secundária, se útil, mas
   documentar no teste que ele é cego a reescritas por `DO`/`pg_get_functiondef`
@@ -87,7 +132,7 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
 ### Task 2: Migration — restaurar `omit_voyage_escala`
 
 **Files:**
-- Create: `supabase/migrations/306_restore_omit_voyage_escala.sql`
+- Create: `supabase/migrations/308_restore_omit_voyage_escala.sql`
 
 - [ ] **Step 1:** Ler `201_voyage_omission_global_transshipment.sql` e
   `215_rbac_voyages_customers_writes.sql` lado a lado, mas partir da definição
@@ -115,7 +160,7 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
 ### Task 3: Reversão de omissão e proibição de re-omitir em silêncio
 
 **Files:**
-- Create: `supabase/migrations/307_revert_voyage_omission.sql`
+- Create: `supabase/migrations/309_revert_voyage_omission.sql`
 - Modify: `src/services/transshipments.ts`, `src/hooks/useTransshipments.ts`
 - Modify: `src/components/voyages/TransshipmentInfoCard.tsx`
 - Test: `src/services/__tests__/revertVoyageOmissionMigration.test.ts`
@@ -128,8 +173,13 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
   `field_name='omitted'`, `new_value='false'`; remove as linhas de
   `bl_transshipments` da omissão; apaga a `voyage_omissions`; insere
   `portal_notifications` de correção por B/L com cliente vinculado. A linha de
-  auditoria é obrigatória: `voyageRouteSchedules.ts:839` deriva dela a flag
-  `omitted`; um simples `DELETE` deixaria a escala omitida para sempre.
+  auditoria é obrigatória: `voyageRouteSchedules.ts:900` deriva dela a flag
+  `omitted`; um simples `DELETE` deixaria a escala omitida para sempre. Depois
+  da `306` essa flag tem mais dois leitores —
+  `save_voyage_escala_terminal_state`, que recomputa o status da viagem
+  ignorando escalas omitidas, e `detect_agency_report_deadline_missed` —, então
+  o contrato deve asserir que a escala revertida volta a contar como ativa nos
+  dois.
   `is_admin()` é a exceção de exclusão de registro operacional prevista na ADR
   0046; se a reversão virar soft-delete, reabrir a decisão antes de mudar esse
   gate.
@@ -142,11 +192,19 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
   e `anon` (a `297` removeu o default). Teste de contrato: reversão bloqueada
   com COD presente; reversão limpa `bl_transshipments`; notificação de correção
   criada; segunda omissão do mesmo POD levanta exceção; `anon` sem EXECUTE.
+  Asserir também o que a RPC **não** faz: `voyage_escala_terminal_state`,
+  `voyage_escala_operation_fronts` e `agency_departure_reports` da escala ficam
+  intactos. Reverter uma omissão não desfaz alocação de terminal nem reabre
+  ADR.
 - [ ] **Step 4:** UI: ação "Reverter omissão" no `TransshipmentInfoCard`, visível
   só para Admin, com diálogo de justificativa obrigatória e resumo do impacto
   (quantos B/Ls; clientes com vínculo serão notificados, sem prometer uma
   contagem que a tela não possui). Invalidar as mesmas chaves de `useOmitEscala`
-  mais `['voyage-timeline']`.
+  mais as que a PR 550 criou: `queryKeys.voyages.escalaSchedules()` (sem
+  argumento), `queryKeys.voyages.escalaTerminalAll()` e
+  `queryKeys.agencyReports.all()`. `['voyage-timeline']` já está em
+  `useOmitEscala`; o que falta é o par terminal/ADR — e a mesma lista precisa
+  entrar em `useOmitEscala`, não só na reversão.
 - [ ] **Step 5:** Run: `npm test -- src/services/__tests__/revertVoyageOmissionMigration.test.ts` — Expected: PASS.
 - [ ] **Step 6:** Commit: `feat: omissao de escala reversivel por Admin com justificativa e notificacao de correcao`
 
@@ -160,7 +218,8 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
   diretamente: exibe primeiro um resumo ("Salvador · N B/Ls afetados · clientes
   com vínculo serão notificados") e exige confirmação.
 - [ ] **Step 2:** Implementar usando somente o `blCount` por rota já disponível
-  no `VoyageCard`, passado por prop. Não calcular nem exibir `M clientes`: o
+  no `VoyageCard`, passado por prop — ele sobreviveu à PR 550 em
+  `voyageCardHelpers.tsx:87` (tipo) e `:184` (projeção). Não calcular nem exibir `M clientes`: o
   card não tem essa informação e a RPC só notifica B/Ls com `customer_id IS NOT
   NULL`; se a contagem de clientes virar requisito, criar uma query de prévia
   com exatamente o mesmo predicado da RPC antes de mudar o texto.
@@ -174,7 +233,7 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
 ### Task 5: COD com confirmação e justificativa
 
 **Files:**
-- Create: `supabase/migrations/308_cod_justification.sql`
+- Create: `supabase/migrations/310_cod_justification.sql`
 - Modify: `src/services/transshipments.ts`, `src/pages/BlDetalhe.tsx`, `src/components/bl/BlTransshipmentCard.tsx`
 - Test: `src/components/bl/__tests__/BlTransshipmentCard.test.tsx`
 
@@ -204,7 +263,7 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
 ### Task 6: Reprecificação da Taxa Local no COD
 
 **Files:**
-- Create: `supabase/migrations/309_cod_reprices_local_charges.sql`
+- Create: `supabase/migrations/311_cod_reprices_local_charges.sql`
 - Test: `src/services/__tests__/codRepricingMigration.test.ts`
 
 Implementa as decisões 1, 2 e 4 da ADR 0051. Ler `274_charge_table_validity_is_informational.sql`
@@ -258,7 +317,7 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
 - Modify: `src/components/billing/` (fila de pendências de Taxas Locais)
 - Test: `src/services/__tests__/codAdjustmentsMigration.test.ts`
 
-- [ ] **Step 1:** Usar a tabela `cod_adjustments` criada na migration `309`; não
+- [ ] **Step 1:** Usar a tabela `cod_adjustments` criada na migration `311`; não
   criar uma segunda tabela nem deixar a Task 6 referenciar uma migration futura.
 - [ ] **Step 2:** Lado credor (sobrou dinheiro): reusar `invoice_refunds`
   (tabela na migration `111`; RPCs `list_invoice_refunds` e
@@ -271,17 +330,19 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
   cancelar e reemitir; a ADR 0051 deve dizer que a RPC registra a pendência e o
   Financeiro executa o cancelamento/reemissão deliberadamente, alinhando a
   tabela da decisão 2 com a decisão 3.
-- [ ] **Step 5:** Superfície: as pendências de Ajuste de COD aparecem na fila de
-  Taxas Locais (`/taxas-locais`, `src/App.tsx:179`,
-  `src/pages/TaxasLocais.tsx`, ADR 0050), não na ficha do B/L — quem resolve é
-  o Financeiro.
+- [ ] **Step 5:** Superfície: as pendências de Ajuste de COD aparecem na fila da
+  **operação** de Taxas Locais (`/taxas-locais`, `src/App.tsx:179`,
+  `src/pages/TaxasLocais.tsx`), não na ficha do B/L — quem resolve é o
+  Financeiro. Pela ADR 0050, `/taxas-locais/tabelas` é cadastro de tabelas e
+  overrides e **não** recebe pendência; `/faturamento` virou redirect e
+  `Faturamento.tsx` não existe mais, então nenhum link novo aponta para lá.
 - [ ] **Step 6:** Run: `npm test -- src/services/__tests__/codAdjustmentsMigration.test.ts` — Expected: PASS.
 - [ ] **Step 7:** Commit: `feat: Ajuste de COD com fatura complementar e restituicao (ADR 0051)`
 
 ### Task 8: Notificação de correção ao reverter COD
 
 **Files:**
-- Create: `supabase/migrations/310_revert_cod_notification.sql`
+- Create: `supabase/migrations/312_revert_cod_notification.sql`
 - Test: cobrir no teste de contrato da Task 5
 
 - [ ] **Step 1:** `set_bl_transshipment` passa a inserir `portal_notifications`
@@ -314,7 +375,7 @@ auditoria — não existem decisões 8 e 9 na ADR 0051.
   com o mesmo número — só a exibição ganha o desvio, e a `UNIQUE (voyage_id, pol, pod)`
   continua satisfeita porque as rotas documentais seguem distintas.
 - [ ] **Step 3:** Quando uma rota tem B/Ls e **não** tem CE Master, trocar o `-`
-  mudo de `VoyageManifestosTab.tsx:118` por pendência visível ("manifesto não
+  mudo de `VoyageManifestosTab.tsx:119` por pendência visível ("manifesto não
   informado"), apontando para o lápis da linha, que já edita o CE Master via
   `onEditPol`. É o caso do B/L em COD que cria uma rota nova.
 - [ ] **Step 4:** Run — Expected: PASS.
@@ -323,27 +384,44 @@ auditoria — não existem decisões 8 e 9 na ADR 0051.
 ### Task 10: Line-Up marca escala omitida
 
 **Files:**
-- Modify: `src/services/lineup.ts`
-- Test: `src/services/__tests__/lineup.omitted.test.ts`
+- Modify: `src/services/lineup.ts`, `src/components/lineup/LineUpTable.tsx`, `src/pages/LineUpTVDisplay.tsx`
+- Test: `src/services/__tests__/lineupSnapshot.test.ts`
 
-- [ ] **Step 1: Write the failing test** — escala omitida produz linha com
-  `omitted: true` e fica **fora** das contagens de pendência; a flag já vem de
-  `listVoyageEscalaSchedulesByVoyageIds`.
-- [ ] **Step 2:** Implementar em `lineup.ts:128-205`. Não remover a linha: a
-  operação precisa ver que aquela carga desceu em outro lugar. O que não pode é
-  ela contar como chegada pendente para sempre — escala omitida nunca recebe
-  ATA/ATD.
-- [ ] **Step 3:** Chip "Omitida" no Line-Up e no Line-Up TV, mesmo padrão visual
-  já usado pelo ADR de escala omitida.
-- [ ] **Step 4:** Run — Expected: PASS.
-- [ ] **Step 5:** Commit: `fix: Line-Up marca escala omitida e a tira das pendencias`
+Esta task foi reescrita depois da PR 550: o Line-Up mudou de forma, não de
+intenção. Ler `src/services/lineup.ts` antes de mexer.
+
+- [ ] **Step 1: Write the failing test** — estender
+  `lineupSnapshot.test.ts` (criado pela PR 550, já com fixtures de escala,
+  terminal e frente) em vez de abrir um arquivo novo: escala omitida produz
+  linha com `omitted: true` e fica **fora** das contagens de pendência; a flag
+  já vem de `listVoyageEscalaSchedulesByVoyageIds` em
+  `VoyageEscalaSchedule.omitted`.
+- [ ] **Step 2:** Acrescentar `omitted: boolean` ao tipo `LineUpRow`
+  (`lineup.ts:48-79`) e preenchê-lo dentro de `fetchLineUpSnapshot`
+  (`lineup.ts:162-376`), no laço `for (const pod of routePods)`, a partir de
+  `escalasByPort.get(pod)`. A PR 550 passou a emitir **até duas linhas por
+  escala** (`rowType: 'import' | 'export'`): as duas descrevem a mesma escala,
+  então as duas recebem a mesma flag. Não remover a linha: a operação precisa
+  ver que aquela carga desceu em outro lugar. O que não pode é ela contar como
+  chegada pendente para sempre — escala omitida nunca recebe ATA/ATD.
+- [ ] **Step 3:** Chip "Omitida" no Line-Up (`LineUpTable.tsx`) e no Line-Up TV
+  (`LineUpTVDisplay.tsx`), mesmo padrão visual já usado pelo ADR de escala
+  omitida. A coluna de terminal introduzida pela PR 550 continua a mesma: o
+  chip convive com `importTerminal`/`exportTerminal` e **não** substitui o
+  `TBC` de frente sem terminal — são dois sinais distintos (escala que não
+  acontece × terminal ainda não atribuído).
+- [ ] **Step 4:** Não mexer em `projectLineUpTerminals` nem em
+  `hasActiveEscalaScheduleData`: a omissão não é ausência de dados de escala, e
+  esconder a linha aqui desfaria o Step 2.
+- [ ] **Step 5:** Run: `npm test -- src/services/__tests__/lineupSnapshot.test.ts` — Expected: PASS.
+- [ ] **Step 6:** Commit: `fix: Line-Up marca escala omitida e a tira das pendencias`
 
 ### Task 11: Portal — card de COD, datas e motivo
 
 **Files:**
 - Modify: `src/pages/PortalOperacao.tsx`
 - Modify: `src/services/portalOperation.ts`
-- Create: `supabase/migrations/311_portal_operation_hide_omission_reason.sql`
+- Create: `supabase/migrations/313_portal_operation_hide_omission_reason.sql`
 - Test: `src/pages/__tests__/PortalOperacao.test.tsx`
 - Test: `src/services/__tests__/portalOperation.test.ts`
 
@@ -357,7 +435,7 @@ auditoria — não existem decisões 8 e 9 na ADR 0051.
 - [ ] **Step 2:** Implementar em `PortalOperacao.tsx:479`, que hoje recebe
   `disposition` e a ignora. Reusar o helper de data já usado em
   `TransshipmentInfoCard` em vez de imprimir o `TIMESTAMPTZ` cru.
-- [ ] **Step 3:** Criar a migration `311` para remover `reason` da projeção
+- [ ] **Step 3:** Criar a migration `313` para remover `reason` da projeção
   server-side de `portal_list_operation_bls`; atualizar
   `PortalOperationTransshipment` e o normalizador em `src/services/portalOperation.ts`
   para que o contrato não preserve esse campo. Revogar/reconceder os grants da
@@ -375,7 +453,7 @@ auditoria — não existem decisões 8 e 9 na ADR 0051.
 **Files:**
 - Modify: `src/components/voyages/VoyageCard.tsx`, `src/components/voyages/TransshipmentPanel.tsx`
 - Modify: `src/hooks/useBlCockpit.ts`, `src/services/transshipments.ts`
-- Create: `supabase/migrations/312_drop_dead_bl_transshipment_columns.sql`
+- Create: `supabase/migrations/314_drop_dead_bl_transshipment_columns.sql`
 
 - [ ] **Step 1:** Unificar os dois cards concorrentes. `TransshipmentInfoCard`
   (aba Visão) e `TransshipmentPanel` (fora das abas) exibem o mesmo registro
@@ -389,7 +467,10 @@ auditoria — não existem decisões 8 e 9 na ADR 0051.
   removê-las de `BlTransshipment`, do `SELECT` do serviço e dos testes. Limpar
   os parâmetros correspondentes de `set_bl_transshipment`. A migration exige
   regenerar `src/types/database.ts`: não editar o arquivo gerado manualmente;
-  usar o gerador oficial e revisar o diff. Como o arquivo e migrations são
+  usar o gerador oficial e revisar o diff — a PR 550 já regenerou esse arquivo
+  com as tabelas de terminal/frente, então o diff esperado é só a remoção das
+  colunas `onward_*`; qualquer perda das tabelas da `306` indica geração contra
+  um schema desatualizado. Como o arquivo e migrations são
   protegidos por `.claude/hooks/protect-files.sh`, qualquer override
   (`CLAUDE_ALLOW_PROTECTED=1`) só pode ser feito com autorização explícita e
   apenas durante a geração/aplicação necessária.
@@ -417,12 +498,16 @@ junto com a ADR 0051; esta task cobre o que depende do código entregue.
   registrar que a omissão captura os dados de transbordo; acrescentar as ações
   "Reverter omissão" e "Marcar COD com justificativa"; registrar o efeito
   financeiro da ADR 0051.
-- [ ] **Step 1b:** Alinhar a tabela da decisão 2 da ADR 0051 com a execução:
-  para B/L faturado e não pago, a RPC registra a pendência de cancelar e
-  reemitir; a ação documental continua sendo deliberada pelo Financeiro. Não
-  deixar a ADR sugerir cancelamento automático enquanto o plano proíbe isso.
-- [ ] **Step 2:** `docs/RASTREABILIDADE.md:290` — trocar `can_edit_voyages()` por
-  `is_active_user()` (migration `295`, ADR 0046) e acrescentar as RPCs novas.
+- [ ] **Step 1b:** Conferir que a execução não divergiu da decisão 2 da ADR 0051:
+  para B/L faturado e não pago, a RPC **registra a pendência** de cancelar e
+  reemitir e o Financeiro executa o ato documental. A ADR já está redigida
+  assim; se a implementação tiver cancelado sozinha, o defeito é do código, não
+  do texto.
+- [ ] **Step 2:** `docs/RASTREABILIDADE.md` — a troca de `can_edit_voyages()` por
+  `is_active_user()` (migration `295`, ADR 0046) já foi aplicada junto com a
+  ADR 0051; aqui resta apenas acrescentar as RPCs novas
+  (`revert_voyage_omission`, `apply_cod_financial_effect`) e a tabela
+  `cod_adjustments` à linha de `bl_transshipments`.
 - [ ] **Step 3:** `docs/modules/portal-cliente.md` — card de COD distinto do de
   transbordo; motivo da omissão não é publicado.
 - [ ] **Step 4:** Registrar a entrega em `docs/CHANGELOG.md`.

@@ -10,6 +10,19 @@ está em [`docs/plans/2026-08-18-transbordo-cod-correcoes.md`](../../plans/2026-
 a decisão de negócio que ele implementa está na
 [ADR 0051](../../adr/0051-cod-reprecifica-no-destino-final.md).
 
+> **Nota editorial (2026-08-19).** Esta auditoria foi levantada contra
+> `1d95a7c`. Depois dela a PR 550 (escala com múltiplos terminais, migrations
+> `306` e `307`) entrou no `main`. Nenhum achado caiu: a `306` não recria
+> `omit_voyage_escala`, `set_bl_cod` nem `set_bl_transshipment`. O que envelheceu
+> foram referências `arquivo:linha` — `lineup.ts` foi reescrito e o Line-Up passou
+> a emitir uma linha por sentido com coluna de terminal;
+> `agencyDepartureReport.ts:486` mudou de lugar (a apuração de carga em
+> transbordo pelo porto de descarga real continua correta, agora recortada por
+> terminal em `deriveAgencyReportByTerminal`); e as migrations do plano subiram
+> de `306`–`312` para `308`–`314`. Os alvos vigentes estão no
+> [plano](../../plans/2026-08-18-transbordo-cod-correcoes.md), seção "Base: o que
+> a PR 550 mudou embaixo deste plano". O texto abaixo permanece como foi escrito.
+
 ## 1. Método
 
 Leitura da documentação vigente (`CONTEXT.md`, ADR 0022, ADR 0038,

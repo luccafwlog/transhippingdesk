@@ -47,7 +47,7 @@ financeiro do B/L:**
 | Estado | Comportamento |
 |---|---|
 | Não faturado | Recalcula na própria transação do COD. |
-| Faturado, não pago | A fatura é cancelada e reemitida pela tabela do novo destino. Nenhum dinheiro trocou de mãos; corrige-se o documento. |
+| Faturado, não pago | O COD registra a pendência de cancelar e reemitir pela tabela do novo destino; o Financeiro executa. Nenhum dinheiro trocou de mãos; corrige-se o documento. |
 | Faturado e pago (total ou parcial) | A fatura original permanece. A diferença vira **Ajuste de COD**: Fatura Complementar de COD quando falta valor, restituição (`invoice_refunds`) quando sobra. |
 
 A fronteira é o pagamento: **antes dele corrige-se o documento; depois dele

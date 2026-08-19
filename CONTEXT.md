@@ -82,7 +82,9 @@ nao uma nova Viagem; COD permanece uma excecao individual por B/L.
 
 O ADR do Porto de Transbordo (Porto onde a carga foi efetivamente
 descarregada) passa a contar essa carga, separada da carga de destino final
-própria daquele porto — ver Porto de Transbordo e ADR.
+própria daquele porto. A apuração é por porto; no modelo terminalizado ela
+aparece no ADR do terminal que operou a frente correspondente — ver Porto de
+Transbordo e ADR.
 
 O registro global e mantido na Viagem. Cada B/L afetado exibe os dados herdados
 para consulta e conserva apenas sua acao individual de COD. Alteracoes do
