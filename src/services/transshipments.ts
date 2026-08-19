@@ -113,6 +113,25 @@ export async function updateVoyageOmission(input: {
   if (error) throw error
 }
 
+export async function revertVoyageOmission(input: {
+  omissionId: number
+  justification: string
+  changedBy: string
+}): Promise<void> {
+  // ponytail: migration 309 is newer than the checked-in generated database.ts;
+  // regenerate the Supabase types after the migration is applied to the linked project.
+  const rpc = supabase.rpc as unknown as (
+    functionName: 'revert_voyage_omission',
+    args: { p_omission_id: number; p_justification: string; p_changed_by: string },
+  ) => Promise<{ error: Error | null }>
+  const { error } = await rpc('revert_voyage_omission', {
+    p_omission_id: input.omissionId,
+    p_justification: input.justification,
+    p_changed_by: input.changedBy,
+  })
+  if (error) throw error
+}
+
 export async function setBlCod(input: {
   blId: string
   omissionId: number

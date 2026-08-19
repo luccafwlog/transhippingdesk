@@ -6,7 +6,7 @@ const { from, rpc } = vi.hoisted(() => ({
 }))
 vi.mock('../supabase', () => ({ supabase: { from, rpc } }))
 
-import { listBlTransshipments, listBlTransshipmentByBlId, listVoyageOmissions, omitVoyageEscala, setBlCod, setBlTransshipment, updateVoyageOmission } from '../transshipments'
+import { listBlTransshipments, listBlTransshipmentByBlId, listVoyageOmissions, omitVoyageEscala, revertVoyageOmission, setBlCod, setBlTransshipment, updateVoyageOmission } from '../transshipments'
 
 describe('transshipments service', () => {
   beforeEach(() => {
@@ -109,6 +109,18 @@ describe('transshipments service', () => {
       p_onward_eta: '2026-07-25',
       p_reason: 'congestionamento',
       p_changed_by: 'user-1',
+    })
+  })
+
+  it('chama a RPC de reversao com justificativa e autor', async () => {
+    rpc.mockResolvedValue({ error: null })
+
+    await revertVoyageOmission({ omissionId: 9, justification: 'POD informado incorretamente', changedBy: 'admin-1' })
+
+    expect(rpc).toHaveBeenCalledWith('revert_voyage_omission', {
+      p_omission_id: 9,
+      p_justification: 'POD informado incorretamente',
+      p_changed_by: 'admin-1',
     })
   })
 

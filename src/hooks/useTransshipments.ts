@@ -4,6 +4,7 @@ import {
   listBlTransshipments,
   listVoyageOmissions,
   omitVoyageEscala,
+  revertVoyageOmission,
   setBlCod,
   setBlTransshipment,
   updateVoyageOmission,
@@ -42,15 +43,32 @@ export function useOmitEscala(voyageId: number) {
   return useMutation({
     mutationFn: omitVoyageEscala,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
-      queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
-      queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['voyages'] })
-      queryClient.invalidateQueries({ queryKey: ['bls'] })
-      queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] })
-      queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] })
+      invalidateVoyageOmissionCaches(queryClient, voyageId)
     },
   })
+}
+
+export function useRevertVoyageOmission(voyageId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: revertVoyageOmission,
+    onSuccess: () => {
+      invalidateVoyageOmissionCaches(queryClient, voyageId)
+    },
+  })
+}
+
+function invalidateVoyageOmissionCaches(queryClient: ReturnType<typeof useQueryClient>, voyageId: number) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
+  queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
+  queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaSchedules() })
+  queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaTerminalAll() })
+  queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.all() })
+  queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] })
+  queryClient.invalidateQueries({ queryKey: ['voyages'] })
+  queryClient.invalidateQueries({ queryKey: ['bls'] })
+  queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] })
+  queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] })
 }
 
 export function useSetBlDisposition(voyageId: number) {
