@@ -126,6 +126,127 @@ $function$;
 REVOKE ALL ON FUNCTION public.omit_voyage_escala(BIGINT, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.omit_voyage_escala(BIGINT, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
 
+-- As definições finais de 215 após a 295 exigem apenas usuario ativo. Esta
+-- reaplicação conserva esse contrato e serializa toda transição de disposição
+-- com a reversão pelo mesmo registro-pai da omissão.
+CREATE OR REPLACE FUNCTION public.set_bl_cod(
+  p_bl_id TEXT,
+  p_omission_id BIGINT,
+  p_changed_by UUID
+) RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_discharge TEXT;
+  v_omitted TEXT;
+  v_old_pod TEXT;
+  v_customer BIGINT;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR p_changed_by IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Usuario sem permissao ativa.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT o.discharge_pod, o.omitted_pod INTO v_discharge, v_omitted
+  FROM public.bl_transshipments AS t
+  JOIN public.voyage_omissions AS o ON o.id = t.omission_id
+  WHERE t.bl_id = p_bl_id AND t.omission_id = p_omission_id
+  FOR UPDATE OF o;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Transbordo do B/L % nao encontrado', p_bl_id USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT pod, customer_id INTO v_old_pod, v_customer FROM public.bls WHERE id = p_bl_id;
+
+  UPDATE public.bl_transshipments
+  SET
+    disposition = 'cod',
+    onward_vessel_name = NULL,
+    onward_carrier = NULL,
+    onward_voyage_number = NULL,
+    onward_etd = NULL,
+    onward_eta = NULL,
+    updated_at = now()
+  WHERE bl_id = p_bl_id AND omission_id = p_omission_id;
+
+  UPDATE public.bls SET pod = v_discharge, updated_at = now() WHERE id = p_bl_id;
+
+  INSERT INTO public.audit_logs(entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+  VALUES ('bls', p_bl_id, 'pod', v_old_pod, v_discharge, p_changed_by, 'COD apos omissao da escala de ' || v_omitted);
+
+  IF v_customer IS NOT NULL THEN
+    INSERT INTO public.portal_notifications(customer_id, bl_id, type, title, message, link)
+    VALUES (
+      v_customer,
+      p_bl_id,
+      'transshipment',
+      'Destino alterado (COD)',
+      'A pedido, o destino final do B/L ' || p_bl_id || ' foi alterado para ' || v_discharge ||
+        ' (COD), apos a omissao da escala de ' || v_omitted || '.',
+      NULL
+    );
+  END IF;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.set_bl_transshipment(
+  p_bl_id TEXT,
+  p_omission_id BIGINT,
+  p_onward_vessel_name TEXT,
+  p_onward_carrier TEXT,
+  p_onward_voyage_number TEXT,
+  p_onward_etd TIMESTAMPTZ,
+  p_onward_eta TIMESTAMPTZ,
+  p_changed_by UUID
+) RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_was TEXT;
+  v_original_pod TEXT;
+  v_old_pod TEXT;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR p_changed_by IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Usuario sem permissao ativa.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT t.disposition, o.omitted_pod INTO v_was, v_original_pod
+  FROM public.bl_transshipments AS t
+  JOIN public.voyage_omissions AS o ON o.id = t.omission_id
+  WHERE t.bl_id = p_bl_id AND t.omission_id = p_omission_id
+  FOR UPDATE OF o;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Transbordo do B/L % nao encontrado', p_bl_id USING ERRCODE = 'P0002';
+  END IF;
+
+  UPDATE public.bl_transshipments
+  SET
+    disposition = 'transshipment',
+    updated_at = now()
+  WHERE bl_id = p_bl_id AND omission_id = p_omission_id;
+
+  IF v_was = 'cod' THEN
+    SELECT pod INTO v_old_pod FROM public.bls WHERE id = p_bl_id;
+    UPDATE public.bls SET pod = v_original_pod, updated_at = now() WHERE id = p_bl_id;
+    INSERT INTO public.audit_logs(entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+    VALUES ('bls', p_bl_id, 'pod', v_old_pod, v_original_pod, p_changed_by, 'Reversao de COD para transbordo');
+  END IF;
+
+  INSERT INTO public.audit_logs(entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+  VALUES ('bls', p_bl_id, 'transbordo', v_was, 'transshipment', p_changed_by, 'Definicao de transbordo (navio de terceiros)');
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.set_bl_cod(TEXT, BIGINT, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_bl_cod(TEXT, BIGINT, UUID) TO authenticated;
+REVOKE ALL ON FUNCTION public.set_bl_transshipment(TEXT, BIGINT, TEXT, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_bl_transshipment(TEXT, BIGINT, TEXT, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, UUID) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.revert_voyage_omission(
   p_omission_id BIGINT,
   p_justification TEXT,
@@ -154,7 +275,7 @@ BEGIN
   INTO v_omission
   FROM public.voyage_omissions AS o
   WHERE o.id = p_omission_id
-  FOR UPDATE;
+  FOR UPDATE OF o;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Omissao % nao encontrada.', p_omission_id USING ERRCODE = 'P0002';
