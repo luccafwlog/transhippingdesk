@@ -62,6 +62,13 @@ function compact(definition: string) {
     .toLowerCase()
 }
 
+const rpcSignatures = [
+  'public.omit_voyage_escala(bigint,text,text,text,uuid,text,text,text,timestamptz,timestamptz)',
+  'public.set_bl_cod(text,bigint,uuid)',
+  'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,uuid)',
+  'public.revert_voyage_omission(bigint,text,uuid)',
+]
+
 const cleanupSql = `
   DELETE FROM public.portal_notifications WHERE bl_id = '${blId}';
   DELETE FROM public.audit_logs WHERE entity_id IN ('${voyageId}::BRVIX', '${voyageId}', '${blId}') OR changed_by = '${adminId}';
@@ -135,6 +142,14 @@ describe('contrato da reversão de omissão de escala', () => {
 })
 
 describeLocal('reversão de omissão em replay local do Postgres', () => {
+  // This opt-in suite assumes scripts/setup-local-pg.sh completed the
+  // disposable replay through migration 309. On the current Homebrew setup,
+  // that replay is externally blocked at migration 297 because its ownership
+  // guard only matches functions owned by `postgres`, while the local replay
+  // creates them under the OS superuser. Keep this suite skipped by default;
+  // when enabled against a completed replay, every assertion below exercises
+  // the effective catalog definitions and privileges rather than migration
+  // text alone.
   beforeAll(() => {
     psql(cleanupSql)
     psql(`
@@ -183,10 +198,16 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
     expect(duplicate.status).not.toBe(0)
     expect(`${duplicate.stdout}\n${duplicate.stderr}`).toMatch(/ja foi omitida|duplicate|23505/i)
 
-    expect(psql("SELECT has_function_privilege('anon', 'public.revert_voyage_omission(bigint,text,uuid)'::regprocedure, 'EXECUTE');")).toBe('f')
+    for (const signature of rpcSignatures) {
+      expect(psql(`SELECT has_function_privilege('authenticated', '${signature}'::regprocedure, 'EXECUTE');`)).toBe('t')
+      expect(psql(`SELECT has_function_privilege('anon', '${signature}'::regprocedure, 'EXECUTE');`)).toBe('f')
+    }
 
     const cod = callAsAuthenticated(adminId, `SELECT public.set_bl_cod('${blId}', ${omissionId}, '${adminId}')`)
     expect(cod.status).toBe(0)
+    expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('cod')
+    expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}'`)).toBe('BRSSA')
+    expect(psql(`SELECT count(*) FROM public.portal_notifications WHERE bl_id = '${blId}' AND title = 'Destino alterado (COD)'`)).toBe('1')
 
     const blocked = callAsAuthenticated(
       adminId,
@@ -201,6 +222,8 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
       `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, NULL, NULL, NULL, NULL, NULL, '${adminId}')`,
     )
     expect(transshipment.status).toBe(0)
+    expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('transshipment')
+    expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}'`)).toBe('BRVIX')
 
     const invariantBefore = psql(`
       SELECT
@@ -227,12 +250,14 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
     `)
     expect(invariantAfter).toBe(invariantBefore)
 
-    for (const signature of [
-      'public.revert_voyage_omission(bigint,text,uuid)',
-      'public.set_bl_cod(text,bigint,uuid)',
-      'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,uuid)',
-    ]) {
-      expect(compact(getFunctionDefinition(signature))).toContain('for update of o')
+    expect(compact(getFunctionDefinition('public.revert_voyage_omission(bigint,text,uuid)')))
+      .toMatch(/where o\.id = p_omission_id for update of o/)
+    for (const signature of rpcSignatures.slice(1, 3)) {
+      // The lock is in the same SELECT that reads disposition. This is the
+      // shared serialization point that prevents revert from counting COD,
+      // then allowing COD to commit, then deleting the omission.
+      expect(compact(getFunctionDefinition(signature)))
+        .toMatch(/from public\.bl_transshipments as t join public\.voyage_omissions as o[\s\S]*for update of o/)
     }
   })
 
