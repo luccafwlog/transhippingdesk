@@ -10,6 +10,10 @@ const legacyAdrSchema = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/213_agency_departure_reports.sql'),
   'utf8',
 )
+const portsSeedSql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/307_seed_brazilian_ports.sql'),
+  'utf8',
+)
 
 describe('contrato SQL da escala com múltiplos terminais', () => {
   it('persiste estado por terminal e frente por escala com FK de porto', () => {
@@ -80,6 +84,14 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/UPDATE public\.voyages\s+SET status = v_new_voyage_status/i)
   })
 
+  it('entrega o catálogo mínimo de portos brasileiros antes das RPCs da escala', () => {
+    expect(portsSeedSql).toContain("INSERT INTO public.ports (name, locode, country)")
+    for (const locode of ['BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'BRIGI', 'BRNVT', 'BRPNG', 'BRRIG', 'BRRIO']) {
+      expect(portsSeedSql).toContain(`'${locode}'`)
+    }
+    expect(portsSeedSql).toContain('upper(btrim(existing.locode)) = seed.locode')
+  })
+
   it('separa nomes por report_id e restringe o caminho legado ao ADR legado', () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.get_agency_report_actor_names_by_report_id\(\s*p_report_id UUID/i)
     expect(sql).toMatch(/get_agency_report_actor_names\([\s\S]+terminal_id IS NULL/i)
@@ -98,6 +110,8 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toContain('somente uma precondition de close')
     expect(sql).toContain('Nao deve ser chamada por reopen/signoff')
     expect(sql).toContain('ramos explicitos para legado, reopen e signoff')
+    expect(sql).not.toContain('old_value ILIKE')
+    expect(sql).not.toContain('new_value ILIKE')
     const closeGuardStart = sql.indexOf('CREATE OR REPLACE FUNCTION public.assert_voyage_escala_ready_for_report_close')
     const closeGuardLock = sql.indexOf('PERFORM 1 FROM public.voyages WHERE id = p_voyage_id FOR UPDATE;', closeGuardStart)
     const closeGuardReportSelect = sql.indexOf('SELECT r.id, r.voyage_id', closeGuardStart)

@@ -310,6 +310,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port, resolvedReportId)
   const { data: departmentSignoffEvents } = useAgencyReportDepartmentSignoffEvents(voyageId, port, resolvedReportId)
   const { effectiveRole, isAdmin } = useAuth()
+  const canEditOperations = isAdmin || effectiveRole === 'operacoes'
   const signoffMutation = useSetAgencyReportSignoff(resolvedReportId)
   const departmentSignoffMutation = useSetAgencyReportDepartmentSignoff(resolvedReportId)
   const observationMutation = useSetAgencyReportSectionObservation(resolvedReportId)
@@ -672,7 +673,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
                     ? `${resolvedTerminalCode}${resolvedTerminalName && resolvedTerminalName !== resolvedTerminalCode ? ` — ${resolvedTerminalName}` : ''}`
                     : (ownData?.terminal ?? '—')}
                 />
-              ) : (
+              ) : canEditOperations ? (
                 <div className="grid gap-1">
                   <label htmlFor="legacy-adr-terminal" className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Terminal</label>
                   <div className="flex gap-2">
@@ -700,6 +701,8 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
                     </Button>
                   </div>
                 </div>
+              ) : (
+                <Info label="Terminal" value={ownData?.terminal ?? '—'} />
               )}
               <Info label="ATA" value={formatDate(data?.schedule?.ata)} />
               <Info label="ATB" value={formatDate(data?.schedule?.atb)} />

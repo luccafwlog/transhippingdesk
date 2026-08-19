@@ -90,6 +90,7 @@ export function Viagens() {
   const [cancellationReason, setCancellationReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [editingEscala, setEditingEscala] = useState<EscalaModalData | null>(null)
+  const [editingTerminalScale, setEditingTerminalScale] = useState<NonNullable<EscalaModalData['terminalScale']> | null>(null)
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
   const initialVessel = searchParams.get('vessel') ?? ''
   const tabParam = searchParams.get('tab')
@@ -104,26 +105,31 @@ export function Viagens() {
     search: initialVessel,
   })
 
+  function closeEscalaModal() {
+    setEditingEscala(null)
+    setEditingTerminalScale(null)
+  }
+
+  const editingScaleVoyageId = editingEscala?.voyageId ?? null
+  const editingPort = editingEscala?.port ?? null
   useEffect(() => {
-    const current = editingEscala
-    if (!current?.port || !current.terminalScale?.loading) return
+    if (editingScaleVoyageId === null || editingPort === null) return
     let mounted = true
-    const loadingState = current.terminalScale
-    void fetchEscalaTerminalState(current.voyageId, current.port)
+    void fetchEscalaTerminalState(editingScaleVoyageId, editingPort)
       .then((state) => {
         if (!mounted) return
-        setEditingEscala((previous) => previous?.voyageId === current.voyageId && previous.port === current.port
-          ? { ...previous, terminalScale: state }
-          : previous)
+        setEditingTerminalScale(state)
       })
       .catch((error: unknown) => {
         if (!mounted) return
-        setEditingEscala((previous) => previous?.voyageId === current.voyageId && previous.port === current.port
-          ? { ...previous, terminalScale: { ...loadingState, loading: false, error: error instanceof Error ? error.message : 'Falha ao carregar frentes e terminais.' } }
-          : previous)
+        setEditingTerminalScale((previous) => ({
+          ...(previous ?? makeTerminalScaleLoadingState(editingScaleVoyageId, editingPort)),
+          loading: false,
+          error: error instanceof Error ? error.message : 'Falha ao carregar frentes e terminais.',
+        }))
       })
     return () => { mounted = false }
-  }, [editingEscala])
+  }, [editingPort, editingScaleVoyageId])
   const selectedVoyageId = voyageId ? Number(voyageId) : null
 
   const voyages = useMemo(() => data ?? [], [data])
@@ -285,9 +291,10 @@ export function Viagens() {
             onEditVoyage={setEditingVoyageId}
             onDeleteVoyage={setDeletingVoyageId}
             onCancelVoyage={setCancellingVoyageId}
-            onEditEscala={(payload) => setEditingEscala(
-              payload.port ? { ...payload, terminalScale: makeTerminalScaleLoadingState(payload.voyageId, payload.port) } : payload,
-            )}
+            onEditEscala={(payload) => {
+              setEditingEscala(payload)
+              setEditingTerminalScale(payload.port ? makeTerminalScaleLoadingState(payload.voyageId, payload.port) : null)
+            }}
             onEditPol={setEditingPol}
             initialTab={initialTab}
             initialEscala={initialEscala}
@@ -384,14 +391,17 @@ export function Viagens() {
       </Modal>
 
       <EscalaModal
+        key={editingEscala ? `${editingEscala.voyageId}:${editingEscala.port ?? 'new'}` : 'closed'}
         open={editingEscala !== null}
-        escala={editingEscala}
-        onClose={() => setEditingEscala(null)}
+        escala={editingEscala
+          ? { ...editingEscala, terminalScale: editingEscala.port ? editingTerminalScale : editingEscala.terminalScale }
+          : null}
+        onClose={closeEscalaModal}
         onReopenAdr={(blocker) => {
           const port = editingEscala?.port
           if (!port) return
           const target = editingEscala
-          setEditingEscala(null)
+          closeEscalaModal()
           const params = new URLSearchParams({ tab: 'adr', escala: port })
           if (blocker.reportId) params.set('report', blocker.reportId)
           if (blocker.terminalCode) params.set('terminal', blocker.terminalCode)
@@ -476,7 +486,7 @@ export function Viagens() {
             })
             await afterEscalaAlterada(queryClient, { voyageId: payload.voyageId })
             showToast('Escala salva com sucesso.', 'success')
-            setEditingEscala(null)
+            closeEscalaModal()
           } catch (error) {
             if (error instanceof EscalaTerminalBlockedError) {
               const blockers = error.blockers

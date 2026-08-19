@@ -1513,19 +1513,14 @@ BEGIN
         FROM public.agency_departure_report_occurrences
         WHERE report_id = v_report.id
       )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.audit_logs AS al
-        WHERE al.entity_id = v_report.id::TEXT
-           OR (
-             (al.old_value ILIKE '%' || v_report.id::TEXT || '%'
-              OR al.new_value ILIKE '%' || v_report.id::TEXT || '%')
-             AND NOT (
-               al.entity_type = 'voyage_pod_schedule'
-               AND al.field_name IN ('adr_created', 'adr_removed', 'adr_preserved')
-             )
-           )
-      )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.audit_logs AS al
+         -- Eventos do ciclo do ADR usam o próprio report_id como entity_id.
+         -- O índice idx_audit_logs_entity_id torna esta guarda pontual; não
+         -- faça ILIKE sobre old_value/new_value dentro do lock da escala.
+         WHERE al.entity_id = v_report.id::TEXT
+       )
       AND NOT EXISTS (
         SELECT 1
         FROM public.alerts AS a

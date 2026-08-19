@@ -369,9 +369,15 @@ describe('EscalaModal', () => {
   })
 
   it('não rebasa campos digitados quando o estado terminal chega depois', () => {
+    const loadingTerminalScale = {
+      ...terminalScaleBase,
+      fronts: [],
+      terminals: [],
+      loading: true,
+    }
     const rendered = render(
       <ConfirmDialogProvider>
-        <EscalaModal open escala={{ ...escalaBase, terminalScale: { ...terminalScaleBase, loading: true } }} onClose={vi.fn()} onSaved={vi.fn(async () => undefined)} />
+        <EscalaModal open escala={{ ...escalaBase, terminalScale: loadingTerminalScale }} onClose={vi.fn()} onSaved={vi.fn(async () => undefined)} />
       </ConfirmDialogProvider>,
     )
     const numberInput = screen.getByLabelText('Nº Escala (Mercante)') as HTMLInputElement
@@ -389,6 +395,16 @@ describe('EscalaModal', () => {
     )
 
     expect(numberInput.value).toBe('DIGITADO')
+    expect((screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement).value).toBe('t-norte')
+    expect((screen.getByLabelText('ATB T-NORTE') as HTMLInputElement).value).toBe('2026-03-02')
+  })
+
+  it('não permite salvar enquanto o estado terminalizado ainda carrega', async () => {
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    renderEscala({ ...escalaBase, terminalScale: { ...terminalScaleBase, fronts: [], terminals: [], loading: true } }, onSaved)
+
+    expect((screen.getByRole('button', { name: 'Salvar escala' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(onSaved).not.toHaveBeenCalled()
   })
 
   it('edita quatro frentes em dois terminais, mantém TBC e envia datas sem placeholder', async () => {

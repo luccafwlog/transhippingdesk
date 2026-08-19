@@ -3,24 +3,34 @@ import {
   deriveAgencyReportSections,
   deriveOperationFronts,
   EscalaTerminalBlockedError,
+  fetchEscalaTerminalState,
   fetchEscalaTerminalRevision,
   groupAgencyReportsByTerminal,
   saveEscalaTerminalState,
 } from '../escalaTerminalAllocation'
 
-const { rpcMock, fromMock } = vi.hoisted(() => ({ rpcMock: vi.fn(), fromMock: vi.fn() }))
+const { rpcMock, fromMock, exportSchedulesMock, depotsMock, schedulesMock } = vi.hoisted(() => ({
+  rpcMock: vi.fn(),
+  fromMock: vi.fn(),
+  exportSchedulesMock: vi.fn(),
+  depotsMock: vi.fn(),
+  schedulesMock: vi.fn(),
+}))
 
 vi.mock('../supabase', () => ({
   supabase: { rpc: rpcMock, from: fromMock },
 }))
-vi.mock('../voyageExportSchedules', () => ({ fetchExportSchedulesByVoyageIds: vi.fn() }))
-vi.mock('../depots', () => ({ listDepots: vi.fn() }))
-vi.mock('../voyageRouteSchedules', () => ({ listVoyageEscalaSchedulesByVoyageIds: vi.fn() }))
+vi.mock('../voyageExportSchedules', () => ({ fetchExportSchedulesByVoyageIds: exportSchedulesMock }))
+vi.mock('../depots', () => ({ listDepots: depotsMock }))
+vi.mock('../voyageRouteSchedules', () => ({ listVoyageEscalaSchedulesByVoyageIds: schedulesMock }))
 
 describe('escalaTerminalAllocation', () => {
   beforeEach(() => {
     rpcMock.mockReset()
     fromMock.mockReset()
+    exportSchedulesMock.mockResolvedValue(new Map())
+    depotsMock.mockResolvedValue([])
+    schedulesMock.mockResolvedValue(new Map())
   })
 
   it('captura a revisão existente para o caminho legado sem state carregado', async () => {
@@ -35,6 +45,42 @@ describe('escalaTerminalAllocation', () => {
     expect(fromMock).toHaveBeenCalledWith('voyage_escala_revision_state')
     expect(query.eq).toHaveBeenNthCalledWith(1, 'voyage_id', 12)
     expect(query.eq).toHaveBeenNthCalledWith(2, 'port', 'BRVIX')
+  })
+
+  it('pagina B/Ls derivados e não perde uma frente depois do limite do PostgREST', async () => {
+    const makeQuery = (tableName: string) => {
+      const query: Record<string, unknown> & { page?: number } = { page: 0 }
+      query.select = () => query
+      query.eq = () => query
+      query.in = () => query
+      query.range = (_from: number, to: number) => {
+        query.page = to >= 1000 ? 1000 : 0
+        return query
+      }
+      query.maybeSingle = () => Promise.resolve({ data: { revision: 0, port_id: 99 }, error: null })
+      query.then = (resolve: (value: unknown) => unknown) => Promise.resolve(
+        tableName === 'voyage_escala_operation_fronts'
+          ? { data: [], error: null }
+          : tableName === 'voyage_escala_terminal_state'
+            ? { data: [], error: null }
+            : tableName === 'ports'
+              ? { data: [{ id: 99, locode: 'BRSSZ' }], error: null }
+              : tableName === 'agency_departure_reports'
+                ? { data: [], error: null }
+                : tableName === 'bls'
+                  ? query.page === 0
+                    ? { data: Array.from({ length: 1000 }, () => ({ cargo_mode: 'container', pod: 'BRSSZ' })), error: null }
+                    : { data: [{ cargo_mode: 'carga_solta', pod: 'BRSSZ' }], error: null }
+                  : { data: [], error: null },
+      ).then(resolve)
+      return query
+    }
+    fromMock.mockImplementation((tableName: string) => makeQuery(tableName))
+    schedulesMock.mockResolvedValue(new Map([[12, [{ port: 'BRSSZ', temImportacao: false }]]]))
+
+    const state = await fetchEscalaTerminalState(12, 'BRSSZ')
+
+    expect(state.fronts.map((front) => front.modalidade)).toEqual(expect.arrayContaining(['carga_cheia', 'carga_solta']))
   })
 
   it('preserva frente persistida mesmo quando a fonte operacional deixou de aparecer', () => {

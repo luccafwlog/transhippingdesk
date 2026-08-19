@@ -232,6 +232,26 @@ it('mantém o terminal editável no ADR legado sem frente atribuída', () => {
   expect(terminalMutateMock).toHaveBeenCalledWith(expect.objectContaining({ voyageId: 7, port: 'BRVIX', terminal: 'TVV' }), expect.any(Object))
 })
 
+it('mantém o Terminal legado somente leitura fora de operações e administração', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'legacy-report', voyageId: 7, port: 'BRVIX', terminalId: null, terminalCode: null, terminal: null, status: 'open',
+        sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+      }],
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { id: 'legacy-report', status: 'open', terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [], actor_names: {} } })
+  useAuthMock.mockReturnValue({ effectiveRole: 'documentacao', isAdmin: false })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="legacy-report" />)
+
+  expect(screen.queryByLabelText('Terminal')).toBeNull()
+  expect(screen.getByText('TVV')).toBeTruthy()
+})
+
 it('não habilita ADR legado enquanto o estado terminalizado está carregando ou falhou', () => {
   useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined, isLoading: true, error: null })
   const { rerender } = render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)

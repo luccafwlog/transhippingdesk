@@ -284,6 +284,8 @@ function buildTerminalPayload({
   exportExpectation: Record<string, unknown>
 }): { value?: EscalaModalPayload['terminalState']; error?: string } {
   if (!terminalScale) return {}
+  if (terminalScale.loading) return { error: 'Aguarde o carregamento das frentes e terminais antes de salvar a escala.' }
+  if (terminalScale.error) return { error: terminalScale.error }
 
   const frontsByKey = new Map(terminalScale.fronts.map((front) => [frontKey(front), front]))
   const fronts = terminalScale.fronts.flatMap((front) => {
@@ -498,13 +500,32 @@ export function EscalaModal({
   const [closedBlockers, setClosedBlockers] = useState<ClosedAdrBlocker[]>([])
   const [saving, setSaving] = useState(false)
   const confirm = useConfirm()
+  const [touchedTerminalFronts, setTouchedTerminalFronts] = useState<Set<string>>(() => new Set())
+  const [touchedTerminalDates, setTouchedTerminalDates] = useState<Set<string>>(() => new Set())
+
+  const terminalScale = escala?.terminalScale ?? null
+  const terminalScaleSourceKey = terminalScale
+    ? [
+        terminalScale.loading ? 'loading' : 'ready',
+        terminalScale.error ?? '',
+        terminalScale.revision,
+        terminalScale.fronts.map((front) => `${frontKey(front)}:${front.terminalId ?? ''}`).join(','),
+        terminalScale.terminals.map((terminal) => `${terminal.terminalId}:${terminal.atb ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`).join(','),
+      ].join('|')
+    : 'none'
 
   // O pai cria um payload novo a cada abertura; re-baseia os campos por
-  // identidade do payload, durante o render (sem useEffect).
+  // escala, durante o render (sem useEffect). O estado remoto dos terminais
+  // chega depois do placeholder; nessa transição só campos ainda não tocados
+  // pelo operador são hidratados.
   const [prevEscalaKey, setPrevEscalaKey] = useState<string | null>(null)
+  const [prevTerminalScaleSourceKey, setPrevTerminalScaleSourceKey] = useState<string | null>(null)
   const escalaKey = escala ? `${escala.voyageId}:${escala.port ?? 'new'}` : null
   if (open && escala && escalaKey !== prevEscalaKey) {
     setPrevEscalaKey(escalaKey)
+    setPrevTerminalScaleSourceKey(terminalScaleSourceKey)
+    setTouchedTerminalFronts(new Set())
+    setTouchedTerminalDates(new Set())
     setPort(escala.port ?? '')
     setEta(escala.eta ?? '')
     setEtb(escala.etb ?? '')
@@ -538,10 +559,34 @@ export function EscalaModal({
         restow: terminal.restow == null ? '' : String(terminal.restow),
       }]),
     ))
+  } else if (open && escala && terminalScaleSourceKey !== prevTerminalScaleSourceKey) {
+    const wasLoading = prevTerminalScaleSourceKey?.startsWith('loading|') ?? false
+    setPrevTerminalScaleSourceKey(terminalScaleSourceKey)
+    if (wasLoading && terminalScale && !terminalScale.loading && !terminalScale.error) {
+      const hydratedFronts = { ...terminalFronts }
+      for (const front of terminalScale.fronts) {
+        const key = frontKey(front)
+        if (!touchedTerminalFronts.has(key)) hydratedFronts[key] = front.terminalId ?? ''
+      }
+      const hydratedDates = { ...terminalDates }
+      for (const terminal of terminalScale.terminals) {
+        const current = hydratedDates[terminal.terminalId] ?? { atb: '', atd: '', restow: '' }
+        const next = { ...current }
+        for (const field of ['atb', 'atd', 'restow'] as const) {
+          if (!touchedTerminalDates.has(`${terminal.terminalId}:${field}`)) {
+            next[field] = field === 'restow'
+              ? (terminal.restow == null ? '' : String(terminal.restow))
+              : dateInputValue(terminal[field])
+          }
+        }
+        hydratedDates[terminal.terminalId] = next
+      }
+      setTerminalFronts(hydratedFronts)
+      setTerminalDates(hydratedDates)
+    }
   }
 
   const isNew = escala?.port === null
-  const terminalScale = escala?.terminalScale ?? null
   const terminalOptions = terminalScale
     ? mergeTerminalOptions(terminalScale.activeTerminals, terminalScale.historicalTerminals)
       .filter((option) => terminalScale.portId == null || option.portId == null || option.portId === terminalScale.portId)
@@ -609,6 +654,7 @@ export function EscalaModal({
 
   function handleTerminalChange(front: OperationFront, nextTerminalId: string) {
     const key = frontKey(front)
+    setTouchedTerminalFronts((current) => new Set(current).add(key))
     setTerminalFronts((current) => ({ ...current, [key]: nextTerminalId }))
     if (nextTerminalId) {
       setTerminalDates((current) => current[nextTerminalId] ? current : {
@@ -621,6 +667,7 @@ export function EscalaModal({
   }
 
   function handleTerminalDateChange(terminalId: string, field: 'atb' | 'atd' | 'restow', value: string) {
+    setTouchedTerminalDates((current) => new Set(current).add(`${terminalId}:${field}`))
     setTerminalDates((current) => ({
       ...current,
       [terminalId]: { ...(current[terminalId] ?? { atb: '', atd: '', restow: '' }), [field]: value },
@@ -913,7 +960,7 @@ export function EscalaModal({
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>
-            <Button loading={saving} type="submit">
+            <Button loading={saving} disabled={saving || Boolean(terminalScale?.loading || terminalScale?.error)} type="submit">
               {isNew ? 'Adicionar escala' : 'Salvar escala'}
             </Button>
           </div>

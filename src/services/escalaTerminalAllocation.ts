@@ -128,12 +128,30 @@ type SupabaseTable = {
   select: (columns?: string) => SupabaseTable
   eq: (column: string, value: unknown) => SupabaseTable
   in: (column: string, values: unknown[]) => SupabaseTable
+  range: (from: number, to: number) => SupabaseTable
   maybeSingle: () => Promise<QueryResult>
   then: Promise<QueryResult>['then']
 }
 
 function table(name: string): SupabaseTable {
   return (supabase.from as unknown as (tableName: string) => SupabaseTable)(name)
+}
+
+const SUPABASE_PAGE_SIZE = 1000
+
+async function fetchAllRows<T>(
+  queryFactory: (from: number, to: number) => PromiseLike<QueryResult>,
+): Promise<{ data: T[]; error: unknown | null }> {
+  const rows: T[] = []
+  let from = 0
+  while (true) {
+    const result = await queryFactory(from, from + SUPABASE_PAGE_SIZE - 1)
+    if (result.error) return { data: [], error: result.error }
+    const page = Array.isArray(result.data) ? result.data as T[] : []
+    rows.push(...page)
+    if (page.length < SUPABASE_PAGE_SIZE) return { data: rows, error: null }
+    from += SUPABASE_PAGE_SIZE
+  }
 }
 
 const IMPORT_SECTION_BY_KIND: Record<Exclude<OperationFrontKind, 'granito'>, OperationFront['section']> = {
@@ -337,19 +355,24 @@ export async function fetchEscalaTerminalState(voyageId: number, port: string): 
   const importKinds = new Set<Exclude<OperationFrontKind, 'granito'>>()
   const operationalScale = schedules.get(voyageId)?.find((schedule) => normalizePort(schedule.port) === normalizedPort)
   if (operationalScale?.temImportacao) importKinds.add('carga_cheia')
-  const bls = await table('bls').select('cargo_mode, pod').eq('voyage_id', voyageId).in('pod', portCodeVariants(normalizedPort))
+  const bls = await fetchAllRows<JsonRecord>((from, to) =>
+    table('bls').select('cargo_mode, pod').eq('voyage_id', voyageId).in('pod', portCodeVariants(normalizedPort)).range(from, to),
+  )
   if (bls.error) throw bls.error
-  for (const row of (bls.data ?? []) as JsonRecord[]) {
+  for (const row of bls.data) {
     if (row.cargo_mode === 'carga_solta') importKinds.add('carga_solta')
     else if (row.cargo_mode === 'veiculo' || row.cargo_mode === 'veiculos') importKinds.add('veiculo')
     else importKinds.add('carga_cheia')
   }
-  const emptyImports = await table('vazios_importacao_containers')
-    .select('pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
-    .eq('manifest.voyage_id', voyageId)
-    .in('pod', portCodeVariants(normalizedPort))
+  const emptyImports = await fetchAllRows<JsonRecord>((from, to) =>
+    table('vazios_importacao_containers')
+      .select('pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
+      .eq('manifest.voyage_id', voyageId)
+      .in('pod', portCodeVariants(normalizedPort))
+      .range(from, to),
+  )
   if (emptyImports.error) throw emptyImports.error
-  if (Array.isArray(emptyImports.data) && emptyImports.data.length) importKinds.add('vazio')
+  if (emptyImports.data.length) importKinds.add('vazio')
 
   const fronts = deriveOperationFronts({ existing: existingFronts, importKinds, exportSchedule })
   const depotRows = depots as unknown as Array<{ id: string; code: string; name: string | null; active: boolean; tipo: string; port_id?: number | null }>
