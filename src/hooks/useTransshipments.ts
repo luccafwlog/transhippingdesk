@@ -67,6 +67,11 @@ function invalidateVoyageOmissionCaches(queryClient: ReturnType<typeof useQueryC
   queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] })
   queryClient.invalidateQueries({ queryKey: ['voyages'] })
   queryClient.invalidateQueries({ queryKey: ['bls'] })
+  queryClient.invalidateQueries({ queryKey: queryKeys.bls.cockpit() })
+  queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail() })
+  queryClient.invalidateQueries({ queryKey: queryKeys.bls.timeline() })
+  queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus() })
+  queryClient.invalidateQueries({ queryKey: ['portal-operation-bls'] })
   queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] })
   queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] })
 }

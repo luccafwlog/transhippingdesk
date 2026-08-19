@@ -49,6 +49,19 @@ describe('timeline operacional de transbordo', () => {
     expect(withoutReason[0].title).toBe('Escala de VITÓRIA omitida · Porto de Transbordo — SANTOS')
   })
 
+  it('exibe a correção como evento próprio após reverter uma omissão', () => {
+    const events = buildVoyageTimeline({ auditEvents: [{
+      entity_type: 'voyage', entity_id: '2', field_name: 'omissao_revertida',
+      old_value: 'VITÓRIA', new_value: 'SANTOS', justification: 'POD informado incorretamente',
+      changed_at: '2026-07-16T12:00:00Z',
+    }] })
+
+    expect(events[0].kind).toBe('omission')
+    expect(events[0].title).toContain('Omissão de VITÓRIA revertida')
+    expect(events[0].title).toContain('correção')
+    expect(events[0].detail).toContain('Correção de omissão')
+  })
+
   it('mostra complementação do registro global', () => {
     const events = buildVoyageTimeline({ auditEvents: [{
       entity_type: 'voyage', entity_id: '2', field_name: 'transshipment_info',

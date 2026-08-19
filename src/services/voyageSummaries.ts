@@ -939,6 +939,18 @@ function buildAuditTimeline(
       continue
     }
 
+    if (row.field_name === 'omissao_revertida') {
+      const omittedPod = oldValue || '—'
+      events.push({
+        id: `audit-omission-reverted-${index}`,
+        kind: 'omission',
+        at,
+        title: `Omissão de ${omittedPod} revertida · correção — Porto de Transbordo — ${value || '—'}`,
+        detail: appendActor('Correção de omissão', row),
+      })
+      continue
+    }
+
     if (row.field_name === 'escala_omitida') {
       const omittedPod = oldValue || '—'
       const reason = String(row.justification ?? '').trim()

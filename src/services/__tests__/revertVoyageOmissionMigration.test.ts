@@ -106,6 +106,7 @@ describe('contrato da reversão de omissão de escala', () => {
     expect(body).toMatch(/DELETE FROM public\.bl_transshipments/i)
     expect(body).toMatch(/DELETE FROM public\.voyage_omissions/i)
     expect(body).toMatch(/FOR UPDATE OF o/i)
+    expect(body).toMatch(/'voyage'.*'omissao_revertida'.*v_omission\.omitted_pod.*v_omission\.discharge_pod/is)
     expect(body).not.toMatch(/UPDATE public\.(voyage_escala_terminal_state|voyage_escala_operation_fronts|agency_departure_reports)/i)
     expect(body).not.toMatch(/DELETE FROM public\.(voyage_escala_terminal_state|voyage_escala_operation_fronts|agency_departure_reports)/i)
 
@@ -275,6 +276,7 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
     expect(psql(`SELECT count(*) FROM public.bl_transshipments WHERE omission_id = ${omissionId}`)).toBe('0')
     expect(psql(`SELECT count(*) FROM public.portal_notifications WHERE bl_id = '${blId}' AND title = 'Correção de omissão de escala'`)).toBe('1')
     expect(psql(`SELECT count(*) FROM public.audit_logs WHERE entity_type = 'voyage_pod_schedule' AND entity_id = '${voyageId}::BRVIX' AND field_name = 'omitted' AND old_value = 'true' AND new_value = 'false'`)).toBe('1')
+    expect(psql(`SELECT count(*) FROM public.audit_logs WHERE entity_type = 'voyage' AND entity_id = '${voyageId}' AND field_name = 'omissao_revertida' AND old_value = 'BRVIX' AND new_value = 'BRSSA'`)).toBe('1')
 
     const invariantAfter = psql(`
       SELECT

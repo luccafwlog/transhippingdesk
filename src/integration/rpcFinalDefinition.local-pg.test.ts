@@ -1,9 +1,14 @@
 import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const enabled = process.env.LOCAL_PG_INTEGRATION === '1'
 const describeLocal = enabled ? describe : describe.skip
 const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test'
+const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations')
+const migration308 = fs.readFileSync(path.join(migrationsDir, '308_restore_omit_voyage_escala.sql'), 'utf8').toLowerCase()
+const migration309 = fs.readFileSync(path.join(migrationsDir, '309_revert_voyage_omission.sql'), 'utf8').toLowerCase()
 
 function psql(sql: string) {
   return execFileSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-At', '-d', databaseUrl, '-c', sql], { encoding: 'utf8' }).trim()
@@ -49,16 +54,24 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(definition).toContain('p_onward_etd timestamp with time zone default null')
     expect(definition).toContain('p_onward_eta timestamp with time zone default null')
     expect(definition).toContain('insert into public.voyage_omissions(voyage_id, omitted_pod, discharge_pod, reason, omitted_by, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta)')
-    expect(definition).toContain("onward_vessel_name = nullif(btrim(coalesce(p_onward_vessel_name, '')), '')")
-    expect(definition).toContain("onward_carrier = nullif(btrim(coalesce(p_onward_carrier, '')), '')")
-    expect(definition).toContain("onward_voyage_number = nullif(btrim(coalesce(p_onward_voyage_number, '')), '')")
-    expect(definition).toContain('onward_etd = p_onward_etd')
-    expect(definition).toContain('onward_eta = p_onward_eta')
-    expect(definition).toContain('onward_vessel_name = excluded.onward_vessel_name')
-    expect(definition).toContain('onward_carrier = excluded.onward_carrier')
-    expect(definition).toContain('onward_voyage_number = excluded.onward_voyage_number')
-    expect(definition).toContain('onward_etd = excluded.onward_etd')
-    expect(definition).toContain('onward_eta = excluded.onward_eta')
+    expect(definition).toContain("nullif(btrim(coalesce(p_onward_vessel_name, '')), '')")
+    expect(definition).toContain("nullif(btrim(coalesce(p_onward_carrier, '')), '')")
+    expect(definition).toContain("nullif(btrim(coalesce(p_onward_voyage_number, '')), '')")
+    expect(definition).toContain('p_onward_etd')
+    expect(definition).toContain('p_onward_eta')
+    expect(definition).toContain('if exists (select 1 from public.voyage_omissions where voyage_id = p_voyage_id and omitted_pod = v_omitted) then')
+    expect(definition).toContain("raise exception 'a escala da viagem % ja foi omitida para o pod %.'")
+    expect(definition).not.toContain('on conflict (voyage_id, omitted_pod) do update')
+    expect(migration308).toContain('onward_vessel_name = excluded.onward_vessel_name')
+    expect(migration308).toContain('onward_carrier = excluded.onward_carrier')
+    expect(migration308).toContain('onward_voyage_number = excluded.onward_voyage_number')
+    expect(migration308).toContain('onward_etd = excluded.onward_etd')
+    expect(migration308).toContain('onward_eta = excluded.onward_eta')
+    expect(migration309).toContain("nullif(btrim(coalesce(p_onward_vessel_name, '')), '')")
+    expect(migration309).toContain("nullif(btrim(coalesce(p_onward_carrier, '')), '')")
+    expect(migration309).toContain("nullif(btrim(coalesce(p_onward_voyage_number, '')), '')")
+    expect(migration309).toContain('p_onward_etd')
+    expect(migration309).toContain('p_onward_eta')
     expect(definition).not.toContain('v_omitted = v_discharge')
     expect(definition).toContain('insert into public.portal_notifications(customer_id, bl_id, type, title, message, link)')
   })
@@ -81,6 +94,11 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(transshipment).toContain('if auth.uid() is null or not public.is_active_user() or p_changed_by is distinct from auth.uid() then')
     expect(transshipment).not.toContain('can_edit_voyages()')
     expect(transshipment).toContain("disposition = 'transshipment'")
+    expect(transshipment).toContain("onward_vessel_name = nullif(btrim(coalesce(p_onward_vessel_name, '')), '')")
+    expect(transshipment).toContain("onward_carrier = nullif(btrim(coalesce(p_onward_carrier, '')), '')")
+    expect(transshipment).toContain("onward_voyage_number = nullif(btrim(coalesce(p_onward_voyage_number, '')), '')")
+    expect(transshipment).toContain('onward_etd = p_onward_etd')
+    expect(transshipment).toContain('onward_eta = p_onward_eta')
     expect(transshipment).toContain('update public.bls set pod = v_original_pod')
     expect(transshipment).toContain("'reversao de cod para transbordo'")
   })

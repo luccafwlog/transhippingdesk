@@ -313,6 +313,17 @@ BEGIN
     v_justification
   );
 
+  INSERT INTO public.audit_logs(entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+  VALUES (
+    'voyage',
+    v_omission.voyage_id::TEXT,
+    'omissao_revertida',
+    v_omission.omitted_pod,
+    v_omission.discharge_pod,
+    p_changed_by,
+    v_justification
+  );
+
   INSERT INTO public.portal_notifications(customer_id, bl_id, type, title, message, link)
   SELECT
     b.customer_id,
