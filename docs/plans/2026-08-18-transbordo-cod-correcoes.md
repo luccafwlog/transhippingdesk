@@ -502,6 +502,45 @@ intenção. Ler `src/services/lineup.ts` antes de mexer.
 - [ ] **Step 5:** Run: `npm test -- src/services/__tests__/lineupSnapshot.test.ts` — Expected: PASS.
 - [ ] **Step 6:** Commit: `fix: Line-Up marca escala omitida e a tira das pendencias`
 
+### Task 10b: Chegadas e Saídas mostra `OMIT` no lugar do ETA
+
+**Files:**
+- Modify: `src/pages/ChegadasSaidas.tsx`, `src/services/portalScheduleVoyages.ts`
+- Test: `src/services/__tests__/portalScheduleVoyages.test.ts`, `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx`
+
+Hoje a escala omitida cai no `?? 'X'` de `ChegadasSaidas.tsx:326` e fica
+indistinguível de "data não informada" — a tela não diz que a escala não vai
+acontecer. Ela passa a exibir **`OMIT`** na coluna daquele porto.
+
+**Nenhuma mudança em `portal_ship_schedule`.** A RPC filtra PODs omitidos de
+propósito (migrations `175` e `277`: `o.entity_id IS NULL`), e
+`portalShipScheduleOmitted.test.ts` é a trava dessa decisão. Ela serve o Portal
+do cliente, então devolver a linha omitida por ali mandaria informação interna
+para o navegador do cliente mesmo que a tela não a desenhasse — o oposto do que
+a Task 11 faz. A flag entra por fora, de fonte interna.
+
+- [ ] **Step 1: Write the failing test** — em `portalScheduleVoyages.test.ts`,
+  uma escala omitida produz o marcador de omissão na lane do porto; escala sem
+  data e sem omissão continua `X`. São dois estados distintos, não um.
+- [ ] **Step 2:** Sobrepor a flag no cliente, sem tocar na RPC do Portal: buscar
+  as escalas omitidas da viagem por `listVoyageEscalaSchedulesByVoyageIds`
+  (campo `omitted`, já disponível) e casar por `(voyageId, porto)` normalizado —
+  a mesma normalização usada pelas lanes, senão um porto legado (`BRVIT` vs
+  `BRVIX`) perde o casamento.
+- [ ] **Step 3:** `DateTd` (`ChegadasSaidas.tsx:15-24`) ganha o terceiro estado.
+  Hoje ele trata dois: `X` em cinza e data formatada. `OMIT` entra com o mesmo
+  peso visual de `X` — é ausência, não data —, mas com texto próprio e `title`
+  explicando que a escala foi omitida. Não reusar o cinza de `X` sem
+  diferenciar: são significados diferentes.
+- [ ] **Step 4:** Invalidar a lista quando a omissão for criada ou revertida:
+  acrescentar a query key da programação às invalidações de `useOmitEscala` e da
+  reversão da Task 3, senão a tela só muda no F5.
+- [ ] **Step 5:** Confirmar que `portalShipScheduleOmitted.test.ts` continua
+  passando sem alteração. Se ele precisar mudar, a implementação vazou para o
+  Portal — voltar ao Step 2.
+- [ ] **Step 6:** Run: `npm test -- src/services/__tests__/portalScheduleVoyages.test.ts src/services/__tests__/portalShipScheduleOmitted.test.ts src/pages/__tests__/ChegadasSaidas.behavior.test.tsx` — Expected: PASS.
+- [ ] **Step 7:** Commit: `feat: Chegadas e Saidas exibe OMIT na escala omitida`
+
 ### Task 11: Portal — card de COD, datas e motivo
 
 **Files:**
@@ -572,7 +611,7 @@ intenção. Ler `src/services/lineup.ts` antes de mexer.
 ### Task 13: Documentação viva
 
 **Files:**
-- Modify: `docs/modules/viagens.md`, `docs/modules/portal-cliente.md`, `docs/RASTREABILIDADE.md`, `docs/CHANGELOG.md`
+- Modify: `docs/modules/viagens.md`, `docs/modules/portal-cliente.md`, `docs/modules/chegadas-saidas.md`, `docs/RASTREABILIDADE.md`, `docs/CHANGELOG.md`
 - Modify: `docs/adr/0051-cod-reprecifica-no-destino-final.md`
 - Modify: `docs/plans/README.md` (remover a linha deste plano ao concluir)
 
@@ -596,6 +635,10 @@ junto com a ADR 0051; esta task cobre o que depende do código entregue.
   `cod_adjustments` à linha de `bl_transshipments`.
 - [ ] **Step 3:** `docs/modules/portal-cliente.md` — card de COD distinto do de
   transbordo; motivo da omissão não é publicado.
+- [ ] **Step 3b:** `docs/modules/chegadas-saidas.md` — registrar o terceiro
+  estado da célula (`OMIT`, distinto de `X`) e deixar explícito que a flag vem
+  de fonte interna, não de `portal_ship_schedule`, que segue escondendo a escala
+  omitida do cliente.
 - [ ] **Step 4:** Registrar a entrega em `docs/CHANGELOG.md`.
 - [ ] **Step 5:** Run: `npm run docs:check && npm run lint && npm test && npm run build` — Expected: PASS.
 - [ ] **Step 6:** Mover este plano para `docs/archive/plans/` e remover a linha
