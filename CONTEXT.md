@@ -69,10 +69,18 @@ Uma omissao registrada por engano e reversivel por Admin, com justificativa e
 notificacao de correcao ao cliente, enquanto nenhum B/L afetado estiver em COD.
 Omitir duas vezes o mesmo POD e erro, nao atualizacao silenciosa.
 
-> **Ainda nao implementado.** Reversao e recusa de re-omissao sao decisao
-> registrada, nao comportamento vigente: hoje a omissao e irreversivel e a
-> segunda omissao do mesmo POD sobrescreve a primeira em silencio. Execucao nas
-> Tasks 3 e 4 de `docs/plans/2026-08-18-transbordo-cod-correcoes.md`.
+A escala omitida permanece visivel na programacao de navios, marcada como
+`OMIT` na coluna daquele porto — para o operador em Chegadas e Saidas e para o
+cliente no Portal (ADR 0052). `OMIT` e distinto de `X`: um diz que a escala nao
+vai acontecer, o outro que a data ainda nao foi informada. O motivo interno da
+omissao nao acompanha essa marca.
+
+> **Ainda nao implementado.** Reversao, recusa de re-omissao e a marca `OMIT`
+> sao decisao registrada, nao comportamento vigente: hoje a omissao e
+> irreversivel, a segunda omissao do mesmo POD sobrescreve a primeira em
+> silencio, e a escala omitida some da programacao em vez de ser marcada.
+> Execucao nas Tasks 3, 4 e 10b de
+> `docs/plans/2026-08-18-transbordo-cod-correcoes.md`.
 
 **Porto de Transbordo**
 Porto onde a carga de uma escala omitida é efetivamente descarregada para seguir

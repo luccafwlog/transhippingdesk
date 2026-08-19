@@ -33,6 +33,7 @@ definição final.
 
 **Fontes obrigatórias:** [auditoria de 2026-08-18](../archive/audits/2026-08-18-revisao-transbordo-cod.md);
 [ADR 0051](../adr/0051-cod-reprecifica-no-destino-final.md);
+[ADR 0052](../adr/0052-escala-omitida-visivel-na-programacao.md);
 [ADR 0022](../adr/0022-omissao-escala-transbordo-cod-registro-operacional.md);
 [ADR 0038](../adr/0038-taxa-local-valor-congelado-ancorado-na-escala.md) e
 [ADR 0040](../adr/0040-vigencia-da-tabela-de-taxas-e-informativa.md);
@@ -502,51 +503,61 @@ intenção. Ler `src/services/lineup.ts` antes de mexer.
 - [ ] **Step 5:** Run: `npm test -- src/services/__tests__/lineupSnapshot.test.ts` — Expected: PASS.
 - [ ] **Step 6:** Commit: `fix: Line-Up marca escala omitida e a tira das pendencias`
 
-### Task 10b: Chegadas e Saídas mostra `OMIT` no lugar do ETA
+### Task 10b: Escala omitida aparece como `OMIT` na programação
 
 **Files:**
-- Modify: `src/pages/ChegadasSaidas.tsx`, `src/services/portalScheduleVoyages.ts`
-- Test: `src/services/__tests__/portalScheduleVoyages.test.ts`, `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx`
+- Create: `supabase/migrations/315_ship_schedule_shows_omitted.sql`
+- Modify: `src/pages/ChegadasSaidas.tsx`, `src/components/portal/ShipScheduleWidget.tsx`, `src/services/portalScheduleVoyages.ts`
+- Test: `src/services/__tests__/portalShipScheduleOmitted.test.ts`, `src/services/__tests__/portalScheduleVoyages.test.ts`, `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx`, `src/components/portal/__tests__/ShipScheduleWidget.test.tsx`
 
-Hoje a escala omitida cai no `?? 'X'` de `ChegadasSaidas.tsx:326` e fica
-indistinguível de "data não informada" — a tela não diz que a escala não vai
-acontecer. Ela passa a exibir **`OMIT`** na coluna daquele porto.
+Implementa a [ADR 0052](../adr/0052-escala-omitida-visivel-na-programacao.md).
+Hoje a linha do POD omitido não volta da RPC (migrations `175` e `277`:
+`o.entity_id IS NULL`) e as duas telas caem no mesmo fallback `?? 'X'` —
+`ChegadasSaidas.tsx:326` e `ShipScheduleWidget.tsx:82`. Escala cancelada fica
+idêntica a escala sem data informada.
 
-**Nenhuma mudança em `portal_ship_schedule`.** A RPC filtra PODs omitidos de
-propósito (migrations `175` e `277`: `o.entity_id IS NULL`), e
-`portalShipScheduleOmitted.test.ts` é a trava dessa decisão. Ela serve o Portal
-do cliente, então devolver a linha omitida por ali mandaria informação interna
-para o navegador do cliente mesmo que a tela não a desenhasse — o oposto do que
-a Task 11 faz. A flag entra por fora, de fonte interna.
+**Esta task muda o que o cliente vê.** É deliberado: a ADR 0052 supersede o
+fragmento da ADR 0022 que mandava esconder. O motivo interno continua fora do
+Portal — muda o fato, não a justificativa.
 
-- [ ] **Step 1: Write the failing test** — em `portalScheduleVoyages.test.ts`,
-  uma escala omitida produz o marcador de omissão na lane do porto; escala sem
-  data e sem omissão continua `X`. São dois estados distintos, não um.
-- [ ] **Step 2:** Sobrepor a flag no cliente, sem tocar na RPC do Portal: buscar
-  as escalas omitidas da viagem por `listVoyageEscalaSchedulesByVoyageIds`
-  (campo `omitted`, já disponível) e casar por `(voyageId, porto)` normalizado —
-  a mesma normalização usada pelas lanes, senão um porto legado (`BRVIT` vs
-  `BRVIX`) perde o casamento.
-- [ ] **Step 3:** `DateTd` (`ChegadasSaidas.tsx:15-24`) ganha o terceiro estado.
-  Hoje ele trata dois: `X` em cinza e data formatada. `OMIT` entra com o mesmo
-  peso visual de `X` — é ausência, não data —, mas com texto próprio e `title`
-  explicando que a escala foi omitida. Não reusar o cinza de `X` sem
-  diferenciar: são significados diferentes.
-- [ ] **Step 4:** Invalidar a lista quando a omissão for criada ou revertida:
-  acrescentar a query key da programação às invalidações de `useOmitEscala` e da
-  reversão da Task 3, senão a tela só muda no F5.
-- [ ] **Step 5:** Confirmar que `portalShipScheduleOmitted.test.ts` continua
-  passando sem alteração. Se ele precisar mudar, a implementação vazou para o
-  Portal — voltar ao Step 2.
-- [ ] **Step 6:** Run: `npm test -- src/services/__tests__/portalScheduleVoyages.test.ts src/services/__tests__/portalShipScheduleOmitted.test.ts src/pages/__tests__/ChegadasSaidas.behavior.test.tsx` — Expected: PASS.
-- [ ] **Step 7:** Commit: `feat: Chegadas e Saidas exibe OMIT na escala omitida`
+- [ ] **Step 1: Write the failing test** — reescrever
+  `portalShipScheduleOmitted.test.ts`, que hoje trava a regra antiga: a linha do
+  POD omitido **volta**, marcada como omitida. Manter no mesmo teste a prova de
+  que POD `deleted` continua suprimido — são regras diferentes e não podem ser
+  confundidas na reescrita.
+- [ ] **Step 2:** Migration `315` reescreve `portal_ship_schedule` a partir da
+  definição viva (pós-`277`), trocando o filtro `o.entity_id IS NULL` por uma
+  coluna de marcação no retorno. A marcação é explícita, não inferida por
+  ausência de data: um POD omitido **sem** ETA e um POD não omitido sem ETA
+  precisam continuar distinguíveis no payload. Repetir `REVOKE`/`GRANT`
+  explícitos (a `297` removeu o `EXECUTE` padrão) e preservar o
+  `SECURITY DEFINER` e as datas efetivas que a `277` acrescentou.
+- [ ] **Step 3:** `PortalScheduleRpcRow` e `projectPortalScheduleRows`
+  (`src/services/portalScheduleVoyages.ts`) carregam a marca até a lane. Não
+  reusar o sentinel `'X'` de `datesByLabel` para significar omissão: são estados
+  distintos, e sobrecarregar a mesma string faz a tela perder a diferença que
+  esta task existe para criar.
+- [ ] **Step 4:** As duas células ganham o terceiro estado, com a **mesma**
+  semântica e o mesmo texto: `DateTd` em `ChegadasSaidas.tsx:15-24` e `DateCell`
+  em `ShipScheduleWidget.tsx:5-12`. `OMIT` tem peso de ausência, como `X` — não
+  é data —, mas com estilo e `title` próprios ("escala omitida pelo armador").
+  Se as duas divergirem, é defeito (ADR 0052, consequências).
+- [ ] **Step 5:** Invalidar a programação quando a omissão for criada ou
+  revertida: acrescentar a query key às invalidações de `useOmitEscala` e da
+  reversão da Task 3, senão a tela só muda no F5 — nas duas pontas.
+- [ ] **Step 6:** Confirmar que `getProximaEscala` e a conclusão automática da
+  viagem **continuam** ignorando PODs omitidos. A ADR 0052 supersede só a
+  projeção de programação; se a mudança vazar para essas derivações, uma escala
+  que não vai acontecer volta a ser a próxima escala.
+- [ ] **Step 7:** Run: `npm test -- src/services/__tests__/portalShipScheduleOmitted.test.ts src/services/__tests__/portalScheduleVoyages.test.ts src/pages/__tests__/ChegadasSaidas.behavior.test.tsx src/components/portal/__tests__/ShipScheduleWidget.test.tsx` — Expected: PASS.
+- [ ] **Step 8:** Commit: `feat: escala omitida aparece como OMIT na programacao (ADR 0052)`
 
 ### Task 11: Portal — card de COD, datas e motivo
 
 **Files:**
 - Modify: `src/pages/PortalOperacao.tsx`
 - Modify: `src/services/portalOperation.ts`
-- Create: `supabase/migrations/315_portal_operation_hide_omission_reason.sql`
+- Create: `supabase/migrations/316_portal_operation_hide_omission_reason.sql`
 - Test: `src/pages/__tests__/PortalOperacao.test.tsx`
 - Test: `src/services/__tests__/portalOperation.test.ts`
 
@@ -560,7 +571,7 @@ a Task 11 faz. A flag entra por fora, de fonte interna.
 - [ ] **Step 2:** Implementar em `PortalOperacao.tsx:479`, que hoje recebe
   `disposition` e a ignora. Reusar o helper de data já usado em
   `TransshipmentInfoCard` em vez de imprimir o `TIMESTAMPTZ` cru.
-- [ ] **Step 3:** Criar a migration `315` para remover `reason` da projeção
+- [ ] **Step 3:** Criar a migration `316` para remover `reason` da projeção
   server-side de `portal_list_operation_bls`; atualizar
   `PortalOperationTransshipment` e o normalizador em `src/services/portalOperation.ts`
   para que o contrato não preserve esse campo. Revogar/reconceder os grants da
@@ -578,7 +589,7 @@ a Task 11 faz. A flag entra por fora, de fonte interna.
 **Files:**
 - Modify: `src/components/voyages/VoyageCard.tsx`, `src/components/voyages/TransshipmentPanel.tsx`
 - Modify: `src/hooks/useBlCockpit.ts`, `src/services/transshipments.ts`
-- Create: `supabase/migrations/316_drop_dead_bl_transshipment_columns.sql`
+- Create: `supabase/migrations/317_drop_dead_bl_transshipment_columns.sql`
 
 - [ ] **Step 1:** Unificar os dois cards concorrentes. `TransshipmentInfoCard`
   (aba Visão) e `TransshipmentPanel` (fora das abas) exibem o mesmo registro
@@ -635,10 +646,11 @@ junto com a ADR 0051; esta task cobre o que depende do código entregue.
   `cod_adjustments` à linha de `bl_transshipments`.
 - [ ] **Step 3:** `docs/modules/portal-cliente.md` — card de COD distinto do de
   transbordo; motivo da omissão não é publicado.
-- [ ] **Step 3b:** `docs/modules/chegadas-saidas.md` — registrar o terceiro
-  estado da célula (`OMIT`, distinto de `X`) e deixar explícito que a flag vem
-  de fonte interna, não de `portal_ship_schedule`, que segue escondendo a escala
-  omitida do cliente.
+- [ ] **Step 3b:** `docs/modules/chegadas-saidas.md` e a seção de programação de
+  `docs/modules/portal-cliente.md` — registrar o terceiro estado da célula
+  (`OMIT`, distinto de `X`) nas duas telas, e que `portal_ship_schedule` passou
+  a devolver o POD omitido marcado (ADR 0052), continuando a suprimir o POD
+  `deleted`.
 - [ ] **Step 4:** Registrar a entrega em `docs/CHANGELOG.md`.
 - [ ] **Step 5:** Run: `npm run docs:check && npm run lint && npm test && npm run build` — Expected: PASS.
 - [ ] **Step 6:** Mover este plano para `docs/archive/plans/` e remover a linha
