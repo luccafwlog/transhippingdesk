@@ -2,6 +2,7 @@ import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 import { fetchExportSchedulesByVoyageIds } from './voyageExportSchedules'
 import type { VoyageExportSchedule, VoyageExportSchedulesByPort } from './voyageExportSchedules'
+import { chunkArray } from '../lib/utils'
 
 const POL_ENTITY_TYPE = 'voyage_pol_schedule'
 const POD_ENTITY_TYPE = 'voyage_pod_schedule'
@@ -76,11 +77,23 @@ export type VoyageEscalaSchedule = {
   temImportacao: boolean
   temExportacao: boolean
   temGranito: boolean
+  temVazios?: boolean
   containersQty: number | null
   movementsQty: number | null
   /** Portos de descarga declarados no cadastro da exportacao desta escala. */
   dischargePorts: string[]
   divergences: VoyageEscalaDivergence[]
+}
+
+/** Estado terminalizado da escala, separado da linha física POD/POL legada. */
+export type VoyageTerminalScaleState = {
+  voyageId: number
+  port: string
+  terminalId: string
+  terminalAtb: string | null
+  terminalAtd: string | null
+  terminalRtw: number | null
+  revision: number
 }
 
 type ProjectVoyageEscalaInput = {
@@ -244,6 +257,50 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
   return result
 }
 
+/** Leitura compartilhada para timeline e superfícies operacionais futuras. */
+export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number[]) {
+  const result = new Map<number, VoyageTerminalScaleState[]>()
+  if (!voyageIds.length) return result
+
+  type TerminalStateQuery = {
+    select: (columns: string) => TerminalStateQuery
+    in: (column: string, values: number[]) => TerminalStateQuery
+    then: Promise<{ data: unknown; error: unknown | null }>['then']
+  }
+  for (const voyageChunk of chunkArray(voyageIds, 25)) {
+    const { data, error } = await (supabase.from as unknown as (table: string) => TerminalStateQuery)('voyage_escala_terminal_state')
+      .select('voyage_id, port, terminal_id, terminal_atb, terminal_atd, terminal_rtw, revision')
+      .in('voyage_id', voyageChunk)
+    if (error) throw error
+
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string' || typeof row.terminal_id !== 'string') continue
+      const states = result.get(row.voyage_id) ?? []
+      states.push({
+        voyageId: row.voyage_id,
+        port: row.port,
+        terminalId: row.terminal_id,
+        terminalAtb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
+        terminalAtd: typeof row.terminal_atd === 'string' ? row.terminal_atd : null,
+        terminalRtw: row.terminal_rtw == null ? null : Number(row.terminal_rtw),
+        revision: typeof row.revision === 'number' ? row.revision : 0,
+      })
+      result.set(row.voyage_id, states)
+    }
+  }
+  for (const states of result.values()) {
+    states.sort((left, right) => {
+      if (left.terminalAtb !== right.terminalAtb) {
+        if (left.terminalAtb == null) return 1
+        if (right.terminalAtb == null) return -1
+        return left.terminalAtb.localeCompare(right.terminalAtb)
+      }
+      return left.terminalId.localeCompare(right.terminalId)
+    })
+  }
+  return result
+}
+
 export function projectVoyageEscalaSchedules({
   podSchedules = [],
   polSchedules = [],
@@ -325,6 +382,7 @@ export function projectVoyageEscalaSchedules({
     escala.temExportacao = exportSchedule.temExportacao
     escala.exportCeStatus = exportSchedule.ceStatus
     escala.temGranito = escala.temGranito || exportSchedule.hasGranite
+    escala.temVazios = Boolean(escala.temVazios || (exportSchedule.temExportacao && exportSchedule.hasEmpty))
     escala.dischargePorts = exportSchedule.dischargePorts ?? []
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty
@@ -603,17 +661,19 @@ export async function listVoyageRouteCeMasters(voyageIds: number[]) {
   const result = new Map<string, string>()
   if (!voyageIds.length) return result
 
-  const { data, error } = await supabase
-    .from('voyage_route_ce_master')
-    .select('voyage_id, pol, pod, ce_master')
-    .in('voyage_id', voyageIds)
+  for (const voyageChunk of chunkArray(voyageIds, 25)) {
+    const { data, error } = await supabase
+      .from('voyage_route_ce_master')
+      .select('voyage_id, pol, pod, ce_master')
+      .in('voyage_id', voyageChunk)
 
-  if (error) throw error
+    if (error) throw error
 
-  for (const row of data ?? []) {
-    const ce = normalizeTextValue(row.ce_master)
-    if (!ce) continue
-    result.set(buildVoyageRouteCeMasterKey(row.voyage_id, row.pol, row.pod), ce)
+    for (const row of data ?? []) {
+      const ce = normalizeTextValue(row.ce_master)
+      if (!ce) continue
+      result.set(buildVoyageRouteCeMasterKey(row.voyage_id, row.pol, row.pod), ce)
+    }
   }
 
   return result
@@ -685,6 +745,7 @@ function ensureEscala(escalasByKey: Map<string, VoyageEscalaSchedule>, voyageId:
     temImportacao: false,
     temExportacao: false,
     temGranito: false,
+    temVazios: false,
     containersQty: null,
     movementsQty: null,
     dischargePorts: [],

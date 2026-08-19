@@ -269,7 +269,12 @@ documental do POL, incluindo ETD/ATD do Laden on Board) e
 `voyage_export_schedules` (linha de exportação por `(voyage_id, pol)`). A
 projeção normaliza os portos por `normalizePortCode`, restringe a lista a
 portos brasileiros (`BR*`) e entrega uma linha por `(viagem, porto)`, com
-marcadores de importação, exportação, granito, containers e movimentos.
+marcadores de importação, exportação, granito, containers e movimentos. A
+migration `306_escala_multiplos_terminais.sql` acrescenta o registro
+terminalizado em `voyage_escala_terminal_state` e
+`voyage_escala_operation_fronts`; `src/services/escalaTerminalAllocation.ts`
+é o único domínio de leitura/mutação, usando a RPC transacional e a revisão da
+escala.
 
 `voyage_pod_schedule` continua sendo o portador físico das datas operacionais
 da escala, inclusive quando a escala nasceu apenas de POL/EXP; `voyage_pol_schedule`
@@ -284,10 +289,29 @@ Consumidores principais:
   `VoyageCard` e `VoyageVisaoTab` usam a projeção para Próxima Escala, rail,
   tabela de planejamento e seletor do ADR.
 - Line-Up: `src/services/lineup.ts` deriva o snapshot da mesma projeção,
-  preservando importação e exportação quando o porto é misto.
-- ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)`, e
+  preservando importação e exportação quando o porto é misto; o terminal é uma
+  coluna da linha e `TBC` é apenas apresentação.
+- ADR: `VoyageAgencyReportTab` seleciona ADR novo por `report_id`/terminal e
+  mantém o caminho legado por `(voyage_id, port)`; o modal da escala atribui
+  frentes, datas e terminais.
+- ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)` para legado,
+  enquanto ADRs novos usam `(voyage_id, port, terminal_id)`, e
   `detect_agency_report_pending` passa a considerar ATD vindo de POD ou POL,
   com baseline próprio para a nova fonte POL.
+- A RPC transacional também recebe o snapshot dos campos do POD quando o modal
+  terminalizado salva a escala; os audit rows de datas, CE, vínculo e número de
+  escala entram na mesma transação das frentes. A expectativa de vazios faz
+  backfill somente pela heurística legada de quantidades e depois permanece
+  explícita.
+- `depots.port_id` é obrigatório para novos terminais portuários. A trigger
+  `validate_depot_terminal_port` mantém terminais legados sem mapeamento
+  editáveis por SQL, enquanto o preflight e o Cadastro orientam o mapeamento;
+  a lista de opções da escala filtra pelo porto brasileiro.
+- Timeline: `src/services/voyageSummaries.ts` humaniza atribuição, remoção,
+  datas, expectativa de exportação e criação/preservação de ADR terminalizado.
+- Acompanhamento: `src/components/lineup/LineUpTable.tsx`,
+  `src/pages/Painel.tsx` e `src/pages/LineUpTVDisplay.tsx` exibem o terminal
+  por sentido sem criar eixo adicional de linhas.
 
 ## Supabase
 

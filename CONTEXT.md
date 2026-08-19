@@ -183,9 +183,13 @@ origem, não uma redigitação: carga, veículos, vazios, depot e overtime nasce
 nos seus módulos; apenas ocorrências e sign-offs nascem no próprio ADR. Existe
 desde que a escala existe; suas pendências só alertam após o ATD da escala.
 
-A identidade do ADR é (viagem, porto): uma escala que opera em dois terminais
-mantém um único ADR, com o terminal como atributo do cabeçalho. O armador
-exibido no cabeçalho deriva do navio da viagem.
+A identidade do ADR legado continua sendo (viagem, porto). Para o modelo
+terminalizado, a identidade nova é (viagem, porto, terminal), materializada por
+`report_id`: uma frente pertence a um único terminal, várias frentes no mesmo
+terminal compartilham um ADR, e cada terminal tem fechamento independente.
+Frente sem terminal é `TBC`, não cria ADR e bloqueia o fechamento. ADRs legados
+sem `terminal_id` permanecem legíveis pelo caminho antigo. O armador exibido no
+cabeçalho deriva do navio da viagem.
 
 - **Related:** Seção do ADR, Resolução de Seção, Sign-off Departamental, Fechamento do ADR, Listagem do operado
 
@@ -246,7 +250,7 @@ Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 **Embarque de Vazios (EXP)**
 Registro operacional do embarque de containers vazios de exportação de uma
 escala, criado do zero por Equipamentos no módulo VAZIOS EXP. Existe **um por
-escala**, com a mesma identidade do ADR — (viagem, porto) —, e reúne duas partes
+escala** — (viagem, porto), a identidade da Escala —, e reúne duas partes
 de naturezas distintas:
 
 - a **Lista de Unidades Embarcadas** — o fato: quais containers foram
@@ -306,6 +310,13 @@ sugeridos** de seus serviços. Cada local tem um **tipo**:
   time e nunca gera armazenagem: a unidade que vem dele descarregou, ficou no
   local e está sendo reembarcada. Cobra serviços como qualquer outro local.
 
+Terminal Portuário exige um porto brasileiro do cadastro e persiste o vínculo
+em `depots.port_id -> ports.id`; Depot comum continua sem porto. A escolha de
+terminal na escala usa somente terminais ativos ligados ao porto da escala.
+Terminal inativo não pode ser atribuído a uma nova frente, mas permanece
+visível quando referenciado por histórico. O código é normalizado e único;
+exclusão física é bloqueada por referências.
+
 Não é a fonte do cálculo: ao lançar uma Linha de Serviço do Embarque, o usuário
 escolhe o local e o serviço, e o sistema **sugere** o valor unitário registrado,
 que ele pode sobrescrever naquela linha. O valor efetivo mora sempre na linha
@@ -316,10 +327,10 @@ Granito, que é genuinamente uma tabela de tarifas.
 
 - **Synonyms / avoid:** "Cadastro de Depot" (nome anterior, quando o cadastro só
   tinha depots), "Taxas de Vazios", "tabela de taxas de depot"
-- **Distinto de:** o **porto** da escala (identidade `(viagem, porto)` do ADR,
-  ex.: BRVIX). Um Terminal Portuário fica *dentro* de um porto. O terminal do
-  cabeçalho do ADR continua sendo texto livre preenchido pelo setor responsável,
-  sem vínculo com este cadastro.
+- **Distinto de:** o **porto** da escala (identidade `(viagem, porto)` do ADR
+  legado, ex.: BRVIX). Um Terminal Portuário fica *dentro* de um porto. ADR
+  novo referencia o terminal cadastrado por `terminal_id`; o texto permanece
+  apenas para leitura histórica legada.
 - **Related:** Free Time de Storage, Embarque Direto, Linha de Serviço do
   Embarque, Natureza do Serviço, Tabela de Taxas — Granito
 

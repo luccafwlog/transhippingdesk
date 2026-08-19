@@ -1,12 +1,15 @@
 import {
   deriveAutomaticVoyagePodCeStatus,
   listVoyageEscalaSchedulesByVoyageIds,
+  listVoyageTerminalScaleStatesByVoyageIds,
+  type VoyageTerminalScaleState,
   type VoyagePodCeStatus,
 } from './voyageRouteSchedules'
 import type { ExportCeStatus } from './voyageExportSchedules'
 import { supabase } from './supabase'
 import { chunkArray, isDateOnly } from '../lib/utils'
 import { normalizePortCode } from './portCode'
+import { listDepots } from './depots'
 
 type VoyageStatus = 'active' | 'completed' | 'cancelled' | null
 
@@ -54,6 +57,8 @@ export type LineUpRow = {
   ata: string | null
   atb: string | null
   rowType: 'import' | 'export'
+  importTerminal: string
+  exportTerminal: string
   vin: number
   car: number
   cg: number
@@ -78,6 +83,74 @@ export type LineUpSnapshot = {
   lastChangedAt: string | null
 }
 
+export type LineUpTerminalFront = {
+  voyageId: number
+  port: string
+  sentido: 'importacao' | 'exportacao'
+  terminalId: string | null
+}
+
+export type LineUpTerminalCode = {
+  id: string
+  code: string
+}
+
+/**
+ * Projects terminal assignments into the single import/export row of a scale.
+ * TBC is a display value only: this function never creates or persists a row.
+ */
+export function projectLineUpTerminals({
+  fronts,
+  terminalStates,
+  terminalCodes,
+  direction,
+}: {
+  fronts: Array<Pick<LineUpTerminalFront, 'sentido' | 'terminalId'>>
+  terminalStates: Array<Pick<VoyageTerminalScaleState, 'terminalId' | 'terminalAtb'>>
+  terminalCodes: ReadonlyMap<string, string>
+  direction: LineUpTerminalFront['sentido']
+}) {
+  const directionFronts = fronts.filter((front) => front.sentido === direction)
+  if (!directionFronts.length) return 'TBC'
+
+  const stateByTerminal = new Map(terminalStates.map((state) => [state.terminalId, state]))
+  const assigned = new Map<string, { code: string; atb: string | null }>()
+  let hasTbc = false
+
+  for (const front of directionFronts) {
+    if (!front.terminalId) {
+      hasTbc = true
+      continue
+    }
+    if (assigned.has(front.terminalId)) continue
+    assigned.set(front.terminalId, {
+      code: terminalCodes.get(front.terminalId) ?? front.terminalId,
+      atb: stateByTerminal.get(front.terminalId)?.terminalAtb ?? null,
+    })
+  }
+
+  const labels = [...assigned.entries()]
+    .sort(([leftId, left], [rightId, right]) => compareLineUpTerminalOrder(left, right, leftId, rightId))
+    .map(([, terminal]) => terminal.code)
+  if (hasTbc) labels.push('TBC')
+  return labels.length ? labels.join(' / ') : 'TBC'
+}
+
+function compareLineUpTerminalOrder(
+  left: { code: string; atb: string | null },
+  right: { code: string; atb: string | null },
+  leftId: string,
+  rightId: string,
+) {
+  if (left.atb !== right.atb) {
+    if (left.atb == null) return 1
+    if (right.atb == null) return -1
+    const atbComparison = left.atb.localeCompare(right.atb)
+    if (atbComparison !== 0) return atbComparison
+  }
+  return left.code.localeCompare(right.code, 'pt-BR') || leftId.localeCompare(rightId)
+}
+
 export function lineUpScheduleDates(schedule: { ata?: string | null; atb?: string | null; atd?: string | null } | undefined) {
   return {
     ata: schedule?.ata ?? null,
@@ -91,12 +164,19 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const voyageIds = voyages.map((voyage) => voyage.id)
   if (!voyageIds.length) return { rows: [], lastChangedAt: null }
 
-  const [bls, vehicles, vaziosImportacaoMtyByVoyage, escalaSchedulesByVoyage] = await Promise.all([
+  const [bls, vehicles, vaziosImportacaoMtyByVoyage, escalaSchedulesByVoyage, terminalStatesByVoyage, terminalFrontsByVoyage, depots] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
     fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
     listVoyageEscalaSchedulesByVoyageIds(voyageIds),
+    listVoyageTerminalScaleStatesByVoyageIds(voyageIds),
+    fetchTerminalFrontsByVoyageIds(voyageIds),
+    listDepots(),
   ])
+
+  const terminalCodes = new Map(
+    depots.flatMap((depot) => depot.id && depot.code ? [[String(depot.id), depot.code.trim()]] as const : []),
+  )
 
   const blIds = bls.map((bl) => bl.id)
   const containers = await fetchContainersByBlIds(blIds)
@@ -129,6 +209,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   for (const voyage of voyages) {
     const voyageBls = blsByVoyage.get(voyage.id) ?? []
     const voyageEscalas = escalaSchedulesByVoyage.get(voyage.id) ?? []
+    const voyageTerminalStates = terminalStatesByVoyage.get(voyage.id) ?? []
+    const voyageTerminalFronts = terminalFrontsByVoyage.get(voyage.id) ?? []
     const escalasByPort = new Map(voyageEscalas.map((schedule) => [normalizePort(schedule.port), schedule]))
     const scheduledPorts = voyageEscalas
       .filter((schedule) => hasActiveEscalaScheduleData(schedule))
@@ -140,6 +222,20 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
       const routeBls = voyageBls.filter((bl) => normalizePort(bl.pod) === pod)
       const routeBlIds = new Set(routeBls.map((bl) => bl.id))
       const schedule = escalasByPort.get(pod)
+      const terminalFronts = voyageTerminalFronts.filter((front) => normalizePort(front.port) === pod)
+      const terminalStates = voyageTerminalStates.filter((state) => normalizePort(state.port) === pod)
+      const importTerminal = projectLineUpTerminals({
+        fronts: terminalFronts,
+        terminalStates,
+        terminalCodes,
+        direction: 'importacao',
+      })
+      const exportTerminal = projectLineUpTerminals({
+        fronts: terminalFronts,
+        terminalStates,
+        terminalCodes,
+        direction: 'exportacao',
+      })
       const hasExportSchedule = Boolean(schedule?.temExportacao)
       const isExportOnly = !routeBls.length && hasExportSchedule && !schedule?.temImportacao
 
@@ -187,6 +283,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           etb: schedule?.etb ?? null,
           ...lineUpScheduleDates(schedule),
           rowType: 'import',
+          importTerminal,
+          exportTerminal: 'TBC',
           vin: routeVehicles.length,
           car: carContainers,
           cg: Math.max(totalContainers - carContainers, 0),
@@ -218,6 +316,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           etb: schedule?.etb ?? null,
           ...lineUpScheduleDates(schedule),
           rowType: 'export',
+          importTerminal: 'TBC',
+          exportTerminal,
           vin: 0,
           car: 0,
           cg: 0,
@@ -266,6 +366,38 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
     rows: sortedRows,
     lastChangedAt,
   }
+}
+
+type TerminalFrontQuery = {
+  select: (columns: string) => TerminalFrontQuery
+  in: (column: string, values: number[]) => TerminalFrontQuery
+  then: Promise<{ data: unknown; error: unknown | null }>['then']
+}
+
+async function fetchTerminalFrontsByVoyageIds(voyageIds: number[]) {
+  const result = new Map<number, LineUpTerminalFront[]>()
+  if (!voyageIds.length) return result
+
+  for (const voyageChunk of chunkArray(voyageIds, 25)) {
+    const { data, error } = await (supabase.from as unknown as (table: string) => TerminalFrontQuery)('voyage_escala_operation_fronts')
+      .select('voyage_id, port, sentido, terminal_id')
+      .in('voyage_id', voyageChunk)
+    if (error) throw error
+
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string') continue
+      if (row.sentido !== 'importacao' && row.sentido !== 'exportacao') continue
+      const fronts = result.get(row.voyage_id) ?? []
+      fronts.push({
+        voyageId: row.voyage_id,
+        port: row.port,
+        sentido: row.sentido,
+        terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
+      })
+      result.set(row.voyage_id, fronts)
+    }
+  }
+  return result
 }
 
 function hasActiveEscalaScheduleData(schedule: {
@@ -426,15 +558,7 @@ async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
 
 async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], scheduleEntityIds: string[]) {
   const [voyageLatest, blLatest, containerLatest, vehicleLatest, scheduleLatest] = await Promise.all([
-    fetchLatestTimestamp(
-      supabase
-        .from('voyages')
-        .select('created_at')
-        .in('id', voyageIds)
-        .order('created_at', { ascending: false })
-        .limit(1),
-      'created_at',
-    ),
+    fetchLatestTimestampForVoyages('voyages', 'id', voyageIds, 'created_at'),
     blIds.length
       ? fetchLatestTimestamp(
           supabase
@@ -457,15 +581,7 @@ async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], sch
           'created_at',
         )
       : Promise.resolve<string | null>(null),
-    fetchLatestTimestamp(
-      supabase
-        .from('vehicles')
-        .select('created_at')
-        .in('voyage_id', voyageIds)
-        .order('created_at', { ascending: false })
-        .limit(1),
-      'created_at',
-    ),
+    fetchLatestTimestampForVoyages('vehicles', 'voyage_id', voyageIds, 'created_at'),
     scheduleEntityIds.length
       ? fetchLatestTimestamp(
           supabase
@@ -483,6 +599,17 @@ async function fetchLastLineUpChangeAt(voyageIds: number[], blIds: string[], sch
   return [voyageLatest, blLatest, containerLatest, vehicleLatest, scheduleLatest]
     .filter(Boolean)
     .sort((left, right) => new Date(right!).getTime() - new Date(left!).getTime())[0] ?? null
+}
+
+async function fetchLatestTimestampForVoyages(table: string, column: string, voyageIds: number[], field: string) {
+  const values = await Promise.all(chunkArray(voyageIds, 25).map((voyageChunk) => fetchLatestTimestamp(
+    (supabase.from as unknown as (tableName: string) => {
+      select: (columns: string) => { in: (name: string, ids: number[]) => { order: (fieldName: string, options: { ascending: boolean }) => { limit: (limit: number) => PromiseLike<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }> } } }
+    }
+    )(table).select(field).in(column, voyageChunk).order(field, { ascending: false }).limit(1),
+    field,
+  )))
+  return values.filter(Boolean).sort((left, right) => new Date(right!).getTime() - new Date(left!).getTime())[0] ?? null
 }
 
 async function fetchLatestTimestamp<T extends Record<string, unknown>>(

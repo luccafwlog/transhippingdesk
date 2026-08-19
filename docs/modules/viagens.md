@@ -73,7 +73,7 @@ Famílias canônicas de cache:
 | POD | `queryKeys.voyages.podSchedules(voyageIds)` | estado reconstruído de `audit_logs` |
 | Transbordos | `queryKeys.transshipments.byVoyage(voyageId)` | `voyage_omissions` + `bl_transshipments` |
 | Exportação | `queryKeys.voyages.exportSchedules(voyageIds)` | `voyage_export_schedules` |
-| Timeline | `['voyage-timeline', voyageId]` | `audit_logs`, resoluções e Baplie |
+| Timeline | `['voyage-timeline', String(voyageId)]` | `audit_logs`, resoluções e Baplie |
 | Conciliação | `['baplie-reconciliation', voyageId]` | comparação física Baplie × B/L; nomes legados ainda dizem manifesto |
 
 `src/services/queryKeys.ts` define as cinco famílias `queryKeys.voyages.*`. Nos hooks de timeline e conciliação, o `voyageId` não nulo é convertido para `String(voyageId)`; a tabela acima expressa a família lógica exigida pelos consumidores.
@@ -90,7 +90,8 @@ POL/POD e exportação têm contratos diferentes:
 
 - `saveVoyagePolSchedule`, `saveVoyagePodSchedule` e `deleteVoyagePodSchedule` gravam eventos insert-only em `audit_logs`. `listVoyagePolSchedules` e `listVoyagePodSchedules*` reduzem do mais recente para o mais antigo por `entity_id` e campo.
 - O trigger `trg_voyage_schedule_snapshot` mantém `voyages.pol_schedule_snapshot` e `voyages.pod_schedule_snapshot`, mas os leitores atuais de `src/services/voyageRouteSchedules.ts` ainda consultam `audit_logs`.
-- `voyage_export_schedules` é uma tabela física 1:1 por `voyage_id`, com CRUD direto em `src/services/voyageExportSchedules.ts`.
+- `voyage_export_schedules` é uma tabela física por `(voyage_id, pol)`, com CRUD direto em `src/services/voyageExportSchedules.ts`; o save terminalizado reutiliza `existing_id` quando o editor abriu uma linha legada com POL não canônico.
+- A escala aceita LOCODE brasileiro válido mesmo quando o catálogo ainda não tem a linha: a RPC cria a referência `ports` com o próprio LOCODE como nome inicial, enquanto a migration `307_seed_brazilian_ports.sql` preenche os portos operacionais conhecidos com nomes amigáveis.
 
 ## Fluxos e invariantes
 

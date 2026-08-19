@@ -102,15 +102,25 @@ export function VoyageVisaoTab({
   // A declaração de exportação não pode ser retirada de uma escala que já tem
   // carga: granito pelo porto de carregamento do manifesto, vazios pelo porto
   // de embarque da operação.
-  const portsWithExportCargo = useMemo(() => {
+  const granitePorts = useMemo(() => {
     const ports = new Set<string>()
     for (const manifest of voyage.granite_manifests ?? []) {
       const normalized = normalizePortCode(manifest.loading_port)
       if (normalized) ports.add(normalized)
     }
+    return ports
+  }, [voyage.granite_manifests])
+
+  const emptyPorts = useMemo(() => {
+    const ports = new Set<string>()
     for (const port of vaziosExportPorts ?? []) ports.add(port)
     return ports
-  }, [voyage.granite_manifests, vaziosExportPorts])
+  }, [vaziosExportPorts])
+
+  const portsWithExportCargo = useMemo(
+    () => new Set([...granitePorts, ...emptyPorts]),
+    [granitePorts, emptyPorts],
+  )
 
   function buildEscalaModalData(row: VoyageEscalaSchedule | null): EscalaModalData {
     const exportSchedule = row
@@ -134,10 +144,15 @@ export function VoyageVisaoTab({
       exportExistingId: exportSchedule?.id ?? null,
       temExportacao: exportSchedule?.temExportacao ?? false,
       hasGranite: exportSchedule?.hasGranite ?? false,
+      // `fetchExportSchedulesByVoyageIds` normaliza linha legada sem coluna para
+      // false; só usamos o marcador agregado quando não existe declaração.
+      hasEmpty: exportSchedule ? exportSchedule.hasEmpty : Boolean(row?.temVazios),
       containersQty: exportSchedule?.containersQty ?? null,
       movementsQty: exportSchedule?.movementsQty ?? null,
       dischargePorts: exportSchedule?.dischargePorts ?? [],
       exportLocked: row ? portsWithExportCargo.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
+      graniteLocked: row ? granitePorts.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
+      emptyLocked: row ? emptyPorts.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
     }
   }
 
@@ -360,6 +375,7 @@ const TIMELINE_DOT: Record<VoyageTimelineEvent['kind'], string> = {
   import: '#2a9d63',
   'baplie-import': '#0f766e',
   'escala-date': '#1d4d88',
+  'escala-terminal': '#0e7490',
   'escala-number': '#b8860b',
   'manifestos-linked': '#2563a8',
   'ce-status': '#7c3aed',

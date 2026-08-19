@@ -40,6 +40,8 @@ type Snapshot = {
     voyageLabel?: string;
     port?: string | null;
     terminal?: string | null;
+    terminalCode?: string | null;
+    reportId?: string | null;
     schedule?: {
       ata?: string | null;
       atb?: string | null;
@@ -71,6 +73,18 @@ type Snapshot = {
 };
 
 type Metric = [string, string | number | null | undefined];
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function buildAgencyReportPrintFilename(snapshot: Snapshot): string {
+  const header = snapshot.header ?? {};
+  const parts = [
+    'ADR',
+    header.voyageLabel,
+    header.port,
+    header.terminalCode ?? header.terminal,
+  ].map((value) => String(value ?? '').trim()).filter(Boolean);
+  return `${parts.join(' - ') || 'ADR'}.pdf`;
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -540,11 +554,12 @@ export function AgencyReportDocument({
     <article
       className="agency-report-print-content"
       aria-label="Agency Departure Report fechado"
+      data-print-filename={buildAgencyReportPrintFilename(snapshot)}
       style={documentRoot}
     >
       <InvoiceDocHeader
         logoSrc="/branding/transhipping-logo-cropped.png"
-        docNumber={`ADR · ${header.port ?? "—"}`}
+        docNumber={`ADR · ${header.port ?? "—"}${header.terminalCode ? ` · ${header.terminalCode}` : ''}`}
         numberPrefix=""
       />
       <InvoiceDocTitle uppercase>Agency Departure Report</InvoiceDocTitle>
@@ -557,7 +572,7 @@ export function AgencyReportDocument({
         <tbody>
           {([
             [["Armador", header.carrierName ?? "—"], ["Navio / viagem", header.voyageLabel ?? "—"]],
-            [["Porto", header.port ?? "—"], ["Terminal", header.terminal ?? "—"]],
+            [["Porto", header.port ?? "—"], ["Terminal", header.terminalCode ? `${header.terminalCode}${header.terminal && header.terminal !== header.terminalCode ? ` — ${header.terminal}` : ''}` : (header.terminal ?? "—")]],
             [["ATA", formatDate(schedule.ata)], ["ATB", formatDate(schedule.atb)]],
             [["ATD", formatDate(schedule.atd)], ["Restow", count(schedule.rtw)]],
           ] as Array<Array<[string, string]>>).map((pairs) => (
