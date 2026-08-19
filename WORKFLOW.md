@@ -443,7 +443,7 @@ resultado e evidência conforme
 ### Pull request
 
 `.github/workflows/ci.yml` executa quatro jobs em paralelo em pull requests e
-pushes para `main`, cada um com instalação reproduzível própria (`npm ci
+pushes para `main`, usando Node.js 24 e instalação reproduzível própria (`npm ci
 --legacy-peer-deps`):
 
 1. `quality` — verificação documental e lint;

@@ -10,7 +10,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { lazyPage } from './lib/lazyPage'
 import { matchRoutePreload, type RoutePreloadTable } from './lib/routePreload'
 import { resolveLegacyFaturamentoRedirect, resolveTaxasLocaisRedirect, toRouteTarget } from './lib/routeRedirects'
-import { markStartupStage } from './lib/telemetry'
+import { markStartupStage, redactVercelTelemetryEvent } from './lib/telemetry'
 
 const Login = lazyPage(() => import('./pages/Login'), 'Login')
 const PortalLogin = lazyPage(() => import('./pages/PortalLogin'), 'PortalLogin')
@@ -206,7 +206,7 @@ export default function App() {
       </>
       )}
       </Routes>
-      <Analytics />
+      <Analytics beforeSend={redactVercelTelemetryEvent} />
     </>
   )
 }

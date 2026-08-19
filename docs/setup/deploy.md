@@ -22,8 +22,12 @@ Actions.
 O contrato versionado está em [`vercel.json`](../../vercel.json):
 
 - framework Vite;
+- Node.js `24.x` em Vercel e no CI;
+- instalação reproduzível com `npm ci --legacy-peer-deps`;
 - comando `npm run build`;
 - saída `dist`;
+- `ignoreCommand` ignora commits sem alterações no frontend, dependências ou
+  configuração de build;
 - rewrite para `/index.html`, preservando refresh em qualquer rota React Router;
 - headers de segurança equivalentes aos usados no Firebase;
 - HTML sem cache e assets em `/assets/` com cache longo e `immutable`.
@@ -31,6 +35,11 @@ O contrato versionado está em [`vercel.json`](../../vercel.json):
 No projeto Vercel, configure o Root Directory como a raiz deste repositório e
 deixe o Git Integration responsável por Preview/Production. Não configure
 migrations, Edge Functions ou comandos de backend no build da Vercel.
+
+O `ignoreCommand` só ignora um deployment quando o commit não altera arquivos
+que participam do frontend ou do build. Se não houver SHA anterior disponível,
+o comando continua o build por segurança. Alterações em `docs/` isoladamente não
+geram um novo deployment.
 
 ## Variáveis do frontend
 
@@ -97,6 +106,14 @@ font-src    'self' https://fonts.gstatic.com
 somente pelas Supabase Edge Functions e por isso não precisa estar no
 `connect-src`. Não há `unsafe-eval`; o `unsafe-inline` existente é limitado a
 `style-src`, conforme o contrato atual da aplicação.
+
+## Analytics e Speed Insights
+
+Web Analytics e Speed Insights são carregados globalmente em produção pelos
+componentes oficiais da Vercel. Antes do envio, query strings são removidas e
+segmentos dinâmicos de CNPJ, B/L, viagem e cliente são normalizados para evitar
+que identificadores operacionais apareçam na telemetria. As métricas continuam
+agrupáveis por tela, sem expor o registro acessado.
 
 ## CORS das Edge Functions
 

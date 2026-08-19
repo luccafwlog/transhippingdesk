@@ -13,7 +13,7 @@ import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmDialogProvider } from './components/ui/ConfirmDialog'
 import { isSupabaseConfigured } from './services/supabase'
-import { initTelemetry, markStartupStage } from './lib/telemetry'
+import { initTelemetry, markStartupStage, redactVercelTelemetryEvent } from './lib/telemetry'
 import { createAppQueryClient } from './lib/queryClient'
 
 initTelemetry()
@@ -50,7 +50,7 @@ createRoot(document.getElementById('root')!).render(
                 <PortalAuthProvider>
                   <AuthProvider>
                     <App />
-                    <SpeedInsights />
+                    <SpeedInsights beforeSend={redactVercelTelemetryEvent} />
                   </AuthProvider>
                 </PortalAuthProvider>
               </VisualThemeProvider>
