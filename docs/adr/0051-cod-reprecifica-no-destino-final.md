@@ -63,13 +63,16 @@ que reduz a cobrança para R$ 80 não gera restituição de R$ 20 — gera abati
 de R$ 20 no saldo, que cai de R$ 90 para R$ 70. Restituição só existe quando o
 pago supera o devido pela tabela do novo destino.
 
-**A restituição de COD não cabe em `invoice_refunds` como a tabela está hoje.**
-`invoice_refunds.payment_id` é `NOT NULL` (migration `111`): a restituição
-existe presa a um pagamento específico, porque nasceu do excedente de um
+**A restituição de COD não cabia em `invoice_refunds` como a tabela estava.**
+`invoice_refunds.payment_id` era `NOT NULL` (migration `111`): a restituição
+existia presa a um pagamento específico, porque nasceu do excedente de um
 pagamento. Um crédito de COD nasce da reprecificação, não de um pagamento a
-mais. Reusar a tabela exige antes decidir a que pagamento o crédito se ancora —
-ou relaxar a coluna. A execução deve resolver isso explicitamente, não presumir
-que o mecanismo existente serve.
+mais. A tabela passa a aceitar duas procedências — `payment_id` ou
+`cod_adjustment_id`, exatamente uma delas, por `CHECK` — e deixa de ser
+"excedente de pagamento" para ser "crédito ao cliente". Ancorar o crédito de COD
+num pagamento existente foi considerado e recusado: o `ON DELETE CASCADE` da
+coluna faria o estorno daquele pagamento apagar, em silêncio, uma restituição
+que não tinha relação com ele.
 
 **3. O COD calcula e registra a diferença; a emissão do ajuste é ato do
 Financeiro.** Quem marca COD é Documentação. Emitir fatura complementar e
@@ -108,12 +111,15 @@ manifesto e o pendente fica visível até alguém informar o número.
 - Demurrage não é afetado: `demurrageRates.ts` não consulta `bls.pod` para
   resolver tarifa ou free time.
 - Sem CODs em produção, não há backfill nem reprecificação retroativa.
-- Resolver o Ajuste de COD é ato do Financeiro, mas `settle_invoice_refund` e as
-  policies de escrita de `invoice_refunds` exigem `is_admin()`, que cobre apenas
-  `admin` e `administrativo` — o perfil `financeiro` não passa. A leitura já foi
-  aberta a qualquer usuário ativo pela migration `291`. Alinhar a autorização de
-  escrita e liquidação ao resolvedor pretendido é pré-requisito da execução,
-  não detalhe de UI.
+- Resolver o Ajuste de COD é ato do Financeiro, e o schema não permitia isso:
+  `settle_invoice_refund` e as policies de escrita de `invoice_refunds` exigiam
+  `is_admin()`, que cobre apenas `admin` e `administrativo`. Entra
+  `is_financeiro_user()` — `admin`, `administrativo` ou `financeiro`, ativo —
+  aplicado **somente** à escrita de `invoice_refunds` e `cod_adjustments` e ao
+  gate de `settle_invoice_refund`. `is_admin()` não é alargado: ele é a porta
+  geral de administração em cerca de 60 migrations, e alargá-lo daria ao
+  Financeiro painel admin, gestão de usuários e provisionamento do Portal junto.
+  A leitura já foi aberta a qualquer usuário ativo pela migration `291`.
 - Promover o **manifesto a entidade própria** — para suportar cancelar um
   manifesto e consolidar seus CEs em outro — fica fora desta decisão e exige
   desenho próprio.

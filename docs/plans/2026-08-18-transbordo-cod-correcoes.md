@@ -250,7 +250,7 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
   (`set_bl_cod` e `set_bl_transshipment`) a `authenticated`; testar que a
   assinatura antiga não existe e que a nova é chamável.
 - [ ] **Step 1c:** Fixar a ordem dos efeitos: capturar o POD anterior, atualizar
-  `bls.pod` para o novo destino e só então chamar o efeito financeiro da Task 6.
+  `bls.pod` para o novo destino e só então chamar o efeito financeiro da Task 6b.
   Na reversão, restaurar o POD original antes de chamar o efeito simétrico.
   Nenhuma RPC pode recalcular enquanto `bls.pod` ainda aponta para o destino
   antigo.
@@ -260,17 +260,58 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
 - [ ] **Step 3:** Run: `npm test -- src/components/bl/__tests__/BlTransshipmentCard.test.tsx` — Expected: PASS.
 - [ ] **Step 4:** Commit: `feat: COD exige confirmacao e justificativa auditada`
 
-### Task 6: Reprecificação da Taxa Local no COD
+### Task 6a: Extrair a resolução de preço de `calculate_bl_local_charges`
 
 **Files:**
-- Create: `supabase/migrations/311_cod_reprices_local_charges.sql`
+- Create: `supabase/migrations/311_extract_local_charge_resolution.sql`
+- Test: `src/services/__tests__/localChargeResolutionMigration.test.ts`
+
+Pré-requisito da Task 6b, e a parte mais arriscada do plano — por isso é task
+própria. `calculate_bl_local_charges` tem ~500 linhas na migration `274`, com o
+caminho de escrita entranhado no corpo: `DELETE FROM charge_calculations`,
+`UPDATE public.bls` e **quatro** ramos distintos de `INSERT INTO
+charge_calculations`. Não existe hoje um lugar único que responda "quais itens e
+quais valores, para este B/L, neste POD".
+
+A alternativa — escrever uma prévia que reimplemente essa resolução — foi
+recusada deliberadamente: este plano existe porque uma definição duplicada
+divergiu em silêncio (a `215` desfez a `201`). Duplicar a resolução de preço
+repetiria o mesmo defeito, agora no motor de cobrança.
+
+- [ ] **Step 1:** Ler `274_charge_table_validity_is_informational.sql` inteiro e
+  mapear os quatro ramos de `INSERT`, anotando o que cada um resolve
+  (tabela vigente, item, valor unitário, quantidade, override) e o que é
+  específico daquele ramo.
+- [ ] **Step 2:** Criar `resolve_bl_local_charge_items(p_bl_id, p_pod)`
+  `RETURNS TABLE`, pura: sem `DELETE`, sem `INSERT`, sem `UPDATE`, sem a trava
+  de B/L faturado. Ela recebe o POD **explicitamente** em vez de ler `bls.pod`,
+  que é justamente o que a Task 6b precisa. Revogar `EXECUTE` de `PUBLIC`,
+  `anon` e `authenticated`: é helper interno.
+- [ ] **Step 3:** Reescrever os quatro ramos de `calculate_bl_local_charges`
+  para consumirem essa função, passando `bls.pod`. O comportamento observável
+  não muda — esta é uma refatoração, e os testes existentes de Taxas Locais são
+  a rede.
+- [ ] **Step 4:** Rodar a suíte de faturamento **antes e depois**, comparando os
+  resultados: `npm test -- src/services/__tests__ src/pages/__tests__/TaxasLocais.test.ts` — Expected: PASS
+  nos dois momentos, com os mesmos números. Se algum ramo mudar de resultado, a
+  extração perdeu uma condição; parar e revisar em vez de ajustar o teste.
+- [ ] **Step 5:** Teste de contrato: a função pura não escreve (chamá-la dentro
+  de transação revertida e conferir `charge_calculations` intacta); ela aceita um
+  POD diferente do `bls.pod` e devolve os itens daquele POD; `authenticated` não
+  tem `EXECUTE`.
+- [ ] **Step 6:** Commit: `refactor: resolucao de itens de Taxa Local vira funcao pura por POD explicito`
+
+### Task 6b: Reprecificação da Taxa Local no COD
+
+**Files:**
+- Create: `supabase/migrations/312_cod_reprices_local_charges.sql`
 - Test: `src/services/__tests__/codRepricingMigration.test.ts`
 
-Implementa as decisões 1, 2 e 4 da ADR 0051. Ler `274_charge_table_validity_is_informational.sql`
-inteiro antes de escrever: `calculate_bl_local_charges` já recusa recálculo para
+Implementa as decisões 1, 2 e 4 da ADR 0051, em cima da função pura da Task 6a.
+`calculate_bl_local_charges` já recusa recálculo para
 `financial_status IN ('invoiced','partially_paid','paid')`, e é essa recusa que
-define os três ramos. A tabela `cod_adjustments` é criada nesta migration antes
-da RPC que a grava; a Task 7 apenas consome sua fila.
+separa o primeiro ramo dos demais. A tabela `cod_adjustments` é criada nesta
+migration antes da RPC que a grava; a Task 7 consome sua fila.
 
 - [ ] **Step 1:** Criar `cod_adjustments` no grão B/L × omissão, com valor
   original, valor no novo destino, diferença assinada, `action` (incluindo
@@ -281,12 +322,10 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
   separa abatimento de restituição, e ler isso depois, do saldo corrente, daria
   outro número. Aplicar RLS de leitura por `is_active_user()` e escrita só por
   RPC.
-- [ ] **Step 2:** Extrair da `calculate_bl_local_charges` uma função interna de
-  prévia, `RETURNS TABLE`, que resolva tabela/itens por um POD explícito e não
-  faça `DELETE`/`INSERT` nem levante a trava de B/L faturado. Essa função é
-  obrigatória para o ramo pago: a função atual é mutável e recusa exatamente
-  esse estado; não usar regex, `simulate` fictício ou chamar a função de escrita
-  em modo que produza efeitos.
+- [ ] **Step 2:** Usar `resolve_bl_local_charge_items(p_bl_id, p_pod)` da Task 6a
+  como a prévia. Ela é obrigatória para os ramos faturados: a função de escrita
+  é mutável e recusa exatamente esses estados. Não usar regex, `simulate`
+  fictício, nem chamar a função de escrita em modo que produza efeitos.
 - [ ] **Step 3:** Criar `apply_cod_financial_effect(p_bl_id, p_omission_id,
   p_previous_pod)` como helper interno, sem `p_changed_by`: derivar o ator por
   `auth.uid()`. Revogar `EXECUTE` de `PUBLIC`, `anon` **e** `authenticated` e
@@ -326,38 +365,57 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
 ### Task 7: Ajuste de COD — pendência, complementar e restituição
 
 **Files:**
-- Modify: `src/components/billing/` (fila de pendências de Taxas Locais)
+- Create: `supabase/migrations/313_cod_adjustment_settlement.sql`
+- Modify: `src/hooks/useAuth.tsx`, `src/pages/TaxasLocais.tsx`, `src/components/billing/`
 - Test: `src/services/__tests__/codAdjustmentsMigration.test.ts`
 
-- [ ] **Step 1:** Usar a tabela `cod_adjustments` criada na migration `311`; não
-  criar uma segunda tabela nem deixar a Task 6 referenciar uma migration futura.
+- [ ] **Step 1:** Usar a tabela `cod_adjustments` criada na migration `312`; não
+  criar uma segunda tabela nem deixar a Task 6b referenciar uma migration futura.
 - [ ] **Step 2:** Lado credor: separar **abatimento** de **restituição**. O
   abatimento (`offset_open_balance`) reduz o saldo em aberto da fatura original
   e nunca vira dinheiro de volta. Só o excedente sobre o que já entrou
   (`refund_overpayment`) chega ao lado credor propriamente dito.
 - [ ] **Step 2b:** Para esse excedente, reusar `invoice_refunds` (tabela na
   migration `111`; RPCs `list_invoice_refunds` e `settle_invoice_refund` na
-  migration `112`), que já tem estados, RLS e UI em `InvoiceDetailModal`. Não
-  criar mecanismo paralelo — mas **resolver antes dois bloqueios reais**, que
-  não são detalhe de UI:
-  - `invoice_refunds.payment_id` é `NOT NULL`. A tabela modela excedente de um
-    pagamento específico; um crédito de COD nasce da reprecificação. Decidir a
-    que pagamento o crédito se ancora (o que quitou o excedente é o candidato
-    natural) ou relaxar a coluna — e registrar a escolha na migration.
-  - `settle_invoice_refund` exige `is_admin()` e as policies de `INSERT`/`UPDATE`
-    de `invoice_refunds` também. `is_admin()` cobre `admin` e `administrativo`;
-    o perfil `financeiro` não passa, então o resolvedor pretendido pela ADR 0051
-    não consegue liquidar. A leitura já está aberta a qualquer usuário ativo
-    desde a migration `291` — o buraco é só na escrita. Incluir na migration
-    `311` o alinhamento da autorização, com teste de contrato cobrindo
-    `financeiro` liquidando e `anon` recusado.
+  migration `112`), que já tem estados, RLS e UI em `InvoiceDetailModal` — sem
+  mecanismo paralelo. Duas mudanças de schema/autorização entram na migration
+  `313`, ambas já decididas:
+  - **Origem do crédito.** `invoice_refunds.payment_id` passa a aceitar `NULL` e
+    entra `cod_adjustment_id BIGINT REFERENCES cod_adjustments(id)`, com
+    `CHECK` exigindo **exatamente uma** das duas origens preenchida. A tabela
+    deixa de ser "excedente de pagamento" e vira "crédito ao cliente" com
+    procedência declarada. Isso preserva o `ON DELETE CASCADE` onde ele faz
+    sentido — estornar o pagamento apaga a restituição que nasceu dele — sem
+    aplicá-lo a um crédito de COD, que não veio de pagamento nenhum. Ancorar o
+    crédito de COD num pagamento existente foi recusado justamente por isso:
+    estornar aquele pagamento apagaria a restituição em silêncio.
+  - **Quem liquida.** Criar `public.is_financeiro_user()` — `role IN ('admin',
+    'administrativo', 'financeiro')` e `active` —, com `REVOKE`/`GRANT`
+    explícitos (a `297` removeu o `EXECUTE` padrão). Trocar `is_admin()` por ele
+    **somente** nas policies de `INSERT`/`UPDATE` de `invoice_refunds`, nas de
+    escrita de `cod_adjustments` e no gate de `settle_invoice_refund`. Não
+    alargar `is_admin()`: ele aparece em ~60 migrations como porta geral de
+    administração, e alargá-lo daria a `financeiro` painel admin, gestão de
+    usuários e provisionamento do Portal de uma vez. A leitura já está aberta a
+    qualquer usuário ativo desde a `291` — o buraco é só na escrita.
+- [ ] **Step 2c:** Teste de contrato da `313`: `financeiro` liquida uma
+  restituição e escreve em `cod_adjustments`; `operacoes` e `equipamentos` são
+  recusados com `42501`; `anon` sem `EXECUTE`; crédito com as duas origens
+  preenchidas viola o `CHECK`; crédito com nenhuma também; estorno de pagamento
+  não apaga restituição de origem COD.
+- [ ] **Step 2d:** Espelhar o gate no front. Hoje o `switch` de
+  `roleHasPermission` (`src/hooks/useAuth.tsx:24-32`) devolve `false` para
+  `financeiro` em toda permissão, então a ação de liquidar ficaria visível e
+  falharia com `42501` no clique. Acrescentar o valor à união `Permission`
+  (`useAuth.tsx:13-16`) e concedê-lo a `administrativo` e `financeiro`, com
+  teste em `src/hooks/__tests__/roleHasPermission.test.ts`, que já varre os três
+  perfis sem permissão.
 - [ ] **Step 3:** Lado devedor (faltou dinheiro): emissão de **Fatura
   Complementar de COD** pelo fluxo de invoice individual já existente, disparada
   pelo Financeiro a partir da pendência — nunca pelo COD.
 - [ ] **Step 4:** Para o ramo faturado e não pago, a fila exibe a pendência de
-  cancelar e reemitir; a ADR 0051 deve dizer que a RPC registra a pendência e o
-  Financeiro executa o cancelamento/reemissão deliberadamente, alinhando a
-  tabela da decisão 2 com a decisão 3.
+  cancelar e reemitir. A ADR 0051 já está redigida assim (a RPC registra, o
+  Financeiro executa); a fila não pode executar o cancelamento sozinha.
 - [ ] **Step 5:** Superfície: as pendências de Ajuste de COD aparecem na fila da
   **operação** de Taxas Locais (`/taxas-locais`, `src/App.tsx:179`,
   `src/pages/TaxasLocais.tsx`), não na ficha do B/L — quem resolve é o
@@ -370,7 +428,7 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
 ### Task 8: Notificação de correção ao reverter COD
 
 **Files:**
-- Create: `supabase/migrations/312_revert_cod_notification.sql`
+- Create: `supabase/migrations/314_revert_cod_notification.sql`
 - Test: cobrir no teste de contrato da Task 5
 
 - [ ] **Step 1:** `set_bl_transshipment` passa a inserir `portal_notifications`
@@ -449,7 +507,7 @@ intenção. Ler `src/services/lineup.ts` antes de mexer.
 **Files:**
 - Modify: `src/pages/PortalOperacao.tsx`
 - Modify: `src/services/portalOperation.ts`
-- Create: `supabase/migrations/313_portal_operation_hide_omission_reason.sql`
+- Create: `supabase/migrations/315_portal_operation_hide_omission_reason.sql`
 - Test: `src/pages/__tests__/PortalOperacao.test.tsx`
 - Test: `src/services/__tests__/portalOperation.test.ts`
 
@@ -463,7 +521,7 @@ intenção. Ler `src/services/lineup.ts` antes de mexer.
 - [ ] **Step 2:** Implementar em `PortalOperacao.tsx:479`, que hoje recebe
   `disposition` e a ignora. Reusar o helper de data já usado em
   `TransshipmentInfoCard` em vez de imprimir o `TIMESTAMPTZ` cru.
-- [ ] **Step 3:** Criar a migration `313` para remover `reason` da projeção
+- [ ] **Step 3:** Criar a migration `315` para remover `reason` da projeção
   server-side de `portal_list_operation_bls`; atualizar
   `PortalOperationTransshipment` e o normalizador em `src/services/portalOperation.ts`
   para que o contrato não preserve esse campo. Revogar/reconceder os grants da
@@ -481,7 +539,7 @@ intenção. Ler `src/services/lineup.ts` antes de mexer.
 **Files:**
 - Modify: `src/components/voyages/VoyageCard.tsx`, `src/components/voyages/TransshipmentPanel.tsx`
 - Modify: `src/hooks/useBlCockpit.ts`, `src/services/transshipments.ts`
-- Create: `supabase/migrations/314_drop_dead_bl_transshipment_columns.sql`
+- Create: `supabase/migrations/316_drop_dead_bl_transshipment_columns.sql`
 
 - [ ] **Step 1:** Unificar os dois cards concorrentes. `TransshipmentInfoCard`
   (aba Visão) e `TransshipmentPanel` (fora das abas) exibem o mesmo registro
