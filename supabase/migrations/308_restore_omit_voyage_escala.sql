@@ -4,6 +4,29 @@
 
 DROP FUNCTION IF EXISTS public.omit_voyage_escala(BIGINT, TEXT, TEXT, TEXT, UUID);
 
+-- 174 criou o CHECK com nome gerado; 177 tentou remover um nome que nao
+-- corresponde ao catalogo vivo. Localize a definicao para remover a guarda
+-- de desigualdade sem depender do nome e mantenha a validacao de vazio na RPC.
+DO $remove_single_pod_guard$
+DECLARE
+  v_constraint RECORD;
+BEGIN
+  FOR v_constraint IN
+    SELECT c.conname
+    FROM pg_constraint AS c
+    JOIN pg_class AS r ON r.oid = c.conrelid
+    JOIN pg_namespace AS n ON n.oid = r.relnamespace
+    WHERE n.nspname = 'public'
+      AND r.relname = 'voyage_omissions'
+      AND c.contype = 'c'
+      AND regexp_replace(lower(pg_get_constraintdef(c.oid)), '[[:space:]]', '', 'g') =
+        'check((upper(btrim(omitted_pod))<>upper(btrim(discharge_pod))))'
+  LOOP
+    EXECUTE format('ALTER TABLE public.voyage_omissions DROP CONSTRAINT %I', v_constraint.conname);
+  END LOOP;
+END;
+$remove_single_pod_guard$;
+
 CREATE OR REPLACE FUNCTION public.omit_voyage_escala(
   p_voyage_id BIGINT,
   p_omitted_pod TEXT,

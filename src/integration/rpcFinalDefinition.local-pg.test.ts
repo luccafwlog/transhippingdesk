@@ -125,4 +125,20 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
       );
     `)).toBe('t')
   })
+
+  it('confirma no catálogo que a omissão do mesmo POD é permitida', () => {
+    expect(psql(`
+      SELECT NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint AS c
+        JOIN pg_class AS r ON r.oid = c.conrelid
+        JOIN pg_namespace AS n ON n.oid = r.relnamespace
+        WHERE n.nspname = 'public'
+          AND r.relname = 'voyage_omissions'
+          AND c.contype = 'c'
+          AND regexp_replace(lower(pg_get_constraintdef(c.oid)), '[[:space:]]', '', 'g') =
+            'check((upper(btrim(omitted_pod))<>upper(btrim(discharge_pod))))'
+      );
+    `)).toBe('t')
+  })
 })
