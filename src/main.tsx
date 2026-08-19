@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import './index.css'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -49,6 +50,7 @@ createRoot(document.getElementById('root')!).render(
                 <PortalAuthProvider>
                   <AuthProvider>
                     <App />
+                    <SpeedInsights />
                   </AuthProvider>
                 </PortalAuthProvider>
               </VisualThemeProvider>
