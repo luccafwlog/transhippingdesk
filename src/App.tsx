@@ -1,5 +1,6 @@
 import { Suspense, useEffect, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { routeTitle } from './lib/pageTitle'
 import { AppLayout } from './components/layout/AppLayout'
 import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
@@ -205,6 +206,7 @@ export default function App() {
       </>
       )}
       </Routes>
+      <Analytics />
     </>
   )
 }
