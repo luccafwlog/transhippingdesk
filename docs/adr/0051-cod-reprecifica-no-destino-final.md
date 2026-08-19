@@ -48,12 +48,28 @@ financeiro do B/L:**
 |---|---|
 | Não faturado | Recalcula na própria transação do COD. |
 | Faturado, não pago | O COD registra a pendência de cancelar e reemitir pela tabela do novo destino; o Financeiro executa. Nenhum dinheiro trocou de mãos; corrige-se o documento. |
-| Faturado e pago (total ou parcial) | A fatura original permanece. A diferença vira **Ajuste de COD**: Fatura Complementar de COD quando falta valor, restituição (`invoice_refunds`) quando sobra. |
+| Faturado, pago em parte | A fatura original permanece. A diferença é apurada **contra o saldo em aberto primeiro**: valor a mais vira Fatura Complementar de COD; valor a menos abate o saldo devedor, e só o que exceder o que já entrou vira restituição. |
+| Faturado e pago integralmente | A fatura original permanece. A diferença vira **Ajuste de COD**: Fatura Complementar de COD quando falta valor, restituição quando sobra. |
 
-A fronteira é o pagamento: **antes dele corrige-se o documento; depois dele
-ajusta-se a diferença.** Cancelar documento fiscal já quitado seria o caminho
-mais sujo, e é o que a migration `108` já tenta impedir ao bloquear edição de
-linha de fatura com pagamento.
+A fronteira é o dinheiro que efetivamente entrou: **antes dele corrige-se o
+documento; depois dele ajusta-se a diferença — e nunca se devolve o que não foi
+recebido.** Cancelar documento fiscal já quitado seria o caminho mais sujo, e é
+o que a migration `108` já tenta impedir ao bloquear edição de linha de fatura
+com pagamento.
+
+O pagamento parcial é ramo próprio porque tratá-lo junto com o pago integral
+devolve dinheiro que nunca entrou: numa fatura de R$ 100 com R$ 10 pagos, um COD
+que reduz a cobrança para R$ 80 não gera restituição de R$ 20 — gera abatimento
+de R$ 20 no saldo, que cai de R$ 90 para R$ 70. Restituição só existe quando o
+pago supera o devido pela tabela do novo destino.
+
+**A restituição de COD não cabe em `invoice_refunds` como a tabela está hoje.**
+`invoice_refunds.payment_id` é `NOT NULL` (migration `111`): a restituição
+existe presa a um pagamento específico, porque nasceu do excedente de um
+pagamento. Um crédito de COD nasce da reprecificação, não de um pagamento a
+mais. Reusar a tabela exige antes decidir a que pagamento o crédito se ancora —
+ou relaxar a coluna. A execução deve resolver isso explicitamente, não presumir
+que o mecanismo existente serve.
 
 **3. O COD calcula e registra a diferença; a emissão do ajuste é ato do
 Financeiro.** Quem marca COD é Documentação. Emitir fatura complementar e
@@ -92,6 +108,12 @@ manifesto e o pendente fica visível até alguém informar o número.
 - Demurrage não é afetado: `demurrageRates.ts` não consulta `bls.pod` para
   resolver tarifa ou free time.
 - Sem CODs em produção, não há backfill nem reprecificação retroativa.
+- Resolver o Ajuste de COD é ato do Financeiro, mas `settle_invoice_refund` e as
+  policies de escrita de `invoice_refunds` exigem `is_admin()`, que cobre apenas
+  `admin` e `administrativo` — o perfil `financeiro` não passa. A leitura já foi
+  aberta a qualquer usuário ativo pela migration `291`. Alinhar a autorização de
+  escrita e liquidação ao resolvedor pretendido é pré-requisito da execução,
+  não detalhe de UI.
 - Promover o **manifesto a entidade própria** — para suportar cancelar um
   manifesto e consolidar seus CEs em outro — fica fora desta decisão e exige
   desenho próprio.

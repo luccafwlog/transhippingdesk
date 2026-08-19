@@ -69,6 +69,11 @@ Uma omissao registrada por engano e reversivel por Admin, com justificativa e
 notificacao de correcao ao cliente, enquanto nenhum B/L afetado estiver em COD.
 Omitir duas vezes o mesmo POD e erro, nao atualizacao silenciosa.
 
+> **Ainda nao implementado.** Reversao e recusa de re-omissao sao decisao
+> registrada, nao comportamento vigente: hoje a omissao e irreversivel e a
+> segunda omissao do mesmo POD sobrescreve a primeira em silencio. Execucao nas
+> Tasks 3 e 4 de `docs/plans/2026-08-18-transbordo-cod-correcoes.md`.
+
 **Porto de Transbordo**
 Porto onde a carga de uma escala omitida é efetivamente descarregada para seguir
 em transbordo ou receber COD. Pode ser diferente do POD original do B/L.
@@ -111,6 +116,12 @@ final (ADR 0051). O Transbordo nao reprecifica, porque nele o destino final e
 preservado — a carga segue por navio de terceiro ate o POD original. A diferenca
 apurada vira um Ajuste de COD; CE Mercante e Demurrage seguem manuais.
 
+> **Ainda nao implementado.** A reprecificacao e o Ajuste de COD sao decisao
+> aceita (ADR 0051), nao comportamento vigente: hoje `set_bl_cod` altera POD e
+> disposicao, grava auditoria e notifica o cliente, sem nenhum efeito na Taxa
+> Local. Execucao nas Tasks 5 a 7 de
+> `docs/plans/2026-08-18-transbordo-cod-correcoes.md`.
+
 O CE Mercante do B/L nunca muda. O CE Master tambem nao muda de numero, mas o
 B/L em COD deixa de constar no manifesto do porto omitido e passa a constar no
 manifesto do novo destino; se essa rota ainda nao existir na viagem, ela nasce
@@ -120,13 +131,20 @@ sem manifesto e o pendente fica visivel ate alguem informar o numero.
 
 **Ajuste de COD**
 Diferenca financeira apurada quando um COD reprecifica a Taxa Local de um B/L ja
-faturado e pago. Quando falta valor, e cobrada por Fatura Complementar de COD;
-quando sobra, vira restituicao ao cliente. Antes do pagamento nao ha ajuste:
-B/L nao faturado e recalculado, e B/L faturado e nao pago tem a fatura cancelada
-e reemitida.
+faturado. Quando falta valor, e cobrada por Fatura Complementar de COD; quando
+sobra, o destino depende do que ja entrou. Antes do faturamento nao ha ajuste:
+B/L nao faturado e simplesmente recalculado, e B/L faturado e nao pago gera
+pendencia de cancelar e reemitir a fatura.
+
+Com pagamento parcial, a diferenca a menor **abate o saldo em aberto** antes de
+virar restituicao: so o que exceder o valor efetivamente pago volta como
+dinheiro. Devolver a diferenca cheia restituiria o que nunca entrou. Com a
+fatura integralmente paga, a diferenca a menor vira restituicao direto.
 
 O COD apura e registra a diferenca; a emissao do documento e a liberacao da
 restituicao sao atos do Financeiro, nunca automaticos.
+
+> **Ainda nao implementado** — ver a marca no verbete COD.
 
 - **Related:** COD, Taxas Locais, Recebivel Local, Invoice Individual
 

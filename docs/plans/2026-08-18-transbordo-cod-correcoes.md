@@ -274,9 +274,12 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
 
 - [ ] **Step 1:** Criar `cod_adjustments` no grão B/L × omissão, com valor
   original, valor no novo destino, diferença assinada, `action` (incluindo
-  `cancel_and_reissue` e `manual_charge_review`), estado (`pending` →
+  `cancel_and_reissue`, `manual_charge_review`, `offset_open_balance` e
+  `refund_overpayment`), estado (`pending` →
   `settled`/`cancelled`), flag de revisão manual e vínculo com o documento
-  resultante. Aplicar RLS de leitura por `is_active_user()` e escrita só por
+  resultante. Guardar também **quanto já foi pago** no instante do COD: é o que
+  separa abatimento de restituição, e ler isso depois, do saldo corrente, daria
+  outro número. Aplicar RLS de leitura por `is_active_user()` e escrita só por
   RPC.
 - [ ] **Step 2:** Extrair da `calculate_bl_local_charges` uma função interna de
   prévia, `RETURNS TABLE`, que resolva tabela/itens por um POD explícito e não
@@ -296,8 +299,14 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
   - **faturado, não pago** → registrar `cod_adjustments` com
     `cancel_and_reissue`, sem cancelar sozinho (ADR 0007/0009: cancelamento é
     ato deliberado do Financeiro);
-  - **faturado e pago** → usar a prévia pura para comparar o total vigente com
-    o total do novo POD e registrar o **Ajuste de COD** pendente.
+  - **faturado, pago em parte** → usar a prévia pura para comparar o total
+    vigente com o total do novo POD e apurar a diferença **contra o saldo em
+    aberto primeiro**. Diferença positiva vira Fatura Complementar de COD;
+    diferença negativa vira `offset_open_balance` até o limite do saldo devedor,
+    e só o excedente sobre o valor já pago vira `refund_overpayment`. Devolver a
+    diferença cheia aqui devolveria dinheiro que nunca entrou;
+  - **faturado e pago integralmente** → mesma prévia, e a diferença vira o
+    **Ajuste de COD** pendente direto.
 - [ ] **Step 5:** Fixar em teste a ordem `UPDATE bls.pod` → chamada do helper e
   asserir que a tabela resultante é a do novo destino, não apenas que o ramo
   rodou. A reversão deve restaurar o POD e repetir a mesma regra com os valores
@@ -307,7 +316,10 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
 - [ ] **Step 7:** Teste de contrato: cada ramo produz o efeito esperado; linhas
   manuais geram revisão explícita; prévia não escreve; chamadas diretas ao
   helper falham por privilégio; o COD nunca falha por causa do estado financeiro;
-  a reversão é simétrica.
+  a reversão é simétrica. Fixar o caso numérico da ADR 0051 — fatura de R$ 100
+  com R$ 10 pagos reprecificada para R$ 80 produz abatimento de R$ 20 e
+  **nenhuma** restituição —, mais o espelho em que o pago supera o devido e a
+  restituição sai apenas pelo excedente.
 - [ ] **Step 8:** Run: `npm test -- src/services/__tests__/codRepricingMigration.test.ts` — Expected: PASS.
 - [ ] **Step 9:** Commit: `feat: COD reprecifica a Taxa Local no destino final (ADR 0051)`
 
@@ -319,10 +331,26 @@ da RPC que a grava; a Task 7 apenas consome sua fila.
 
 - [ ] **Step 1:** Usar a tabela `cod_adjustments` criada na migration `311`; não
   criar uma segunda tabela nem deixar a Task 6 referenciar uma migration futura.
-- [ ] **Step 2:** Lado credor (sobrou dinheiro): reusar `invoice_refunds`
-  (tabela na migration `111`; RPCs `list_invoice_refunds` e
-  `settle_invoice_refund` na migration `112`), que já tem estados, RLS e UI em
-  `InvoiceDetailModal`. Não criar mecanismo paralelo.
+- [ ] **Step 2:** Lado credor: separar **abatimento** de **restituição**. O
+  abatimento (`offset_open_balance`) reduz o saldo em aberto da fatura original
+  e nunca vira dinheiro de volta. Só o excedente sobre o que já entrou
+  (`refund_overpayment`) chega ao lado credor propriamente dito.
+- [ ] **Step 2b:** Para esse excedente, reusar `invoice_refunds` (tabela na
+  migration `111`; RPCs `list_invoice_refunds` e `settle_invoice_refund` na
+  migration `112`), que já tem estados, RLS e UI em `InvoiceDetailModal`. Não
+  criar mecanismo paralelo — mas **resolver antes dois bloqueios reais**, que
+  não são detalhe de UI:
+  - `invoice_refunds.payment_id` é `NOT NULL`. A tabela modela excedente de um
+    pagamento específico; um crédito de COD nasce da reprecificação. Decidir a
+    que pagamento o crédito se ancora (o que quitou o excedente é o candidato
+    natural) ou relaxar a coluna — e registrar a escolha na migration.
+  - `settle_invoice_refund` exige `is_admin()` e as policies de `INSERT`/`UPDATE`
+    de `invoice_refunds` também. `is_admin()` cobre `admin` e `administrativo`;
+    o perfil `financeiro` não passa, então o resolvedor pretendido pela ADR 0051
+    não consegue liquidar. A leitura já está aberta a qualquer usuário ativo
+    desde a migration `291` — o buraco é só na escrita. Incluir na migration
+    `311` o alinhamento da autorização, com teste de contrato cobrindo
+    `financeiro` liquidando e `anon` recusado.
 - [ ] **Step 3:** Lado devedor (faltou dinheiro): emissão de **Fatura
   Complementar de COD** pelo fluxo de invoice individual já existente, disparada
   pelo Financeiro a partir da pendência — nunca pelo COD.
