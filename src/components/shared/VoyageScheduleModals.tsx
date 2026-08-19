@@ -100,6 +100,9 @@ export type EscalaModalData = {
    * desdeclarada enquanto a carga existir.
    */
   exportLocked: boolean
+  /** Bloqueios por natureza: granito não deve ser travado por vazios vinculados. */
+  graniteLocked?: boolean
+  emptyLocked?: boolean
   terminalScale?: EscalaModalTerminalScale | null
 }
 
@@ -498,9 +501,10 @@ export function EscalaModal({
 
   // O pai cria um payload novo a cada abertura; re-baseia os campos por
   // identidade do payload, durante o render (sem useEffect).
-  const [prevEscala, setPrevEscala] = useState<EscalaModalData | null>(null)
-  if (open && escala && escala !== prevEscala) {
-    setPrevEscala(escala)
+  const [prevEscalaKey, setPrevEscalaKey] = useState<string | null>(null)
+  const escalaKey = escala ? `${escala.voyageId}:${escala.port ?? 'new'}` : null
+  if (open && escala && escalaKey !== prevEscalaKey) {
+    setPrevEscalaKey(escalaKey)
     setPort(escala.port ?? '')
     setEta(escala.eta ?? '')
     setEtb(escala.etb ?? '')
@@ -579,7 +583,8 @@ export function EscalaModal({
   }
 
   async function handleDeclarationChange(kind: 'granito' | 'vazios', next: boolean) {
-    if (escala?.exportLocked && !next) return
+    if (!next && kind === 'granito' && (escala?.graniteLocked ?? escala?.exportLocked)) return
+    if (!next && kind === 'vazios' && (escala?.emptyLocked ?? escala?.exportLocked)) return
 
     const nextHasGranite = kind === 'granito' ? next : hasGranite
     const nextHasEmpty = kind === 'vazios' ? next : hasEmpty
@@ -834,7 +839,7 @@ export function EscalaModal({
               <input
                 type="checkbox"
                 checked={hasGranite}
-                disabled={escala.exportLocked && hasGranite}
+                disabled={(escala.graniteLocked ?? escala.exportLocked) && hasGranite}
                 onChange={(event) => { void handleDeclarationChange('granito', event.target.checked) }}
                 className="h-4 w-4 rounded border-slate-500 accent-amber-500"
               />
@@ -845,7 +850,7 @@ export function EscalaModal({
               <input
                 type="checkbox"
                 checked={hasEmpty}
-                disabled={escala.exportLocked && hasEmpty}
+                disabled={(escala.emptyLocked ?? escala.exportLocked) && hasEmpty}
                 onChange={(event) => { void handleDeclarationChange('vazios', event.target.checked) }}
                 className="h-4 w-4 rounded border-slate-500 accent-amber-500"
               />

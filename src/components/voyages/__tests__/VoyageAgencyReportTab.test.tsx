@@ -12,10 +12,11 @@ import { formatBRL } from '../../../lib/utils'
 // inalteradas em vez de repetir o provider em cada uma delas.
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: ToastProvider })
 
-const { useAgencyReportDerivedMock, useAgencyReportOwnMock, useAgencyReportTerminalStateMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
+const { useAgencyReportDerivedMock, useAgencyReportOwnMock, useAgencyReportTerminalStateMock, terminalMutateMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
   useAgencyReportOwnMock: vi.fn(),
   useAgencyReportTerminalStateMock: vi.fn(),
+  terminalMutateMock: vi.fn(),
   closeMutateMock: vi.fn(),
   reopenMutateMock: vi.fn(),
   useAuthMock: vi.fn(),
@@ -38,7 +39,7 @@ vi.mock('../../../hooks/useAgencyReport', () => ({
   useSetAgencyReportSignoff: () => ({ mutate: signoffMutateMock, isPending: false }),
   useSetAgencyReportDepartmentSignoff: () => ({ mutate: departmentSignoffMutateMock, isPending: false }),
   useSetAgencyReportSectionObservation: () => ({ mutate: observationMutateMock }),
-  useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
+  useSetAgencyReportTerminal: () => ({ mutate: terminalMutateMock, isPending: false }),
   useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
   useReopenAgencyReport: () => ({ mutate: reopenMutateMock, isPending: false }),
 }))
@@ -64,7 +65,7 @@ function allDepartmentsSigned() {
 beforeEach(() => {
   useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
   useAgencyReportOwnMock.mockReturnValue({ data: undefined })
-  useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined })
+  useAgencyReportTerminalStateMock.mockReturnValue({ data: { agencyReports: [] }, isLoading: false, error: null })
   useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
   useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
   useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
@@ -207,6 +208,39 @@ it('mantém ADR legado fora das RPCs terminalizadas quando há deep-link legado'
   render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="legacy-report" />)
 
   expect(useAgencyReportOwnMock.mock.calls.at(-1)?.[2]).toBeNull()
+})
+
+it('mantém o terminal editável no ADR legado sem frente atribuída', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'legacy-report', voyageId: 7, port: 'BRVIX', terminalId: null, terminalCode: null, terminal: null, status: 'open',
+        sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+      }],
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { id: 'legacy-report', status: 'open', terminal: null, signoffs: [], departmentSignoffs: [], occurrences: [], actor_names: {} } })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="legacy-report" />)
+
+  const terminalInput = screen.getByLabelText('Terminal') as HTMLInputElement
+  fireEvent.change(terminalInput, { target: { value: 'TVV' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+  expect(terminalMutateMock).toHaveBeenCalledWith(expect.objectContaining({ voyageId: 7, port: 'BRVIX', terminal: 'TVV' }), expect.any(Object))
+})
+
+it('não habilita ADR legado enquanto o estado terminalizado está carregando ou falhou', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined, isLoading: true, error: null })
+  const { rerender } = render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+  expect(screen.getByText(/Carregando frentes, terminais e ADRs/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Salvar' })).toBeNull()
+
+  useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined, isLoading: false, error: new Error('indisponivel') })
+  rerender(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+  expect(screen.getByText(/Nenhuma ação foi habilitada/)).toBeTruthy()
 })
 
 it('a soma das linhas exibidas bate com o "Total da operação" para uma linha legada de armazenagem com percentual não nulo', () => {

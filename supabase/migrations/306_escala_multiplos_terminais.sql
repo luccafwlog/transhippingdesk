@@ -1419,12 +1419,21 @@ BEGIN
         AND al.field_name = 'omitted'
         AND split_part(al.entity_id, '::', 1)::BIGINT = p_voyage_id
       ORDER BY al.entity_id, al.changed_at DESC, al.id DESC
+    ), latest_deleted AS (
+      SELECT DISTINCT ON (al.entity_id) al.entity_id, al.new_value
+      FROM public.audit_logs AS al
+      WHERE al.entity_type = 'voyage_pod_schedule'
+        AND al.field_name = 'deleted'
+        AND split_part(al.entity_id, '::', 1)::BIGINT = p_voyage_id
+      ORDER BY al.entity_id, al.changed_at DESC, al.id DESC
     ), active AS (
       SELECT e.entity_id, a.atd
       FROM pod_entities AS e
       LEFT JOIN latest_atd AS a ON a.entity_id = e.entity_id
       LEFT JOIN latest_omitted AS o ON o.entity_id = e.entity_id
+      LEFT JOIN latest_deleted AS d ON d.entity_id = e.entity_id
       WHERE COALESCE(o.new_value, 'false') <> 'true'
+        AND COALESCE(d.new_value, 'false') <> 'true'
     )
     SELECT COUNT(*)::INTEGER, COUNT(*) FILTER (WHERE NULLIF(btrim(atd), '') IS NULL)::INTEGER
     INTO v_active_pods, v_pending_pods
@@ -2023,9 +2032,110 @@ BEGIN
 END;
 $function$;
 
+-- A identidade por (viagem, porto) continua válida somente para o ADR legado.
+-- Depois da terminalização, resolvers e reabertura precisam evitar SELECT INTO
+-- arbitrário entre vários ADRs da mesma escala.
+CREATE OR REPLACE FUNCTION public.get_agency_report_actor_names(
+  p_voyage_id BIGINT, p_port TEXT
+)
+RETURNS TABLE (user_id UUID, full_name TEXT)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_report_id UUID;
+  v_prefix TEXT := p_voyage_id || '::' || upper(btrim(p_port)) || '::';
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN
+    RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
+  END IF;
+  SELECT id INTO v_report_id
+  FROM public.agency_departure_reports
+  WHERE voyage_id = p_voyage_id
+    AND port = upper(btrim(p_port))
+    AND terminal_id IS NULL;
+  IF v_report_id IS NULL THEN RETURN; END IF;
+  RETURN QUERY SELECT up.id, up.full_name FROM public.user_profiles AS up
+  WHERE up.id IN (
+    SELECT r.closed_by FROM public.agency_departure_reports AS r WHERE r.id = v_report_id AND r.closed_by IS NOT NULL
+    UNION SELECT so.signed_by FROM public.agency_departure_report_signoffs AS so WHERE so.report_id = v_report_id AND so.signed_by IS NOT NULL
+    UNION SELECT dso.signed_by FROM public.agency_departure_report_department_signoffs AS dso WHERE dso.report_id = v_report_id AND dso.signed_by IS NOT NULL
+    UNION SELECT oc.author_id FROM public.agency_departure_report_occurrences AS oc WHERE oc.report_id = v_report_id
+    UNION SELECT al.changed_by FROM public.audit_logs AS al
+      WHERE al.entity_type IN ('agency_departure_report_signoff', 'agency_departure_report_department_signoff')
+        AND al.entity_id LIKE v_prefix || '%' AND al.changed_by IS NOT NULL
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.get_agency_report_actor_names_by_report_id(
+  p_report_id UUID
+)
+RETURNS TABLE (user_id UUID, full_name TEXT)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN
+    RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY SELECT up.id, up.full_name FROM public.user_profiles AS up
+  WHERE up.id IN (
+    SELECT r.closed_by FROM public.agency_departure_reports AS r WHERE r.id = p_report_id AND r.closed_by IS NOT NULL
+    UNION SELECT so.signed_by FROM public.agency_departure_report_signoffs AS so WHERE so.report_id = p_report_id AND so.signed_by IS NOT NULL
+    UNION SELECT dso.signed_by FROM public.agency_departure_report_department_signoffs AS dso WHERE dso.report_id = p_report_id AND dso.signed_by IS NOT NULL
+    UNION SELECT oc.author_id FROM public.agency_departure_report_occurrences AS oc WHERE oc.report_id = p_report_id
+    UNION SELECT al.changed_by FROM public.audit_logs AS al
+      WHERE al.entity_type IN ('agency_departure_report_signoff', 'agency_departure_report_department_signoff')
+        AND al.entity_id LIKE p_report_id::TEXT || '::%' AND al.changed_by IS NOT NULL
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.reopen_agency_departure_report(
+  p_voyage_id BIGINT,
+  p_port TEXT,
+  p_justification TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_report_id UUID;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() OR NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
+  END IF;
+  IF btrim(COALESCE(p_justification, '')) = '' THEN
+    RAISE EXCEPTION 'Reabertura exige justificativa.' USING ERRCODE = '22023';
+  END IF;
+  SELECT id INTO v_report_id
+  FROM public.agency_departure_reports
+  WHERE voyage_id = p_voyage_id
+    AND port = upper(btrim(p_port))
+    AND status = 'closed'
+    AND terminal_id IS NULL
+  FOR UPDATE;
+  IF v_report_id IS NULL THEN
+    RAISE EXCEPTION 'ADR nao esta fechado.' USING ERRCODE = 'P0002';
+  END IF;
+  UPDATE public.agency_departure_reports
+  SET status = 'open', closed_at = NULL, closed_by = NULL, closed_snapshot = NULL
+  WHERE id = v_report_id;
+  INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
+  VALUES ('agency_departure_report', p_voyage_id || '::' || upper(btrim(p_port)),
+          'status', 'closed', 'open', auth.uid(), btrim(p_justification));
+  RETURN jsonb_build_object('report_id', v_report_id);
+END;
+$function$;
+
 REVOKE ALL ON FUNCTION public.detect_agency_report_pending() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.detect_agency_report_department_pending() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.detect_agency_report_deadline_missed() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.get_agency_report_actor_names_by_report_id(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.detect_agency_report_pending() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.detect_agency_report_department_pending() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.detect_agency_report_deadline_missed() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_agency_report_actor_names_by_report_id(UUID) TO authenticated;

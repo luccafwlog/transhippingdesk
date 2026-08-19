@@ -67,7 +67,8 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/set_agency_report_department_signoff_by_report_id[\s\S]+UPDATE public\.alerts[\s\S]+agency_report_department_pending/i)
     expect(sql).toMatch(/close_agency_departure_report_by_report_id[\s\S]+agency_report_section_pending[\s\S]+agency_report_department_pending[\s\S]+agency_report_deadline_missed/i)
     expect(sql).toMatch(/DELETE FROM public\.voyage_escala_terminal_state[\s\S]+v_old_terminal\.terminal_id/i)
-    expect(sql).not.toContain("entity_id LIKE p_report_id::TEXT || '::%'")
+    const closeBody = sql.match(/CREATE OR REPLACE FUNCTION public\.close_agency_departure_report_by_report_id[\s\S]+?\$function\$;/i)?.[0] ?? ''
+    expect(closeBody).not.toContain("entity_id LIKE p_report_id::TEXT || '::%'")
   })
 
   it('mantém o detector canônico no alerta por departamento e sincroniza a escala', () => {
@@ -75,7 +76,15 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(detect).toContain('detect_agency_report_department_pending()')
     expect(detect).not.toContain("'agency_report_section_pending'")
     expect(sql).toMatch(/ARRAY\[[\s\S]+?'ces'[\s\S]+?'deleted'/i)
+    expect(sql).toMatch(/latest_deleted[\s\S]+COALESCE\(d\.new_value, 'false'\) <> 'true'/i)
     expect(sql).toMatch(/UPDATE public\.voyages\s+SET status = v_new_voyage_status/i)
+  })
+
+  it('separa nomes por report_id e restringe o caminho legado ao ADR legado', () => {
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.get_agency_report_actor_names_by_report_id\(\s*p_report_id UUID/i)
+    expect(sql).toMatch(/get_agency_report_actor_names\([\s\S]+terminal_id IS NULL/i)
+    expect(sql).toMatch(/reopen_agency_departure_report\([\s\S]+status = 'closed'[\s\S]+terminal_id IS NULL/i)
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_agency_report_actor_names_by_report_id\(UUID\) TO authenticated/i)
   })
 
   it('audita expectativa inicial e expõe guarda de fechamento por report_id', () => {

@@ -80,7 +80,7 @@ export function LineUpTable({
         >
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={14} className="p-0">
+              <td colSpan={15} className="p-0">
                 <EmptyState title={emptyTitle} description={emptyDescription} />
               </td>
             </tr>

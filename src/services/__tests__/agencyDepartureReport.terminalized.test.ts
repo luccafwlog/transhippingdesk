@@ -25,6 +25,7 @@ function builder(data: unknown) {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    is: vi.fn(() => query),
     maybeSingle: vi.fn(() => Promise.resolve({ data, error: null })),
     then: (resolve: (value: { data: unknown; error: null }) => unknown) => Promise.resolve({ data, error: null }).then(resolve),
   }
@@ -35,10 +36,12 @@ describe('agencyDepartureReport terminalizado', () => {
   beforeEach(() => rpcMock.mockReset().mockResolvedValue({ data: null, error: null }))
 
   it('lê por reportId e não depende de voyage+port como identidade única', async () => {
-    const report = { id: 'report-1', voyage_id: 9, port: 'BRVIX', terminal_id: 'terminal-1', terminal: 'TVV', status: 'open', signoffs: [], departmentSignoffs: [], occurrences: [] }
+    const report = { id: 'report-1', voyage_id: 9, port: 'BRVIX', terminal_id: 'terminal-1', terminal: 'TVV', status: 'open', closed_by: 'actor-1', signoffs: [], departmentSignoffs: [], occurrences: [] }
     fromMock.mockReturnValue(builder(report))
-    await expect(getAgencyReportOwnDataByReportId('report-1')).resolves.toMatchObject({ id: 'report-1', terminal_id: 'terminal-1' })
+    rpcMock.mockResolvedValueOnce({ data: [{ user_id: 'actor-1', full_name: 'Ana Ribeiro' }], error: null })
+    await expect(getAgencyReportOwnDataByReportId('report-1')).resolves.toMatchObject({ id: 'report-1', terminal_id: 'terminal-1', actor_names: { 'actor-1': 'Ana Ribeiro' }, closed_by_name: 'Ana Ribeiro' })
     expect(fromMock).toHaveBeenCalledWith('agency_departure_reports')
+    expect(rpcMock).toHaveBeenCalledWith('get_agency_report_actor_names_by_report_id', { p_report_id: 'report-1' })
   })
 
   it('lê terminal e escala em caminhos distintos e mantém a lista legada', async () => {

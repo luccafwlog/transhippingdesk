@@ -102,15 +102,25 @@ export function VoyageVisaoTab({
   // A declaração de exportação não pode ser retirada de uma escala que já tem
   // carga: granito pelo porto de carregamento do manifesto, vazios pelo porto
   // de embarque da operação.
-  const portsWithExportCargo = useMemo(() => {
+  const granitePorts = useMemo(() => {
     const ports = new Set<string>()
     for (const manifest of voyage.granite_manifests ?? []) {
       const normalized = normalizePortCode(manifest.loading_port)
       if (normalized) ports.add(normalized)
     }
+    return ports
+  }, [voyage.granite_manifests])
+
+  const emptyPorts = useMemo(() => {
+    const ports = new Set<string>()
     for (const port of vaziosExportPorts ?? []) ports.add(port)
     return ports
-  }, [voyage.granite_manifests, vaziosExportPorts])
+  }, [vaziosExportPorts])
+
+  const portsWithExportCargo = useMemo(
+    () => new Set([...granitePorts, ...emptyPorts]),
+    [granitePorts, emptyPorts],
+  )
 
   function buildEscalaModalData(row: VoyageEscalaSchedule | null): EscalaModalData {
     const exportSchedule = row
@@ -141,6 +151,8 @@ export function VoyageVisaoTab({
       movementsQty: exportSchedule?.movementsQty ?? null,
       dischargePorts: exportSchedule?.dischargePorts ?? [],
       exportLocked: row ? portsWithExportCargo.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
+      graniteLocked: row ? granitePorts.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
+      emptyLocked: row ? emptyPorts.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
     }
   }
 

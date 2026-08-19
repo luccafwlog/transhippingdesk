@@ -45,6 +45,7 @@ export function useAgencyReportTerminalState(voyageId: number, port: string | nu
     queryKey: queryKeys.agencyReports.terminalState(voyageId, port ?? ''),
     queryFn: () => fetchEscalaTerminalState(voyageId, port as string),
     enabled: Boolean(port),
+    retry: false,
   })
 }
 

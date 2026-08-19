@@ -17,6 +17,7 @@ import {
   useSetAgencyReportDepartmentSignoff,
   useSetAgencyReportSectionObservation,
   useSetAgencyReportSignoff,
+  useSetAgencyReportTerminal,
 } from '../../hooks/useAgencyReport'
 import {
   AGENCY_REPORT_SECTIONS,
@@ -269,8 +270,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const initialPort = initialPortCode && pods.some((entry) => normalizePortCode(entry.pod) === initialPortCode) ? initialPortCode : (normalizePortCode(pods[0]?.pod) ?? null)
   const [port, setPort] = useState<string | null>(initialPort)
   const [selectedReportId, setSelectedReportId] = useState<string | null>(initialReportId ?? null)
-  const { data: terminalState } = useAgencyReportTerminalState(voyageId, port)
-  const terminalReports = terminalState?.agencyReports ?? []
+  const { data: terminalState, isLoading: isTerminalStateLoading, error: terminalStateError } = useAgencyReportTerminalState(voyageId, port)
+  const terminalStateReady = Boolean(terminalState) && !isTerminalStateLoading && !terminalStateError
+  const terminalReports = terminalStateReady ? (terminalState?.agencyReports ?? []) : []
   const preferredReportId = initialReportId && terminalReports.some((report) => report.reportId === initialReportId)
     ? initialReportId
     : initialTerminalCode
@@ -313,12 +315,33 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   const observationMutation = useSetAgencyReportSectionObservation(resolvedReportId)
   const closeMutation = useCloseAgencyReport(resolvedReportId)
   const reopenMutation = useReopenAgencyReport(resolvedReportId)
+  const terminalMutation = useSetAgencyReportTerminal()
   const [printOpen, setPrintOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [reopenJustification, setReopenJustification] = useState('')
+  const [terminalDraft, setTerminalDraft] = useState('')
+  const terminalDraftSourceKey = [
+    ownData?.id ?? 'none',
+    ownData?.terminal ?? '',
+    selectedTerminalReport?.reportId ?? 'none',
+    selectedTerminalReport?.terminal ?? '',
+  ].join(':')
+  const [previousTerminalDraftSourceKey, setPreviousTerminalDraftSourceKey] = useState<string | null>(null)
+  if (terminalDraftSourceKey !== previousTerminalDraftSourceKey) {
+    setPreviousTerminalDraftSourceKey(terminalDraftSourceKey)
+    setTerminalDraft(ownData?.terminal ?? selectedTerminalReport?.terminal ?? '')
+  }
 
   if (!pods.length) {
     return <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Nenhuma escala ativa para compor o ADR.</div>
+  }
+
+  if (terminalStateError) {
+    return <div className="app-panel app-panel--padded text-sm text-[var(--app-red)]">Não foi possível carregar frentes, terminais e ADRs da escala. Nenhuma ação foi habilitada.</div>
+  }
+
+  if (isTerminalStateLoading || !terminalState) {
+    return <div className="app-panel app-panel--padded text-sm text-[var(--app-muted)]">Carregando frentes, terminais e ADRs da escala…</div>
   }
 
   // Dados operacionais continuam sendo consultados por escala, mas um ADR
@@ -642,12 +665,42 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               <Info label="Armador" value={carrierName} />
               <Info label="Navio / viagem" value={voyageLabel} />
               <Info label="Porto" value={port ?? '—'} />
-              <Info
-                label="Terminal"
-                value={resolvedTerminalCode
-                  ? `${resolvedTerminalCode}${resolvedTerminalName && resolvedTerminalName !== resolvedTerminalCode ? ` — ${resolvedTerminalName}` : ''}`
-                  : (ownData?.terminal ?? '—')}
-              />
+              {resolvedReportId ? (
+                <Info
+                  label="Terminal"
+                  value={resolvedTerminalCode
+                    ? `${resolvedTerminalCode}${resolvedTerminalName && resolvedTerminalName !== resolvedTerminalCode ? ` — ${resolvedTerminalName}` : ''}`
+                    : (ownData?.terminal ?? '—')}
+                />
+              ) : (
+                <div className="grid gap-1">
+                  <label htmlFor="legacy-adr-terminal" className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Terminal</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="legacy-adr-terminal"
+                      className="app-input min-w-0"
+                      value={terminalDraft}
+                      onChange={(event) => setTerminalDraft(event.target.value)}
+                      placeholder="Informe o terminal"
+                      disabled={ownData?.status === 'closed' || terminalMutation.isPending}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={!port || ownData?.status === 'closed' || terminalMutation.isPending || terminalDraft.trim() === (ownData?.terminal ?? '')}
+                      onClick={() => {
+                        if (!port) return
+                        terminalMutation.mutate({ voyageId, port, terminal: terminalDraft.trim() }, {
+                          onSuccess: () => showToast('Terminal do ADR salvo.', 'success'),
+                          onError: (error) => showToast(error instanceof Error ? error.message : 'Falha ao salvar o terminal do ADR.', 'error'),
+                        })
+                      }}
+                    >
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Info label="ATA" value={formatDate(data?.schedule?.ata)} />
               <Info label="ATB" value={formatDate(data?.schedule?.atb)} />
               <Info label="ATD" value={formatDate(unifiedAtd)} />

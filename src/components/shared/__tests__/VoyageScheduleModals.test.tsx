@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // voyageRouteSchedules importa o cliente Supabase no topo do modulo; os modais
@@ -357,6 +357,38 @@ describe('EscalaModal', () => {
     expect(toggle.checked).toBe(true)
     expect(toggle.disabled).toBe(true)
     expect(screen.getByText(/carga de exportação vinculada/i)).toBeTruthy()
+  })
+
+  it('não trava granito por vazios vinculados à mesma escala', async () => {
+    renderEscala({ ...escalaBase, temExportacao: true, hasGranite: true, hasEmpty: true, exportLocked: true, graniteLocked: false, emptyLocked: true })
+
+    const graniteToggle = screen.getByLabelText('Terá embarque de granito') as HTMLInputElement
+    expect(graniteToggle.disabled).toBe(false)
+    fireEvent.click(graniteToggle)
+    expect(graniteToggle.checked).toBe(false)
+  })
+
+  it('não rebasa campos digitados quando o estado terminal chega depois', () => {
+    const rendered = render(
+      <ConfirmDialogProvider>
+        <EscalaModal open escala={{ ...escalaBase, terminalScale: { ...terminalScaleBase, loading: true } }} onClose={vi.fn()} onSaved={vi.fn(async () => undefined)} />
+      </ConfirmDialogProvider>,
+    )
+    const numberInput = screen.getByLabelText('Nº Escala (Mercante)') as HTMLInputElement
+    fireEvent.change(numberInput, { target: { value: 'DIGITADO' } })
+
+    rendered.rerender(
+      <ConfirmDialogProvider>
+        <EscalaModal
+          open
+          escala={{ ...escalaBase, escalaNumber: null, terminalScale: { ...terminalScaleBase, loading: false } }}
+          onClose={vi.fn()}
+          onSaved={vi.fn(async () => undefined)}
+        />
+      </ConfirmDialogProvider>,
+    )
+
+    expect(numberInput.value).toBe('DIGITADO')
   })
 
   it('edita quatro frentes em dois terminais, mantém TBC e envia datas sem placeholder', async () => {

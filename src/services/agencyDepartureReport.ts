@@ -117,23 +117,10 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
 
   // Nomes de todos os atores (sign-offs, ocorrências, fechamento) em uma
   // chamada; absorve get_agency_report_closer_name (migration 217 → 220).
-  const actorNames: Record<string, string> = {}
-  const { data: actorRows, error: actorError } = await (supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: Array<{ user_id?: string; full_name?: string | null }> | null; error: { message?: string | null } | null }>)('get_agency_report_actor_names', {
+  const actorNames = await resolveActorNames('get_agency_report_actor_names', {
     p_voyage_id: voyageId,
     p_port: port,
   })
-  if (actorError) {
-    // A RPC pode estar ausente no remoto (migration 220 pendente); o ADR
-    // continua legível, só sem os nomes resolvidos.
-    console.error('[agencyDepartureReport] erro ao resolver nomes dos atores:', actorError.message)
-  } else if (Array.isArray(actorRows)) {
-    for (const row of actorRows) {
-      if (row.user_id && row.full_name) actorNames[row.user_id] = row.full_name
-    }
-  }
 
   return {
     ...report,
@@ -164,6 +151,26 @@ function terminalizedReportsTable(): AgencyReportQuery {
   return (supabase.from as unknown as (table: string) => AgencyReportQuery)('agency_departure_reports')
 }
 
+type ActorNameRow = { user_id?: string; full_name?: string | null }
+
+async function resolveActorNames(rpcName: string, args: Record<string, unknown>) {
+  const actorNames: Record<string, string> = {}
+  const { data: actorRows, error: actorError } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: ActorNameRow[] | null; error: { message?: string | null } | null }>)(rpcName, args)
+  if (actorError) {
+    // Uma migration antiga pode ainda não expor o resolver. O ADR continua
+    // legível, apenas sem nomes resolvidos para os atores.
+    console.error('[agencyDepartureReport] erro ao resolver nomes dos atores:', actorError.message)
+  } else if (Array.isArray(actorRows)) {
+    for (const row of actorRows) {
+      if (row.user_id && row.full_name) actorNames[row.user_id] = row.full_name
+    }
+  }
+  return actorNames
+}
+
 /** Leitura por identidade estável do ADR terminalizado. O caminho antigo acima permanece por (viagem, porto). */
 export async function getAgencyReportOwnDataByReportId(reportId: string): Promise<TerminalizedReportRow | null> {
   const { data, error } = await terminalizedReportsTable()
@@ -173,13 +180,14 @@ export async function getAgencyReportOwnDataByReportId(reportId: string): Promis
   if (error) throw error
   if (!data) return null
   const report = data as TerminalizedReportRow
+  const actorNames = await resolveActorNames('get_agency_report_actor_names_by_report_id', { p_report_id: reportId })
   return {
     ...report,
     signoffs: report.signoffs ?? [],
     departmentSignoffs: report.departmentSignoffs ?? [],
     occurrences: report.occurrences ?? [],
-    actor_names: report.actor_names ?? {},
-    closed_by_name: report.closed_by_name ?? null,
+    actor_names: actorNames,
+    closed_by_name: report.closed_by ? actorNames[report.closed_by] ?? null : null,
   }
 }
 
@@ -195,13 +203,14 @@ export async function getAgencyReportOwnDataByTerminal(voyageId: number, port: s
   if (error) throw error
   if (!data) return null
   const report = data as TerminalizedReportRow
+  const actorNames = await resolveActorNames('get_agency_report_actor_names_by_report_id', { p_report_id: report.id })
   return {
     ...report,
     signoffs: report.signoffs ?? [],
     departmentSignoffs: report.departmentSignoffs ?? [],
     occurrences: report.occurrences ?? [],
-    actor_names: report.actor_names ?? {},
-    closed_by_name: report.closed_by_name ?? null,
+    actor_names: actorNames,
+    closed_by_name: report.closed_by ? actorNames[report.closed_by] ?? null : null,
   }
 }
 
