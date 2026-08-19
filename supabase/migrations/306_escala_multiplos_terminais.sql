@@ -1863,7 +1863,7 @@ BEGIN
       AND ((entity_type = 'voyage_pod_schedule' AND changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00')
         OR (entity_type = 'voyage_pol_schedule' AND changed_at >= (SELECT captured_at FROM public.agency_report_pending_baselines WHERE baseline_key = 'voyage_pol_schedule_atd')))
   ), sections AS (
-    SELECT unnest(ARRAY['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados', 'ocorrencias']) AS section
+    SELECT unnest(ARRAY['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados']) AS section
   ), report_targets AS (
     SELECT d.voyage_id, d.port, r.id AS report_id, r.status, CASE WHEN r.terminal_id IS NULL THEN NULL ELSE terminal.code END AS terminal_code
     FROM departed AS d
