@@ -120,6 +120,10 @@ describe('contrato da reversão de omissão de escala', () => {
     }
 
     const transshipmentBody = functionBody(migration309, 'set_bl_transshipment')
+    expect(functionBody(migration309, 'set_bl_cod')).toMatch(
+      /SELECT pod, customer_id INTO v_old_pod, v_customer FROM public\.bls WHERE id = p_bl_id FOR UPDATE/i,
+    )
+    expect(transshipmentBody).toMatch(/PERFORM 1 FROM public\.bls WHERE id = p_bl_id FOR UPDATE/i)
     expect(transshipmentBody).toMatch(/onward_vessel_name\s*=\s*NULLIF\(btrim\(COALESCE\(p_onward_vessel_name, ''\)\), ''\)/i)
     expect(transshipmentBody).toMatch(/onward_carrier\s*=\s*NULLIF\(btrim\(COALESCE\(p_onward_carrier, ''\)\), ''\)/i)
     expect(transshipmentBody).toMatch(/onward_voyage_number\s*=\s*NULLIF\(btrim\(COALESCE\(p_onward_voyage_number, ''\)\), ''\)/i)

@@ -158,7 +158,7 @@ BEGIN
     RAISE EXCEPTION 'Transbordo do B/L % nao encontrado', p_bl_id USING ERRCODE = 'P0002';
   END IF;
 
-  SELECT pod, customer_id INTO v_old_pod, v_customer FROM public.bls WHERE id = p_bl_id;
+  SELECT pod, customer_id INTO v_old_pod, v_customer FROM public.bls WHERE id = p_bl_id FOR UPDATE;
 
   UPDATE public.bl_transshipments
   SET
@@ -222,6 +222,12 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Transbordo do B/L % nao encontrado', p_bl_id USING ERRCODE = 'P0002';
+  END IF;
+
+  -- Serialize POD reversal with COD and retain the parent omission lock above.
+  PERFORM 1 FROM public.bls WHERE id = p_bl_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'B/L % nao encontrado', p_bl_id USING ERRCODE = 'P0002';
   END IF;
 
   UPDATE public.bl_transshipments

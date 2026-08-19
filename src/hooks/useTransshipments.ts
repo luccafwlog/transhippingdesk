@@ -30,10 +30,7 @@ export function useUpdateVoyageOmission(voyageId: number) {
   return useMutation({
     mutationFn: updateVoyageOmission,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
-      queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['bls'] })
-      queryClient.invalidateQueries({ queryKey: ['bl-detail'] })
+      invalidateVoyageOmissionCaches(queryClient, voyageId)
     },
   })
 }
@@ -58,7 +55,11 @@ export function useRevertVoyageOmission(voyageId: number) {
   })
 }
 
-function invalidateVoyageOmissionCaches(queryClient: ReturnType<typeof useQueryClient>, voyageId: number) {
+function invalidateVoyageOmissionCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  voyageId: number,
+  blId?: string,
+) {
   queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
   queryClient.invalidateQueries({ queryKey: ['voyage-pod-schedules'] })
   queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaSchedules() })
@@ -72,6 +73,9 @@ function invalidateVoyageOmissionCaches(queryClient: ReturnType<typeof useQueryC
   queryClient.invalidateQueries({ queryKey: queryKeys.bls.timeline() })
   queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus() })
   queryClient.invalidateQueries({ queryKey: ['portal-operation-bls'] })
+  if (blId !== undefined) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus(blId) })
+  }
   queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] })
   queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] })
 }
@@ -79,12 +83,7 @@ function invalidateVoyageOmissionCaches(queryClient: ReturnType<typeof useQueryC
 export function useSetBlDisposition(voyageId: number) {
   const queryClient = useQueryClient()
   const invalidate = (variables: { blId: string }) => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.transshipments.byVoyage(voyageId) })
-    queryClient.invalidateQueries({ queryKey: ['bls'] })
-    queryClient.invalidateQueries({ queryKey: ['voyages'] })
-    queryClient.invalidateQueries({ queryKey: queryKeys.bls.cockpit() })
-    queryClient.invalidateQueries({ queryKey: queryKeys.bls.detail() })
-    queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus(variables.blId) })
+    invalidateVoyageOmissionCaches(queryClient, voyageId, variables.blId)
   }
   return {
     setTransshipment: useMutation({ mutationFn: setBlTransshipment, onSuccess: (_, variables) => invalidate(variables) }),

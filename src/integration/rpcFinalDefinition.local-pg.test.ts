@@ -89,6 +89,7 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(cod).toContain('onward_etd = null')
     expect(cod).toContain('onward_eta = null')
     expect(cod).toContain('update public.bls set pod = v_discharge')
+    expect(cod).toContain('select pod, customer_id into v_old_pod, v_customer from public.bls where id = p_bl_id for update')
     expect(cod).toContain('insert into public.portal_notifications(customer_id, bl_id, type, title, message, link)')
 
     expect(transshipment).toContain('if auth.uid() is null or not public.is_active_user() or p_changed_by is distinct from auth.uid() then')
@@ -100,6 +101,7 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(transshipment).toContain('onward_etd = p_onward_etd')
     expect(transshipment).toContain('onward_eta = p_onward_eta')
     expect(transshipment).toContain('update public.bls set pod = v_original_pod')
+    expect(transshipment).toContain('perform 1 from public.bls where id = p_bl_id for update')
     expect(transshipment).toContain("'reversao de cod para transbordo'")
   })
 
