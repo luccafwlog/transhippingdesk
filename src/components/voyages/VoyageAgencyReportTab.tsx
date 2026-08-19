@@ -280,8 +280,11 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     ? selectedReportId
     : preferredReportId ?? terminalReports[0]?.reportId ?? null
   const selectedTerminalReport = terminalReports.find((report) => report.reportId === effectiveSelectedReportId)
-  const terminalizedReports = terminalReports.filter((report) => report.terminalId || report.reportId === initialReportId)
-  const resolvedReportId = selectedTerminalReport?.reportId ?? (terminalizedReports.length ? effectiveSelectedReportId : null)
+  const terminalizedReports = terminalReports.filter((report) => Boolean(report.terminalId))
+  // ADR legado continua sendo lido/alterado pelo caminho legado, mesmo quando
+  // a mesma escala também possui ADRs terminalizados. Só um relatório com
+  // terminal_id pode alimentar as RPCs *_by_report_id.
+  const resolvedReportId = selectedTerminalReport?.terminalId ? selectedTerminalReport.reportId : null
   const resolvedTerminalCode = selectedTerminalReport?.terminalCode ?? initialTerminalCode ?? null
   const resolvedTerminalName = selectedTerminalReport?.terminal ?? null
   const terminalViewFor = (section: AgencyReportSection) => {

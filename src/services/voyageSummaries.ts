@@ -450,7 +450,7 @@ function collectEscalasBrasileiras(
     const current = byPort.get(port)
     const modules = 'temExportacao' in row
       ? {
-          ...(row.temVazios || (row.temVazios === undefined && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0)) ? { vaziosExp: true } : {}),
+          ...(row.temExportacao === true && (row.temVazios || (row.temVazios === undefined && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0))) ? { vaziosExp: true } : {}),
           ...(row.hasGranite || row.temGranito ? { granito: true } : {}),
         }
       : {}

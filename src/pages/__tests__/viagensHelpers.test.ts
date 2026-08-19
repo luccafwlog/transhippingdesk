@@ -438,6 +438,20 @@ describe('buildVoyageRailItems', () => {
     expect(item.escalasBrasileiras).toEqual([{ port: 'BRVIX', eta: '2026-06-01' }])
   })
 
+  it('não ressuscita vazios de exportação por quantidades com declaração desligada', () => {
+    const escalas = new Map([
+      [1, [{
+        port: 'BRVIX', eta: '2026-06-01', etb: null, ata: null, omitted: false,
+        temExportacao: false, temVazios: true, containersQty: 10, movementsQty: 2,
+      }]],
+    ])
+
+    const [item] = buildVoyageRailItems(voyages, escalas)
+
+    expect(item.modules.vazios).toBe(false)
+    expect(item.escalasBrasileiras[0]).toEqual({ port: 'BRVIX', eta: '2026-06-01' })
+  })
+
   it('marca módulos de veículos, vazios de importação e granito a partir das stats por viagem', () => {
     const moduleStats = new Map([[1, { hasVehicles: true, hasVaziosImportacao: true, hasGranite: true }]])
     const [item] = buildVoyageRailItems(voyages, new Map(), moduleStats)

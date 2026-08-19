@@ -163,7 +163,7 @@ export function Viagens() {
           (schedule) => schedule.hasGranite,
         ),
         hasVaziosExportacao: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
-          (schedule) => schedule.hasEmpty,
+          (schedule) => schedule.temExportacao && schedule.hasEmpty,
         ),
       })
     }
@@ -404,6 +404,9 @@ export function Viagens() {
           }
           try {
             if (payload.terminalState) {
+              // A RPC terminalizada grava o snapshot do POD e sincroniza o
+              // status da viagem na mesma transação; não repetir o saver
+              // legado, que criaria uma segunda auditoria fora desse lock.
               await saveEscalaTerminalState({
                 voyageId: payload.voyageId,
                 port: payload.port,
@@ -422,10 +425,12 @@ export function Viagens() {
                     etd: payload.etd,
                     atd: payload.atd,
                     rtw: payload.rtw,
-                    ce_status: payload.ceStatus,
+                    // O leitor do snapshot/auditoria usa o nome canônico `ces`.
+                    ces: payload.ceStatus,
                     linked: payload.linked,
                     escala_number: payload.escalaNumber,
                     tem_importacao: payload.temImportacao,
+                    deleted: false,
                     changed_by: user.id,
                   },
                 },

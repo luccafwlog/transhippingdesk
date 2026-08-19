@@ -109,6 +109,7 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
     .select('*, signoffs:agency_departure_report_signoffs(*), departmentSignoffs:agency_departure_report_department_signoffs(*), occurrences:agency_departure_report_occurrences(*)')
     .eq('voyage_id', voyageId)
     .eq('port', port)
+    .is('terminal_id', null)
     .maybeSingle()
   if (error) throw error
   if (!data) return null
@@ -154,6 +155,7 @@ type AgencyReportQueryResult = { data: unknown; error: unknown | null }
 type AgencyReportQuery = {
   select: (columns: string) => AgencyReportQuery
   eq: (column: string, value: unknown) => AgencyReportQuery
+  is: (column: string, value: null) => AgencyReportQuery
   maybeSingle: () => Promise<AgencyReportQueryResult>
   then: Promise<AgencyReportQueryResult>['then']
 }

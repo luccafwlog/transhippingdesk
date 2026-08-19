@@ -26,6 +26,7 @@ COMMENT ON COLUMN public.voyage_export_schedules.has_empty IS
 UPDATE public.voyage_export_schedules
 SET has_empty = TRUE
 WHERE has_empty = FALSE
+  AND tem_exportacao = TRUE
   AND (COALESCE(containers_qty, 0) > 0 OR COALESCE(movements_qty, 0) > 0);
 
 -- O código é normalizado no banco para que escrita direta do Cadastro não
@@ -575,6 +576,9 @@ DECLARE
   v_schedule_field TEXT;
   v_schedule_old_value TEXT;
   v_schedule_new_value TEXT;
+  v_new_voyage_status TEXT;
+  v_active_pods INTEGER;
+  v_pending_pods INTEGER;
 BEGIN
   SELECT up.role INTO v_role
   FROM public.user_profiles AS up
@@ -1354,8 +1358,8 @@ BEGIN
   IF v_schedule IS NOT NULL THEN
     v_schedule_entity_id := p_voyage_id::TEXT || '::' || v_port;
     FOREACH v_schedule_field IN ARRAY ARRAY[
-      'eta', 'etb', 'ata', 'atb', 'etd', 'atd', 'rtw', 'ce_status',
-      'linked', 'escala_number', 'tem_importacao'
+      'eta', 'etb', 'ata', 'atb', 'etd', 'atd', 'rtw', 'ces',
+      'linked', 'escala_number', 'tem_importacao', 'deleted'
     ] LOOP
       IF v_schedule ? v_schedule_field THEN
         SELECT al.new_value
@@ -1370,6 +1374,13 @@ BEGIN
           WHEN v_schedule->v_schedule_field IS NULL OR v_schedule->v_schedule_field = 'null'::JSONB THEN NULL
           ELSE v_schedule->>v_schedule_field
         END;
+        -- O editor sempre envia deleted=false para retirar um soft-delete,
+        -- mas isso não deve gerar uma linha de auditoria em cada salvamento.
+        IF v_schedule_field = 'deleted'
+           AND v_schedule_new_value = 'false'
+           AND v_schedule_old_value IS DISTINCT FROM 'true' THEN
+          CONTINUE;
+        END IF;
         IF v_schedule_old_value IS DISTINCT FROM v_schedule_new_value THEN
           INSERT INTO public.audit_logs (
             entity_type, entity_id, field_name, old_value, new_value,
@@ -1383,6 +1394,50 @@ BEGIN
         END IF;
       END IF;
     END LOOP;
+  END IF;
+
+  -- O caminho terminalizado já gravou o ATD na mesma transação. Recalcula o
+  -- status da viagem aqui para manter o contrato do save legado sem uma
+  -- segunda chamada sujeita a observar um snapshot parcial.
+  IF v_schedule ? 'atd' THEN
+    WITH pod_entities AS (
+      SELECT DISTINCT al.entity_id
+      FROM public.audit_logs AS al
+      WHERE al.entity_type = 'voyage_pod_schedule'
+        AND split_part(al.entity_id, '::', 1)::BIGINT = p_voyage_id
+    ), latest_atd AS (
+      SELECT DISTINCT ON (al.entity_id) al.entity_id, NULLIF(btrim(al.new_value), '') AS atd
+      FROM public.audit_logs AS al
+      WHERE al.entity_type = 'voyage_pod_schedule'
+        AND al.field_name = 'atd'
+        AND split_part(al.entity_id, '::', 1)::BIGINT = p_voyage_id
+      ORDER BY al.entity_id, al.changed_at DESC, al.id DESC
+    ), latest_omitted AS (
+      SELECT DISTINCT ON (al.entity_id) al.entity_id, al.new_value
+      FROM public.audit_logs AS al
+      WHERE al.entity_type = 'voyage_pod_schedule'
+        AND al.field_name = 'omitted'
+        AND split_part(al.entity_id, '::', 1)::BIGINT = p_voyage_id
+      ORDER BY al.entity_id, al.changed_at DESC, al.id DESC
+    ), active AS (
+      SELECT e.entity_id, a.atd
+      FROM pod_entities AS e
+      LEFT JOIN latest_atd AS a ON a.entity_id = e.entity_id
+      LEFT JOIN latest_omitted AS o ON o.entity_id = e.entity_id
+      WHERE COALESCE(o.new_value, 'false') <> 'true'
+    )
+    SELECT COUNT(*)::INTEGER, COUNT(*) FILTER (WHERE NULLIF(btrim(atd), '') IS NULL)::INTEGER
+    INTO v_active_pods, v_pending_pods
+    FROM active;
+
+    IF v_active_pods > 0 THEN
+      v_new_voyage_status := CASE WHEN v_pending_pods = 0 THEN 'completed' ELSE 'active' END;
+      UPDATE public.voyages
+      SET status = v_new_voyage_status
+      WHERE id = p_voyage_id
+        AND status <> 'cancelled'
+        AND status IS DISTINCT FROM v_new_voyage_status;
+    END IF;
   END IF;
 
   -- A primeira frente cria/reutiliza o ADR do terminal. Um ADR aberto sem
@@ -1837,54 +1892,11 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
-DECLARE
-  v_inserted INTEGER := 0;
-  v_scale RECORD;
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
-    RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
-  END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended('agency_report_alert_detection', 0));
-  FOR v_scale IN
-    SELECT DISTINCT voyage_id, port
-    FROM public.agency_departure_reports
-    WHERE terminal_id IS NOT NULL
-  LOOP
-    PERFORM public.close_legacy_agency_report_alerts_for_scale(v_scale.voyage_id, v_scale.port);
-  END LOOP;
-  WITH latest_atd AS (
-    SELECT DISTINCT ON (entity_type, entity_id) entity_type, entity_id, new_value, changed_at
-    FROM public.audit_logs WHERE entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule') AND field_name = 'atd'
-    ORDER BY entity_type, entity_id, changed_at DESC
-  ), departed AS (
-    SELECT DISTINCT split_part(entity_id, '::', 1)::BIGINT AS voyage_id, upper(trim(split_part(entity_id, '::', 2))) AS port
-    FROM latest_atd
-    WHERE COALESCE(trim(new_value), '') <> '' AND upper(trim(split_part(entity_id, '::', 2))) LIKE 'BR%'
-      AND ((entity_type = 'voyage_pod_schedule' AND changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00')
-        OR (entity_type = 'voyage_pol_schedule' AND changed_at >= (SELECT captured_at FROM public.agency_report_pending_baselines WHERE baseline_key = 'voyage_pol_schedule_atd')))
-  ), sections AS (
-    SELECT unnest(ARRAY['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados']) AS section
-  ), report_targets AS (
-    SELECT d.voyage_id, d.port, r.id AS report_id, r.status, CASE WHEN r.terminal_id IS NULL THEN NULL ELSE terminal.code END AS terminal_code
-    FROM departed AS d
-    LEFT JOIN public.agency_departure_reports AS r ON r.voyage_id = d.voyage_id AND r.port = d.port
-      AND (r.terminal_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM public.agency_departure_reports AS newer WHERE newer.voyage_id = d.voyage_id AND newer.port = d.port AND newer.terminal_id IS NOT NULL))
-    LEFT JOIN public.depots AS terminal ON terminal.id = r.terminal_id
-  ), pending AS (
-    SELECT DISTINCT t.voyage_id, t.port, t.terminal_code, s.section
-    FROM report_targets AS t CROSS JOIN sections AS s
-    LEFT JOIN public.agency_departure_report_signoffs AS so ON so.report_id = t.report_id AND so.section = s.section
-    WHERE COALESCE(t.status, 'open') = 'open' AND COALESCE(so.state, 'pending') = 'pending'
-  ), inserted AS (
-    INSERT INTO public.alerts (type, entity_type, entity_id, message, status)
-    SELECT 'agency_report_section_pending', 'agency_departure_report',
-      public.agency_report_alert_entity_id(p.voyage_id, p.port, p.terminal_code, p.section),
-      'ADR ' || p.port || CASE WHEN p.terminal_code IS NULL THEN '' ELSE ' / ' || p.terminal_code END || ': seção "' || public.agency_report_section_label(p.section) || '" pendente — ' || public.agency_report_department_label(public.agency_report_section_owner(p.section)) || '.', 'open'
-    FROM pending AS p
-    WHERE NOT EXISTS (SELECT 1 FROM public.alerts AS a WHERE a.type = 'agency_report_section_pending' AND a.entity_type = 'agency_departure_report' AND a.entity_id = public.agency_report_alert_entity_id(p.voyage_id, p.port, p.terminal_code, p.section) AND a.status <> 'closed')
-    RETURNING 1
-  ) SELECT COUNT(*) INTO v_inserted FROM inserted;
-  RETURN v_inserted;
+  -- O detector público/canônico é o ponto chamado pelo cliente. Mantê-lo
+  -- como delegação evita que a implementação terminalizada e a histórica
+  -- voltem a divergir em tipos, dedupe e fechamento de alertas.
+  RETURN public.detect_agency_report_department_pending();
 END;
 $function$;
 

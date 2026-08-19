@@ -188,6 +188,27 @@ it('não congela vazios de exportação no ADR que só recebeu vazio de importa�
   })
 })
 
+it('mantém ADR legado fora das RPCs terminalizadas quando há deep-link legado', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [
+        {
+          reportId: 'legacy-report', voyageId: 7, port: 'BRVIX', terminalId: null, terminalCode: null, terminal: null, status: 'open',
+          sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+        },
+        {
+          reportId: 'report-tvv', voyageId: 7, port: 'BRVIX', terminalId: 'tvv', terminalCode: 'TVV', terminal: 'TVV', status: 'open',
+          sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+        },
+      ],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="legacy-report" />)
+
+  expect(useAgencyReportOwnMock.mock.calls.at(-1)?.[2]).toBeNull()
+})
+
 it('a soma das linhas exibidas bate com o "Total da operação" para uma linha legada de armazenagem com percentual não nulo', () => {
   useAgencyReportDerivedMock.mockReturnValue({
     data: {

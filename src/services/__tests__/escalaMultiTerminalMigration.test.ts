@@ -20,7 +20,7 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     )
     expect(sql).toContain('validate_depot_terminal_port')
     expect(sql).toContain('Novo terminal portuario exige porto brasileiro.')
-    expect(sql).toContain('SET has_empty = TRUE')
+    expect(sql).toMatch(/SET has_empty = TRUE[\s\S]+tem_exportacao = TRUE/i)
     expect(sql).toMatch(
       /CREATE TABLE IF NOT EXISTS public\.voyage_escala_terminal_state[\s\S]+terminal_atb TIMESTAMPTZ[\s\S]+terminal_atd TIMESTAMPTZ[\s\S]+terminal_rtw INTEGER[\s\S]+revision INTEGER[\s\S]+UNIQUE \(voyage_id, port, terminal_id\)/i,
     )
@@ -68,6 +68,14 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/close_agency_departure_report_by_report_id[\s\S]+agency_report_section_pending[\s\S]+agency_report_department_pending[\s\S]+agency_report_deadline_missed/i)
     expect(sql).toMatch(/DELETE FROM public\.voyage_escala_terminal_state[\s\S]+v_old_terminal\.terminal_id/i)
     expect(sql).not.toContain("entity_id LIKE p_report_id::TEXT || '::%'")
+  })
+
+  it('mantém o detector canônico no alerta por departamento e sincroniza a escala', () => {
+    const detect = sql.match(/CREATE OR REPLACE FUNCTION public\.detect_agency_report_pending\(\)[\s\S]+?\$function\$;/i)?.[0] ?? ''
+    expect(detect).toContain('detect_agency_report_department_pending()')
+    expect(detect).not.toContain("'agency_report_section_pending'")
+    expect(sql).toMatch(/ARRAY\[[\s\S]+?'ces'[\s\S]+?'deleted'/i)
+    expect(sql).toMatch(/UPDATE public\.voyages\s+SET status = v_new_voyage_status/i)
   })
 
   it('audita expectativa inicial e expõe guarda de fechamento por report_id', () => {

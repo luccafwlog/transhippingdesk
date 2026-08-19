@@ -328,6 +328,21 @@ describe('projectVoyageEscalaSchedules', () => {
     }))
   })
 
+  it('não cria vazios de exportação quando a declaração está desligada', () => {
+    const [escala] = projectVoyageEscalaSchedules({
+      exportSchedulesByPort: new Map([
+        ['BRVIX', {
+          id: 'exp-desligada', voyageId: 12, pol: 'BRVIX', temExportacao: false,
+          hasGranite: false, hasEmpty: true, containersQty: 10, movementsQty: 2,
+          ceStatus: 'waiting', linked: false,
+        }],
+      ]),
+    })
+
+    expect(escala.temExportacao).toBe(false)
+    expect(escala.temVazios).toBe(false)
+  })
+
   it('ordena a projeção de exportações de forma determinística', () => {
     const build = (entries: Array<[string, string]>) => projectVoyageEscalaSchedules({
       exportSchedulesByPort: new Map(entries.map(([port, id]) => [port, {

@@ -382,7 +382,7 @@ export function projectVoyageEscalaSchedules({
     escala.temExportacao = exportSchedule.temExportacao
     escala.exportCeStatus = exportSchedule.ceStatus
     escala.temGranito = escala.temGranito || exportSchedule.hasGranite
-    escala.temVazios = Boolean(escala.temVazios || exportSchedule.hasEmpty)
+    escala.temVazios = Boolean(escala.temVazios || (exportSchedule.temExportacao && exportSchedule.hasEmpty))
     escala.dischargePorts = exportSchedule.dischargePorts ?? []
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty

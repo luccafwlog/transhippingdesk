@@ -42,8 +42,14 @@ export async function preflightDepotsTerminalPortMapping(): Promise<PendingTermi
 
 export async function upsertDepot(input: DepotInput): Promise<void> {
   if (!input.code.trim()) throw new Error('Código do local obrigatório.')
-  const portId = input.tipo === 'terminal_portuario' ? Number(input.port_id) : null
-  if (input.tipo === 'terminal_portuario' && !Number.isInteger(portId)) {
+  const rawPortId = input.port_id
+  const portId = input.tipo === 'terminal_portuario'
+    && typeof rawPortId === 'number'
+    && Number.isInteger(rawPortId)
+    && rawPortId > 0
+    ? rawPortId
+    : null
+  if (input.tipo === 'terminal_portuario' && portId === null) {
     throw new Error('Terminal portuário exige um porto brasileiro.')
   }
   if (input.tipo === 'terminal_portuario' && (input.free_time_vazio_days !== 0 || input.free_time_material_days !== 0)) {
