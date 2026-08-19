@@ -255,11 +255,17 @@ Este é o achado P0-3: os testes atuais fixam um arquivo de migration, então a
   Na reversão, restaurar o POD original antes de chamar o efeito simétrico.
   Nenhuma RPC pode recalcular enquanto `bls.pod` ainda aponta para o destino
   antigo.
+- [ ] **Step 1d:** Na mesma reescrita de `set_bl_transshipment`, inserir
+  `portal_notifications` de correção quando `v_was = 'cod'` — achado P2-11: hoje
+  o cliente recebe "Destino alterado (COD)" e nunca é avisado da reversão. Isto
+  era a Task 8 e foi trazido para cá: separada, ela gastava uma migration
+  inteira para acrescentar um `INSERT` numa função que esta migration acaba de
+  reescrever, e o teste dela já morava neste contrato.
 - [ ] **Step 2:** UI: "Marcar COD" abre diálogo com justificativa obrigatória e
   o aviso de que a ação altera o destino final e notifica o cliente. Hoje
   `BlDetalhe.tsx:203` dispara a mutation direto no clique.
 - [ ] **Step 3:** Run: `npm test -- src/components/bl/__tests__/BlTransshipmentCard.test.tsx` — Expected: PASS.
-- [ ] **Step 4:** Commit: `feat: COD exige confirmacao e justificativa auditada`
+- [ ] **Step 4:** Commit: `feat: COD exige confirmacao e justificativa auditada; reverter COD notifica o cliente`
 
 ### Task 6a: Extrair a resolução de preço de `calculate_bl_local_charges`
 
@@ -321,8 +327,11 @@ migration antes da RPC que a grava; a Task 7 consome sua fila.
   `settled`/`cancelled`), flag de revisão manual e vínculo com o documento
   resultante. Guardar também **quanto já foi pago** no instante do COD: é o que
   separa abatimento de restituição, e ler isso depois, do saldo corrente, daria
-  outro número. Aplicar RLS de leitura por `is_active_user()` e escrita só por
-  RPC.
+  outro número. RLS: leitura por `is_active_user()`; **nenhuma policy de
+  escrita**. Toda escrita entra por RPC `SECURITY DEFINER`, que contorna a RLS
+  como dona — é o padrão do resto do sistema, e evita duas portas para o mesmo
+  dado. Quem pode liquidar é decidido **dentro** da RPC de liquidação
+  (Task 7), não por policy.
 - [ ] **Step 2:** Usar `resolve_bl_local_charge_items(p_bl_id, p_pod)` da Task 6a
   como a prévia. Ela é obrigatória para os ramos faturados: a função de escrita
   é mutável e recusa exatamente esses estados. Não usar regex, `simulate`
@@ -392,18 +401,22 @@ migration antes da RPC que a grava; a Task 7 consome sua fila.
     estornar aquele pagamento apagaria a restituição em silêncio.
   - **Quem liquida.** Criar `public.is_financeiro_user()` — `role IN ('admin',
     'administrativo', 'financeiro')` e `active` —, com `REVOKE`/`GRANT`
-    explícitos (a `297` removeu o `EXECUTE` padrão). Trocar `is_admin()` por ele
-    **somente** nas policies de `INSERT`/`UPDATE` de `invoice_refunds`, nas de
-    escrita de `cod_adjustments` e no gate de `settle_invoice_refund`. Não
-    alargar `is_admin()`: ele aparece em ~60 migrations como porta geral de
+    explícitos (a `297` removeu o `EXECUTE` padrão). Aplicá-lo em dois lugares e
+    só neles: nas policies de `INSERT`/`UPDATE` de `invoice_refunds`, que hoje
+    exigem `is_admin()`, e no gate interno de `settle_invoice_refund` e da RPC
+    de liquidação de `cod_adjustments`. `cod_adjustments` **não** ganha policy
+    de escrita — ela nasce sem, e o gate mora dentro da RPC. Não alargar
+    `is_admin()`: ele aparece em ~60 migrations como porta geral de
     administração, e alargá-lo daria a `financeiro` painel admin, gestão de
     usuários e provisionamento do Portal de uma vez. A leitura já está aberta a
     qualquer usuário ativo desde a `291` — o buraco é só na escrita.
 - [ ] **Step 2c:** Teste de contrato da `313`: `financeiro` liquida uma
-  restituição e escreve em `cod_adjustments`; `operacoes` e `equipamentos` são
-  recusados com `42501`; `anon` sem `EXECUTE`; crédito com as duas origens
-  preenchidas viola o `CHECK`; crédito com nenhuma também; estorno de pagamento
-  não apaga restituição de origem COD.
+  restituição e um `cod_adjustments` pela RPC; `operacoes` e `equipamentos` são
+  recusados com `42501`; `anon` sem `EXECUTE`; `UPDATE` direto em
+  `cod_adjustments` por `authenticated` falha por ausência de policy, inclusive
+  para `financeiro` — a porta é a RPC; crédito com as duas origens preenchidas
+  viola o `CHECK`; crédito com nenhuma também; estorno de pagamento não apaga
+  restituição de origem COD.
 - [ ] **Step 2d:** Espelhar o gate no front. Hoje o `switch` de
   `roleHasPermission` (`src/hooks/useAuth.tsx:24-32`) devolve `false` para
   `financeiro` em toda permissão, então a ação de liquidar ficaria visível e
@@ -425,20 +438,6 @@ migration antes da RPC que a grava; a Task 7 consome sua fila.
   `Faturamento.tsx` não existe mais, então nenhum link novo aponta para lá.
 - [ ] **Step 6:** Run: `npm test -- src/services/__tests__/codAdjustmentsMigration.test.ts` — Expected: PASS.
 - [ ] **Step 7:** Commit: `feat: Ajuste de COD com fatura complementar e restituicao (ADR 0051)`
-
-### Task 8: Notificação de correção ao reverter COD
-
-**Files:**
-- Create: `supabase/migrations/314_revert_cod_notification.sql`
-- Test: cobrir no teste de contrato da Task 5
-
-- [ ] **Step 1:** `set_bl_transshipment` passa a inserir `portal_notifications`
-  de correção quando `v_was = 'cod'`. Hoje o cliente recebe "Destino alterado
-  (COD)" e nunca é avisado da reversão (achado P2-11). Editar a definição viva
-  pós-`295`, validar `p_changed_by = auth.uid()` e repetir os grants explícitos
-  da Task 5; não reintroduzir `can_edit_voyages()` a partir da `215`.
-- [ ] **Step 2:** Run — Expected: PASS.
-- [ ] **Step 3:** Commit: `fix: reverter COD notifica o cliente da correcao`
 
 ---
 
@@ -506,7 +505,7 @@ intenção. Ler `src/services/lineup.ts` antes de mexer.
 ### Task 10b: Escala omitida aparece como `OMIT` na programação
 
 **Files:**
-- Create: `supabase/migrations/315_ship_schedule_shows_omitted.sql`
+- Create: `supabase/migrations/314_ship_schedule_shows_omitted.sql`
 - Modify: `src/pages/ChegadasSaidas.tsx`, `src/components/portal/ShipScheduleWidget.tsx`, `src/services/portalScheduleVoyages.ts`
 - Test: `src/services/__tests__/portalShipScheduleOmitted.test.ts`, `src/services/__tests__/portalScheduleVoyages.test.ts`, `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx`, `src/components/portal/__tests__/ShipScheduleWidget.test.tsx`
 
@@ -557,7 +556,7 @@ Portal — muda o fato, não a justificativa.
 **Files:**
 - Modify: `src/pages/PortalOperacao.tsx`
 - Modify: `src/services/portalOperation.ts`
-- Create: `supabase/migrations/316_portal_operation_hide_omission_reason.sql`
+- Create: `supabase/migrations/315_portal_operation_hide_omission_reason.sql`
 - Test: `src/pages/__tests__/PortalOperacao.test.tsx`
 - Test: `src/services/__tests__/portalOperation.test.ts`
 
@@ -571,7 +570,7 @@ Portal — muda o fato, não a justificativa.
 - [ ] **Step 2:** Implementar em `PortalOperacao.tsx:479`, que hoje recebe
   `disposition` e a ignora. Reusar o helper de data já usado em
   `TransshipmentInfoCard` em vez de imprimir o `TIMESTAMPTZ` cru.
-- [ ] **Step 3:** Criar a migration `316` para remover `reason` da projeção
+- [ ] **Step 3:** Criar a migration `315` para remover `reason` da projeção
   server-side de `portal_list_operation_bls`; atualizar
   `PortalOperationTransshipment` e o normalizador em `src/services/portalOperation.ts`
   para que o contrato não preserve esse campo. Revogar/reconceder os grants da
@@ -589,7 +588,7 @@ Portal — muda o fato, não a justificativa.
 **Files:**
 - Modify: `src/components/voyages/VoyageCard.tsx`, `src/components/voyages/TransshipmentPanel.tsx`
 - Modify: `src/hooks/useBlCockpit.ts`, `src/services/transshipments.ts`
-- Create: `supabase/migrations/317_drop_dead_bl_transshipment_columns.sql`
+- Create: `supabase/migrations/316_drop_dead_bl_transshipment_columns.sql`
 
 - [ ] **Step 1:** Unificar os dois cards concorrentes. `TransshipmentInfoCard`
   (aba Visão) e `TransshipmentPanel` (fora das abas) exibem o mesmo registro
