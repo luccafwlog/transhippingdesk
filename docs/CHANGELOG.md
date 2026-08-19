@@ -11,7 +11,10 @@
   gravação terminalizada de datas do POD ficou atômica com a RPC da escala;
   caches, deep-links, auditoria por código/departamento e queries chunked foram
   alinhados. A migration 306 recupera a declaração legada de vazios sem
-  substituir a decisão explícita futura. Plano arquivado em
+  substituir a decisão explícita futura; a rodada seguinte terminaliza as
+  chaves dos alertas, evita fan-out entre ADRs, fecha sign-offs por terminal,
+  filtra `vazio` por sentido no snapshot e remove estados órfãos. Plano
+  arquivado em
   `docs/archive/plans/2026-08-18-pr-550-review-fixes.md`.
 - **Financeiro segregado por processo faturável:** `/taxas-locais` passa a ser
   a operação de Taxas Locais, `/taxas-locais/tabelas` concentra tabelas e

@@ -38,5 +38,10 @@ follow-ups restantes da rodada anterior.
 
 Os testes focados cobrem o snapshot por sentido/modalidade, a remoção de estado
 órfão no payload, a captura de revisão e o contrato da migration 306. Os gates
-completos e a resolução do conflito com `origin/main` ficam registrados na
-verificação final desta mesma branch.
+completos passaram após o merge com `origin/main`: `npm test -- --run
+--maxWorkers=1` (427 arquivos e 2.047 testes passando; 3 arquivos e 16 testes
+pulados), `npm run typecheck`, `npm run lint`, `npm run docs:check`,
+`npm run size-limit` (175,13 kB brotliados / limite 250 kB) e `npm run build`.
+O Postgres descartável não pôde ser reaplicado nesta máquina porque WSL e o
+daemon Docker estão indisponíveis; a migration ficou coberta pelo contrato
+automatizado de SQL, sem alegar validação remota.
