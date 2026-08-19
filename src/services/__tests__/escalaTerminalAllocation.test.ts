@@ -53,6 +53,7 @@ describe('escalaTerminalAllocation', () => {
       query.select = () => query
       query.eq = () => query
       query.in = () => query
+      query.order = () => query
       query.range = (_from: number, to: number) => {
         query.page = to >= 1000 ? 1000 : 0
         return query
@@ -203,8 +204,10 @@ describe('escalaTerminalAllocation', () => {
     expect(rpcMock.mock.calls[0][1].p_export_expectation).not.toBeNull()
     expect(invalidateQueries).toHaveBeenCalled()
     expect(invalidateQueries.mock.calls.map(([input]) => input.queryKey[0])).toEqual(expect.arrayContaining([
-      'voyage-escala-terminal', 'voyage-escala-schedules', 'voyage-timeline', 'agency-report', 'lineup-tv-v3', 'painel', 'tv',
+      'voyage-escala-schedules', 'voyage-timeline', 'agency-report', 'lineup-tv-v3', 'painel', 'tv',
     ]))
+    expect(invalidateQueries.mock.calls).toContainEqual([{ queryKey: ['voyage-escala-schedules'] }])
+    expect(invalidateQueries.mock.calls).toContainEqual([{ queryKey: ['voyage-timeline', '9', null] }])
   })
 })
 

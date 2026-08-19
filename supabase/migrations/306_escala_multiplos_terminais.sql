@@ -550,6 +550,7 @@ DECLARE
   v_old_export_discharge_ports TEXT[] := '{}'::TEXT[];
   v_old_export_ce_status TEXT;
   v_old_export_linked BOOLEAN := FALSE;
+  v_export_existing_id UUID;
   v_export_granite BOOLEAN := FALSE;
   v_export_empty BOOLEAN := FALSE;
   v_export_declared BOOLEAN := FALSE;
@@ -617,6 +618,15 @@ BEGIN
     RAISE EXCEPTION 'Viagem nao encontrada.' USING ERRCODE = 'P0002';
   END IF;
 
+  IF v_port !~ '^BR[A-Z0-9]{3}$' THEN
+    RAISE EXCEPTION 'LOCODE brasileiro invalido: %.', v_port USING ERRCODE = '22023';
+  END IF;
+
+  -- ports é a referência FK usada pela escala, não uma lista fechada de lanes.
+  -- O seed 307 dá nomes aos portos conhecidos; um LOCODE brasileiro válido
+  -- informado pela operação também precisa poder criar a primeira escala.
+  -- O lock por código evita duas primeiras escritas criarem linhas duplicadas.
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_port, 0));
   SELECT p.id INTO v_port_id
   FROM public.ports AS p
   WHERE upper(btrim(p.locode)) = v_port
@@ -624,7 +634,9 @@ BEGIN
   ORDER BY p.id
   LIMIT 1;
   IF v_port_id IS NULL THEN
-    RAISE EXCEPTION 'Porto brasileiro % nao encontrado.', v_port USING ERRCODE = 'P0002';
+    INSERT INTO public.ports (name, locode, country)
+    VALUES (v_port, v_port, 'Brasil')
+    RETURNING id INTO v_port_id;
   END IF;
 
   SELECT rs.revision
@@ -816,6 +828,9 @@ BEGIN
     END IF;
   END LOOP;
 
+  IF COALESCE(p_export_expectation->>'existing_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+    v_export_existing_id := (p_export_expectation->>'existing_id')::UUID;
+  END IF;
   SELECT COALESCE(ves.tem_exportacao, FALSE), COALESCE(ves.has_granite, FALSE), COALESCE(ves.has_empty, FALSE),
          ves.containers_qty, ves.movements_qty, COALESCE(ves.discharge_ports, '{}'::TEXT[]),
          ves.ce_status, COALESCE(ves.linked, FALSE)
@@ -823,8 +838,19 @@ BEGIN
        v_old_export_containers_qty, v_old_export_movements_qty, v_old_export_discharge_ports,
        v_old_export_ce_status, v_old_export_linked
   FROM public.voyage_export_schedules AS ves
-  WHERE ves.voyage_id = p_voyage_id AND ves.pol = v_port
+  WHERE ves.id = v_export_existing_id AND ves.voyage_id = p_voyage_id
   FOR UPDATE;
+  IF NOT FOUND THEN
+    SELECT COALESCE(ves.tem_exportacao, FALSE), COALESCE(ves.has_granite, FALSE), COALESCE(ves.has_empty, FALSE),
+           ves.containers_qty, ves.movements_qty, COALESCE(ves.discharge_ports, '{}'::TEXT[]),
+           ves.ce_status, COALESCE(ves.linked, FALSE)
+    INTO v_old_export_declared, v_old_export_granite, v_old_export_empty,
+         v_old_export_containers_qty, v_old_export_movements_qty, v_old_export_discharge_ports,
+         v_old_export_ce_status, v_old_export_linked
+    FROM public.voyage_export_schedules AS ves
+    WHERE ves.voyage_id = p_voyage_id AND ves.pol = v_port
+    FOR UPDATE;
+  END IF;
   v_old_export_exists := FOUND;
   IF COALESCE(p_export_expectation, '{}'::JSONB) ? 'granito' THEN
     v_export_granite := COALESCE((p_export_expectation->>'granito')::BOOLEAN, FALSE);
@@ -1329,25 +1355,40 @@ BEGIN
         auth.uid(), clock_timestamp(), p_justification, v_role, v_department
       );
     END IF;
-    INSERT INTO public.voyage_export_schedules (
-      voyage_id, pol, tem_exportacao, has_granite, has_empty,
-      containers_qty, movements_qty, discharge_ports, ce_status, linked, updated_at
-    )
-    VALUES (
-      p_voyage_id, v_port, v_export_declared, v_export_granite, v_export_empty,
-      v_export_containers_qty, v_export_movements_qty, v_export_discharge_ports,
-      v_export_ce_status, v_export_linked, now()
-    )
-    ON CONFLICT (voyage_id, pol) DO UPDATE SET
-      tem_exportacao = EXCLUDED.tem_exportacao,
-      has_granite = EXCLUDED.has_granite,
-      has_empty = EXCLUDED.has_empty,
-      containers_qty = EXCLUDED.containers_qty,
-      movements_qty = EXCLUDED.movements_qty,
-      discharge_ports = EXCLUDED.discharge_ports,
-      ce_status = EXCLUDED.ce_status,
-      linked = EXCLUDED.linked,
-      updated_at = now();
+    IF v_export_existing_id IS NOT NULL AND v_old_export_exists THEN
+      UPDATE public.voyage_export_schedules
+      SET pol = v_port,
+          tem_exportacao = v_export_declared,
+          has_granite = v_export_granite,
+          has_empty = v_export_empty,
+          containers_qty = v_export_containers_qty,
+          movements_qty = v_export_movements_qty,
+          discharge_ports = v_export_discharge_ports,
+          ce_status = v_export_ce_status,
+          linked = v_export_linked,
+          updated_at = now()
+      WHERE id = v_export_existing_id AND voyage_id = p_voyage_id;
+    ELSE
+      INSERT INTO public.voyage_export_schedules (
+        voyage_id, pol, tem_exportacao, has_granite, has_empty,
+        containers_qty, movements_qty, discharge_ports, ce_status, linked, updated_at
+      )
+      VALUES (
+        p_voyage_id, v_port, v_export_declared, v_export_granite, v_export_empty,
+        v_export_containers_qty, v_export_movements_qty, v_export_discharge_ports,
+        v_export_ce_status, v_export_linked, now()
+      )
+      ON CONFLICT (voyage_id, pol) DO UPDATE SET
+        tem_exportacao = EXCLUDED.tem_exportacao,
+        has_granite = EXCLUDED.has_granite,
+        has_empty = EXCLUDED.has_empty,
+        containers_qty = EXCLUDED.containers_qty,
+        movements_qty = EXCLUDED.movements_qty,
+        discharge_ports = EXCLUDED.discharge_ports,
+        ce_status = EXCLUDED.ce_status,
+        linked = EXCLUDED.linked,
+        updated_at = now();
+    END IF;
   END IF;
 
   -- O editor terminalizado envia também o snapshot dos campos do POD. Como

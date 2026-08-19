@@ -243,6 +243,10 @@ export async function saveVoyageExportScheduleTransactional(
     discharge_ports: normalizeDischargePorts(input.dischargePorts),
     ce_status: input.ceStatus,
     linked: input.linked,
+    // A RPC terminalizada também precisa reutilizar a linha legada que o
+    // editor abriu; sem esse identificador, um POL histórico não canônico
+    // gera uma segunda linha ao fazer upsert pelo POL normalizado.
+    existing_id: input.existingId ?? null,
   } satisfies Json
 
   const { data, error } = await supabase.rpc('save_voyage_escala_terminal_state', {

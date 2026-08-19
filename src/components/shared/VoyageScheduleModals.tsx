@@ -21,7 +21,11 @@ import type {
 } from '../../services/escalaTerminalAllocation'
 
 // Portos brasileiros de escala, na ordem em que a operação os lê.
-const ESCALA_PORT_SUGGESTIONS = ['BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'BRIGI', 'BRNVT'] as const
+const ESCALA_PORT_SUGGESTIONS = [
+  'BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'BRIGI', 'BRNVT',
+  'BRPNG', 'BRRIG', 'BRRIO', 'BRITJ', 'BRMCZ', 'BRFOR', 'BRBEL', 'BRREC',
+  'BRNAT', 'BRSLZ', 'BRMAO', 'BRSFS', 'BRIOS',
+] as const
 
 export type EscalaExportPayload = {
   temExportacao: boolean
@@ -252,6 +256,16 @@ function sameDraft(left: Record<string, unknown>, right: Record<string, unknown>
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
 }
 
+function sameExportExpectation(left: Record<string, unknown>, right: Record<string, unknown>) {
+  const normalize = (value: Record<string, unknown>) => ({
+    ...value,
+    discharge_ports: Array.isArray(value.discharge_ports)
+      ? value.discharge_ports.map(String).map((port) => port.trim().toUpperCase()).sort()
+      : [],
+  })
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
+}
+
 function isRevisionConflictError(error: unknown) {
   const value = error as { code?: string; message?: string } | null
   return value?.code === 'ESCALA_REVISION_CONFLICT'
@@ -271,17 +285,17 @@ function buildTerminalPayload({
   terminalFronts,
   terminalDates,
   terminalStateChanged,
-  hasPriorTerminalAssignment,
   justification,
   exportExpectation,
+  initialExportExpectation,
 }: {
   terminalScale: EscalaModalTerminalScale | null
   terminalFronts: Record<string, string>
   terminalDates: Record<string, { atb: string; atd: string; restow: string }>
   terminalStateChanged: boolean
-  hasPriorTerminalAssignment: boolean
   justification: string
   exportExpectation: Record<string, unknown>
+  initialExportExpectation: Record<string, unknown>
 }): { value?: EscalaModalPayload['terminalState']; error?: string } {
   if (!terminalScale) return {}
   if (terminalScale.loading) return { error: 'Aguarde o carregamento das frentes e terminais antes de salvar a escala.' }
@@ -312,9 +326,9 @@ function buildTerminalPayload({
   const terminals: NonNullable<EscalaModalPayload['terminalState']>['terminals'] = []
   for (const terminalId of terminalIds) {
     const draft = terminalDates[terminalId] ?? { atb: '', atd: '', restow: '' }
-    if (draft.atb && draft.atd && draft.atd < draft.atb) {
+    if (draft.atd && (!draft.atb || draft.atd < draft.atb)) {
       const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
-      return { error: `ATD não pode ser anterior ao ATB do terminal ${code}.` }
+      return { error: `Informe o ATB antes do ATD do terminal ${code}; o ATD não pode ser anterior ao ATB.` }
     }
     const restow = draft.restow.trim() ? Number(draft.restow) : null
     if (restow !== null && (!Number.isInteger(restow) || restow < 0)) {
@@ -323,8 +337,24 @@ function buildTerminalPayload({
     terminals.push({ terminalId, atb: draft.atb || null, atd: draft.atd || null, restow })
   }
 
-  if (terminalStateChanged && hasPriorTerminalAssignment && !justification.trim()) {
-    return { error: 'Informe a justificativa para alterar uma escala já atribuída a terminal.' }
+  const submittedFronts = fronts
+    .map((front) => `${front.sentido}:${front.modalidade}:${front.terminalId ?? ''}:${front.source}`)
+    .sort()
+  const persistedFronts = terminalScale.fronts
+    .map((front) => `${front.sentido}:${front.modalidade}:${front.terminalId ?? ''}:${front.source}`)
+    .sort()
+  const submittedTerminals = terminals
+    .map((terminal) => `${terminal.terminalId}:${terminal.atb ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`)
+    .sort()
+  const persistedTerminals = terminalScale.terminals
+    .map((terminal) => `${terminal.terminalId}:${terminal.atb ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`)
+    .sort()
+  const terminalizedStateChanged = terminalStateChanged
+    || JSON.stringify(submittedFronts) !== JSON.stringify(persistedFronts)
+    || JSON.stringify(submittedTerminals) !== JSON.stringify(persistedTerminals)
+  const exportExpectationChanged = !sameExportExpectation(exportExpectation, initialExportExpectation)
+  if (terminalScale.revision > 0 && (terminalizedStateChanged || exportExpectationChanged) && !justification.trim()) {
+    return { error: 'Informe a justificativa para alterar o estado terminalizado existente da escala.' }
   }
 
   return {
@@ -611,7 +641,6 @@ export function EscalaModal({
   const hasPriorTerminalAssignment = Boolean(
     terminalScale?.fronts.some((front) => front.terminalId !== null) || terminalScale?.terminals.length,
   )
-
   async function handleToggleExportacao(next: boolean) {
     if (!next && escala?.exportLocked) return
     if (!next) {
@@ -624,6 +653,13 @@ export function EscalaModal({
       if (!confirmed) return
     }
     setTemExportacao(next)
+    if (!next) {
+      setHasGranite(false)
+      setHasEmpty(false)
+      setContainersQty('')
+      setMovementsQty('')
+      setDischargePorts('')
+    }
     setExportError(null)
   }
 
@@ -703,7 +739,6 @@ export function EscalaModal({
       terminalFronts,
       terminalDates,
       terminalStateChanged,
-      hasPriorTerminalAssignment,
       justification,
       exportExpectation: {
         tem_exportacao: temExportacao,
@@ -715,6 +750,17 @@ export function EscalaModal({
         discharge_ports: temExportacao ? normalizeDischargePorts(dischargePorts.split(/[,;/\s]+/)) : [],
         ce_status: ceStatus,
         linked: linked === 'true',
+      },
+      initialExportExpectation: {
+        tem_exportacao: escala.temExportacao,
+        granito: escala.hasGranite,
+        vazios: escala.hasEmpty,
+        has_empty: escala.hasEmpty,
+        containers_qty: escala.containersQty,
+        movements_qty: escala.movementsQty,
+        discharge_ports: escala.dischargePorts,
+        ce_status: getEditableVoyagePodCeStatus(escala.ceStatus),
+        linked: Boolean(escala.linked),
       },
     })
     if (terminalPayload.error) {

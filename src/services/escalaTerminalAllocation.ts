@@ -128,6 +128,7 @@ type SupabaseTable = {
   select: (columns?: string) => SupabaseTable
   eq: (column: string, value: unknown) => SupabaseTable
   in: (column: string, values: unknown[]) => SupabaseTable
+  order: (column: string, options?: { ascending?: boolean }) => SupabaseTable
   range: (from: number, to: number) => SupabaseTable
   maybeSingle: () => Promise<QueryResult>
   then: Promise<QueryResult>['then']
@@ -356,7 +357,7 @@ export async function fetchEscalaTerminalState(voyageId: number, port: string): 
   const operationalScale = schedules.get(voyageId)?.find((schedule) => normalizePort(schedule.port) === normalizedPort)
   if (operationalScale?.temImportacao) importKinds.add('carga_cheia')
   const bls = await fetchAllRows<JsonRecord>((from, to) =>
-    table('bls').select('cargo_mode, pod').eq('voyage_id', voyageId).in('pod', portCodeVariants(normalizedPort)).range(from, to),
+    table('bls').select('id, cargo_mode, pod').eq('voyage_id', voyageId).in('pod', portCodeVariants(normalizedPort)).order('id', { ascending: true }).range(from, to),
   )
   if (bls.error) throw bls.error
   for (const row of bls.data) {
@@ -369,6 +370,7 @@ export async function fetchEscalaTerminalState(voyageId: number, port: string): 
       .select('pod, manifest:vazios_importacao_manifests!inner(voyage_id)')
       .eq('manifest.voyage_id', voyageId)
       .in('pod', portCodeVariants(normalizedPort))
+      .order('id', { ascending: true })
       .range(from, to),
   )
   if (emptyImports.error) throw emptyImports.error
@@ -434,8 +436,7 @@ export async function fetchEscalaTerminalRevision(voyageId: number, port: string
 
 export function invalidateEscalaTerminalQueries(queryClient: Pick<QueryClient, 'invalidateQueries'>, voyageId: number, port: string) {
   const normalizedPort = normalizePort(port)
-  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaTerminal(voyageId, normalizedPort) })
-  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaSchedules([voyageId]) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.escalaSchedules() })
   void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.timeline(voyageId, normalizedPort) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.voyages.timeline(voyageId) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.agencyReports.byScale(voyageId, normalizedPort) })

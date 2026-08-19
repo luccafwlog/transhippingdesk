@@ -60,13 +60,15 @@ export const queryKeys = {
     billingStatus: (voyageIds: number[]) => ['voyage-billing-status', voyageIds] as const,
     polSchedules: (entityIds: string[]) => ['voyage-pol-schedules', entityIds] as const,
     podSchedules: (voyageIds: number[]) => ['voyage-pod-schedules', voyageIds] as const,
-    escalaSchedules: (voyageIds: number[]) => ['voyage-escala-schedules', voyageIds] as const,
+    escalaSchedules: (voyageIds?: number[]) => voyageIds === undefined
+      ? (['voyage-escala-schedules'] as const)
+      : (['voyage-escala-schedules', voyageIds] as const),
     routeCeMasters: (voyageIds: number[]) => ['voyage-route-ce-masters', voyageIds] as const,
     exportSchedules: (voyageIds: number[]) => ['voyage-export-schedules', voyageIds] as const,
     vaziosExportPorts: (voyageId: number) => ['voyage-vazios-export-ports', voyageId] as const,
     escalaTerminal: (voyageId: number, port: string) => ['voyage-escala-terminal', voyageId, port] as const,
     escalaTerminalAll: () => ['voyage-escala-terminal'] as const,
-    timeline: (voyageId: number, port?: string) => ['voyage-timeline', voyageId, port ?? null] as const,
+    timeline: (voyageId: number, port?: string) => ['voyage-timeline', String(voyageId), port ?? null] as const,
   },
   agencyReports: {
     all: () => ['agency-report'] as const,

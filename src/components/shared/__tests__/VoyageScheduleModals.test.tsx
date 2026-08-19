@@ -407,6 +407,26 @@ describe('EscalaModal', () => {
     expect(onSaved).not.toHaveBeenCalled()
   })
 
+  it('exige justificativa para alterar expectativa em escala já revisionada mesmo sem terminal atribuído', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      terminalScale: {
+        ...terminalScaleBase,
+        revision: 1,
+        fronts: terminalScaleBase.fronts.map((front) => ({ ...front, terminalId: null })),
+        terminals: [],
+      },
+    })
+
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByLabelText('Terá embarque de granito'))
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('justificativa')
+  })
+
   it('edita quatro frentes em dois terminais, mantém TBC e envia datas sem placeholder', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala(terminalEscala())
@@ -485,6 +505,17 @@ describe('EscalaModal', () => {
     await user.clear(atd)
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
     expect(onSaved).toHaveBeenCalled()
+  })
+
+  it('rejeita ATD sem ATB com mensagem de preenchimento', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala(terminalEscala())
+    const atd = screen.getByLabelText('ATD T-SUL')
+    await user.type(atd, '2026-03-03')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('Informe o ATB')
   })
 
   it('preserva a edição no conflito de revisão e bloqueia ADR fechado com ação de reabertura', async () => {

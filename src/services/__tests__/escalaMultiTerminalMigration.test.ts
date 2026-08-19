@@ -86,10 +86,13 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
 
   it('entrega o catálogo mínimo de portos brasileiros antes das RPCs da escala', () => {
     expect(portsSeedSql).toContain("INSERT INTO public.ports (name, locode, country)")
-    for (const locode of ['BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'BRIGI', 'BRNVT', 'BRPNG', 'BRRIG', 'BRRIO']) {
+    for (const locode of ['BRVIX', 'BRSSA', 'BRPEC', 'BRSUA', 'BRSSZ', 'BRIGI', 'BRNVT', 'BRPNG', 'BRRIG', 'BRRIO', 'BRITJ', 'BRMCZ', 'BRFOR']) {
       expect(portsSeedSql).toContain(`'${locode}'`)
     }
     expect(portsSeedSql).toContain('upper(btrim(existing.locode)) = seed.locode')
+    expect(sql).toContain("IF v_port !~ '^BR[A-Z0-9]{3}$' THEN")
+    expect(sql).toContain("INSERT INTO public.ports (name, locode, country)")
+    expect(sql).toContain('pg_advisory_xact_lock(hashtextextended(v_port, 0))')
   })
 
   it('separa nomes por report_id e restringe o caminho legado ao ADR legado', () => {
@@ -178,6 +181,8 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
       /CREATE OR REPLACE FUNCTION public\.save_voyage_escala_terminal_state\(\s*p_voyage_id BIGINT,\s*p_port TEXT,\s*p_expected_revision INTEGER,\s*p_fronts JSONB,\s*p_terminals JSONB,\s*p_export_expectation JSONB,\s*p_justification TEXT\s*\)/i,
     )
     expect(sql).toContain('SECURITY DEFINER')
+    expect(sql).toContain("p_export_expectation->>'existing_id'")
+    expect(sql).toMatch(/UPDATE public\.voyage_export_schedules[\s\S]+SET pol = v_port[\s\S]+WHERE id = v_export_existing_id/i)
     expect(sql).toContain('SET search_path = public, pg_temp')
     expect(sql).toMatch(/FROM public\.voyages[\s\S]+FOR UPDATE/i)
     expect(sql).toContain('REVISAO_OBSOLETA')

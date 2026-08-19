@@ -88,6 +88,7 @@ describe('saveVoyageExportScheduleTransactional', () => {
         discharge_ports: ['NLRTM'],
         ce_status: 'waiting',
         linked: false,
+        existing_id: 'export-1',
       },
     }))
     const payload = rpcMock.mock.calls[0][1] as { p_fronts: Array<Record<string, unknown>> }

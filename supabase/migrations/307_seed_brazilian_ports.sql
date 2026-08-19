@@ -29,7 +29,17 @@ WITH seed(name, locode) AS (
     ('Navegantes', 'BRNVT'),
     ('Paranaguá', 'BRPNG'),
     ('Rio Grande', 'BRRIG'),
-    ('Rio de Janeiro', 'BRRIO')
+    ('Rio de Janeiro', 'BRRIO'),
+    ('Itajaí', 'BRITJ'),
+    ('Maceió', 'BRMCZ'),
+    ('Fortaleza', 'BRFOR'),
+    ('Belém', 'BRBEL'),
+    ('Recife', 'BRREC'),
+    ('Natal', 'BRNAT'),
+    ('São Luís', 'BRSLZ'),
+    ('Manaus', 'BRMAO'),
+    ('São Francisco do Sul', 'BRSFS'),
+    ('Ilhéus', 'BRIOS')
 )
 INSERT INTO public.ports (name, locode, country)
 SELECT seed.name, seed.locode, 'Brasil'
