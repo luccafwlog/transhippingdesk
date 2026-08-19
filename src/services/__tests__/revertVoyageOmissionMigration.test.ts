@@ -118,6 +118,12 @@ describe('contrato da reversão de omissão de escala', () => {
       expect(functionBody(migration309, functionName)).toMatch(/FOR UPDATE OF o/i)
     }
 
+    const transshipmentBody = functionBody(migration309, 'set_bl_transshipment')
+    expect(transshipmentBody).toMatch(/onward_vessel_name\s*=\s*NULLIF\(btrim\(COALESCE\(p_onward_vessel_name, ''\)\), ''\)/i)
+    expect(transshipmentBody).toMatch(/onward_carrier\s*=\s*NULLIF\(btrim\(COALESCE\(p_onward_carrier, ''\)\), ''\)/i)
+    expect(transshipmentBody).toMatch(/onward_voyage_number\s*=\s*NULLIF\(btrim\(COALESCE\(p_onward_voyage_number, ''\)\), ''\)/i)
+    expect(transshipmentBody).toMatch(/onward_etd\s*=\s*p_onward_etd/i)
+    expect(transshipmentBody).toMatch(/onward_eta\s*=\s*p_onward_eta/i)
     expect(functionBody(migration309, 'set_bl_cod')).not.toMatch(/can_edit_voyages/i)
     expect(functionBody(migration309, 'set_bl_transshipment')).not.toMatch(/can_edit_voyages/i)
   })
@@ -203,11 +209,32 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
       expect(psql(`SELECT has_function_privilege('anon', '${signature}'::regprocedure, 'EXECUTE');`)).toBe('f')
     }
 
+    const initialTransshipment = callAsAuthenticated(
+      adminId,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Inicial', 'Carrier Inicial', 'VY-INITIAL', '2026-08-20T10:00:00Z', '2026-08-21T10:00:00Z', '${adminId}')`,
+    )
+    expect(initialTransshipment.status).toBe(0)
+    expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('transshipment')
+    expect(psql(`
+      SELECT onward_vessel_name || '|' || onward_carrier || '|' || onward_voyage_number || '|' ||
+        to_char(onward_etd AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || '|' ||
+        to_char(onward_eta AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI')
+      FROM public.bl_transshipments
+      WHERE bl_id = '${blId}' AND omission_id = ${omissionId};
+    `)).toBe('Navio Inicial|Carrier Inicial|VY-INITIAL|2026-08-20 10:00|2026-08-21 10:00')
+
     const cod = callAsAuthenticated(adminId, `SELECT public.set_bl_cod('${blId}', ${omissionId}, '${adminId}')`)
     expect(cod.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('cod')
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}'`)).toBe('BRSSA')
     expect(psql(`SELECT count(*) FROM public.portal_notifications WHERE bl_id = '${blId}' AND title = 'Destino alterado (COD)'`)).toBe('1')
+    expect(psql(`
+      SELECT count(*)
+      FROM public.bl_transshipments
+      WHERE bl_id = '${blId}' AND omission_id = ${omissionId}
+        AND onward_vessel_name IS NULL AND onward_carrier IS NULL
+        AND onward_voyage_number IS NULL AND onward_etd IS NULL AND onward_eta IS NULL;
+    `)).toBe('1')
 
     const blocked = callAsAuthenticated(
       adminId,
@@ -219,11 +246,18 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
 
     const transshipment = callAsAuthenticated(
       adminId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, NULL, NULL, NULL, NULL, NULL, '${adminId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Restaurado', 'Carrier Restaurado', 'VY-RESTORED', '2026-08-22T10:00:00Z', '2026-08-23T10:00:00Z', '${adminId}')`,
     )
     expect(transshipment.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('transshipment')
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}'`)).toBe('BRVIX')
+    expect(psql(`
+      SELECT onward_vessel_name || '|' || onward_carrier || '|' || onward_voyage_number || '|' ||
+        to_char(onward_etd AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || '|' ||
+        to_char(onward_eta AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI')
+      FROM public.bl_transshipments
+      WHERE bl_id = '${blId}' AND omission_id = ${omissionId};
+    `)).toBe('Navio Restaurado|Carrier Restaurado|VY-RESTORED|2026-08-22 10:00|2026-08-23 10:00')
 
     const invariantBefore = psql(`
       SELECT

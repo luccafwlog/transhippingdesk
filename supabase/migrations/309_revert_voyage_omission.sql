@@ -227,6 +227,11 @@ BEGIN
   UPDATE public.bl_transshipments
   SET
     disposition = 'transshipment',
+    onward_vessel_name = NULLIF(btrim(COALESCE(p_onward_vessel_name, '')), ''),
+    onward_carrier = NULLIF(btrim(COALESCE(p_onward_carrier, '')), ''),
+    onward_voyage_number = NULLIF(btrim(COALESCE(p_onward_voyage_number, '')), ''),
+    onward_etd = p_onward_etd,
+    onward_eta = p_onward_eta,
     updated_at = now()
   WHERE bl_id = p_bl_id AND omission_id = p_omission_id;
 
