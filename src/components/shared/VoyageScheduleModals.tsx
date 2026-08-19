@@ -298,8 +298,12 @@ function buildTerminalPayload({
     }
   }
 
-  const terminalIds = new Set<string>(terminalScale.terminals.map((terminal) => terminal.terminalId))
-  for (const terminalId of Object.values(terminalFronts)) if (terminalId) terminalIds.add(terminalId)
+  // O payload representa o estado atual das frentes. Manter todos os IDs que
+  // vieram do state anterior deixava terminais sem frente persistidos depois
+  // de uma realocação completa.
+  const terminalIds = new Set<string>(
+    fronts.flatMap((front) => front.terminalId ? [front.terminalId] : []),
+  )
   const terminals: NonNullable<EscalaModalPayload['terminalState']>['terminals'] = []
   for (const terminalId of terminalIds) {
     const draft = terminalDates[terminalId] ?? { atb: '', atd: '', restow: '' }

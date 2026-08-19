@@ -53,10 +53,21 @@ describe('contrato SQL da escala com múltiplos terminais', () => {
     expect(sql).toMatch(/agency_departure_report_signoffs[\s\S]+agency_departure_report_department_signoffs[\s\S]+agency_departure_report_occurrences/i)
     expect(sql).toContain('FROM public.alerts AS a')
     expect(sql).toContain("a.entity_type = 'agency_departure_report'")
-    expect(sql).toContain("a.entity_id LIKE v_report.id::TEXT || '::%'")
+    expect(sql).toContain('agency_report_alert_entity_prefix')
     expect(sql).toContain('adr_preserved')
     expect(sql).toContain('Qualquer alerta do ADR')
     expect(sql).toMatch(/DELETE FROM public\.agency_departure_reports[\s\S]+status = 'open'/i)
+  })
+
+  it('terminaliza alertas sem fan-out e fecha somente o ADR selecionado', () => {
+    expect(sql).toContain('agency_report_alert_entity_id')
+    expect(sql).toContain('agency_report_alert_entity_prefix')
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.detect_agency_report_pending\(\)[\s\S]+SELECT DISTINCT[\s\S]+r\.terminal_id/i)
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.detect_agency_report_deadline_missed\(\)[\s\S]+r\.terminal_id/i)
+    expect(sql).toMatch(/set_agency_report_department_signoff_by_report_id[\s\S]+UPDATE public\.alerts[\s\S]+agency_report_department_pending/i)
+    expect(sql).toMatch(/close_agency_departure_report_by_report_id[\s\S]+agency_report_section_pending[\s\S]+agency_report_department_pending[\s\S]+agency_report_deadline_missed/i)
+    expect(sql).toMatch(/DELETE FROM public\.voyage_escala_terminal_state[\s\S]+v_old_terminal\.terminal_id/i)
+    expect(sql).not.toContain("entity_id LIKE p_report_id::TEXT || '::%'")
   })
 
   it('audita expectativa inicial e expõe guarda de fechamento por report_id', () => {

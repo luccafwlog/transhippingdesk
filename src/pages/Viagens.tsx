@@ -36,6 +36,7 @@ import {
 } from '../services/voyageExportSchedules'
 import {
   EscalaTerminalBlockedError,
+  fetchEscalaTerminalRevision,
   fetchEscalaTerminalState,
   saveEscalaTerminalState,
 } from '../services/escalaTerminalAllocation'
@@ -434,6 +435,7 @@ export function Viagens() {
             } else if (payload.exportacao.temExportacao || payload.exportExistingId) {
               // Escalas legadas continuam no fluxo exportacional existente até
               // que o estado terminalizado seja carregado para o modal.
+              const expectedRevision = await fetchEscalaTerminalRevision(payload.voyageId, payload.port)
               await saveVoyageExportScheduleTransactional({
                 existingId: payload.exportExistingId,
                 voyageId: payload.voyageId,
@@ -446,10 +448,9 @@ export function Viagens() {
                 dischargePorts: payload.exportacao.dischargePorts,
                 ceStatus: payload.ceStatus,
                 linked: payload.linked,
-                // O modal legado não edita estado terminalizado; a revisão
-                // inicial da escala ainda sem state é zero. A RPC não relê a
-                // revisão, preservando a semântica de compare-and-swap.
-                expectedRevision: 0,
+                // O modal legado não edita estado terminalizado, mas a escala
+                // pode já ter uma revisão criada por outra tela/usuário.
+                expectedRevision,
               })
             }
             if (!payload.terminalState) await saveVoyageEscalaSchedule({

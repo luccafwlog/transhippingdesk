@@ -1117,6 +1117,37 @@ BEGIN
   VALUES (p_voyage_id, v_port, v_port_id, 0)
   ON CONFLICT (voyage_id, port) DO NOTHING;
 
+  -- O conjunto recebido representa todos os terminais ainda atribuídos a
+  -- frentes. Remover os ausentes evita que ATB/ATD órfãos continuem visíveis
+  -- no Line-Up e que a FK contra depots impeça a limpeza do terminal.
+  FOR v_old_terminal IN
+    SELECT s.*
+    FROM public.voyage_escala_terminal_state AS s
+    WHERE s.voyage_id = p_voyage_id AND s.port = v_port
+      AND NOT EXISTS (
+        SELECT 1
+        FROM jsonb_to_recordset(p_terminals) AS t(terminal_id UUID, terminal_atb TIMESTAMPTZ, terminal_atd TIMESTAMPTZ, terminal_rtw INTEGER)
+        WHERE t.terminal_id = s.terminal_id
+      )
+  LOOP
+    INSERT INTO public.audit_logs (
+      entity_type, entity_id, field_name, old_value, new_value,
+      changed_by, changed_at, justification, actor_role, actor_department
+    )
+    VALUES (
+      'voyage_pod_schedule', v_entity_id, 'terminal_state_removed',
+      jsonb_build_object(
+        'terminal_id', v_old_terminal.terminal_id,
+        'terminal_atb', v_old_terminal.terminal_atb,
+        'terminal_atd', v_old_terminal.terminal_atd,
+        'terminal_rtw', v_old_terminal.terminal_rtw
+      )::TEXT,
+      NULL, auth.uid(), clock_timestamp(), p_justification, v_role, v_department
+    );
+    DELETE FROM public.voyage_escala_terminal_state
+    WHERE voyage_id = p_voyage_id AND port = v_port AND terminal_id = v_old_terminal.terminal_id;
+  END LOOP;
+
   UPDATE public.voyage_escala_revision_state
   SET revision = v_next_revision, updated_at = now()
   WHERE voyage_id = p_voyage_id AND port = v_port;
@@ -1435,7 +1466,7 @@ BEGIN
         SELECT 1
         FROM public.alerts AS a
         WHERE a.entity_type = 'agency_departure_report'
-          AND a.entity_id LIKE v_report.id::TEXT || '::%'
+          AND a.entity_id LIKE public.agency_report_alert_entity_prefix(p_voyage_id, v_port, v_report.code) || '%'
       ) THEN
         INSERT INTO public.audit_logs (
           entity_type, entity_id, field_name, old_value, new_value,
@@ -1622,6 +1653,19 @@ BEGIN
   ON CONFLICT (report_id, department) DO UPDATE SET signed_by = EXCLUDED.signed_by, signed_at = EXCLUDED.signed_at;
   INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, justification)
   VALUES ('agency_departure_report_department_signoff', p_report_id::TEXT || '::' || p_department, 'signed', v_current::TEXT, p_signed::TEXT, auth.uid(), v_justification);
+  IF p_signed THEN
+    UPDATE public.alerts
+    SET status = 'closed', closed_at = now()
+    WHERE type = 'agency_report_department_pending'
+      AND entity_type = 'agency_departure_report'
+      AND entity_id = public.agency_report_alert_entity_id(
+        v_report.voyage_id,
+        v_report.port,
+        (SELECT d.code FROM public.depots AS d WHERE d.id = v_report.terminal_id),
+        p_department
+      )
+      AND status <> 'closed';
+  END IF;
   RETURN jsonb_build_object('report_id', p_report_id);
 END;
 $function$;
@@ -1656,9 +1700,13 @@ BEGIN
   WHERE id = p_report_id AND status = 'open';
   IF NOT FOUND THEN RAISE EXCEPTION 'ADR ja fechado.' USING ERRCODE = '23505'; END IF;
   UPDATE public.alerts SET status = 'closed', closed_at = now()
-  WHERE type IN ('agency_report_section_pending', 'agency_report_deadline_missed')
+  WHERE type IN ('agency_report_section_pending', 'agency_report_department_pending', 'agency_report_deadline_missed')
     AND entity_type = 'agency_departure_report'
-    AND entity_id LIKE p_report_id::TEXT || '::%'
+    AND entity_id LIKE public.agency_report_alert_entity_prefix(
+      v_report.voyage_id,
+      v_report.port,
+      (SELECT d.code FROM public.depots AS d WHERE d.id = v_report.terminal_id)
+    ) || '%'
     AND status <> 'closed';
   RETURN jsonb_build_object('report_id', p_report_id);
 END;
@@ -1704,3 +1752,268 @@ REVOKE ALL ON FUNCTION public.validate_escala_port_reference() FROM PUBLIC, anon
 REVOKE ALL ON FUNCTION public.validate_agency_departure_report_port() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.save_voyage_escala_terminal_state(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_voyage_escala_terminal_state(BIGINT, TEXT, INTEGER, JSONB, JSONB, JSONB, TEXT) TO authenticated;
+
+-- Alertas de ADR terminalizado usam a mesma identidade do relatório, mas
+-- preservam a forma legada para ADRs sem terminal:
+--   viagem::porto::secao-ou-departamento
+--   viagem::porto::terminal::secao-ou-departamento
+-- O terminal é o código cadastrado: é estável para a operação e legível na
+-- tela de Alertas. Os relatórios continuam ancorados por report_id nas RPCs.
+CREATE OR REPLACE FUNCTION public.agency_report_alert_entity_prefix(
+  p_voyage_id BIGINT,
+  p_port TEXT,
+  p_terminal_code TEXT DEFAULT NULL
+)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+AS $function$
+  SELECT p_voyage_id::TEXT || '::' || upper(btrim(p_port)) ||
+    CASE
+      WHEN NULLIF(btrim(COALESCE(p_terminal_code, '')), '') IS NULL THEN '::'
+      ELSE '::' || btrim(p_terminal_code) || '::'
+    END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.agency_report_alert_entity_id(
+  p_voyage_id BIGINT,
+  p_port TEXT,
+  p_terminal_code TEXT,
+  p_subject TEXT
+)
+RETURNS TEXT
+LANGUAGE sql
+IMMUTABLE
+AS $function$
+  SELECT public.agency_report_alert_entity_prefix(p_voyage_id, p_port, p_terminal_code) || p_subject;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.close_legacy_agency_report_alerts_for_scale(
+  p_voyage_id BIGINT,
+  p_port TEXT
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_closed INTEGER;
+BEGIN
+  UPDATE public.alerts AS a
+  SET status = 'closed', closed_at = now()
+  WHERE a.type IN (
+      'agency_report_section_pending',
+      'agency_report_department_pending',
+      'agency_report_deadline_missed'
+    )
+    AND a.entity_type = 'agency_departure_report'
+    AND array_length(string_to_array(a.entity_id, '::'), 1) = 3
+    AND a.entity_id LIKE public.agency_report_alert_entity_prefix(p_voyage_id, p_port, NULL) || '%'
+    AND a.status <> 'closed'
+    AND EXISTS (
+      SELECT 1
+      FROM public.agency_departure_reports AS r
+      WHERE r.voyage_id = p_voyage_id
+        AND r.port = upper(btrim(p_port))
+        AND r.terminal_id IS NOT NULL
+    );
+  GET DIAGNOSTICS v_closed = ROW_COUNT;
+  RETURN v_closed;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.agency_report_alert_entity_prefix(BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.agency_report_alert_entity_id(BIGINT, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.close_legacy_agency_report_alerts_for_scale(BIGINT, TEXT) FROM PUBLIC, anon, authenticated;
+
+-- Reaplica os três detectores depois da criação do modelo terminalizado. O
+-- alvo é cada ADR aberto; só escalas sem ADR terminalizado continuam usando o
+-- alvo legado por escala. DISTINCT evita fan-out dentro da mesma execução e o
+-- advisory lock serializa duas detecções concorrentes.
+CREATE OR REPLACE FUNCTION public.detect_agency_report_pending()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_inserted INTEGER := 0;
+  v_scale RECORD;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
+    RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('agency_report_alert_detection', 0));
+  FOR v_scale IN
+    SELECT DISTINCT voyage_id, port
+    FROM public.agency_departure_reports
+    WHERE terminal_id IS NOT NULL
+  LOOP
+    PERFORM public.close_legacy_agency_report_alerts_for_scale(v_scale.voyage_id, v_scale.port);
+  END LOOP;
+  WITH latest_atd AS (
+    SELECT DISTINCT ON (entity_type, entity_id) entity_type, entity_id, new_value, changed_at
+    FROM public.audit_logs WHERE entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule') AND field_name = 'atd'
+    ORDER BY entity_type, entity_id, changed_at DESC
+  ), departed AS (
+    SELECT DISTINCT split_part(entity_id, '::', 1)::BIGINT AS voyage_id, upper(trim(split_part(entity_id, '::', 2))) AS port
+    FROM latest_atd
+    WHERE COALESCE(trim(new_value), '') <> '' AND upper(trim(split_part(entity_id, '::', 2))) LIKE 'BR%'
+      AND ((entity_type = 'voyage_pod_schedule' AND changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00')
+        OR (entity_type = 'voyage_pol_schedule' AND changed_at >= (SELECT captured_at FROM public.agency_report_pending_baselines WHERE baseline_key = 'voyage_pol_schedule_atd')))
+  ), sections AS (
+    SELECT unnest(ARRAY['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados', 'ocorrencias']) AS section
+  ), report_targets AS (
+    SELECT d.voyage_id, d.port, r.id AS report_id, r.status, CASE WHEN r.terminal_id IS NULL THEN NULL ELSE terminal.code END AS terminal_code
+    FROM departed AS d
+    LEFT JOIN public.agency_departure_reports AS r ON r.voyage_id = d.voyage_id AND r.port = d.port
+      AND (r.terminal_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM public.agency_departure_reports AS newer WHERE newer.voyage_id = d.voyage_id AND newer.port = d.port AND newer.terminal_id IS NOT NULL))
+    LEFT JOIN public.depots AS terminal ON terminal.id = r.terminal_id
+  ), pending AS (
+    SELECT DISTINCT t.voyage_id, t.port, t.terminal_code, s.section
+    FROM report_targets AS t CROSS JOIN sections AS s
+    LEFT JOIN public.agency_departure_report_signoffs AS so ON so.report_id = t.report_id AND so.section = s.section
+    WHERE COALESCE(t.status, 'open') = 'open' AND COALESCE(so.state, 'pending') = 'pending'
+  ), inserted AS (
+    INSERT INTO public.alerts (type, entity_type, entity_id, message, status)
+    SELECT 'agency_report_section_pending', 'agency_departure_report',
+      public.agency_report_alert_entity_id(p.voyage_id, p.port, p.terminal_code, p.section),
+      'ADR ' || p.port || CASE WHEN p.terminal_code IS NULL THEN '' ELSE ' / ' || p.terminal_code END || ': seção "' || public.agency_report_section_label(p.section) || '" pendente — ' || public.agency_report_department_label(public.agency_report_section_owner(p.section)) || '.', 'open'
+    FROM pending AS p
+    WHERE NOT EXISTS (SELECT 1 FROM public.alerts AS a WHERE a.type = 'agency_report_section_pending' AND a.entity_type = 'agency_departure_report' AND a.entity_id = public.agency_report_alert_entity_id(p.voyage_id, p.port, p.terminal_code, p.section) AND a.status <> 'closed')
+    RETURNING 1
+  ) SELECT COUNT(*) INTO v_inserted FROM inserted;
+  RETURN v_inserted;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.detect_agency_report_department_pending()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_inserted INTEGER := 0;
+  v_scale RECORD;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('agency_report_alert_detection', 0));
+  FOR v_scale IN
+    SELECT DISTINCT voyage_id, port
+    FROM public.agency_departure_reports
+    WHERE terminal_id IS NOT NULL
+  LOOP
+    PERFORM public.close_legacy_agency_report_alerts_for_scale(v_scale.voyage_id, v_scale.port);
+  END LOOP;
+  WITH latest_atd AS (
+    SELECT DISTINCT ON (entity_type, entity_id) entity_type, entity_id, new_value, changed_at
+    FROM public.audit_logs WHERE entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule') AND field_name = 'atd'
+    ORDER BY entity_type, entity_id, changed_at DESC
+  ), departed AS (
+    SELECT DISTINCT split_part(entity_id, '::', 1)::BIGINT AS voyage_id, upper(trim(split_part(entity_id, '::', 2))) AS port
+    FROM latest_atd
+    WHERE COALESCE(trim(new_value), '') <> '' AND upper(trim(split_part(entity_id, '::', 2))) LIKE 'BR%'
+      AND ((entity_type = 'voyage_pod_schedule' AND changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00')
+        OR (entity_type = 'voyage_pol_schedule' AND changed_at >= (SELECT captured_at FROM public.agency_report_pending_baselines WHERE baseline_key = 'voyage_pol_schedule_atd')))
+  ), departments AS (SELECT unnest(ARRAY['operacoes', 'documentacao', 'equipamentos']) AS department),
+  report_targets AS (
+    SELECT d.voyage_id, d.port, r.id AS report_id, r.status, CASE WHEN r.terminal_id IS NULL THEN NULL ELSE terminal.code END AS terminal_code
+    FROM departed AS d
+    LEFT JOIN public.agency_departure_reports AS r ON r.voyage_id = d.voyage_id AND r.port = d.port
+      AND (r.terminal_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM public.agency_departure_reports AS newer WHERE newer.voyage_id = d.voyage_id AND newer.port = d.port AND newer.terminal_id IS NOT NULL))
+    LEFT JOIN public.depots AS terminal ON terminal.id = r.terminal_id
+  ), pending AS (
+    SELECT DISTINCT t.voyage_id, t.port, t.terminal_code, t.report_id, dep.department
+    FROM report_targets AS t CROSS JOIN departments AS dep
+    WHERE COALESCE(t.status, 'open') = 'open' AND EXISTS (
+      SELECT 1 FROM (VALUES ('datas'), ('carga_descarregada'), ('carga_carregada'), ('veiculos'), ('vazios_embarcados'), ('vazios_descarregados'), ('operacao_patio')) AS all_sections(section)
+      LEFT JOIN public.agency_departure_report_signoffs AS so ON so.report_id = t.report_id AND so.section = all_sections.section
+      WHERE public.agency_report_section_owner(all_sections.section) = dep.department AND COALESCE(so.state, 'pending') = 'pending'
+    )
+  ), inserted AS (
+    INSERT INTO public.alerts (type, entity_type, entity_id, message, status)
+    SELECT 'agency_report_department_pending', 'agency_departure_report',
+      public.agency_report_alert_entity_id(p.voyage_id, p.port, p.terminal_code, p.department),
+      'ADR ' || p.port || CASE WHEN p.terminal_code IS NULL THEN '' ELSE ' / ' || p.terminal_code END || ': departamento "' || public.agency_report_department_label(p.department) || '" pendente.', 'open'
+    FROM pending AS p
+    WHERE NOT EXISTS (SELECT 1 FROM public.alerts AS a WHERE a.type = 'agency_report_department_pending' AND a.entity_type = 'agency_departure_report' AND a.entity_id = public.agency_report_alert_entity_id(p.voyage_id, p.port, p.terminal_code, p.department) AND a.status <> 'closed')
+    RETURNING 1
+  ) SELECT COUNT(*) INTO v_inserted FROM inserted;
+  RETURN v_inserted;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.detect_agency_report_deadline_missed()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_inserted INTEGER := 0;
+  v_scale RECORD;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('agency_report_alert_detection', 0));
+  FOR v_scale IN
+    SELECT DISTINCT voyage_id, port
+    FROM public.agency_departure_reports
+    WHERE terminal_id IS NOT NULL
+  LOOP
+    PERFORM public.close_legacy_agency_report_alerts_for_scale(v_scale.voyage_id, v_scale.port);
+  END LOOP;
+  WITH latest_atd AS (
+    SELECT DISTINCT ON (entity_type, entity_id) entity_type, entity_id, new_value, changed_at
+    FROM public.audit_logs WHERE entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule') AND field_name = 'atd'
+    ORDER BY entity_type, entity_id, changed_at DESC
+  ), latest_omitted AS (
+    SELECT DISTINCT ON (entity_id) entity_id, new_value FROM public.audit_logs WHERE entity_type = 'voyage_pod_schedule' AND field_name = 'omitted' ORDER BY entity_id, changed_at DESC
+  ), pod_atd AS (
+    SELECT entity_id, split_part(entity_id, '::', 1)::BIGINT AS voyage_id, upper(trim(split_part(entity_id, '::', 2))) AS port, NULLIF(trim(new_value), '')::DATE AS atd
+    FROM latest_atd WHERE entity_type = 'voyage_pod_schedule' AND COALESCE(trim(new_value), '') <> ''
+  ), pol_atd AS (
+    SELECT split_part(entity_id, '::', 1)::BIGINT AS voyage_id, upper(trim(split_part(entity_id, '::', 2))) AS port, NULLIF(trim(new_value), '')::DATE AS atd
+    FROM latest_atd WHERE entity_type = 'voyage_pol_schedule' AND COALESCE(trim(new_value), '') <> ''
+  ), escalas AS (
+    SELECT voyage_id, port FROM pod_atd UNION SELECT voyage_id, port FROM pol_atd
+  ), unified AS (
+    SELECT e.voyage_id, e.port, COALESCE(p.atd, l.atd) AS atd,
+      EXISTS (SELECT 1 FROM latest_omitted AS o WHERE o.entity_id = e.voyage_id || '::' || e.port AND o.new_value = 'true') AS omitted
+    FROM escalas AS e LEFT JOIN pod_atd AS p ON p.voyage_id = e.voyage_id AND p.port = e.port LEFT JOIN pol_atd AS l ON l.voyage_id = e.voyage_id AND l.port = e.port
+    WHERE e.port LIKE 'BR%'
+  ), measured AS (
+    SELECT voyage_id, port, public.agency_report_deadline_date(atd) AS deadline_date
+    FROM unified WHERE atd IS NOT NULL AND NOT omitted AND atd >= (SELECT captured_at::DATE FROM public.agency_report_pending_baselines WHERE baseline_key = 'agency_report_deadline_missed')
+  ), departments AS (SELECT unnest(ARRAY['operacoes', 'documentacao', 'equipamentos']) AS department),
+  report_targets AS (
+    SELECT m.voyage_id, m.port, r.id AS report_id, r.status, CASE WHEN r.terminal_id IS NULL THEN NULL ELSE terminal.code END AS terminal_code, m.deadline_date
+    FROM measured AS m
+    LEFT JOIN public.agency_departure_reports AS r ON r.voyage_id = m.voyage_id AND r.port = m.port
+      AND (r.terminal_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM public.agency_departure_reports AS newer WHERE newer.voyage_id = m.voyage_id AND newer.port = m.port AND newer.terminal_id IS NOT NULL))
+    LEFT JOIN public.depots AS terminal ON terminal.id = r.terminal_id
+  ), missed AS (
+    SELECT DISTINCT t.voyage_id, t.port, t.terminal_code, t.report_id, dep.department
+    FROM report_targets AS t CROSS JOIN departments AS dep
+    LEFT JOIN public.agency_departure_report_department_signoffs AS ds ON ds.report_id = t.report_id AND ds.department = dep.department
+    WHERE t.deadline_date < CURRENT_DATE AND COALESCE(t.status, 'open') = 'open' AND ds.signed_at IS NULL
+  ), inserted AS (
+    INSERT INTO public.alerts (type, entity_type, entity_id, message, status)
+    SELECT 'agency_report_deadline_missed', 'agency_departure_report',
+      public.agency_report_alert_entity_id(x.voyage_id, x.port, x.terminal_code, x.department),
+      'ADR ' || x.port || CASE WHEN x.terminal_code IS NULL THEN '' ELSE ' / ' || x.terminal_code END || ': prazo de conclusão vencido para "' || public.agency_report_department_label(x.department) || '".', 'open'
+    FROM missed AS x
+    WHERE NOT EXISTS (SELECT 1 FROM public.alerts AS a WHERE a.type = 'agency_report_deadline_missed' AND a.entity_type = 'agency_departure_report' AND a.entity_id = public.agency_report_alert_entity_id(x.voyage_id, x.port, x.terminal_code, x.department) AND a.status <> 'closed')
+    RETURNING 1
+  ) SELECT COUNT(*) INTO v_inserted FROM inserted;
+  RETURN v_inserted;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.detect_agency_report_pending() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.detect_agency_report_department_pending() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.detect_agency_report_deadline_missed() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.detect_agency_report_pending() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.detect_agency_report_department_pending() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.detect_agency_report_deadline_missed() TO authenticated;

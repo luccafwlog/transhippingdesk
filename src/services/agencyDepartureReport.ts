@@ -230,6 +230,7 @@ export function deriveAgencyReportByTerminal(
       section,
       state: assigned.some((front) => front.hasData) ? 'operated' as const : 'nothing_operated' as const,
       fronts: assigned.map((front) => front.modalidade as OperationFrontKind).sort((left, right) => left.localeCompare(right, 'pt-BR')),
+      frontKeys: assigned.map((front) => `${front.sentido}:${front.modalidade}`).sort((left, right) => left.localeCompare(right, 'pt-BR')),
     }
   })
   return {

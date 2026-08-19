@@ -3,21 +3,39 @@ import {
   deriveAgencyReportSections,
   deriveOperationFronts,
   EscalaTerminalBlockedError,
+  fetchEscalaTerminalRevision,
   groupAgencyReportsByTerminal,
   saveEscalaTerminalState,
 } from '../escalaTerminalAllocation'
 
-const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
+const { rpcMock, fromMock } = vi.hoisted(() => ({ rpcMock: vi.fn(), fromMock: vi.fn() }))
 
 vi.mock('../supabase', () => ({
-  supabase: { rpc: rpcMock, from: vi.fn() },
+  supabase: { rpc: rpcMock, from: fromMock },
 }))
 vi.mock('../voyageExportSchedules', () => ({ fetchExportSchedulesByVoyageIds: vi.fn() }))
 vi.mock('../depots', () => ({ listDepots: vi.fn() }))
 vi.mock('../voyageRouteSchedules', () => ({ listVoyageEscalaSchedulesByVoyageIds: vi.fn() }))
 
 describe('escalaTerminalAllocation', () => {
-  beforeEach(() => rpcMock.mockReset())
+  beforeEach(() => {
+    rpcMock.mockReset()
+    fromMock.mockReset()
+  })
+
+  it('captura a revisão existente para o caminho legado sem state carregado', async () => {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { revision: 7 }, error: null }),
+    }
+    fromMock.mockReturnValue(query)
+
+    await expect(fetchEscalaTerminalRevision(12, 'brvix')).resolves.toBe(7)
+    expect(fromMock).toHaveBeenCalledWith('voyage_escala_revision_state')
+    expect(query.eq).toHaveBeenNthCalledWith(1, 'voyage_id', 12)
+    expect(query.eq).toHaveBeenNthCalledWith(2, 'port', 'BRVIX')
+  })
 
   it('preserva frente persistida mesmo quando a fonte operacional deixou de aparecer', () => {
     const fronts = deriveOperationFronts({
@@ -51,7 +69,7 @@ describe('escalaTerminalAllocation', () => {
       { sentido: 'importacao', modalidade: 'carga_cheia', terminalId: 'tvv', source: 'operational_data', hasData: false, section: 'carga_descarregada' },
     ], 'vbr')
     expect(sections.find((section) => section.section === 'carga_descarregada')).toEqual({
-      section: 'carga_descarregada', state: 'nothing_operated', fronts: [],
+      section: 'carga_descarregada', state: 'nothing_operated', fronts: [], frontKeys: [],
     })
   })
 
@@ -80,6 +98,22 @@ describe('escalaTerminalAllocation', () => {
   it('mantém escala sem frentes como estado vazio, com todas as seções Nada operado', () => {
     expect(deriveOperationFronts({})).toEqual([])
     expect(deriveAgencyReportSections([], 'tvv').every((section) => section.state === 'nothing_operated')).toBe(true)
+  })
+
+  it('preserva sentido e modalidade na projeção das seções, inclusive para vazio', () => {
+    const sections = deriveAgencyReportSections([
+      { sentido: 'importacao', modalidade: 'vazio', terminalId: 'tvv', source: 'operational_data', hasData: true, section: 'vazios_descarregados' },
+      { sentido: 'exportacao', modalidade: 'vazio', terminalId: 'portmac', source: 'export_declaration', hasData: true, section: 'vazios_embarcados' },
+    ], 'tvv')
+
+    expect(sections.find((section) => section.section === 'vazios_descarregados')).toMatchObject({
+      fronts: ['vazio'],
+      frontKeys: ['importacao:vazio'],
+    })
+    expect(sections.find((section) => section.section === 'vazios_embarcados')).toMatchObject({
+      fronts: [],
+      frontKeys: [],
+    })
   })
 
   it('salva somente pela RPC transacional e traduz bloqueio de ADR fechado', async () => {

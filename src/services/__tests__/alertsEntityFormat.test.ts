@@ -12,6 +12,10 @@ describe('formatAgencyReportAlertEntity', () => {
     expect(formatAgencyReportAlertEntity('10::BRVIX::ocorrencias')).toBe('Viagem 10 · BRVIX · Ocorrências')
   })
 
+  it('formata a chave terminalizada voyageId::porto::terminal::departamento', () => {
+    expect(formatAgencyReportAlertEntity('10::BRVIX::TVV::equipamentos')).toBe('Viagem 10 · BRVIX · Terminal TVV · Equipamentos')
+  })
+
   // Seções aposentadas seguem legíveis na página Alertas: 'ocorrencias' saiu na
   // ADR 0030 e 'operacao_patio' na 0036, mas os alertas e audit_logs gravados
   // antes disso continuam existindo.

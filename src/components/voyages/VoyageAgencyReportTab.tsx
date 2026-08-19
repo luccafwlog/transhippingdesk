@@ -293,8 +293,13 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       fronts: selected?.fronts ?? [],
     }
   }
-  const selectedFrontKinds = new Set(terminalReports.find((report) => report.reportId === resolvedReportId)?.sections.flatMap((section) => section.fronts) ?? [])
-  const frontIsVisible = (kind: OperationFrontKind) => !resolvedReportId || selectedFrontKinds.has(kind)
+  const selectedSectionFronts = (section: AgencyReportSection) => {
+    const selected = selectedTerminalReport?.sections.find((item) => item.section === section)
+    // `frontKeys` retains (sentido, modalidade); `fronts` is the legacy
+    // presentation fallback for reports loaded before this projection field.
+    return selected?.frontKeys ?? selected?.fronts ?? []
+  }
+  const sectionIsVisible = (section: AgencyReportSection) => !resolvedReportId || selectedSectionFronts(section).length > 0
   const { data, isLoading, error } = useAgencyReportDerived(voyageId, port)
   const { data: ownData } = useAgencyReportOwn(voyageId, port, resolvedReportId)
   const { data: signoffEvents } = useAgencyReportSignoffEvents(voyageId, port, resolvedReportId)
@@ -317,12 +322,12 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   // terminalizado precisa mostrar somente as frentes atribuídas ao terminal
   // selecionado. Sem este recorte, dois terminais da mesma escala imprimem o
   // mesmo conteúdo e o sign-off deixa de ser auditável.
-  const containers = frontIsVisible('carga_cheia') ? (data?.containers ?? []) : []
-  const cargaSolta = frontIsVisible('carga_solta') ? data?.cargaSolta : undefined
-  const vaziosImp = frontIsVisible('vazio') ? (data?.vaziosImp ?? []) : []
-  const vaziosExp = frontIsVisible('vazio') ? (data?.vaziosExp ?? []) : []
-  const vehiclesData = frontIsVisible('veiculo') ? (data?.vehicles ?? []) : []
-  const graniteData = frontIsVisible('granito') ? (data?.granite ?? []) : []
+  const containers = sectionIsVisible('carga_descarregada') ? (data?.containers ?? []) : []
+  const cargaSolta = sectionIsVisible('carga_descarregada') ? data?.cargaSolta : undefined
+  const vaziosImp = sectionIsVisible('vazios_descarregados') ? (data?.vaziosImp ?? []) : []
+  const vaziosExp = sectionIsVisible('vazios_embarcados') ? (data?.vaziosExp ?? []) : []
+  const vehiclesData = sectionIsVisible('veiculos') ? (data?.vehicles ?? []) : []
+  const graniteData = sectionIsVisible('carga_carregada') ? (data?.granite ?? []) : []
   const imoCount = containers.filter((container) => container.is_imo).length
   const dischargeMatrix = buildContainerTypeMatrix(containers.map((container) => ({
     type: container.size_type ?? '—',
@@ -381,7 +386,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   // A subseção de pátio só afirma "nada" quando nenhuma das suas fontes tem
   // dado — storage, embarque direto, locais ou linhas de serviço.
   const hasPatioOperation = Boolean(
-    (frontIsVisible('vazio') && data?.storage.days) || (frontIsVisible('vazio') && data?.storage.containers) || directEmbarkCount || depots.length || (frontIsVisible('vazio') && data?.costs?.serviceLines?.length),
+    (sectionIsVisible('vazios_embarcados') && data?.storage.days) || (sectionIsVisible('vazios_embarcados') && data?.storage.containers) || directEmbarkCount || depots.length || (sectionIsVisible('vazios_embarcados') && data?.costs?.serviceLines?.length),
   )
   const granite = {
     bls: graniteData.length,
@@ -481,9 +486,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       depots,
       directEmbarkCount,
       granito: granite,
-      storage: frontIsVisible('vazio') ? data?.storage ?? null : null,
-      operation: data?.operation ?? null,
-      costs: frontIsVisible('vazio') ? data?.costs ?? null : null,
+      storage: sectionIsVisible('vazios_embarcados') ? data?.storage ?? null : null,
+      operation: sectionIsVisible('vazios_embarcados') ? data?.operation ?? null : null,
+      costs: sectionIsVisible('vazios_embarcados') ? data?.costs ?? null : null,
     },
     occurrences: ownData?.occurrences ?? [],
     signoffs: ownData?.signoffs ?? [],

@@ -149,6 +149,45 @@ it('mantém o cabeçalho da escala e exibe granito no ADR terminalizado', () => 
   expect(screen.getAllByText('25').length).toBeGreaterThan(0)
 })
 
+it('não congela vazios de exportação no ADR que só recebeu vazio de importação', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'report-tvv', voyageId: 7, port: 'BRVIX', terminalId: 'tvv', terminalCode: 'TVV', terminal: 'TVV', status: 'open',
+        sections: [
+          { section: 'vazios_descarregados', state: 'operated', fronts: ['vazio'], frontKeys: ['importacao:vazio'] },
+          { section: 'vazios_embarcados', state: 'nothing_operated', fronts: [], frontKeys: [] },
+        ],
+      }],
+    },
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { status: 'open', terminal: 'TVV', signoffs: allSectionsSignoffs(), departmentSignoffs: allDepartmentsSigned(), occurrences: [], actor_names: {} } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [{ container_type: '20DV' }], granite: [],
+      vaziosExp: [{ container_type: '40HC', local: { code: 'PORTMAC', tipo: 'terminal_portuario' } }],
+      storage: { containers: 2, days: 3 }, operation: { os_number: 'OS-1' }, costs: { serviceLines: [{ id: 'line-1' }] },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="report-tvv" terminalCode="TVV" />)
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
+
+  const snapshot = closeMutateMock.mock.calls.at(-1)?.[0]?.snapshot
+  expect(snapshot.sections).toMatchObject({
+    vaziosDescarregados: expect.objectContaining({ totals: expect.any(Object) }),
+    vaziosEmbarcados: [],
+    vaziosUnidades: [],
+    depots: [],
+    directEmbarkCount: 0,
+    storage: null,
+    operation: null,
+    costs: null,
+  })
+})
+
 it('a soma das linhas exibidas bate com o "Total da operação" para uma linha legada de armazenagem com percentual não nulo', () => {
   useAgencyReportDerivedMock.mockReturnValue({
     data: {

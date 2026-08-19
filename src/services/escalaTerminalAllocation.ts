@@ -57,6 +57,7 @@ export type AgencyReportByTerminal = {
     section: string
     state: 'operated' | 'nothing_operated'
     fronts: OperationFrontKind[]
+    frontKeys: string[]
   }>
 }
 
@@ -273,6 +274,10 @@ function reportSections(fronts: OperationFront[], terminalId: string | null): Ag
     section,
     state: assigned.some((front) => front.section === section && front.hasData) ? 'operated' : 'nothing_operated',
     fronts: (bySection.get(section) ?? []).sort((left, right) => left.localeCompare(right, 'pt-BR')),
+    frontKeys: assigned
+      .filter((front) => front.section === section)
+      .map((front) => frontKey(front))
+      .sort((left, right) => left.localeCompare(right, 'pt-BR')),
   }))
 }
 
@@ -390,6 +395,18 @@ export async function fetchEscalaTerminalState(voyageId: number, port: string): 
     historicalTerminals,
     agencyReports,
   }
+}
+
+/** Captura a revisão quando o editor legado não carregou o state terminalizado. */
+export async function fetchEscalaTerminalRevision(voyageId: number, port: string): Promise<number> {
+  const result = await table('voyage_escala_revision_state')
+    .select('revision')
+    .eq('voyage_id', voyageId)
+    .eq('port', normalizePort(port))
+    .maybeSingle()
+  if (result.error) throw result.error
+  const row = result.data && typeof result.data === 'object' ? result.data as JsonRecord : {}
+  return typeof row.revision === 'number' && row.revision >= 0 ? row.revision : 0
 }
 
 export function invalidateEscalaTerminalQueries(queryClient: Pick<QueryClient, 'invalidateQueries'>, voyageId: number, port: string) {

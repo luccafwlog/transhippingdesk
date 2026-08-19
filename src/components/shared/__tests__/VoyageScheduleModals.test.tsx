@@ -396,6 +396,18 @@ describe('EscalaModal', () => {
     expect(payload.terminalState.terminals.every((terminal: { terminalId: string }) => terminal.terminalId)).toBe(true)
   })
 
+  it('remove do payload o estado do terminal que ficou sem frente', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala(terminalEscala())
+
+    await user.selectOptions(screen.getByLabelText('Terminal exportacao Granito'), 't-norte')
+    await user.type(screen.getByLabelText('Justificativa da alteração'), 'migração de operação')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    const payload = onSaved.mock.calls[0][0]
+    expect(payload.terminalState.terminals.map((terminal: { terminalId: string }) => terminal.terminalId)).toEqual(['t-norte'])
+  })
+
   it('filtra terminal por porto e mostra inativo somente como histórico associado', async () => {
     const user = userEvent.setup()
     const escala = terminalEscala({
