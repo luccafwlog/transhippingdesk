@@ -225,6 +225,7 @@ export type Database = {
       }
       audit_logs: {
         Row: {
+          actor_department: string | null
           actor_role: string | null
           changed_at: string | null
           changed_by: string | null
@@ -237,6 +238,7 @@ export type Database = {
           old_value: string | null
         }
         Insert: {
+          actor_department?: string | null
           actor_role?: string | null
           changed_at?: string | null
           changed_by?: string | null
@@ -249,6 +251,7 @@ export type Database = {
           old_value?: string | null
         }
         Update: {
+          actor_department?: string | null
           actor_role?: string | null
           changed_at?: string | null
           changed_by?: string | null
@@ -718,6 +721,66 @@ export type Database = {
           },
         ]
       }
+      cod_adjustments: {
+        Row: {
+          action: string
+          bl_id: string
+          created_at: string
+          created_by: string | null
+          difference_brl: number
+          id: number
+          manual_review_required: boolean
+          new_destination_value_brl: number
+          offset_amount_brl: number
+          omission_id: number
+          original_value_brl: number
+          outstanding_balance_brl: number
+          paid_amount_brl: number
+          refund_amount_brl: number
+          resulting_document_id: number | null
+          resulting_document_type: string | null
+          status: string
+        }
+        Insert: {
+          action: string
+          bl_id: string
+          created_at?: string
+          created_by?: string | null
+          difference_brl?: number
+          id?: number
+          manual_review_required?: boolean
+          new_destination_value_brl?: number
+          offset_amount_brl?: number
+          omission_id: number
+          original_value_brl?: number
+          outstanding_balance_brl?: number
+          paid_amount_brl?: number
+          refund_amount_brl?: number
+          resulting_document_id?: number | null
+          resulting_document_type?: string | null
+          status?: string
+        }
+        Update: {
+          action?: string
+          bl_id?: string
+          created_at?: string
+          created_by?: string | null
+          difference_brl?: number
+          id?: number
+          manual_review_required?: boolean
+          new_destination_value_brl?: number
+          offset_amount_brl?: number
+          omission_id?: number
+          original_value_brl?: number
+          outstanding_balance_brl?: number
+          paid_amount_brl?: number
+          refund_amount_brl?: number
+          resulting_document_id?: number | null
+          resulting_document_type?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       bl_receivables: {
         Row: {
           balance_brl: number
@@ -799,11 +862,6 @@ export type Database = {
           disposition: string
           id: number
           omission_id: number
-          onward_carrier: string | null
-          onward_eta: string | null
-          onward_etd: string | null
-          onward_vessel_name: string | null
-          onward_voyage_number: string | null
           updated_at: string
         }
         Insert: {
@@ -813,11 +871,6 @@ export type Database = {
           disposition?: string
           id?: number
           omission_id: number
-          onward_carrier?: string | null
-          onward_eta?: string | null
-          onward_etd?: string | null
-          onward_vessel_name?: string | null
-          onward_voyage_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -827,11 +880,6 @@ export type Database = {
           disposition?: string
           id?: number
           omission_id?: number
-          onward_carrier?: string | null
-          onward_eta?: string | null
-          onward_etd?: string | null
-          onward_vessel_name?: string | null
-          onward_voyage_number?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2009,6 +2057,7 @@ export type Database = {
           free_time_vazio_days: number
           id: string
           name: string | null
+          port_id: number | null
           tipo: string
           updated_at: string
         }
@@ -2020,6 +2069,7 @@ export type Database = {
           free_time_vazio_days?: number
           id?: string
           name?: string | null
+          port_id?: number | null
           tipo?: string
           updated_at?: string
         }
@@ -2031,6 +2081,7 @@ export type Database = {
           free_time_vazio_days?: number
           id?: string
           name?: string | null
+          port_id?: number | null
           tipo?: string
           updated_at?: string
         }
@@ -2793,33 +2844,36 @@ export type Database = {
       invoice_refunds: {
         Row: {
           amount_brl: number
+          cod_adjustment_id: number | null
           created_at: string
           id: number
           invoice_id: number
           notes: string | null
-          payment_id: number
+          payment_id: number | null
           registered_by: string | null
           settled_at: string | null
           status: string
         }
         Insert: {
           amount_brl: number
+          cod_adjustment_id?: number | null
           created_at?: string
           id?: number
           invoice_id: number
           notes?: string | null
-          payment_id: number
+          payment_id?: number | null
           registered_by?: string | null
           settled_at?: string | null
           status?: string
         }
         Update: {
           amount_brl?: number
+          cod_adjustment_id?: number | null
           created_at?: string
           id?: number
           invoice_id?: number
           notes?: string | null
-          payment_id?: number
+          payment_id?: number | null
           registered_by?: string | null
           settled_at?: string | null
           status?: string
@@ -2837,6 +2891,13 @@ export type Database = {
             columns: ["payment_id"]
             isOneToOne: false
             referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_refunds_cod_adjustment_id_fkey"
+            columns: ["cod_adjustment_id"]
+            isOneToOne: true
+            referencedRelation: "cod_adjustments"
             referencedColumns: ["id"]
           },
         ]
@@ -3992,6 +4053,7 @@ export type Database = {
           containers_qty: number | null
           created_at: string | null
           discharge_ports: string[]
+          has_empty: boolean
           has_granite: boolean
           id: string
           linked: boolean
@@ -4006,6 +4068,7 @@ export type Database = {
           containers_qty?: number | null
           created_at?: string | null
           discharge_ports?: string[]
+          has_empty?: boolean
           has_granite?: boolean
           id?: string
           linked?: boolean
@@ -4020,6 +4083,7 @@ export type Database = {
           containers_qty?: number | null
           created_at?: string | null
           discharge_ports?: string[]
+          has_empty?: boolean
           has_granite?: boolean
           id?: string
           linked?: boolean
@@ -4038,6 +4102,123 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      voyage_escala_operation_fronts: {
+        Row: {
+          created_at: string
+          id: string
+          last_changed_at: string
+          last_changed_by: string | null
+          modalidade: string
+          port: string
+          port_id: number
+          revision: number
+          sentido: string
+          source: string
+          terminal_id: string | null
+          updated_at: string
+          voyage_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_changed_at?: string
+          last_changed_by?: string | null
+          modalidade: string
+          port: string
+          port_id: number
+          revision?: number
+          sentido: string
+          source: string
+          terminal_id?: string | null
+          updated_at?: string
+          voyage_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_changed_at?: string
+          last_changed_by?: string | null
+          modalidade?: string
+          port?: string
+          port_id?: number
+          revision?: number
+          sentido?: string
+          source?: string
+          terminal_id?: string | null
+          updated_at?: string
+          voyage_id?: number
+        }
+        Relationships: []
+      }
+      voyage_escala_revision_state: {
+        Row: {
+          created_at: string
+          port: string
+          port_id: number
+          revision: number
+          updated_at: string
+          voyage_id: number
+        }
+        Insert: {
+          created_at?: string
+          port: string
+          port_id: number
+          revision?: number
+          updated_at?: string
+          voyage_id: number
+        }
+        Update: {
+          created_at?: string
+          port?: string
+          port_id?: number
+          revision?: number
+          updated_at?: string
+          voyage_id?: number
+        }
+        Relationships: []
+      }
+      voyage_escala_terminal_state: {
+        Row: {
+          created_at: string
+          id: string
+          port: string
+          port_id: number
+          revision: number
+          terminal_atb: string | null
+          terminal_atd: string | null
+          terminal_id: string
+          terminal_rtw: number | null
+          updated_at: string
+          voyage_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          port: string
+          port_id: number
+          revision?: number
+          terminal_atb?: string | null
+          terminal_atd?: string | null
+          terminal_id: string
+          terminal_rtw?: number | null
+          updated_at?: string
+          voyage_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          port?: string
+          port_id?: number
+          revision?: number
+          terminal_atb?: string | null
+          terminal_atd?: string | null
+          terminal_id?: string
+          terminal_rtw?: number | null
+          updated_at?: string
+          voyage_id?: number
+        }
+        Relationships: []
       }
       voyage_omissions: {
         Row: {
@@ -4769,11 +4950,17 @@ export type Database = {
           status: string
         }[]
       }
+      apply_cod_financial_effect: {
+        Args: { p_bl_id: string; p_omission_id: number; p_previous_pod: string }
+        Returns: undefined
+      }
+      is_financeiro_user: { Args: never; Returns: boolean }
       list_invoice_details: { Args: { p_invoice_id: number }; Returns: Json }
       list_invoice_refunds: {
         Args: { p_invoice_id: number }
         Returns: {
           amount_brl: number
+          cod_adjustment_id: number | null
           created_at: string
           id: number
           notes: string
@@ -5023,10 +5210,12 @@ export type Database = {
       portal_ship_schedule: {
         Args: never
         Returns: {
-          date_value: string
-          imo_number: string
+          date_value: string | null
+          actual_value: string | null
+          imo_number: string | null
           kind: string
           port_code: string
+          omitted: boolean
           vessel_name: string
           voyage: string
           voyage_id: number
@@ -5146,6 +5335,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      save_voyage_escala_terminal_state: {
+        Args: {
+          p_expected_revision: number
+          p_export_expectation: Json
+          p_fronts: Json
+          p_justification: string
+          p_port: string
+          p_terminals: Json
+          p_voyage_id: number
+        }
+        Returns: Json
+      }
+      preflight_depots_terminal_port_mapping: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       set_agency_report_department_signoff: {
         Args: {
           p_department: string
@@ -5180,7 +5385,7 @@ export type Database = {
         Returns: undefined
       }
       set_bl_cod: {
-        Args: { p_bl_id: string; p_changed_by: string; p_omission_id: number }
+        Args: { p_bl_id: string; p_changed_by: string; p_justification: string; p_omission_id: number }
         Returns: undefined
       }
       set_bl_transshipment: {
@@ -5188,13 +5393,13 @@ export type Database = {
           p_bl_id: string
           p_changed_by: string
           p_omission_id: number
-          p_onward_carrier: string
-          p_onward_eta: string
-          p_onward_etd: string
-          p_onward_vessel_name: string
-          p_onward_voyage_number: string
+          p_justification: string
         }
         Returns: undefined
+      }
+      settle_cod_adjustment: {
+        Args: { p_adjustment_id: number; p_actor?: string }
+        Returns: Json
       }
       set_customer_portal_account_active: {
         Args: { p_active: boolean; p_actor?: string; p_customer_id: number }
@@ -5526,19 +5731,6 @@ type AppFunctionOverrides = {
       p_expected_updated_at: string | null
     }
   >
-  set_bl_transshipment: FunctionWithArgs<
-    'set_bl_transshipment',
-    Omit<
-      Database['public']['Functions']['set_bl_transshipment']['Args'],
-      'p_onward_vessel_name' | 'p_onward_carrier' | 'p_onward_voyage_number' | 'p_onward_etd' | 'p_onward_eta'
-    > & {
-      p_onward_vessel_name: string | null
-      p_onward_carrier: string | null
-      p_onward_voyage_number: string | null
-      p_onward_etd: string | null
-      p_onward_eta: string | null
-    }
-  >
   update_voyage_omission: FunctionWithArgs<
     'update_voyage_omission',
     Omit<
@@ -5669,7 +5861,7 @@ export type ConsolidatableReceivable = Omit<
 
 export type LedgerPaymentResult = {
   invoice_id: number
-  payment_id: number
+          payment_id: number | null
   status: 'paid' | 'partially_paid'
   amount_brl: number
   balance_brl: number

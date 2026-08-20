@@ -1,4 +1,4 @@
-# ADR 0051 — Alerta fecha pela origem; dispensa temporária exige revisão
+# ADR 0053 — Alerta fecha pela origem; dispensa temporária exige revisão
 
 Status: aceito — 2026-08-17
 

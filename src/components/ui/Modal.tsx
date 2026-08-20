@@ -7,6 +7,7 @@ export function Modal({
   title,
   children,
   onClose,
+  initialFocusRef,
   className,
   bodyClassName,
 }: {
@@ -14,6 +15,7 @@ export function Modal({
   title: string
   children: React.ReactNode
   onClose: () => void
+  initialFocusRef?: { readonly current: HTMLElement | null }
   className?: string
   bodyClassName?: string
 }) {
@@ -50,7 +52,7 @@ export function Modal({
     const focusable = getFocusable()
     const first = focusable[0]
 
-    first?.focus()
+    ;(initialFocusRef?.current ?? first)?.focus()
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') { onCloseRef.current(); return }
@@ -71,7 +73,7 @@ export function Modal({
       currentDialog.removeEventListener('keydown', onKeyDown)
       previousActiveElement?.focus()
     }
-  }, [open])
+  }, [initialFocusRef, open])
 
   if (!open) return null
 

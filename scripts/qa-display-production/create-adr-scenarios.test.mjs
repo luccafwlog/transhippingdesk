@@ -32,4 +32,6 @@ test('creates an idempotent omission with transshipment and COD scenarios', asyn
   assert.equal(calls[0].payload.p_voyage_id, 34)
   assert.equal(calls[1].payload.p_bl_id, 'QAD26-BL-001')
   assert.equal(calls[2].payload.p_bl_id, 'QAD26-BL-004')
+  assert.equal(calls[1].payload.p_justification, 'QA-DISPLAY-2026 transshipment confirmado')
+  assert.equal(calls[2].payload.p_justification, 'QA-DISPLAY-2026 COD autorizado pelo cliente')
 })

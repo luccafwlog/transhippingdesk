@@ -6,7 +6,7 @@ const { from, rpc } = vi.hoisted(() => ({
 }))
 vi.mock('../supabase', () => ({ supabase: { from, rpc } }))
 
-import { listBlTransshipments, listBlTransshipmentByBlId, listVoyageOmissions, omitVoyageEscala, setBlCod, setBlTransshipment, updateVoyageOmission } from '../transshipments'
+import { listBlTransshipments, listBlTransshipmentByBlId, listVoyageOmissions, omitVoyageEscala, revertVoyageOmission, setBlCod, setBlTransshipment, updateVoyageOmission } from '../transshipments'
 
 describe('transshipments service', () => {
   beforeEach(() => {
@@ -65,23 +65,21 @@ describe('transshipments service', () => {
     await setBlTransshipment({
       blId: 'BL-1',
       omissionId: 9,
+      justification: 'COD revertido a pedido do cliente',
       changedBy: 'user-1',
     })
-    await setBlCod({ blId: 'BL-1', omissionId: 9, changedBy: 'user-1' })
+    await setBlCod({ blId: 'BL-1', omissionId: 9, justification: 'Cliente confirmou o destino original', changedBy: 'user-1' })
 
     expect(rpc).toHaveBeenNthCalledWith(1, 'set_bl_transshipment', {
       p_bl_id: 'BL-1',
       p_omission_id: 9,
-      p_onward_vessel_name: null,
-      p_onward_carrier: null,
-      p_onward_voyage_number: null,
-      p_onward_etd: null,
-      p_onward_eta: null,
+      p_justification: 'COD revertido a pedido do cliente',
       p_changed_by: 'user-1',
     })
     expect(rpc).toHaveBeenNthCalledWith(2, 'set_bl_cod', {
       p_bl_id: 'BL-1',
       p_omission_id: 9,
+      p_justification: 'Cliente confirmou o destino original',
       p_changed_by: 'user-1',
     })
   })
@@ -112,6 +110,18 @@ describe('transshipments service', () => {
     })
   })
 
+  it('chama a RPC de reversao com justificativa e autor', async () => {
+    rpc.mockResolvedValue({ error: null })
+
+    await revertVoyageOmission({ omissionId: 9, justification: 'POD informado incorretamente', changedBy: 'admin-1' })
+
+    expect(rpc).toHaveBeenCalledWith('revert_voyage_omission', {
+      p_omission_id: 9,
+      p_justification: 'POD informado incorretamente',
+      p_changed_by: 'admin-1',
+    })
+  })
+
   it('mapeia leituras das tabelas novas', async () => {
     const omissionsEq = vi.fn(() =>
       Promise.resolve({
@@ -127,11 +137,6 @@ describe('transshipments service', () => {
             bl_id: 'BL-1',
             omission_id: 1,
             disposition: 'transshipment',
-            onward_vessel_name: 'THIRD',
-            onward_carrier: null,
-            onward_voyage_number: null,
-            onward_etd: null,
-            onward_eta: '2026-07-15',
           },
         ],
         error: null,
@@ -139,7 +144,7 @@ describe('transshipments service', () => {
     )
 
     from.mockImplementation((table: string) => {
-      if (table === 'voyage_omissions') return { select: () => ({ eq: omissionsEq }) }
+      if (table === 'voyage_omissions') return { select: () => ({ eq: () => ({ is: omissionsEq }) }) }
       if (table === 'bl_transshipments') return { select: () => ({ eq: transshipmentsEq }) }
       throw new Error(`Tabela nao mockada: ${table}`)
     })
@@ -153,11 +158,6 @@ describe('transshipments service', () => {
         blId: 'BL-1',
         omissionId: 1,
         disposition: 'transshipment',
-        onwardVesselName: 'THIRD',
-        onwardCarrier: null,
-        onwardVoyageNumber: null,
-        onwardEtd: null,
-        onwardEta: '2026-07-15',
       },
     ])
   })
@@ -177,11 +177,6 @@ describe('transshipments service', () => {
       blId: 'BL-1',
       omissionId: 9,
       disposition: 'cod',
-      onwardVesselName: null,
-      onwardCarrier: null,
-      onwardVoyageNumber: null,
-      onwardEtd: null,
-      onwardEta: null,
     })
     expect(eq).toHaveBeenCalledWith('bl_id', 'BL-1')
     expect(orderByOmittedAt).toHaveBeenCalledWith('omitted_at', { foreignTable: 'voyage_omissions', ascending: false })

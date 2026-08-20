@@ -1,4 +1,4 @@
-# ADR 0052 — Portal ativo e acesso do cliente como gate de faturamento
+# ADR 0054 — Portal ativo e acesso do cliente como gate de faturamento
 
 Status: aceito — 2026-08-17
 

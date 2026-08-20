@@ -41,6 +41,9 @@ Interna, podem avançar com os contratos já existentes.
 - [ ] Definir a chave única do agregado como `(entity_type, entity_id)`; `type`
   identifica o item de pendência e a origem `bl`/`granite_bl` compõe a identidade
   canônica do B/L quando necessário, sem separar alertas da mesma entidade.
+- [ ] Integrar as PRs #550/#553: manter terminal fora da chave do B/L, mas
+  preservar terminal/`report_id` em links para ADR/frente; não criar motivo de
+  revisão ou produtor paralelo para Omissão, Transbordo, COD ou Ajuste de COD.
 - [ ] Definir como a mensagem agrega e remove motivos sem duplicar registros.
 - [ ] Definir a projeção de um alerta de viagem/Baplie em B/Ls e containers,
   sem criar alerta filho.
@@ -81,7 +84,7 @@ Se a integração exigir alteração de banco, a migration nova deve usar o pró
 prefixo disponível (`304` neste checkout); nunca editar
 `188_review_gate_remove_portal.sql`. Migrations são arquivos protegidos: antes
 de criá-las ou editá-las, obter autorização explícita e usar o override previsto
-em `CLAUDE.md` apenas para essa sessão. A ADR 0052 restabelece o Portal como
+em `CLAUDE.md` apenas para essa sessão. A ADR 0054 restabelece o Portal como
 gate de revisão/faturamento; a implementação deve fazê-lo em migration nova.
 
 - [ ] Garantir que todo B/L de `bls` ou `granite_bls` na fila de revisão tenha um
@@ -162,7 +165,7 @@ testes.
 - [ ] Garantir que a ficha do cliente do #521 possa resumir B/Ls deste bloco.
 - [ ] Garantir que o faturamento do #522 possa consumir o estado de revisão.
 - [ ] Garantir que a emissão/faturamento respeite a prontidão do Portal como
-  gate server-side, conforme ADR 0052, sem editar a migration 188.
+  gate server-side, conforme ADR 0054, sem editar a migration 188.
 - [ ] Testar resolução da origem refletida em todas as projeções.
 
 ## Task 8 — Verificação e rollout
@@ -190,6 +193,8 @@ nesse detector. O helper atual de faturamento
 ausente apenas para `cargo_mode = 'container'`; a regra documental de CE para
 todos os modos da ADR 0042 exige correção/teste no bloco de implementação, não
 uma afirmação de que o código já está correto.
+POD omitido não é elegível. COD conserva o CE Mercante e não deve produzir uma
+segunda pendência de CE nem trocar o terminal físico da descarga.
 
 ## Checkpoints de revisão
 

@@ -9,8 +9,8 @@ import { isCycleStartRow } from '../lib/lineupCycle'
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
 const DISPLAY_ROW_TRAVEL_MS = 3000
-const DISPLAY_GRID_TEMPLATE = '20fr 5fr 7fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr'
-const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'ETA', 'ETB', 'VIN', 'VIN CNTR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
+const DISPLAY_GRID_TEMPLATE = '20fr 5fr 7fr 6fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr'
+const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'Terminal', 'ETA', 'ETB', 'VIN', 'VIN CNTR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
 const isTouchDevice = () => {
   if (typeof window === 'undefined') return false
@@ -56,7 +56,9 @@ export function LineUpTVDisplay() {
     return () => clearTimeout(t)
   }, [data])
 
-  const rows = useMemo(() => (data?.rows ?? []).filter((row) => !row.atd), [data?.rows])
+  // Escalas omitidas continuam visíveis para a operação, mas não são
+  // pendências de chegada: o navio não atracará naquele POD.
+  const rows = useMemo(() => (data?.rows ?? []).filter((row) => !row.atd || row.omitted), [data?.rows])
   const firstRoute = rows[0] ?? null
   const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS + 1
   const placeholderCount = hasAnimatedLoop ? 0 : Math.max(0, DISPLAY_VISIBLE_ROWS - rows.length)
@@ -247,7 +249,13 @@ export function LineUpTVDisplay() {
                     >
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--vessel">{row.vesselName}</div>
                       <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.voyageNumber}</div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.pod}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">
+                        <div className="flex flex-wrap items-center justify-center gap-1">
+                          <span>{row.pod}</span>
+                          {row.omitted ? <OmittedChip /> : null}
+                        </div>
+                      </div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.rowType === 'export' ? row.exportTerminal : row.importTerminal}</div>
                       <div className={`app-lineup-display-board__cell ${arrival.isActual ? 'text-green-600' : ''}`}>{formatShortDate(arrival.value)}</div>
                       <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
                       {row.rowType === 'export' ? (
@@ -361,8 +369,10 @@ function LineUpMobileCard({ row, cycleStart }: { row: LineUpRow; cycleStart: boo
       <div className="app-lineup-card__pod">
         <span className="app-lineup-card__pod-label">POD</span>
         <span>{row.pod}</span>
+        {row.omitted ? <OmittedChip /> : null}
       </div>
       <div className="app-lineup-card__grid">
+        <CardField label="Terminal" value={row.rowType === 'export' ? row.exportTerminal : row.importTerminal} />
         <CardField label="ETA" value={formatShortDate(arrival.value)} actual={arrival.isActual} />
         <CardField label="ETB" value={formatShortDate(row.etb)} />
         <CardField label="VIN" value={formatInteger(row.vin)} />
@@ -405,6 +415,17 @@ function buildExportLabel(row: LineUpRow) {
     parts.push(`${formatInteger(row.exportContainersQty)} CNTRS${moves}`)
   }
   return parts.join(' | ')
+}
+
+function OmittedChip() {
+  return (
+    <span
+      className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+      title="Escala omitida — o navio não atracou neste porto."
+    >
+      Omitida
+    </span>
+  )
 }
 
 function buildDisplayLeadLabel(row: LineUpRow) {

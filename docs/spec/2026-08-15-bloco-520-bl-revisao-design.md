@@ -47,6 +47,21 @@ a condição vigente `client_id IS NULL`.
 
 ## 3. Princípios
 
+### 3.0 Integração obrigatória após as PRs #550 e #553
+
+O agregado deste bloco continua no B/L; terminal não entra na identidade da
+Revisão Manual. Porém, qualquer destino que abra ADR/frente operacional deve
+preservar terminal (e `report_id` quando disponível), pois porto sozinho não
+identifica mais a operação.
+
+Omissão, Transbordo e COD não são novos motivos genéricos de Revisão Manual.
+Omissão/COD já publicam as Notificações do Portal da PR #553; complemento do
+registro global de Transbordo apenas atualiza o card. COD exige justificativa e
+pode criar Ajuste de COD no fluxo próprio, sem reabrir revisão de cliente, CE,
+peso ou cálculo. A escala omitida deixa de ser elegível aos detectores por POD,
+mas permanece visível como `OMIT`; COD não muda o CE Mercante nem o terminal da
+descarga física.
+
 ### 3.1 Erro de importação versus pendência persistente
 
 Erro de importação é um resultado da operação de entrada de dados. Ele deve
@@ -153,7 +168,7 @@ nulo; não deve inventar motivos de Portal ou de peso.
 Quando o problema for a ausência de e-mail ou a falta de prontidão do Portal, a
 pendência de cliente segue também a regra própria do bloco de Clientes. A
 prontidão do Portal é condição do gate de revisão/faturamento conforme a ADR
-0052; deve compor o alerta único do B/L, sem duplicar o alerta geral do cliente.
+0054; deve compor o alerta único do B/L, sem duplicar o alerta geral do cliente.
 Como a migration `188_review_gate_remove_portal.sql` é histórica e protegida, a
 restauração ocorre em migration nova e não por edição retroativa.
 
@@ -261,6 +276,10 @@ domínios e não ao cadastro de veículos.
 - **520-AC-18:** toda dispensa de alerta exige data futura de revisão; se a
   condição persistir, o alerta retorna à fila prioritária, e se tiver sido
   resolvida o fechamento é automático.
+- **520-AC-19:** Omissão, Transbordo, COD e Ajuste de COD não criam motivo
+  genérico de Revisão Manual nem produtor duplicado de Notificação do Portal.
+- **520-AC-20:** links terminalizados carregam terminal/`report_id`; a identidade
+  do alerta de revisão continua sendo o B/L.
 
 ## 11. Fora de escopo e dependências
 

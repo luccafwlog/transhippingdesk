@@ -20,7 +20,7 @@ export function useBlCockpit(bl: BLDetail | undefined) {
       ])
       const omission = transshipment
         ? omissions.find((o) => o.id === transshipment.omissionId) ?? null
-        : omissions.find((o) => o.omittedPod === String(bl!.pod ?? '').trim().toUpperCase()) ?? null
+        : null
       return { polSchedule: polSchedules.get(polId) ?? null, podSchedule: podSchedules.get(podId) ?? null, omission, transshipment }
     },
   })

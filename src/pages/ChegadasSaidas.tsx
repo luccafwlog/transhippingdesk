@@ -12,14 +12,16 @@ import { fetchPortalScheduleVoyages, type PortalScheduleVoyage } from '../servic
 import { createOrAttachVoyageFromSchedule } from '../services/voyageFromSchedule'
 import { setVoyageShowOnPortal } from '../services/voyages'
 
-function DateTd({ value, isActual = false }: { value: string; isActual?: boolean }) {
+function DateTd({ value, isActual = false, omitted = false }: { value: string; isActual?: boolean; omitted?: boolean }) {
   const isX = value === 'X'
+  const isOmitted = omitted
   return (
     <td
-      className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'font-semibold' : ''}`}
+      title={isOmitted ? 'Escala omitida pelo armador' : undefined}
+      className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isOmitted || isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'font-semibold' : ''}`}
       style={isActual ? { color: 'var(--app-blue)' } : undefined}
     >
-      {isX ? 'X' : formatScheduleDate(value)}
+      {isOmitted ? 'OMIT' : isX ? 'X' : formatScheduleDate(value)}
     </td>
   )
 }
@@ -323,7 +325,7 @@ export function ChegadasSaidas() {
                   </td>
                   <td className="px-3 py-2.5 text-center border-r border-[var(--app-border)] text-sm">{vessel.voyage}</td>
                   {PORTAL_SCHEDULE_LANES.map((lane) => (
-                    <DateTd key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} isActual={Boolean(vessel.actualDatesByLabel?.[lane.label])} />
+                    <DateTd key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} omitted={Boolean(vessel.omittedByLabel?.[lane.label])} isActual={Boolean(vessel.actualDatesByLabel?.[lane.label])} />
                   ))}
                   {canWrite ? (
                     <td className="px-2 py-2 text-center">

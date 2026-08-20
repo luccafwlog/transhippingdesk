@@ -36,10 +36,10 @@ O gate foi tornado canônico e centrado em "o cliente consegue ver a fatura no p
 - O mesmo gate é aplicado depois de novas importações e novamente nas fronteiras de `ready_for_billing`/invoice. Helpers que leem relações administrativas são `SECURITY DEFINER`, com `search_path` fixo e sem `EXECUTE` para `PUBLIC`, `anon` ou chamadas diretas de `authenticated`.
 - A correção é **prospectiva**: não há backfill top-level. B/Ls históricos já faturados não são reabertos nem têm o status reescrito.
 
-## Nota editorial — 2026-08-16 (supersedida pela ADR 0052)
+## Nota editorial — 2026-08-16 (supersedida pela ADR 0054)
 
 A migration `188_review_gate_remove_portal.sql` registrou temporariamente a
-retirada do Portal do gate. A ADR 0052 reverte essa decisão de produto: a
+retirada do Portal do gate. A ADR 0054 reverte essa decisão de produto: a
 prontidão da Conta de Portal volta a ser condição obrigatória de revisão e
 faturamento, e a restauração deve ocorrer em migration nova. A nota permanece
 somente como histórico da mudança intermediária; não é contrato vigente.
