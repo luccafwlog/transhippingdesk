@@ -3,6 +3,15 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Revisão completa de UI/UX e Portal do Cliente:** notificações passaram a
+  usar painel responsivo e legível, com hierarquia, datas e estados explícitos;
+  navegação ganhou skip link e alvos mínimos de 40 px; o cabeçalho mobile e a
+  cópia pt-BR do Portal foram refinados; tokens compartilhados de link/hover e
+  redução de movimento foram consolidados. O relatório de Demurrage por
+  consignatário deixou de imprimir vazio. A verificação percorreu 31
+  superfícies desktop e 25 rotas autenticadas mobile sem overflow ou erros de
+  console no passe final. Evidências em
+  `docs/archive/audits/2026-08-19-revisao-completa-ui-ux.md`.
 - **PR #553 — transbordo e COD:** a omissão de escala passou a preservar os
   dados globais de transbordo, exigir confirmação com resumo, permitir reversão
   administrativa justificada e invalidar as projeções afetadas. COD passou a

@@ -57,7 +57,7 @@ it('mostra erro de conexao quando o login falha por rede', async () => {
   await user.click(screen.getByRole('button', { name: 'Entrar no portal' }))
 
   await waitFor(() => {
-    expect(screen.getByText('Nao foi possivel conectar. Verifique sua internet e tente novamente.')).toBeTruthy()
+    expect(screen.getByText('Não foi possível conectar. Verifique sua internet e tente novamente.')).toBeTruthy()
   })
   expect(screen.queryByText('Credenciais invalidas para o portal do cliente.')).toBeNull()
 })

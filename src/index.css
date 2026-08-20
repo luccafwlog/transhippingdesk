@@ -11,6 +11,7 @@
   --app-surface: #ffffff;
   --app-surface-strong: #ffffff;
   --app-surface-muted: #f8f6f1;
+  --app-surface-hover: #f1eee7;
   --app-panel: #ede9df;
   --app-panel-strong: #e2ddd2;
   --app-border: #cdc8bc;
@@ -25,6 +26,7 @@
   --app-topbar: #0e1825;
   --app-blue: #2563a8;
   --app-blue-btn: #1d4d88;
+  --app-link: #1d4d88;
   --app-blue-soft: #e8f0fb;
   --app-gold: #d4882e;
   --app-gold-soft: #fdf0dc;
@@ -52,6 +54,7 @@
   --app-surface: rgba(16, 26, 45, 0.92);
   --app-surface-strong: #101a2d;
   --app-surface-muted: #0d1728;
+  --app-surface-hover: #182741;
   --app-panel: #132139;
   --app-panel-strong: #162641;
   --app-border: #22324d;
@@ -66,6 +69,7 @@
   --app-topbar: #08111b;
   --app-blue: #60a5fa;
   --app-blue-btn: #2563eb;
+  --app-link: #93c5fd;
   --app-blue-soft: rgba(37, 99, 235, 0.18);
   --app-gold: #f59e0b;
   --app-gold-soft: rgba(245, 158, 11, 0.18);
@@ -90,6 +94,7 @@
   --app-surface: #ffffff;
   --app-surface-strong: #ffffff;
   --app-surface-muted: #f8f6f1;
+  --app-surface-hover: #f1eee7;
   --app-panel: #ede9df;
   --app-panel-strong: #e2ddd2;
   --app-border: #cdc8bc;
@@ -104,6 +109,7 @@
   --app-topbar: #0e1825;
   --app-blue: #2563a8;
   --app-blue-btn: #1d4d88;
+  --app-link: #1d4d88;
   --app-blue-soft: #e8f0fb;
   --app-gold: #d4882e;
   --app-gold-soft: #fdf0dc;
@@ -124,6 +130,9 @@
 }
 
 .app-skip-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
   position: absolute;
   top: -100%;
   left: 8px;
@@ -442,6 +451,7 @@ textarea {
   align-items: center;
   gap: 14px;
   min-width: 0;
+  min-height: 40px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1241,7 +1251,7 @@ textarea {
 }
 
 .app-btn--sm {
-  min-height: 36px;
+  min-height: 40px;
   padding: 6px 12px;
   font-size: 12px;
   gap: 6px;
@@ -1326,7 +1336,7 @@ textarea {
   justify-content: center;
   min-width: 0;
   max-width: 100%;
-  height: 36px;
+  min-height: 40px;
   padding: 0 14px;
   border: 1px solid var(--app-border-strong);
   border-radius: 8px;
@@ -1605,9 +1615,9 @@ textarea {
 }
 
 .app-modal__close {
-  width: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
   padding: 0;
   color: rgba(255, 255, 255, 0.72) !important;
 }
@@ -2570,7 +2580,7 @@ textarea {
   justify-content: center;
   min-width: 0;
   max-width: 100%;
-  min-height: 38px;
+  min-height: 40px;
   border: 1px solid #bfd4ff;
   border-radius: 12px;
   padding: 8px 14px;
@@ -2604,6 +2614,160 @@ textarea {
   background: linear-gradient(180deg, #ffffff, var(--app-surface-muted));
   color: var(--app-text-strong);
   transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.app-market-refresh {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+}
+
+.portal-notifications {
+  position: relative;
+}
+
+.portal-notifications__trigger,
+.portal-profile-link {
+  display: inline-flex;
+  min-width: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.82);
+  transition: background-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out;
+}
+
+.portal-notifications__trigger:hover,
+.portal-profile-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.portal-notifications__trigger:active,
+.portal-profile-link:active {
+  transform: scale(0.96);
+}
+
+.portal-notifications__panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 400;
+  width: min(390px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-shadow: var(--app-shadow-strong);
+  transform-origin: top right;
+}
+
+.portal-notifications__header {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--app-border);
+  padding: 10px 16px;
+}
+
+.portal-notifications__title {
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.portal-notifications__mark-all {
+  min-height: 40px;
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--app-link);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.portal-notifications__list {
+  max-height: min(430px, calc(100vh - 150px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.portal-notifications__item {
+  display: grid;
+  width: 100%;
+  min-height: 76px;
+  grid-template-columns: 36px minmax(0, 1fr) 8px;
+  gap: 10px;
+  align-items: start;
+  border: 0;
+  border-bottom: 1px solid var(--app-border);
+  padding: 13px 16px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 180ms ease-out;
+}
+
+.portal-notifications__item[data-read='false'] {
+  background: color-mix(in srgb, var(--app-blue-soft) 45%, var(--app-surface));
+}
+
+.portal-notifications__item:hover,
+.portal-notifications__item:focus-visible {
+  background: var(--app-surface-hover);
+  outline: 0;
+}
+
+.portal-notifications__icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--app-blue-soft);
+  color: var(--app-blue-btn);
+}
+
+.portal-notifications__item-title {
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.portal-notifications__message {
+  margin-top: 3px;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.portal-notifications__date {
+  margin-top: 5px;
+  color: var(--app-muted-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.portal-notifications__unread {
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--app-blue);
+}
+
+.portal-notifications__state {
+  padding: 28px 18px;
+  color: var(--app-muted);
+  font-size: 13px;
+  text-align: center;
 }
 
 .app-table__icon-button:active:not(:disabled) {
@@ -2683,7 +2847,7 @@ textarea {
 }
 
 .app-table__action--compact {
-  min-height: 34px;
+  min-height: 40px;
   padding: 0 12px;
   gap: 6px;
   white-space: nowrap;
@@ -2691,10 +2855,10 @@ textarea {
 
 /* Versao reduzida do botao de icone para caber varias acoes na linha da tabela. */
 .app-table__icon-button--sm {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: 9px;
 }
 
@@ -2747,13 +2911,24 @@ textarea {
   align-items: center;
   gap: 6px;
   border: 0;
-  padding: 0;
+  min-height: 40px;
+  margin: -12px;
+  padding: 12px;
   background: transparent;
   color: inherit;
   font: inherit;
   font-weight: 700;
   text-transform: inherit;
   letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.app-status-toggle {
+  min-width: 40px;
+  min-height: 40px;
+  border: 0;
+  padding: 7px 0;
+  background: transparent;
   cursor: pointer;
 }
 
@@ -3895,6 +4070,29 @@ textarea {
 }
 
 @media (max-width: 480px) {
+  .portal-notifications__panel {
+    position: fixed;
+    top: calc(var(--app-header-height) + 8px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: calc(100dvh - var(--app-header-height) - 20px);
+  }
+
+  .app-header__actions .app-user-pill {
+    display: none;
+  }
+
+  .app-header__logout {
+    font-size: 0 !important;
+    min-width: 40px;
+    padding: 0 !important;
+  }
+
+  .app-header__eyebrow {
+    white-space: nowrap;
+  }
+
   .app-market-strip__right {
     display: none;
   }
@@ -3942,6 +4140,10 @@ textarea {
     display: none !important;
   }
 
+  .print-hidden {
+    display: none !important;
+  }
+
   /* O modal é renderizado dentro da página atual, não diretamente sob
      .app-main. Preserve o ancestral que contém o documento imprimível. */
   .app-main > *:has(.app-modal-backdrop) {
@@ -3974,7 +4176,7 @@ textarea {
 
   /* Hide modal chrome (title bar, close button, print buttons) */
   .app-modal__header,
-  .app-modal__body > *:not(.invoice-print-content):not(.agency-report-print-content) {
+  .app-modal__body > *:not(.invoice-print-content):not(.agency-report-print-content):not(.customer-report-print-content) {
     display: none !important;
   }
 
@@ -3998,7 +4200,8 @@ textarea {
   }
 
   .invoice-print-content,
-  .agency-report-print-content {
+  .agency-report-print-content,
+  .customer-report-print-content {
     max-width: 198mm !important;
     margin: 0 auto !important;
     padding: 8mm 8mm !important;
@@ -4038,11 +4241,20 @@ textarea {
 }
 
 .app-breadcrumb__link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
   color: var(--app-muted);
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
   transition: color 0.15s ease;
+}
+
+.app-touch-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
 }
 
 .app-breadcrumb__link:hover {
@@ -4066,8 +4278,8 @@ textarea {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 4px;
   background: transparent;
