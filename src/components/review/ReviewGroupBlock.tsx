@@ -55,7 +55,12 @@ export function ReviewGroupBlock({
   const needsEmail = groupNeedsEmail(group)
   const blItems = group.items.filter((item) => item.source === 'bl')
   const linked = getGroupLinkedItem(group)
-  const showOnboarding = blItems.length > 0 && (group.identityKind !== 'conflict' || group.items.length === 1) && (unlinkedCount > 0 || needsEmail)
+  const allItemsAreBls = group.items.every((item) => item.source === 'bl')
+  const showConflictOnboarding = group.identityKind === 'conflict' && group.items.length === 1 && unlinkedCount > 0
+  // Mixed-source groups keep one customer-oriented action. The explicit
+  // exception prevents the source check from becoming an accidental gate.
+  const showMixedSourceOnboarding = group.items.some((item) => item.source === 'granite') && blItems.length > 0 && group.identityKind === 'document' && (unlinkedCount > 0 || needsEmail)
+  const showOnboarding = (allItemsAreBls && (group.canBulkOnboard || group.identityKind === 'name') && (unlinkedCount > 0 || needsEmail)) || showConflictOnboarding || showMixedSourceOnboarding
   const groupReasons = useMemo(() => {
     const reasons = new Set<string>()
     for (const item of group.items) {
@@ -137,7 +142,7 @@ export function ReviewGroupBlock({
           ) : null}
           {showOnboarding ? (
             <ReviewCustomerOnboarding
-              group={group}
+              group={showMixedSourceOnboarding ? { ...group, items: blItems, canBulkOnboard: true } : group}
               existingCustomerId={linked?.customer?.id ?? null}
               existingCustomer={linked?.customer ?? null}
               initialName={linked?.customer?.name ?? group.displayName}

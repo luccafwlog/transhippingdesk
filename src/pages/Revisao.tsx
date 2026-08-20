@@ -10,12 +10,15 @@ import { useAuth } from '../hooks/useAuth'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import {
   getGroupLinkedItem,
+  getReviewItemDocumentCandidates,
   groupReviewItems,
+  hasCustomerDocumentConflict,
   needsCustomerLink,
   reviewReasonLabel,
   type ReviewGroup,
 } from './revisaoHelpers'
 import { extractErrorText } from '../lib/errors'
+import { canonicalizeValidCnpj } from '../lib/cnpj'
 import { invalidateReviewQueueCaches } from '../components/review/reviewCaches'
 import { ReviewGroupBlock } from '../components/review/ReviewGroupBlock'
 import type { ReviewCustomerOnboardingInput } from '../components/review/ReviewCustomerOnboarding'
@@ -309,7 +312,11 @@ export function Revisao() {
 
   async function handleGroupOnboard(group: ReviewGroup, input: ReviewCustomerOnboardingInput) {
     if (!user) return
-    const blIds = group.items.filter((item) => item.source === 'bl').map((item) => item.id)
+    const selectedCnpj = canonicalizeValidCnpj(input.cnpjCpf)
+    const blIds = group.items
+      .filter((item) => item.source === 'bl')
+      .filter((item) => item.customer_id == null || getReviewItemDocumentCandidates(item).every((candidate) => !selectedCnpj || candidate === selectedCnpj))
+      .map((item) => item.id)
     if (!blIds.length || (group.identityKind === 'conflict' && group.items.length !== 1)) {
       showToast('Nenhum B/L elegível para o cadastro deste grupo.', 'error')
       return
@@ -357,7 +364,8 @@ export function Revisao() {
       const inviteMessage = result.portalInvite === 'failed' ? ' Não foi possível iniciar o convite do Portal; o cadastro foi concluído.' : ''
       const invoiceMessage = invoiceCount > 0 ? ` ${invoiceCount} fatura(s) emitida(s).` : ''
       const graniteMessage = graniteLinkedCount > 0 ? ` ${graniteLinkedCount} item(ns) de Granito vinculado(s).` : ''
-      showToast(`${blIds.length - pendingCount} B/L(s) vinculados; ${pendingCount} ainda com pendências.${graniteMessage}${invoiceMessage}${inviteMessage}`, result.portalInvite === 'failed' ? 'info' : 'success')
+      const resolvedCount = result.onboarding.bls.filter((bl) => bl.resolved).length
+      showToast(`${resolvedCount} B/L(s) vinculados; ${pendingCount} ainda com pendências.${graniteMessage}${invoiceMessage}${inviteMessage}`, result.portalInvite === 'failed' ? 'info' : 'success')
       await invalidateReviewQueueCaches(queryClient, { includeCustomers: true, includeCharges: true, includeInvoices: true })
     } catch (err) {
       if (err instanceof ConcurrentEditError) {
@@ -570,7 +578,11 @@ export function Revisao() {
         onReviewSaved={evaluateRecalcNotice}
         onNavigate={(id) => setSelectedId(id)}
         siblingIds={filteredData.map((item) => item.id)}
-        allowCustomerLink={selectedGroup?.identityKind === 'conflict'}
+        allowCustomerLink={Boolean(
+          selected?.source === 'bl' && selected.customer_id != null
+            || selectedGroup?.identityKind === 'conflict'
+            || (selected && hasCustomerDocumentConflict(selected)),
+        )}
       />
 
     </>

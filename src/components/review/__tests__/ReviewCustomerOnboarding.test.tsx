@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { ReviewCustomerOnboarding } from '../ReviewCustomerOnboarding'
 import type { ReviewGroup } from '../../../pages/revisaoHelpers'
 
-vi.mock('../../../hooks/useCustomers', () => ({ useCustomerLookup: () => ({ data: [] }) }))
+const reviewOnboardingMocks = vi.hoisted(() => ({
+  lookupCustomer: { id: 7, name: 'Cliente Existente', cnpj_cpf: '11222333000181', customer_contacts: [{ email: 'financeiro@existente.com' }] },
+}))
+vi.mock('../../../hooks/useCustomers', () => ({ useCustomerLookup: () => ({ data: [reviewOnboardingMocks.lookupCustomer] }) }))
 
 const group = { key: 'document:11222333000181', cnpj: '11222333000181', displayName: 'Alfa', identityKind: 'document', candidateCnpjs: ['11222333000181'], canBulkOnboard: true, items: [{ id: 'BL1', source: 'bl', customer_id: null }] } as never as ReviewGroup
 
@@ -31,5 +34,13 @@ describe('ReviewCustomerOnboarding', () => {
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: /criar cliente e vincular 1 b\/ls/i }))
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ email: 'financeiro@example.com', sendPortalInvite: true }))
+  })
+
+  it('preenche o e-mail conhecido ao selecionar um cliente existente', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await user.click(screen.getByRole('button', { name: /Cliente Existente/ }))
+
+    expect((screen.getByPlaceholderText('financeiro@cliente.com.br') as HTMLInputElement).value).toBe('financeiro@existente.com')
   })
 })

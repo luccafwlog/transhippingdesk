@@ -71,15 +71,24 @@ export function getReviewItemDocumentCandidates(item: ReviewQueueItem): string[]
 }
 
 function getReviewItemIdentityKind(item: ReviewQueueItem, candidates: string[]): ReviewIdentityKind {
-  return candidates.length > 1 ? 'conflict' : candidates.length === 1 || getReviewItemCnpj(item) ? 'document' : 'name'
+  const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
+  return candidates.length > 1 || Boolean(registered && candidates.some((candidate) => candidate !== registered))
+    ? 'conflict'
+    : candidates.length === 1 || getReviewItemCnpj(item) ? 'document' : 'name'
 }
 
 // Chave de grupo: CNPJ válido quando existe; senão, nome de exibição normalizado.
 export function getReviewItemGroupKey(item: ReviewQueueItem): string {
-  const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
-  if (registered) return `document:${registered}`
-
   const candidates = getReviewItemDocumentCandidates(item)
+  const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
+  if (registered) {
+    // A linked customer remains the grouping anchor only while the document
+    // evidence is compatible. Incompatible evidence gets its own review item
+    // so a bulk action cannot silently repoint an already-linked B/L.
+    if (candidates.some((candidate) => candidate !== registered)) return `conflict:${item.source}:${item.id}`
+    return `document:${registered}`
+  }
+
   if (candidates.length > 1) return `conflict:${item.source}:${item.id}`
   const cnpj = candidates[0] ?? getReviewItemCnpj(item)
   return cnpj ? `document:${cnpj}` : `name:${getReviewItemDisplayName(item).toLowerCase()}:missing`
@@ -114,6 +123,9 @@ export function groupReviewItems(items: ReviewQueueItem[]): ReviewGroup[] {
     for (const candidate of candidates) {
       if (!group.candidateCnpjs.includes(candidate)) group.candidateCnpjs.push(candidate)
     }
+    group.identityKind = group.items.some((row) => getReviewItemIdentityKind(row, getReviewItemDocumentCandidates(row)) === 'conflict') || group.candidateCnpjs.length > 1
+      ? 'conflict'
+      : group.candidateCnpjs.length === 1 || group.items.some((row) => getReviewItemCnpj(row)) ? 'document' : 'name'
     group.canBulkOnboard = group.identityKind === 'document' && group.items.every((row) => row.source === 'bl')
     // Prefere a razão social cadastrada como nome do grupo.
     if (item.customer?.name) group.displayName = item.customer.name
@@ -136,6 +148,11 @@ export function getSelectionConsignee(items: ReviewQueueItem[]) {
 
 export function needsCustomerLink(item: ReviewQueueItem) {
   return item.customer_id == null
+}
+
+export function hasCustomerDocumentConflict(item: ReviewQueueItem) {
+  const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
+  return Boolean(registered && getReviewItemDocumentCandidates(item).some((candidate) => candidate !== registered))
 }
 
 export function customerHasEmail(item: ReviewQueueItem) {

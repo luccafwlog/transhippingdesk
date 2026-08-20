@@ -47,7 +47,7 @@ export function ReviewCustomerOnboarding({
   const [sendPortalInvite, setSendPortalInvite] = useState(false)
   const validCnpj = canonicalizeValidCnpj(cnpj)
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-  const lookup = useCustomerLookup(group.identityKind === 'name' && !validCnpj ? '' : search)
+  const lookup = useCustomerLookup(search)
   const canSubmit = Boolean(validCnpj && name.trim() && validEmail && !saving && group.items.some((item) => item.source === 'bl'))
   const count = group.items.filter((item) => item.source === 'bl').length
   const customerAlreadyHasEmail = Boolean(selectedCustomer?.customer_contacts?.some((contact) => contact.email?.trim()))
@@ -58,6 +58,7 @@ export function ReviewCustomerOnboarding({
     setSelectedCustomer(next)
     setName(customer.name)
     setCnpj(customer.cnpj_cpf)
+    setEmail(customer.customer_contacts?.find((contact) => contact.email?.trim())?.email ?? '')
     onSelectExistingCustomer(next)
   }
 

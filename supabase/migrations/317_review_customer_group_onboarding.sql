@@ -65,7 +65,7 @@ BEGIN
     FROM regexp_matches(
       p_text,
       '\mCNPJ\M[[:space:]]*[:-]?[[:space:]]*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})([^0-9A-Z]|$)',
-      'g'
+      'gi'
     ) AS match
   LOOP
     v_value := public.normalize_cnpj(v_match);
@@ -146,6 +146,7 @@ DECLARE
   v_notes TEXT;
   v_bls JSONB := '[]'::JSONB;
   v_missing INTEGER := 0;
+  v_requested_count INTEGER := 0;
 BEGIN
   IF v_actor IS NULL OR NOT public.is_active_user() OR p_changed_by IS DISTINCT FROM v_actor THEN
     RAISE EXCEPTION 'Usuário sem permissão ativa para concluir o grupo.' USING ERRCODE = '42501';
@@ -163,11 +164,18 @@ BEGIN
     RAISE EXCEPTION 'Informe um e-mail válido para o cliente.' USING ERRCODE = '22023';
   END IF;
 
-  IF EXISTS (
-    SELECT 1 FROM unnest(p_bl_ids) AS requested(id)
-    WHERE requested.id IS NULL OR btrim(requested.id) = ''
-      OR NOT EXISTS (SELECT 1 FROM public.bls b WHERE b.id = requested.id AND b.review_status = 'pending_review')
-  ) THEN
+  SELECT COUNT(*)::INTEGER INTO v_requested_count
+  FROM (
+    SELECT b.id
+    FROM public.bls AS b
+    WHERE b.id = ANY(p_bl_ids)
+      AND b.review_status = 'pending_review'
+    ORDER BY b.id
+    FOR UPDATE
+  ) AS locked_bls;
+
+  IF EXISTS (SELECT 1 FROM unnest(p_bl_ids) AS requested(id) WHERE requested.id IS NULL OR btrim(requested.id) = '')
+     OR v_requested_count <> cardinality(p_bl_ids) THEN
     RAISE EXCEPTION 'Um ou mais B/Ls não estão mais pendentes de revisão.' USING ERRCODE = 'PT409';
   END IF;
 
@@ -194,7 +202,7 @@ BEGIN
   END IF;
 
   FOR v_bl IN
-    SELECT * FROM public.bls WHERE id = ANY(p_bl_ids) AND review_status = 'pending_review' FOR UPDATE
+    SELECT * FROM public.bls WHERE id = ANY(p_bl_ids) ORDER BY id FOR UPDATE
   LOOP
     v_candidates := public.review_bl_document_candidates(
       v_bl.manifest_customer_cnpj_cpf,
@@ -234,7 +242,7 @@ BEGIN
     );
     v_notes := CASE
       WHEN COALESCE(cardinality(v_reasons), 0) > 0 THEN concat_ws(
-        E'\\n',
+        E'\n',
         NULLIF(v_human_notes, ''),
         'Pendencias de importacao: ' || array_to_string(v_reasons, ', ')
       )

@@ -211,7 +211,7 @@ describe('groupReviewItems', () => {
     ])
   })
 
-  it('mantém o CNPJ do cliente vinculado como chave do grupo', () => {
+  it('segrega evidência incompatível do cliente já vinculado', () => {
     const groups = groupReviewItems([
       item({
         id: 'BL-LINKED',
@@ -229,8 +229,11 @@ describe('groupReviewItems', () => {
       }),
     ])
 
-    expect(groups[0].key).toBe('document:11222333000181')
-    expect(groups[0].items.map((row) => row.id)).toEqual(['BL-LINKED', 'BL-UNLINKED'])
+    expect(groups.map((group) => [group.key, group.items.map((row) => row.id)])).toEqual([
+      ['conflict:bl:BL-LINKED', ['BL-LINKED']],
+      ['document:11222333000181', ['BL-UNLINKED']],
+    ])
+    expect(groups[0].identityKind).toBe('conflict')
   })
 
   it('preserva Granite sem habilitar onboarding em lote de B/L', () => {

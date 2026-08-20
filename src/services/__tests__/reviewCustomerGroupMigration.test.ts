@@ -17,7 +17,9 @@ describe('migration de onboarding da revisão por cliente', () => {
     expect(sql).toMatch(/GRANT EXECUTE[\s\S]*TO authenticated/i)
     expect(sql).toMatch(/import_bl_freight_transactional_legacy_284/i)
     expect(sql).toMatch(/manifest_customer_email/i)
-    expect(sql).toMatch(/Pendencias de importacao:[^\n]*array_to_string\(v_reasons/i)
+    expect(sql).toMatch(/concat_ws\(\s*E'\\n'/i)
+    expect(sql).toMatch(/regexp_matches\([\s\S]*'gi'/i)
+    expect(sql).toMatch(/ORDER BY b\.id[\s\S]*FOR UPDATE/i)
     expect(sql).not.toMatch(/O B\/L % não pertence ao nome do grupo informado/i)
   })
 
