@@ -151,7 +151,7 @@ export function DemurrageRates() {
                   </td>
                   <td className="px-4 py-3">
                     {isAdmin ? (
-                      <button onClick={() => handleToggleActive(rate)} className="cursor-pointer">
+                      <button onClick={() => handleToggleActive(rate)} className="app-status-toggle">
                         <Badge tone={rate.active ? 'green' : 'slate'}>{rate.active ? 'Ativo' : 'Inativo'}</Badge>
                       </button>
                     ) : (

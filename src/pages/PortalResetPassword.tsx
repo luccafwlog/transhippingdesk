@@ -7,7 +7,7 @@ import { supabasePortal } from '../services/supabase'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
 import { PASSWORD_RULE_MESSAGE, isValidPassword } from '../lib/passwordPolicy'
 
-const INVALID_LINK_MESSAGE = 'Link de recuperacao invalido ou expirado.'
+const INVALID_LINK_MESSAGE = 'Link de recuperação inválido ou expirado.'
 
 export function PortalResetPassword() {
   const navigate = useNavigate()
@@ -37,7 +37,7 @@ export function PortalResetPassword() {
     }
 
     if (password !== confirm) {
-      setError('As senhas nao conferem.')
+      setError('As senhas não conferem.')
       return
     }
 
@@ -83,7 +83,7 @@ export function PortalResetPassword() {
           {error ? (
             <InlineError message={error} />
           ) : (
-            <p className="text-sm text-[var(--app-muted)]">Verificando link de recuperacao...</p>
+            <p className="text-sm text-[var(--app-muted)]">Verificando link de recuperação…</p>
           )}
         </Card>
       </main>

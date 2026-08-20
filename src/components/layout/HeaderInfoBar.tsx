@@ -115,7 +115,7 @@ export function HeaderInfoBar() {
           )}
           <button
             type="button"
-            className="hib-alert-btn"
+            className="hib-alert-btn app-market-refresh"
             aria-label="Atualizar cotação PTAX"
             onClick={() => void rates.refresh()}
           >

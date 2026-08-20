@@ -20,8 +20,8 @@ vi.mock('../../../hooks/usePortalAuth', async () => ({
 vi.mock('../../../hooks/usePortalNotifications', () => ({
   usePortalNotifications: () => ({
     data: [
-      { id: 1, type: 'invoice_issued', title: 'Nova fatura', message: 'Abra a fatura.', link: '/portal/billing?invoice=10', read: false },
-      { id: 2, type: 'dispute_responded', title: 'Disputa respondida', message: 'Veja a resposta.', link: null, read: true },
+      { id: 1, type: 'invoice_issued', title: 'Nova fatura', message: 'Abra a fatura.', link: '/portal/billing?invoice=10', read: false, created_at: '2026-08-19T15:30:00Z' },
+      { id: 2, type: 'dispute_responded', title: 'Disputa respondida', message: 'Veja a resposta.', link: null, read: true, created_at: '2026-08-18T12:00:00Z' },
     ],
     isLoading: false,
   }),
@@ -50,19 +50,22 @@ it('US-173: mostra o contador de nao lidas e lista as notificacoes', async () =>
   renderBell()
 
   // badge com a contagem
-  expect(screen.getByRole('button', { name: 'Notificacoes (3 nao lidas)' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Notificações (3 não lidas)' })).toBeTruthy()
 
-  await user.click(screen.getByRole('button', { name: 'Notificacoes (3 nao lidas)' }))
+  await user.click(screen.getByRole('button', { name: 'Notificações (3 não lidas)' }))
   expect(screen.getByText('Nova fatura')).toBeTruthy()
   expect(screen.getByText('Disputa respondida')).toBeTruthy()
+  expect(screen.getByRole('menu', { name: 'Notificações' })).toBeTruthy()
+  expect(screen.getByRole('menuitem', { name: /Nova fatura/ }).getAttribute('data-read')).toBe('false')
+  expect(screen.getByText('19/08/2026, 12:30')).toBeTruthy()
 })
 
 it('US-174: marca uma notificacao como lida ao seleciona-la', async () => {
   const user = userEvent.setup()
   renderBell()
 
-  await user.click(screen.getByRole('button', { name: 'Notificacoes (3 nao lidas)' }))
-  await user.click(screen.getByRole('button', { name: /Nova fatura/ }))
+  await user.click(screen.getByRole('button', { name: 'Notificações (3 não lidas)' }))
+  await user.click(screen.getByRole('menuitem', { name: /Nova fatura/ }))
 
   expect(mocks.markRead).toHaveBeenCalledWith(1)
 })
@@ -71,7 +74,7 @@ it('US-174: marca todas como lidas pelo cabecalho', async () => {
   const user = userEvent.setup()
   renderBell()
 
-  await user.click(screen.getByRole('button', { name: 'Notificacoes (3 nao lidas)' }))
+  await user.click(screen.getByRole('button', { name: 'Notificações (3 não lidas)' }))
   await user.click(screen.getByRole('button', { name: 'Marcar todas como lidas' }))
 
   expect(mocks.markAllRead).toHaveBeenCalledTimes(1)
@@ -81,7 +84,7 @@ it('fecha o dropdown com Escape e expõe estado expandido', async () => {
   const user = userEvent.setup()
   renderBell()
 
-  const button = screen.getByRole('button', { name: 'Notificacoes (3 nao lidas)' })
+  const button = screen.getByRole('button', { name: 'Notificações (3 não lidas)' })
   expect(button.getAttribute('aria-haspopup')).toBe('menu')
   expect(button.getAttribute('aria-expanded')).toBe('false')
 
