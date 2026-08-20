@@ -10,7 +10,8 @@ agregado por ADR/terminal, preservando as regras de sign-off, prazo e histórico
 ADRs 0027–0039.
 
 **Architecture:** a fundação transversal da PR #517 fornece o agregado, itens,
-dispensa, fan-out e executor server-only. O Bloco 5 apenas registra os dois
+dispensa conforme a ADR 0050, fan-out e executor server-only. O Bloco 5 apenas
+registra os dois
 produtores do ADR no catálogo central: pendência departamental normal e prazo
 vencido crítico. ADRs novos usam
 `agency_departure_report / voyageId::PORTO::TERMINAL`; ADR legado preserva
@@ -32,15 +33,18 @@ contrato SQL.
 
 - Integrar a fundação documental/implementada da PR #517 antes de criar uma
   tabela ou RPC própria de item.
-- Respeitar a ordem documental **#517 → #544 → #543 → #545 → #546 → #524**;
-  rebasear o bloco #524 depois de cada integração anterior.
-- Consumir a regra já implementada na migration `271` para o prazo; não
-  reescrever o cálculo como detector independente.
-- Antes da tarefa de mutação de seção, o responsável pelo produto deve escolher
-  uma das duas alternativas válidas da spec: bloquear a seção até reabrir o
-  departamento, ou invalidar atomicamente o sign-off departamental. A terceira
-  alternativa — manter seção pendente com sign-off vigente — é proibida pelo
-  gate de fechamento.
+- Respeitar a ordem documental **#517 → #544 → #543 → #545 → #546 → #548**;
+  rebasear a PR #548 depois de cada integração anterior.
+- Consumir a regra já implementada na migration `271` para o prazo, preservar as
+  guardas de `deleted` da `272` e os atores de reabertura da `273`; não reescrever
+  o cálculo como detector independente.
+- A decisão de produto está fechada: reabrir uma seção com sign-off vigente
+  invalida atomicamente o sign-off proprietário, exige justificativa/auditoria e
+  requer nova assinatura antes do fechamento. A seção pendente com sign-off
+  vigente continua proibida.
+- A dispensa do item crítico segue a ADR 0050: motivo, autor, data/hora e data
+  futura de revisão informada pelo operador; sem data padrão, dispensa
+  indefinida ou exceção por tipo.
 
 ## Mapa de arquivos
 
@@ -53,6 +57,8 @@ Arquivos que a implementação deverá tocar depois desta etapa documental:
   item, audiência, dedupe e notificação.
 - **Serviço:** `src/services/alerts.ts` e o módulo compartilhado de destino que
   substituirá a regra local de `src/pages/Alertas.tsx`.
+- **ATD:** `src/services/voyageRouteSchedules.ts`, incluindo as mutações de
+  POD/POL/escala que gravam `audit_logs` e devem acionar a reconciliação.
 - **Tela:** `src/pages/Alertas.tsx` para rótulos, remoção do reconhecimento
   conforme a fundação e destino direto; `src/pages/Viagens.tsx` e
   `src/components/voyages/VoyageAgencyReportTab.tsx` apenas se o contrato de
@@ -66,18 +72,20 @@ Arquivos que a implementação deverá tocar depois desta etapa documental:
 
 ## Tarefas
 
-### Task 0: fechar o checkpoint de produto da reabertura de seção
+### Task 0: registrar a decisão de reabertura de seção
 
 **Arquivos:** spec do Bloco 5, Issue #524 e painel #519; nenhum arquivo de
 produção nesta tarefa.
 
-- [ ] **Step 1: Registrar a escolha do responsável.** Atualizar a spec e o
-  plano com a alternativa escolhida e a consequência transacional.
-- [ ] **Step 2: Definir o teste de contrato.** O teste deve provar que nunca se
-  fecha um ADR com seção pendente e sign-off departamental vigente sem uma
-  transição auditada que resolva a inconsistência.
-- [ ] **Step 3: Revalidar a matriz de audiência.** Confirmar que a escolha não
-  cria alerta por seção, audiência por pessoa ou notificação ao Financeiro.
+- [ ] **Step 1: Invalidar atomicamente o sign-off.** Ao reabrir uma seção com
+  sign-off vigente, limpar a vigência do sign-off proprietário na mesma
+  transação, exigir justificativa e registrar ambos os efeitos na auditoria.
+- [ ] **Step 2: Preservar o gate de fechamento.** O ADR não pode fechar enquanto
+  a seção estiver pendente; o departamento só pode assinar novamente quando
+  todas as suas seções estiverem resolvidas.
+- [ ] **Step 3: Reconciliar o agregado.** Reavaliar o item departamental normal
+  e, se a data-limite já tiver passado, o item crítico, sem alerta por seção,
+  audiência por pessoa ou notificação ao Financeiro.
 
 ### Task 1: integrar o agregado da fundação ao ADR
 
@@ -96,7 +104,8 @@ tipos; testes de contrato SQL.
   de audiência.
 - [ ] **Step 3: Preservar os estados da fundação.** Não criar reconhecimento,
   estado paralelo ou fechamento manual local. O agregado fecha somente sem
-  itens ativos; a origem decide a resolução.
+  itens ativos; a origem decide a resolução. A dispensa segue a ADR 0050 como
+  metadado temporário revisável e nunca como resolução.
 - [ ] **Step 4: Escrever testes SQL antes da alteração dos produtores.** Cobrir
   três departamentos, dois tipos simultâneos, reexecução do mesmo detector,
   resolução parcial e retorno de um item ao estado ativo.
@@ -130,8 +139,8 @@ tipos; testes de contrato SQL.
 
 ### Task 3: ajustar a origem da pendência departamental
 
-**Arquivos:** migration/RPC nova baseada na definição final de `225`, `251` e
-`253`; serviço de reavaliação do agregado; testes SQL e de serviço.
+**Arquivos:** migration/RPC nova baseada na definição final de `225`, `251`,
+`253` e `258`; serviço de reavaliação do agregado; testes SQL e de serviço.
 
 - [ ] **Step 1: Reusar a projeção elegível.** A avaliação deve considerar a
   escala unificada, somente porto brasileiro, POD canônico com POL preenchendo
@@ -143,9 +152,11 @@ tipos; testes de contrato SQL.
 - [ ] **Step 3: Fechar pela origem correta.** O sign-off departamental vigente
   resolve o item; não usar clique em `/alertas`, reconhecimento ou dispensa
   como resolução. A reconciliação deve fechar somente o item correspondente.
-- [ ] **Step 4: Acoplar as mutações autoritativas.** ATD, resolução de seção,
-  sign-off, fechamento e reabertura chamam a reconciliação server-side dentro
-  do limite transacional apropriado; o cron continua sendo a rede de segurança.
+- [ ] **Step 4: Acoplar as mutações autoritativas.** As mutações de ATD em
+  `saveVoyagePolSchedule`, `saveVoyagePodSchedule` e
+  `saveVoyageEscalaSchedule`, além de resolução de seção, sign-off, fechamento
+  e reabertura, chamam a reconciliação server-side dentro do limite transacional
+  apropriado; o cron continua sendo a rede de segurança.
 - [ ] **Step 5: Cobrir casos de contrato.** Testar ATD sem seção resolvida,
   todas as seções resolvidas sem sign-off, sign-off parcial, reabertura,
   escala só de exportação, escala mista, POD ausente, escala omitida e
@@ -154,22 +165,27 @@ tipos; testes de contrato SQL.
 ### Task 4: consumir a migration 271 para o prazo vencido
 
 **Arquivos:** migration/RPC nova de reconciliação; `271` somente como fonte
-imutável de regra; testes SQL e de serviço.
+imutável de regra, `272` como guarda de escala deletada e `273` como fonte dos
+atores de reabertura; testes SQL e de serviço.
 
 - [ ] **Step 1: Reusar `agency_report_deadline_date`.** Não criar segunda
   função de calendário. A data inicial é `terminal_atd` do ADR terminalizado;
   somente ADR legado usa o ATD real da escala unificada. O dia
   do ATD não conta, sábados/domingos não contam e feriados contam.
-- [ ] **Step 2: Reusar a baseline.** Não retroagir a regra para ATDs anteriores
-  à baseline `agency_report_deadline_missed`; sem ATD não criar item; `omitted`
-  fica fora em definitivo.
+- [ ] **Step 2: Reusar a baseline e as guardas de elegibilidade.** Não retroagir
+  a regra para ATDs anteriores à baseline `agency_report_deadline_missed`; sem
+  ATD não criar item; `deleted` e `omitted` ficam fora em definitivo. Preservar
+  a proteção da migration `272` no upsert do item/agregado, sem depender de uma
+  linha individual de `alerts`.
 - [ ] **Step 3: Abrir o item crítico independente.** Para cada departamento
   sem sign-off vigente após `deadline_date < CURRENT_DATE`, inserir/atualizar
   `agency_report_deadline_missed` no agregado já existente. Nunca criar alerta
   por relatório inteiro ou por pessoa.
 - [ ] **Step 4: Resolver na assinatura departamental.** A RPC de sign-off deve
   reconciliar imediatamente o item de prazo correspondente. O fechamento do
-  ADR conserva o update de segurança da 271, mas não é a fonte primária.
+  ADR conserva o update de segurança da 271, mas uma migration nova deve
+  reescrever `close_agency_departure_report` para a chave `voyageId::PORTO`;
+  não editar a `271` nem depender do predicado legado de três segmentos.
 - [ ] **Step 5: Testar a fronteira temporal.** Cobrir ATD de sexta, prazo de
   quarta, data corrente igual ao vencimento (ainda não vencido se a regra exige
   `< CURRENT_DATE`), feriado contado, ATD lançado tardiamente, assinatura
@@ -232,8 +248,9 @@ e de fan-out.
 - [ ] **Step 2: Rotular o agregado.** Exibir “ADR” e a escala/departamento na
   apresentação; nunca mostrar `::departamento` como se fosse entidade.
 - [ ] **Step 3: Remover o contrato morto.** Alinhar filtros e ações da fila à
-  fundação: não introduzir reconhecimento, fechamento manual de item derivado
-  ou rótulo principal de seção legada.
+  fundação: remover/bloquear reconhecimento e fechamento manual de item
+  derivado, com guarda server-side; retirar o rótulo principal de seção legada
+  e adicionar o rótulo de `agency_report_department_pending`.
 - [ ] **Step 4: Preservar deep-link.** Testar `Viagens.tsx` lendo `tab=adr`,
   `escala=PORTO`, `terminal=TERMINAL` e, quando disponível, `report=REPORT_ID`,
   inclusive com dois terminais no mesmo porto.
@@ -243,15 +260,17 @@ e de fan-out.
 **Arquivos:** `src/services/agencyDepartureReport.ts`,
 `src/hooks/useAgencyReport.ts`, `VoyageAgencyReportTab.tsx` e testes focados.
 
-- [ ] **Step 1: Alinhar donos/rótulos.** Fazer `carga_carregada` seguir a função
-  SQL vigente e as ADRs: Documentação e “Carga carregada”; Granito permanece
-  conteúdo, não nome da seção.
+- [ ] **Step 1: Alinhar donos/rótulos.** Preservar o contrato vigente da
+  migration `258`: `carga_carregada` pertence a Equipamentos e é exibida como
+  “Granito”. Não reverter para o dono/rótulo histórico da `253`.
 - [ ] **Step 2: Preservar seis seções.** Não reintroduzir `operacao_patio` ou
   `ocorrencias` como seção assinável. A subseção de pátio continua dentro de
   `vazios_embarcados`.
 - [ ] **Step 3: Invalidar consultas após origem.** Mutations de seção,
   departamento, fechamento e reabertura devem atualizar ADR, eventos,
-  Alertas, contadores e dashboard sem produzir alerta no browser.
+  Alertas, contadores e dashboard sem produzir alerta no browser. A reabertura
+  de seção deve invalidar atomicamente o sign-off proprietário e reconciliar os
+  dois itens correspondentes.
 - [ ] **Step 4: Testar o contrato da aba.** Verificar estados vazio/pending,
   `Confirmado`/`Nada a declarar`, justificativa, histórico, três sign-offs,
   fechamento 3/3 e deep-link para o terminal correto.
@@ -279,7 +298,7 @@ arquivo histórico deve ser editado.
   sem declarar implementação concluída.
 - [ ] **Step 5: Validar rollout.** Aplicar migrations em banco descartável,
   conferir jobs/grants/RLS no ambiente controlado e só então publicar a ordem
-  #517 → #524. A publicação da SPA depende das migrations correspondentes.
+  #517 → #548. A publicação da SPA depende das migrations correspondentes.
 - [ ] **Step 6: Encerrar o ciclo documental.** Depois que a última task de
   implementação estiver mergeada e verificada, mover esta spec para
   `docs/archive/specs/`, este plano para `docs/archive/plans/` e remover a linha
@@ -287,9 +306,11 @@ arquivo histórico deve ser editado.
 
 ## Critérios de aceite do plano
 
-- O contrato atende `524-AC-01` a `524-AC-10` da spec.
+- O contrato atende `524-AC-01` a `524-AC-10` da spec, incluindo a decisão
+  atômica de reabertura e a dispensa global da ADR 0050.
 - Nenhuma migration histórica é editada.
 - `271` continua sendo a fonte do detector de prazo.
+- As guardas de elegibilidade de `258`, `272` e `273` não são regredidas.
 - Não existe produtor de `agency_report_section_pending`.
 - Não há alerta por seção, por pessoa, por Financeiro ou por Demurrage.
 - O detector server-side roda independentemente de `/alertas`, com frequência
