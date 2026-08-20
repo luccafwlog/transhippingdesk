@@ -241,6 +241,7 @@ BEGIN
 
     -- Ramo 4 da 274: item resolvido e pronto para o INSERT do RPC pai.
     status := 'calculated';
+    notes := NULL;
     calculation_key := CONCAT('auto:item:', item.id);
     v_override := item.override_value IS NOT NULL;
     override_applied := v_override;
@@ -527,35 +528,54 @@ BEGIN
     FOR item IN SELECT * FROM public.resolve_bl_local_charge_items(p_bl_id, v_bl.pod) LOOP
       IF item.status = 'review_required' THEN
         v_auto_review := true;
+        -- Espelha os três INSERTs de revisão da 274: o upsert só atualiza
+        -- estado/revisão; não troca a identidade, a origem nem os valores de
+        -- uma linha já existente.
+        INSERT INTO public.charge_calculations (
+          bl_id, charge_table_id, charge_item_id, source, status, calculation_key, quantity,
+          total_value_brl, review_reason, notes, created_by, calculated_at
+        )
+        VALUES (
+          p_bl_id, item.charge_table_id, item.charge_item_id, item.source, item.status, item.calculation_key,
+          item.quantity, item.total_value_brl, item.review_reason, item.notes, v_actor, NOW()
+        )
+        ON CONFLICT (bl_id, calculation_key) DO UPDATE
+          SET status = EXCLUDED.status,
+              quantity = EXCLUDED.quantity,
+              total_value_brl = EXCLUDED.total_value_brl,
+              review_reason = EXCLUDED.review_reason,
+              notes = EXCLUDED.notes,
+              created_by = EXCLUDED.created_by,
+              calculated_at = NOW();
+      ELSE
+        -- O ramo calculado da 274 não inclui colunas de revisão no INSERT nem
+        -- no ON CONFLICT; em particular, uma nota antiga não é apagada.
+        INSERT INTO public.charge_calculations (
+          bl_id, charge_table_id, charge_item_id, quantity,
+          unit_value_brl, unit_value_usd, total_value_brl, total_value_usd,
+          override_applied, source, status, calculation_key,
+          created_by, calculated_at
+        )
+        VALUES (
+          p_bl_id, item.charge_table_id, item.charge_item_id, item.quantity,
+          item.unit_value_brl, item.unit_value_usd, item.total_value_brl, item.total_value_usd,
+          item.override_applied, item.source, item.status, item.calculation_key,
+          v_actor, NOW()
+        )
+        ON CONFLICT (bl_id, calculation_key) DO UPDATE
+          SET charge_table_id = EXCLUDED.charge_table_id,
+              charge_item_id = EXCLUDED.charge_item_id,
+              quantity = EXCLUDED.quantity,
+              unit_value_brl = EXCLUDED.unit_value_brl,
+              unit_value_usd = EXCLUDED.unit_value_usd,
+              total_value_brl = EXCLUDED.total_value_brl,
+              total_value_usd = EXCLUDED.total_value_usd,
+              override_applied = EXCLUDED.override_applied,
+              source = EXCLUDED.source,
+              status = EXCLUDED.status,
+              created_by = EXCLUDED.created_by,
+              calculated_at = NOW();
       END IF;
-
-      INSERT INTO public.charge_calculations (
-        bl_id, charge_table_id, charge_item_id, quantity,
-        unit_value_brl, unit_value_usd, total_value_brl, total_value_usd,
-        override_applied, source, status, calculation_key,
-        review_reason, notes, created_by, calculated_at
-      )
-      VALUES (
-        p_bl_id, item.charge_table_id, item.charge_item_id, item.quantity,
-        item.unit_value_brl, item.unit_value_usd, item.total_value_brl, item.total_value_usd,
-        item.override_applied, item.source, item.status, item.calculation_key,
-        item.review_reason, item.notes, v_actor, NOW()
-      )
-      ON CONFLICT (bl_id, calculation_key) DO UPDATE
-        SET charge_table_id = EXCLUDED.charge_table_id,
-            charge_item_id = EXCLUDED.charge_item_id,
-            quantity = EXCLUDED.quantity,
-            unit_value_brl = EXCLUDED.unit_value_brl,
-            unit_value_usd = EXCLUDED.unit_value_usd,
-            total_value_brl = EXCLUDED.total_value_brl,
-            total_value_usd = EXCLUDED.total_value_usd,
-            override_applied = EXCLUDED.override_applied,
-            source = EXCLUDED.source,
-            status = EXCLUDED.status,
-            review_reason = EXCLUDED.review_reason,
-            notes = EXCLUDED.notes,
-            created_by = EXCLUDED.created_by,
-            calculated_at = NOW();
     END LOOP;
   END IF;
 
