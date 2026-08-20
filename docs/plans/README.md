@@ -16,6 +16,7 @@ Quando um plano é totalmente executado, ele é movido para
 | [`2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md`](./2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md) | Implementação das pendências de clientes, Portal, faturamento dependente e Disputes de Demurrage | TODO |
 | [`2026-08-16-implementacao-bloco-522-financeiro-alertas.md`](./2026-08-16-implementacao-bloco-522-financeiro-alertas.md) | Implementação do contrato de alertas, notificações e reconciliação PIX do Bloco 3 — Financeiro (#522) | BLOCKED — implementação da fundação E3 |
 | [`2026-08-16-bloco-4-operacao-viagem-alertas.md`](./2026-08-16-bloco-4-operacao-viagem-alertas.md) | Implementação dos alertas BL, Baplie, CE e exportação do Bloco 4 | BLOCKED — schema de configuração e detectores server-side pendentes |
+| [`2026-08-17-implementacao-bloco-524-adr-alertas.md`](./2026-08-17-implementacao-bloco-524-adr-alertas.md) | Implementação dos Alertas e Notificações Internas do Relatório de Agência (ADR) | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

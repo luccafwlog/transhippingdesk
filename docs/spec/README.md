@@ -20,6 +20,7 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 | [`2026-08-15-clientes-portal-alertas-design.md`](./2026-08-15-clientes-portal-alertas-design.md) | Clientes, Portal, faturamento dependente e Disputes de Demurrage — Bloco #521 |
 | [`2026-08-16-bloco-522-financeiro-alertas-design.md`](./2026-08-16-bloco-522-financeiro-alertas-design.md) | Contrato funcional de alertas, notificações e decisões de “nenhum evento” do Bloco 3 — Financeiro (#522) |
 | [`2026-08-16-bloco-4-operacao-viagem-alertas-design.md`](./2026-08-16-bloco-4-operacao-viagem-alertas-design.md) | Contrato de alertas e notificações do Bloco 4 (#523) |
+| [`2026-08-17-bloco-524-adr-alertas-design.md`](./2026-08-17-bloco-524-adr-alertas-design.md) | Contrato de Alertas e Notificações Internas do Relatório de Agência (ADR) |
 
 A spec funcional permanece nesta tabela enquanto seu plano não for concluído e
 é movida para o [arquivo histórico](../archive/specs/) junto com ele.
