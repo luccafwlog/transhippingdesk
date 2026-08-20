@@ -493,6 +493,7 @@ export function Clientes() {
           setActionsMenu(null)
           void runCustomerDelete([id])
         }}
+        portalRows={portalRows ?? undefined}
       />
 
       <CreateCustomerModal

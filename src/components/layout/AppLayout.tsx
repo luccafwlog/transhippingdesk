@@ -16,6 +16,7 @@ import { ErrorBoundary } from '../ErrorBoundary'
 import { useAuth } from '../../hooks/useAuth'
 import { useOperationalCounts } from '../../hooks/useOperationalCounts'
 import { HeaderInfoBar } from './HeaderInfoBar'
+import { InternalNotificationBell } from './InternalNotificationBell'
 import { cn } from '../../lib/utils'
 import {
   adminNavItems,
@@ -134,6 +135,7 @@ export function AppLayout() {
           </button>
 
           <div className="app-header__actions">
+            <InternalNotificationBell />
             <div
               className="app-header__user-menu"
               ref={userMenuRef}

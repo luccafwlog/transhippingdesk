@@ -7,7 +7,7 @@ const row = (partial: Partial<QueueRow> = {}): QueueRow => ({
   provisioning_decision: 'aguardando_analise', account_situation: 'sem_conta', recovery_email: null,
   recovery_email_source: null, pending_invite_expires_at: null, hasCriticalAlert: false,
   hasOpenInvoice: false, hasActiveProcess: false, lastActivityAt: null, candidates: [],
-  sharedEmailCount: 0, latestDeliveryStatus: null, exceptionReason: null,
+  sharedEmailCount: 0, latestDeliveryStatus: null,
   recoveryEmailStatus: 'ok', recoveryEmailSuppressed: false, ...partial,
 })
 
@@ -23,7 +23,7 @@ describe('portalProvisioningViewModel', () => {
   })
   it('deriva a próxima ação sem expor enum', () => {
     expect(getPortalNextAction(row({ account_situation: 'convite_expirado' }))).toBe('Reenviar convite')
-    expect(getPortalNextAction(row({ provisioning_decision: 'provisionamento_nao_necessario' }))).toBe('Reabrir análise')
+    expect(getPortalNextAction(row({ provisioning_decision: 'aprovado_para_provisionar' }))).toBe('Revisar email')
   })
 })
 

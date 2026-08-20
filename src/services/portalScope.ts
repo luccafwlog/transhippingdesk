@@ -17,6 +17,8 @@ export const clientPortalScope: PortalScope = {
 
 export const portalWriteRpcNames = new Set([
   'portal_open_demurrage_dispute',
+  'portal_add_dispute_message',
+  'portal_request_dispute_reopen',
   'portal_update_profile',
   'portal_create_consolidation',
   'portal_obsolete_consolidation',

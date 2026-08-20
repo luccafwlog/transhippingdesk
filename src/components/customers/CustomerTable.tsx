@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowDown, ArrowUp, ArrowUpDown, Copy, FileText, MoreHorizontal, ReceiptText, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Copy, FileText, MoreHorizontal, ReceiptText, Trash2 } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Card, EmptyState, InlineError } from '../ui/Card'
 import { TableFooterPagination } from '../ui/TableFooterPagination'
@@ -14,6 +14,7 @@ import {
 import { formatBRL, formatCnpjCpf, formatCountLabel } from '../../lib/utils'
 import type { CustomerFilters } from '../../hooks/useCustomers'
 import type { CustomerListItem } from '../../types/database'
+import type { QueueRow } from '../../services/portalProvisioning'
 
 export type CustomerActionsMenu = {
   id: number
@@ -44,6 +45,7 @@ export function CustomerTable({
   onOpenActionsMenu,
   onCopy,
   onDeleteCustomer,
+  portalRows,
 }: {
   data: CustomerRows | undefined
   isLoading: boolean
@@ -66,6 +68,7 @@ export function CustomerTable({
   ) => void
   onCopy: (value: string, label: string) => Promise<void>
   onDeleteCustomer: (id: number) => void
+  portalRows?: QueueRow[]
 }) {
   const pageCustomerIds = (data?.rows ?? []).map((row) => row.id)
   const allPageSelected = pageCustomerIds.length > 0 && pageCustomerIds.every((id) => selection.isSelected(id))
@@ -134,6 +137,7 @@ export function CustomerTable({
                   actionsOpen={actionsMenu?.id === row.id}
                   onToggle={() => selection.toggle(row.id)}
                   onOpenActionsMenu={onOpenActionsMenu}
+                  portalRow={portalRows?.find((portal) => portal.customer_id === row.id)}
                 />
               ))}
             </tbody>
@@ -189,6 +193,7 @@ function CustomerTableRow({
   actionsOpen,
   onToggle,
   onOpenActionsMenu,
+  portalRow,
 }: {
   row: CustomerListItem
   canEditCustomers: boolean
@@ -199,6 +204,7 @@ function CustomerTableRow({
     event: ReactMouseEvent<HTMLButtonElement>,
     row: { id: number; name: string; cnpj_cpf: string; email: string | null },
   ) => void
+  portalRow?: QueueRow
 }) {
   const summary = summarizeChargeStatuses(row.bls ?? [])
   const hasPendingBalance = Number(row.pending_balance ?? 0) > 0
@@ -213,6 +219,7 @@ function CustomerTableRow({
     pendingCount: summary.pending,
     pendingBalance: Number(row.pending_balance ?? 0),
   })
+  const portalNeedsAttention = Boolean(portalRow && (portalRow.hasCriticalAlert || (portalRow.hasActiveProcess && (portalRow.account_situation !== 'ativo' || portalRow.recoveryEmailStatus !== 'ok'))))
 
   return (
     <tr>
@@ -223,7 +230,7 @@ function CustomerTableRow({
       ) : null}
       <td className="px-4 py-3">
         <div className="app-table__cell-stack">
-          <div className="app-table__cell-value" title={row.name}>{truncateCustomerName(row.name, 64)}</div>
+          <div className="app-table__cell-value flex items-center gap-2" title={row.name}>{truncateCustomerName(row.name, 64)}{portalNeedsAttention ? <AlertTriangle size={15} className="text-amber-400" aria-label="Pendência de Portal" /> : null}</div>
           <div className="app-table__cell-meta">{formatCnpjCpf(row.cnpj_cpf)}</div>
           {customerComplement ? <div className="app-table__cell-meta">{customerComplement}</div> : null}
         </div>

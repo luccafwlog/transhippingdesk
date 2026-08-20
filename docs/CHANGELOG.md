@@ -3,6 +3,13 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Bloco #521 — Clientes, Portal e Disputes (PR em preparação):** migration
+  324 remove a decisão legada de provisionamento, reconcilia pendências no
+  agregado de alertas, aplica o gate final de faturamento por B/L e reprocessa
+  B/Ls elegíveis após ativação do Portal. Disputes de Demurrage passam a ter
+  conversa imutável, responsável pela próxima resposta, RLS/Storage privado e
+  projeções no Portal e em /demurrage; o sino interno e as listas de Cliente
+  usam os mesmos destinos canônicos.
 - **PR #569 — revisão manual orientada a cliente (#562):** a fila passou a
   separar grupos por identidade documental segura, exibir evidências brutas do
   consignatário/carga e bloquear vínculos quando há CNPJs conflitantes. O novo

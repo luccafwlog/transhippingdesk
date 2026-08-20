@@ -20,6 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
   billing_auto_issue_failed: 'Falha de emissão automática',
   portal_pendencia_geral: 'Portal do Cliente — pendência geral',
   portal_excecao_critica_fatura: 'Portal do Cliente — exceção de fatura',
+  portal_reprocessamento_falhou: 'Portal do Cliente — falha no reprocessamento',
   portal_convite_expirado: 'Portal do Cliente — convite expirado',
   portal_falha_envio: 'Portal do Cliente — falha de envio',
   portal_email_suprimido: 'Portal do Cliente — email suprimido',
@@ -184,6 +185,12 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
 // tela paralela nem gravam rotas na Notificação Interna.
 function alertEntityLink(alert: { type: string; entity_type: string | null; entity_id: string | null }): string | null {
   if (!alert.entity_id) return null
+  if (alert.type === 'portal_excecao_critica_fatura' && alert.entity_type === 'bl') {
+    return `/manifestos/${encodeURIComponent(alert.entity_id)}?tab=faturamento`
+  }
+  if (alert.type === 'portal_reprocessamento_falhou' && alert.entity_type === 'bl') {
+    return `/manifestos/${encodeURIComponent(alert.entity_id)}?tab=faturamento`
+  }
   if (alert.type.startsWith('portal_')) {
     if (alert.entity_type === 'invoice') return /^\d+$/.test(alert.entity_id) ? `/taxas-locais?invoice=${encodeURIComponent(alert.entity_id)}` : '/taxas-locais'
     return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`

@@ -7,7 +7,7 @@ import { useConfirm } from '../ui/ConfirmDialog'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import type { QueueRow } from '../../services/portalProvisioning'
-import { useAdminChangeCnpj, useAssistedEmailChange, useCancelPortalInvite, usePortalEvents, useReleaseSuppressedEmail, useReturnToAnalysis, useSendPortalInvite, useSetProvisioningException, useSuspendPortalAccount } from '../../hooks/usePortalProvisioning'
+import { useAdminChangeCnpj, useAssistedEmailChange, useCancelPortalInvite, usePortalEvents, useReleaseSuppressedEmail, useReturnToAnalysis, useSendPortalInvite, useSuspendPortalAccount } from '../../hooks/usePortalProvisioning'
 import { accountSituationLabel, contactPurposeLabel, deliveryStatusLabel, hasBrokenRecoveryEmail, provisioningDecisionLabel, recoveryEmailSourceLabel, recoveryEmailStatusLabel } from '../../lib/portalProvisioningViewModel'
 import { formatCnpjCpf } from '../../lib/utils'
 import { normalizeCnpj } from '../../lib/cnpj'
@@ -36,11 +36,10 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
   const suspendMutation = useSuspendPortalAccount()
   const assistedEmailMutation = useAssistedEmailChange()
   const adminCnpjMutation = useAdminChangeCnpj()
-  const exceptionMutation = useSetProvisioningException()
   const returnToAnalysisMutation = useReturnToAnalysis()
   const releaseSuppressedMutation = useReleaseSuppressedEmail()
   const busy = sendInviteMutation.isPending || cancelInviteMutation.isPending || suspendMutation.isPending
-    || assistedEmailMutation.isPending || exceptionMutation.isPending || returnToAnalysisMutation.isPending
+    || assistedEmailMutation.isPending || returnToAnalysisMutation.isPending
     || releaseSuppressedMutation.isPending
 
   async function sendInvite() {
@@ -69,15 +68,10 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
     catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar a conta.') }
   }
 
-  async function changeDecision(action: 'exception' | 'analysis') {
+  async function reopenAnalysis() {
     if (!reason.trim()) { setError('Informe a justificativa.'); return }
-    if (action === 'exception') {
-      const authorized = await confirm({ title: 'Confirmar exceção de provisionamento', message: 'Esta ação registra que o provisionamento não é necessário no momento. Confirme a justificativa para continuar.', confirmLabel: 'Registrar exceção' })
-      if (!authorized) return
-    }
     try {
-      if (action === 'exception') await exceptionMutation.mutateAsync({ customerId: row.customer_id, reason: reason.trim() })
-      else await returnToAnalysisMutation.mutateAsync({ customerId: row.customer_id, reason: reason.trim() })
+      await returnToAnalysisMutation.mutateAsync({ customerId: row.customer_id, reason: reason.trim() })
       showToast('Decisão do Portal atualizada.', 'success'); onSaved?.()
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar a decisão.') }
   }
@@ -130,7 +124,6 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         <div><div className="text-xs text-[var(--app-muted)]">Origem</div><div>{recoveryEmailSourceLabel(row.recovery_email_source)}</div></div>
         <div><div className="text-xs text-[var(--app-muted)]">Entrega</div><div>{deliveryStatusLabel(row.latestDeliveryStatus)}</div></div>
         <div><div className="text-xs text-[var(--app-muted)]">Email de Recuperação</div><div>{recoveryEmailStatusLabel(row.recoveryEmailStatus)}</div></div>
-        {row.exceptionReason ? <div className="sm:col-span-2"><div className="text-xs text-[var(--app-muted)]">Justificativa da exceção</div><div>{row.exceptionReason}</div></div> : null}
       </div>
 
       {/* A conta segue ativa e o cliente entra com a senha; o que quebrou foi o
@@ -180,13 +173,11 @@ export function PortalReviewPanel({ row, variant = 'embedded', onSaved, onClose 
         <Field label="Justificativa para ações administrativas"><Textarea value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
         {row.account_situation === 'ativo' ? <p className="text-sm text-[var(--app-muted)]">Suspender encerra as sessões ativas do Cliente.</p> : null}
         {row.account_situation === 'suspenso' ? <p className="text-sm text-[var(--app-muted)]">Reativar devolve o cliente à fila de análise para um novo convite.</p> : null}
-        {row.provisioning_decision === 'aguardando_analise' && row.account_situation === 'sem_conta' ? <p className="text-sm text-[var(--app-muted)]">A exceção exige confirmação e justificativa não vazia.</p> : null}
         {row.recoveryEmailSuppressed ? <p className="text-sm text-[var(--app-muted)]">Liberar devolve o endereço à fila de envio e registra quem liberou e por quê. O bloqueio é opinião do provedor sobre um instante: caixa cheia, servidor em manutenção e domínio em migração dão o mesmo sintoma de endereço morto.</p> : null}
         <div className="flex flex-wrap gap-2">
           {row.account_situation === 'ativo' || row.account_situation === 'suspenso' ? <Button variant="secondary" onClick={() => void changeAccount(row.account_situation === 'ativo' ? 'suspend' : 'reactivate')} disabled={!canProvision || busy}>{row.account_situation === 'ativo' ? 'Suspender conta' : 'Reativar conta'}</Button> : null}
           {row.recoveryEmailSuppressed ? <Button variant="secondary" onClick={() => void releaseSuppressedEmail()} disabled={!canProvision || busy}>Liberar endereço bloqueado</Button> : null}
-          {row.provisioning_decision === 'aguardando_analise' && row.account_situation === 'sem_conta' ? <Button variant="secondary" onClick={() => void changeDecision('exception')} disabled={!canProvision || busy}>Provisionamento não necessário no momento</Button> : null}
-          {row.provisioning_decision !== 'aguardando_analise' ? <Button variant="secondary" onClick={() => void changeDecision('analysis')} disabled={!canProvision || busy}>Reabrir análise</Button> : null}
+          {row.provisioning_decision !== 'aguardando_analise' ? <Button variant="secondary" onClick={() => void reopenAnalysis()} disabled={!canProvision || busy}>Reabrir análise</Button> : null}
         </div>
         </div>
       </details> : null}

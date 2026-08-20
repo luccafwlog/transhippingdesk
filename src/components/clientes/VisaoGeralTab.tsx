@@ -35,8 +35,11 @@ export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
     if ((pendingReconciliation?.length ?? 0) > 0) {
       pendencias.push({ key: 'reconciliacao', label: `${pendingReconciliation!.length} ${pendingReconciliation!.length === 1 ? 'B/L com reconciliação de cliente pendente' : 'B/Ls com reconciliação de cliente pendente'}`, onClick: () => onNavigateTab('operacional') })
     }
-    if (hasPortalPendency(portalRow)) {
-      pendencias.push({ key: 'portal', label: `Portal não ativo${portalRow!.account_situation ? `: ${accountSituationLabel(portalRow!.account_situation)}` : ''}`, to: `/clientes/portal?cliente=${data.id}` })
+    if (hasPortalPendency(portalRow) || portalRow?.hasCriticalAlert) {
+      const portalBlCount = portalRow?.hasActiveProcess && portalRow.account_situation !== 'ativo'
+        ? (data.bls ?? []).filter((bl) => bl.financial_status !== 'cancelled').length
+        : 0
+      pendencias.push({ key: 'portal', label: portalRow?.hasCriticalAlert ? `Pendência crítica de Portal${portalBlCount ? ` (${portalBlCount} B/L${portalBlCount === 1 ? '' : 's'})` : ''}` : `Portal não ativo${portalRow?.account_situation ? `: ${accountSituationLabel(portalRow.account_situation)}` : ''}`, to: `/clientes/portal?cliente=${data.id}` })
     }
     if (!financialDenied && overdueLocal.length + overdueDemurrage.length > 0) {
       pendencias.push({ key: 'vencidas', label: `${overdueLocal.length + overdueDemurrage.length} ${overdueLocal.length + overdueDemurrage.length === 1 ? 'invoice vencida' : 'invoices vencidas'}`, onClick: () => onNavigateTab('financeiro') })

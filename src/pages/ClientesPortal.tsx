@@ -12,11 +12,11 @@ import { exportPortalProvisioningWorkbook } from '../services/exports'
 import { formatCnpjCpf } from '../lib/utils'
 import { canonicalizeDocument } from '../lib/cnpj'
 
-type Preset = 'todos' | 'aguardando_analise' | 'criticas' | 'sem_email' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'provisionamento_nao_necessario'
+type Preset = 'todos' | 'aguardando_analise' | 'criticas' | 'sem_email' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo'
 const presets: Array<{ value: Preset; label: string }> = [
   { value: 'todos', label: 'Todos' }, { value: 'criticas', label: 'Pendências críticas' }, { value: 'aguardando_analise', label: 'Aguardando análise' },
   { value: 'sem_email', label: 'Sem email' }, { value: 'convite_pendente', label: 'Ativação pendente' }, { value: 'convite_expirado', label: 'Convites expirados' }, { value: 'falha_no_envio', label: 'Falhas de envio' },
-  { value: 'ativo', label: 'Contas ativas' }, { value: 'provisionamento_nao_necessario', label: 'Provisionamento não necessário' },
+  { value: 'ativo', label: 'Contas ativas' },
 ]
 
 function matchesPreset(row: QueueRow, preset: Preset) {
