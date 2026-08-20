@@ -673,7 +673,18 @@ BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
     RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
   END IF;
-  FOR v_report IN SELECT id FROM public.agency_departure_reports LOOP
+  FOR v_report IN 
+    SELECT r.id 
+    FROM public.agency_departure_reports r
+    LEFT JOIN public.depots d ON d.id = r.terminal_id
+    WHERE r.status = 'open' 
+       OR EXISTS (
+         SELECT 1 FROM public.alerts a
+         WHERE a.entity_type = 'agency_departure_report'
+           AND a.entity_id = public.agency_report_alert_entity_key(r.voyage_id, r.port, d.code)
+           AND a.status = 'open'
+       )
+  LOOP
     PERFORM public.reconcile_agency_report_alerts(v_report.id, TRUE, FALSE);
     v_count := v_count + 1;
   END LOOP;
@@ -705,7 +716,18 @@ BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
     RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
   END IF;
-  FOR v_report IN SELECT id FROM public.agency_departure_reports LOOP
+  FOR v_report IN 
+    SELECT r.id 
+    FROM public.agency_departure_reports r
+    LEFT JOIN public.depots d ON d.id = r.terminal_id
+    WHERE r.status = 'open' 
+       OR EXISTS (
+         SELECT 1 FROM public.alerts a
+         WHERE a.entity_type = 'agency_departure_report'
+           AND a.entity_id = public.agency_report_alert_entity_key(r.voyage_id, r.port, d.code)
+           AND a.status = 'open'
+       )
+  LOOP
     PERFORM public.reconcile_agency_report_alerts(v_report.id, FALSE, TRUE);
     v_count := v_count + 1;
   END LOOP;
@@ -722,3 +744,6 @@ GRANT EXECUTE ON FUNCTION public.detect_agency_report_deadline_missed() TO authe
 
 COMMENT ON FUNCTION public.reconcile_agency_report_alerts(UUID, BOOLEAN, BOOLEAN) IS
   'Reconcilia os itens coletivos de pendência e prazo do ADR a partir da origem autoritativa.';
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_agency_report_reconciliation
+  ON public.audit_logs (entity_type, entity_id, field_name, changed_at DESC);
