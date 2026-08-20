@@ -23,7 +23,9 @@ CREATE TABLE public.cod_adjustments (
   action TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   manual_review_required BOOLEAN NOT NULL DEFAULT false,
-  resulting_document_id BIGINT REFERENCES public.invoices(id) ON DELETE SET NULL,
+  -- May reference an invoice or an invoice_refund; the discriminator below
+  -- keeps the document kind explicit without an invalid single-table FK.
+  resulting_document_id BIGINT,
   resulting_document_type TEXT,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

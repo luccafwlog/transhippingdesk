@@ -40,6 +40,7 @@ export function VoyageManifestosTab({
     polSchedules,
     routeCeMasters,
     omissions: transshipmentData?.omissions,
+    transshipments: transshipmentData?.transshipments,
   })
 
   return (

@@ -46,8 +46,14 @@ export type VoyageImportBatch = {
 }
 
 export type VoyageRouteOmission = {
+  id?: number
   omittedPod: string
   dischargePod: string
+}
+
+export type VoyageBlTransshipmentLink = {
+  blId: string
+  omissionId: number
 }
 
 export function collectVoyageManifestBatchRows({
@@ -57,6 +63,7 @@ export function collectVoyageManifestBatchRows({
   polSchedules,
   routeCeMasters,
   omissions,
+  transshipments,
 }: {
   voyageId: number
   batches: VoyageImportBatch[] | null | undefined
@@ -65,6 +72,7 @@ export function collectVoyageManifestBatchRows({
   /** CE Master por rota (#322): fallback para viagens só-B/L sem batch. Chave `${voyageId}::${POL}__${POD}`. */
   routeCeMasters?: Map<string, string> | undefined
   omissions?: VoyageRouteOmission[] | null | undefined
+  transshipments?: VoyageBlTransshipmentLink[] | null | undefined
 }) {
   const batchesById = new Map<number, VoyageImportBatch>()
   for (const batch of batches ?? []) {
@@ -95,6 +103,7 @@ export function collectVoyageManifestBatchRows({
     ceFilled: number
     ceTotal: number
     ceMaster: string | null
+    blIds: Set<string>
     sortDate: number
   }
 
@@ -127,6 +136,7 @@ export function collectVoyageManifestBatchRows({
       ceFilled: 0,
       ceTotal: 0,
       ceMaster: null,
+      blIds: new Set(),
       sortDate: Number.POSITIVE_INFINITY,
     }
 
@@ -148,9 +158,15 @@ export function collectVoyageManifestBatchRows({
     if (Number.isFinite(sortDate)) group.sortDate = Math.min(group.sortDate, sortDate)
   }
 
-  function findRouteOmission(pod: string) {
+  function findRouteOmission(pod: string, blIds: Set<string>) {
     const normalizedPod = pod.trim().toUpperCase()
+    const linkedOmissionIds = new Set(
+      (transshipments ?? [])
+        .filter((link) => blIds.has(link.blId))
+        .map((link) => link.omissionId),
+    )
     return (omissions ?? []).find((omission) => {
+      if (omission.id === undefined || !linkedOmissionIds.has(omission.id)) return false
       const omittedPod = omission.omittedPod.trim().toUpperCase()
       const dischargePod = omission.dischargePod.trim().toUpperCase()
       return normalizedPod === omittedPod || normalizedPod === dischargePod
@@ -159,6 +175,7 @@ export function collectVoyageManifestBatchRows({
 
   for (const bl of bls ?? []) {
     const group = getGroup(bl.pol, bl.pod)
+    group.blIds.add(bl.id)
     group.blCount += 1
     group.ceTotal += 1
     if (String(bl.ce_mercante ?? '').trim()) group.ceFilled += 1
@@ -187,11 +204,11 @@ export function collectVoyageManifestBatchRows({
       pol: group.pol,
       pod: group.pod,
       routeLabel: (() => {
-        const omission = findRouteOmission(group.pod)
+        const omission = findRouteOmission(group.pod, group.blIds)
         if (!omission) return group.routeLabel
         return `${formatPortDisplayName(group.pol)} → ${formatPortDisplayName(omission.omittedPod)} → ${formatPortDisplayName(omission.dischargePod)}`
       })(),
-      omission: findRouteOmission(group.pod),
+      omission: findRouteOmission(group.pod, group.blIds),
       modeLabel:
         group.modes.has('container') && group.modes.has('carga_solta')
           ? 'CNTR/BB'

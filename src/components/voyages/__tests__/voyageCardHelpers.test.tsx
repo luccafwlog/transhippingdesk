@@ -81,7 +81,8 @@ describe('collectVoyageManifestBatchRows', () => {
       voyageId: 14,
       batches: [],
       bls: [makeBl({ pod: 'BRVIX', ce_mercante: 'CE-001' })],
-      omissions: [{ omittedPod: 'BRVIX', dischargePod: 'BRSSZ' }],
+      omissions: [{ id: 1, omittedPod: 'BRVIX', dischargePod: 'BRSSZ' }],
+      transshipments: [{ blId: 'BL-001', omissionId: 1 }],
     })
 
     expect(rows[0]).toMatchObject({
@@ -89,6 +90,18 @@ describe('collectVoyageManifestBatchRows', () => {
       routeLabel: 'TAICANG → BRVIX → BRSSZ',
       omission: { omittedPod: 'BRVIX', dischargePod: 'BRSSZ' },
     })
+  })
+
+  it('não marca uma rota normal no mesmo POD de desembarque de outra omissão', () => {
+    const rows = collectVoyageManifestBatchRows({
+      voyageId: 14,
+      batches: [],
+      bls: [makeBl({ id: 'BL-NORMAL', pod: 'BRVIX' })],
+      omissions: [{ id: 2, omittedPod: 'BRSSA', dischargePod: 'BRVIX' }],
+      transshipments: [],
+    })
+
+    expect(rows[0].omission).toBeNull()
   })
 
   it('soma B/Ls avulsos na mesma rota de um batch existente', () => {
@@ -184,7 +197,7 @@ describe('VoyageManifestosTab', () => {
     vi.mocked(useVoyageTransshipments).mockReturnValueOnce({
       data: {
         omissions: [{ id: 1, voyageId: 14, omittedPod: 'BRVIX', dischargePod: 'BRSSZ', reason: null, onwardVesselName: null, onwardCarrier: null, onwardVoyageNumber: null, onwardEtd: null, onwardEta: null }],
-        transshipments: [],
+        transshipments: [{ id: 1, blId: 'BL-001', omissionId: 1, disposition: 'transshipment' }],
       },
     } as never)
 
