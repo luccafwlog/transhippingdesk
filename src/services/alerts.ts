@@ -162,6 +162,7 @@ export function alertEntityLinkLabel(alert: {
   if (alert.entity_type === 'bl' && (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed')) {
     return 'Taxas Locais'
   }
+  if (alert.entity_type === 'pix_transaction') return 'Abrir Reconciliação'
   if (alert.entity_type === 'invoice') return 'Ver Fatura'
   if (alert.entity_type === 'demurrage_invoice') return 'Ver Demurrage'
   if (alert.entity_type === 'container') return 'Ver Demurrage'
@@ -315,11 +316,13 @@ export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
     }
   }
 
-  return Array.from(uniqueAlerts.values()).sort((left, right) => {
-    const createdAtDifference = Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? '')
-    if (Number.isFinite(createdAtDifference) && createdAtDifference !== 0) return createdAtDifference
-    return Number(right.id) - Number(left.id) || Number(right.item_id ?? 0) - Number(left.item_id ?? 0)
-  })
+  return Array.from(uniqueAlerts.values())
+    .sort((left, right) => {
+      const createdAtDifference = Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? '')
+      if (Number.isFinite(createdAtDifference) && createdAtDifference !== 0) return createdAtDifference
+      return Number(right.id) - Number(left.id) || Number(right.item_id ?? 0) - Number(left.item_id ?? 0)
+    })
+    .slice(0, 200)
 }
 
 // Deprecated browser compatibility. The only production scheduler is the

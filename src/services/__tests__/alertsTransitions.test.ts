@@ -61,6 +61,42 @@ it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/De
   expect(rpcMock).toHaveBeenNthCalledWith(3, 'list_alert_queue', { p_filter: 'active', p_entity_type: 'pix_transaction' })
 })
 
+it('combina as entidades financeiras antes de cortar a fila em 200 itens', async () => {
+  const rowsByEntityType = {
+    bl: Array.from({ length: 200 }, (_, index) => ({
+      id: index + 1,
+      type: 'billing_calculation_blocked',
+      entity_type: 'bl',
+      entity_id: `BL-${index + 1}`,
+      created_at: '2026-08-01T10:00:00Z',
+    })),
+    invoice: [{
+      id: 201,
+      type: 'invoice_overdue',
+      entity_type: 'invoice',
+      entity_id: 'INV-201',
+      created_at: '2026-08-20T10:00:00Z',
+    }],
+    pix_transaction: [{
+      id: 202,
+      type: 'pix_unreconciled',
+      entity_type: 'pix_transaction',
+      entity_id: 'PIX-202',
+      created_at: '2026-08-21T10:00:00Z',
+    }],
+  }
+  rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType }) => ({
+    data: args.p_entity_type ? rowsByEntityType[args.p_entity_type] : [],
+    error: null,
+  }))
+
+  const alerts = await listFinancialAlerts()
+
+  expect(alerts).toHaveLength(200)
+  expect(alerts.slice(0, 2).map((alert) => alert.entity_id)).toEqual(['PIX-202', 'INV-201'])
+  expect(alerts.some((alert) => alert.entity_id === 'BL-1')).toBe(false)
+})
+
 it('expõe somente os tipos financeiros ativos do contrato', () => {
   expect(FINANCIAL_ALERT_TYPES).toEqual([
     'billing_calculation_blocked',
@@ -157,6 +193,10 @@ it('rotula billing de B/L como Taxas Locais e preserva a exceção do Portal com
   expect(alertEntityLinkLabel({ type: 'billing_calculation_blocked', entity_type: 'bl' })).toBe('Taxas Locais')
   expect(alertEntityLinkLabel({ type: 'billing_auto_issue_failed', entity_type: 'bl' })).toBe('Taxas Locais')
   expect(alertEntityLinkLabel({ type: 'portal_excecao_critica_fatura', entity_type: 'bl' })).toBe('Abrir B/L')
+})
+
+it('rotula alerta de PIX como abertura da reconciliação', () => {
+  expect(alertEntityLinkLabel({ type: 'pix_unreconciled', entity_type: 'pix_transaction' })).toBe('Abrir Reconciliação')
 })
 
 it('prefere item_type no payload da fundação e cai para type em payload legado', () => {
