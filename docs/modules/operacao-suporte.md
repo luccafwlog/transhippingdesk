@@ -343,6 +343,6 @@ Validação runtime futura deve usar ambiente controlado e registrar: papel, B/L
 - **Relatórios e limite — Código.** A UI anuncia limite geral de 2.000; operacional/financeiro em tela usam 2.000, clientes usa até 4.000 por fonte, exportações operacional/financeira não aplicam limite e demurrage não define limite explícito.
 - **Demurrage sem export na aba — Código.** A rota tem quatro abas, mas somente operacional, financeiro e clientes expõem exportação XLSX.
 - **Filtro `changedBy` de auditoria — Código.** O estado e a query suportam autor, mas a UI atual não renderiza um controle para preenchê-lo; módulo e período estão visíveis.
-- **CE Mercante — Código + Teste de contrato SQL.** `needsCeMercante` preserva compatibilidade com razões legadas e edição inline, mas a migration canônica não inclui CE no gate.
+- **CE Mercante — Código + Teste de contrato SQL.** O bloqueio de CE Mercante permanece na validação do faturamento; o predicado morto `needsCeMercante` foi removido da fila de revisão manual, que não trata esse motivo como pendência própria.
 - **Auditoria Granite não atômica — Código.** O update de `granite_bls` e o insert em `audit_logs` são chamadas separadas; o erro do insert não é verificado.
 - **Sem evidência Runtime.** Esta cartografia não executou suíte, browser, Supabase, Edge Function, email, fullscreen ou faturamento real.
