@@ -38,7 +38,6 @@ export type PortalOperationTransshipment = {
   disposition: 'transshipment' | 'cod'
   omitted_pod: string | null
   discharge_pod: string | null
-  reason: string | null
   onward_vessel_name: string | null
   onward_carrier: string | null
   onward_voyage_number: string | null
@@ -103,7 +102,6 @@ function normalizeTransshipment(value: unknown): PortalOperationTransshipment | 
     disposition: row.disposition === 'cod' ? 'cod' : 'transshipment',
     omitted_pod: asStringOrNull(row.omitted_pod),
     discharge_pod: asStringOrNull(row.discharge_pod),
-    reason: asStringOrNull(row.reason),
     onward_vessel_name: asStringOrNull(row.onward_vessel_name),
     onward_carrier: asStringOrNull(row.onward_carrier),
     onward_voyage_number: asStringOrNull(row.onward_voyage_number),

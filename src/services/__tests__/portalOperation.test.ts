@@ -28,7 +28,7 @@ describe('portalOperation', () => {
         vessel_name: 'NAVIO TESTE',
         transshipment: {
           omission_id: '9', disposition: 'transshipment', omitted_pod: 'VITÓRIA', discharge_pod: 'SANTOS',
-          reason: null, onward_vessel_name: 'COSCO STAR', onward_carrier: 'COSCO', onward_voyage_number: 'T-1',
+          onward_vessel_name: 'COSCO STAR', onward_carrier: 'COSCO', onward_voyage_number: 'T-1',
           onward_etd: '2026-07-20', onward_eta: null,
         },
         container_count: '2',
@@ -61,7 +61,7 @@ describe('portalOperation', () => {
         vessel_name: 'NAVIO TESTE',
         transshipment: {
           omission_id: 9, disposition: 'transshipment', omitted_pod: 'VITÓRIA', discharge_pod: 'SANTOS',
-          reason: null, onward_vessel_name: 'COSCO STAR', onward_carrier: 'COSCO', onward_voyage_number: 'T-1',
+          onward_vessel_name: 'COSCO STAR', onward_carrier: 'COSCO', onward_voyage_number: 'T-1',
           onward_etd: '2026-07-20', onward_eta: null,
         },
         container_count: 2,
@@ -114,13 +114,37 @@ describe('portalOperation', () => {
   it('chama portal_list_operation_bls pelo cliente Supabase do portal', async () => {
     rpc.mockImplementationOnce(function (this: unknown) {
       expect(this).toBe(supabasePortal)
-      return Promise.resolve({ data: [{ bl_id: 'BL001', containers: [] }], error: null })
+      return Promise.resolve({
+        data: [{
+          bl_id: 'BL001',
+          containers: [],
+          transshipment: {
+            omission_id: 9,
+            disposition: 'transshipment',
+            omitted_pod: 'VITÓRIA',
+            discharge_pod: 'SANTOS',
+            reason: 'justificativa interna',
+            onward_vessel_name: 'COSCO STAR',
+            onward_carrier: 'COSCO',
+            onward_voyage_number: 'T-1',
+            onward_etd: '2026-07-20T00:00:00Z',
+            onward_eta: '2026-07-22T00:00:00Z',
+          },
+        }],
+        error: null,
+      })
     })
 
     const rows = await portalListOperationBls()
 
     expect(rpc).toHaveBeenCalledWith('portal_list_operation_bls')
     expect(rows[0]?.bl_id).toBe('BL001')
+    expect(rows[0]?.transshipment).toMatchObject({
+      disposition: 'transshipment',
+      onward_vessel_name: 'COSCO STAR',
+      onward_etd: '2026-07-20T00:00:00Z',
+    })
+    expect(rows[0]?.transshipment && 'reason' in rows[0].transshipment).toBe(false)
   })
 
   it('propaga erro retornado pelo RPC', async () => {

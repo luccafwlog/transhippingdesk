@@ -478,6 +478,16 @@ function ContainerDetails({ row }: { row: PortalOperationBL }) {
 
 function PortalTransshipmentCard({ transshipment }: { transshipment: NonNullable<PortalOperationBL['transshipment']> }) {
   const value = (text: string | null) => text || '—'
+
+  if (transshipment.disposition === 'cod') {
+    return (
+      <section className="m-4 grid gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+        <h3 className="text-sm font-semibold">Destino alterado para {value(transshipment.discharge_pod)} (COD)</h3>
+        <p className="text-sm">Sua carga não seguirá em transbordo.</p>
+      </section>
+    )
+  }
+
   return (
     <section className="m-4 grid gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
       <h3 className="text-sm font-semibold text-[var(--app-text-strong)]">Informações de Transbordo</h3>
@@ -487,9 +497,8 @@ function PortalTransshipmentCard({ transshipment }: { transshipment: NonNullable
           ['Navio', transshipment.onward_vessel_name],
           ['Armador', transshipment.onward_carrier],
           ['Viagem', transshipment.onward_voyage_number],
-          ['ETD', transshipment.onward_etd],
-          ['ETA', transshipment.onward_eta],
-          ['Motivo', transshipment.reason],
+          ['ETD', transshipment.onward_etd ? formatDate(transshipment.onward_etd) : null],
+          ['ETA', transshipment.onward_eta ? formatDate(transshipment.onward_eta) : null],
         ].map(([label, text]) => (
           <div key={label}><dt className="text-xs text-[var(--app-muted)]">{label}</dt><dd>{value(text)}</dd></div>
         ))}
