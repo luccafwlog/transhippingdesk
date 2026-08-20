@@ -1,8 +1,8 @@
 # Especificação funcional — Alertas, Clientes e Portal (Bloco #521)
 
-**Status:** aprovada para planejamento técnico  
-**Issue:** [#521](https://github.com/luccafwlog/transhippingdesk/issues/521)  
-**Épico:** [#519](https://github.com/luccafwlog/transhippingdesk/issues/519)  
+**Status:** aprovada para planejamento técnico
+**Issue:** [#521](https://github.com/luccafwlog/transhippingdesk/issues/521)
+**Épico:** [#519](https://github.com/luccafwlog/transhippingdesk/issues/519)
 **Data:** 2026-08-15
 
 ## 1. Objetivo
