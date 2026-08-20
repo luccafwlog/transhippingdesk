@@ -45,12 +45,18 @@ export type VoyageImportBatch = {
   route_summary?: string | null
 }
 
+export type VoyageRouteOmission = {
+  omittedPod: string
+  dischargePod: string
+}
+
 export function collectVoyageManifestBatchRows({
   voyageId,
   batches,
   bls,
   polSchedules,
   routeCeMasters,
+  omissions,
 }: {
   voyageId: number
   batches: VoyageImportBatch[] | null | undefined
@@ -58,6 +64,7 @@ export function collectVoyageManifestBatchRows({
   polSchedules?: Map<string, { etd: string | null; atd?: string | null; escalaNumber?: string | null }> | undefined
   /** CE Master por rota (#322): fallback para viagens só-B/L sem batch. Chave `${voyageId}::${POL}__${POD}`. */
   routeCeMasters?: Map<string, string> | undefined
+  omissions?: VoyageRouteOmission[] | null | undefined
 }) {
   const batchesById = new Map<number, VoyageImportBatch>()
   for (const batch of batches ?? []) {
@@ -141,6 +148,15 @@ export function collectVoyageManifestBatchRows({
     if (Number.isFinite(sortDate)) group.sortDate = Math.min(group.sortDate, sortDate)
   }
 
+  function findRouteOmission(pod: string) {
+    const normalizedPod = pod.trim().toUpperCase()
+    return (omissions ?? []).find((omission) => {
+      const omittedPod = omission.omittedPod.trim().toUpperCase()
+      const dischargePod = omission.dischargePod.trim().toUpperCase()
+      return normalizedPod === omittedPod || normalizedPod === dischargePod
+    }) ?? null
+  }
+
   for (const bl of bls ?? []) {
     const group = getGroup(bl.pol, bl.pod)
     group.blCount += 1
@@ -170,7 +186,12 @@ export function collectVoyageManifestBatchRows({
       routeKey: group.routeKey,
       pol: group.pol,
       pod: group.pod,
-      routeLabel: group.routeLabel,
+      routeLabel: (() => {
+        const omission = findRouteOmission(group.pod)
+        if (!omission) return group.routeLabel
+        return `${formatPortDisplayName(group.pol)} → ${formatPortDisplayName(omission.omittedPod)} → ${formatPortDisplayName(omission.dischargePod)}`
+      })(),
+      omission: findRouteOmission(group.pod),
       modeLabel:
         group.modes.has('container') && group.modes.has('carga_solta')
           ? 'CNTR/BB'

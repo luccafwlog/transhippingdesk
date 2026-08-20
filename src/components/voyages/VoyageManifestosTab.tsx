@@ -1,7 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertTriangle, Pencil } from 'lucide-react'
+import { useVoyageTransshipments } from '../../hooks/useTransshipments'
 import { Button } from '../ui/Button'
 import { formatDate } from '../../lib/utils'
+import { formatPortDisplayName } from '../../lib/voyageFormat'
 import type { VoyagePolSchedule } from '../../services/voyageRouteSchedules'
 import { collectVoyageManifestBatchRows, formatPolDeparture, renderCeCoverage, type VoyageImportBatch } from './voyageCardHelpers'
 import type { EditingPolPayload, Voyage } from './voyageCardTypes'
@@ -30,12 +32,14 @@ export function VoyageManifestosTab({
   onEditPol: (payload: EditingPolPayload) => void
 }) {
   const navigate = useNavigate()
+  const { data: transshipmentData } = useVoyageTransshipments(voyage.id)
   const manifestRows = collectVoyageManifestBatchRows({
     voyageId: voyage.id,
     batches: importBatches,
     bls: voyage.bls,
     polSchedules,
     routeCeMasters,
+    omissions: transshipmentData?.omissions,
   })
 
   return (
@@ -104,8 +108,23 @@ export function VoyageManifestosTab({
                           <span className="rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--app-muted)]">
                             {row.modeLabel}
                           </span>
-                          <Link className="font-semibold text-[var(--app-blue)] hover:underline" to={`/manifestos?voyage=${voyage.id}&pol=${encodeURIComponent(row.pol)}&pod=${encodeURIComponent(row.pod)}`}>
-                            {row.routeLabel}
+                          <Link
+                            className="font-semibold text-[var(--app-blue)] hover:underline"
+                            to={`/manifestos?voyage=${voyage.id}&pol=${encodeURIComponent(row.pol)}&pod=${encodeURIComponent(row.pod)}`}
+                            aria-label={row.routeLabel}
+                          >
+                            {row.omission ? (
+                              <>
+                                <span>{formatPortDisplayName(row.pol)} → </span>
+                                <span className="line-through" title={`POD omitido: ${row.omission.omittedPod}`}>
+                                  {formatPortDisplayName(row.omission.omittedPod)}
+                                </span>
+                                <span> → {formatPortDisplayName(row.omission.dischargePod)}</span>
+                                <span className="ml-2 rounded border border-[#b45309] bg-[#fff7ed] px-1.5 py-0.5 text-[10px] font-bold text-[#b45309]">
+                                  OMISSÃO
+                                </span>
+                              </>
+                            ) : row.routeLabel}
                           </Link>
                         </div>
                       </td>
@@ -115,6 +134,10 @@ export function VoyageManifestosTab({
                       <td className="px-3 py-2">
                         {row.ceMaster ? (
                           <span className="font-mono text-xs text-[var(--app-text-strong)]">{row.ceMaster}</span>
+                        ) : row.blCount > 0 ? (
+                          <span className="text-xs font-semibold text-[#b45309]" title="Informe o CE Master pelo lápis desta linha">
+                            manifesto não informado
+                          </span>
                         ) : (
                           <span className="text-[var(--app-muted-soft)]">-</span>
                         )}

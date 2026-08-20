@@ -1,6 +1,7 @@
 import { MemoryRouter } from 'react-router-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
+import { useVoyageTransshipments } from '../../../hooks/useTransshipments'
 import type { VoyageBl } from '../../../services/voyageSummaries'
 import { buildVoyagePolEntityId } from '../../../services/voyageRouteSchedules'
 import { VoyageManifestosTab } from '../VoyageManifestosTab'
@@ -8,6 +9,9 @@ import { buildVoyageRouteLegs, collectVoyageManifestBatchRows, formatPolDepartur
 import type { Voyage } from '../voyageCardTypes'
 
 vi.mock('../../../services/supabase', () => ({ supabase: {}, isSupabaseConfigured: true }))
+vi.mock('../../../hooks/useTransshipments', () => ({
+  useVoyageTransshipments: vi.fn(() => ({ data: { omissions: [], transshipments: [] } })),
+}))
 function makeBl(overrides: Partial<VoyageBl> = {}): VoyageBl {
   return {
     id: 'BL-001',
@@ -70,6 +74,21 @@ describe('collectVoyageManifestBatchRows', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ routeKey: 'CNTAC__BRVIX', batchIds: [], ceMaster: '25BR09999' })
+  })
+
+  it('exibe o desvio da rota quando o POD da linha tem omissao vigente', () => {
+    const rows = collectVoyageManifestBatchRows({
+      voyageId: 14,
+      batches: [],
+      bls: [makeBl({ pod: 'BRVIX', ce_mercante: 'CE-001' })],
+      omissions: [{ omittedPod: 'BRVIX', dischargePod: 'BRSSZ' }],
+    })
+
+    expect(rows[0]).toMatchObject({
+      routeKey: 'CNTAC__BRVIX',
+      routeLabel: 'TAICANG → BRVIX → BRSSZ',
+      omission: { omittedPod: 'BRVIX', dischargePod: 'BRSSZ' },
+    })
   })
 
   it('soma B/Ls avulsos na mesma rota de um batch existente', () => {
@@ -152,6 +171,44 @@ describe('VoyageManifestosTab', () => {
     expect(html).toContain('href="/manifestos?voyage=14&amp;pol=CNTAC&amp;pod=BRVIX"')
     expect(html).not.toContain('Rota derivada dos B/Ls')
     expect(html).not.toContain('Gerar EDI Mercante')
+  })
+
+  it('marca a rota desviada e sinaliza manifesto pendente', () => {
+    const voyage = {
+      id: 14,
+      voyage_number: '001',
+      vessel: { name: 'ALPHA' },
+      bls: [makeBl({ id: 'BL-001', ce_mercante: 'CE-001', pod: 'BRSSZ' })],
+    } as Voyage
+
+    vi.mocked(useVoyageTransshipments).mockReturnValueOnce({
+      data: {
+        omissions: [{ id: 1, voyageId: 14, omittedPod: 'BRVIX', dischargePod: 'BRSSZ', reason: null, onwardVesselName: null, onwardCarrier: null, onwardVoyageNumber: null, onwardEtd: null, onwardEta: null }],
+        transshipments: [],
+      },
+    } as never)
+
+    const html = renderToStaticMarkup(
+      <MemoryRouter>
+        <VoyageManifestosTab
+          voyage={voyage}
+          voyageLabel="ALPHA / 001"
+          importBatches={[]}
+          polSchedules={undefined}
+          routeCeMasters={undefined}
+          divergenceCount={0}
+          ceCoverage={{ filled: 1, total: 1 }}
+          estadoMeta={{ color: '#1f7a4d', bg: '#eef8f1', label: 'OK' }}
+          onEditPol={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(html).toContain('TAICANG →')
+    expect(html).toContain('class="line-through"')
+    expect(html).toContain('OMISSÃO')
+    expect(html).toContain('manifesto não informado')
+    expect(html).toContain('Informe o CE Master pelo lápis desta linha')
   })
 })
 
