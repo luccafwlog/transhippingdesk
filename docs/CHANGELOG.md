@@ -3,6 +3,16 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Fundação de Alertas e Notificações:** migrations `317`–`320` centralizam
+  catálogo de severidade/audiência, agregado por entidade, itens com histórico,
+  dispensa temporária auditável, fan-out de notificações internas por usuário e
+  fallback crítico para Administrativo/Admin. Os detectores existentes passam a
+  rodar server-side a cada 15 minutos pela Edge Function `alerts-detector`;
+  `/alertas` consulta a fila sem detectar, reconhecer ou fechar manualmente e
+  mantém alertas legados visíveis durante a migração dos produtores. O tipo ADR
+  obsoleto `agency_report_section_pending` foi encerrado e o dead code
+  `needsCeMercante` removido. *(plano `2026-08-11-alertas-e-notificacoes`;
+  issue #519)*
 - **PR #565 — correções da revisão de código da revisão de UI/UX:** o
   relatório de Demurrage por consignatário ainda podia imprimir vazio quando
   o modal era filho direto de `.app-main` (caso da Demurrage, sem wrapper de

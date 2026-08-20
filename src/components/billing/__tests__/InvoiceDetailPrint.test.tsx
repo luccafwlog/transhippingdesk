@@ -51,7 +51,7 @@ vi.mock('../../../hooks/useBillingLedger', () => ({
 vi.mock('../InvoiceDocumentLocal', () => ({
   InvoiceDocumentLocal: () => <div data-testid="print-document">printable invoice</div>,
 }))
-vi.mock('../../../services/alerts', () => ({ createAlert: vi.fn(), detectOverdueInvoices: vi.fn(() => Promise.resolve()) }))
+vi.mock('../../../services/alerts', () => ({ createAlert: vi.fn() }))
 vi.mock('../../../services/operationalEvents', () => ({ logOperationalEvent: vi.fn() }))
 
 import { InvoiceDetailModal } from '../InvoiceDetailModal'

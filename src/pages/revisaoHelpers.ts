@@ -107,11 +107,6 @@ export function groupNeedsPortal(group: ReviewGroup) {
   return Boolean(linked) && groupHasReviewReason(group, /acesso ao portal nao provisionado/i)
 }
 
-export function needsCeMercante(item: ReviewQueueItem) {
-  if (item.source !== 'bl') return false
-  return (item.review_reasons ?? []).some((reason) => /ce\s*mercante/i.test(reason))
-}
-
 export function needsWeightFix(item: ReviewQueueItem) {
   if (item.source !== 'bl') return false
   if ((item.review_reasons ?? []).some((reason) => /weight ton|peso bb/i.test(reason))) return true

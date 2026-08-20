@@ -94,9 +94,9 @@ Granite é uma ramificação mais simples: `saveGraniteBlReview` atualiza `grani
 
 ### `/alertas`
 
-`src/pages/Alertas.tsx` mostra abas `all | open | acknowledged`, tabela, deep-links por entidade e ações de reconhecer/fechar. `src/services/alerts.ts` limita a lista a 200 registros não fechados, ordenados por criação.
+`src/pages/Alertas.tsx` mostra abas `all | active | dismissed`, tabela, deep-links por entidade e dispensa temporária por item. `src/services/alerts.ts` consulta a fila canônica; `list_alert_queue` limita a projeção global a 200 linhas, preservando carriers legados ainda não migrados.
 
-Reconhecer só atualiza linhas ainda `open`; fechar aceita qualquer estado diferente de `closed` e grava `closed_at`. Ambas as mutations invalidam `['alerts']`, `['op-count']` e `['dashboard']`. O realtime de `alerts` usado por `useOperationalCounts` invalida especificamente `['op-count', 'open-alerts']`.
+Dispensar exige motivo e uma data futura e grava o histórico por ocorrência; a resolução acontece no produtor autoritativo. As mutations invalidam `['alerts']`, `['op-count']` e `['dashboard']`. O realtime de `alerts` usado por `useOperationalCounts` invalida especificamente `['op-count', 'open-alerts']`.
 
 ### `/relatorios`
 
@@ -176,9 +176,9 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| Filtrar/listar | Sessão interna ativa | Abas Todos/Novos/Reconhecidos | `useQuery(['alerts', statusFilter])` → `listAlerts` | Leitura de até 200 `alerts` não fechados | Troca de filtro usa cache por status | Erro exibe `InlineError` | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
-| Reconhecer | Alerta ainda `open` | Botão “Reconhecer” | `acknowledgeAlert(id)` aplica `eq(status, open)` | `alerts.status = acknowledged` | Invalida `['alerts']`, `['op-count']`, `['dashboard']` | Update concorrente que já mudou status pode afetar zero linhas sem erro explícito | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
-| Fechar | Alerta ainda não fechado | Botão “Fechar” | `closeAlert(id)` aplica `neq(status, closed)` | `alerts.status = closed`, `closed_at = now` | Invalida alerts/op-count/dashboard | Linha já fechada pode afetar zero linhas sem erro explícito | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
+| Filtrar/listar | Sessão interna ativa | Abas Todos/Ativos/Dispensados | `useQuery(['alerts', statusFilter])` → `listAlerts` | RPC `list_alert_queue`, com cap global de 200 e carriers legados sem item | Troca de filtro usa cache por status | Erro exibe `InlineError` | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
+| Dispensar | Item ativo; motivo e data futura | Botão “Dispensar” | `dismissAlert(item_id, reason, reviewAt)` → `dismiss_alert_item` | `alert_item_dismissals` por ocorrência | Invalida alerts/op-count/dashboard | Motivo ausente ou data passada é rejeitado | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
+| Resolver | Estado autoritativo alterado | Produtor do alerta | Triggers/RPCs chamam `resolve_alert_item`; abuso de login exige análise humana | `alert_items.status = resolved` e evento de resolução | Agregado e contadores são atualizados | Falha da origem permanece visível na fila | **Código:** migrations `318`/`321`, produtores de faturamento/Portal/demurrage |
 | Abrir entidade | `entity_type`/`entity_id` suportados | Link na linha | Mapeia invoice, container ou B/L para rota interna | Nenhuma | Navega para faturamento, demurrage ou manifesto | Tipos sem mapeamento não exibem link | **Código:** `src/pages/Alertas.tsx` |
 
 ### `/relatorios`

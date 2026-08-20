@@ -16,8 +16,11 @@ vi.mock('../operationalEvents', () => ({
   logOperationalEvent: mockLogOperationalEvent,
 }))
 
-const { mockCreateAlert } = vi.hoisted(() => ({ mockCreateAlert: vi.fn() }))
-vi.mock('../alerts', () => ({ createAlert: mockCreateAlert }))
+const { mockCreateAlert, mockResolveAlertItem } = vi.hoisted(() => ({
+  mockCreateAlert: vi.fn(),
+  mockResolveAlertItem: vi.fn(),
+}))
+vi.mock('../alerts', () => ({ createAlert: mockCreateAlert, resolveAlertItem: mockResolveAlertItem }))
 
 const { mockCalculateAndIssueGraniteInvoice } = vi.hoisted(() => ({ mockCalculateAndIssueGraniteInvoice: vi.fn() }))
 vi.mock('../graniteBillingWorkflow', () => ({ calculateAndIssueGraniteInvoice: mockCalculateAndIssueGraniteInvoice }))
@@ -100,6 +103,12 @@ describe('tryAutoIssueInvoice', () => {
       blId: 'BL1',
       customerId: 99,
       actorId: 'user-1',
+    })
+    expect(mockResolveAlertItem).toHaveBeenCalledWith({
+      type: 'billing_auto_issue_failed',
+      entityType: 'bl',
+      entityId: 'BL1',
+      source: 'ce_auto_billing',
     })
   })
 
@@ -283,6 +292,12 @@ describe('maybeAutoBillAfterCeMercante', () => {
 
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 77 } })
     expect(mockCalculateAndIssueGraniteInvoice).toHaveBeenCalledWith({ blId: 'GR1', customerId: 99, actorId: 'user-1' })
+    expect(mockResolveAlertItem).toHaveBeenCalledWith({
+      type: 'billing_auto_issue_failed',
+      entityType: 'granite_bl',
+      entityId: 'GR1',
+      source: 'ce_auto_billing',
+    })
   })
 
   it('mantem Granito bloqueado sem CE', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
+import { countAlertQueue } from '../services/alerts'
 
 export type OperationalCounts = {
   pendingReview: number
@@ -72,14 +73,7 @@ export function useOperationalCounts(): OperationalCounts {
 
   const openAlerts = useQuery({
     queryKey: ['op-count', 'open-alerts'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('alerts')
-        .select('*', { count: 'exact', head: true })
-        .neq('status', 'closed')
-      if (error) return 0
-      return count ?? 0
-    },
+    queryFn: () => countAlertQueue('active'),
     enabled,
     staleTime: 60_000,
   })

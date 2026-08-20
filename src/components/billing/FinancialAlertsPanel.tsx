@@ -1,22 +1,14 @@
-import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Badge } from '../ui/Badge'
-import { Button } from '../ui/Button'
-import { useToast } from '../ui/Toast'
-import { acknowledgeAlert, closeAlert, type Alert } from '../../services/alerts'
+import type { AlertQueueRow } from '../../services/alerts'
 
 export function FinancialAlertsPanel({
   alerts,
   loading = false,
-  onUpdate,
 }: {
-  alerts: Alert[]
+  alerts: AlertQueueRow[]
   loading?: boolean
-  onUpdate: () => void
 }) {
-  const { showToast } = useToast()
-  const [acting, setActing] = useState<number | null>(null)
-
   if (loading) {
     return (
       <div className="mb-5 rounded-xl border border-[#30363d] bg-[#161b22] p-4">
@@ -31,30 +23,6 @@ export function FinancialAlertsPanel({
 
   if (!alerts.length) return null
 
-  async function handleAcknowledge(id: number) {
-    setActing(id)
-    try {
-      await acknowledgeAlert(id)
-      onUpdate()
-    } catch {
-      showToast('Falha ao reconhecer alerta.', 'error')
-    } finally {
-      setActing(null)
-    }
-  }
-
-  async function handleClose(id: number) {
-    setActing(id)
-    try {
-      await closeAlert(id)
-      onUpdate()
-    } catch {
-      showToast('Falha ao fechar alerta.', 'error')
-    } finally {
-      setActing(null)
-    }
-  }
-
   return (
     <div className="mb-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-100">
@@ -64,24 +32,14 @@ export function FinancialAlertsPanel({
       <div className="grid gap-2">
         {alerts.slice(0, 5).map((alert) => (
           <div
-            key={alert.id}
+            key={alert.item_id ?? alert.id}
             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/20 bg-[#0d1117]/60 px-3 py-2 sm:gap-3"
           >
             <div className="flex min-w-0 flex-1 basis-56 items-center gap-2">
-              <Badge tone={alert.status === 'acknowledged' ? 'blue' : 'yellow'}>
-                {alert.status === 'acknowledged' ? 'Reconhecido' : 'Aberto'}
+              <Badge tone="yellow">
+                Aberto
               </Badge>
               <span className="min-w-0 break-words text-xs text-slate-200">{alert.message}</span>
-            </div>
-            <div className="flex shrink-0 gap-1.5">
-              {alert.status === 'open' ? (
-                <Button variant="secondary" disabled={acting === alert.id} onClick={() => void handleAcknowledge(alert.id)}>
-                  Reconhecer
-                </Button>
-              ) : null}
-              <Button variant="secondary" disabled={acting === alert.id} onClick={() => void handleClose(alert.id)}>
-                Fechar
-              </Button>
             </div>
           </div>
         ))}

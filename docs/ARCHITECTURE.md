@@ -1,6 +1,6 @@
 # Arquitetura do Transhipping Desk
 
-Verificado contra o código, a configuração e as migrations em 2026-06-20.
+Verificado contra o código, a configuração e as migrations em 2026-08-20.
 
 Este é o mapa canônico da arquitetura atual. Termos de negócio vivem em
 [`CONTEXT.md`](../CONTEXT.md); decisões e supersessões vivem no
@@ -43,6 +43,40 @@ Deployment. `https://transhippingdesk.com.br` e
 roteamento entre operação interna e Portal continua sendo responsabilidade do
 host/rota/autenticação da aplicação. O Firebase permanece apenas como rollback
 temporário durante a troca de DNS.
+
+### Alertas e notificações internas
+
+Alertas internos têm um agregado histórico em `alerts` e uma projeção de
+pendências em `alert_items`. O catálogo `alert_type_catalog` concentra tipo,
+severidade, departamento, audiência e destino. `alert_item_events` e
+`alert_item_dismissals` preservam o histórico; a dispensa é temporária e exige
+motivo, autor e revisão futura. Não há acknowledge nem fechamento manual para
+itens novos: os produtores resolvem a origem por RPC.
+
+`internal_notifications` é fan-out por usuário e evento, com RLS que limita a
+leitura ao destinatário e permite somente marcar `read_at`. Alertas críticos
+sem audiência ativa tentam Administrativo/Admin e registram a falha em
+`alert_notification_failures` quando o fallback também não encontra ninguém.
+A leitura das notificações usa `is_active_read_user()`, portanto inclui o papel
+`equipamentos`, que é audiência válida de Dispute e PIX. Linhas antigas de
+`alerts` continuam na fila pela RPC `list_alert_queue` até que seus produtores
+sejam migrados; a projeção mantém limite global de 200 linhas. Enquanto isso,
+o bridge acompanha inserts, fechamentos e reaberturas de carriers concretos:
+fecha o item correspondente e emite nova ocorrência/notificação quando a mesma
+pendência retorna. O backfill não dispara notificações históricas no deploy.
+Transições autoritativas resolvem invoice vencida/pagamento/cancelamento,
+convite e falha de envio do Portal, email de recuperação saudável e Dispute de
+Demurrage; a emissão automática resolve sua falha anterior ao concluir com
+sucesso. Abuso investigável de login continua dependendo da análise do bloco
+Portal, como definido na spec #521.
+
+Os detectores server-side são executados pela Edge Function
+`alerts-detector`, protegida por `ALERTS_DETECTOR_SECRET`, a cada 15 minutos
+por `pg_cron` + `pg_net`. O browser não dispara detectores nem cria
+notificações internas. A agenda é instalada quando as extensões estão
+disponíveis; se `app.settings.supabase_url` ou
+`app.settings.alerts_detector_secret` faltar, a migration emite warning e o job
+continua visível, falhando de forma observável até a configuração ser corrigida.
 
 ## Fronteiras de autenticação
 

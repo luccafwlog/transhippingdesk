@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Download, FilePlus2 } from 'lucide-react'
 import { ConsolidatedInvoiceModal } from '../components/billing/ConsolidatedInvoiceModal'
 import { ValidacaoTab } from '../components/billing/ValidacaoTab'
@@ -20,8 +20,7 @@ import { useInvoices } from '../hooks/useBilling'
 import { resolveLegacyFaturamentoRedirect, toRouteTarget } from '../lib/routeRedirects'
 import { isConsolidatedInvoice, listInvoicesForExport } from '../services/billing'
 import { exportInvoicesWorkbook } from '../services/exports'
-import { detectOverdueInvoices, listFinancialAlerts } from '../services/alerts'
-import { reportBestEffortFailure } from '../lib/telemetry'
+import { listFinancialAlerts } from '../services/alerts'
 import { describeActiveFilters, describeEmptyState } from '../lib/operationalState'
 import { formatBRL } from '../lib/utils'
 
@@ -39,7 +38,6 @@ export function TaxasLocais() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { showToast } = useToast()
-  const queryClient = useQueryClient()
 
   const [filters, setFilters] = useState<Filters>({
     search: '',
@@ -102,19 +100,6 @@ export function TaxasLocais() {
     queryFn: listFinancialAlerts,
     staleTime: 60_000,
   })
-
-  useEffect(() => {
-    // Fire-and-forget: detecta invoices vencidas ao abrir a tela
-    void detectOverdueInvoices().then(() => {
-      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
-      void queryClient.invalidateQueries({ queryKey: ['invoices'] })
-      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
-    }).catch((error: unknown) => {
-      // Sem isto a detecção de vencidos falharia em silêncio ao abrir a tela.
-      reportBestEffortFailure('detectOverdueInvoices ao abrir Faturamento', error)
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
   const invoices = useMemo(() => data?.rows ?? [], [data?.rows])
@@ -226,10 +211,6 @@ export function TaxasLocais() {
       <FinancialAlertsPanel
         alerts={financialAlertsQuery.data ?? []}
         loading={financialAlertsQuery.isLoading}
-        onUpdate={() => {
-          void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
-          void queryClient.invalidateQueries({ queryKey: ['op-count'] })
-        }}
       />
 
       <CodAdjustmentsPanel />

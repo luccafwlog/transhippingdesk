@@ -8,7 +8,6 @@ import {
   groupNeedsEmail,
   groupNeedsPortal,
   groupReviewItems,
-  needsCeMercante,
   needsCustomerLink,
   needsWeightFix,
 } from '../revisaoHelpers'
@@ -22,15 +21,6 @@ describe('needsCustomerLink', () => {
   it('é verdadeiro só quando não há cliente vinculado', () => {
     expect(needsCustomerLink(item({ customer_id: null }))).toBe(true)
     expect(needsCustomerLink(item({ customer_id: 5 }))).toBe(false)
-  })
-})
-
-describe('needsCeMercante', () => {
-  it('só vale para itens de B/L com motivo de CE Mercante', () => {
-    expect(needsCeMercante(item({ source: 'granite', review_reasons: ['CE Mercante ausente'] }))).toBe(false)
-    expect(needsCeMercante(item({ source: 'bl', review_reasons: ['CE Mercante ausente'] }))).toBe(true)
-    expect(needsCeMercante(item({ source: 'bl', review_reasons: ['ceMercante faltando'] }))).toBe(true)
-    expect(needsCeMercante(item({ source: 'bl', review_reasons: ['outro motivo'] }))).toBe(false)
   })
 })
 
