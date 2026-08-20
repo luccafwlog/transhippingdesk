@@ -1,5 +1,37 @@
 # Correção da regressão de inicialização, login e primeira navegação
 
+> **Nota editorial — arquivado em 2026-08-20 por superação, não por conclusão.**
+>
+> Este plano foi escrito quando o frontend era servido por **Firebase Hosting**.
+> A PR #552 migrou o hosting para **Vercel** e removeu
+> `.github/workflows/firebase-deploy.yml`; `firebase.json` permanece apenas como
+> rollback temporário, conforme `docs/setup/deploy.md`. A Task 4C, que edita
+> esse arquivo, perdeu o alvo.
+>
+> O que restou coberto por outro caminho:
+>
+> - a **Task 2 foi concluída** e descartou o banco como gargalo; o relatório
+>   está em
+>   [`../reports/2026-08-13-baseline-performance-producao.md`](../reports/2026-08-13-baseline-performance-producao.md);
+> - as PRs #554/#555 instalaram Vercel Analytics e Speed Insights
+>   (`src/main.tsx`), que dão monitoramento de usuário real e cobrem boa parte
+>   do diagnóstico que o harness frio/quente existia para produzir;
+> - o harness `scripts/perf/measure-authenticated-startup.mjs` e o comando
+>   `npm run perf:authenticated-startup` **continuam vivos e utilizáveis** — a
+>   PR #552 atualizou `scripts/perf/README.md` para `transhippingdesk.com.br`.
+>   Foi o plano que perdeu o sentido, não a ferramenta.
+>
+> As Tasks 1 (último passo), 3, 4A e 4B nunca foram executadas: dependem de uma
+> medição autenticada que exige rede irrestrita, indisponível no ambiente remoto.
+>
+> **Resíduo não resolvido.** A Task 4C trocou o escopo da regra de
+> `Cache-Control` de caminhos literais para `**` no `firebase.json`, porque um
+> link salvo para `/painel` ou `/login` não recebia `no-store` e podia servir um
+> `index.html` antigo. Em `vercel.json` a regra voltou a ser o caminho literal
+> `/index.html`. Não foi possível confirmar se isso é defeito ativo: depende do
+> default do Vercel para HTML reescrito, e o proxy do ambiente responde `403`
+> para o domínio de produção. Fica registrado aqui para quem retomar o tema.
+
 > **Para agentes:** SUB-SKILL OBRIGATÓRIA: usar `superpowers:executing-plans`
 > (ou `superpowers:subagent-driven-development`) para executar tarefa a tarefa.
 > Passos usam checkbox (`- [ ]`) para rastreio.
