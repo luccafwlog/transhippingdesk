@@ -135,12 +135,13 @@ export function groupReviewItems(items: ReviewQueueItem[]): ReviewGroup[] {
       groups.set(key, group)
     }
     group.items.push(item)
+    if (!group.cnpj && cnpj) group.cnpj = cnpj
     for (const candidate of candidates) {
       if (!group.candidateCnpjs.includes(candidate)) group.candidateCnpjs.push(candidate)
     }
     group.identityKind = identityKind === 'conflict' || group.candidateCnpjs.length > 1
       ? 'conflict'
-      : group.candidateCnpjs.length === 1 || group.items.some((row) => getReviewItemCnpj(row)) ? 'document' : 'name'
+      : group.candidateCnpjs.length === 1 || Boolean(group.cnpj) ? 'document' : 'name'
     group.canBulkOnboard = group.canBulkOnboard && item.source === 'bl' && group.identityKind === 'document'
     // Prefere a razão social cadastrada como nome do grupo.
     if (item.customer?.name) group.displayName = item.customer.name

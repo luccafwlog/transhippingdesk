@@ -20,15 +20,16 @@ export function useReviewCustomerGroup() {
         return { onboarding, portalInvite: 'failed' }
       }
     },
-    onSuccess: async () => {
-      await Promise.all([
+    onSuccess: async ({ portalInvite }) => {
+      const invalidations = [
         queryClient.invalidateQueries({ queryKey: ['review-queue'] }),
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
         queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['local-charge-pendencies'] }),
-        queryClient.invalidateQueries({ queryKey: PORTAL_PROVISIONING_QUERY_KEY }),
-      ])
+      ]
+      if (portalInvite !== 'not_requested') invalidations.push(queryClient.invalidateQueries({ queryKey: PORTAL_PROVISIONING_QUERY_KEY }))
+      await Promise.all(invalidations)
     },
   })
 }

@@ -146,6 +146,8 @@ DECLARE
   v_bls JSONB := '[]'::JSONB;
   v_missing INTEGER := 0;
   v_requested_count INTEGER := 0;
+  v_group_name_identity TEXT;
+  v_bl_name_identity TEXT;
 BEGIN
   IF v_actor IS NULL OR NOT public.is_active_user() OR p_changed_by IS DISTINCT FROM v_actor THEN
     RAISE EXCEPTION 'Usuário sem permissão ativa para concluir o grupo.' USING ERRCODE = '42501';
@@ -209,12 +211,30 @@ BEGIN
       v_bl.cargo_description
     );
 
+    -- Grupos sem evidência documental só podem reunir B/Ls do mesmo
+    -- consignatário normalizado. Grupos com CNPJ são validados pelas
+    -- evidências abaixo, sem exigir igualdade textual sujeita a ruído OCR.
+    IF COALESCE(cardinality(v_candidates), 0) = 0 AND v_bl.customer_id IS NULL THEN
+      v_bl_name_identity := lower(regexp_replace(btrim(COALESCE(v_bl.consignee, '')), '\s+', ' ', 'g'));
+      IF v_bl_name_identity = '' THEN
+        RAISE EXCEPTION 'O B/L % não possui CNPJ ou consignatário suficiente para validar o grupo.', v_bl.id USING ERRCODE = 'PT409';
+      END IF;
+      IF v_group_name_identity IS NULL THEN
+        v_group_name_identity := v_bl_name_identity;
+      ELSIF v_group_name_identity <> v_bl_name_identity THEN
+        RAISE EXCEPTION 'Os B/Ls informados não pertencem ao mesmo grupo de consignatário.' USING ERRCODE = 'PT409';
+      END IF;
+    END IF;
+
     IF cardinality(v_candidates) > 1
        AND NOT (cardinality(p_bl_ids) = 1 AND v_cnpj = ANY(v_candidates)) THEN
       RAISE EXCEPTION 'O B/L % contém CNPJs conflitantes nas evidências.', v_bl.id USING ERRCODE = 'PT409';
     END IF;
     IF cardinality(v_candidates) = 1 AND v_cnpj <> v_candidates[1] THEN
       RAISE EXCEPTION 'O CNPJ do B/L % não corresponde ao grupo informado.', v_bl.id USING ERRCODE = 'PT409';
+    END IF;
+    IF v_bl.customer_id IS NOT NULL AND v_bl.customer_id <> v_customer.id THEN
+      RAISE EXCEPTION 'O B/L % já está vinculado a outro cliente; corrija o vínculo individualmente.', v_bl.id USING ERRCODE = 'PT409';
     END IF;
 
     PERFORM public.ensure_customer_contact_email(v_customer.id, v_email);
@@ -297,6 +317,10 @@ DECLARE
   v_reasons TEXT[];
   v_human_notes TEXT;
   v_notes TEXT;
+  v_review_status TEXT;
+  v_financial_status TEXT;
+  v_new_review_status TEXT;
+  v_has_active_invoice BOOLEAN;
 BEGIN
   v_result := public.import_bl_freight_transactional_legacy_284(p_bls, p_changed_by);
 
@@ -312,9 +336,23 @@ BEGIN
       END IF;
     END IF;
 
-    SELECT b.notes INTO v_notes
+    SELECT
+      b.notes,
+      b.review_status,
+      b.financial_status,
+      EXISTS (
+        SELECT 1
+        FROM public.invoice_bls AS ib
+        JOIN public.invoices AS i ON i.id = ib.invoice_id
+        WHERE ib.bl_id = b.id
+          AND i.status NOT IN ('cancelled', 'obsolete')
+      )
+    INTO v_notes, v_review_status, v_financial_status, v_has_active_invoice
     FROM public.bls AS b
     WHERE b.id = v_bl_id;
+
+    IF NOT FOUND THEN CONTINUE; END IF;
+    IF v_financial_status = 'invoiced' OR v_has_active_invoice THEN CONTINUE; END IF;
 
     v_reasons := public.compute_bl_review_pendencies(v_bl_id);
     v_human_notes := btrim(
@@ -334,10 +372,22 @@ BEGIN
       ELSE NULLIF(v_human_notes, '')
     END;
 
+    v_new_review_status := CASE WHEN COALESCE(cardinality(v_reasons), 0) = 0 THEN 'reviewed' ELSE 'pending_review' END;
+
     UPDATE public.bls
-    SET review_status = CASE WHEN COALESCE(cardinality(v_reasons), 0) = 0 THEN 'reviewed' ELSE 'pending_review' END,
+    SET review_status = v_new_review_status,
         notes = v_notes
     WHERE id = v_bl_id;
+
+    IF v_review_status IS DISTINCT FROM v_new_review_status THEN
+      INSERT INTO public.audit_logs (
+        entity_type, entity_id, field_name, old_value, new_value, changed_by, justification
+      )
+      VALUES (
+        'bl', v_bl_id, 'review_status', v_review_status, v_new_review_status, p_changed_by,
+        'Gate canonico reaplicado apos e-mail importado'
+      );
+    END IF;
 
     PERFORM public.sync_customer_reconciliation_queue_for_bl(v_bl_id);
   END LOOP;

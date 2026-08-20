@@ -24,12 +24,16 @@ describe('migration de onboarding da revisão por cliente', () => {
     expect(sql).not.toMatch(/p_group_name/i)
     expect(sql).not.toMatch(/apply_bl_review_gate_after_import\(v_ids, p_changed_by\)/i)
     expect(sql).toMatch(/SET review_status = CASE[\s\S]*notes = v_notes/i)
+    expect(sql).toMatch(/v_financial_status[\s\S]*invoice_bls[\s\S]*status NOT IN \('cancelled', 'obsolete'\)/i)
+    expect(sql).toMatch(/Gate canonico reaplicado apos e-mail importado/i)
+    expect(sql).toMatch(/já está vinculado a outro cliente/i)
   })
 
   it('recalcula o gate depois de adicionar o e-mail importado', () => {
     const sql = readFileSync(migrationPath, 'utf8')
     expect(sql).toMatch(/ensure_customer_contact_email[\s\S]*compute_bl_review_pendencies[\s\S]*SET review_status[\s\S]*notes = v_notes[\s\S]*sync_customer_reconciliation_queue_for_bl/i)
     expect(sql).not.toMatch(/apply_bl_review_gate_after_import\(v_ids, p_changed_by\)/i)
+    expect(sql).toMatch(/v_financial_status = 'invoiced' OR v_has_active_invoice/i)
   })
 
   it('mantém a limpeza do motivo de vínculo por nome na camada de importação', () => {
