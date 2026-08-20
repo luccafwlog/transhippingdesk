@@ -26,20 +26,50 @@ type AlertsRpcClient = {
 // refresh, instead of weakening the rest of the Supabase client.
 const alertsRpc = supabase as unknown as AlertsRpcClient
 
-// entity_id dos alertas do ADR é composto (voyageId::porto::departamento,
-// migration 225; secao em alertas legados pre-0029) ou terminalizado
-// (voyageId::porto::terminal::departamento/secao). Este formatador é só
-// apresentação para a página Alertas.
+// entity_id dos alertas do ADR pode ser um agregado novo (voyageId::porto ou
+// voyageId::porto::terminal) ou uma chave legada com departamento/seção. O
+// departamento deixou de fazer parte da identidade do agregado, mas as formas
+// antigas continuam legíveis durante a transição.
+function isLegacyAgencyReportKey(value: string | undefined): boolean {
+  if (!value) return false
+  return value in AGENCY_REPORT_DEPARTMENT_LABELS || agencyReportSectionLabel(value) !== value
+}
+
 export function formatAgencyReportAlertEntity(entityId: string): string | null {
-  const [voyageId, port, terminalOrKey, maybeKey] = entityId.split('::')
-  const terminalized = maybeKey !== undefined
-  const key = terminalized ? maybeKey : terminalOrKey
-  if (!voyageId || !port || !key) return null
-  const label = (AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[key]
-    ?? agencyReportSectionLabel(key)
-  return terminalized
-    ? `Viagem ${voyageId} · ${port} · Terminal ${terminalOrKey} · ${label}`
-    : `Viagem ${voyageId} · ${port} · ${label}`
+  const parts = entityId.split('::')
+  const [voyageId, port, third, fourth] = parts
+  if (!voyageId || !port || parts.length < 2 || parts.length > 4) return null
+  if (parts.length === 2) return `Viagem ${voyageId} · ${port}`
+
+  const terminalized = parts.length === 4 || !isLegacyAgencyReportKey(third)
+  if (terminalized) {
+    const terminalLabel = parts.length === 4 && fourth
+      ? ` · ${((AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[fourth] ?? agencyReportSectionLabel(fourth))}`
+      : ''
+    return `Viagem ${voyageId} · ${port} · Terminal ${third}${terminalLabel}`
+  }
+
+  const label = (AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[third]
+    ?? agencyReportSectionLabel(third)
+  return `Viagem ${voyageId} · ${port} · ${label}`
+}
+
+export function agencyReportAlertLink(
+  entityId: string,
+  metadata: Record<string, unknown> = {},
+): string | null {
+  const parts = entityId.split('::')
+  const [voyageId, port, third] = parts
+  if (!/^\d+$/.test(voyageId ?? '') || !port || parts.length < 2 || parts.length > 4) return null
+
+  const params = new URLSearchParams({ tab: 'adr', escala: port })
+  const terminal = parts.length === 4 || (parts.length === 3 && !isLegacyAgencyReportKey(third))
+    ? third
+    : undefined
+  if (terminal) params.set('terminal', terminal)
+  const reportId = metadata.report_id
+  if (typeof reportId === 'string' && reportId.length > 0) params.set('report', reportId)
+  return `/viagens/${voyageId}?${params.toString()}`
 }
 
 export async function listAlerts(statusFilter: AlertStatusFilter = 'all', entityType?: string): Promise<AlertQueueRow[]> {

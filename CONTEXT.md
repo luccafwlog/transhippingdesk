@@ -1035,6 +1035,12 @@ por toda a equipe interna. Existe uma única vez e permanece aberto enquanto a
 condição de origem existir. Não há estado de reconhecimento: leitura é pessoal
 e não trata a pendência. Responde "o que ainda precisa ser feito".
 
+No ADR, a identidade do agregado é `(viagem, porto, terminal)` quando o
+relatório é terminalizado e `(viagem, porto)` no legado. Cada agregado possui
+dois itens independentes por departamento: pendência de seção e prazo vencido.
+O terminal usa `terminal_atd` como ATD autoritativo; a reconciliação é
+server-side e reabrir uma seção invalida o sign-off departamental dono.
+
 **Notificação Interna**
 Aviso pessoal entregue a um usuário interno sobre um Evento Notificável, com
 estado de leitura próprio de cada destinatário. Responde "o que aconteceu e eu

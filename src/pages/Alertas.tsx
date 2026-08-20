@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { dismissAlertItem, formatAgencyReportAlertEntity, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
+import { agencyReportAlertLink, dismissAlertItem, formatAgencyReportAlertEntity, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
 
 const TYPE_LABELS: Record<string, string> = {
   invoice_overdue: 'Fatura vencida',
@@ -182,7 +182,7 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
 
 // O mesmo destino é usado pela fila e pelo sino; produtores não escolhem uma
 // tela paralela nem gravam rotas na Notificação Interna.
-function alertEntityLink(alert: { type: string; entity_type: string | null; entity_id: string | null }): string | null {
+function alertEntityLink(alert: Pick<AlertQueueRow, 'type' | 'entity_type' | 'entity_id' | 'metadata'>): string | null {
   if (!alert.entity_id) return null
   if (alert.type.startsWith('portal_')) {
     if (alert.entity_type === 'invoice') return /^\d+$/.test(alert.entity_id) ? `/taxas-locais?invoice=${encodeURIComponent(alert.entity_id)}` : '/taxas-locais'
@@ -192,11 +192,7 @@ function alertEntityLink(alert: { type: string; entity_type: string | null; enti
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'agency_departure_report') {
-    const [voyageId, port, terminalOrLegacyKey, terminalizedKey] = alert.entity_id.split('::')
-    if (!/^\d+$/.test(voyageId)) return null
-    const params = new URLSearchParams({ tab: 'adr', escala: port })
-    if (terminalizedKey !== undefined) params.set('terminal', terminalOrLegacyKey)
-    return `/viagens/${voyageId}?${params.toString()}`
+    return agencyReportAlertLink(alert.entity_id, alert.metadata)
   }
   if (alert.entity_type === 'voyage' && /^\d+$/.test(alert.entity_id)) return `/viagens/${alert.entity_id}`
   return null

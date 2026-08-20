@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAgencyReportAlertEntity } from '../alerts'
+import { agencyReportAlertLink, formatAgencyReportAlertEntity } from '../alerts'
 
 describe('formatAgencyReportAlertEntity', () => {
   it('formata voyageId::porto::departamento (migration 225) para leitura humana', () => {
@@ -14,6 +14,17 @@ describe('formatAgencyReportAlertEntity', () => {
 
   it('formata a chave terminalizada voyageId::porto::terminal::departamento', () => {
     expect(formatAgencyReportAlertEntity('10::BRVIX::TVV::equipamentos')).toBe('Viagem 10 · BRVIX · Terminal TVV · Equipamentos')
+  })
+
+  it('formata os agregados novos sem departamento no entity_id', () => {
+    expect(formatAgencyReportAlertEntity('10::BRVIX')).toBe('Viagem 10 · BRVIX')
+    expect(formatAgencyReportAlertEntity('10::BRVIX::TVV')).toBe('Viagem 10 · BRVIX · Terminal TVV')
+  })
+
+  it('gera o deep-link compartilhado do ADR e preserva o report_id terminalizado', () => {
+    expect(agencyReportAlertLink('10::BRVIX')).toBe('/viagens/10?tab=adr&escala=BRVIX')
+    expect(agencyReportAlertLink('10::BRVIX::TVV', { report_id: 'report-10' })).toBe('/viagens/10?tab=adr&escala=BRVIX&terminal=TVV&report=report-10')
+    expect(agencyReportAlertLink('10::BRVIX::TVV::documentacao')).toBe('/viagens/10?tab=adr&escala=BRVIX&terminal=TVV')
   })
 
   // Seções aposentadas seguem legíveis na página Alertas: 'ocorrencias' saiu na

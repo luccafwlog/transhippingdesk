@@ -24,6 +24,9 @@ vi.mock('../../services/alerts', () => ({
   listAlerts: vi.fn(),
   dismissAlertItem: vi.fn().mockResolvedValue(undefined),
   formatAgencyReportAlertEntity: (entityId: string) => entityId,
+  agencyReportAlertLink: (entityId: string) => entityId.includes('::TVV::')
+    ? '/viagens/10?tab=adr&escala=BRVIX&terminal=TVV'
+    : '/viagens/10?tab=adr&escala=BRVIX',
 }))
 
 import { Alertas } from '../Alertas'

@@ -10,7 +10,7 @@ Escopo por rota:
 
 - `/painel`: KPIs operacionais, snapshot do Line-Up, exportação e atalhos;
 - `/revisao`: fila agrupada, correção individual ou por cliente, gate canônico e tentativa de faturamento automático;
-- `/alertas`: filtro, reconhecimento e fechamento de alertas internos;
+- `/alertas`: filtro, dispensa temporária e abertura de alertas internos;
 - `/relatorios`: abas operacional, financeira, por cliente e demurrage, com exportação XLSX onde implementada;
 - `/line-up-tv`: compatibilidade por redirecionamento para `/painel`;
 - `/line-up-tv/display`: quadro protegido, sem o shell do `AppLayout`, para monitor/TV;
@@ -99,6 +99,17 @@ Granite é uma ramificação mais simples: `saveGraniteBlReview` atualiza `grani
 
 `src/pages/Alertas.tsx` mostra abas `all | active | dismissed`, tabela, deep-links por entidade e dispensa temporária por item. `src/services/alerts.ts` consulta a fila canônica; `list_alert_queue` limita a projeção global a 200 linhas, preservando carriers legados ainda não migrados.
 
+Os dois produtores do ADR (`agency_report_department_pending` e
+`agency_report_deadline_missed`) são reconciliados pela migration `323` em um
+agregado por `(viagem, porto, terminal)` — ou `(viagem, porto)` no legado —
+com um item independente para cada um dos três departamentos. O ATD do ADR
+terminalizado vem de `voyage_escala_terminal_state.terminal_atd`; audit logs,
+sign-offs e o cron server-side de 15 minutos acionam a mesma reconciliação.
+Se uma seção confirmada volta a pendente, o sign-off departamental dono é
+invalidado com a justificativa da reabertura. O link para a viagem é produzido
+por `agencyReportAlertLink`, preservando `terminal` e `report_id` quando
+existirem.
+
 Dispensar exige motivo e uma data futura e grava o histórico por ocorrência; a resolução acontece no produtor autoritativo. As mutations invalidam `['alerts']`, `['op-count']` e `['dashboard']`. O realtime de `alerts` usado por `useOperationalCounts` invalida especificamente `['op-count', 'open-alerts']`.
 
 ### `/relatorios`
@@ -181,8 +192,8 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 |---|---|---|---|---|---|---|---|
 | Filtrar/listar | Sessão interna ativa | Abas Todos/Ativos/Dispensados | `useQuery(['alerts', statusFilter])` → `listAlerts` | RPC `list_alert_queue`, com cap global de 200 e carriers legados sem item | Troca de filtro usa cache por status | Erro exibe `InlineError` | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
 | Dispensar | Item ativo; motivo e data futura | Botão “Dispensar” | `dismissAlert(item_id, reason, reviewAt)` → `dismiss_alert_item` | `alert_item_dismissals` por ocorrência | Invalida alerts/op-count/dashboard | Motivo ausente ou data passada é rejeitado | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
-| Resolver | Estado autoritativo alterado | Produtor do alerta | Triggers/RPCs chamam `resolve_alert_item`; abuso de login exige análise humana | `alert_items.status = resolved` e evento de resolução | Agregado e contadores são atualizados | Falha da origem permanece visível na fila | **Código:** migrations `318`/`321`, produtores de faturamento/Portal/demurrage |
-| Abrir entidade | `entity_type`/`entity_id` suportados | Link na linha | Mapeia invoice, container ou B/L para rota interna | Nenhuma | Navega para faturamento, demurrage ou manifesto | Tipos sem mapeamento não exibem link | **Código:** `src/pages/Alertas.tsx` |
+| Resolver | Estado autoritativo alterado | Produtor do alerta | Triggers/RPCs chamam `resolve_alert_item`; ADR usa reconciliação por departamento; abuso de login exige análise humana | `alert_items.status = resolved` e evento de resolução | Agregado e contadores são atualizados | Falha da origem permanece visível na fila | **Código:** migrations `318`/`321`/`323`, produtores de faturamento/Portal/demurrage/ADR |
+| Abrir entidade | `entity_type`/`entity_id` suportados | Link na linha | Mapeia invoice, container, B/L ou ADR para a rota interna; ADR inclui terminal/report quando disponíveis | Nenhuma | Navega para faturamento, demurrage, manifesto ou viagem/aba ADR | Tipos sem mapeamento não exibem link | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
 
 ### `/relatorios`
 
