@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const open = { id: 1, status: 'open', type: 'demurrage', message: 'Container vencendo', entity_type: 'container', entity_id: 'CNTR1', created_at: '2026-06-20T00:00:00Z' }
 const ack = { id: 2, status: 'open', type: 'invoice_overdue', message: 'Fatura vencida 123', entity_type: 'invoice', entity_id: '123', created_at: '2026-06-19T00:00:00Z', dismissed_until: '2026-08-22T12:00:00Z' }
-const portalInvoice = { id: 3, status: 'open', type: 'portal_excecao_critica_fatura', message: 'Portal sem email para fatura', entity_type: 'invoice', entity_id: '456', created_at: '2026-06-18T00:00:00Z' }
+const portalInvoice = { id: 3, status: 'open', type: 'aggregate', item_type: 'portal_excecao_critica_fatura', message: 'Portal sem email para fatura', entity_type: 'invoice', entity_id: '456', created_at: '2026-06-18T00:00:00Z' }
 const adrLegacy = { id: 4, status: 'open', type: 'agency_report_department_pending', message: 'ADR legado', entity_type: 'agency_departure_report', entity_id: '10::BRVIX::documentacao', created_at: '2026-06-17T00:00:00Z' }
 const adrTerminalized = { id: 5, status: 'open', type: 'agency_report_department_pending', message: 'ADR terminalizado', entity_type: 'agency_departure_report', entity_id: '10::BRVIX::TVV::documentacao', created_at: '2026-06-16T00:00:00Z' }
 
@@ -24,6 +24,31 @@ vi.mock('../../services/alerts', () => ({
   listAlerts: vi.fn(),
   dismissAlertItem: vi.fn().mockResolvedValue(undefined),
   formatAgencyReportAlertEntity: (entityId: string) => entityId,
+  getEffectiveAlertType: (alert: { type: string; item_type?: string | null }) => alert.item_type ?? alert.type,
+  alertEntityLink: (alert: { type: string; item_type?: string | null; entity_type: string | null; entity_id: string | null; metadata?: Record<string, unknown> }) => {
+    const effectiveType = alert.item_type ?? alert.type
+    if (effectiveType === 'portal_dispute_opened' && alert.entity_type === 'demurrage_invoice') return '/demurrage'
+    if (effectiveType === 'portal_excecao_critica_fatura' && alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id ?? '')}?tab=faturamento`
+    if (alert.entity_type === 'invoice') {
+      const invoiceId = alert.metadata?.invoice_id ?? (/^\d+$/.test(alert.entity_id ?? '') ? alert.entity_id : null)
+      return invoiceId ? `/taxas-locais?invoice=${encodeURIComponent(String(invoiceId))}` : '/taxas-locais'
+    }
+    if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id ?? '')}`
+    if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id ?? '')}`
+    if (alert.entity_type === 'agency_departure_report') {
+      const [voyageId, port, terminalOrKey, terminalizedKey] = (alert.entity_id ?? '').split('::')
+      const params = new URLSearchParams({ tab: 'adr', escala: port })
+      if (terminalizedKey !== undefined) params.set('terminal', terminalOrKey)
+      return `/viagens/${voyageId}?${params.toString()}`
+    }
+    return null
+  },
+  getAlertTypeLabel: (type: string) => ({
+    pix_unreconciled: 'PIX sem conciliação segura',
+    portal_dispute_opened: 'Disputa de invoice Demurrage',
+    portal_excecao_critica_fatura: 'Portal do Cliente — exceção crítica de invoice',
+    demurrage: 'Demurrage',
+  }[type] ?? type),
 }))
 
 import { Alertas } from '../Alertas'
@@ -45,6 +70,8 @@ it('US-135: lista os alertas e filtra por status', () => {
   // "Todos" tab is active -> all current projections are visible
   expect(screen.getByText('Container vencendo')).toBeTruthy()
   expect(screen.getByText('Fatura vencida 123')).toBeTruthy()
+  expect(screen.getByText('Portal do Cliente — exceção crítica de invoice')).toBeTruthy()
+  expect(screen.getByText('Demurrage')).toBeTruthy()
 
   fireEvent.click(screen.getByRole('button', { name: 'Ativos' }))
   expect(screen.getByText('Container vencendo')).toBeTruthy()

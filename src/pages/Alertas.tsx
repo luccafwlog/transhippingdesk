@@ -7,26 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { dismissAlertItem, formatAgencyReportAlertEntity, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
-
-const TYPE_LABELS: Record<string, string> = {
-  invoice_overdue: 'Fatura vencida',
-  invoice_payment_invalid: 'Pagamento inválido',
-  invoice_cancel_blocked: 'Cancelamento bloqueado',
-  portal_invoice_created: 'Fatura criada no portal',
-  portal_consolidation_obsoleted: 'Consolidada obsoleta (portal)',
-  demurrage: 'Demurrage',
-  billing_calculation_blocked: 'Cálculo bloqueado',
-  billing_auto_issue_failed: 'Falha de emissão automática',
-  portal_pendencia_geral: 'Portal do Cliente — pendência geral',
-  portal_excecao_critica_fatura: 'Portal do Cliente — exceção de fatura',
-  portal_convite_expirado: 'Portal do Cliente — convite expirado',
-  portal_falha_envio: 'Portal do Cliente — falha de envio',
-  portal_email_suprimido: 'Portal do Cliente — email suprimido',
-  portal_abuso_login: 'Portal do Cliente — abuso de login',
-  agency_report_department_pending: 'ADR — departamento pendente',
-  agency_report_deadline_missed: 'ADR — prazo vencido',
-}
+import { alertEntityLink, dismissAlertItem, formatAgencyReportAlertEntity, getAlertTypeLabel, getEffectiveAlertType, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   invoice: 'Fatura',
@@ -34,6 +15,9 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   bl: 'B/L',
   agency_departure_report: 'ADR',
   voyage: 'Viagem',
+  customer: 'Cliente',
+  demurrage_invoice: 'Invoice Demurrage',
+  pix_transaction: 'Transação PIX',
 }
 
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
@@ -130,7 +114,7 @@ export function Alertas() {
               ) : null}
               {data?.map((alert) => (
                 <AlertRow
-                  key={`${alert.id}:${alert.item_id ?? alert.type}`}
+                  key={`${alert.id}:${alert.item_id ?? getEffectiveAlertType(alert)}`}
                   alert={alert}
                   isMutating={dismissMutation.isPending}
                   onDismiss={() => requestDismissal(alert)}
@@ -146,6 +130,7 @@ export function Alertas() {
 
 function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMutating: boolean; onDismiss: () => void }) {
   const isDismissed = Boolean(alert.dismissed_until && new Date(alert.dismissed_until) > new Date())
+  const effectiveType = getEffectiveAlertType(alert)
   return (
     <tr>
       <td className="px-4 py-3">
@@ -157,7 +142,7 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
           <AlertTriangle size={14} className="shrink-0 text-amber-400" />
-          <span className="text-xs text-[var(--app-text)]">{TYPE_LABELS[alert.type] ?? alert.type}</span>
+          <span className="text-xs text-[var(--app-text)]">{getAlertTypeLabel(effectiveType)}</span>
         </div>
         {alert.department ? <div className="mt-1 text-[11px] text-[var(--app-muted)]">Responsável: {alert.department}</div> : null}
       </td>
@@ -182,28 +167,9 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
 
 // O mesmo destino é usado pela fila e pelo sino; produtores não escolhem uma
 // tela paralela nem gravam rotas na Notificação Interna.
-function alertEntityLink(alert: { type: string; entity_type: string | null; entity_id: string | null }): string | null {
-  if (!alert.entity_id) return null
-  if (alert.type.startsWith('portal_')) {
-    if (alert.entity_type === 'invoice') return /^\d+$/.test(alert.entity_id) ? `/taxas-locais?invoice=${encodeURIComponent(alert.entity_id)}` : '/taxas-locais'
-    return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
-  }
-  if (alert.entity_type === 'invoice') return /^\d+$/.test(alert.entity_id) ? `/taxas-locais?invoice=${encodeURIComponent(alert.entity_id)}` : '/taxas-locais'
-  if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
-  if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
-  if (alert.entity_type === 'agency_departure_report') {
-    const [voyageId, port, terminalOrLegacyKey, terminalizedKey] = alert.entity_id.split('::')
-    if (!/^\d+$/.test(voyageId)) return null
-    const params = new URLSearchParams({ tab: 'adr', escala: port })
-    if (terminalizedKey !== undefined) params.set('terminal', terminalOrLegacyKey)
-    return `/viagens/${voyageId}?${params.toString()}`
-  }
-  if (alert.entity_type === 'voyage' && /^\d+$/.test(alert.entity_id)) return `/viagens/${alert.entity_id}`
-  return null
-}
-
 function alertEntityLinkLabel(alert: { entity_type: string | null }) {
   if (alert.entity_type === 'invoice') return 'Ver Fatura'
+  if (alert.entity_type === 'demurrage_invoice') return 'Ver Demurrage'
   if (alert.entity_type === 'container') return 'Ver Demurrage'
   if (alert.entity_type === 'bl') return 'Abrir B/L'
   if (alert.entity_type === 'agency_departure_report' || alert.entity_type === 'voyage') return 'Abrir Viagem'
