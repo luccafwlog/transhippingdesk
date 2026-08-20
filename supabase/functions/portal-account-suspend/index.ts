@@ -15,12 +15,22 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   if (!account) return new Response(JSON.stringify({ error: 'Cliente não encontrado.' }), { status: 404 })
   if (body.action === 'suspend') {
     if (account.auth_user_id) await revokePortalSessions(account.auth_user_id)
-    await admin.from('customer_portal_accounts').update({ account_situation: 'suspenso', active: false }).eq('id', account.id)
-    await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: null, p_prev_decision: account.provisioning_decision, p_new_decision: account.provisioning_decision, p_prev_situation: account.account_situation, p_new_situation: 'suspenso', p_actor_type: role, p_reason: body.reason, p_request_id: null })
+    const { error: updateError } = await admin.from('customer_portal_accounts').update({ account_situation: 'suspenso', active: false }).eq('id', account.id)
+    if (updateError) return new Response(JSON.stringify({ error: 'Não foi possível atualizar a conta.' }), { status: 500 })
+    const { error: auditError } = await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: null, p_prev_decision: account.provisioning_decision, p_new_decision: account.provisioning_decision, p_prev_situation: account.account_situation, p_new_situation: 'suspenso', p_actor_type: role, p_reason: body.reason, p_request_id: null })
+    if (auditError) {
+      await admin.from('customer_portal_accounts').update({ account_situation: account.account_situation, active: account.account_situation === 'ativo' }).eq('id', account.id)
+      return new Response(JSON.stringify({ error: 'Não foi possível registrar a auditoria.' }), { status: 500 })
+    }
   } else {
     if (account.auth_user_id) await revokePortalSessions(account.auth_user_id)
-    await admin.from('customer_portal_accounts').update({ account_situation: 'sem_conta', provisioning_decision: 'aguardando_analise', active: false, auth_user_id: null }).eq('id', account.id)
-    await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: null, p_prev_decision: account.provisioning_decision, p_new_decision: 'aguardando_analise', p_prev_situation: account.account_situation, p_new_situation: 'sem_conta', p_actor_type: role, p_reason: body.reason, p_request_id: null })
+    const { error: updateError } = await admin.from('customer_portal_accounts').update({ account_situation: 'sem_conta', provisioning_decision: 'aguardando_analise', active: false, auth_user_id: null }).eq('id', account.id)
+    if (updateError) return new Response(JSON.stringify({ error: 'Não foi possível atualizar a conta.' }), { status: 500 })
+    const { error: auditError } = await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: account.id, p_invite_id: null, p_prev_decision: account.provisioning_decision, p_new_decision: 'aguardando_analise', p_prev_situation: account.account_situation, p_new_situation: 'sem_conta', p_actor_type: role, p_reason: body.reason, p_request_id: null })
+    if (auditError) {
+      await admin.from('customer_portal_accounts').update({ account_situation: account.account_situation, provisioning_decision: account.provisioning_decision, active: account.account_situation === 'ativo', auth_user_id: account.auth_user_id }).eq('id', account.id)
+      return new Response(JSON.stringify({ error: 'Não foi possível registrar a auditoria.' }), { status: 500 })
+    }
   }
   return new Response(JSON.stringify({ situation: body.action === 'suspend' ? 'suspenso' : 'sem_conta' }), { status: 200 })
 }))
