@@ -27,7 +27,7 @@ const PAGE_SIZES = [10, 25, 50, 100]
 const RETURN_OPTIONS: { value: ReturnSituation; label: string }[] = [
   { value: '', label: 'Todos' },
   { value: 'todos_devolvidos', label: 'Todos devolvidos' },
-  { value: 'sem_devolucao', label: 'Com containers sem devolucao' },
+  { value: 'sem_devolucao', label: 'Com containers sem devolução' },
   { value: 'em_demurrage', label: 'Com containers em demurrage' },
   { value: 'sem_descarga', label: 'Sem descarga' },
 ]
@@ -96,7 +96,7 @@ export function PortalOperacao() {
     <>
       <PageHeader
         title="BLs e Containers"
-        description="Consulte seus B/Ls e containers: descarga, devolucao, free time e dias de demurrage."
+        description="Consulte seus B/Ls e containers: descarga, devolução, free time e dias de demurrage."
       />
 
       <div className="mb-4 flex gap-2 border-b border-[var(--app-border)]" role="tablist">
@@ -168,7 +168,7 @@ function BlsTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]; filte
             <Field label="Viagem"><Input value={filters.voyage} onChange={(e) => { onFilters({ ...filters, voyage: e.target.value }); setPage(0) }} placeholder="Viagem" /></Field>
             <Field label="POL"><Input value={filters.pol} onChange={(e) => { onFilters({ ...filters, pol: e.target.value }); setPage(0) }} placeholder="POL" /></Field>
             <Field label="POD"><Input value={filters.pod} onChange={(e) => { onFilters({ ...filters, pod: e.target.value }); setPage(0) }} placeholder="POD" /></Field>
-            <Field label="Situacao de devolucao">
+            <Field label="Situação de devolução">
               <Select value={filters.devolucao} onChange={(e) => { onFilters({ ...filters, devolucao: e.target.value as ReturnSituation }); setPage(0) }}>
                 {RETURN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
@@ -178,7 +178,7 @@ function BlsTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]; filte
                 {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
             </Field>
-            <Field label="Por pagina">
+            <Field label="Por página">
               <Select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0) }}>
                 {PAGE_SIZES.map((s) => <option key={s} value={String(s)}>{s}</option>)}
               </Select>
@@ -203,7 +203,7 @@ function BlsTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]; filte
                   <th scope="col" className="px-4 py-3">POD</th>
                   <th scope="col" className="px-4 py-3">Containers</th>
                   <th scope="col" className="px-4 py-3">Devolvidos</th>
-                  <th scope="col" className="px-4 py-3">Sem devolucao</th>
+                  <th scope="col" className="px-4 py-3">Sem devolução</th>
                   <th scope="col" className="px-4 py-3">Em demurrage</th>
                   <th scope="col" className="px-4 py-3" />
                 </tr>
@@ -333,7 +333,7 @@ function ContainersTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]
             <Field label="Viagem"><Input value={filters.voyage} onChange={(e) => { onFilters({ ...filters, voyage: e.target.value }); setPage(0) }} placeholder="Viagem" /></Field>
             <Field label="POL"><Input value={filters.pol} onChange={(e) => { onFilters({ ...filters, pol: e.target.value }); setPage(0) }} placeholder="POL" /></Field>
             <Field label="POD"><Input value={filters.pod} onChange={(e) => { onFilters({ ...filters, pod: e.target.value }); setPage(0) }} placeholder="POD" /></Field>
-            <Field label="Situacao de devolucao">
+            <Field label="Situação de devolução">
               <Select value={filters.devolucao} onChange={(e) => { onFilters({ ...filters, devolucao: e.target.value as ReturnSituation }); setPage(0) }}>
                 {RETURN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
@@ -343,7 +343,7 @@ function ContainersTab({ rows, filters, onFilters }: { rows: PortalOperationBL[]
                 {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </Select>
             </Field>
-            <Field label="Por pagina">
+            <Field label="Por página">
               <Select value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0) }}>
                 {PAGE_SIZES.map((s) => <option key={s} value={String(s)}>{s}</option>)}
               </Select>

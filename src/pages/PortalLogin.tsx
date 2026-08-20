@@ -50,7 +50,7 @@ export function PortalLogin() {
       if (code === 'P0429') {
         setError('Muitas tentativas de acesso. Aguarde alguns minutos antes de tentar novamente.')
       } else if (isNetworkError(err)) {
-        setError('Nao foi possivel conectar. Verifique sua internet e tente novamente.')
+        setError('Não foi possível conectar. Verifique sua internet e tente novamente.')
       } else {
         setError('Credenciais inválidas para o portal do cliente.')
       }

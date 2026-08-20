@@ -16,10 +16,12 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
+| [`2026-08-15-bloco-520-bl-revisao-design.md`](./2026-08-15-bloco-520-bl-revisao-design.md) | B/L, Revisão Manual e Documentação — Bloco #520 |
+| [`2026-08-15-clientes-portal-alertas-design.md`](./2026-08-15-clientes-portal-alertas-design.md) | Clientes, Portal, faturamento dependente e Disputes de Demurrage — Bloco #521 |
 | [`2026-08-16-bloco-522-financeiro-alertas-design.md`](./2026-08-16-bloco-522-financeiro-alertas-design.md) | Contrato funcional de alertas, notificações e decisões de “nenhum evento” do Bloco 3 — Financeiro (#522) |
 
-As specs funcionais aprovadas permanecem aqui enquanto o plano derivado não
-for executado; depois são preservadas no [arquivo histórico](../archive/specs/).
+A spec funcional permanece nesta tabela enquanto seu plano não for concluído e
+é movida para o [arquivo histórico](../archive/specs/) junto com ele.
 
 A spec de múltiplos terminais foi concluída na PR #550 e está arquivada em
 [`../archive/specs/`](../archive/specs/). O comportamento vigente foi promovido

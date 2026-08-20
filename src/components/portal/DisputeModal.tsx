@@ -50,7 +50,7 @@ function DisputeModalContent({ demurrageInvoiceId, docNumber, onClose }: { demur
     <div className="grid gap-4">
       <p className="text-sm text-[var(--app-muted)]">
         Descreva o motivo da disputa para a fatura de demurrage <strong>{docNumber}</strong>.
-        Sua solicitacao sera analisada pela equipe Transhipping.
+        Sua solicitação será analisada pela equipe Transhipping.
       </p>
 
       <Field label="Motivo da disputa">

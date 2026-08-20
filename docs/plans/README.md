@@ -11,9 +11,26 @@ Quando um plano é totalmente executado, ele é movido para
 | Plano | Tema | Status |
 |---|---|---|
 | [`2026-08-13-correcao-regressao-inicializacao-login-navegacao.md`](./2026-08-13-correcao-regressao-inicializacao-login-navegacao.md) | Harness, cache do shell e checkpoints para diagnosticar a lentidão no acesso frio, login e primeira navegação | IN PROGRESS |
-| [`2026-08-16-implementacao-bloco-522-financeiro-alertas.md`](./2026-08-16-implementacao-bloco-522-financeiro-alertas.md) | Implementação do contrato de alertas, notificações e reconciliação PIX do Bloco 3 — Financeiro (#522) | BLOCKED — fundação E3/PR #517 |
+| [`2026-08-11-alertas-e-notificacoes.md`](./2026-08-11-alertas-e-notificacoes.md) | Catálogo decidido de alertas, gravidade, fechamento e detecção | TODO |
+| [`2026-08-15-implementacao-bloco-520-bl-revisao.md`](./2026-08-15-implementacao-bloco-520-bl-revisao.md) | Implementação de B/L, Revisão Manual, importações e projeções de pendências — Bloco #520 | TODO |
+| [`2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md`](./2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md) | Implementação das pendências de clientes, Portal, faturamento dependente e Disputes de Demurrage | TODO |
+| [`2026-08-16-implementacao-bloco-522-financeiro-alertas.md`](./2026-08-16-implementacao-bloco-522-financeiro-alertas.md) | Implementação do contrato de alertas, notificações e reconciliação PIX do Bloco 3 — Financeiro (#522) | BLOCKED — implementação da fundação E3 |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
+
+O plano do Bloco #520 tem bloqueio parcial: a persistência da Notificação Interna
+bloqueia as partes das Tasks 1, 3 e 7 que dependem do sino; as Tasks 2 e 6 podem
+avançar independentemente.
+
+### Nota editorial sobre o registro de decisões de #519
+
+A regra de encerramento de #519 nomeia
+`docs/plans/2026-08-11-alertas-e-notificacoes.md` como destino das decisões.
+Para o Bloco #521, esse registro foi formalizado como spec funcional em
+[`../spec/2026-08-15-clientes-portal-alertas-design.md`](../spec/2026-08-15-clientes-portal-alertas-design.md), que é a fonte canônica ligada ao
+plano acima. A substituição é intencional: a spec separa decisões funcionais
+do plano de execução e deve ser consultada pelos blocos seguintes até que um
+registro transversal seja consolidado.
 
 ## Ao concluir um plano
 
