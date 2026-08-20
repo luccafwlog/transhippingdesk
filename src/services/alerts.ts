@@ -8,18 +8,23 @@ export type { Alert }
 export type AlertStatusFilter = 'all' | 'open' | 'acknowledged'
 
 // entity_id dos alertas do ADR é composto (voyageId::porto::departamento,
-// migration 225; secao em alertas legados pre-0029) — contrato de
+// migration 225; secao em alertas legados pre-0029) ou terminalizado
+// (voyageId::porto::terminal::departamento/secao) — contrato de
 // dedupe/fechamento. Este formatador é só apresentação para a página Alertas.
 // Seções aposentadas ('ocorrencias' na ADR 0030, 'operacao_patio' na 0036)
 // continuam legíveis via agencyReportSectionLabel, que é a mesma tabela de
 // rótulos usada pela função SQL agency_report_section_label — um lugar só para
 // manter, em vez de um mapa legado por chamador.
 export function formatAgencyReportAlertEntity(entityId: string): string | null {
-  const [voyageId, port, key] = entityId.split('::')
+  const [voyageId, port, terminalOrKey, maybeKey] = entityId.split('::')
+  const terminalized = maybeKey !== undefined
+  const key = terminalized ? maybeKey : terminalOrKey
   if (!voyageId || !port || !key) return null
   const label = (AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[key]
     ?? agencyReportSectionLabel(key)
-  return `Viagem ${voyageId} · ${port} · ${label}`
+  return terminalized
+    ? `Viagem ${voyageId} · ${port} · Terminal ${terminalOrKey} · ${label}`
+    : `Viagem ${voyageId} · ${port} · ${label}`
 }
 
 export async function listAlerts(statusFilter: AlertStatusFilter = 'all'): Promise<Alert[]> {

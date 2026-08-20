@@ -3,6 +3,72 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **PR #565 — correções da revisão de código da revisão de UI/UX:** o
+  relatório de Demurrage por consignatário ainda podia imprimir vazio quando
+  o modal era filho direto de `.app-main` (caso da Demurrage, sem wrapper de
+  página); a regra de impressão em `src/index.css` passou a excluir
+  `.app-modal-backdrop` da ocultação e a mantê-lo visível nesse cenário. O
+  indicador de foco por teclado das notificações do Portal, removido sem
+  substituto, voltou a existir. O botão de atualizar câmbio no cabeçalho
+  deixou de dobrar a altura da faixa de PTAX ao ganhar alvo de toque de
+  40×40 px — a área de toque agora é um pseudo-elemento fora do fluxo.
+- **Revisão completa de UI/UX e Portal do Cliente:** notificações passaram a
+  usar painel responsivo e legível, com hierarquia, datas e estados explícitos;
+  navegação ganhou skip link e alvos mínimos de 40 px; o cabeçalho mobile e a
+  cópia pt-BR do Portal foram refinados; tokens compartilhados de link/hover e
+  redução de movimento foram consolidados. O relatório de Demurrage por
+  consignatário deixou de imprimir vazio. A verificação percorreu 31
+  superfícies desktop e 25 rotas autenticadas mobile sem overflow ou erros de
+  console no passe final. Evidências em
+  `docs/archive/audits/2026-08-19-revisao-completa-ui-ux.md`.
+- **PR #553 — transbordo e COD:** a omissão de escala passou a preservar os
+  dados globais de transbordo, exigir confirmação com resumo, permitir reversão
+  administrativa justificada e invalidar as projeções afetadas. COD passou a
+  exigir justificativa, reprecificar a Taxa Local no destino final e registrar
+  ajustes em `cod_adjustments`, com abatimento antes de restituição e settlement
+  manual do Financeiro. O Line-Up, a programação e o Portal exibem `OMIT`
+  separadamente de `X`; o Portal não publica o motivo interno do COD. A
+  migration `316` removeu `onward_*` morto de `bl_transshipments`, eliminou o
+  card duplicado e reduziu auditoria sem mudança.
+- **PR #550 — correções da revisão de múltiplos terminais:** o Cadastro de
+  Terminais passou a exigir porto brasileiro para novos terminais e ganhou
+  preflight do legado; a projeção preserva frentes persistidas; ADRs
+  terminalizados filtram cada conteúdo pela frente atribuída e mantêm o
+  cabeçalho da escala; alertas e remoção são escopados por `report_id`; a
+  gravação terminalizada de datas do POD ficou atômica com a RPC da escala;
+  caches, deep-links, auditoria por código/departamento e queries chunked foram
+  alinhados. A migration 306 recupera a declaração legada de vazios sem
+  substituir a decisão explícita futura; a rodada seguinte terminaliza as
+  chaves dos alertas, evita fan-out entre ADRs, fecha sign-offs por terminal,
+  filtra `vazio` por sentido no snapshot e remove estados órfãos. Plano
+  arquivado em
+  `docs/archive/plans/2026-08-18-pr-550-review-fixes.md`.
+- **Financeiro segregado por processo faturável:** `/taxas-locais` passa a ser
+  a operação de Taxas Locais, `/taxas-locais/tabelas` concentra tabelas e
+  overrides, `/demurrage` permanece separado e Relatórios sai do dropdown.
+  A faixa agregada de Demurrage sai da operação legada, e `/faturamento`
+  continua como redirect compatível com os deep links antigos.
+- **Carga solta passa a aceitar o B/L do armador, sem perder o manifesto:**
+  `/carga-solta` ganha o modal **Importar B/Ls (PDF/DOCX)** ao lado da
+  importação de Manifesto BB, que continua igual. O PDF do formulário com
+  campos numerados é lido pelos próprios rótulos impressos; o modelo em Word —
+  onde o formulário é uma imagem escaneada e cada campo é uma caixa de texto
+  por cima — é lido por conteúdo (unidade do peso, número de viagem, CNPJ,
+  endereço) e pela ordem do documento. Os dois desembocam no mesmo caminho de
+  persistência do manifesto BB, com a mesma reconciliação de cliente, o mesmo
+  lote e o mesmo disparo de taxas locais. Divergência entre o navio/viagem do
+  documento e a viagem escolhida bloqueia o arquivo, como já acontecia na
+  importação documental de B/L de container; o que não impede a importação
+  (CNPJ ausente, peso ou cubagem não encontrados, volumes divergentes do total
+  por extenso) vira aviso na prévia e fica registrado nos erros do lote. No
+  caminho compartilhado, importar carga solta sem CE Mercante deixa de apagar o
+  CE já gravado: a autoridade sobre esse dado é a importação de CE Mercante, e
+  nenhum layout além do resumo o carrega.
+  A definição da RPC mantém o CE no target quando o payload não declara esse
+  campo, o serviço revalida a viagem escolhida, vários arquivos entram no
+  mesmo lote, e a leitura DOCX limita a saída descomprimida e preserva as
+  reservas do navio. O chunk de PDF usa uma versão compatível com Node 20, o
+  runtime do CI.
 - **Documento comprido deixa de virar CNPJ válido, e a linha do tempo credita
   quem importou:** `isValidCnpj` passa a validar sobre a forma canônica
   completa (`canonicalizeDocument`, igual ao `normalize_cnpj` do banco) em vez

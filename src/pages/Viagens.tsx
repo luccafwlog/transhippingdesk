@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -30,7 +30,16 @@ import {
   setVoyageRouteCeMaster,
 } from '../services/voyageRouteSchedules'
 import { PORTAL_SCHEDULE_LANES, portalLaneCode } from '../services/portalScheduleLanes'
-import { saveVoyageExportSchedule } from '../services/voyageExportSchedules'
+import {
+  saveVoyageExportScheduleTransactional,
+  VoyageExportScheduleBlockedError,
+} from '../services/voyageExportSchedules'
+import {
+  EscalaTerminalBlockedError,
+  fetchEscalaTerminalRevision,
+  fetchEscalaTerminalState,
+  saveEscalaTerminalState,
+} from '../services/escalaTerminalAllocation'
 import { afterEscalaAlterada, afterRotaAlterada, afterViagemAlterada } from '../services/cacheEffects'
 import {
   VoyageCard,
@@ -46,6 +55,22 @@ import {
   filterVoyageRailItems,
   type VoyageFilters as VoyageFiltersState,
 } from '../lib/viagensFilters'
+
+function makeTerminalScaleLoadingState(voyageId: number, port: string): NonNullable<EscalaModalData['terminalScale']> {
+  return {
+    voyageId,
+    port,
+    portId: null,
+    revision: 0,
+    fronts: [],
+    tbcFronts: [],
+    terminals: [],
+    activeTerminals: [],
+    historicalTerminals: [],
+    agencyReports: [],
+    loading: true,
+  }
+}
 
 export function Viagens() {
   const { voyageId } = useParams()
@@ -65,6 +90,7 @@ export function Viagens() {
   const [cancellationReason, setCancellationReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [editingEscala, setEditingEscala] = useState<EscalaModalData | null>(null)
+  const [editingTerminalScale, setEditingTerminalScale] = useState<NonNullable<EscalaModalData['terminalScale']> | null>(null)
   const [editingPol, setEditingPol] = useState<EditingPolPayload | null>(null)
   const initialVessel = searchParams.get('vessel') ?? ''
   const tabParam = searchParams.get('tab')
@@ -72,10 +98,38 @@ export function Viagens() {
     ? tabParam
     : undefined
   const initialEscala = searchParams.get('escala') ?? undefined
+  const initialReportId = searchParams.get('report') ?? searchParams.get('reportId') ?? undefined
+  const initialTerminalCode = searchParams.get('terminal') ?? searchParams.get('terminalCode') ?? undefined
   const [filters, setFilters] = useState<VoyageFiltersState>({
     ...emptyFilters(),
     search: initialVessel,
   })
+
+  function closeEscalaModal() {
+    setEditingEscala(null)
+    setEditingTerminalScale(null)
+  }
+
+  const editingScaleVoyageId = editingEscala?.voyageId ?? null
+  const editingPort = editingEscala?.port ?? null
+  useEffect(() => {
+    if (editingScaleVoyageId === null || editingPort === null) return
+    let mounted = true
+    void fetchEscalaTerminalState(editingScaleVoyageId, editingPort)
+      .then((state) => {
+        if (!mounted) return
+        setEditingTerminalScale(state)
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return
+        setEditingTerminalScale((previous) => ({
+          ...(previous ?? makeTerminalScaleLoadingState(editingScaleVoyageId, editingPort)),
+          loading: false,
+          error: error instanceof Error ? error.message : 'Falha ao carregar frentes e terminais.',
+        }))
+      })
+    return () => { mounted = false }
+  }, [editingPort, editingScaleVoyageId])
   const selectedVoyageId = voyageId ? Number(voyageId) : null
 
   const voyages = useMemo(() => data ?? [], [data])
@@ -115,7 +169,7 @@ export function Viagens() {
           (schedule) => schedule.hasGranite,
         ),
         hasVaziosExportacao: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
-          (schedule) => schedule.temExportacao && ((schedule.containersQty ?? 0) > 0 || (schedule.movementsQty ?? 0) > 0),
+          (schedule) => schedule.temExportacao && schedule.hasEmpty,
         ),
       })
     }
@@ -237,10 +291,15 @@ export function Viagens() {
             onEditVoyage={setEditingVoyageId}
             onDeleteVoyage={setDeletingVoyageId}
             onCancelVoyage={setCancellingVoyageId}
-            onEditEscala={setEditingEscala}
+            onEditEscala={(payload) => {
+              setEditingEscala(payload)
+              setEditingTerminalScale(payload.port ? makeTerminalScaleLoadingState(payload.voyageId, payload.port) : null)
+            }}
             onEditPol={setEditingPol}
             initialTab={initialTab}
             initialEscala={initialEscala}
+            initialReportId={initialReportId}
+            initialTerminalCode={initialTerminalCode}
           />
         ) : isLoading ? (
           <SkeletonCard lines={4} />
@@ -332,16 +391,85 @@ export function Viagens() {
       </Modal>
 
       <EscalaModal
+        key={editingEscala ? `${editingEscala.voyageId}:${editingEscala.port ?? 'new'}` : 'closed'}
         open={editingEscala !== null}
-        escala={editingEscala}
-        onClose={() => setEditingEscala(null)}
+        escala={editingEscala
+          ? { ...editingEscala, terminalScale: editingEscala.port ? editingTerminalScale : editingEscala.terminalScale }
+          : null}
+        onClose={closeEscalaModal}
+        onReopenAdr={(blocker) => {
+          const port = editingEscala?.port
+          if (!port) return
+          const target = editingEscala
+          closeEscalaModal()
+          const params = new URLSearchParams({ tab: 'adr', escala: port })
+          if (blocker.reportId) params.set('report', blocker.reportId)
+          if (blocker.terminalCode) params.set('terminal', blocker.terminalCode)
+          navigate(`/viagens/${target.voyageId}?${params.toString()}`)
+        }}
         onSaved={async (payload) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
           }
           try {
-            await saveVoyageEscalaSchedule({
+            if (payload.terminalState) {
+              // A RPC terminalizada grava o snapshot do POD e sincroniza o
+              // status da viagem na mesma transação; não repetir o saver
+              // legado, que criaria uma segunda auditoria fora desse lock.
+              await saveEscalaTerminalState({
+                voyageId: payload.voyageId,
+                port: payload.port,
+                expectedRevision: payload.terminalState.expectedRevision,
+                fronts: payload.terminalState.fronts,
+                terminals: payload.terminalState.terminals,
+                exportExpectation: {
+                  ...payload.terminalState.exportExpectation,
+                  existing_id: payload.exportExistingId,
+                  // A escala terminalizada e o POD pertencem à mesma
+                  // transação: a RPC registra estes campos junto das frentes.
+                  schedule: {
+                    eta: payload.eta,
+                    etb: payload.etb,
+                    ata: payload.ata,
+                    atb: payload.atb,
+                    etd: payload.etd,
+                    atd: payload.atd,
+                    rtw: payload.rtw,
+                    // O leitor do snapshot/auditoria usa o nome canônico `ces`.
+                    ces: payload.ceStatus,
+                    linked: payload.linked,
+                    escala_number: payload.escalaNumber,
+                    tem_importacao: payload.temImportacao,
+                    deleted: false,
+                    changed_by: user.id,
+                  },
+                },
+                justification: payload.terminalState.justification,
+                queryClient,
+              })
+            } else if (payload.exportacao.temExportacao || payload.exportExistingId) {
+              // Escalas legadas continuam no fluxo exportacional existente até
+              // que o estado terminalizado seja carregado para o modal.
+              const expectedRevision = await fetchEscalaTerminalRevision(payload.voyageId, payload.port)
+              await saveVoyageExportScheduleTransactional({
+                existingId: payload.exportExistingId,
+                voyageId: payload.voyageId,
+                pol: payload.port,
+                temExportacao: payload.exportacao.temExportacao,
+                hasGranite: payload.exportacao.hasGranite,
+                hasEmpty: payload.exportacao.hasEmpty,
+                containersQty: payload.exportacao.containersQty,
+                movementsQty: payload.exportacao.movementsQty,
+                dischargePorts: payload.exportacao.dischargePorts,
+                ceStatus: payload.ceStatus,
+                linked: payload.linked,
+                // O modal legado não edita estado terminalizado, mas a escala
+                // pode já ter uma revisão criada por outra tela/usuário.
+                expectedRevision,
+              })
+            }
+            if (!payload.terminalState) await saveVoyageEscalaSchedule({
               voyageId: payload.voyageId,
               port: payload.port,
               eta: payload.eta,
@@ -357,26 +485,32 @@ export function Viagens() {
               temImportacao: payload.temImportacao,
               changedBy: user.id,
             })
-            // Sem exportação declarada e sem linha anterior, não há o que gravar.
-            if (payload.exportacao.temExportacao || payload.exportExistingId) {
-              await saveVoyageExportSchedule({
-                existingId: payload.exportExistingId,
-                voyageId: payload.voyageId,
-                pol: payload.port,
-                temExportacao: payload.exportacao.temExportacao,
-                hasGranite: payload.exportacao.hasGranite,
-                containersQty: payload.exportacao.containersQty,
-                movementsQty: payload.exportacao.movementsQty,
-                dischargePorts: payload.exportacao.dischargePorts,
-                ceStatus: payload.ceStatus,
-                linked: payload.linked,
-              })
-            }
             await afterEscalaAlterada(queryClient, { voyageId: payload.voyageId })
             showToast('Escala salva com sucesso.', 'success')
-            setEditingEscala(null)
-          } catch {
+            closeEscalaModal()
+          } catch (error) {
+            if (error instanceof EscalaTerminalBlockedError) {
+              const blockers = error.blockers
+                .map((blocker) => [blocker.terminalCode, blocker.reportId].filter(Boolean).join(' / '))
+                .filter(Boolean)
+                .join(', ')
+              showToast(`Alteração bloqueada por ADR fechado${blockers ? ` (${blockers})` : ''}. Reabra o ADR antes de continuar.`, 'error')
+              throw error
+            }
+            if (error instanceof VoyageExportScheduleBlockedError) {
+              const blockers = error.result.closed_blockers
+                .map((blocker) => [blocker.terminal_code, blocker.report_id].filter(Boolean).join(' / '))
+                .filter(Boolean)
+                .join(', ')
+              showToast(`Exportação bloqueada por ADR fechado${blockers ? ` (${blockers})` : ''}. Reabra o ADR antes de alterar a escala.`, 'error')
+              throw error
+            }
+            if (error instanceof Error && /REVISAO_OBSOLETA|revis[aã]o.*(obsoleta|atualizada)/i.test(error.message)) {
+              showToast('A escala foi atualizada por outra pessoa. Recarregue antes de salvar novamente.', 'error')
+              throw error
+            }
             showToast('Falha ao salvar a escala.', 'error')
+            throw error
           }
         }}
       />

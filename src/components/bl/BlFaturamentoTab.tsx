@@ -20,7 +20,7 @@ export function BlFaturamentoTab({ active, bl }: { active: boolean; bl: BLDetail
             Financeiro: {FINANCIAL_STATUS_LABELS[bl.financial_status ?? 'pending'] ?? bl.financial_status ?? 'pending'}
           </Badge>
           {latestInvoice ? (
-            <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={`/faturamento?invoice=${latestInvoice.id}`}>
+            <Link className="text-sm font-semibold text-[#58a6ff] hover:underline" to={`/taxas-locais?invoice=${latestInvoice.id}`}>
               Fatura ativa: {latestInvoice.invoice_number ?? `INV-${latestInvoice.id}`}
             </Link>
           ) : null}

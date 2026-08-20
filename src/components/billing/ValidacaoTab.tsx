@@ -11,11 +11,11 @@ import { ValidacaoOperationsTable } from './ValidacaoOperationsTable'
 import type { LocalChargeOperationalRow } from '../../services/charges/chargeOperationsService'
 import type { BillingBlockCode, BatchOperation, OpsFilters } from './validacaoTypes'
 
-export function ValidacaoTab({ userId, initialBlockCode }: { userId: string | null; initialBlockCode?: BillingBlockCode }) {
+export function ValidacaoTab({ userId, initialBlockCode, initialBlSearch }: { userId: string | null; initialBlockCode?: BillingBlockCode; initialBlSearch?: string }) {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [expandedBlId, setExpandedBlId] = useState<string | null>(null)
-  const [opsFilters, setOpsFilters] = useState<OpsFilters>({ search: '', cargoMode: '', pod: '', voyageId: '', blockCode: initialBlockCode ?? '', includeResolved: false })
+  const [opsFilters, setOpsFilters] = useState<OpsFilters>({ search: initialBlSearch ?? '', cargoMode: '', pod: '', voyageId: '', blockCode: initialBlockCode ?? '', includeResolved: false })
   const [selectedOpsRows, setSelectedOpsRows] = useState<string[]>([])
   const [exportingOps, setExportingOps] = useState(false)
   const [exportingConference, setExportingConference] = useState(false)

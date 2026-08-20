@@ -518,6 +518,7 @@ export function AdminUsuarios() {
                   <tr>
                     <th scope="col" className="px-4 py-3">Navio / Viagem</th>
                     <th scope="col" className="px-4 py-3">Porto</th>
+                    <th scope="col" className="px-4 py-3">Terminal</th>
                     <th scope="col" className="px-4 py-3">ATD</th>
                     <th scope="col" className="px-4 py-3">Prazo</th>
                     {(['operacoes', 'documentacao', 'equipamentos'] as const).map((department) => (
@@ -529,18 +530,19 @@ export function AdminUsuarios() {
                 <tbody>
                   {!slaRows?.length ? (
                     <tr>
-                      <td colSpan={8} className="p-0">
+                      <td colSpan={9} className="p-0">
                         <EmptyState title="Nenhum ADR fechado no período (após excluir escalas omitidas e snapshots anteriores à vigência)." />
                       </td>
                     </tr>
                   ) : null}
                   {slaRows?.map((row) => (
-                    <tr key={`${row.voyageId}::${row.port}`}>
+                    <tr key={`${row.voyageId}::${row.port}::${row.terminal ?? 'legacy'}`}>
                       <td className="px-4 py-3">
                         <div className="font-medium text-[var(--app-text-strong)]">{row.vesselName ?? '—'}</div>
                         <div className="text-xs text-[var(--app-muted)]">{row.voyageNumber ?? '—'}</div>
                       </td>
                       <td className="px-4 py-3">{row.port}</td>
+                      <td className="px-4 py-3">{row.terminal ?? 'Legado'}</td>
                       <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">{formatDate(row.atd)}</td>
                       <td className="px-4 py-3 tabular-nums text-[var(--app-muted)]">{formatDate(row.deadlineDate)}</td>
                       {row.departments.map((departmentRow) => (

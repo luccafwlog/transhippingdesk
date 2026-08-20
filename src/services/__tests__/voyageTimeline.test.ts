@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { buildVoyageTimeline } from '../voyageSummaries'
 
 describe('timeline operacional de transbordo', () => {
+  it('humaniza alterações de frentes e datas terminalizadas', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [
+        { entity_type: 'voyage_pod_schedule', entity_id: '9::BRVIX', field_name: 'front_created', old_value: null, new_value: JSON.stringify({ modalidade: 'granito', terminal_id: 'terminal-1' }), changed_at: '2026-08-18T10:00:00Z' },
+        { entity_type: 'voyage_pod_schedule', entity_id: '9::BRVIX', field_name: 'terminal_dates', old_value: null, new_value: JSON.stringify({ terminal_atb: '2026-08-20' }), changed_at: '2026-08-18T11:00:00Z' },
+      ],
+    })
+    expect(events.map((event) => event.kind)).toEqual(['escala-terminal', 'escala-terminal'])
+    expect(events.find((event) => event.title.includes('Frente granito'))?.title).toContain('Frente granito atribuída')
+    expect(events.find((event) => event.title.includes('Datas do terminal'))?.title).toContain('Datas do terminal alteradas')
+    expect(events.find((event) => event.title.includes('Frente granito'))?.detail).not.toContain('terminal-1')
+  })
+
   it('consolida importações de B/L por lote e rota', () => {
     const events = buildVoyageTimeline({
       importBatches: [{
@@ -34,6 +47,19 @@ describe('timeline operacional de transbordo', () => {
 
     expect(withReason[0].title).toBe('Escala de VITÓRIA omitida · Porto de Transbordo — SANTOS · motivo: congestionamento portuário')
     expect(withoutReason[0].title).toBe('Escala de VITÓRIA omitida · Porto de Transbordo — SANTOS')
+  })
+
+  it('exibe a correção como evento próprio após reverter uma omissão', () => {
+    const events = buildVoyageTimeline({ auditEvents: [{
+      entity_type: 'voyage', entity_id: '2', field_name: 'omissao_revertida',
+      old_value: 'VITÓRIA', new_value: 'SANTOS', justification: 'POD informado incorretamente',
+      changed_at: '2026-07-16T12:00:00Z',
+    }] })
+
+    expect(events[0].kind).toBe('omission')
+    expect(events[0].title).toContain('Omissão de VITÓRIA revertida')
+    expect(events[0].title).toContain('correção')
+    expect(events[0].detail).toContain('Correção de omissão')
   })
 
   it('mostra complementação do registro global', () => {

@@ -60,7 +60,7 @@ export function ClientesPortal() {
   return (
     <>
       <Breadcrumb items={[{ label: 'Clientes', to: '/clientes' }, { label: 'Provisionamento do Portal' }]} />
-      <PageHeader title="Provisionamento do Portal" description="Fila operacional de análise, convites e situações do Portal." action={<Link className="text-sm text-cyan-300" to="/clientes">← Voltar para Clientes</Link>} />
+      <PageHeader title="Provisionamento do Portal" description="Fila operacional de análise, convites e situações do Portal." action={<Link className="app-touch-link text-sm text-cyan-300" to="/clientes">← Voltar para Clientes</Link>} />
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         {[['Total', data.length, 'todos'], ['Críticas', count((row) => row.hasCriticalAlert), 'criticas'], ['Aguardando análise', count((row) => row.provisioning_decision === 'aguardando_analise'), 'aguardando_analise'], ['Sem email', count((row) => !row.recovery_email && !row.candidates.length), 'sem_email'], ['Ativação pendente', count((row) => row.account_situation === 'convite_pendente'), 'convite_pendente'], ['Expirados', count((row) => row.account_situation === 'convite_expirado'), 'convite_expirado'], ['Falhas', count((row) => row.account_situation === 'falha_no_envio'), 'falha_no_envio'], ['Ativas', count((row) => row.account_situation === 'ativo'), 'ativo']].map(([label, value, filter]) => <button key={String(label)} type="button" className="text-left" onClick={() => selectPreset(filter as Preset)}><Card className="h-full"><div className="text-xs text-[var(--app-muted)]">{label}</div><div className="mt-1 text-2xl font-semibold">{value}</div></Card></button>)}
       </div>

@@ -17,7 +17,8 @@ type Props<T> = {
   accept: string
   multiple?: boolean
   parser: (file: File) => Promise<T>
-  importer: (preview: T, file: File) => Promise<void>
+  importer?: (preview: T, file: File) => Promise<void>
+  batchImporter?: (entries: FilePreviewEntry<T>[]) => Promise<void>
   canImport: (preview: T) => boolean
   renderPreview: (preview: T, file: File) => ReactNode
   renderBatchSummary?: (entries: FilePreviewEntry<T>[]) => ReactNode
@@ -34,6 +35,7 @@ export function FileImportModal<T>({
   multiple = false,
   parser,
   importer,
+  batchImporter,
   canImport,
   renderPreview,
   renderBatchSummary,
@@ -69,8 +71,12 @@ export function FileImportModal<T>({
     if (!importableEntries.length) return
     setImporting(true)
     try {
-      for (const entry of importableEntries) {
-        await importer(entry.preview, entry.file)
+      if (batchImporter) {
+        await batchImporter(importableEntries)
+      } else if (importer) {
+        for (const entry of importableEntries) {
+          await importer(entry.preview, entry.file)
+        }
       }
       onClose()
     } catch (err) {

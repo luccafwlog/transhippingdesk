@@ -60,7 +60,7 @@ it('US-138: oferece link direto para a entidade do alerta', () => {
 
   // container alert -> /demurrage?busca=CNTR1
   expect(screen.getByRole('link', { name: /Ver Demurrage/ }).getAttribute('href')).toBe('/demurrage?busca=CNTR1')
-  // invoice alert with numeric id -> /faturamento?invoice=123
-  expect(screen.getAllByRole('link', { name: /Ver Fatura/ })[0].getAttribute('href')).toBe('/faturamento?invoice=456')
-  expect(screen.getAllByRole('link', { name: /Ver Fatura/ })[1].getAttribute('href')).toBe('/faturamento?invoice=123')
+  // invoice alert with numeric id -> /taxas-locais?invoice=123
+  expect(screen.getAllByRole('link', { name: /Ver Fatura/ })[0].getAttribute('href')).toBe('/taxas-locais?invoice=456')
+  expect(screen.getAllByRole('link', { name: /Ver Fatura/ })[1].getAttribute('href')).toBe('/taxas-locais?invoice=123')
 })

@@ -4,20 +4,60 @@ export type { Depot, DepotService }
 
 export type LocalType = 'depot' | 'terminal_portuario'
 export type ServiceNature = 'armazenagem' | 'transporte' | 'geral'
+export type DepotWithPort = Depot & { port_id: number | null }
+export type BrazilianPortOption = { id: number; locode: string; name: string | null }
+export type PendingTerminalPortMapping = { pending_count: number; codes: string[] }
 
-export async function listDepots(): Promise<Depot[]> {
-  const { data, error } = await supabase.from('depots').select('*').order('code')
-  if (error) throw error
-  return (data ?? []) as unknown as Depot[]
+type DepotInput = Omit<Depot, 'id' | 'created_at' | 'updated_at'> & {
+  id?: string
+  port_id?: number | null
 }
 
-export async function upsertDepot(input: Omit<Depot, 'id' | 'created_at' | 'updated_at'> & { id?: string }): Promise<void> {
+export async function listDepots(): Promise<DepotWithPort[]> {
+  const { data, error } = await supabase.from('depots').select('*').order('code')
+  if (error) throw error
+  return (data ?? []) as unknown as DepotWithPort[]
+}
+
+export async function listBrazilianPorts(): Promise<BrazilianPortOption[]> {
+  const { data, error } = await supabase
+    .from('ports')
+    .select('id, locode, name')
+    .like('locode', 'BR%')
+    .order('locode')
+  if (error) throw error
+  return (data ?? []) as BrazilianPortOption[]
+}
+
+/** Leitura do legado que ainda precisa ser associado a um porto brasileiro. */
+export async function preflightDepotsTerminalPortMapping(): Promise<PendingTerminalPortMapping> {
+  const { data, error } = await supabase.rpc('preflight_depots_terminal_port_mapping')
+  if (error) throw error
+  const value = (data ?? {}) as Partial<PendingTerminalPortMapping>
+  return {
+    pending_count: Number(value.pending_count ?? 0),
+    codes: Array.isArray(value.codes) ? value.codes.filter((code): code is string => typeof code === 'string') : [],
+  }
+}
+
+export async function upsertDepot(input: DepotInput): Promise<void> {
   if (!input.code.trim()) throw new Error('Código do local obrigatório.')
+  const rawPortId = input.port_id
+  const portId = input.tipo === 'terminal_portuario'
+    && typeof rawPortId === 'number'
+    && Number.isInteger(rawPortId)
+    && rawPortId > 0
+    ? rawPortId
+    : null
+  if (input.tipo === 'terminal_portuario' && portId === null) {
+    throw new Error('Terminal portuário exige um porto brasileiro.')
+  }
   if (input.tipo === 'terminal_portuario' && (input.free_time_vazio_days !== 0 || input.free_time_material_days !== 0)) {
     throw new Error('Terminal portuário não possui free time.')
   }
   const payload = {
     code: input.code.trim(), name: input.name?.trim() || null, tipo: input.tipo,
+    port_id: portId,
     active: input.active, free_time_vazio_days: input.free_time_vazio_days ?? 0,
     free_time_material_days: input.free_time_material_days ?? 0, updated_at: new Date().toISOString(),
   }

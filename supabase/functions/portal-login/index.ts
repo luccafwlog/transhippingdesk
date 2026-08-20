@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { ALLOWED_ORIGINS } from '../_shared/cors.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 import { openAlertOnce } from '../_shared/portalAlerts.ts'
 import { isLoginRateLimited, registerLoginFailure, registerLoginSuccess } from '../_shared/portalLoginRateLimit.ts'
 
@@ -11,14 +11,11 @@ export function normalizeCnpj(input: string): string | null {
 }
 
 function json(status: number, body: unknown, origin: string | null) {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.has(origin) ? origin : 'null'
   return new Response(body === null ? null : JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': allowedOrigin,
-      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      ...corsHeaders(origin),
     },
   })
 }

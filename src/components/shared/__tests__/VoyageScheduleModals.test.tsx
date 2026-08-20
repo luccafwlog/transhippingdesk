@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // voyageRouteSchedules importa o cliente Supabase no topo do modulo; os modais
@@ -120,10 +120,49 @@ const escalaBase: EscalaModalData = {
   exportExistingId: null,
   temExportacao: false,
   hasGranite: false,
+  hasEmpty: false,
   containersQty: null,
   movementsQty: null,
   dischargePorts: [],
   exportLocked: false,
+}
+
+const terminalScaleBase = {
+  voyageId: 9,
+  port: 'BRSSZ',
+  portId: 99,
+  revision: 0,
+  fronts: [
+    { id: 'f1', sentido: 'importacao' as const, modalidade: 'carga_cheia' as const, terminalId: 't-norte', source: 'operational_data' as const, hasData: true, section: 'carga_descarregada' as const },
+    { id: 'f2', sentido: 'importacao' as const, modalidade: 'vazio' as const, terminalId: null, source: 'operational_data' as const, hasData: true, section: 'vazios_descarregados' as const },
+    { id: 'f3', sentido: 'exportacao' as const, modalidade: 'granito' as const, terminalId: 't-sul', source: 'export_declaration' as const, hasData: false, section: 'carga_carregada' as const },
+    { id: 'f4', sentido: 'exportacao' as const, modalidade: 'vazio' as const, terminalId: null, source: 'export_declaration' as const, hasData: false, section: 'vazios_embarcados' as const },
+  ],
+  tbcFronts: [],
+  terminals: [
+    { terminalId: 't-norte', atb: '2026-03-02', atd: null, restow: null },
+    { terminalId: 't-sul', atb: null, atd: null, restow: 2 },
+  ],
+  activeTerminals: [
+    { id: 't-norte', code: 'T-NORTE', name: 'Terminal Norte', active: true, portId: 99, historical: false },
+    { id: 't-sul', code: 'T-SUL', name: 'Terminal Sul', active: true, portId: 99, historical: false },
+    { id: 't-other-port', code: 'T-OUTRO', name: 'Outro porto', active: true, portId: 100, historical: false },
+  ],
+  historicalTerminals: [
+    { id: 't-old', code: 'T-OLD', name: 'Terminal antigo', active: false, portId: 99, historical: true },
+  ],
+  agencyReports: [],
+}
+
+function terminalEscala(overrides: Partial<EscalaModalData> = {}): EscalaModalData {
+  return {
+    ...escalaBase,
+    temExportacao: true,
+    hasGranite: true,
+    hasEmpty: true,
+    terminalScale: terminalScaleBase,
+    ...overrides,
+  }
 }
 
 function renderEscala(escala: EscalaModalData, onSaved = vi.fn().mockResolvedValue(undefined)) {
@@ -155,7 +194,7 @@ describe('EscalaModal', () => {
         atb: '2026-03-02',
         rtw: 3,
         linked: true,
-        exportacao: { temExportacao: false, hasGranite: false, containersQty: null, movementsQty: null, dischargePorts: [] },
+        exportacao: { temExportacao: false, hasGranite: false, hasEmpty: false, containersQty: null, movementsQty: null, dischargePorts: [] },
       }),
     )
   })
@@ -166,6 +205,43 @@ describe('EscalaModal', () => {
 
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ port: 'BRVIX', temImportacao: false }))
+  })
+
+  it('exige uma frente ao declarar exportação em uma escala nova', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({ ...escalaBase, port: null })
+
+    await user.type(screen.getByLabelText('Porto da escala'), 'BRVIX')
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('granito ou vazios')
+  })
+
+  it('preserva declaração e planejamento de uma linha legada sem flags', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      exportExistingId: 'legacy-export-id',
+      temExportacao: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      exportacao: {
+        temExportacao: true,
+        hasGranite: false,
+        hasEmpty: false,
+        containersQty: 4,
+        movementsQty: 2,
+        dischargePorts: ['ITGOA'],
+      },
+    }))
   })
 
   it('recusa porto estrangeiro ao criar a escala', async () => {
@@ -179,7 +255,7 @@ describe('EscalaModal', () => {
     expect(screen.getByRole('alert').textContent).toContain('porto brasileiro')
   })
 
-  it('so revela os campos de exportacao depois do toggle e os envia juntos', async () => {
+  it('declara vazios sem exigir quantidades e envia o planejamento quando informado', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala({ ...escalaBase, port: null })
 
@@ -187,6 +263,7 @@ describe('EscalaModal', () => {
 
     await user.type(screen.getByLabelText('Porto da escala'), 'brvix')
     await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByLabelText('Terá embarque de vazios'))
     await user.type(screen.getByLabelText('CNTR (Vazios Exp.)'), '10')
     await user.type(screen.getByLabelText('Portos de descarga'), 'itgoa, nlrtm brssz')
     await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
@@ -197,6 +274,7 @@ describe('EscalaModal', () => {
         exportacao: {
           temExportacao: true,
           hasGranite: false,
+          hasEmpty: true,
           containersQty: 10,
           movementsQty: null,
           dischargePorts: ['BRSSZ', 'ITGOA', 'NLRTM'],
@@ -205,12 +283,287 @@ describe('EscalaModal', () => {
     )
   })
 
-  it('trava a retirada da exportacao quando ha carga vinculada', () => {
-    renderEscala({ ...escalaBase, temExportacao: true, exportLocked: true, containersQty: 4 })
+  it('confirma a retirada principal e preserva dados quando o cancelamento é escolhido', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      exportExistingId: 'export-existing-id',
+      temExportacao: true,
+      hasEmpty: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+    })
 
     const toggle = screen.getByLabelText('Esta escala terá exportação') as HTMLInputElement
+    await user.click(toggle)
+
+    const confirmation = screen.getByRole('dialog', { name: 'Retirar a exportação desta escala' })
+    expect(toggle.checked).toBe(true)
+    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('4')
+    expect((screen.getByLabelText('Portos de descarga') as HTMLInputElement).value).toBe('ITGOA')
+
+    await user.click(within(confirmation).getByRole('button', { name: 'Cancelar' }))
+
+    expect(toggle.checked).toBe(true)
+    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('4')
+    expect((screen.getByLabelText('Portos de descarga') as HTMLInputElement).value).toBe('ITGOA')
+
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      exportacao: expect.objectContaining({
+        temExportacao: true,
+        hasEmpty: true,
+        containersQty: 4,
+        movementsQty: 2,
+        dischargePorts: ['ITGOA'],
+      }),
+    }))
+  })
+
+  it('só permite remover fronts e planejamento depois da confirmação principal', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      exportExistingId: 'export-existing-id',
+      temExportacao: true,
+      hasEmpty: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+    })
+
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    const confirmation = screen.getByRole('dialog', { name: 'Retirar a exportação desta escala' })
+    await user.click(within(confirmation).getByRole('button', { name: 'Retirar' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      exportacao: {
+        temExportacao: false,
+        hasGranite: false,
+        hasEmpty: false,
+        containersQty: null,
+        movementsQty: null,
+        dischargePorts: [],
+      },
+    }))
+  })
+
+  it('trava a retirada da exportacao quando ha carga vinculada', () => {
+    renderEscala({ ...escalaBase, temExportacao: true, hasEmpty: true, exportLocked: true, containersQty: 4 })
+
+    const toggle = screen.getByLabelText('Terá embarque de vazios') as HTMLInputElement
     expect(toggle.checked).toBe(true)
     expect(toggle.disabled).toBe(true)
     expect(screen.getByText(/carga de exportação vinculada/i)).toBeTruthy()
+  })
+
+  it('não trava granito por vazios vinculados à mesma escala', async () => {
+    renderEscala({ ...escalaBase, temExportacao: true, hasGranite: true, hasEmpty: true, exportLocked: true, graniteLocked: false, emptyLocked: true })
+
+    const graniteToggle = screen.getByLabelText('Terá embarque de granito') as HTMLInputElement
+    expect(graniteToggle.disabled).toBe(false)
+    fireEvent.click(graniteToggle)
+    expect(graniteToggle.checked).toBe(false)
+  })
+
+  it('não rebasa campos digitados quando o estado terminal chega depois', () => {
+    const loadingTerminalScale = {
+      ...terminalScaleBase,
+      fronts: [],
+      terminals: [],
+      loading: true,
+    }
+    const rendered = render(
+      <ConfirmDialogProvider>
+        <EscalaModal open escala={{ ...escalaBase, terminalScale: loadingTerminalScale }} onClose={vi.fn()} onSaved={vi.fn(async () => undefined)} />
+      </ConfirmDialogProvider>,
+    )
+    const numberInput = screen.getByLabelText('Nº Escala (Mercante)') as HTMLInputElement
+    fireEvent.change(numberInput, { target: { value: 'DIGITADO' } })
+
+    rendered.rerender(
+      <ConfirmDialogProvider>
+        <EscalaModal
+          open
+          escala={{ ...escalaBase, escalaNumber: null, terminalScale: { ...terminalScaleBase, loading: false } }}
+          onClose={vi.fn()}
+          onSaved={vi.fn(async () => undefined)}
+        />
+      </ConfirmDialogProvider>,
+    )
+
+    expect(numberInput.value).toBe('DIGITADO')
+    expect((screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement).value).toBe('t-norte')
+    expect((screen.getByLabelText('ATB T-NORTE') as HTMLInputElement).value).toBe('2026-03-02')
+  })
+
+  it('não permite salvar enquanto o estado terminalizado ainda carrega', async () => {
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    renderEscala({ ...escalaBase, terminalScale: { ...terminalScaleBase, fronts: [], terminals: [], loading: true } }, onSaved)
+
+    expect((screen.getByRole('button', { name: 'Salvar escala' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(onSaved).not.toHaveBeenCalled()
+  })
+
+  it('exige justificativa para alterar expectativa em escala já revisionada mesmo sem terminal atribuído', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      terminalScale: {
+        ...terminalScaleBase,
+        revision: 1,
+        fronts: terminalScaleBase.fronts.map((front) => ({ ...front, terminalId: null })),
+        terminals: [],
+      },
+    })
+
+    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByLabelText('Terá embarque de granito'))
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('justificativa')
+  })
+
+  it('não exige justificativa por diferença de formato nas datas nem por resíduos com exportação desligada', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      temExportacao: false,
+      hasGranite: true,
+      hasEmpty: true,
+      containersQty: 4,
+      movementsQty: 2,
+      dischargePorts: ['ITGOA'],
+      terminalScale: {
+        ...terminalScaleBase,
+        revision: 1,
+        fronts: terminalScaleBase.fronts.filter((front) => front.sentido === 'importacao'),
+        terminals: [{ terminalId: 't-norte', atb: '2026-03-02T00:00:00Z', atd: null, restow: null }],
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('edita quatro frentes em dois terminais, mantém TBC e envia datas sem placeholder', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala(terminalEscala())
+
+    expect(screen.getByRole('region', { name: 'Frentes operacionais' })).toBeTruthy()
+    const cargaCheia = screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement
+    const vazioImport = screen.getByLabelText('Terminal importacao Vazios') as HTMLSelectElement
+    const granito = screen.getByLabelText('Terminal exportacao Granito') as HTMLSelectElement
+    expect(cargaCheia.value).toBe('t-norte')
+    expect(vazioImport.value).toBe('')
+    expect(granito.value).toBe('t-sul')
+    expect(within(cargaCheia).queryByRole('option', { name: 'T-OUTRO' })).toBeNull()
+    expect(screen.getAllByText(/TBC — pendente/i).length).toBeGreaterThan(0)
+
+    await user.selectOptions(vazioImport, 't-norte')
+    await user.selectOptions(screen.getByLabelText('Terminal exportacao Vazios'), 't-sul')
+    await user.type(screen.getByLabelText('ATD T-NORTE'), '2026-03-03')
+    await user.type(screen.getByLabelText('Justificativa da alteração'), 'distribuição operacional')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      terminalState: expect.objectContaining({
+        expectedRevision: 0,
+        fronts: expect.arrayContaining([
+          expect.objectContaining({ sentido: 'importacao', modalidade: 'vazio', terminalId: 't-norte' }),
+          expect.objectContaining({ sentido: 'exportacao', modalidade: 'vazio', terminalId: 't-sul' }),
+        ]),
+        terminals: expect.arrayContaining([
+          expect.objectContaining({ terminalId: 't-norte', atd: '2026-03-03' }),
+          expect.objectContaining({ terminalId: 't-sul', restow: 2 }),
+        ]),
+      }),
+    }))
+    const payload = onSaved.mock.calls[0][0]
+    expect(payload.terminalState.terminals.every((terminal: { terminalId: string }) => terminal.terminalId)).toBe(true)
+  })
+
+  it('remove do payload o estado do terminal que ficou sem frente', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala(terminalEscala())
+
+    await user.selectOptions(screen.getByLabelText('Terminal exportacao Granito'), 't-norte')
+    await user.type(screen.getByLabelText('Justificativa da alteração'), 'migração de operação')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    const payload = onSaved.mock.calls[0][0]
+    expect(payload.terminalState.terminals.map((terminal: { terminalId: string }) => terminal.terminalId)).toEqual(['t-norte'])
+  })
+
+  it('filtra terminal por porto e mostra inativo somente como histórico associado', async () => {
+    const user = userEvent.setup()
+    const escala = terminalEscala({
+      terminalScale: {
+        ...terminalScaleBase,
+        fronts: terminalScaleBase.fronts.map((front) => front.id === 'f1' ? { ...front, terminalId: 't-old' } : front),
+      },
+    })
+    renderEscala(escala)
+
+    const select = screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement
+    expect(within(select).getByRole('option', { name: /T-OLD.*inativo/ })).toBeTruthy()
+    expect(within(select).queryByRole('option', { name: 'T-OUTRO' })).toBeNull()
+    await user.selectOptions(select, '')
+    expect(select.value).toBe('')
+  })
+
+  it('rejeita somente ATD anterior ao ATB e permite datas parciais', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala(terminalEscala())
+    const atd = screen.getByLabelText('ATD T-NORTE')
+    await user.type(atd, '2026-03-01')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('ATD não pode ser anterior')
+    await user.clear(atd)
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+    expect(onSaved).toHaveBeenCalled()
+  })
+
+  it('rejeita ATD sem ATB com mensagem de preenchimento', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala(terminalEscala())
+    const atd = screen.getByLabelText('ATD T-SUL')
+    await user.type(atd, '2026-03-03')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('Informe o ATB')
+  })
+
+  it('preserva a edição no conflito de revisão e bloqueia ADR fechado com ação de reabertura', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockRejectedValueOnce(Object.assign(new Error('REVISAO_OBSOLETA'), { code: 'P0001' }))
+    renderEscala(terminalEscala({ terminalScale: { ...terminalScaleBase, revision: 1 } }), onSaved)
+    const select = screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement
+    await user.selectOptions(select, 't-sul')
+    await user.type(screen.getByLabelText('Justificativa da alteração'), 'ajuste operacional')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+    expect(screen.getByRole('alert').textContent).toContain('recarregue')
+    expect(select.value).toBe('t-sul')
+
+    const blocked = vi.fn().mockRejectedValueOnce(Object.assign(new Error('ADR fechado'), {
+      code: 'ADR_CLOSED_BLOCKED',
+      blockers: [{ reportId: 'adr-1', terminalId: 't-sul', terminalCode: 'T-SUL', reason: 'front_change' }],
+    }))
+    cleanup()
+    renderEscala(terminalEscala(), blocked)
+    await user.selectOptions(screen.getByLabelText('Terminal importacao Carga cheia'), 't-sul')
+    await user.type(screen.getByLabelText('Justificativa da alteração'), 'ajuste com ADR fechado')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+    expect(screen.getByRole('alert').textContent).toContain('ADR fechado')
+    expect(screen.getByText(/terminal T-SUL/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Reabrir ADR' })).toBeTruthy()
   })
 })

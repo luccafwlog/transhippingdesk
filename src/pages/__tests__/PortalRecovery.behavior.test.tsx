@@ -31,7 +31,7 @@ it('US-155: solicita recuperacao e confirma o recebimento da solicitacao', async
   )
 
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
-  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
 
   await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
   expect(auth.functions.invoke).toHaveBeenCalledWith('portal-password-recovery', { body: { cnpj: '12345678000195' } })
@@ -46,7 +46,7 @@ it('achado 3.2 (auditoria 2026-08-12): mostra a MESMA tela para conta existente 
     </MemoryRouter>,
   )
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
-  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
   await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
   unmount()
 
@@ -59,7 +59,7 @@ it('achado 3.2 (auditoria 2026-08-12): mostra a MESMA tela para conta existente 
     </MemoryRouter>,
   )
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '98.765.432/0001-10')
-  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
   await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
 })
 
@@ -72,7 +72,7 @@ it('achado 3.2: rate limit continua mostrando mensagem de "tente mais tarde"', a
     </MemoryRouter>,
   )
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
-  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
   await waitFor(() => expect(screen.getByText('Muitas solicitações em pouco tempo. Aguarde alguns minutos e tente novamente.')).toBeTruthy())
 })
 
@@ -85,7 +85,7 @@ it('a tela de confirmacao afirma o envio sem condicionar a existencia da conta',
     </MemoryRouter>,
   )
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '98.765.432/0001-10')
-  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
 
   await waitFor(() => expect(screen.getByText('Solicitação recebida')).toBeTruthy())
   expect(screen.queryByText(/Se houver uma conta/i)).toBeNull()
@@ -101,7 +101,7 @@ it('CNPJ incompleto nao chega a chamar a Edge Function e recebe mensagem propria
     </MemoryRouter>,
   )
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678')
-  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
 
   expect(screen.getByText(INCOMPLETE_CNPJ_MESSAGE)).toBeTruthy()
   expect(auth.functions.invoke).not.toHaveBeenCalled()
@@ -116,7 +116,7 @@ it('falha de rede nao promete email que nunca sera enviado', async () => {
     </MemoryRouter>,
   )
   await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '12.345.678/0001-95')
-  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperacao' }))
+  await user.click(screen.getByRole('button', { name: 'Enviar link de recuperação' }))
 
   await waitFor(() => expect(screen.getByText('Não foi possível concluir a solicitação agora. Tente novamente em instantes.')).toBeTruthy())
   expect(screen.queryByText('Solicitação recebida')).toBeNull()
@@ -128,7 +128,7 @@ it('US-156: link invalido sem tokens mostra erro', () => {
       <PortalResetPassword />
     </MemoryRouter>,
   )
-  expect(screen.getByText('Link de recuperacao invalido ou expirado.')).toBeTruthy()
+  expect(screen.getByText('Link de recuperação inválido ou expirado.')).toBeTruthy()
 })
 
 it('US-156: aceita token de recovery na query string', async () => {

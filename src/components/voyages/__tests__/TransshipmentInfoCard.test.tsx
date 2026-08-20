@@ -2,14 +2,17 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mutateAsync, useVoyageTransshipments, useUpdateVoyageOmission } = vi.hoisted(() => ({
+const { mutateAsync, revertMutateAsync, useAuthMock, useVoyageTransshipments, useUpdateVoyageOmission, useRevertVoyageOmission } = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
+  revertMutateAsync: vi.fn(),
+  useAuthMock: vi.fn(),
   useVoyageTransshipments: vi.fn(),
   useUpdateVoyageOmission: vi.fn(),
+  useRevertVoyageOmission: vi.fn(),
 }))
 
-vi.mock('../../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' } }) }))
-vi.mock('../../../hooks/useTransshipments', () => ({ useVoyageTransshipments, useUpdateVoyageOmission }))
+vi.mock('../../../hooks/useAuth', () => ({ useAuth: useAuthMock }))
+vi.mock('../../../hooks/useTransshipments', () => ({ useVoyageTransshipments, useUpdateVoyageOmission, useRevertVoyageOmission }))
 
 import { TransshipmentInfoCard } from '../TransshipmentInfoCard'
 
@@ -17,7 +20,10 @@ describe('TransshipmentInfoCard', () => {
   afterEach(cleanup)
   beforeEach(() => {
     mutateAsync.mockReset().mockResolvedValue(undefined)
+    revertMutateAsync.mockReset().mockResolvedValue(undefined)
+    useAuthMock.mockReturnValue({ user: { id: 'user-1' }, isAdmin: false })
     useUpdateVoyageOmission.mockReturnValue({ mutateAsync, isPending: false, isError: false })
+    useRevertVoyageOmission.mockReturnValue({ mutateAsync: revertMutateAsync, isPending: false, isError: false })
     useVoyageTransshipments.mockReturnValue({
       data: {
         omissions: [{
@@ -58,5 +64,45 @@ describe('TransshipmentInfoCard', () => {
       onwardCarrier: 'COSCO',
       changedBy: 'user-1',
     })))
+  })
+
+  it('exibe reversão somente para Admin e exige justificativa com impacto dos B/Ls', async () => {
+    useAuthMock.mockReturnValue({ user: { id: 'admin-1' }, isAdmin: true })
+    useVoyageTransshipments.mockReturnValue({
+      data: {
+        omissions: [{
+          id: 9,
+          voyageId: 2,
+          omittedPod: 'VITÓRIA',
+          dischargePod: 'SANTOS',
+          reason: null,
+          onwardVesselName: null,
+          onwardCarrier: null,
+          onwardVoyageNumber: null,
+          onwardEtd: null,
+          onwardEta: null,
+        }],
+        transshipments: [
+          { id: 1, blId: 'BL-1', omissionId: 9, disposition: 'transshipment', onwardVesselName: null, onwardCarrier: null, onwardVoyageNumber: null, onwardEtd: null, onwardEta: null },
+          { id: 2, blId: 'BL-2', omissionId: 9, disposition: 'transshipment', onwardVesselName: null, onwardCarrier: null, onwardVoyageNumber: null, onwardEtd: null, onwardEta: null },
+        ],
+      },
+    })
+    render(<TransshipmentInfoCard voyageId={2} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reverter omissão' }))
+    expect(screen.getByText(/2 B\/L\(s\)/)).toBeTruthy()
+    expect(screen.getByText(/Clientes com link/)).toBeTruthy()
+    const submitButton = screen.getAllByRole('button', { name: 'Reverter omissão' }).find((button) => button.getAttribute('type') === 'submit') as HTMLButtonElement | undefined
+    expect(submitButton?.disabled).toBe(true)
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'POD informado incorretamente' } })
+    fireEvent.click(submitButton as HTMLButtonElement)
+
+    await waitFor(() => expect(revertMutateAsync).toHaveBeenCalledWith({
+      omissionId: 9,
+      justification: 'POD informado incorretamente',
+      changedBy: 'admin-1',
+    }))
   })
 })
