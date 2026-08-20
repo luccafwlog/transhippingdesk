@@ -255,6 +255,7 @@ textarea {
 .hib-alert-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   background: transparent;
   border: none;
@@ -2617,9 +2618,19 @@ textarea {
 }
 
 .app-market-refresh {
-  min-width: 40px;
-  min-height: 40px;
+  position: relative;
   padding: 0;
+}
+
+/* Alvo de toque de 40x40 sem inflar a altura da faixa de câmbio (~25px):
+   a área de toque é um pseudo-elemento posicionado, fora do fluxo. */
+.app-market-refresh::after {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
 }
 
 .portal-notifications {
@@ -2720,7 +2731,11 @@ textarea {
 .portal-notifications__item:hover,
 .portal-notifications__item:focus-visible {
   background: var(--app-surface-hover);
+}
+
+.portal-notifications__item:focus-visible {
   outline: 0;
+  box-shadow: inset 0 0 0 3px var(--app-border-focus);
 }
 
 .portal-notifications__icon {
@@ -4136,7 +4151,7 @@ textarea {
   .app-nav-bar,
   .app-nav-mobile-bar,
   .app-toast-stack,
-  .app-main > *:not(:has(.app-modal-backdrop)) {
+  .app-main > *:not(:has(.app-modal-backdrop)):not(.app-modal-backdrop) {
     display: none !important;
   }
 
@@ -4144,9 +4159,12 @@ textarea {
     display: none !important;
   }
 
-  /* O modal é renderizado dentro da página atual, não diretamente sob
-     .app-main. Preserve o ancestral que contém o documento imprimível. */
-  .app-main > *:has(.app-modal-backdrop) {
+  /* O modal tanto pode ser renderizado dentro de um wrapper de página quanto
+     como filho direto de .app-main (ex.: Demurrage.tsx). Preserve os dois
+     casos: o ancestral que contém o documento imprimível, e o próprio
+     backdrop quando ele já é o filho direto. */
+  .app-main > *:has(.app-modal-backdrop),
+  .app-main > .app-modal-backdrop {
     display: block !important;
   }
 

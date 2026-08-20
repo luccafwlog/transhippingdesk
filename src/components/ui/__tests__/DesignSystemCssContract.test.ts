@@ -15,7 +15,7 @@ describe('contrato visual compartilhado', () => {
     expect(css).toMatch(/\.app-touch-link\s*\{[^}]*min-height:\s*40px/s)
     expect(css).toMatch(/\.app-tab\s*\{[^}]*min-height:\s*40px/s)
     expect(css).toMatch(/\.app-table__icon-button\s*\{[^}]*min-width:\s*40px[^}]*min-height:\s*40px/s)
-    expect(css).toMatch(/\.app-market-refresh\s*\{[^}]*min-width:\s*40px[^}]*min-height:\s*40px/s)
+    expect(css).toMatch(/\.app-market-refresh::after\s*\{[^}]*width:\s*40px[^}]*height:\s*40px/s)
     expect(css).toMatch(/\.app-header__brand\s*\{[^}]*min-height:\s*40px/s)
     expect(css).toMatch(/\.app-modal__close\s*\{[^}]*min-width:\s*40px[^}]*min-height:\s*40px/s)
     expect(css).toMatch(/\.app-toast__close\s*\{[^}]*width:\s*40px[^}]*height:\s*40px/s)

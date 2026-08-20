@@ -62,3 +62,19 @@ que a viewport.
 Não foram alterados PIX, cálculo, RLS, migrations, exclusões ou semântica
 financeira. O harness local exigiu concessões e colunas compatíveis com o shim;
 isso foi aplicado apenas no banco descartável e não integra a mudança do produto.
+
+## Nota editorial (2026-08-20)
+
+A revisão de código da PR #565 encontrou que o relatório de Demurrage por
+consignatário ("P1 — Conversão", marcado como "Corrigido" acima) continuava
+imprimindo vazio: `Demurrage.tsx` renderiza `CustomerReportModal` como filho
+direto de `.app-main` (sem wrapper de página), caso não coberto pela regra
+`.app-main > *:not(:has(.app-modal-backdrop))`, que também ocultava o próprio
+backdrop nesse cenário. A regra de impressão em `src/index.css` foi corrigida
+para excluir `.app-modal-backdrop` da ocultação e mantê-lo visível quando é
+filho direto de `.app-main`, com verificação automatizada acrescentada em
+`InvoicePrintCssContract.test.ts`. O foco visível removido em
+`.portal-notifications__item:focus-visible` e a duplicação de altura da faixa
+de câmbio causada por `.app-market-refresh` (min-height 40px) também foram
+corrigidos nessa mesma revisão. Este registro é histórico; o comportamento
+atual está refletido no código e nos testes.
