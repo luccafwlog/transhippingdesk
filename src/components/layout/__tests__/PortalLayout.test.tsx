@@ -39,5 +39,7 @@ describe('PortalLayout', () => {
     // "Perfil" aparece no header (icone) e na navegacao; ambos apontam para /portal/perfil
     expect(screen.getAllByRole('link', { name: 'Perfil' }).every((l) => l.getAttribute('href') === '/portal/perfil')).toBe(true)
     expect(screen.getByRole('link', { name: 'BLs e Containers' }).className).toContain('active')
+    expect(screen.getByRole('link', { name: 'Ir para o conteúdo principal' }).getAttribute('href')).toBe('#portal-main-content')
+    expect(document.querySelector('main')?.id).toBe('portal-main-content')
   })
 })

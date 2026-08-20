@@ -44,8 +44,8 @@ it('navigates to a notification link after selection', async () => {
     </MemoryRouter>,
   )
 
-  await user.click(screen.getByRole('button', { name: 'Notificacoes (1 nao lidas)' }))
-  await user.click(screen.getByRole('button', { name: /Nova fatura/ }))
+  await user.click(screen.getByRole('button', { name: 'Notificações (1 não lidas)' }))
+  await user.click(screen.getByRole('menuitem', { name: /Nova fatura/ }))
 
   // O handler aguarda markRead antes de navegar, entao a navegacao ocorre num
   // microtask posterior ao clique — espere por ela em vez de assumir sincronia.

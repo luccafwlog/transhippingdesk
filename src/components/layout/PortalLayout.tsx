@@ -23,13 +23,14 @@ export function PortalLayout() {
 
   return (
     <div className="app-shell">
+      <a href="#portal-main-content" className="app-skip-link">Ir para o conteúdo principal</a>
       <header className="app-header">
         <div className="app-header__content">
           <NavLink to={portalPath(scope)} className="app-header__brand">
             <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
             <div className="app-header__titles">
               <div className="app-header__eyebrow">Portal do cliente</div>
-              <div className="app-header__subtitle">faturas e operacao</div>
+              <div className="app-header__subtitle">faturas e operação</div>
             </div>
           </NavLink>
 
@@ -39,7 +40,7 @@ export function PortalLayout() {
             <NavLink
               to={portalPath(scope, '/perfil')}
               aria-label="Perfil"
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)]"
+              className="portal-profile-link"
             >
               <User size={14} />
             </NavLink>
@@ -93,7 +94,7 @@ export function PortalLayout() {
         </nav>
       </div>
 
-      <main className="app-main">
+      <main id="portal-main-content" className="app-main">
         <Outlet />
       </main>
     </div>
