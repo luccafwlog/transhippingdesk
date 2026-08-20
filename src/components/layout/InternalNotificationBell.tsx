@@ -16,7 +16,7 @@ function destinationFor(entityType: string | null, entityId: string | null, dest
 export function InternalNotificationBell() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
-  const { data = [], isLoading } = useInternalNotifications(open)
+  const { data = [], isLoading } = useInternalNotifications()
   const markRead = useMarkInternalNotificationRead()
   const unreadCount = data.filter((notification) => !notification.read_at).length
 

@@ -264,13 +264,21 @@ BEGIN
     RAISE EXCEPTION 'Executor server-only.' USING ERRCODE = '42501';
   END IF;
 
-  FOR v_customer IN SELECT id, name FROM public.customers ORDER BY id LOOP
-    SELECT EXISTS (
-      SELECT 1 FROM public.bls b
-      WHERE b.customer_id = v_customer.id AND b.financial_status IS DISTINCT FROM 'cancelled'
-    ) INTO v_active_process;
-    v_account := NULL;
-    SELECT * INTO v_account FROM public.customer_portal_accounts WHERE customer_id = v_customer.id;
+  FOR v_customer IN
+    SELECT c.id, c.name,
+           EXISTS (SELECT 1 FROM public.bls b WHERE b.customer_id = c.id AND b.financial_status IS DISTINCT FROM 'cancelled') AS active_process,
+           a.id AS account_id, a.active, a.account_situation, a.auth_user_id, a.recovery_email, a.recovery_email_status
+    FROM public.customers c
+    LEFT JOIN public.customer_portal_accounts a ON a.customer_id = c.id
+    ORDER BY c.id
+  LOOP
+    v_active_process := v_customer.active_process;
+    v_account.id := v_customer.account_id;
+    v_account.active := v_customer.active;
+    v_account.account_situation := v_customer.account_situation;
+    v_account.auth_user_id := v_customer.auth_user_id;
+    v_account.recovery_email := v_customer.recovery_email;
+    v_account.recovery_email_status := v_customer.recovery_email_status;
     v_gate_ok := false;
     IF v_account.id IS NOT NULL THEN
       v_gate_ok := v_account.active
