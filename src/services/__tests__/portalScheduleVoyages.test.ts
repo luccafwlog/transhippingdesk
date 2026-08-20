@@ -18,4 +18,12 @@ describe('projectPortalScheduleRows', () => {
     expect(out[0].datesByLabel.QINGDAO).toBe('2026-01-06')
     expect(out[0].datesByLabel.VITÓRIA).toBeUndefined()
   })
+
+  it('carrega a marca de omissão sem transformar a célula sem data em X', () => {
+    const out = projectPortalScheduleRows([
+      { voyage_id: 3, vessel_name: 'C', voyage: '3', imo_number: null, port_code: 'BRVIX', kind: 'pod', date_value: null, omitted: true },
+    ])
+    expect(out[0].omittedByLabel?.['VITÓRIA']).toBe(true)
+    expect(out[0].datesByLabel['VITÓRIA']).toBeUndefined()
+  })
 })

@@ -8,14 +8,15 @@ os eventos nulos e sem duplicar os ADRs do #524.
 
 **Architecture:** A fundação transversal #517 fornece catálogo de gravidade,
 detecção server-only, estado de dispensa/revisão e fan-out de Notificações.
-BL, Baplie e CE usam a viagem como entidade pai; exportação pós-ATD usa a
-escala como entidade pai. Os detectores atualizam um único alerta agregado por
+BL, Baplie e CE usam a viagem como entidade pai; exportação pós-ATD usa o
+terminal da frente como entidade pai. Os detectores atualizam um único alerta agregado por
 `(entity_type, entity_id)` e não criam uma linha por container ou BL: cada
 condição é um item de pendência dentro do agregado. A audiência é a união dos
 departamentos dos itens ativos.
-Alertas da viagem usam `entity_type = 'voyage'` e `entity_id = voyageId`; alertas
-da escala usam `entity_type = 'voyage_pod_schedule'` e
-`entity_id = voyageId::PORTO`, preservando o porto no destino.
+Alertas da viagem usam `entity_type = 'voyage'` e `entity_id = voyageId`;
+marcos compartilhados usam `voyage_pod_schedule / voyageId::PORTO`; ATB/ATD e
+exportação terminalizados usam `voyage_escala_terminal /
+voyageId::PORTO::TERMINAL`.
 O D−7 pode forçar a avaliação Baplie de rotas ainda sem BL; isso não mistura o
 ciclo do alerta de BL faltante com o ciclo da divergência Baplie.
 Todos os detectores usam `America/Sao_Paulo` para a aritmética de D−7/D−5 e
@@ -52,15 +53,15 @@ produtor do #517.
 Localizar as tabelas de viagem/escala e validar o contrato de alerts antes de
 escolher qualquer nome de coluna, enum, RPC ou número de migration.
 
-A escala não é uma tabela própria: a operação é reconstruída de `audit_logs`
-(`voyage_pod_schedule`, `voyageId::PORTO`), com `deleted` como soft-delete e
-`omitted` como omissão. A ADR 0027 mantém a promoção para tabela como evolução
-futura; este bloco não a promove. O planejamento de exportação continua em
+A projeção por porto é reconstruída de `audit_logs` (`voyage_pod_schedule`,
+`voyageId::PORTO`), com `deleted` e `omitted`. A PR #550 acrescentou
+`voyage_escala_terminal_state` e `voyage_escala_operation_fronts`; este bloco
+deve consumi-las sem criar modelo paralelo. O planejamento de exportação continua em
 `voyage_export_schedules`, chaveado por `(voyage_id, pol)` e projetado na mesma
 identidade canônica da escala.
 
-Confirmar que o ATD da escala unificada continua sendo a fonte do prazo de
-`agency_report_deadline_missed` da migration 271; qualquer alerta desse fluxo
+Confirmar que `terminal_atd` é a fonte do prazo do ADR terminalizado e que o
+ATD unificado permanece somente para ADR legado; qualquer alerta desse fluxo
 permanece no #524 e não é duplicado aqui.
 
 ## Modelo de dados e configuração
@@ -139,10 +140,10 @@ alteração.
 
 - [ ] **Step 1: Fixar a identidade e a audiência.**
 
-Usar `entity_type = 'voyage_pod_schedule'` e
-`entity_id = voyageId::PORTO`. Registrar o item
+Usar `voyage_pod_schedule / voyageId::PORTO` para ETA/ATA/ETB/ETD e
+`voyage_escala_terminal / voyageId::PORTO::TERMINAL` para ATB/ATD. Registrar o item
 `voyage_schedule_date_pending` com a dimensão `milestone`; não criar
-agregado por data, por pessoa ou por departamento. A audiência do item é a
+agregado por data, pessoa ou departamento; cada terminal mantém seu agregado. A audiência do item é a
 união de Operações e Documentação, com uma entrega por usuário ativo de cada
 departamento e nenhuma entrega para Financeiro.
 
@@ -154,10 +155,10 @@ pendente:
 ```text
 ETA atingido + ATA vazia → ATA pendente
 ATA preenchida + ETB vazia → ETB pendente
-ETB atingido + ATB vazia → ATB pendente
-ATB preenchida + ETD vazia → ETD pendente
-ETD atingido + ATD vazia → ATD pendente
-ATD preenchida → nenhum alerta de data
+ETB atingido + terminal_atb vazio → ATB pendente naquele terminal
+algum terminal atracado + ETD vazio → ETD compartilhado pendente
+ETD atingido + terminal_atd vazio → ATD pendente naquele terminal
+terminal_atd preenchido → nenhum alerta de data naquele terminal
 ```
 
 Se uma data já estiver preenchida, a etapa é considerada resolvida e o
@@ -182,7 +183,7 @@ ativos.
 
 - [ ] **Step 5: Reavaliar nos pontos certos.**
 
-As mutações de ETA, ATA, ETB, ATB, ETD e ATD devem chamar a reconciliação
+As mutações de ETA, ATA, ETB, ETD, `terminal_atb` e `terminal_atd` devem chamar a reconciliação
 idempotente. A varredura server-only protegida de 15 minutos é a rede de
 segurança; a página `/alertas` apenas lê a fila.
 
@@ -363,7 +364,7 @@ Fechar quando todos os BLs existentes da viagem com POD tiverem CE. BL novo sem
 CE, remoção de CE ou nova pendência reabre e notifica, respeitando a dispensa
 vigente.
 
-### Task 8: detector pós-ATD de exportação
+### Task 8: detector pós-ATD de exportação por terminal
 
 **Files:**
 
@@ -371,9 +372,9 @@ vigente.
 - Modify: serviço de escala/embarque se necessário
 - Test: comportamento por tipo e contrato SQL
 
-- [ ] **Step 1: Abrir no ATD confirmado por escala.**
+- [ ] **Step 1: Abrir no `terminal_atd` da frente.**
 
-Escala com exportação abre alerta normal para os usuários ativos de
+Cada terminal com frente de exportação abre alerta normal para os usuários ativos de
 Equipamentos se faltar qualquer tipo configurado. Escala somente exportação não
 produz BL, Baplie ou CE; granito e vazios podem ser vinculados depois do ATD.
 
@@ -385,7 +386,7 @@ esperado é ignorado: não fecha nem reabre o alerta.
 - [ ] **Step 3: Fechar/reabrir.**
 
 Fechar quando os tipos esperados tiverem vínculo; remoção reabre e notifica.
-Destino é a viagem com escala selecionada.
+Destino é a viagem com porto e terminal selecionados.
 
 ## Reavaliação, navegação e não duplicação
 
@@ -428,6 +429,14 @@ reenviar o arquivo é a ação de resolução.
 BL, Baplie, POD, POL, ETA, ATA, ETB, ATB, ETD, ATD e tipo de exportação devem
 chamar o detector ou invalidar o mecanismo central previsto no #517.
 
+No modelo terminalizado, `ATB`/`ATD` acima significam
+`terminal_atb`/`terminal_atd`. Omitir a escala reconcilia e fecha os itens
+ativos do porto e de todos os terminais, preservando histórico; a marca `OMIT`
+continua visível. Complementar Transbordo, aplicar COD ou reverter essas
+decisões não cria produtor interno duplicado: as notificações do cliente são as
+Notificações do Portal da PR #553. A carga física segue para o ADR do terminal
+de descarga conforme o Bloco 5.
+
 A validação "somente exportação não pode ter POD" deve estar no ponto
 compartilhado de gravação de POD, depois de verificar todos os callers, e não
 somente no modal.
@@ -452,10 +461,11 @@ duplicar o alerta da viagem.
 BL e CE usam `entity_type = voyage`, `entity_id = voyageId` e abrem
 `/viagens/:voyageId`. Ausência e cobertura Baplie abrem
 `/baplie?voyage=<id>`. Exportação usa
-`entity_type = voyage_pod_schedule`, `entity_id = voyageId::PORTO` e abre
-`/viagens/:voyageId?escala=PORTO`, preservando a escala selecionada.
+`entity_type = voyage_escala_terminal`, `entity_id =
+voyageId::PORTO::TERMINAL` e abre
+`/viagens/:voyageId?escala=PORTO&terminal=TERMINAL`.
 
-Adicionar os tipos `voyage` e `voyage_pod_schedule` aos rótulos e à derivação de
+Adicionar `voyage`, `voyage_pod_schedule` e `voyage_escala_terminal` aos rótulos e à derivação de
 destino do roteador compartilhado, com testes em `Alertas.behavior.test.tsx` e
 `alertsEntityFormat.test.ts`.
 

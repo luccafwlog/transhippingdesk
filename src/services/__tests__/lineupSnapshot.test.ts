@@ -150,4 +150,126 @@ describe('fetchLineUpSnapshot', () => {
       exportLinked: true,
     })
   })
+
+  it('projeta uma linha por escala com terminais de importacao e exportacao', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      bls: [{ id: 'BL1', voyage_id: 24, pod: 'BRVIX', cargo_mode: 'container', ce_mercante: 'CE1', bb_machine_qty: 0, bb_packages_qty: 0 }],
+      voyage_export_schedules: [{
+        id: 'EXP1', voyage_id: 24, pol: 'BRVIX', tem_exportacao: true, has_granite: true, has_empty: false,
+        containers_qty: null, movements_qty: null, ce_status: 'waiting', linked: false,
+      }],
+      voyage_escala_operation_fronts: [
+        { voyage_id: 24, port: 'BRVIX', sentido: 'importacao', modalidade: 'carga_cheia', terminal_id: 'inactive-terminal' },
+        { voyage_id: 24, port: 'BRVIX', sentido: 'exportacao', modalidade: 'granito', terminal_id: 'export-terminal' },
+      ],
+      voyage_escala_terminal_state: [
+        { voyage_id: 24, port: 'BRVIX', terminal_id: 'inactive-terminal', terminal_atb: '2026-08-02', terminal_atd: null, terminal_rtw: null, revision: 1 },
+        { voyage_id: 24, port: 'BRVIX', terminal_id: 'export-terminal', terminal_atb: '2026-08-03', terminal_atd: null, terminal_rtw: null, revision: 1 },
+      ],
+      depots: [
+        { id: 'inactive-terminal', code: 'TVV', active: false },
+        { id: 'export-terminal', code: 'PORTMAC', active: true },
+      ],
+    }))
+
+    const rows = (await fetchLineUpSnapshot()).rows.filter((row) => row.pod === 'BRVIX')
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => ({ rowType: row.rowType, terminal: row.rowType === 'import' ? row.importTerminal : row.exportTerminal }))).toEqual([
+      { rowType: 'import', terminal: 'TVV' },
+      { rowType: 'export', terminal: 'PORTMAC' },
+    ])
+  })
+
+  it('mantem exportacao declarada sem operacao e apresenta TBC sem salvar placeholder', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      voyage_export_schedules: [{
+        id: 'EXP1', voyage_id: 24, pol: 'BRVIX', tem_exportacao: true, has_granite: true, has_empty: false,
+        containers_qty: null, movements_qty: null, ce_status: 'waiting', linked: false,
+      }],
+    }))
+
+    const rows = (await fetchLineUpSnapshot()).rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ rowType: 'export', exportTerminal: 'TBC', exportContainersQty: null, exportMovementsQty: null })
+  })
+
+  it('marca as duas linhas da escala omitida sem perder rowType nem terminais', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      bls: [{ id: 'BL1', voyage_id: 24, pod: 'BRVIX', cargo_mode: 'container', ce_mercante: 'CE1', bb_machine_qty: 0, bb_packages_qty: 0 }],
+      voyage_export_schedules: [{
+        id: 'EXP1', voyage_id: 24, pol: 'BRVIX', tem_exportacao: true, has_granite: true,
+        containers_qty: 7, movements_qty: 9, ce_status: 'waiting', linked: false,
+      }],
+      voyage_escala_operation_fronts: [
+        { voyage_id: 24, port: 'BRVIX', sentido: 'importacao', modalidade: 'carga_cheia', terminal_id: 'import-terminal' },
+        { voyage_id: 24, port: 'BRVIX', sentido: 'exportacao', modalidade: 'granito', terminal_id: 'export-terminal' },
+      ],
+      voyage_escala_terminal_state: [
+        { voyage_id: 24, port: 'BRVIX', terminal_id: 'import-terminal', terminal_atb: '2026-08-02', terminal_atd: null, terminal_rtw: null, revision: 1 },
+        { voyage_id: 24, port: 'BRVIX', terminal_id: 'export-terminal', terminal_atb: '2026-08-03', terminal_atd: null, terminal_rtw: null, revision: 1 },
+      ],
+      depots: [
+        { id: 'import-terminal', code: 'TVV', active: true },
+        { id: 'export-terminal', code: 'PORTMAC', active: true },
+      ],
+      audit_logs: [
+        { entity_type: 'voyage_pod_schedule', entity_id: '24::BRVIX', field_name: 'omitted', new_value: 'true', changed_at: '2026-07-27T00:00:00Z' },
+      ],
+    }))
+
+    const rows = (await fetchLineUpSnapshot()).rows.filter((row) => row.pod === 'BRVIX')
+
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => ({ rowType: row.rowType, omitted: row.omitted }))).toEqual([
+      { rowType: 'import', omitted: true },
+      { rowType: 'export', omitted: true },
+    ])
+    expect(rows.find((row) => row.rowType === 'import')).toMatchObject({ importTerminal: 'TVV', exportTerminal: 'TBC' })
+    expect(rows.find((row) => row.rowType === 'export')).toMatchObject({ importTerminal: 'TBC', exportTerminal: 'PORTMAC' })
+  })
+})
+
+describe('projectLineUpTerminals', () => {
+  it('cobre import-only, export-only, ambos e TBC', async () => {
+    const { projectLineUpTerminals } = await import('../lineup')
+    const fronts = [
+      { sentido: 'importacao' as const, terminalId: 't-import' },
+      { sentido: 'exportacao' as const, terminalId: 't-export' },
+    ]
+    const states = [
+      { terminalId: 't-import', terminalAtb: '2026-08-02' },
+      { terminalId: 't-export', terminalAtb: '2026-08-03' },
+    ]
+    const codes = new Map([['t-import', 'TVV'], ['t-export', 'PORTMAC']])
+
+    expect(projectLineUpTerminals({ fronts, terminalStates: states, terminalCodes: codes, direction: 'importacao' })).toBe('TVV')
+    expect(projectLineUpTerminals({ fronts, terminalStates: states, terminalCodes: codes, direction: 'exportacao' })).toBe('PORTMAC')
+    expect(projectLineUpTerminals({ fronts: [], terminalStates: states, terminalCodes: codes, direction: 'importacao' })).toBe('TBC')
+    expect(projectLineUpTerminals({ fronts: [{ sentido: 'exportacao', terminalId: null }], terminalStates: [], terminalCodes: codes, direction: 'exportacao' })).toBe('TBC')
+  })
+
+  it('ordena multiplos terminais por ATB, sem ATB e codigo, preservando historico inativo', async () => {
+    const { projectLineUpTerminals } = await import('../lineup')
+    expect(projectLineUpTerminals({
+      fronts: [
+        { sentido: 'importacao', terminalId: 't-z' },
+        { sentido: 'importacao', terminalId: 't-a' },
+        { sentido: 'importacao', terminalId: 't-inactive' },
+        { sentido: 'importacao', terminalId: null },
+      ],
+      terminalStates: [
+        { terminalId: 't-z', terminalAtb: null },
+        { terminalId: 't-a', terminalAtb: '2026-08-01' },
+        { terminalId: 't-inactive', terminalAtb: '2026-08-01' },
+      ],
+      terminalCodes: new Map([['t-z', 'ZZZ'], ['t-a', 'AAA'], ['t-inactive', 'OLD']]),
+      direction: 'importacao',
+    })).toBe('AAA / OLD / ZZZ / TBC')
+  })
 })

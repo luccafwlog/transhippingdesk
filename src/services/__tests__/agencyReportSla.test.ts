@@ -46,6 +46,7 @@ function closedReport(overrides: Partial<ClosedAgencyReportListItem> = {}): Clos
   return {
     voyage_id: 1,
     port: 'BRVIX',
+    terminal: null,
     closed_at: '2026-02-10T12:00:00.000Z',
     closed_by: 'user-1',
     voyage: { voyage_number: 'V001', vessel: { name: 'NAVIO TESTE' } },
@@ -238,6 +239,25 @@ describe('listAgencyReportSlaRows', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0].port).toBe('BRVIX')
+  })
+
+  it('preserva o terminal no resultado para distinguir dois ADRs da mesma escala', async () => {
+    const builder = makeQueryBuilder({
+      data: [
+        closedReport({ terminal: 'TVV' }),
+        closedReport({ terminal: 'PORTMAC' }),
+      ],
+      error: null,
+    })
+    supabaseMocks.from.mockReturnValue(builder)
+    voyageRouteSchedulesMocks.listVoyageEscalaSchedulesByVoyageIds.mockResolvedValue(
+      new Map([[1, [{ entityId: '1::BRVIX', voyageId: 1, port: 'BRVIX', omitted: false } as VoyageEscalaSchedule]]]),
+    )
+
+    const rows = await listAgencyReportSlaRows()
+
+    expect(rows.map((row) => row.terminal).sort()).toEqual(['PORTMAC', 'TVV'])
+    expect(new Set(rows.map((row) => `${row.voyageId}::${row.port}::${row.terminal ?? 'legacy'}`)).size).toBe(2)
   })
 
   it('não consulta a projeção de escalas quando não há linhas mapeadas (snapshots todos legados)', async () => {

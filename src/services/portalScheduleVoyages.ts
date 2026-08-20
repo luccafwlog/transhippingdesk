@@ -10,6 +10,7 @@ export type PortalScheduleRpcRow = {
   kind: 'pol' | 'pod'
   date_value: string | null
   actual_value?: string | null
+  omitted?: boolean
 }
 
 export type PortalScheduleVoyage = {
@@ -20,6 +21,7 @@ export type PortalScheduleVoyage = {
   datesByLabel: Record<string, string>
   forecastDatesByLabel?: Record<string, string>
   actualDatesByLabel?: Record<string, string>
+  omittedByLabel?: Record<string, boolean>
   earliestEta: string | null
 }
 
@@ -37,9 +39,16 @@ export function projectPortalScheduleRows(rows: PortalScheduleRpcRow[]): PortalS
       datesByLabel: {},
       forecastDatesByLabel: {},
       actualDatesByLabel: {},
+      omittedByLabel: {},
       earliestEta: null,
     }
     const label = LABEL_BY_CODE.get(row.port_code)
+    if (label) {
+      if (row.omitted) {
+        const omittedByLabel = voyage.omittedByLabel ?? (voyage.omittedByLabel = {})
+        omittedByLabel[label] = true
+      }
+    }
     if (label && row.date_value) {
       const forecastDatesByLabel = voyage.forecastDatesByLabel ?? (voyage.forecastDatesByLabel = {})
       const actualDatesByLabel = voyage.actualDatesByLabel ?? (voyage.actualDatesByLabel = {})

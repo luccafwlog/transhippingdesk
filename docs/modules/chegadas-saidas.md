@@ -53,8 +53,10 @@ ao mesmo `createOrAttachVoyageFromSchedule`. Datas aceitas: ISO ou
 `ShipScheduleWidget` usa `usePortalScheduleVoyages` com query key
 `['portal-schedule-voyages']`. O serviço chama a RPC `portal_ship_schedule`,
 que é `SECURITY DEFINER` e allowlisted para `anon`, retornando somente viagens
-ativas com `show_on_portal = true`. O widget renderiza as colunas pela constante
-de lanes e ordena pela menor ETA de POD.
+ativas com `show_on_portal = true`. PODs deletados continuam ocultos; PODs
+omitidos retornam com `omitted=true` e são renderizados como `OMIT`, distinto de
+`X` e sem representar uma data. O widget renderiza as colunas pela constante de
+lanes e ordena pela menor ETA de POD.
 
 ## Catálogo de ações
 
@@ -72,8 +74,8 @@ de lanes e ordena pela menor ETA de POD.
 - A lista de portos-vitrine é única em `PORTAL_SCHEDULE_LANES`.
 - `show_on_portal` controla visibilidade; viagens manuais começam ocultas.
 - Viagens `completed` não aparecem na RPC do Portal.
-- PODs omitidos pelo armador (`audit_logs.field_name='omitted'`) nao aparecem
-  na projecao do Portal, ainda que permanecam rastreaveis em Viagens.
+- PODs omitidos pelo armador (`audit_logs.field_name='omitted'`) aparecem na
+  projeção como `OMIT`, enquanto snapshots deletados permanecem ocultos.
 - "Não escala" não cria schedule para a lane.
 - Chegadas e Saídas nunca grava ATA/ATD/RTW/CE/linked.
 - A ordenação do quadro é automática pela menor ETA; não há setas manuais nem
@@ -107,5 +109,5 @@ de lanes e ordena pela menor ETA de POD.
   A migration `257` passou a exigir `is_active_read_user()` e removeu o serviço
   e o hook mortos que as liam pela sessão do Portal. Ver
   `docs/archive/audits/security-audit-portal-2026-08-05.md`.
-- A RPC `portal_ship_schedule` ainda precisa ser aplicada no ambiente Supabase
-  alvo antes do Portal consumir dados reais.
+- A migration `314_ship_schedule_shows_omitted.sql` mantém a projeção do Portal
+  alinhada à programação interna e deve acompanhar o deploy do código.

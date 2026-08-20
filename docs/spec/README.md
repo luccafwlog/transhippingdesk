@@ -20,6 +20,11 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 Specs funcionais aprovadas permanecem nesta tabela enquanto o plano derivado
 estiver pendente; depois são movidas para o [arquivo histórico](../archive/specs/).
+
+A spec de múltiplos terminais foi concluída na PR #550 e está arquivada em
+[`../archive/specs/`](../archive/specs/). O comportamento vigente foi promovido
+para `CONTEXT.md` e `docs/ARCHITECTURE.md`.
+
 A spec comportamental abaixo é permanente e não entra nesta tabela.
 
 ## Behavioral Specification

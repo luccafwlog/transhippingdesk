@@ -33,9 +33,9 @@ gravidade, fechamento, reabertura, detecção e destino.
    tipo, origem, departamento, destino, estado e histórico próprios. A
    Notificação Interna é entrega individual no sino para a união dos
    departamentos dos itens ativos; a notificação não fecha o agregado.
-2. BL, Baplie e CE têm a viagem como entidade pai; o alerta pós-ATD de
-   exportação tem a escala como entidade pai. As condições não criam alertas
-   por BL ou container: entram como itens do agregado de viagem/escala.
+2. BL, Baplie e CE têm a viagem como entidade pai. Marcos compartilhados do
+   porto ficam na escala; ATB/ATD e exportação pós-saída pertencem ao terminal
+   que operou a frente. As condições não criam alertas por BL ou container.
 3. Alertas pertencentes aos ADRs, inclusive agency_report_department_pending e
    agency_report_deadline_missed, ficam no #524 e não são duplicados aqui.
 4. Não há escalonamento genérico por envelhecimento. D−7, D−5 e o override D−7
@@ -57,12 +57,13 @@ gravidade, fechamento, reabertura, detecção e destino.
 
 ## Suporte físico das entidades
 
-**Código:** a escala ainda não é uma tabela própria. A parte operacional é
+**Código:** a projeção da escala por porto continua em
 reconstruída de `audit_logs` com `entity_type = 'voyage_pod_schedule'` e
 `entity_id = voyageId::PORTO`; `deleted` é soft-delete e `omitted` representa
-escala omitida. A identidade canônica usada pela projeção é a de
-`buildVoyagePodEntityId`. A ADR 0027 mantém a promoção para uma tabela própria
-como evolução futura, fora deste bloco.
+escala omitida. A PR #550 acrescentou `voyage_escala_terminal_state`, com chave
+`(voyage_id, port, terminal_id)`, `terminal_atb` e `terminal_atd`, além das
+frentes em `voyage_escala_operation_fronts`. Portanto, a projeção por porto não
+pode ser usada para colapsar dois terminais.
 
 **Código:** o planejamento de exportação já vive em
 `voyage_export_schedules`, cuja chave operacional é `(voyage_id, pol)`. A
@@ -85,15 +86,17 @@ migration 271, sem criar uma regra paralela em TypeScript.
 
 Os agregados de BL, Baplie e CE usam `entity_type = 'voyage'` e
 `entity_id = voyageId` e devem ser rotulados como **Viagem** em `/alertas`.
-O agregado pós-ATD usa `entity_type = 'voyage_pod_schedule'` e
-`entity_id = voyageId::PORTO` e deve ser rotulado como **Escala**. O roteador
+Marcos compartilhados usam `entity_type = 'voyage_pod_schedule'` e
+`entity_id = voyageId::PORTO`. Marcos de atracação/saída e exportação por
+terminal usam `entity_type = 'voyage_escala_terminal'` e
+`entity_id = voyageId::PORTO::TERMINAL`, rotulado como **Terminal da Escala**. O roteador
 compartilhado precisa reconhecer os dois tipos, produzir links de ação e nunca
 exibir o tipo cru ou o destino genérico.
 
 Os destinos canônicos são `/viagens/:voyageId` para BL/CE,
 `/baplie?voyage=:voyageId` para Baplie ausente/divergente e
-`/viagens/:voyageId?escala=PORTO` para exportação pós-ATD. O parâmetro `escala`
-preserva a escala selecionada no detalhe da viagem.
+`/viagens/:voyageId?escala=PORTO&terminal=TERMINAL` para ações terminalizadas.
+Os parâmetros preservam o porto e o terminal selecionados.
 
 ## Prazo e contexto de importação
 
@@ -133,9 +136,10 @@ agregado, e a audiência do sino é recalculada pela união dos itens ativos.
 | Baplie ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha com importação válida; reabre se o arquivo for invalidado/removido | D−7 e invalidação, somente com POD elegível; /baplie filtrado |
 | Cobertura documental Baplie/BL | Item crítico no alerta agregado + Notificação para usuários ativos de Documentação | Viagem | Fecha quando todas as rotas cobertas estiverem sem divergência; a recorrência reabre o mesmo agregado | Imediato quando rotas cobertas; override em D−7; /baplie filtrado |
 | CE Mercante ausente | Alerta crítico + Notificação para usuários ativos de Documentação | Viagem | Fecha quando todos os BLs da viagem com POD têm CE; reabre com nova pendência | D−5 e alterações materiais; /viagens/:voyageId |
-| `/chegadas-saidas`: ATD, POL/POD e prazos de agência | Nenhum evento novo | ADR do #524 para o prazo; fluxo normal para POL/POD | Mantém contratos existentes; alterações de POL/POD reavaliam o alerta de BL quando elegíveis | ATD da escala unificada alimenta `agency_report_deadline_missed` da migration 271; não duplicar no #523 |
-| Datas da escala: ETA → ATA → ETB → ATB → ETD → ATD | Alerta normal + Notificação para usuários ativos de Operações e Documentação | Escala | Só um marco fica ativo por vez; cada item fecha quando sua data real é preenchida e abre o próximo conforme a regra temporal | Mutação de qualquer uma das seis datas e varredura server-only a cada 15 minutos; `/viagens/:voyageId?escala=PORTO` |
-| Exportação pós-ATD | Alerta normal + Notificação para todos os usuários ativos de Equipamentos | Escala | Fecha quando tipos esperados têm vínculo; remoção reabre | ATD e alterações; viagem com escala selecionada |
+| `/chegadas-saidas`: ATD, POL/POD e prazos de agência | Nenhum evento novo | ADR do #524 para o prazo; fluxo normal para POL/POD | Alterações de POL/POD reavaliam o alerta de BL | ADR terminalizado usa `terminal_atd`; legado usa ATD da escala. Não duplicar no #523 |
+| Datas compartilhadas: ETA → ATA → ETB → ETD | Alerta normal + Notificação para Operações e Documentação | Escala/porto | Um marco compartilhado ativo por vez | Mutação das datas e varredura a cada 15 minutos; `/viagens/:voyageId?escala=PORTO` |
+| Datas do terminal: ATB → ATD | Alerta normal + Notificação para Operações e Documentação | Terminal da escala | Cada terminal progride independentemente; dois terminais não se resolvem entre si | `terminal_atb`/`terminal_atd`; `/viagens/:voyageId?escala=PORTO&terminal=TERMINAL` |
+| Exportação pós-ATD | Alerta normal + Notificação para Equipamentos | Terminal da frente | Fecha quando os tipos esperados daquele terminal têm vínculo; remoção reabre | `terminal_atd` e alterações de frente; destino terminalizado |
 | `/embarquevazios`: depot/terminal não cadastrado na planilha | Falha da importação + feedback transacional, sem alerta persistente ou Notificação Interna | Arquivo/importação | O arquivo não é importado com sucesso; corrigir e reenviar | Ação na própria tela |
 | `/embarquevazios/depots` | Nenhum evento próprio | — | — | Cadastro/consulta normal |
 | `/vazios-importacao` | Nenhum evento próprio | — | — | Consulta/fluxo normal |
@@ -144,9 +148,10 @@ agregado, e a audiência do sino é recalculada pela união dos itens ativos.
 
 ## Ciclo sequencial das datas da escala
 
-O ciclo de datas usa o agregado da escala
-`entity_type = 'voyage_pod_schedule'`, `entity_id = voyageId::PORTO`. Há
-um único item de marco ativo por vez dentro desse agregado, com a audiência
+O ciclo tem duas camadas. ETA, ATA, ETB e ETD são fatos compartilhados no
+agregado `voyage_pod_schedule / voyageId::PORTO`. ATB e ATD são fatos do
+agregado `voyage_escala_terminal / voyageId::PORTO::TERMINAL`. Há
+um único item de marco ativo por camada/terminal, com a audiência
 conjunta de Operações e Documentação. A dimensão `milestone` preserva qual
 data está sendo aguardada; ela não cria um agregado separado.
 
@@ -154,9 +159,9 @@ data está sendo aguardada; ela não cria um agregado separado.
 |---|---|---|
 | ATA pendente | A data local do ETA foi atingida ou ultrapassada e ATA ainda está vazia | Fecha ao preencher ATA; abre ETB pendente |
 | ETB pendente | ATA foi preenchida e ETB ainda está vazia | Fecha ao preencher ETB; aguarda a data do ETB para abrir ATB pendente |
-| ATB pendente | A data local do ETB foi atingida ou ultrapassada e ATB ainda está vazia | Fecha ao preencher ATB; abre ETD pendente |
-| ETD pendente | ATB foi preenchida e ETD ainda está vazia | Fecha ao preencher ETD; aguarda a data do ETD para abrir ATD pendente |
-| ATD pendente | A data local do ETD foi atingida ou ultrapassada e ATD ainda está vazia | Fecha ao preencher ATD; encerra o ciclo de alertas de datas da escala |
+| ATB pendente | Para cada terminal atribuído, a data local do ETB foi atingida e `terminal_atb` está vazio | Fecha apenas ao preencher o ATB daquele terminal |
+| ETD pendente | O porto tem ATB em ao menos um terminal e ETD compartilhado vazio | Fecha ao preencher ETD; abre a avaliação de ATD por terminal |
+| ATD pendente | Para cada terminal atracado, a data local do ETD foi atingida e `terminal_atd` está vazio | Fecha apenas ao preencher o ATD daquele terminal |
 
 As comparações de ETA, ETB e ETD usam a data local de
 `America/Sao_Paulo`, com o próprio dia incluído. Uma etapa já satisfeita não
@@ -287,9 +292,9 @@ expectativa — não um enum paralelo ao modelo persistido — com as opções:
 - ambos.
 
 Uma escala somente exportação não gera alertas de BL, Baplie ou CE. Granito e
-vazios podem ser vinculados após a saída/ATD da escala. Uma escala mista
+vazios podem ser vinculados após a saída/ATD do terminal da frente. Uma escala mista
 participa dos fluxos de importação e exportação; sem POD, somente o fluxo de
-exportação fica ativo. O alerta abre após ATD confirmado e é por escala:
+exportação fica ativo. O alerta abre após `terminal_atd` e é por terminal:
 
 - somente granito exige granito;
 - somente vazios exige vazio;
@@ -297,7 +302,7 @@ exportação fica ativo. O alerta abre após ATD confirmado e é por escala:
 - tipo não esperado é ignorado: não fecha nem reabre o alerta;
 - remoção de vínculo reabre e notifica;
 - alteração do tipo recalcula imediatamente;
-- destino: viagem com a escala selecionada.
+- destino: viagem com porto e terminal selecionados.
 
 ## Nova implementação necessária
 
@@ -317,16 +322,21 @@ de implementação:
    divergência de containers em rotas sem BL.
 8. Detector D−5 de CE para `public.bls` da viagem com POD; `granite_bls` fica
    fora deste detector e não há BLs de exportação neste contrato.
-9. Detector pós-ATD de exportação por escala.
+9. Detector pós-ATD de exportação por terminal/frente.
 10. Reavaliação imediata após BL, Baplie, POD, POL, ETA ou tipo de exportação.
 11. Roteamento compartilhado para viagem/Baplie e seleção de escala.
 12. Verificação e cobertura de regressão da importação de vazios já
     all-or-nothing para depot/terminal inválido; preservar serviço, página,
     feedback transacional e ausência de sucesso parcial.
-13. Cadeia sequencial de ETA/ATA/ETB/ATB/ETD/ATD, incluindo avanços no mesmo
+13. Cadeia de ETA/ATA/ETB/ETD compartilhados e ATB/ATD por terminal, incluindo
+    dois terminais no mesmo porto, avanços no mesmo
     dia, preenchimento antecipado de datas, não paralelismo, deduplicação,
     fan-out para Operações e Documentação e nova notificação após dispensa
     vencida.
+14. Omissão fecha itens operacionais ativos do porto e dos seus terminais sem
+    apagar histórico; `OMIT` permanece visível. O evento de omissão/COD usa as
+    Notificações do Portal já implementadas na PR #553 e não cria produtor
+    interno duplicado neste bloco.
 
 Nenhuma coluna, enum ou migration é pré-inventada aqui. A implementação deve
 validar as tabelas e RPCs atuais antes de escolher a próxima migration

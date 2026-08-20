@@ -4,7 +4,7 @@ Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
 negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
 aos ADRs.
 
-Verificado em 2026-08-03.
+Verificado em 2026-08-18.
 
 ## Operação marítima
 
@@ -61,7 +61,24 @@ integram sua linha do tempo.
 **Omissao de Escala**
 Evento operacional em que o armador nao realiza a escala prevista em um POD. A
 carga afetada e descarregada em outro porto da mesma viagem para seguir em
-transbordo ou ser convertida em COD. Nao calcula nem automatiza financeiro.
+transbordo ou ser convertida em COD. A omissao em si nao tem efeito financeiro;
+so o COD reprecifica a Taxa Local, no destino final (ADR 0051). CE Mercante e
+Demurrage seguem manuais.
+
+Uma omissao registrada por engano e reversivel por Admin, com justificativa e
+notificacao de correcao ao cliente, enquanto nenhum B/L afetado estiver em COD.
+Omitir duas vezes o mesmo POD e erro, nao atualizacao silenciosa.
+
+A escala omitida permanece visivel na programacao de navios, marcada como
+`OMIT` na coluna daquele porto — para o operador em Chegadas e Saidas e para o
+cliente no Portal (ADR 0052). `OMIT` e distinto de `X`: um diz que a escala nao
+vai acontecer, o outro que a data ainda nao foi informada. O motivo interno da
+omissao nao acompanha essa marca.
+
+Reversão da omissão é uma operação Admin com justificativa: a decisão fica
+marcada como revertida e seus vínculos permanecem para auditoria e histórico
+financeiro. Uma segunda omissão do mesmo POD é rejeitada. A escala omitida é
+projetada como `OMIT` no Portal; a marca é distinta de `X` (data desconhecida).
 
 **Porto de Transbordo**
 Porto onde a carga de uma escala omitida é efetivamente descarregada para seguir
@@ -76,7 +93,9 @@ nao uma nova Viagem; COD permanece uma excecao individual por B/L.
 
 O ADR do Porto de Transbordo (Porto onde a carga foi efetivamente
 descarregada) passa a contar essa carga, separada da carga de destino final
-própria daquele porto — ver Porto de Transbordo e ADR.
+própria daquele porto. A apuração é por porto; no modelo terminalizado ela
+aparece no ADR do terminal que operou a frente correspondente — ver Porto de
+Transbordo e ADR.
 
 O registro global e mantido na Viagem. Cada B/L afetado exibe os dados herdados
 para consulta e conserva apenas sua acao individual de COD. Alteracoes do
@@ -94,13 +113,48 @@ Transbordo; complementos posteriores atualizam esse card sem criar uma nova
 notificacao a cada edicao.
 
 **COD (Change of Destination)**
-Alteracao operacional do destino final do B/L para o Porto de Transbordo apos
-omissao de escala. E uma excecao por B/L e mantem efeitos financeiros manuais.
-Nao reprecifica Taxas Locais: o fato gerador delas e a emissao do CE Mercante,
-e a taxa devida continua sendo a do porto declarado no CE mesmo quando a carga
-e retirada em outro porto.
+Alteracao do destino final do B/L para o Porto de Transbordo apos omissao de
+escala. E uma excecao por B/L, marcada deliberadamente pelo operador com
+justificativa registrada.
 
-- **Related:** Taxas Locais, Omissao de Escala, Porto de Transbordo
+Reprecifica a Taxa Local: ela e devida no destino final, e o COD muda o destino
+final (ADR 0051). O Transbordo nao reprecifica, porque nele o destino final e
+preservado — a carga segue por navio de terceiro ate o POD original. A diferenca
+apurada vira um Ajuste de COD; CE Mercante e Demurrage seguem manuais.
+
+`set_bl_cod` grava a decisão e calcula um Ajuste de COD append-only. A prévia
+usa o ROE vigente para linhas em USD; quando o B/L já foi faturado, o valor
+original vem do snapshot do documento efetivamente emitido e nunca da tabela
+atual do POD antigo. A emissão de fatura complementar, cancelamento/reemissão
+e restituição exige conclusão vinculada pelo Financeiro.
+
+O CE Mercante do B/L nunca muda. O CE Master tambem nao muda de numero, mas o
+B/L em COD deixa de constar no manifesto do porto omitido e passa a constar no
+manifesto do novo destino; se essa rota ainda nao existir na viagem, ela nasce
+sem manifesto e o pendente fica visivel ate alguem informar o numero.
+
+- **Related:** Ajuste de COD, Taxas Locais, Omissao de Escala, Porto de Transbordo
+
+**Ajuste de COD**
+Diferenca financeira apurada quando um COD reprecifica a Taxa Local de um B/L ja
+faturado. Quando falta valor, e cobrada por Fatura Complementar de COD; quando
+sobra, o destino depende do que ja entrou. Antes do faturamento nao ha ajuste:
+B/L nao faturado e simplesmente recalculado, e B/L faturado e nao pago gera
+pendencia de cancelar e reemitir a fatura.
+
+Com pagamento parcial, a diferenca a menor **abate o saldo em aberto** antes de
+virar restituicao: so o que exceder o valor efetivamente pago volta como
+dinheiro. Devolver a diferenca cheia restituiria o que nunca entrou. Com a
+fatura integralmente paga, a diferenca a menor vira restituicao direto.
+
+O COD apura e registra a diferenca; a emissao do documento e a liberacao da
+restituicao sao atos do Financeiro, nunca automaticos.
+
+O ajuste é criado automaticamente pela transição de COD e permanece pendente
+até que Financeiro vincule o documento resultante (ou registre abatimento/
+restituição pela operação transacional de liquidação).
+
+- **Related:** COD, Taxas Locais, Recebivel Local, Invoice Individual
 
 **Visao Geral do B/L**
 Informa a aba padrao da ficha do B/L que consolida viagem e escalas,
@@ -183,9 +237,13 @@ origem, não uma redigitação: carga, veículos, vazios, depot e overtime nasce
 nos seus módulos; apenas ocorrências e sign-offs nascem no próprio ADR. Existe
 desde que a escala existe; suas pendências só alertam após o ATD da escala.
 
-A identidade do ADR é (viagem, porto): uma escala que opera em dois terminais
-mantém um único ADR, com o terminal como atributo do cabeçalho. O armador
-exibido no cabeçalho deriva do navio da viagem.
+A identidade do ADR legado continua sendo (viagem, porto). Para o modelo
+terminalizado, a identidade nova é (viagem, porto, terminal), materializada por
+`report_id`: uma frente pertence a um único terminal, várias frentes no mesmo
+terminal compartilham um ADR, e cada terminal tem fechamento independente.
+Frente sem terminal é `TBC`, não cria ADR e bloqueia o fechamento. ADRs legados
+sem `terminal_id` permanecem legíveis pelo caminho antigo. O armador exibido no
+cabeçalho deriva do navio da viagem.
 
 - **Related:** Seção do ADR, Resolução de Seção, Sign-off Departamental, Fechamento do ADR, Listagem do operado
 
@@ -246,7 +304,7 @@ Alimenta o ADR; a conferência da fatura correspondente é do Financeiro.
 **Embarque de Vazios (EXP)**
 Registro operacional do embarque de containers vazios de exportação de uma
 escala, criado do zero por Equipamentos no módulo VAZIOS EXP. Existe **um por
-escala**, com a mesma identidade do ADR — (viagem, porto) —, e reúne duas partes
+escala** — (viagem, porto), a identidade da Escala —, e reúne duas partes
 de naturezas distintas:
 
 - a **Lista de Unidades Embarcadas** — o fato: quais containers foram
@@ -306,6 +364,13 @@ sugeridos** de seus serviços. Cada local tem um **tipo**:
   time e nunca gera armazenagem: a unidade que vem dele descarregou, ficou no
   local e está sendo reembarcada. Cobra serviços como qualquer outro local.
 
+Terminal Portuário exige um porto brasileiro do cadastro e persiste o vínculo
+em `depots.port_id -> ports.id`; Depot comum continua sem porto. A escolha de
+terminal na escala usa somente terminais ativos ligados ao porto da escala.
+Terminal inativo não pode ser atribuído a uma nova frente, mas permanece
+visível quando referenciado por histórico. O código é normalizado e único;
+exclusão física é bloqueada por referências.
+
 Não é a fonte do cálculo: ao lançar uma Linha de Serviço do Embarque, o usuário
 escolhe o local e o serviço, e o sistema **sugere** o valor unitário registrado,
 que ele pode sobrescrever naquela linha. O valor efetivo mora sempre na linha
@@ -316,10 +381,10 @@ Granito, que é genuinamente uma tabela de tarifas.
 
 - **Synonyms / avoid:** "Cadastro de Depot" (nome anterior, quando o cadastro só
   tinha depots), "Taxas de Vazios", "tabela de taxas de depot"
-- **Distinto de:** o **porto** da escala (identidade `(viagem, porto)` do ADR,
-  ex.: BRVIX). Um Terminal Portuário fica *dentro* de um porto. O terminal do
-  cabeçalho do ADR continua sendo texto livre preenchido pelo setor responsável,
-  sem vínculo com este cadastro.
+- **Distinto de:** o **porto** da escala (identidade `(viagem, porto)` do ADR
+  legado, ex.: BRVIX). Um Terminal Portuário fica *dentro* de um porto. ADR
+  novo referencia o terminal cadastrado por `terminal_id`; o texto permanece
+  apenas para leitura histórica legada.
 - **Related:** Free Time de Storage, Embarque Direto, Linha de Serviço do
   Embarque, Natureza do Serviço, Tabela de Taxas — Granito
 
@@ -700,12 +765,11 @@ O cálculo tem **duas fases**:
   os B/Ls da viagem já existem e o rateio de container compartilhado está certo.
 
 O **fato gerador é a emissão do CE Mercante**, não a chegada da carga. Emitido o
-CE, a taxa local é devida pelo porto declarado nele, e nada que aconteça depois
-com o navio a altera: Omissão de Escala, Transbordo e COD são irrelevantes para
-taxa local. No transbordo a carga chega ao POD original de qualquer forma; no
-COD o cliente retira em outro porto por conveniência própria, e a taxa continua
-sendo a do porto do CE — o desvio físico é ônus operacional do armador, não
-reprecificação para o cliente.
+CE, a taxa local é devida pelo porto declarado nele. O Transbordo preserva o
+destino e não reprecifica; o COD é a exceção de ADR 0051: altera o destino final
+e gera um Ajuste de COD pela diferença entre os valores localizados, mantendo o
+CE Mercante inalterado. A emissão do documento financeiro resultante é um ato
+do Financeiro.
 
 Por isso a fatura de taxas locais é emitida dias antes da atracação: o cliente
 precisa dela paga para retirar a carga, e não há fato posterior capaz de mudar

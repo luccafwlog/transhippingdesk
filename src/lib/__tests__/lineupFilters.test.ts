@@ -58,8 +58,8 @@ function row(overrides: Partial<LineUpRow>): LineUpRow {
   return {
     id: 'row', voyageId: 99, voyageNumber: '000', voyageStatus: 'active', vesselName: 'Navio', pod: 'POD', eta: null, etb: null,
     ata: null, atb: null,
-    rowType: 'import', vin: 0, car: 0, cg: 0, total: 0, mty: 0, rtw: null, bbMachines: 0, bbPackages: 0, bbTotal: 0,
-    atd: null, ceStatus: 'waiting', linked: false, exportHasGranite: null, exportContainersQty: null, exportMovementsQty: null,
+    rowType: 'import', importTerminal: 'TBC', exportTerminal: 'TBC', vin: 0, car: 0, cg: 0, total: 0, mty: 0, rtw: null, bbMachines: 0, bbPackages: 0, bbTotal: 0,
+    atd: null, omitted: false, ceStatus: 'waiting', linked: false, exportHasGranite: null, exportContainersQty: null, exportMovementsQty: null,
     exportCeStatus: null, exportLinked: null, ...overrides,
   }
 }
