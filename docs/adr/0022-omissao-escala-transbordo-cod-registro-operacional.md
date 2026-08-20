@@ -44,3 +44,14 @@ global em `voyage_omissions`, complementável pela RPC auditada
 (`transshipment` ou `cod`). O Portal projeta os dados globais vigentes no card
 `Informações de Transbordo`; somente a omissão inicial e o COD individual criam
 notificações.
+
+## Nota editorial — 2026-08-19 (exclusão do `portal_ship_schedule` supersedida)
+
+A decisão de excluir PODs omitidos da RPC `portal_ship_schedule` foi revista
+pela [ADR 0052](./0052-escala-omitida-visivel-na-programacao.md): a escala
+omitida volta a aparecer na programação, marcada como `OMIT`, para o operador e
+para o cliente. Esconder tornava uma escala cancelada indistinguível de uma
+escala sem data informada.
+
+As outras duas exclusões da mesma linha — `getProximaEscala` e a conclusão
+automática da viagem — permanecem válidas, assim como todo o resto desta ADR.

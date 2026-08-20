@@ -3,7 +3,9 @@ import {
   createConsolidatedInvoice,
   listConsolidatableReceivables,
   listInvoiceRefunds,
+  listPendingCodAdjustments,
   registerLedgerInvoicePayment,
+  settleCodAdjustment,
   settleInvoiceRefund,
   type ConsolidatableReceivableFilters,
 } from '../services/billingLedger'
@@ -26,6 +28,7 @@ export function invalidateBillingLedgerQueries(qc: Pick<QueryClient, 'invalidate
   qc.invalidateQueries({ queryKey: queryKeys.customers.detail() })
   qc.invalidateQueries({ queryKey: ['invoice-detail'] })
   qc.invalidateQueries({ queryKey: ['invoice-refunds'] })
+  qc.invalidateQueries({ queryKey: ['cod-adjustments'] })
   qc.invalidateQueries({ queryKey: ['financial-alerts'] })
   qc.invalidateQueries({ queryKey: ['op-count'] })
   qc.invalidateQueries({ queryKey: ['reconciliation-history'] })
@@ -57,6 +60,21 @@ export function useSettleInvoiceRefund() {
   const invalidate = useLedgerInvalidation()
   return useMutation({
     mutationFn: settleInvoiceRefund,
+    onSuccess: invalidate,
+  })
+}
+
+export function usePendingCodAdjustments() {
+  return useQuery({
+    queryKey: ['cod-adjustments', 'pending'],
+    queryFn: listPendingCodAdjustments,
+  })
+}
+
+export function useSettleCodAdjustment() {
+  const invalidate = useLedgerInvalidation()
+  return useMutation({
+    mutationFn: settleCodAdjustment,
     onSuccess: invalidate,
   })
 }

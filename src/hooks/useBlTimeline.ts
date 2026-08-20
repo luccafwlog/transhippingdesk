@@ -4,7 +4,7 @@ import { BL_TIMELINE_PAGE_SIZE, fetchBlTimeline } from '../services/blTimeline'
 
 export function useBlTimeline(blId?: string) {
   return useInfiniteQuery({
-    queryKey: blId ? queryKeys.bls.timeline(blId) : ['bl-timeline', 'nil'],
+    queryKey: blId ? queryKeys.bls.timeline(blId) : queryKeys.bls.timeline('nil'),
     enabled: Boolean(blId),
     initialPageParam: 0,
     queryFn: ({ pageParam }) => fetchBlTimeline(blId!, pageParam as number),

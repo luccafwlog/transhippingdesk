@@ -58,11 +58,13 @@ export async function createAdrScenarios(client, fixture) {
     p_onward_voyage_number: 'QAD26-ONWARD',
     p_onward_etd: '2026-10-10T12:00:00Z',
     p_onward_eta: '2026-10-15T12:00:00Z',
+    p_justification: `${FIXTURE_PREFIX} transshipment confirmado`,
     p_changed_by: fixture.userId,
   })
   await callRpc(client, 'set_bl_cod', {
     p_bl_id: codBlId,
     p_omission_id: omissionId,
+    p_justification: `${FIXTURE_PREFIX} COD autorizado pelo cliente`,
     p_changed_by: fixture.userId,
   })
 

@@ -19,6 +19,7 @@ const vessels = [
     voyage: '001',
     imoNumber: '9876543',
     datesByLabel: { SALVADOR: '2026-01-22' },
+    omittedByLabel: {},
     earliestEta: '2026-01-22',
   },
   {
@@ -27,6 +28,7 @@ const vessels = [
     voyage: '002',
     imoNumber: null,
     datesByLabel: {},
+    omittedByLabel: { VITÓRIA: true },
     earliestEta: null,
   },
 ]
@@ -130,6 +132,12 @@ describe('ChegadasSaidas user behaviours', () => {
     expect(screen.getByRole('link', { name: 'ALPHA' }).getAttribute('href')).toBe(
       'https://www.marinetraffic.com/en/ais/details/ships/imo:9876543',
     )
+  })
+
+  it('mostra OMIT para escala omitida, distinto de X', () => {
+    render(<ChegadasSaidas />)
+    expect(screen.getByText('OMIT')).toBeTruthy()
+    expect(screen.getAllByText('X').length).toBeGreaterThan(0)
   })
 
   it('permite escrita a Equipamentos', () => {

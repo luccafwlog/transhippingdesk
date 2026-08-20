@@ -5,6 +5,7 @@ import { Download, FilePlus2 } from 'lucide-react'
 import { ConsolidatedInvoiceModal } from '../components/billing/ConsolidatedInvoiceModal'
 import { ValidacaoTab } from '../components/billing/ValidacaoTab'
 import { FinancialAlertsPanel } from '../components/billing/FinancialAlertsPanel'
+import { CodAdjustmentsPanel } from '../components/billing/CodAdjustmentsPanel'
 import { InvoiceFiltersBar } from '../components/billing/InvoiceFiltersBar'
 import { FILTER_KEYS, type Filters } from '../components/billing/invoiceFilters'
 import { InvoicesTable } from '../components/billing/InvoicesTable'
@@ -231,13 +232,15 @@ export function TaxasLocais() {
         }}
       />
 
+      <CodAdjustmentsPanel />
+
       <div className="billing-page__tabs mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Módulos de faturamento">
         <TabButton active={activeTab === 'invoices'} label="Faturas" onClick={() => setActiveTab('invoices')} />
         <TabButton active={activeTab === 'validacao'} label="Validação" onClick={() => setActiveTab('validacao')} />
       </div>
 
       {activeTab === 'validacao' ? (
-        <ValidacaoTab userId={user?.id ?? null} initialBlockCode={validacaoInitialBlockCode} />
+        <ValidacaoTab userId={user?.id ?? null} initialBlockCode={validacaoInitialBlockCode} initialBlSearch={searchParams.get('bl') ?? ''} />
       ) : null}
 
       {activeTab === 'invoices' ? (
