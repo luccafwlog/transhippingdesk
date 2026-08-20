@@ -5,6 +5,7 @@ import {
   FINANCIAL_ALERT_EVENTS,
   FINANCIAL_ALERT_TYPES,
   alertEntityLink,
+  alertEntityLinkLabel,
   getEffectiveAlertType,
   getAlertTypeLabel,
   listFinancialAlerts,
@@ -27,20 +28,37 @@ it('envia dispensa temporária ao RPC central com motivo e revisão futura', asy
   })
 })
 
-it('lista os tipos financeiros ativos e exclui Portal/Demurrage após a fila real', async () => {
-  const realQueuePayload = [
-    { id: 1, type: 'billing_calculation_blocked', entity_type: 'bl' },
-    { id: 2, type: 'billing_auto_issue_failed', entity_type: 'bl' },
-    { id: 3, type: 'invoice_overdue', entity_type: 'invoice' },
-    { id: 4, type: 'pix_unreconciled', entity_type: 'pix_transaction' },
-    { id: 5, type: 'portal_dispute_opened', entity_type: 'demurrage_invoice' },
-    { id: 6, type: 'portal_excecao_critica_fatura', entity_type: 'bl' },
-    { id: 7, type: 'demurrage', entity_type: 'container' },
-  ]
-  rpcMock.mockResolvedValue({ data: realQueuePayload, error: null })
+it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/Demurrage', async () => {
+  const rowsByEntityType = {
+    bl: [
+      { id: 10, type: 'aggregate', item_type: 'billing_calculation_blocked', entity_type: 'bl', created_at: '2026-08-18T10:00:00Z' },
+      { id: 10, type: 'aggregate', item_type: 'billing_calculation_blocked', entity_type: 'bl', created_at: '2026-08-18T10:00:00Z' },
+      { id: 11, type: 'portal_excecao_critica_fatura', entity_type: 'bl', created_at: '2026-08-19T10:00:00Z' },
+      { id: 12, type: 'billing_auto_issue_failed', entity_type: 'granite_bl', created_at: '2026-08-20T10:00:00Z' },
+    ],
+    invoice: [
+      { id: 20, type: 'invoice_overdue', entity_type: 'invoice', created_at: '2026-08-20T10:00:00Z' },
+      { id: 21, type: 'portal_dispute_opened', entity_type: 'invoice', created_at: '2026-08-21T10:00:00Z' },
+    ],
+    pix_transaction: [
+      { id: 30, type: 'pix_unreconciled', entity_type: 'pix_transaction', created_at: '2026-08-22T10:00:00Z' },
+      { id: 31, type: 'demurrage', entity_type: 'pix_transaction', created_at: '2026-08-23T10:00:00Z' },
+    ],
+  }
+  rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType }) => ({
+    data: args.p_entity_type ? rowsByEntityType[args.p_entity_type] : [],
+    error: null,
+  }))
 
-  await expect(listFinancialAlerts()).resolves.toEqual(realQueuePayload.slice(0, 4))
-  expect(rpcMock).toHaveBeenCalledWith('list_alert_queue', { p_filter: 'active' })
+  await expect(listFinancialAlerts()).resolves.toEqual([
+    rowsByEntityType.pix_transaction[0],
+    rowsByEntityType.invoice[0],
+    rowsByEntityType.bl[0],
+  ])
+  expect(rpcMock).toHaveBeenCalledTimes(3)
+  expect(rpcMock).toHaveBeenNthCalledWith(1, 'list_alert_queue', { p_filter: 'active', p_entity_type: 'bl' })
+  expect(rpcMock).toHaveBeenNthCalledWith(2, 'list_alert_queue', { p_filter: 'active', p_entity_type: 'invoice' })
+  expect(rpcMock).toHaveBeenNthCalledWith(3, 'list_alert_queue', { p_filter: 'active', p_entity_type: 'pix_transaction' })
 })
 
 it('expõe somente os tipos financeiros ativos do contrato', () => {
@@ -117,6 +135,7 @@ it('rotula eventos ativos e preserva o rótulo legado sem tratá-lo como produto
 
 it('resolve destinos pela unidade do evento e pelo identificador canônico da invoice', () => {
   expect(alertEntityLink({ type: 'portal_dispute_opened', entity_type: 'demurrage_invoice', entity_id: '77' })).toBe('/demurrage')
+  expect(alertEntityLink({ type: 'pix_unreconciled', entity_type: 'pix_transaction', entity_id: 'PIX-77' })).toBe('/reconciliacao')
   expect(alertEntityLink({ type: 'billing_calculation_blocked', entity_type: 'bl', entity_id: 'BL-77' })).toBe('/taxas-locais')
   expect(alertEntityLink({ type: 'billing_auto_issue_failed', entity_type: 'bl', entity_id: 'BL-78' })).toBe('/taxas-locais')
   expect(alertEntityLink({
@@ -132,6 +151,12 @@ it('resolve destinos pela unidade do evento e pelo identificador canônico da in
     metadata: { invoice_id: 42, invoice_number: 'INV-2026-0007' },
   })).toBe('/taxas-locais?invoice=42')
   expect(alertEntityLink({ type: 'invoice_overdue', entity_type: 'invoice', entity_id: 'INV-2026-0007' })).toBe('/taxas-locais')
+})
+
+it('rotula billing de B/L como Taxas Locais e preserva a exceção do Portal como Abrir B/L', () => {
+  expect(alertEntityLinkLabel({ type: 'billing_calculation_blocked', entity_type: 'bl' })).toBe('Taxas Locais')
+  expect(alertEntityLinkLabel({ type: 'billing_auto_issue_failed', entity_type: 'bl' })).toBe('Taxas Locais')
+  expect(alertEntityLinkLabel({ type: 'portal_excecao_critica_fatura', entity_type: 'bl' })).toBe('Abrir B/L')
 })
 
 it('prefere item_type no payload da fundação e cai para type em payload legado', () => {

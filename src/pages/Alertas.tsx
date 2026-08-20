@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { alertEntityLink, dismissAlertItem, formatAgencyReportAlertEntity, getAlertTypeLabel, getEffectiveAlertType, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
+import { alertEntityLink, alertEntityLinkLabel, dismissAlertItem, formatAgencyReportAlertEntity, getAlertTypeLabel, getEffectiveAlertType, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   invoice: 'Fatura',
@@ -163,15 +163,4 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
       </td>
     </tr>
   )
-}
-
-// O mesmo destino é usado pela fila e pelo sino; produtores não escolhem uma
-// tela paralela nem gravam rotas na Notificação Interna.
-function alertEntityLinkLabel(alert: { entity_type: string | null }) {
-  if (alert.entity_type === 'invoice') return 'Ver Fatura'
-  if (alert.entity_type === 'demurrage_invoice') return 'Ver Demurrage'
-  if (alert.entity_type === 'container') return 'Ver Demurrage'
-  if (alert.entity_type === 'bl') return 'Abrir B/L'
-  if (alert.entity_type === 'agency_departure_report' || alert.entity_type === 'voyage') return 'Abrir Viagem'
-  return 'Abrir'
 }

@@ -24,6 +24,13 @@ vi.mock('../../services/alerts', () => ({
   listAlerts: vi.fn(),
   dismissAlertItem: vi.fn().mockResolvedValue(undefined),
   formatAgencyReportAlertEntity: (entityId: string) => entityId,
+  alertEntityLinkLabel: (alert: { entity_type: string | null }) => {
+    if (alert.entity_type === 'invoice') return 'Ver Fatura'
+    if (alert.entity_type === 'demurrage_invoice' || alert.entity_type === 'container') return 'Ver Demurrage'
+    if (alert.entity_type === 'bl') return 'Abrir B/L'
+    if (alert.entity_type === 'agency_departure_report' || alert.entity_type === 'voyage') return 'Abrir Viagem'
+    return 'Abrir'
+  },
   getEffectiveAlertType: (alert: { type: string; item_type?: string | null }) => alert.item_type ?? alert.type,
   alertEntityLink: (alert: { type: string; item_type?: string | null; entity_type: string | null; entity_id: string | null; metadata?: Record<string, unknown> }) => {
     const effectiveType = alert.item_type ?? alert.type

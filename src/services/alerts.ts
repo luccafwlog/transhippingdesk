@@ -130,6 +130,7 @@ export function alertEntityLink(alert: {
   if (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed') {
     return '/taxas-locais'
   }
+  if (alert.entity_type === 'pix_transaction') return '/reconciliacao'
   if (effectiveType === 'portal_dispute_opened' && alert.entity_type === 'demurrage_invoice') {
     return '/demurrage'
   }
@@ -150,6 +151,23 @@ export function alertEntityLink(alert: {
   }
   if (alert.entity_type === 'voyage' && /^\d+$/.test(alert.entity_id)) return `/viagens/${alert.entity_id}`
   return null
+}
+
+export function alertEntityLinkLabel(alert: {
+  type: string
+  item_type?: string | null
+  entity_type: string | null
+}): string {
+  const effectiveType = getEffectiveAlertType(alert)
+  if (alert.entity_type === 'bl' && (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed')) {
+    return 'Taxas Locais'
+  }
+  if (alert.entity_type === 'invoice') return 'Ver Fatura'
+  if (alert.entity_type === 'demurrage_invoice') return 'Ver Demurrage'
+  if (alert.entity_type === 'container') return 'Ver Demurrage'
+  if (alert.entity_type === 'bl') return 'Abrir B/L'
+  if (alert.entity_type === 'agency_departure_report' || alert.entity_type === 'voyage') return 'Abrir Viagem'
+  return 'Abrir'
 }
 
 function invoiceLink(alert: { entity_id: string | null; metadata?: Record<string, unknown> }): string {
@@ -274,9 +292,34 @@ export async function resolveAlertItem(input: {
 }
 
 export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
-  const alerts = await listAlerts('active')
+  const financialEntityTypes = ['bl', 'invoice', 'pix_transaction'] as const
   const financialTypes = new Set<string>(FINANCIAL_ALERT_TYPES)
-  return alerts.filter((alert) => financialTypes.has(getEffectiveAlertType(alert)))
+  const alertsByEntityType = await Promise.all(
+    financialEntityTypes.map((entityType) => listAlerts('active', entityType)),
+  )
+  const uniqueAlerts = new Map<string, AlertQueueRow>()
+
+  for (const alerts of alertsByEntityType) {
+    for (const alert of alerts) {
+      const effectiveType = getEffectiveAlertType(alert)
+      const expectedEntityType = FINANCIAL_ALERT_EVENTS[effectiveType as keyof typeof FINANCIAL_ALERT_EVENTS]?.unit
+      if (!financialTypes.has(effectiveType) || expectedEntityType !== alert.entity_type) continue
+      const occurrenceKey = [
+        alert.id,
+        alert.item_id ?? 'legacy',
+        effectiveType,
+        alert.entity_type,
+        alert.entity_id,
+      ].join(':')
+      uniqueAlerts.set(occurrenceKey, alert)
+    }
+  }
+
+  return Array.from(uniqueAlerts.values()).sort((left, right) => {
+    const createdAtDifference = Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? '')
+    if (Number.isFinite(createdAtDifference) && createdAtDifference !== 0) return createdAtDifference
+    return Number(right.id) - Number(left.id) || Number(right.item_id ?? 0) - Number(left.item_id ?? 0)
+  })
 }
 
 // Deprecated browser compatibility. The only production scheduler is the
