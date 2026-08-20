@@ -40,6 +40,30 @@ describe('BlTransshipmentCard', () => {
     expect(screen.getByText(/COD SANTOS/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Reverter para transbordo/ })).toBeTruthy()
   })
+  it('exige confirmacao e justificativa para reverter COD', () => {
+    const onRestore = vi.fn()
+    render(<MemoryRouter><BlTransshipmentCard omission={omission} disposition="cod" saving={false} onRestore={onRestore} /></MemoryRouter>)
+
+    fireEvent.click(screen.getByRole('button', { name: /Reverter para transbordo/ }))
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByLabelText('Justificativa'))
+    expect(screen.getByText(/restaura o destino original/i)).toBeTruthy()
+    expect(screen.getByText(/notifica o cliente sobre a correção quando houver cliente vinculado/i)).toBeTruthy()
+
+    const confirm = screen.getByRole('button', { name: /Confirmar reversão/ }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    expect(onRestore).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Justificativa'), { target: { value: '  Cliente confirmou a restauração do destino  ' } })
+    expect(confirm.disabled).toBe(false)
+    expect(onRestore).not.toHaveBeenCalled()
+
+    fireEvent.click(confirm)
+
+    expect(onRestore).toHaveBeenCalledTimes(1)
+    expect(onRestore).toHaveBeenCalledWith('Cliente confirmou a restauração do destino')
+  })
   it('sem permissao (onCod ausente), mostra o estado mas nenhum botao de acao', () => {
     render(<MemoryRouter><BlTransshipmentCard omission={omission} disposition="transshipment" saving={false} /></MemoryRouter>)
     expect(screen.getByText(/SANTOS/)).toBeTruthy()
