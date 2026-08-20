@@ -1,0 +1,62 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const migration = (name: string) => readFileSync(resolve(process.cwd(), 'supabase/migrations', name), 'utf8')
+
+describe('fundação transversal de alertas', () => {
+  it('materializa o catálogo único de gravidade e faz o console consumi-lo', () => {
+    const sql = migration('317_alerts_foundation_catalog.sql')
+
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.alert_type_catalog')
+    expect(sql).toContain("'portal_abuso_login', 'critical'")
+    expect(sql).toContain("'portal_convite_expirado', 'normal'")
+    expect(sql).toContain("'portal_falha_envio', 'normal'")
+    expect(sql).toContain('public.alert_type_catalog')
+    expect(sql).not.toContain("type IN ('portal_excecao_critica_fatura','portal_convite_expirado','portal_falha_envio','portal_abuso_login')")
+  })
+
+  it('cria agregado, itens, histórico, dispensa e notificação por destinatário', () => {
+    const sql = migration('318_alerts_foundation_lifecycle.sql')
+
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.alert_items')
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.alert_item_events')
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.alert_item_dismissals')
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.internal_notifications')
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.alert_notification_failures')
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.upsert_alert_item')
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.dismiss_alert_item')
+    expect(sql).toContain('review_at > now()')
+    expect(sql).toContain('read_at')
+    expect(sql).toContain('is_fallback')
+    expect(sql).toContain('RLS por destinatário')
+    expect(sql).toContain('acknowledged')
+  })
+
+  it('agenda a reconciliação sem chamar RPCs autenticadas diretamente pelo cron', () => {
+    const sql = migration('319_alerts_detector_schedule.sql')
+
+    expect(sql).toMatch(/cron\.schedule\([\s\S]*'alerts-foundation-detectors'[\s\S]*'\*\/15 \* \* \* \*'/)
+    expect(sql).toContain("'/functions/v1/alerts-detector'")
+    expect(sql).toContain('net.http_post')
+    expect(sql).not.toContain('SELECT public.detect_overdue_invoices()')
+    expect(sql).not.toContain('SELECT public.detect_agency_report_pending()')
+    expect(sql).not.toContain('SELECT public.detect_agency_report_deadline_missed()')
+  })
+
+  it('retira a detecção da tela e a ação de reconhecimento da fila', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/Alertas.tsx'), 'utf8')
+
+    expect(page).not.toContain('acknowledgeAlert')
+    expect(page).not.toContain('Reconhecer')
+    expect(page).not.toContain('detectAgencyReportPending')
+    expect(page).not.toContain('detectAgencyReportDeadlineMissed')
+    expect(page).toContain('Dispensar')
+  })
+
+  it('mantém os três arquivos de migration no repositório para o rollout', () => {
+    for (const name of ['317_alerts_foundation_catalog.sql', '318_alerts_foundation_lifecycle.sql', '319_alerts_detector_schedule.sql']) {
+      expect(existsSync(resolve(process.cwd(), 'supabase/migrations', name))).toBe(true)
+    }
+  })
+})

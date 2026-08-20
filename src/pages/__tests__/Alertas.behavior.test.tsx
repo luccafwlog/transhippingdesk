@@ -5,13 +5,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const open = { id: 1, status: 'open', type: 'demurrage', message: 'Container vencendo', entity_type: 'container', entity_id: 'CNTR1', created_at: '2026-06-20T00:00:00Z' }
-const ack = { id: 2, status: 'acknowledged', type: 'invoice_overdue', message: 'Fatura vencida 123', entity_type: 'invoice', entity_id: '123', created_at: '2026-06-19T00:00:00Z' }
+const ack = { id: 2, status: 'open', type: 'invoice_overdue', message: 'Fatura vencida 123', entity_type: 'invoice', entity_id: '123', created_at: '2026-06-19T00:00:00Z', dismissed_until: '2026-08-22T12:00:00Z' }
 const portalInvoice = { id: 3, status: 'open', type: 'portal_excecao_critica_fatura', message: 'Portal sem email para fatura', entity_type: 'invoice', entity_id: '456', created_at: '2026-06-18T00:00:00Z' }
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
     const filter = queryKey[1] as string
-    const data = filter === 'open' ? [open, portalInvoice] : filter === 'acknowledged' ? [ack] : [open, portalInvoice, ack]
+    const data = filter === 'active' ? [open, portalInvoice] : filter === 'dismissed' ? [ack] : [open, portalInvoice, ack]
     return { data, isLoading: false, error: null }
   },
   useMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -19,11 +19,8 @@ vi.mock('@tanstack/react-query', () => ({
 }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../services/alerts', () => ({
-  acknowledgeAlert: vi.fn(),
-  closeAlert: vi.fn(),
-  detectAgencyReportPending: vi.fn().mockResolvedValue(undefined),
-  detectAgencyReportDeadlineMissed: vi.fn().mockResolvedValue(undefined),
   listAlerts: vi.fn(),
+  dismissAlertItem: vi.fn().mockResolvedValue(undefined),
 }))
 
 import { Alertas } from '../Alertas'
@@ -42,15 +39,15 @@ beforeEach(() => vi.clearAllMocks())
 it('US-135: lista os alertas e filtra por status', () => {
   renderAlertas()
 
-  // "Todos os abertos" tab is active -> both alerts visible
+  // "Todos" tab is active -> all current projections are visible
   expect(screen.getByText('Container vencendo')).toBeTruthy()
   expect(screen.getByText('Fatura vencida 123')).toBeTruthy()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Novos' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Ativos' }))
   expect(screen.getByText('Container vencendo')).toBeTruthy()
   expect(screen.queryByText('Fatura vencida 123')).toBeNull()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Reconhecidos' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Dispensados' }))
   expect(screen.getByText('Fatura vencida 123')).toBeTruthy()
   expect(screen.queryByText('Container vencendo')).toBeNull()
 })

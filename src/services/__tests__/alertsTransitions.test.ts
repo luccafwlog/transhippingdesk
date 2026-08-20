@@ -1,36 +1,18 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { acknowledgeAlert, closeAlert } from '../alerts'
+import { dismissAlertItem } from '../alerts'
 
-const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
-vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
+vi.mock('../supabase', () => ({ supabase: { rpc: rpcMock } }))
 
-function updateResult(data: unknown, error: unknown = null) {
-  const builder = {
-    update: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
-    neq: vi.fn(() => builder),
-    select: vi.fn(() => builder),
-    maybeSingle: vi.fn(() => Promise.resolve({ data, error })),
-  }
-  return builder
-}
+beforeEach(() => { rpcMock.mockReset() })
 
-beforeEach(() => { fromMock.mockReset() })
+it('envia dispensa temporária ao RPC central com motivo e revisão futura', async () => {
+  rpcMock.mockResolvedValue({ data: { id: 12 }, error: null })
 
-it('falha ao reconhecer quando o alerta ja mudou de estado', async () => {
-  fromMock.mockReturnValue(updateResult(null))
-
-  await expect(acknowledgeAlert(10)).rejects.toThrow(/estado foi alterado/i)
-})
-
-it('falha ao fechar quando o alerta ja esta fechado', async () => {
-  fromMock.mockReturnValue(updateResult(null))
-
-  await expect(closeAlert(11)).rejects.toThrow(/estado foi alterado/i)
-})
-
-it('confirma a transicao quando uma linha e retornada', async () => {
-  fromMock.mockReturnValue(updateResult({ id: 12 }))
-
-  await expect(acknowledgeAlert(12)).resolves.toBeUndefined()
+  await expect(dismissAlertItem(12, 'aguardar retorno do armador', '2026-08-22T12:00:00Z')).resolves.toBeUndefined()
+  expect(rpcMock).toHaveBeenCalledWith('dismiss_alert_item', {
+    p_item_id: 12,
+    p_reason: 'aguardar retorno do armador',
+    p_review_at: '2026-08-22T12:00:00Z',
+  })
 })
