@@ -134,6 +134,8 @@ export type InvoiceRefund = {
   created_at: string
   settled_at: string | null
   notes: string | null
+  payment_id?: number | null
+  cod_adjustment_id?: number | null
 }
 
 export async function listInvoiceRefunds(invoiceId: number): Promise<InvoiceRefund[]> {
@@ -145,6 +147,8 @@ export async function listInvoiceRefunds(invoiceId: number): Promise<InvoiceRefu
     ...row,
     id: Number(row.id),
     amount_brl: Number(row.amount_brl ?? 0),
+    payment_id: row.payment_id == null ? null : Number(row.payment_id),
+    cod_adjustment_id: row.cod_adjustment_id == null ? null : Number(row.cod_adjustment_id),
   }))
 }
 
@@ -153,6 +157,56 @@ export async function settleInvoiceRefund(refundId: number): Promise<void> {
     p_refund_id: refundId,
   })
   if (error) throw error
+}
+
+export type CodAdjustment = {
+  id: number
+  bl_id: string
+  omission_id: number
+  original_value_brl: number
+  new_destination_value_brl: number
+  difference_brl: number
+  paid_amount_brl: number
+  outstanding_balance_brl: number
+  offset_amount_brl: number
+  refund_amount_brl: number
+  action: 'complementary_invoice' | 'cancel_and_reissue' | 'manual_charge_review' | 'offset_open_balance' | 'refund_overpayment'
+  status: 'pending' | 'settled' | 'cancelled'
+  manual_review_required: boolean
+  resulting_document_id: number | null
+  resulting_document_type: 'invoice' | 'refund' | null
+  created_at: string
+}
+
+export async function listPendingCodAdjustments(): Promise<CodAdjustment[]> {
+  const { data, error } = await supabase
+    .from('cod_adjustments')
+    .select('id, bl_id, omission_id, original_value_brl, new_destination_value_brl, difference_brl, paid_amount_brl, outstanding_balance_brl, offset_amount_brl, refund_amount_brl, action, status, manual_review_required, resulting_document_id, resulting_document_type, created_at')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .overrideTypes<CodAdjustment[], { merge: false }>()
+  if (error) throw error
+  return (data ?? []).map((row) => ({
+    ...row,
+    id: Number(row.id),
+    omission_id: Number(row.omission_id),
+    original_value_brl: Number(row.original_value_brl ?? 0),
+    new_destination_value_brl: Number(row.new_destination_value_brl ?? 0),
+    difference_brl: Number(row.difference_brl ?? 0),
+    paid_amount_brl: Number(row.paid_amount_brl ?? 0),
+    outstanding_balance_brl: Number(row.outstanding_balance_brl ?? 0),
+    offset_amount_brl: Number(row.offset_amount_brl ?? 0),
+    refund_amount_brl: Number(row.refund_amount_brl ?? 0),
+    resulting_document_id: row.resulting_document_id == null ? null : Number(row.resulting_document_id),
+  }))
+}
+
+export async function settleCodAdjustment(adjustmentId: number): Promise<unknown> {
+  const { data, error } = await supabase.rpc('settle_cod_adjustment', {
+    p_adjustment_id: adjustmentId,
+  })
+  if (error) throw error
+  return data
 }
 export async function reconcileInvoicePaymentByTxid(input: {
   txid: string

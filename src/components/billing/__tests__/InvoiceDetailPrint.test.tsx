@@ -9,7 +9,7 @@ const deleteCharge = vi.fn()
 const confirm = vi.fn()
 
 vi.mock('../../../hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'admin-1' }, isAdmin: true }),
+  useAuth: () => ({ user: { id: 'admin-1' }, isAdmin: true, can: () => true }),
 }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../ui/ConfirmDialog', () => ({ useConfirm: () => confirm }))
