@@ -1,8 +1,8 @@
 # Especificação funcional — B/L, Revisão Manual e Documentação (Bloco #520)
 
-**Status:** aprovada para planejamento técnico  
-**Issue:** [#520](https://github.com/luccafwlog/transhippingdesk/issues/520)  
-**Épico:** [#519](https://github.com/luccafwlog/transhippingdesk/issues/519)  
+**Status:** aprovada para planejamento técnico
+**Issue:** [#520](https://github.com/luccafwlog/transhippingdesk/issues/520)
+**Épico:** [#519](https://github.com/luccafwlog/transhippingdesk/issues/519)
 **Data:** 2026-08-15
 
 ## 1. Objetivo
