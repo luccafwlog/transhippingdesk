@@ -1,6 +1,6 @@
 # Alertas e notificações — catálogo decidido
 
-**Status:** TODO
+**Status:** DONE — fundação E1–E4 implementada em 2026-08-20
 **Origem:** auditoria de alertas e notificações conduzida em 2026-08-11, decidida
 caso a caso com o responsável do produto.
 **Última sincronização:** 2026-08-20.
@@ -30,6 +30,16 @@ O que mudou nesta sincronização:
 
 Nada foi decidido nesta revisão. Ela apenas transcreve decisões já registradas
 nas ADRs 0053 e 0054 e nas specs dos Blocos #520–#524.
+
+## Resultado da implementação — 2026-08-20
+
+E1–E4 foram entregues nas migrations `317`–`319`, com a limpeza D1 e do dead
+code em `320` e nos serviços/páginas internas. O contrato de schema foi
+registrado em `docs/archive/specs/2026-08-20-alertas-fundacao-schema-design.md`.
+O executor server-only roda por Edge Function + `pg_cron`/`pg_net`; a fila
+preserva alertas legados, não oferece reconhecimento/fechamento manual e
+suporta dispensa temporária auditável. A issue #519 foi atualizada com as
+evidências e permanece aberta para os produtores dos blocos subsequentes.
 
 ## Princípio adotado
 

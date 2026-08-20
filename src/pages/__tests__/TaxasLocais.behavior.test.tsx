@@ -6,9 +6,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   detailInvoiceId: vi.fn(),
-  detectOverdue: vi.fn(),
-  reportFailure: vi.fn(),
   invalidateQueries: vi.fn(),
+  detectOverdueInvoices: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -22,10 +21,9 @@ vi.mock('../../hooks/useBilling', () => ({
   useInvoices: () => ({ data: { rows: [], count: 0 }, isLoading: false, error: null }),
 }))
 vi.mock('../../services/alerts', () => ({
-  detectOverdueInvoices: mocks.detectOverdue,
   listFinancialAlerts: vi.fn().mockResolvedValue([]),
+  detectOverdueInvoices: mocks.detectOverdueInvoices,
 }))
-vi.mock('../../lib/telemetry', () => ({ reportBestEffortFailure: mocks.reportFailure }))
 vi.mock('../../components/billing/InvoiceDetailModal', () => ({
   InvoiceDetailModal: ({ invoiceId }: { invoiceId: number | null }) => {
     mocks.detailInvoiceId(invoiceId)
@@ -47,7 +45,6 @@ function LocationProbe() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mocks.detectOverdue.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
 
@@ -67,14 +64,7 @@ it('preserves non-tab query parameters when redirecting demurrage', async () => 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/demurrage?busca=X'))
 })
 
-it('records overdue detection failure without producing an unhandled rejection', async () => {
-  const failure = new Error('overdue unavailable')
-  mocks.detectOverdue.mockRejectedValue(failure)
-
+it('não executa detector de vencimento ao abrir Faturamento', () => {
   render(<MemoryRouter><TaxasLocais /></MemoryRouter>)
-
-  await waitFor(() => expect(mocks.reportFailure).toHaveBeenCalledWith(
-    'detectOverdueInvoices ao abrir Faturamento',
-    failure,
-  ))
+  expect(mocks.detectOverdueInvoices).not.toHaveBeenCalled()
 })

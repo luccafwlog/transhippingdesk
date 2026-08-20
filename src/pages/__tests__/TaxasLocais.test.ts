@@ -69,10 +69,6 @@ vi.mock('../../hooks/useLocalCharges', () => ({
 }))
 
 vi.mock('../../services/alerts', () => ({
-  acknowledgeAlert: vi.fn(),
-  closeAlert: vi.fn(),
-  createAlert: vi.fn(),
-  detectOverdueInvoices: vi.fn(() => Promise.resolve()),
   listFinancialAlerts: vi.fn(() => Promise.resolve([])),
 }))
 

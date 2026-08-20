@@ -30,7 +30,7 @@ import {
 import { isConsolidatedInvoice } from '../../services/billing'
 import { buildInvoiceFileBaseName, describeInvoiceItemsFreezeNote, describeUsdConversionNote } from '../shared/invoiceFormat'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
-import { createAlert, detectOverdueInvoices } from '../../services/alerts'
+import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { formatBRL, formatDate, stripBlPrefix } from '../../lib/utils'
 import { isLedgerInvoicePayable } from '../../pages/faturamentoLedgerPayment'
@@ -243,7 +243,6 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     }
     try {
       await updateDueDateMutation.mutateAsync({ invoiceId, dueDate, actorId: user?.id ?? null })
-      await detectOverdueInvoices()
       await queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(invoiceId) })
       showToast('Vencimento atualizado.', 'success')
     } catch (error) {

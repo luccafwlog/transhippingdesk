@@ -4,7 +4,7 @@ import {
   type LocalChargeCalculationResult,
 } from './charges/chargeOperationsService'
 import { logOperationalEvent } from './operationalEvents'
-import { createAlert } from './alerts'
+import { createAlert, resolveAlertItem } from './alerts'
 import { supabase } from './supabase'
 import { calculateAndIssueGraniteInvoice } from './graniteBillingWorkflow'
 
@@ -59,6 +59,13 @@ export async function tryAutoIssueInvoice({
       actorId,
     })
 
+    await resolveAlertItem({
+      type: 'billing_auto_issue_failed',
+      entityType: 'bl',
+      entityId: blId,
+      source: 'ce_auto_billing',
+    })
+
     return { status: 'invoiced', invoiceResult }
   } catch (error) {
     return {
@@ -88,6 +95,12 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
 
     try {
       const result = await calculateAndIssueGraniteInvoice({ blId: bl.id, customerId: bl.client_id, actorId })
+      await resolveAlertItem({
+        type: 'billing_auto_issue_failed',
+        entityType: 'granite_bl',
+        entityId: bl.id,
+        source: 'ce_auto_billing',
+      })
       return { status: 'invoiced', invoiceResult: result.invoice } as const
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao gerar invoice automatica de Granito.'
