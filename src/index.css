@@ -1051,6 +1051,13 @@ textarea {
   transform: scale(0.98);
 }
 
+.review-onboarding-card__invite-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
 .review-onboarding-card__invite {
   display: flex;
   align-items: flex-start;
@@ -1088,7 +1095,7 @@ textarea {
 .review-onboarding-card__footer {
   display: flex;
   justify-content: flex-end;
-  padding-top: 4px;
+  flex: none;
 }
 
 .review-onboarding-card__footer .app-btn {
@@ -1313,6 +1320,11 @@ textarea {
 
   .review-onboarding-card__footer {
     justify-content: stretch;
+  }
+
+  .review-onboarding-card__invite-row {
+    flex-direction: column;
+    gap: 14px;
   }
 
   .review-onboarding-card__footer .app-btn {

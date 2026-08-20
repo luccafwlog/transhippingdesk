@@ -18,6 +18,7 @@ describe('ReviewCustomerOnboarding', () => {
     renderForm()
     expect(screen.getByText('E-mail principal do cliente')).toBeTruthy()
     expect(screen.getByText(/Opcional — você poderá iniciar o convite depois/)).toBeTruthy()
+    expect(screen.queryByText('Informe um CNPJ válido para liberar o vínculo.')).toBeNull()
     expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false)
     expect((screen.getByRole('button', { name: /criar cliente e vincular 1 b\/ls/i }) as HTMLButtonElement).disabled).toBe(true)
   })

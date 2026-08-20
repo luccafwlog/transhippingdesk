@@ -77,21 +77,23 @@ export function ReviewCustomerOnboarding({
       ) : null}
       <div className="review-onboarding-card__identity-fields grid gap-3 md:grid-cols-2">
         <Field label="Razão social" required><Input value={name} onChange={(event) => setName(event.target.value)} /></Field>
-        <Field label="CNPJ" required hint={validCnpj ? `Confirmado: ${formatCnpj(validCnpj)}` : 'Informe um CNPJ válido para liberar o vínculo.'}><Input placeholder="00.000.000/0000-00" value={cnpj} onChange={(event) => setCnpj(normalizeCnpj(event.target.value))} /></Field>
+        <Field label="CNPJ" required hint={validCnpj ? `Confirmado: ${formatCnpj(validCnpj)}` : undefined}><Input placeholder="00.000.000/0000-00" value={cnpj} onChange={(event) => setCnpj(normalizeCnpj(event.target.value))} /></Field>
       </div>
       <Field label="E-mail principal do cliente" required hint={email.trim() ? 'Será salvo como contato do cliente.' : 'O cliente precisa ter pelo menos um e-mail cadastrado.'}>
         <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="financeiro@cliente.com.br" />
       </Field>
-      <label className="review-onboarding-card__invite">
-        <input className="review-onboarding-card__checkbox" type="checkbox" checked={sendPortalInvite} onChange={(event) => setSendPortalInvite(event.target.checked)} />
-        <span className="review-onboarding-card__invite-copy">Enviar convite do Portal para este mesmo e-mail <span className="review-onboarding-card__invite-hint">{sendPortalInvite ? `O convite será iniciado para ${email.trim().toLowerCase() || 'o e-mail informado acima'}.` : 'Opcional — você poderá iniciar o convite depois em Provisionamento do Portal.'}</span></span>
-      </label>
-      {selectedId && selectedCustomer && customerAlreadyHasEmail ? <div className="review-onboarding-card__existing-note">Cliente existente selecionado. O e-mail informado será mantido como contato adicional se ainda não existir.</div> : null}
-      <div className="review-onboarding-card__footer">
-        <Button disabled={!canSubmit} loading={saving} onClick={() => onSubmit({ customerId: selectedId, cnpjCpf: validCnpj!, name: name.trim(), email: email.trim().toLowerCase(), sendPortalInvite })}>
-          {selectedId ? `Adicionar e-mail e vincular ${count} B/Ls` : `Criar cliente e vincular ${count} B/Ls`}
-        </Button>
+      <div className="review-onboarding-card__invite-row">
+        <label className="review-onboarding-card__invite">
+          <input className="review-onboarding-card__checkbox" type="checkbox" checked={sendPortalInvite} onChange={(event) => setSendPortalInvite(event.target.checked)} />
+          <span className="review-onboarding-card__invite-copy">Enviar convite do Portal para este mesmo e-mail <span className="review-onboarding-card__invite-hint">{sendPortalInvite ? `O convite será iniciado para ${email.trim().toLowerCase() || 'o e-mail informado acima'}.` : 'Opcional — você poderá iniciar o convite depois em Provisionamento do Portal.'}</span></span>
+        </label>
+        <div className="review-onboarding-card__footer">
+          <Button disabled={!canSubmit} loading={saving} onClick={() => onSubmit({ customerId: selectedId, cnpjCpf: validCnpj!, name: name.trim(), email: email.trim().toLowerCase(), sendPortalInvite })}>
+            {selectedId ? `Adicionar e-mail e vincular ${count} B/Ls` : `Criar cliente e vincular ${count} B/Ls`}
+          </Button>
+        </div>
       </div>
+      {selectedId && selectedCustomer && customerAlreadyHasEmail ? <div className="review-onboarding-card__existing-note">Cliente existente selecionado. O e-mail informado será mantido como contato adicional se ainda não existir.</div> : null}
     </Card>
   )
 }
