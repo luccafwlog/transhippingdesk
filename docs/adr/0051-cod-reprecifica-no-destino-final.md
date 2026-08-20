@@ -123,3 +123,19 @@ manifesto e o pendente fica visível até alguém informar o número.
 - Promover o **manifesto a entidade própria** — para suportar cancelar um
   manifesto e consolidar seus CEs em outro — fica fora desta decisão e exige
   desenho próprio.
+
+## Implementação na PR 553
+
+A entrega foi consolidada nas migrations `308`–`316`. O COD agora exige
+confirmação e justificativa, reprecifica a Taxa Local por uma função pura de
+destino e registra a diferença em `cod_adjustments`; abatimentos são aplicados
+antes de restituições, e a emissão de fatura complementar ou restituição
+continua sendo uma ação manual do Financeiro. `invoice_refunds` aceita a
+procedência `cod_adjustment_id` sem amarrar o crédito a um pagamento alheio.
+
+A mesma entrega restaura os dados globais de transbordo na omissão, torna a
+reversão explícita e auditada, e corrige o Portal, Line-Up e programação para
+exibir escala omitida como `OMIT`. A disposição por B/L permanece em
+`bl_transshipments`; os campos `onward_*` vivem apenas em `voyage_omissions`,
+evitando duas fontes de verdade. Complementar sem mudança não gera auditoria,
+e motivo vazio preserva o motivo existente.

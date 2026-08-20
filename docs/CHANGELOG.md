@@ -3,6 +3,15 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **PR #553 — transbordo e COD:** a omissão de escala passou a preservar os
+  dados globais de transbordo, exigir confirmação com resumo, permitir reversão
+  administrativa justificada e invalidar as projeções afetadas. COD passou a
+  exigir justificativa, reprecificar a Taxa Local no destino final e registrar
+  ajustes em `cod_adjustments`, com abatimento antes de restituição e settlement
+  manual do Financeiro. O Line-Up, a programação e o Portal exibem `OMIT`
+  separadamente de `X`; o Portal não publica o motivo interno do COD. A
+  migration `316` removeu `onward_*` morto de `bl_transshipments`, eliminou o
+  card duplicado e reduziu auditoria sem mudança.
 - **PR #550 — correções da revisão de múltiplos terminais:** o Cadastro de
   Terminais passou a exigir porto brasileiro para novos terminais e ganhou
   preflight do legado; a projeção preserva frentes persistidas; ADRs
