@@ -1,5 +1,5 @@
 // Predicados puros para a fila de revisão.
-import { canonicalizeDocument } from '../lib/cnpj'
+import { canonicalizeValidCnpj, extractCnpjsFromText } from '../lib/cnpj'
 import type { ReviewQueueItem } from '../hooks/useReview'
 
 export function normalizeConsignee(value?: string | null) {
@@ -11,10 +11,9 @@ export function normalizeConsignee(value?: string | null) {
 // manifesto (que pode ter ruído de leitura). Por isso o CNPJ do cliente
 // vinculado tem prioridade sobre o CNPJ lido do manifesto.
 export function getReviewItemCnpj(item: ReviewQueueItem): string | null {
-  const registered = item.customer?.cnpj_cpf ? canonicalizeDocument(item.customer.cnpj_cpf) : ''
+  const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
   if (registered) return registered
-  const manifest = item.manifest_customer_cnpj_cpf ? canonicalizeDocument(item.manifest_customer_cnpj_cpf) : ''
-  return manifest || null
+  return canonicalizeValidCnpj(item.manifest_customer_cnpj_cpf)
 }
 
 export function getReviewItemDisplayName(item: ReviewQueueItem): string {
@@ -26,17 +25,47 @@ export function getReviewItemDisplayName(item: ReviewQueueItem): string {
   )
 }
 
+export type ReviewIdentityKind = 'document' | 'name' | 'conflict'
+
 export type ReviewGroup = {
   key: string
   cnpj: string | null
   displayName: string
   items: ReviewQueueItem[]
+  identityKind: ReviewIdentityKind
+  candidateCnpjs: string[]
+  canBulkOnboard: boolean
 }
 
-// Chave de grupo: CNPJ quando existe; senão, nome de exibição normalizado.
+/** Candidatos documentais deduplicados, na ordem em que aparecem na evidência. */
+export function getReviewItemDocumentCandidates(item: ReviewQueueItem): string[] {
+  const candidates: string[] = []
+  const seen = new Set<string>()
+
+  const add = (cnpj: string | null) => {
+    if (cnpj && !seen.has(cnpj)) {
+      seen.add(cnpj)
+      candidates.push(cnpj)
+    }
+  }
+
+  add(canonicalizeValidCnpj(item.manifest_customer_cnpj_cpf))
+  for (const cnpj of extractCnpjsFromText(item.consignee_block)) add(cnpj)
+  for (const cnpj of extractCnpjsFromText(item.cargo_description)) add(cnpj)
+
+  return candidates
+}
+
+function getReviewItemIdentityKind(item: ReviewQueueItem, candidates: string[]): ReviewIdentityKind {
+  return candidates.length > 1 ? 'conflict' : candidates.length === 1 || getReviewItemCnpj(item) ? 'document' : 'name'
+}
+
+// Chave de grupo: CNPJ válido quando existe; senão, nome de exibição normalizado.
 export function getReviewItemGroupKey(item: ReviewQueueItem): string {
-  const cnpj = getReviewItemCnpj(item)
-  return cnpj ? `cnpj:${cnpj}` : `name:${getReviewItemDisplayName(item).toLowerCase()}`
+  const candidates = getReviewItemDocumentCandidates(item)
+  if (candidates.length > 1) return `conflict:${item.source}:${item.id}`
+  const cnpj = candidates[0] ?? getReviewItemCnpj(item)
+  return cnpj ? `document:${cnpj}` : `name:${getReviewItemDisplayName(item).toLowerCase()}:missing`
 }
 
 // Agrupa a fila por cliente/consignatário usando o CNPJ como chave. Itens sem
@@ -45,15 +74,29 @@ export function getReviewItemGroupKey(item: ReviewQueueItem): string {
 export function groupReviewItems(items: ReviewQueueItem[]): ReviewGroup[] {
   const groups = new Map<string, ReviewGroup>()
   for (const item of items) {
-    const cnpj = getReviewItemCnpj(item)
+    const candidates = getReviewItemDocumentCandidates(item)
+    const cnpj = candidates.length === 1 ? candidates[0] : candidates.length === 0 ? getReviewItemCnpj(item) : null
     const displayName = getReviewItemDisplayName(item)
     const key = getReviewItemGroupKey(item)
+    const identityKind = getReviewItemIdentityKind(item, candidates)
     let group = groups.get(key)
     if (!group) {
-      group = { key, cnpj, displayName, items: [] }
+      group = {
+        key,
+        cnpj,
+        displayName,
+        items: [],
+        identityKind,
+        candidateCnpjs: [],
+        canBulkOnboard: identityKind === 'document' && item.source === 'bl',
+      }
       groups.set(key, group)
     }
     group.items.push(item)
+    for (const candidate of candidates) {
+      if (!group.candidateCnpjs.includes(candidate)) group.candidateCnpjs.push(candidate)
+    }
+    group.canBulkOnboard = group.identityKind === 'document' && group.items.every((row) => row.source === 'bl')
     // Prefere a razão social cadastrada como nome do grupo.
     if (item.customer?.name) group.displayName = item.customer.name
   }

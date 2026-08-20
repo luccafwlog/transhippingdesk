@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listPortalProvisioningEvents, listPortalProvisioningQueue, releaseSuppressedEmail, returnToAnalysis, setProvisioningException } from '../services/portalProvisioning'
+import { listPortalProvisioningEvents, listPortalProvisioningQueue, releaseSuppressedEmail, returnToAnalysis, sendPortalInvite, setProvisioningException } from '../services/portalProvisioning'
 import { supabase } from '../services/supabase'
 
 export const PORTAL_PROVISIONING_QUERY_KEY = ['portal-provisioning'] as const
@@ -50,8 +50,7 @@ export function useSendPortalInvite() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ customerId, recoveryEmail, source }: { customerId: number; recoveryEmail: string; source: string }) => {
-      const { error } = await supabase.functions.invoke('portal-invite-send', { body: { customer_id: customerId, recovery_email: recoveryEmail, recovery_email_source: source } })
-      if (error) throw error
+      await sendPortalInvite(customerId, recoveryEmail, source as 'candidato' | 'informado_manualmente')
     },
     onSuccess: () => invalidatePortalQueries(queryClient),
   })

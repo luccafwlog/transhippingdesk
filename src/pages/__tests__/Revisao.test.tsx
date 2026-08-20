@@ -9,12 +9,9 @@ import type { ReviewQueueItem } from '../../hooks/useReview'
 vi.mock('../../hooks/useReview', () => ({ useReviewQueue: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' }, isAdmin: true }) }))
 vi.mock('../../hooks/useCustomers', () => ({ useCustomerLookup: vi.fn() }))
+vi.mock('../../hooks/useReviewCustomerGroup', () => ({ useReviewCustomerGroup: vi.fn() }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../services/charges/chargeOperationsService', () => ({ calculateBlLocalCharges: vi.fn() }))
-vi.mock('../../services/customers', () => ({
-  createCustomer: vi.fn(),
-  addCustomerEmail: vi.fn().mockResolvedValue(undefined),
-}))
 vi.mock('../../services/operationalEvents', () => ({ logOperationalEvent: vi.fn() }))
 vi.mock('../../services/review', async () => {
   const actual = await vi.importActual<typeof import('../../services/review')>('../../services/review')
@@ -33,18 +30,15 @@ vi.mock('../../services/reviewBillingAutomation', () => ({
 
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
-import { addCustomerEmail, createCustomer } from '../../services/customers'
-import { applyInlineBlReviewFix, saveBlReview, saveGraniteBlReview } from '../../services/review'
-import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
+import { useReviewCustomerGroup } from '../../hooks/useReviewCustomerGroup'
+import { saveBlReview, saveGraniteBlReview } from '../../services/review'
 import { Revisao } from '../Revisao'
 
 const mockedUseReviewQueue = vi.mocked(useReviewQueue)
 const mockedUseCustomerLookup = vi.mocked(useCustomerLookup)
-const mockedApplyInlineBlReviewFix = vi.mocked(applyInlineBlReviewFix)
+const mockedUseReviewCustomerGroup = vi.mocked(useReviewCustomerGroup)
 const mockedSaveBlReview = vi.mocked(saveBlReview)
 const mockedSaveGraniteBlReview = vi.mocked(saveGraniteBlReview)
-const mockedTryIssueInvoice = vi.mocked(tryAutoIssueInvoice)
-const mockedAddCustomerEmail = vi.mocked(addCustomerEmail)
 
 function makeBl(id: string, consignee: string): ReviewQueueItem {
   return {
@@ -110,6 +104,7 @@ beforeEach(() => {
   mockedUseCustomerLookup.mockImplementation((search: string) => ({
     data: search.trim().length >= 2 ? [{ id: 99, name: 'Cliente Modelo', cnpj_cpf: '11222333000181' }] : [],
   } as never))
+  mockedUseReviewCustomerGroup.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ onboarding: { customer: { id: 99, cnpj_cpf: '11222333000181', name: 'Cliente Modelo' }, bls: [{ blId: 'BL1', resolved: true }, { blId: 'BL2', resolved: true }] }, portalInvite: 'not_requested' }) } as never)
 })
 
 afterEach(() => {
@@ -131,80 +126,25 @@ describe('Revisao', () => {
     expect(screen.queryByText('BL3')).toBeNull()
   })
 
-  it('vincula em lote todos os B/Ls de um cliente pelo cabecalho do grupo', async () => {
+  it('cria e vincula todos os B/Ls do grupo após confirmar CNPJ e e-mail', async () => {
     const user = userEvent.setup()
     renderPage()
 
     // o grupo "AC Comercial" (2 B/Ls) e o primeiro na ordem alfabetica
     await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    const pickers = screen.getAllByPlaceholderText('Vincular cliente...')
-    await user.type(pickers[0], 'Cliente')
-    await user.click(screen.getByText('Cliente Modelo'))
-
-    await waitFor(() => expect(mockedApplyInlineBlReviewFix).toHaveBeenCalledTimes(2))
-    expect(mockedApplyInlineBlReviewFix).toHaveBeenCalledWith(
-      expect.objectContaining({ blId: 'BL1', field: 'customer_id', value: 99, changedBy: 'user-1' }),
-    )
-    expect(mockedApplyInlineBlReviewFix).toHaveBeenCalledWith(
-      expect.objectContaining({ blId: 'BL2', field: 'customer_id', value: 99, changedBy: 'user-1' }),
-    )
-    // gate resolvido -> tenta faturar cada B/L
-    expect(mockedTryIssueInvoice).toHaveBeenCalledTimes(2)
-    expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
-    expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL2', customerId: 99, actorId: 'user-1' })
+    await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '11222333000181')
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'financeiro@alfa.com')
+    await user.click(screen.getByRole('button', { name: /criar cliente e vincular 2 b\/ls/i }))
+    const mutateAsync = mockedUseReviewCustomerGroup.mock.results[0].value.mutateAsync
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ blIds: ['BL1', 'BL2'], cnpjCpf: '11222333000181', email: 'financeiro@alfa.com', changedBy: 'user-1' })))
   })
 
-  it('US-126: cria e seleciona um novo cliente pelo drawer', async () => {
-    const user = userEvent.setup()
-    vi.mocked(createCustomer).mockResolvedValue({ id: 321, name: 'Novo Cliente', cnpj_cpf: '11222333000181' } as never)
-    renderPage()
-
-    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
-    const nome = screen.getByLabelText('Nome')
-    await user.clear(nome)
-    await user.type(nome, 'Novo Cliente')
-    const doc = screen.getByLabelText('CNPJ')
-    await user.clear(doc)
-    await user.type(doc, '11222333000181')
-    await user.click(screen.getByRole('button', { name: 'Cadastrar cliente' }))
-
-    await waitFor(() =>
-      expect(createCustomer).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Novo Cliente', cnpjCpf: '11222333000181' }),
-      ),
-    )
-    // cliente recém-criado fica selecionado para vinculação
-    expect(screen.getByText('Cliente selecionado para vinculação.')).toBeTruthy()
-  })
-
-  it('recalcula e emite a fatura ao salvar cliente pelo drawer', async () => {
+  it('mantém o drawer para exceções operacionais do B/L sem cadastrar cliente', async () => {
     const user = userEvent.setup()
     renderPage()
 
     await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
     await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
-    await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
-    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
-    await user.type(screen.getByLabelText('Justificativa (opcional)'), 'Cliente cadastrado e vinculado.')
-    await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
-
-    await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
-    expect(mockedTryIssueInvoice).toHaveBeenCalledWith({
-      blId: 'BL1',
-      customerId: 99,
-      actorId: 'user-1',
-    })
-  })
-
-  it('salva sem justificativa (campo opcional)', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
-    await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
-    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
     await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
@@ -222,10 +162,12 @@ describe('Revisao', () => {
     } as never)
     renderPage()
 
-    await user.type(screen.getByPlaceholderText('E-mail de faturamento'), 'novo@cliente.com')
-    await user.click(screen.getByRole('button', { name: 'Salvar e-mail' }))
+    await user.click(screen.getByRole('button', { name: /Linked Co/ }))
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'novo@cliente.com')
+    await user.click(screen.getByRole('button', { name: /adicionar e-mail e vincular 1 b\/ls/i }))
 
-    await waitFor(() => expect(mockedAddCustomerEmail).toHaveBeenCalledWith(7, 'novo@cliente.com'))
+    const mutateAsync = mockedUseReviewCustomerGroup.mock.results[0].value.mutateAsync
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ blIds: ['BLX'], customerId: 7, email: 'novo@cliente.com', changedBy: 'user-1' })))
   })
 
   it('exibe sugestao de Granito sem trata-la como vinculo automatico', async () => {

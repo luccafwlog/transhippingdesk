@@ -468,6 +468,13 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/granito` | Operação de Granito |
 | `/granito/taxas` | Tarifas de Granito |
 | `/revisao` | Revisão operacional |
+
+`/revisao` trabalha visualmente por grupo de cliente, embora o gate canônico
+continue sendo calculado por B/L. O onboarding do grupo usa uma RPC transacional
+para resolver/criar cliente, contato e vínculos; CNPJs conflitantes ficam
+segregados e evidências brutas do consignatário/carga permanecem disponíveis.
+O convite do Portal é opcional, enviado para o mesmo e-mail informado após o
+commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 | `/clientes` | Clientes |
 | `/clientes/:cnpj` | Ficha do cliente (hub em abas via `?tab=`) |
 | `/clientes/portal/inspecao/:customerId/*` | Inspeção interna somente leitura do Portal, fora do `AppLayout`, sob `ProtectedRoute` |

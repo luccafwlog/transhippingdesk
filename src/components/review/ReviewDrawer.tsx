@@ -10,13 +10,10 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import type { ReviewQueueItem } from '../../hooks/useReview'
-import { canonicalizeValidCnpj, normalizeCnpj, formatCnpj } from '../../lib/cnpj'
-import { classifyDbError, extractErrorText } from '../../lib/errors'
-import { createCustomer } from '../../services/customers'
+import { formatCnpj } from '../../lib/cnpj'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
-import { supabase } from '../../services/supabase'
 import { invalidateReviewQueueCaches } from './reviewCaches'
 
 export function ReviewDrawer({
@@ -51,9 +48,6 @@ export function ReviewDrawer({
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
   const [selectedCustomerDisplay, setSelectedCustomerDisplay] = useState<string | null>(null)
-  const [newCustomerName, setNewCustomerName] = useState('')
-  const [newCustomerCnpj, setNewCustomerCnpj] = useState('')
-  const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
   const customerLookup = useCustomerLookup(customerSearch)
@@ -73,63 +67,7 @@ export function ReviewDrawer({
     setSelectedCustomerId(item.customer_id ?? null)
     setSelectedCustomerDisplay(item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : null)
     setCustomerSearch('')
-    const manifestName = item.source === 'bl' ? (item.manifest_customer_name ?? null) : null
-    const manifestCnpj = item.source === 'bl' ? (item.manifest_customer_cnpj_cpf ?? null) : null
-    const manifestEmail = item.source === 'bl' ? (item.manifest_customer_email ?? null) : null
-    setNewCustomerName(manifestName ?? item.consignee ?? '')
-    setNewCustomerCnpj(manifestCnpj ?? '')
-    setNewCustomerEmail(manifestEmail ?? '')
     setJustification('')
-  }
-
-  async function handleCreateCustomer() {
-    if (!newCustomerName.trim() || !newCustomerCnpj.trim()) {
-      showToast('Informe nome e CNPJ para criar o cliente.', 'error')
-      return
-    }
-    const documentCanonical = canonicalizeValidCnpj(newCustomerCnpj)
-    if (!documentCanonical) {
-      showToast('Informe um CNPJ de 14 posições válido.', 'error')
-      return
-    }
-
-    try {
-      const contacts = newCustomerEmail.trim()
-        ? [{ name: 'Contato manifesto', email: newCustomerEmail.trim(), purpose: 'financeiro' as const, is_primary: true }]
-        : []
-      const customer = await createCustomer({ cnpjCpf: newCustomerCnpj, name: newCustomerName, contacts })
-      setSelectedCustomerId(customer.id)
-      setSelectedCustomerDisplay(`${customer.name} (${formatCnpj(customer.cnpj_cpf)})`)
-      setCustomerSearch(`${customer.name} ${formatCnpj(customer.cnpj_cpf)}`)
-      await queryClient.invalidateQueries({ queryKey: ['customers'] })
-      showToast('Cliente criado e pronto para vinculação. Clique em "Marcar como revisado" para concluir.', 'success')
-    } catch (error) {
-      const message = extractErrorText(error)
-      const haystack = message.toLowerCase()
-      if (haystack.includes('duplicate key') || haystack.includes('customers_cnpj_cpf_key')) {
-        const { data: existing } = await supabase
-          .from('customers')
-          .select('id, name, cnpj_cpf')
-          .eq('cnpj_cpf', documentCanonical)
-          .maybeSingle()
-
-        if (existing) {
-          setSelectedCustomerId(existing.id)
-          setSelectedCustomerDisplay(`${existing.name} (${formatCnpj(existing.cnpj_cpf)})`)
-          setCustomerSearch(`${existing.name} ${formatCnpj(existing.cnpj_cpf)}`)
-          showToast('Cliente já existia e foi selecionado para vinculação.', 'success')
-          return
-        }
-
-        showToast('Este CNPJ já está cadastrado. Selecione o cliente na busca acima.', 'error')
-        return
-      }
-      if (classifyDbError(error).kind === 'permissao') {
-        showToast('Seu usuário não tem permissão para cadastrar cliente. Solicite acesso administrativo.', 'error')
-        return
-      }
-      showToast(`Falha ao criar cliente. ${message ? `Motivo: ${message}` : ''}`.trim(), 'error')
-    }
   }
 
   async function handleSave() {
@@ -303,7 +241,7 @@ export function ReviewDrawer({
             </>
           ) : null}
 
-          <Card className="grid gap-4 bg-[#0d1117]">
+          {isGranite ? <Card className="grid gap-4 bg-[#0d1117]">
             {item.source === 'granite' && item.suggested_customer?.name ? (
               <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
                 Sugestao por nome — confirme o documento antes de vincular: <strong>{item.suggested_customer.name}</strong>{' '}
@@ -348,26 +286,12 @@ export function ReviewDrawer({
               </div>
             ) : null}
 
-            <div className="grid gap-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Ou cadastre um novo cliente</div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Nome">
-                  <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} />
-                </Field>
-                  <Field label="CNPJ">
-                    <Input maxLength={14} value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(normalizeCnpj(event.target.value))} />
-                </Field>
-                <Field label="E-mail">
-                  <Input value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} placeholder="(opcional)" />
-                </Field>
-                <div className="flex items-end">
-                  <Button type="button" variant="secondary" onClick={handleCreateCustomer}>
-                    Cadastrar cliente
-                  </Button>
-                </div>
-              </div>
+          </Card> : (
+            <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
+              <div className="font-semibold text-white">Cliente definido pelo grupo</div>
+              <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : 'O cadastro e o vínculo são tratados no cartão do grupo.'}</div>
             </div>
-          </Card>
+          )}
 
           <Field label="Justificativa (opcional)">
             <Textarea

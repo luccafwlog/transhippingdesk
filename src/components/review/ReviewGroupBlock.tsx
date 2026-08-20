@@ -15,6 +15,8 @@ import {
   needsWeightFix,
   type ReviewGroup,
 } from '../../pages/revisaoHelpers'
+import { ReviewCustomerOnboarding, type ReviewCustomerOnboardingInput } from './ReviewCustomerOnboarding'
+import { ReviewDocumentEvidence } from './ReviewDocumentEvidence'
 
 export function ReviewGroupBlock({
   group,
@@ -24,6 +26,7 @@ export function ReviewGroupBlock({
   onToggle,
   onGroupLink,
   onGroupAddEmail,
+  onGroupOnboard,
   onCorrect,
   onInlineField,
 }: {
@@ -34,6 +37,7 @@ export function ReviewGroupBlock({
   onToggle: () => void
   onGroupLink: (customerId: number) => void
   onGroupAddEmail: (email: string) => void
+  onGroupOnboard: (input: ReviewCustomerOnboardingInput) => void
   onCorrect: (id: string) => void
   onInlineField: (item: ReviewQueueItem, field: 'ce_mercante' | 'bb_weight_ton', value: string) => void
 }) {
@@ -41,6 +45,9 @@ export function ReviewGroupBlock({
   const unlinkedCount = group.items.filter(needsCustomerLink).length
   const hasLinkedCustomer = getGroupLinkedItem(group) != null
   const needsEmail = groupNeedsEmail(group)
+  const blItems = group.items.filter((item) => item.source === 'bl')
+  const linked = getGroupLinkedItem(group)
+  const showOnboarding = blItems.length > 0 && group.identityKind !== 'conflict' && (unlinkedCount > 0 || needsEmail)
   const groupReasons = useMemo(() => {
     const reasons = new Set<string>()
     for (const item of group.items) {
@@ -69,6 +76,10 @@ export function ReviewGroupBlock({
         ) : (
           <span className="text-xs text-amber-300">sem CNPJ</span>
         )}
+        {group.identityKind === 'conflict' ? <Badge tone="yellow">CNPJ conflitante</Badge> : null}
+        {group.identityKind === 'name' ? <Badge tone="yellow">CNPJ pendente</Badge> : null}
+        {hasLinkedCustomer && unlinkedCount === 0 ? <Badge tone="blue">Cliente vinculado</Badge> : null}
+        {hasLinkedCustomer && needsEmail ? <Badge tone="yellow">E-mail pendente</Badge> : null}
         <Badge tone="slate">{formatResultCount(group.items.length, 'B/L', 'B/Ls')}</Badge>
         <div className="flex flex-wrap gap-1.5">
           {groupReasons.slice(0, 4).map((reason) => (
@@ -78,13 +89,13 @@ export function ReviewGroupBlock({
           ))}
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-3">
-          {unlinkedCount > 0 ? (
+          {unlinkedCount > 0 && blItems.length === 0 ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-400">Vincular cliente a {unlinkedCount}:</span>
               <InlineCustomerPicker saving={savingGroup} onSelect={onGroupLink} />
             </div>
           ) : null}
-          {hasLinkedCustomer && needsEmail ? (
+          {hasLinkedCustomer && needsEmail && blItems.length === 0 ? (
             <div className="flex items-center gap-1.5">
               <Input
                 value={emailDraft}
@@ -107,7 +118,22 @@ export function ReviewGroupBlock({
       </div>
 
       {!collapsed ? (
-        <div className="app-table-scroll">
+        <div className="grid gap-3 p-3">
+          {group.identityKind === 'conflict' || (group.identityKind === 'name' && blItems.length > 0) ? <ReviewDocumentEvidence group={group} /> : null}
+          {showOnboarding ? (
+            <ReviewCustomerOnboarding
+              group={group}
+              existingCustomerId={linked?.customer?.id ?? null}
+              existingCustomer={linked?.customer ?? null}
+              initialName={linked?.customer?.name ?? group.displayName}
+              initialCnpj={linked?.customer?.cnpj_cpf ?? group.cnpj ?? ''}
+              initialEmail={linked?.customer?.customer_contacts?.find((contact) => contact.email?.trim())?.email ?? blItems.find((item) => item.manifest_customer_email)?.manifest_customer_email ?? ''}
+              saving={savingGroup}
+              onSelectExistingCustomer={() => undefined}
+              onSubmit={onGroupOnboard}
+            />
+          ) : null}
+          <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[820px] text-left text-sm">
             <tbody className="divide-y divide-[#30363d]">
               {group.items.map((item) => (
@@ -171,6 +197,7 @@ export function ReviewGroupBlock({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
     </div>

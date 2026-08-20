@@ -17,6 +17,7 @@ import {
 import { extractErrorText } from '../lib/errors'
 import { invalidateReviewQueueCaches } from '../components/review/reviewCaches'
 import { ReviewGroupBlock } from '../components/review/ReviewGroupBlock'
+import type { ReviewCustomerOnboardingInput } from '../components/review/ReviewCustomerOnboarding'
 import { ReviewDrawer } from '../components/review/ReviewDrawer'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { addCustomerEmail } from '../services/customers'
@@ -30,6 +31,7 @@ import {
   type SaveBlReviewResult,
 } from '../services/review'
 import { tryAutoIssueInvoice } from '../services/reviewBillingAutomation'
+import { useReviewCustomerGroup } from '../hooks/useReviewCustomerGroup'
 
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
 
@@ -38,6 +40,7 @@ export function Revisao() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
+  const reviewCustomerGroup = useReviewCustomerGroup()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
@@ -302,6 +305,41 @@ export function Revisao() {
     )
   }
 
+  async function handleGroupOnboard(group: ReviewGroup, input: ReviewCustomerOnboardingInput) {
+    if (!user) return
+    const blIds = group.items.filter((item) => item.source === 'bl').map((item) => item.id)
+    if (!blIds.length || group.identityKind === 'conflict') {
+      showToast('Nenhum vínculo permitido para este grupo. Resolva os CNPJs conflitantes.', 'error')
+      return
+    }
+    setSavingGroupKey(group.key)
+    try {
+      const result = await reviewCustomerGroup.mutateAsync({
+        blIds,
+        customerId: input.customerId,
+        cnpjCpf: input.cnpjCpf,
+        name: input.name,
+        email: input.email,
+        groupName: group.displayName,
+        changedBy: user.id,
+        sendPortalInvite: input.sendPortalInvite,
+      })
+      const pendingCount = result.onboarding.bls.filter((bl) => !bl.resolved).length
+      const inviteMessage = result.portalInvite === 'failed' ? ' Não foi possível iniciar o convite do Portal; o cadastro foi concluído.' : ''
+      showToast(`${blIds.length - pendingCount} B/L(s) vinculados; ${pendingCount} ainda com pendências.${inviteMessage}`, result.portalInvite === 'failed' ? 'info' : 'success')
+      await invalidateReviewQueueCaches(queryClient, { includeCustomers: true, includeCharges: true, includeInvoices: true })
+    } catch (err) {
+      if (err instanceof ConcurrentEditError) {
+        await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
+        showToast('Este grupo foi alterado por outro usuário. A fila foi recarregada.', 'error')
+      } else {
+        showToast(`Falha ao concluir o onboarding do cliente. ${extractErrorText(err)}`.trim(), 'error')
+      }
+    } finally {
+      setSavingGroupKey(null)
+    }
+  }
+
   // Apos uma correcao de nivel-cliente (e-mail/portal), reavalia o gate de todos
   // os B/Ls ja vinculados do grupo: os que zerarem saem da fila e, se elegiveis,
   // sao faturados. O updated_at do B/L nao muda (alteramos tabelas do cliente),
@@ -485,6 +523,7 @@ export function Revisao() {
               onToggle={() => toggleGroupCollapsed(group.key)}
               onGroupLink={(customerId) => handleGroupLinkCustomer(group, customerId)}
               onGroupAddEmail={(email) => handleGroupAddEmail(group, email)}
+              onGroupOnboard={(input) => void handleGroupOnboard(group, input)}
               onCorrect={(id) => setSelectedId(id)}
               onInlineField={handleInlineField}
             />

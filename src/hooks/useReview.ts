@@ -10,6 +10,9 @@ export type ReviewCustomer = Pick<Customer, 'id' | 'cnpj_cpf' | 'name'> & {
 }
 
 export type ReviewQueueItem = (BL & {
+  consignee_block?: string | null
+  cargo_description?: string | null
+  manifest_customer_email?: string | null
   customer?: ReviewCustomer | null
   voyage?: (Pick<Voyage, 'id' | 'voyage_number'> & {
     vessel?: (Pick<Vessel, 'id' | 'name'> & {
@@ -29,6 +32,9 @@ export type ReviewQueueItem = (BL & {
   total_weight_kg?: number | null
   total_cbm?: number | null
   notes?: string | null
+  consignee_block?: string | null
+  cargo_description?: string | null
+  manifest_customer_email?: string | null
   updated_at?: string | null
   customer_id?: number | null
   suggested_client_id?: number | null
@@ -75,6 +81,9 @@ export function useReviewQueue() {
 
       const blItems = ((blResult.data ?? []) as unknown as (Omit<ReviewQueueItem & { source: 'bl' }, 'source'>)[]).map((row) => ({
         ...row,
+        consignee_block: row.consignee_block ?? null,
+        cargo_description: row.cargo_description ?? null,
+        manifest_customer_email: row.manifest_customer_email ?? null,
         review_reasons: extractReviewReasons((row as { notes?: string | null }).notes),
         source: 'bl' as const,
       }))
@@ -130,6 +139,9 @@ export function useReviewQueue() {
         total_weight_kg: null,
         total_cbm: null,
         notes: null,
+        consignee_block: null,
+        cargo_description: null,
+        manifest_customer_email: null,
         updated_at: row.created_at,
         customer_id: row.client_id,
         suggested_client_id: row.suggested_client_id,

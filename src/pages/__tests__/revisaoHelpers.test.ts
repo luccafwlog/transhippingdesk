@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   customerHasEmail,
   getConsigneeFilterOptions,
+  getReviewItemDocumentCandidates,
   getReviewItemCnpj,
   getReviewItemDisplayName,
   getSelectionConsignee,
@@ -12,6 +13,7 @@ import {
   needsCustomerLink,
   needsWeightFix,
 } from '../revisaoHelpers'
+import { extractCnpjFromText, extractCnpjsFromText } from '../../lib/cnpj'
 import type { ReviewQueueItem } from '../../hooks/useReview'
 
 function item(overrides: Record<string, unknown>): ReviewQueueItem {
@@ -126,6 +128,90 @@ describe('getReviewItemDisplayName', () => {
 })
 
 describe('groupReviewItems', () => {
+  it('usa CNPJ válido como identidade principal do grupo', () => {
+    const groups = groupReviewItems([
+      item({ id: 'BL1', customer: null, consignee: 'ALFA', manifest_customer_cnpj_cpf: '11222333000181' }),
+      item({ id: 'BL2', customer: null, consignee: 'ALFA', manifest_customer_cnpj_cpf: '11.222.333/0001-81' }),
+    ])
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].identityKind).toBe('document')
+    expect(groups[0].candidateCnpjs).toEqual(['11222333000181'])
+    expect(groups[0].canBulkOnboard).toBe(true)
+    expect(groups[0].items.map((row) => row.id)).toEqual(['BL1', 'BL2'])
+  })
+
+  it('agrupa por nome apenas para visualização quando não há CNPJ válido', () => {
+    const group = groupReviewItems([
+      item({ id: 'BL1', customer: null, consignee: 'Alfa Import', manifest_customer_cnpj_cpf: null }),
+      item({ id: 'BL2', customer: null, consignee: ' alfa import ', manifest_customer_cnpj_cpf: 'invalido' }),
+    ])[0]
+
+    expect(group.identityKind).toBe('name')
+    expect(group.key).toBe('name:alfa import:missing')
+    expect(group.canBulkOnboard).toBe(false)
+  })
+
+  it('segrega B/Ls do mesmo nome quando existem CNPJs diferentes', () => {
+    const groups = groupReviewItems([
+      item({ id: 'BL1', customer: null, consignee: 'Alfa', manifest_customer_cnpj_cpf: '11222333000181' }),
+      item({ id: 'BL2', customer: null, consignee: 'Alfa', manifest_customer_cnpj_cpf: '12345678000195' }),
+      item({ id: 'BL3', customer: null, consignee: 'Alfa', manifest_customer_cnpj_cpf: null }),
+    ])
+
+    expect(groups.map((group) => group.items.map((row) => row.id))).toEqual([
+      ['BL1'],
+      ['BL2'],
+      ['BL3'],
+    ])
+    expect(groups.map((group) => group.identityKind)).toEqual(['document', 'document', 'name'])
+  })
+
+  it('marca conflito quando um B/L tem candidatos incompatíveis nas evidências', () => {
+    const group = groupReviewItems([
+      item({
+        id: 'BL1',
+        customer: null,
+        consignee: 'Alfa',
+        manifest_customer_cnpj_cpf: null,
+        consignee_block: 'ALFA LTDA\nCNPJ: 11.222.333/0001-81',
+        cargo_description: 'Carga geral. CNPJ 06.352.972/0001-21',
+      }),
+    ])[0]
+
+    expect(group.identityKind).toBe('conflict')
+    expect(group.candidateCnpjs).toEqual(['11222333000181', '06352972000121'])
+    expect(group.canBulkOnboard).toBe(false)
+  })
+
+  it('não mistura um B/L sem candidato aos subgrupos documentais do mesmo nome', () => {
+    const groups = groupReviewItems([
+      item({ id: 'BL1', customer: null, consignee: 'Alfa', manifest_customer_cnpj_cpf: '11222333000181' }),
+      item({ id: 'BL2', customer: null, consignee: 'Alfa', manifest_customer_cnpj_cpf: null }),
+    ])
+
+    expect(groups.map((group) => [group.key, group.items.map((row) => row.id)])).toEqual([
+      ['document:11222333000181', ['BL1']],
+      ['name:alfa:missing', ['BL2']],
+    ])
+  })
+
+  it('preserva Granite sem habilitar onboarding em lote de B/L', () => {
+    const group = groupReviewItems([
+      item({
+        source: 'granite',
+        id: 'GR1',
+        bl_number: 'GR-1',
+        shipper: 'Alfa',
+        consignee: null,
+        manifest_customer_cnpj_cpf: '11222333000181',
+      }),
+    ])[0]
+
+    expect(group.identityKind).toBe('document')
+    expect(group.canBulkOnboard).toBe(false)
+  })
+
   it('agrupa pelo CNPJ e nomeia pelo cliente cadastrado, ordenando por nome', () => {
     const rows = [
       item({ id: 'BL1', customer: null, consignee: 'ALFA', manifest_customer_cnpj_cpf: '11222333000181' }),
@@ -153,6 +239,42 @@ describe('groupReviewItems', () => {
       item({ id: 'BL2', customer: null, consignee: 'sem doc', manifest_customer_cnpj_cpf: null }),
     ]
     expect(groupReviewItems(rows)).toHaveLength(1)
+  })
+})
+
+describe('getReviewItemDocumentCandidates', () => {
+  it('encontra CNPJ válido no campo do manifesto e nas evidências textuais, sem duplicatas', () => {
+    const row = item({
+      consignee: 'Alfa',
+      manifest_customer_cnpj_cpf: '11.222.333/0001-81',
+      consignee_block: 'ALFA LTDA\nCNPJ: 11.222.333/0001-81\nCNPJ: 06.352.972/0001-21',
+      cargo_description: 'Carga geral. CNPJ 12.345.678/0001-95',
+    })
+
+    expect(getReviewItemDocumentCandidates(row)).toEqual([
+      '11222333000181',
+      '06352972000121',
+      '12345678000195',
+    ])
+  })
+
+  it('ignora CNPJ inválido mesmo quando está rotulado no texto', () => {
+    const row = item({
+      manifest_customer_cnpj_cpf: '11222333000182',
+      consignee_block: 'ALFA LTDA\nCNPJ: 11.222.333/0001-82',
+      cargo_description: 'CNPJ: 06.352.972/0001-21',
+    })
+
+    expect(getReviewItemDocumentCandidates(row)).toEqual(['06352972000121'])
+  })
+})
+
+describe('extração de CNPJ rotulado', () => {
+  it('retorna todos os CNPJs válidos na ordem e preserva o primeiro-match no adapter', () => {
+    const text = 'CNPJ: 11.222.333/0001-81; CNPJ 06.352.972/0001-21; CNPJ: inválido'
+
+    expect(extractCnpjsFromText(text)).toEqual(['11222333000181', '06352972000121'])
+    expect(extractCnpjFromText(text)).toBe('11222333000181')
   })
 })
 

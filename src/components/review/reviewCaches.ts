@@ -31,5 +31,6 @@ export async function invalidateReviewQueueCaches(
   if (scope.includeCustomers) keys.push(['customers'])
   if (scope.includeCharges) keys.push(queryKeys.charges.operations())
   if (scope.includeInvoices) keys.push(queryKeys.invoices.all())
+  keys.push(['customer-lookup'], ['local-charge-pendencies'], ['portal-provisioning'])
   await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
 }
