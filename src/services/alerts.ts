@@ -30,7 +30,17 @@ export const FINANCIAL_ALERT_EVENTS = {
   portal_dispute_opened: { audience: ['equipamentos'], unit: 'demurrage_invoice' },
 } as const satisfies Record<string, { audience: readonly AlertAudience[]; unit: AlertEventUnit }>
 
-export type FinancialAlertType = keyof typeof FINANCIAL_ALERT_EVENTS
+// The financial panel consumes only the active financial rows from the block
+// contract. Portal and Demurrage events remain available to the general alert
+// queue, but are not financial alerts for `/taxas-locais`.
+export const FINANCIAL_ALERT_TYPES = [
+  'billing_calculation_blocked',
+  'billing_auto_issue_failed',
+  'invoice_overdue',
+  'pix_unreconciled',
+] as const
+
+export type FinancialAlertType = typeof FINANCIAL_ALERT_TYPES[number]
 
 // These are catalog types already consumed by browser producers elsewhere.
 // The legacy `demurrage` carrier is intentionally absent: a label for a
@@ -116,6 +126,9 @@ export function alertEntityLink(alert: {
   const effectiveType = getEffectiveAlertType(alert)
   if (effectiveType === 'portal_excecao_critica_fatura' && alert.entity_type === 'bl') {
     return `/manifestos/${encodeURIComponent(alert.entity_id)}?tab=faturamento`
+  }
+  if (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed') {
+    return '/taxas-locais'
   }
   if (effectiveType === 'portal_dispute_opened' && alert.entity_type === 'demurrage_invoice') {
     return '/demurrage'
@@ -261,7 +274,9 @@ export async function resolveAlertItem(input: {
 }
 
 export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
-  return listAlerts('active', 'invoice')
+  const alerts = await listAlerts('active')
+  const financialTypes = new Set<string>(FINANCIAL_ALERT_TYPES)
+  return alerts.filter((alert) => financialTypes.has(getEffectiveAlertType(alert)))
 }
 
 // Deprecated browser compatibility. The only production scheduler is the

@@ -3,6 +3,7 @@ import {
   createAlert,
   dismissAlertItem,
   FINANCIAL_ALERT_EVENTS,
+  FINANCIAL_ALERT_TYPES,
   alertEntityLink,
   getEffectiveAlertType,
   getAlertTypeLabel,
@@ -26,14 +27,30 @@ it('envia dispensa temporária ao RPC central com motivo e revisão futura', asy
   })
 })
 
-it('lista somente alertas financeiros no RPC, sem baixar a fila inteira', async () => {
-  rpcMock.mockResolvedValue({ data: [{ entity_type: 'invoice', id: 3 }], error: null })
+it('lista os tipos financeiros ativos e exclui Portal/Demurrage após a fila real', async () => {
+  const realQueuePayload = [
+    { id: 1, type: 'billing_calculation_blocked', entity_type: 'bl' },
+    { id: 2, type: 'billing_auto_issue_failed', entity_type: 'bl' },
+    { id: 3, type: 'invoice_overdue', entity_type: 'invoice' },
+    { id: 4, type: 'pix_unreconciled', entity_type: 'pix_transaction' },
+    { id: 5, type: 'portal_dispute_opened', entity_type: 'demurrage_invoice' },
+    { id: 6, type: 'portal_excecao_critica_fatura', entity_type: 'bl' },
+    { id: 7, type: 'demurrage', entity_type: 'container' },
+  ]
+  rpcMock.mockResolvedValue({ data: realQueuePayload, error: null })
 
-  await expect(listFinancialAlerts()).resolves.toEqual([{ entity_type: 'invoice', id: 3 }])
-  expect(rpcMock).toHaveBeenCalledWith('list_alert_queue', { p_filter: 'active', p_entity_type: 'invoice' })
+  await expect(listFinancialAlerts()).resolves.toEqual(realQueuePayload.slice(0, 4))
+  expect(rpcMock).toHaveBeenCalledWith('list_alert_queue', { p_filter: 'active' })
 })
 
-it('expõe audiência e unidade dos eventos financeiros sem usar carriers genéricos', () => {
+it('expõe somente os tipos financeiros ativos do contrato', () => {
+  expect(FINANCIAL_ALERT_TYPES).toEqual([
+    'billing_calculation_blocked',
+    'billing_auto_issue_failed',
+    'invoice_overdue',
+    'pix_unreconciled',
+  ])
+
   expect(FINANCIAL_ALERT_EVENTS).toEqual({
     billing_calculation_blocked: {
       audience: ['documentacao'],
@@ -56,8 +73,8 @@ it('expõe audiência e unidade dos eventos financeiros sem usar carriers genér
       unit: 'demurrage_invoice',
     },
   })
-  expect(FINANCIAL_ALERT_EVENTS).not.toHaveProperty('billing')
-  expect(FINANCIAL_ALERT_EVENTS).not.toHaveProperty('demurrage')
+  expect(FINANCIAL_ALERT_TYPES).not.toContain('portal_dispute_opened')
+  expect(FINANCIAL_ALERT_TYPES).not.toContain('demurrage')
 })
 
 it('usa o upsert/resolver da fundação, com metadata opcional, para manter idempotência', async () => {
@@ -99,7 +116,9 @@ it('rotula eventos ativos e preserva o rótulo legado sem tratá-lo como produto
 })
 
 it('resolve destinos pela unidade do evento e pelo identificador canônico da invoice', () => {
-  expect(alertEntityLink({ type: 'aggregate', item_type: 'portal_dispute_opened', entity_type: 'demurrage_invoice', entity_id: '77' })).toBe('/demurrage')
+  expect(alertEntityLink({ type: 'portal_dispute_opened', entity_type: 'demurrage_invoice', entity_id: '77' })).toBe('/demurrage')
+  expect(alertEntityLink({ type: 'billing_calculation_blocked', entity_type: 'bl', entity_id: 'BL-77' })).toBe('/taxas-locais')
+  expect(alertEntityLink({ type: 'billing_auto_issue_failed', entity_type: 'bl', entity_id: 'BL-78' })).toBe('/taxas-locais')
   expect(alertEntityLink({
     type: 'portal_excecao_critica_fatura',
     entity_type: 'bl',
@@ -116,7 +135,22 @@ it('resolve destinos pela unidade do evento e pelo identificador canônico da in
 })
 
 it('prefere item_type no payload da fundação e cai para type em payload legado', () => {
+  expect(getEffectiveAlertType({ type: 'invoice_overdue' })).toBe('invoice_overdue')
   expect(getEffectiveAlertType({ type: 'aggregate', item_type: 'invoice_overdue' })).toBe('invoice_overdue')
   expect(getEffectiveAlertType({ type: 'demurrage', item_type: null })).toBe('demurrage')
   expect(getEffectiveAlertType({ type: 'demurrage' })).toBe('demurrage')
+})
+
+it('usa item_type legado para filtrar um alerta financeiro na fila', async () => {
+  rpcMock.mockResolvedValue({
+    data: [
+      { id: 10, type: 'aggregate', item_type: 'billing_auto_issue_failed', entity_type: 'bl' },
+      { id: 11, type: 'aggregate', item_type: 'portal_excecao_critica_fatura', entity_type: 'bl' },
+    ],
+    error: null,
+  })
+
+  await expect(listFinancialAlerts()).resolves.toEqual([
+    { id: 10, type: 'aggregate', item_type: 'billing_auto_issue_failed', entity_type: 'bl' },
+  ])
 })
