@@ -196,6 +196,43 @@ describe('fetchLineUpSnapshot', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ rowType: 'export', exportTerminal: 'TBC', exportContainersQty: null, exportMovementsQty: null })
   })
+
+  it('marca as duas linhas da escala omitida sem perder rowType nem terminais', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      bls: [{ id: 'BL1', voyage_id: 24, pod: 'BRVIX', cargo_mode: 'container', ce_mercante: 'CE1', bb_machine_qty: 0, bb_packages_qty: 0 }],
+      voyage_export_schedules: [{
+        id: 'EXP1', voyage_id: 24, pol: 'BRVIX', tem_exportacao: true, has_granite: true,
+        containers_qty: 7, movements_qty: 9, ce_status: 'waiting', linked: false,
+      }],
+      voyage_escala_operation_fronts: [
+        { voyage_id: 24, port: 'BRVIX', sentido: 'importacao', modalidade: 'carga_cheia', terminal_id: 'import-terminal' },
+        { voyage_id: 24, port: 'BRVIX', sentido: 'exportacao', modalidade: 'granito', terminal_id: 'export-terminal' },
+      ],
+      voyage_escala_terminal_state: [
+        { voyage_id: 24, port: 'BRVIX', terminal_id: 'import-terminal', terminal_atb: '2026-08-02', terminal_atd: null, terminal_rtw: null, revision: 1 },
+        { voyage_id: 24, port: 'BRVIX', terminal_id: 'export-terminal', terminal_atb: '2026-08-03', terminal_atd: null, terminal_rtw: null, revision: 1 },
+      ],
+      depots: [
+        { id: 'import-terminal', code: 'TVV', active: true },
+        { id: 'export-terminal', code: 'PORTMAC', active: true },
+      ],
+      audit_logs: [
+        { entity_type: 'voyage_pod_schedule', entity_id: '24::BRVIX', field_name: 'omitted', new_value: 'true', changed_at: '2026-07-27T00:00:00Z' },
+      ],
+    }))
+
+    const rows = (await fetchLineUpSnapshot()).rows.filter((row) => row.pod === 'BRVIX')
+
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => ({ rowType: row.rowType, omitted: row.omitted }))).toEqual([
+      { rowType: 'import', omitted: true },
+      { rowType: 'export', omitted: true },
+    ])
+    expect(rows.find((row) => row.rowType === 'import')).toMatchObject({ importTerminal: 'TVV', exportTerminal: 'TBC' })
+    expect(rows.find((row) => row.rowType === 'export')).toMatchObject({ importTerminal: 'TBC', exportTerminal: 'PORTMAC' })
+  })
 })
 
 describe('projectLineUpTerminals', () => {

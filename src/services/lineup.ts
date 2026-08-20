@@ -57,6 +57,7 @@ export type LineUpRow = {
   ata: string | null
   atb: string | null
   rowType: 'import' | 'export'
+  omitted: boolean
   importTerminal: string
   exportTerminal: string
   vin: number
@@ -283,6 +284,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           etb: schedule?.etb ?? null,
           ...lineUpScheduleDates(schedule),
           rowType: 'import',
+          omitted: schedule?.omitted ?? false,
           importTerminal,
           exportTerminal: 'TBC',
           vin: routeVehicles.length,
@@ -316,6 +318,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           etb: schedule?.etb ?? null,
           ...lineUpScheduleDates(schedule),
           rowType: 'export',
+          omitted: schedule?.omitted ?? false,
           importTerminal: 'TBC',
           exportTerminal,
           vin: 0,

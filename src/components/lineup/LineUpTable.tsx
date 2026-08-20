@@ -108,7 +108,10 @@ export function LineUpTable({
                 </td>
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
-                  {row.pod}
+                  <div className="flex flex-wrap items-center justify-center gap-1">
+                    <span>{row.pod}</span>
+                    {row.omitted ? <OmittedChip /> : null}
+                  </div>
                 </td>
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
                   {terminal}
@@ -261,4 +264,15 @@ function formatShortDate(value: string | null) {
 
 function formatInteger(value: number) {
   return new Intl.NumberFormat('pt-BR').format(Number(value ?? 0))
+}
+
+function OmittedChip() {
+  return (
+    <span
+      className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+      title="Escala omitida — o navio não atracou neste porto."
+    >
+      Omitida
+    </span>
+  )
 }
