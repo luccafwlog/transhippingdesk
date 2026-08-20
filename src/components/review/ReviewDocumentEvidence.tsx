@@ -9,34 +9,33 @@ export function ReviewDocumentEvidence({ group }: { group: ReviewGroup }) {
   const conflict = group.identityKind === 'conflict'
 
   return (
-    <div className="grid gap-2 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold text-amber-100">Evidências extraídas do B/L</span>
-        {conflict ? <Badge tone="yellow">CNPJs conflitantes</Badge> : <Badge tone="slate">CNPJ pendente</Badge>}
+    <div className="review-evidence grid gap-2">
+      <div className="review-evidence__heading">
+        <span className="review-evidence__title">Evidências extraídas do B/L</span>
       </div>
-      <p className="text-xs text-amber-100/80">
+      <p className="review-evidence__description">
         {conflict
           ? 'Há indícios de CNPJs diferentes. O grupo foi segregado e nenhum vínculo em lote está disponível.'
           : 'Confira o texto original para confirmar o CNPJ antes de criar ou vincular o cliente.'}
       </p>
       {group.candidateCnpjs.length ? (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="review-evidence__candidates">
           {group.candidateCnpjs.map((cnpj) => <Badge key={cnpj} tone="blue">{formatCnpjCpf(cnpj)}</Badge>)}
         </div>
       ) : null}
-      <div className="grid gap-2">
+      <div className="review-evidence__items">
         {group.items.filter((item) => item.source === 'bl').map((item) => {
           const expanded = open === item.id
           return (
-            <div key={item.id} className="rounded border border-[#30363d] bg-[#161b22]">
-              <button type="button" className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-slate-300" onClick={() => setOpen(expanded ? null : item.id)}>
-                <span><strong className="text-white">B/L {item.id}</strong> · consignatário extraído: {item.consignee ?? '-'}</span>
-                <ChevronDown size={14} className={expanded ? 'rotate-180' : ''} />
+            <div key={item.id} className="review-evidence__item">
+              <button type="button" className="review-evidence__item-toggle" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : item.id)}>
+                <span><strong className="review-evidence__item-id">B/L {item.id}</strong><span className="review-evidence__item-summary">Consignatário: {item.consignee ?? 'não extraído'}</span></span>
+                <ChevronDown size={16} className={`review-evidence__chevron ${expanded ? 'rotate-180' : ''}`} />
               </button>
               {expanded ? (
-                <div className="grid gap-2 border-t border-[#30363d] px-3 py-2 text-xs text-slate-400">
-                  <div><span className="font-medium text-slate-300">Campo consignatário:</span><pre className="mt-1 whitespace-pre-wrap break-words rounded bg-[#0d1117] p-2">{item.consignee_block || 'Não extraído'}</pre></div>
-                  <div><span className="font-medium text-slate-300">Descrição da carga:</span><pre className="mt-1 whitespace-pre-wrap break-words rounded bg-[#0d1117] p-2">{item.cargo_description || 'Não extraída'}</pre></div>
+                <div className="review-evidence__raw-fields">
+                  <div><span className="review-evidence__field-label">Campo consignatário</span><pre>{item.consignee_block || 'Não extraído'}</pre></div>
+                  <div><span className="review-evidence__field-label">Descrição da carga</span><pre>{item.cargo_description || 'Não extraída'}</pre></div>
                 </div>
               ) : null}
             </div>

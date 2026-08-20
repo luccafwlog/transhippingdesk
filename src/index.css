@@ -29,6 +29,7 @@
   --app-link: #1d4d88;
   --app-blue-soft: #e8f0fb;
   --app-gold: #d4882e;
+  --app-gold-strong: #8f4d08;
   --app-gold-soft: #fdf0dc;
   --app-green: #1a8c50;
   --app-green-soft: #e6f7ee;
@@ -72,6 +73,7 @@
   --app-link: #93c5fd;
   --app-blue-soft: rgba(37, 99, 235, 0.18);
   --app-gold: #f59e0b;
+  --app-gold-strong: #f8c35f;
   --app-gold-soft: rgba(245, 158, 11, 0.18);
   --app-green: #4ade80;
   --app-green-soft: rgba(74, 222, 128, 0.18);
@@ -112,6 +114,7 @@
   --app-link: #1d4d88;
   --app-blue-soft: #e8f0fb;
   --app-gold: #d4882e;
+  --app-gold-strong: #8f4d08;
   --app-gold-soft: #fdf0dc;
   --app-green: #1a8c50;
   --app-green-soft: #e6f7ee;
@@ -841,6 +844,457 @@ textarea {
   max-width: 1800px;
   margin: 0 auto;
   padding: 34px 28px 52px;
+}
+
+/* Revisão manual: a fila é uma superfície de decisão, não uma tabela genérica.
+   Estes primitives mantêm a hierarquia e o contraste quando o tema claro está
+   ativo, sem depender de cores herdadas do antigo dark mode. */
+.review-toolbar {
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface-muted);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.review-toolbar__count {
+  color: var(--app-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-queue-card {
+  box-shadow: var(--app-shadow);
+}
+
+.review-queue-card__summary {
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface-muted);
+}
+
+.review-queue-card__groups > * + * {
+  border-top-color: var(--app-border);
+}
+
+.review-group__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface-muted);
+}
+
+.review-group__toggle {
+  display: inline-flex;
+  min-width: min(100%, 280px);
+  max-width: 100%;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--app-text-strong);
+  cursor: pointer;
+  text-align: left;
+}
+
+.review-group__toggle:focus-visible,
+.review-evidence__item-toggle:focus-visible {
+  outline: 0;
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--app-border-focus);
+}
+
+.review-group__chevron,
+.review-evidence__chevron {
+  flex: none;
+  color: var(--app-muted);
+  transition: transform 160ms ease-out;
+}
+
+.review-group__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--app-text-strong);
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.review-group__identity,
+.review-group__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-group__identity {
+  min-width: 0;
+}
+
+.review-group__cnpj,
+.review-group__issue-count {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-group__issue-count {
+  padding-left: 2px;
+}
+
+.review-group__actions {
+  margin-left: auto;
+}
+
+.review-group__body {
+  display: grid;
+  gap: 16px;
+  padding: 16px 20px 20px;
+  background: var(--app-surface);
+}
+
+.review-group__reason-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.review-group__row-context {
+  color: var(--app-muted);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.review-group__table-scroll {
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+}
+
+.review-group__table td:last-child {
+  width: 132px;
+  white-space: nowrap;
+}
+
+.review-group__correct-button {
+  min-width: 96px;
+}
+
+.review-onboarding-card {
+  border-color: color-mix(in srgb, var(--app-blue) 42%, var(--app-border) 58%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-blue-soft) 52%, var(--app-surface) 48%), var(--app-surface));
+  box-shadow: 0 1px 2px rgba(37, 99, 168, 0.06);
+}
+
+.review-onboarding-card__title {
+  color: var(--app-text-strong);
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.review-onboarding-card__intro {
+  margin: 5px 0 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.review-onboarding-card__lookup-results {
+  display: grid;
+  gap: 8px;
+}
+
+.review-onboarding-card__lookup-option {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out, transform 150ms ease-out;
+}
+
+.review-onboarding-card__lookup-option:hover {
+  border-color: var(--app-blue);
+  background: var(--app-blue-soft);
+}
+
+.review-onboarding-card__lookup-option:active {
+  transform: scale(0.98);
+}
+
+.review-onboarding-card__invite {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--app-text);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.review-onboarding-card__checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  flex: none;
+  accent-color: var(--app-blue-btn);
+}
+
+.review-onboarding-card__invite-copy {
+  min-width: 0;
+}
+
+.review-onboarding-card__invite-hint {
+  display: block;
+  margin-top: 3px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.review-onboarding-card__existing-note {
+  color: var(--app-green);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.review-onboarding-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.review-onboarding-card__footer .app-btn {
+  min-width: 260px;
+}
+
+.review-evidence {
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--app-gold) 48%, var(--app-border) 52%);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--app-gold-soft) 58%, var(--app-surface) 42%);
+}
+
+.review-evidence__heading,
+.review-evidence__candidates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-evidence__title {
+  color: var(--app-gold-strong);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.review-evidence__description {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.review-evidence__items {
+  display: grid;
+  gap: 8px;
+}
+
+.review-evidence__item {
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.review-evidence__item-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--app-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.review-evidence__item-toggle:hover {
+  background: var(--app-surface-hover);
+}
+
+.review-evidence__item-id {
+  color: var(--app-text-strong);
+  font-size: 13px;
+}
+
+.review-evidence__item-summary {
+  margin-left: 6px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.review-evidence__raw-fields {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface-muted);
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.review-evidence__field-label {
+  color: var(--app-text);
+  font-weight: 700;
+}
+
+.review-evidence__raw-fields pre {
+  max-height: 180px;
+  margin: 5px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--app-surface);
+  padding: 9px 10px;
+  color: var(--app-text);
+  font-family: var(--app-font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.review-recalc-notice {
+  border: 1px solid color-mix(in srgb, var(--app-gold) 45%, var(--app-border) 55%);
+  background: var(--app-gold-soft);
+  color: var(--app-gold-strong);
+}
+
+.review-recalc-notice__dismiss {
+  min-width: 40px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--app-gold-strong);
+  cursor: pointer;
+}
+
+.review-recalc-notice__dismiss:hover {
+  background: color-mix(in srgb, var(--app-gold) 12%, transparent);
+}
+
+.review-drawer__pager,
+.review-drawer__group-note {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-muted);
+}
+
+.review-drawer__pager-button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--app-muted);
+  cursor: pointer;
+}
+
+.review-drawer__pager-button:hover:not(:disabled) {
+  color: var(--app-text);
+  background: var(--app-surface-hover);
+}
+
+.review-drawer__pager-count {
+  color: var(--app-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-drawer__warning {
+  border: 1px solid color-mix(in srgb, var(--app-gold) 45%, var(--app-border) 55%);
+  background: var(--app-gold-soft);
+  color: var(--app-gold-strong);
+}
+
+.review-drawer__granite-card {
+  background: var(--app-surface-muted);
+}
+
+.review-drawer__suggestion {
+  border: 1px solid color-mix(in srgb, var(--app-gold) 45%, var(--app-border) 55%);
+  background: var(--app-gold-soft);
+  color: var(--app-gold-strong);
+}
+
+.review-drawer__customer-option {
+  border-color: var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+.review-drawer__customer-option:hover {
+  border-color: var(--app-blue);
+  background: var(--app-blue-soft);
+}
+
+.review-drawer__customer-option--selected {
+  border-color: var(--app-blue);
+  background: var(--app-blue-soft);
+  color: var(--app-text-strong);
+}
+
+.review-drawer__selected-customer {
+  border: 1px solid color-mix(in srgb, var(--app-green) 45%, var(--app-border) 55%);
+  background: var(--app-green-soft);
+  color: var(--app-green);
+}
+
+.review-drawer__group-note {
+  color: var(--app-muted);
+}
+
+@media (max-width: 720px) {
+  .review-group__header,
+  .review-group__body {
+    padding-inline: 14px;
+  }
+
+  .review-group__toggle {
+    flex: 1 1 100%;
+  }
+
+  .review-group__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .review-onboarding-card__footer {
+    justify-content: stretch;
+  }
+
+  .review-onboarding-card__footer .app-btn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 .page-header {

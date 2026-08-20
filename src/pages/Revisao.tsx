@@ -403,7 +403,7 @@ export function Revisao() {
         description="Fila de B/Ls com pendências de importação que exigem validação humana, agrupada por cliente."
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="review-toolbar mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:w-72">
           <Input
             value={searchText}
@@ -445,7 +445,7 @@ export function Revisao() {
         ) : null}
 
         {data && data.length > 0 ? (
-          <span className="ml-auto text-xs text-slate-500">
+          <span className="review-toolbar__count ml-auto text-xs">
             {formatResultCount(groups.length, 'cliente', 'clientes')} · {formatResultCount(filteredData.length, 'B/L', 'B/Ls')} de {data.length}
           </span>
         ) : null}
@@ -456,7 +456,7 @@ export function Revisao() {
           {recalcQueue.map((notice) => (
             <div
               key={notice.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-100"
+              className="review-recalc-notice flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm"
             >
               <div className="flex items-center gap-2">
                 <AlertTriangle size={15} />
@@ -483,7 +483,7 @@ export function Revisao() {
                 )}
                 <button
                   type="button"
-                  className="text-amber-300 hover:text-amber-100"
+                  className="review-recalc-notice__dismiss"
                   onClick={() => dismissRecalcNotice(notice.id)}
                   aria-label="Dispensar aviso"
                 >
@@ -495,10 +495,10 @@ export function Revisao() {
         </div>
       ) : null}
 
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-semibold text-white">{formatResultCount(filteredData.length, 'pendência retornada', 'pendências retornadas')}</span>
-          <span className="text-xs text-slate-400">{filterDescription}</span>
+      <Card className="review-queue-card overflow-hidden p-0">
+        <div className="review-queue-card__summary flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-semibold text-[var(--app-text-strong)]">{formatResultCount(filteredData.length, 'pendência retornada', 'pendências retornadas')}</span>
+          <span className="text-xs text-[var(--app-muted)]">{filterDescription}</span>
         </div>
         {error ? <InlineError message="Erro ao carregar a fila de revisão." /> : null}
         {graniteUnavailable ? (
@@ -506,13 +506,13 @@ export function Revisao() {
         ) : null}
 
         {isLoading ? (
-          <div className="px-4 py-8 text-center text-slate-400">Carregando fila de revisão...</div>
+          <div className="px-4 py-8 text-center text-[var(--app-muted)]">Carregando fila de revisão...</div>
         ) : null}
         {!isLoading && !filteredData.length ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : null}
 
-        <div className="divide-y divide-[#30363d]">
+        <div className="review-queue-card__groups divide-y">
           {groups.map((group) => (
             <ReviewGroupBlock
               key={group.key}

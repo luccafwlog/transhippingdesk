@@ -13,8 +13,11 @@ describe('ReviewDocumentEvidence', () => {
   it('mostra CNPJs candidatos e textos extraídos do B/L', async () => {
     const user = userEvent.setup()
     render(<ReviewDocumentEvidence group={group({})} />)
-    expect(screen.getByText(/CNPJs conflitantes/)).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: /B\/L BL1/ }))
+    expect(screen.getByText(/Há indícios de CNPJs diferentes/)).toBeTruthy()
+    const toggle = screen.getByRole('button', { name: /B\/L BL1/ })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    await user.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getAllByText(/11\.222\.333\/0001-81/).length).toBeGreaterThan(0)
     expect(screen.getByText(/55\.666\.777\/0001-44/)).toBeTruthy()
   })

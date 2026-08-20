@@ -18,6 +18,12 @@ import {
 import { ReviewCustomerOnboarding, type ReviewCustomerOnboardingInput } from './ReviewCustomerOnboarding'
 import { ReviewDocumentEvidence } from './ReviewDocumentEvidence'
 
+const customerLevelReasons = new Set([
+  'Cliente nao vinculado',
+  'Cliente sem e-mail cadastrado',
+  'Acesso ao portal nao provisionado',
+])
+
 export function ReviewGroupBlock({
   group,
   collapsed,
@@ -51,47 +57,41 @@ export function ReviewGroupBlock({
   const groupReasons = useMemo(() => {
     const reasons = new Set<string>()
     for (const item of group.items) {
-      for (const r of item.review_reasons ?? []) reasons.add(r)
+      for (const reason of item.review_reasons ?? []) {
+        if (!customerLevelReasons.has(reason)) reasons.add(reason)
+      }
     }
     return [...reasons]
   }, [group.items])
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-3 bg-[#0d1117] px-4 py-3">
+      <div className="review-group__header">
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-center gap-2 text-left"
+          className="review-group__toggle"
           aria-expanded={!collapsed}
         >
           <ChevronDown
             size={16}
-            className={`text-slate-500 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+            className={`review-group__chevron ${collapsed ? '-rotate-90' : ''}`}
           />
-          <span className="font-semibold text-white">{group.displayName}</span>
+          <span className="review-group__name">{group.displayName}</span>
         </button>
-        {group.cnpj ? (
-          <span className="text-xs text-slate-500">{formatCnpjCpf(group.cnpj)}</span>
-        ) : (
-          <span className="text-xs text-amber-300">sem CNPJ</span>
-        )}
-        {group.identityKind === 'conflict' ? <Badge tone="yellow">CNPJ conflitante</Badge> : null}
-        {group.identityKind === 'name' ? <Badge tone="yellow">CNPJ pendente</Badge> : null}
-        {hasLinkedCustomer && unlinkedCount === 0 ? <Badge tone="blue">Cliente vinculado</Badge> : null}
-        {hasLinkedCustomer && needsEmail ? <Badge tone="yellow">E-mail pendente</Badge> : null}
-        <Badge tone="slate">{formatResultCount(group.items.length, 'B/L', 'B/Ls')}</Badge>
-        <div className="flex flex-wrap gap-1.5">
-          {groupReasons.slice(0, 4).map((reason) => (
-            <Badge key={reason} tone="yellow">
-              {reason}
-            </Badge>
-          ))}
+        <div className="review-group__identity">
+          {group.cnpj ? <span className="review-group__cnpj">{formatCnpjCpf(group.cnpj)}</span> : null}
+          {group.identityKind === 'conflict' ? <Badge tone="yellow">CNPJ conflitante</Badge> : null}
+          {group.identityKind === 'name' ? <Badge tone="yellow">CNPJ pendente</Badge> : null}
+          {hasLinkedCustomer && unlinkedCount === 0 ? <Badge tone="blue">Cliente vinculado</Badge> : null}
+          {hasLinkedCustomer && needsEmail ? <Badge tone="yellow">E-mail pendente</Badge> : null}
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-3">
+        <Badge tone="slate">{formatResultCount(group.items.length, 'B/L', 'B/Ls')}</Badge>
+        {groupReasons.length > 0 ? <span className="review-group__issue-count">{formatResultCount(groupReasons.length, 'pendência operacional', 'pendências operacionais')}</span> : null}
+        <div className="review-group__actions">
           {unlinkedCount > 0 && blItems.length === 0 ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Vincular cliente a {unlinkedCount}:</span>
+              <span className="text-xs text-[var(--app-muted)]">Vincular cliente a {unlinkedCount}:</span>
               <InlineCustomerPicker saving={savingGroup} onSelect={onGroupLink} />
             </div>
           ) : null}
@@ -118,8 +118,16 @@ export function ReviewGroupBlock({
       </div>
 
       {!collapsed ? (
-        <div className="grid gap-3 p-3">
+        <div className="review-group__body">
           {group.identityKind === 'conflict' || (group.identityKind === 'name' && blItems.length > 0) ? <ReviewDocumentEvidence group={group} /> : null}
+          {groupReasons.length > 0 ? (
+            <div className="review-group__reason-strip">
+              <span>Pendências específicas do B/L</span>
+              <div className="flex flex-wrap gap-1.5">
+                {groupReasons.map((reason) => <Badge key={reason} tone="yellow">{reason}</Badge>)}
+              </div>
+            </div>
+          ) : null}
           {showOnboarding ? (
             <ReviewCustomerOnboarding
               group={group}
@@ -133,12 +141,12 @@ export function ReviewGroupBlock({
               onSubmit={onGroupOnboard}
             />
           ) : null}
-          <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[820px] text-left text-sm">
-            <tbody className="divide-y divide-[#30363d]">
+          <div className="app-table-scroll review-group__table-scroll">
+          <table className="app-table app-table--compact review-group__table min-w-[760px] text-left text-sm">
+            <tbody className="divide-y">
               {group.items.map((item) => (
-                <tr key={item.id} className="hover:bg-[#21262d]/60">
-                  <td className="px-4 py-3 font-semibold text-white">
+                <tr key={item.id} className="hover:bg-[var(--app-surface-hover)]">
+                  <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">
                     <div className="flex items-center gap-2">
                       {item.source === 'granite' ? <Badge tone="blue">Granito</Badge> : null}
                       {item.source === 'granite' ? item.bl_number : item.id}
@@ -147,20 +155,26 @@ export function ReviewGroupBlock({
                   <td className="px-4 py-3">
                     <div className="app-table__cell-stack">
                       <div className="flex flex-wrap gap-2">
-                        {(item.review_reasons?.length ? item.review_reasons : ['Pendente de revisão']).map((reason) => (
+                        {(item.review_reasons?.filter((reason) => !showOnboarding || !customerLevelReasons.has(reason)).length
+                          ? item.review_reasons.filter((reason) => !showOnboarding || !customerLevelReasons.has(reason))
+                          : showOnboarding ? [] : ['Pendente de revisão']
+                        ).map((reason) => (
                           <Badge key={reason} tone="yellow">
                             {reason}
                           </Badge>
                         ))}
+                        {showOnboarding && item.review_reasons?.some((reason) => customerLevelReasons.has(reason)) ? (
+                          <span className="review-group__row-context">Tratada no cadastro do grupo</span>
+                        ) : null}
                       </div>
                       {item.source === 'granite' && item.suggested_customer?.name ? (
-                        <div className="text-xs text-yellow-200">
+                        <div className="text-xs text-[var(--app-gold-strong)]">
                           Sugerido: <strong>{item.suggested_customer.name}</strong> — confirme em Corrigir
                         </div>
                       ) : null}
                       {item.source === 'bl' && needsWeightFix(item) ? (
                         <div className="grid max-w-xs gap-1">
-                          <span className="text-xs font-medium text-slate-400">
+                          <span className="text-xs font-medium text-[var(--app-muted)]">
                             Informar peso BB para liberar cálculo
                           </span>
                           <InlineFieldEditor
@@ -174,12 +188,12 @@ export function ReviewGroupBlock({
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-400">
+                  <td className="px-4 py-3 text-[var(--app-muted)]">
                     {item.voyage?.vessel?.name ?? '-'} / {item.voyage?.voyage_number ?? '-'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => onCorrect(item.id)}>
+                      <Button variant="secondary" className="review-group__correct-button" onClick={() => onCorrect(item.id)}>
                         Corrigir
                       </Button>
                       {item.source === 'bl' ? (

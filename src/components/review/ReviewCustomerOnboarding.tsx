@@ -3,7 +3,7 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Field, Input } from '../ui/Input'
 import { useCustomerLookup } from '../../hooks/useCustomers'
-import type { ReviewCustomer, ReviewQueueItem } from '../../hooks/useReview'
+import type { ReviewCustomer } from '../../hooks/useReview'
 import { canonicalizeValidCnpj, formatCnpj, normalizeCnpj } from '../../lib/cnpj'
 import type { ReviewGroup } from '../../pages/revisaoHelpers'
 
@@ -62,32 +62,32 @@ export function ReviewCustomerOnboarding({
   }
 
   return (
-    <Card className="grid gap-4 border-[#1f6feb]/40 bg-[#0d1117]">
+    <Card className="review-onboarding-card grid gap-4">
       <div>
-        <div className="font-semibold text-white">Cadastrar ou vincular cliente</div>
-        <p className="mt-1 text-xs text-slate-400">A ação vale para {count} B/Ls deste grupo. O vínculo só ocorre depois da confirmação do CNPJ.</p>
+        <div className="review-onboarding-card__title">Cadastrar ou vincular cliente</div>
+        <p className="review-onboarding-card__intro">A ação vale para {count} B/Ls deste grupo. O vínculo só ocorre depois da confirmação do CNPJ.</p>
       </div>
       <Field label="Buscar cliente existente">
         <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Digite ao menos 2 caracteres" />
       </Field>
       {lookup.data?.length ? (
-        <div className="grid gap-2">
-          {lookup.data.map((customer) => <button key={customer.id} type="button" className="rounded border border-[#30363d] bg-[#161b22] px-3 py-2 text-left text-sm hover:border-[#1f6feb]" onClick={() => selectCustomer(customer as CustomerLookupResult)}><div className="font-semibold text-white">{customer.name}</div><div className="text-xs text-slate-400">{formatCnpj(customer.cnpj_cpf)}</div></button>)}
+        <div className="review-onboarding-card__lookup-results">
+          {lookup.data.map((customer) => <button key={customer.id} type="button" className="review-onboarding-card__lookup-option" onClick={() => selectCustomer(customer as CustomerLookupResult)}><div className="font-semibold text-[var(--app-text-strong)]">{customer.name}</div><div className="text-xs text-[var(--app-muted)]">{formatCnpj(customer.cnpj_cpf)}</div></button>)}
         </div>
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Razão social" required><Input value={name} onChange={(event) => setName(event.target.value)} /></Field>
         <Field label="CNPJ" required hint={validCnpj ? `Confirmado: ${formatCnpj(validCnpj)}` : 'Informe um CNPJ válido para liberar o vínculo.'}><Input placeholder="00.000.000/0000-00" value={cnpj} onChange={(event) => setCnpj(normalizeCnpj(event.target.value))} /></Field>
       </div>
-      <Field label="E-mail principal do cliente" required hint={email.trim() ? `O convite será enviado para ${email.trim().toLowerCase()}.` : 'O cliente precisa ter pelo menos um e-mail cadastrado.'}>
+      <Field label="E-mail principal do cliente" required hint={email.trim() ? 'Será salvo como contato do cliente.' : 'O cliente precisa ter pelo menos um e-mail cadastrado.'}>
         <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="financeiro@cliente.com.br" />
       </Field>
-      <label className="flex items-start gap-2 text-sm text-slate-300">
-        <input type="checkbox" checked={sendPortalInvite} onChange={(event) => setSendPortalInvite(event.target.checked)} />
-        <span>Enviar convite do Portal para este mesmo e-mail <span className="block text-xs text-slate-500">O envio será iniciado para {email.trim().toLowerCase() || 'o e-mail informado acima'}.</span></span>
+      <label className="review-onboarding-card__invite">
+        <input className="review-onboarding-card__checkbox" type="checkbox" checked={sendPortalInvite} onChange={(event) => setSendPortalInvite(event.target.checked)} />
+        <span className="review-onboarding-card__invite-copy">Enviar convite do Portal para este mesmo e-mail <span className="review-onboarding-card__invite-hint">{sendPortalInvite ? `O convite será iniciado para ${email.trim().toLowerCase() || 'o e-mail informado acima'}.` : 'Opcional — você poderá iniciar o convite depois em Provisionamento do Portal.'}</span></span>
       </label>
-      {selectedId && selectedCustomer && customerAlreadyHasEmail ? <div className="text-xs text-emerald-300">Cliente existente selecionado. O e-mail informado será mantido como contato adicional se ainda não existir.</div> : null}
-      <div className="flex justify-end">
+      {selectedId && selectedCustomer && customerAlreadyHasEmail ? <div className="review-onboarding-card__existing-note">Cliente existente selecionado. O e-mail informado será mantido como contato adicional se ainda não existir.</div> : null}
+      <div className="review-onboarding-card__footer">
         <Button disabled={!canSubmit} loading={saving} onClick={() => onSubmit({ customerId: selectedId, cnpjCpf: validCnpj!, name: name.trim(), email: email.trim().toLowerCase(), sendPortalInvite })}>
           {selectedId ? `Adicionar e-mail e vincular ${count} B/Ls` : `Criar cliente e vincular ${count} B/Ls`}
         </Button>
@@ -95,5 +95,3 @@ export function ReviewCustomerOnboarding({
     </Card>
   )
 }
-
-export type ReviewCustomerOnboardingItem = ReviewQueueItem

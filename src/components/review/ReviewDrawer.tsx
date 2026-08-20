@@ -174,24 +174,24 @@ export function ReviewDrawer({
       {item ? (
         <div className="grid gap-5">
           {totalItems > 1 && currentIndex >= 0 ? (
-            <div className="flex items-center justify-between rounded-lg border border-[#30363d] bg-[#161b22] px-3 py-2 text-sm">
+            <div className="review-drawer__pager flex items-center justify-between rounded-lg px-3 py-2 text-sm">
               <button
                 type="button"
                 disabled={!canGoPrev}
                 onClick={() => canGoPrev && onNavigate(siblingIds[currentIndex - 1])}
-                className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+                className="review-drawer__pager-button flex items-center gap-1 disabled:opacity-30"
               >
                 <ChevronLeft size={15} />
                 Anterior
               </button>
-              <span className="text-xs text-slate-500">
+              <span className="review-drawer__pager-count text-xs">
                 {currentIndex + 1} de {totalItems}
               </span>
               <button
                 type="button"
                 disabled={!canGoNext}
                 onClick={() => canGoNext && onNavigate(siblingIds[currentIndex + 1])}
-                className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+                className="review-drawer__pager-button flex items-center gap-1 disabled:opacity-30"
               >
                 Próximo
                 <ChevronRight size={15} />
@@ -199,7 +199,7 @@ export function ReviewDrawer({
             </div>
           ) : null}
 
-          <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+          <div className="review-drawer__warning rounded-xl p-3 text-sm">
             <div className="mb-2 flex items-center gap-2 font-semibold">
               <AlertTriangle size={16} />
               Pendências a resolver
@@ -241,18 +241,18 @@ export function ReviewDrawer({
             </>
           ) : null}
 
-          {isGranite ? <Card className="grid gap-4 bg-[#0d1117]">
+          {isGranite ? <Card className="review-drawer__granite-card grid gap-4">
             {item.source === 'granite' && item.suggested_customer?.name ? (
-              <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
+              <div className="review-drawer__suggestion rounded-lg px-3 py-2 text-sm">
                 Sugestao por nome — confirme o documento antes de vincular: <strong>{item.suggested_customer.name}</strong>{' '}
                 ({formatCnpj(item.suggested_customer.cnpj_cpf)})
               </div>
             ) : null}
-            <div className="font-semibold text-white">Vinculação de cliente</div>
+            <div className="font-semibold text-[var(--app-text-strong)]">Vinculação de cliente</div>
             <Field label="Buscar cliente por nome ou CNPJ">
               <div className="relative">
                 <Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Digite ao menos 2 caracteres" />
-                <Search className="pointer-events-none absolute right-3 top-2.5 text-slate-500" size={16} />
+                <Search className="pointer-events-none absolute right-3 top-2.5 text-[var(--app-muted)]" size={16} />
               </div>
             </Field>
             {customerLookup.data?.length ? (
@@ -261,10 +261,10 @@ export function ReviewDrawer({
                   <button
                     key={customer.id}
                     type="button"
-                    className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    className={`review-drawer__customer-option rounded-lg border px-3 py-2 text-left text-sm transition ${
                       selectedCustomerId === customer.id
-                        ? 'border-[#1f6feb] bg-[#1f6feb]/15 text-white'
-                        : 'border-[#30363d] bg-[#161b22] text-slate-300 hover:bg-[#21262d]'
+                        ? 'review-drawer__customer-option--selected'
+                        : ''
                     }`}
                     onClick={() => {
                       setSelectedCustomerId(customer.id)
@@ -273,22 +273,22 @@ export function ReviewDrawer({
                     }}
                   >
                     <div className="font-semibold">{customer.name}</div>
-                    <div className="text-xs text-slate-400">{formatCnpj(customer.cnpj_cpf)}</div>
+                    <div className="text-xs text-[var(--app-muted)]">{formatCnpj(customer.cnpj_cpf)}</div>
                   </button>
                 ))}
               </div>
             ) : null}
 
             {selectedCustomerId ? (
-              <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
+              <div className="review-drawer__selected-customer rounded-lg px-3 py-2 text-xs">
                 <div>Cliente selecionado para vinculação.</div>
                 <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : selectedCustomerDisplay ?? 'Cliente'}.</div>
               </div>
             ) : null}
 
           </Card> : (
-            <div className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3 text-sm text-slate-300">
-              <div className="font-semibold text-white">Cliente definido pelo grupo</div>
+            <div className="review-drawer__group-note rounded-xl p-3 text-sm">
+              <div className="font-semibold text-[var(--app-text-strong)]">Cliente definido pelo grupo</div>
               <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : 'O cadastro e o vínculo são tratados no cartão do grupo.'}</div>
             </div>
           )}

@@ -10,6 +10,23 @@ do BCB bloqueados pelo proxy de egress, websockets realtime falham contra o
 shim. Consoles limpos em todas as rotas visitadas (apenas PTAX bloqueado);
 nenhuma falha silenciosa de query no log do shim. **Runtime**.
 
+## Auditoria focalizada — revisão manual orientada a cliente (2026-08-20)
+
+- **Evidência inicial:** captura fornecida pelo usuário a partir de uma preview
+  da implementação desta branch. A captura não representa o `main` nem uma tela
+  em produção; foi usada apenas para localizar problemas de UI/UX.
+- **Escopo:** `/revisao`, com foco no grupo de cliente, evidências documentais,
+  onboarding e tabela de B/Ls.
+- **Diagnóstico:** contraste insuficiente em textos de alerta no tema claro,
+  cores hardcoded do antigo dark mode, badges repetindo a mesma pendência,
+  cabeçalho sem hierarquia e ação `Corrigir` comprimida na tabela.
+- **Correções aplicadas:** tokens de tema para todas as superfícies da revisão,
+  hierarquia de grupo reorganizada, pendências de cliente removidas das linhas
+  quando já estão tratadas no onboarding, painel de evidências com contraste
+  acessível e campos brutos legíveis, tabela com largura mínima e ação protegida,
+  toolbar e avisos com superfícies consistentes, além de ajustes responsivos.
+- **Validação:** testes focados, `npx tsc -b`, `npm run lint` e `git diff --check`.
+
 ## P0 — encontrado no boot (fora da UI)
 
 | Problema | Evidência | Status |
