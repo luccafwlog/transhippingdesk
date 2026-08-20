@@ -34,8 +34,19 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
     await admin.from('portal_invites').update({ status: 'pendente', consumed_at: null }).eq('id', invite.id)
     return cors(500, { error: 'Não foi possível ativar. Tente novamente.' })
   }
-  const { data: account } = await admin.from('customer_portal_accounts').update({ auth_user_id: created.user.id, active: true, account_situation: 'ativo' }).eq('id', invite.account_id).select('customer_id, provisioning_decision, account_situation').single()
-  if (account) await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: invite.account_id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: account.provisioning_decision, p_prev_situation: 'convite_pendente', p_new_situation: 'ativo', p_actor_type: 'cliente', p_reason: 'Ativação concluída pelo cliente', p_request_id: null })
-  if (account) await admin.from('alerts').update({ status: 'closed', closed_at: new Date().toISOString() }).in('type', ['portal_pendencia_geral', 'portal_convite_expirado']).eq('entity_type', 'customer').eq('entity_id', String(account.customer_id)).neq('status', 'closed')
+  const { data: account, error: accountError } = await admin.from('customer_portal_accounts').update({ auth_user_id: created.user.id, active: true, account_situation: 'ativo' }).eq('id', invite.account_id).select('customer_id, provisioning_decision, account_situation').single()
+  if (accountError || !account) {
+    await admin.auth.admin.deleteUser(created.user.id)
+    await admin.from('portal_invites').update({ status: 'pendente', consumed_at: null }).eq('id', invite.id).eq('status', 'consumido')
+    return cors(500, { error: 'Não foi possível ativar. Tente novamente.' })
+  }
+  const { error: auditError } = await admin.rpc('_portal_log_event', { p_customer_id: account.customer_id, p_account_id: invite.account_id, p_invite_id: invite.id, p_prev_decision: account.provisioning_decision, p_new_decision: account.provisioning_decision, p_prev_situation: 'convite_pendente', p_new_situation: 'ativo', p_actor_type: 'cliente', p_reason: 'Ativação concluída pelo cliente', p_request_id: null })
+  if (auditError) {
+    await admin.from('customer_portal_accounts').update({ auth_user_id: null, active: false, account_situation: 'convite_pendente' }).eq('id', invite.account_id).eq('auth_user_id', created.user.id)
+    await admin.auth.admin.deleteUser(created.user.id)
+    await admin.from('portal_invites').update({ status: 'pendente', consumed_at: null }).eq('id', invite.id).eq('status', 'consumido')
+    return cors(500, { error: 'Não foi possível registrar a ativação. Tente novamente.' })
+  }
+  await admin.from('alerts').update({ status: 'closed', closed_at: new Date().toISOString() }).in('type', ['portal_pendencia_geral', 'portal_convite_expirado']).eq('entity_type', 'customer').eq('entity_id', String(account.customer_id)).neq('status', 'closed')
   return cors(200, { activated: true })
 })
