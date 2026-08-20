@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALLOWED_ORIGINS, corsHeaders } from '../../../supabase/functions/_shared/cors.ts'
+import { ALLOWED_ORIGINS, corsHeaders, parseConfiguredOrigins } from '../../../supabase/functions/_shared/cors.ts'
 
 // Auditoria 2026-08-14, achado A-05: devolver a string 'null' para origem fora da
 // allowlist não nega — `null` é a origem real de iframe `sandbox`, documento
@@ -36,5 +36,13 @@ describe('corsHeaders das Edge Functions', () => {
     const headers = corsHeaders(allowed)
     expect(headers['Access-Control-Allow-Methods']).toContain('POST')
     expect(headers['Access-Control-Allow-Headers']).toContain('authorization')
+  })
+
+  it('aceita somente origens HTTPS exatas na configuração de Preview', () => {
+    expect(parseConfiguredOrigins('https://preview.example.vercel.app, https://outro.example.vercel.app')).toEqual([
+      'https://preview.example.vercel.app',
+      'https://outro.example.vercel.app',
+    ])
+    expect(parseConfiguredOrigins('*.vercel.app, http://preview.example, https://preview.example/path')).toEqual([])
   })
 })

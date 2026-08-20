@@ -18,7 +18,7 @@ flowchart LR
     Resend["Resend"]
     BCB["Banco Central / PTAX"]
     Sentry["Sentry"]
-    Firebase["Firebase Hosting"]
+    Vercel["Vercel"]
 
     Browser --> Internal
     Browser --> Portal
@@ -29,12 +29,20 @@ flowchart LR
     Functions --> Resend
     Browser --> BCB
     Browser --> Sentry
-    Firebase --> Browser
+    Vercel --> Browser
 ```
 
 O frontend é uma SPA estática. A segurança real não depende do roteador: tabelas,
 views e funções do Supabase aplicam escopo e autorização por RLS, grants e
 validações dentro das RPCs.
+
+O hosting é um único projeto Vercel para a SPA Vite. Preview Deployments vêm da
+integração com GitHub em pull requests; o branch `main` gera o Production
+Deployment. `https://transhippingdesk.com.br` e
+`https://portal.transhippingdesk.com.br` são aliases do mesmo projeto, e o
+roteamento entre operação interna e Portal continua sendo responsabilidade do
+host/rota/autenticação da aplicação. O Firebase permanece apenas como rollback
+temporário durante a troca de DNS.
 
 ## Fronteiras de autenticação
 
@@ -182,11 +190,18 @@ flowchart LR
 - Arquivos de B/L alimentam os B/Ls e cargas de container; Manifestos BB mantêm
   seu fluxo próprio. A importação de Manifesto CNTR e a geração local de EDI
   Mercante foram removidas conforme a ADR 0025.
+- Carga solta tem duas portas de ingestão que convivem: o Manifesto BB
+  (planilha) e o B/L avulso do armador em `.pdf`/`.docx`. As duas terminam na
+  mesma RPC transacional (`import_breakbulk_manifest_transactional`); o B/L
+  avulso é lido no cliente (`blDocumentParser.ts`) e convertido em um manifesto
+  de uma linha.
 - Granito mantém tabelas próprias, integradas downstream.
 - Veículos são importados por planilha e vinculados a B/L/container.
 - CE Mercante e datas operacionais têm importadores específicos.
 - Arquivos de planilha usam `@e965/xlsx` e devem passar pelo limite de upload
-  antes do parsing.
+  antes do parsing. B/L em PDF usa `pdfjs-dist` (import dinâmico, chunk próprio)
+  e B/L em `.docx` é descompactado por `src/lib/zipEntry.ts`, sem dependência de
+  zip no bundle.
 
 ### Revisão e auto-faturamento
 
@@ -254,7 +269,12 @@ documental do POL, incluindo ETD/ATD do Laden on Board) e
 `voyage_export_schedules` (linha de exportação por `(voyage_id, pol)`). A
 projeção normaliza os portos por `normalizePortCode`, restringe a lista a
 portos brasileiros (`BR*`) e entrega uma linha por `(viagem, porto)`, com
-marcadores de importação, exportação, granito, containers e movimentos.
+marcadores de importação, exportação, granito, containers e movimentos. A
+migration `306_escala_multiplos_terminais.sql` acrescenta o registro
+terminalizado em `voyage_escala_terminal_state` e
+`voyage_escala_operation_fronts`; `src/services/escalaTerminalAllocation.ts`
+é o único domínio de leitura/mutação, usando a RPC transacional e a revisão da
+escala.
 
 `voyage_pod_schedule` continua sendo o portador físico das datas operacionais
 da escala, inclusive quando a escala nasceu apenas de POL/EXP; `voyage_pol_schedule`
@@ -269,10 +289,29 @@ Consumidores principais:
   `VoyageCard` e `VoyageVisaoTab` usam a projeção para Próxima Escala, rail,
   tabela de planejamento e seletor do ADR.
 - Line-Up: `src/services/lineup.ts` deriva o snapshot da mesma projeção,
-  preservando importação e exportação quando o porto é misto.
-- ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)`, e
+  preservando importação e exportação quando o porto é misto; o terminal é uma
+  coluna da linha e `TBC` é apenas apresentação.
+- ADR: `VoyageAgencyReportTab` seleciona ADR novo por `report_id`/terminal e
+  mantém o caminho legado por `(voyage_id, port)`; o modal da escala atribui
+  frentes, datas e terminais.
+- ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)` para legado,
+  enquanto ADRs novos usam `(voyage_id, port, terminal_id)`, e
   `detect_agency_report_pending` passa a considerar ATD vindo de POD ou POL,
   com baseline próprio para a nova fonte POL.
+- A RPC transacional também recebe o snapshot dos campos do POD quando o modal
+  terminalizado salva a escala; os audit rows de datas, CE, vínculo e número de
+  escala entram na mesma transação das frentes. A expectativa de vazios faz
+  backfill somente pela heurística legada de quantidades e depois permanece
+  explícita.
+- `depots.port_id` é obrigatório para novos terminais portuários. A trigger
+  `validate_depot_terminal_port` mantém terminais legados sem mapeamento
+  editáveis por SQL, enquanto o preflight e o Cadastro orientam o mapeamento;
+  a lista de opções da escala filtra pelo porto brasileiro.
+- Timeline: `src/services/voyageSummaries.ts` humaniza atribuição, remoção,
+  datas, expectativa de exportação e criação/preservação de ADR terminalizado.
+- Acompanhamento: `src/components/lineup/LineUpTable.tsx`,
+  `src/pages/Painel.tsx` e `src/pages/LineUpTVDisplay.tsx` exibem o terminal
+  por sentido sem criar eixo adicional de linhas.
 
 ## Supabase
 
@@ -369,7 +408,7 @@ pendência geral separada do ciclo da fatura.
   (sem webhook, sem chave, sem plano atual de envio ao cliente);
 - **Banco Central:** cotação PTAX;
 - **Sentry:** erros do frontend em produção;
-- **Firebase Hosting:** distribuição da SPA;
+- **Vercel:** distribuição da SPA e Preview/Production Deployments;
 - **PIX:** payload persistido e QR renderizado nos documentos financeiros.
 
 ### Telemetria do Portal
@@ -383,7 +422,7 @@ cliente é carregado; no logout ou `SIGNED_OUT`, limpa o usuário com
 email, nome, documento ou contato do cliente como identidade Sentry.
 
 Domínios usados pelo navegador precisam permanecer compatíveis com a CSP de
-`firebase.json`.
+`vercel.json`.
 
 ## Mapa de rotas
 
@@ -420,7 +459,7 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/baplie` | Importação e conciliação Baplie |
 | `/manifestos` | Lista de B/Ls CNTR; importação documental por arquivo de B/L |
 | `/manifestos/:blId` | Detalhe do B/L |
-| `/carga-solta` | Manifestos breakbulk |
+| `/carga-solta` | Manifestos breakbulk e importação de B/L avulso (.pdf/.docx) |
 | `/containers` | Containers |
 | `/veiculos` | Veículos RoRo |
 | `/vazios-importacao` | Vazios de importação |
@@ -438,8 +477,9 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `billing` | Subrota de faturas dentro da Inspeção do Portal |
 | `operacao` | Subrota operacional dentro da Inspeção do Portal |
 | `perfil` | Subrota de perfil dentro da Inspeção do Portal |
-| `/taxas-locais` | Tabelas e overrides |
-| `/faturamento` | Validação, invoices e ledger |
+| `/taxas-locais` | Validação, invoices e ledger de Taxas Locais |
+| `/taxas-locais/tabelas` | Cadastro de tabelas e overrides de Taxas Locais |
+| `/faturamento` | Redirect legado para `/taxas-locais`, preservando a query string |
 | `/demurrage` | Operação e invoices de demurrage |
 | `/demurrage/taxas` | Tarifas de demurrage |
 | `/reconciliacao` | Conciliação PIX |

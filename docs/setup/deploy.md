@@ -1,72 +1,159 @@
 # Deploy
 
-> Hospedagem: **Firebase Hosting** (projeto `transhipping-desk`, target `transhipping-desk`, pasta publicada `dist`). CI/CD via **GitHub Actions** (CLI direta, sem action de terceiros). Nenhum push manual é necessário.
+> Hosting: **Vercel**, com um único projeto para a SPA Vite. Pull requests
+> geram Preview Deployments e `main` gera o Production Deployment pela
+> integração GitHub/Vercel. O Firebase permanece configurado apenas como
+> rollback temporário até o cutover dos domínios.
 
 ## Workflows
 
-| Workflow | Gatilho | O que faz |
+| Integração | Gatilho | O que faz |
 |---|---|---|
-| `.github/workflows/ci.yml` | `pull_request` | `npm ci --legacy-peer-deps` → `lint` → `build` (tsc + vite) → `test`. Gate de qualidade do PR. |
-| `.github/workflows/firebase-deploy.yml` | push em `main` | Build + deploy. |
+| `.github/workflows/ci.yml` | `pull_request` e push em `main` | `docs:check`, lint, build, bundle size e testes em shards. |
+| Vercel + GitHub | pull request | Build e Preview Deployment. |
+| Vercel + GitHub | push em `main` | Build e Production Deployment. |
 
-### Deploy manual
+Não há mais workflow de deploy Firebase no repositório. A integração Vercel é
+configurada no projeto Vercel, não como uma segunda publicação no GitHub
+Actions.
 
-```bash
-npm run build
-npx firebase-tools deploy --only hosting
-```
+## Configuração do projeto Vercel
 
-## Secrets do repositório
+O contrato versionado está em [`vercel.json`](../../vercel.json):
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `FIREBASE_SERVICE_ACCOUNT_TRANSHIPPING_DESK`
+- framework Vite;
+- Node.js `24.x` em Vercel e no CI;
+- instalação reproduzível com `npm ci --legacy-peer-deps`;
+- comando `npm run build`;
+- saída `dist`;
+- `ignoreCommand` ignora commits sem alterações no frontend, dependências ou
+  configuração de build;
+- rewrite para `/index.html`, preservando refresh em qualquer rota React Router;
+- headers de segurança equivalentes aos usados no Firebase;
+- HTML sem cache e assets em `/assets/` com cache longo e `immutable`.
 
-## Migrations NÃO são aplicadas pelo CI
+No projeto Vercel, configure o Root Directory como a raiz deste repositório e
+deixe o Git Integration responsável por Preview/Production. Não configure
+migrations, Edge Functions ou comandos de backend no build da Vercel.
 
-Aplique migrations manualmente no Supabase **antes** de fazer deploy de código que dependa delas. Ver [setup/development.md](development.md#3-banco-de-dados).
+O `ignoreCommand` só ignora um deployment quando o commit não altera arquivos
+que participam do frontend ou do build. Se não houver SHA anterior disponível,
+o comando continua o build por segurança. Alterações em `docs/` isoladamente não
+geram um novo deployment.
+
+## Variáveis do frontend
+
+As únicas variáveis necessárias ao bundle são públicas por definição do Vite:
+
+| Variável | Production | Preview | Development |
+|---|---|---|---|
+| `VITE_SUPABASE_URL` | URL do projeto Supabase de produção | projeto Supabase de Preview/QA, se existir; caso contrário, o valor de produção controlado | valor do ambiente local |
+| `VITE_SUPABASE_ANON_KEY` | chave pública `anon` correspondente | chave pública do mesmo projeto usado no Preview | chave pública do ambiente local |
+
+`VITE_APP_COMMIT_SHA` é opcional: `vite.config.ts` injeta o commit Git atual
+quando a variável não é fornecida, mantendo o release visível no Sentry e na
+interface. Nunca configure `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` ou
+outros segredos de Edge Functions como variáveis `VITE_*`.
+
+As variáveis devem ser cadastradas no Vercel Project Settings para os ambientes
+Production, Preview e Development conforme o ambiente escolhido. O CI do
+GitHub mantém suas próprias variáveis públicas de build; isso não substitui a
+configuração do projeto Vercel.
+
+## Domínios e cutover sem downtime
+
+O mesmo projeto Vercel deve receber:
+
+- `https://transhippingdesk.com.br` — aplicação interna;
+- `https://portal.transhippingdesk.com.br` — Portal do Cliente.
+
+O `PORTAL_URL` das Edge Functions continua sendo
+`https://portal.transhippingdesk.com.br`, e `APP_URL` continua sendo
+`https://transhippingdesk.com.br`. Nenhum deles deve ser trocado por um
+domínio `.vercel.app`.
+
+Sequência operacional:
+
+1. criar/vincular o projeto Vercel e configurar as variáveis;
+2. gerar um Preview/Production Deployment e testar o domínio `.vercel.app`;
+3. validar login interno, Portal, refresh de sessão, rotas profundas, Supabase,
+   Realtime, PTAX, Sentry, CSP, assets e Edge Functions;
+4. adicionar os dois domínios ao projeto Vercel e usar os registros exibidos
+   por `vercel domains inspect`;
+5. trocar somente os registros web no provedor DNS, preservando MX, SPF, DKIM,
+   DMARC, ImprovMX, Resend e demais registros de email;
+6. manter o Firebase publicado até DNS, SSL, aplicação, Portal, Supabase,
+   emails e Sentry estarem estáveis.
+
+O Firebase não deve ser apagado durante o cutover. Para rollback, restaure os
+registros web anteriores e mantenha `firebase.json` e `.firebaserc` até a
+estabilidade pós-migração ser comprovada.
 
 ## Content-Security-Policy
 
-A CSP é definida em `firebase.json`. Domínios externos só funcionam se estiverem em `connect-src`. Atualmente liberados:
+A CSP é definida em `vercel.json`. As origens efetivamente usadas pelo browser
+são:
 
-```
+```text
 default-src 'self'
-script-src  'self'                       (sem unsafe-inline)
+script-src  'self'
 connect-src 'self' https://*.supabase.co wss://*.supabase.co
-            https://olinda.bcb.gov.br https://api.resend.com
-            https://*.ingest.us.sentry.io
-frame-ancestors 'none' · object-src 'none' · base-uri 'self'
+            https://olinda.bcb.gov.br https://*.ingest.us.sentry.io
+font-src    'self' https://fonts.gstatic.com
 ```
 
-Ao adicionar uma integração externa nova, inclua o domínio aqui. Detalhes de segurança em [operations/seguranca.md](../operations/seguranca.md).
+`api.resend.com` não é acessado pelo browser: Resend continua sendo chamado
+somente pelas Supabase Edge Functions e por isso não precisa estar no
+`connect-src`. Não há `unsafe-eval`; o `unsafe-inline` existente é limitado a
+`style-src`, conforme o contrato atual da aplicação.
 
-## Edge Functions
+## Analytics e Speed Insights
 
-As Edge Functions do Portal (`portal-login`, convite/ativação, recuperação,
-troca de email e `notify-invoice-issued`) são deployadas separadamente via
-Supabase CLI/console (não pelo CI de hosting). Variáveis de ambiente em
-[setup/development.md](development.md#5-edge-functions-opcional-no-dev-local).
+Web Analytics e Speed Insights são carregados globalmente em produção pelos
+componentes oficiais da Vercel. Antes do envio, query strings são removidas e
+segmentos dinâmicos de CNPJ, B/L, viagem e cliente são normalizados para evitar
+que identificadores operacionais apareçam na telemetria. As métricas continuam
+agrupáveis por tela, sem expor o registro acessado.
 
-## Domínio próprio e email transacional
+## CORS das Edge Functions
 
-São **dois** domínios com papéis distintos:
+As origens de produção permanecem na allowlist compartilhada em
+`supabase/functions/_shared/cors.ts`. Os domínios Firebase padrão continuam
+temporariamente para rollback.
 
-- **App (mesmo SPA em dois domínios):** a equipe interna acessa por
-  `transhippingdesk.com.br` (root) e os clientes pelo `portal.transhippingdesk.com.br`.
-  Ambos são *custom domains* do mesmo Firebase Hosting (o `transhippingdesk.web.app`
-  continua válido em paralelo); o roteamento é por rota/autenticação, não por
-  domínio. Adicione os dois em Firebase Console → Hosting → *Add custom domain*
-  e crie no registro.br os registros que o Firebase indicar (verificação TXT +
-  registros A para os IPs do Firebase). A CSP usa `'self'`, então não muda ao
-  trocar de host. O `PORTAL_URL` (secret das Edge Functions) aponta para
-  `portal.transhippingdesk.com.br`, pois é o link que o cliente recebe em convites.
-- **Remetente de email:** `transhippingdesk.com.br`, verificado no **Resend**
-  (SPF, DKIM e DMARC no DNS). `PORTAL_FROM_EMAIL=portal@transhippingdesk.com.br`
-  e `PORTAL_REPLY_TO=suporte@transhippingdesk.com.br`.
+Preview URLs não são liberadas por wildcard. Para testar uma URL Preview que
+invoca Edge Functions do browser, configure no ambiente das Edge Functions do
+Supabase:
 
-A origem `https://portal.transhippingdesk.com.br` está na allowlist de CORS de
-`supabase/functions/portal-login/index.ts`. Fallbacks de remetente/suporte nas
-Edge Functions apontam para `transhippingdesk.com.br` quando o secret está
-ausente; a identidade técnica opaca do Auth usa um subdomínio `.invalid`
-(não-entregável) definido por `PORTAL_TECH_EMAIL_DOMAIN`.
+```text
+VERCEL_PREVIEW_ORIGINS=https://<url-preview-exata>.vercel.app
+```
+
+Múltiplas URLs podem ser separadas por vírgula. O parser aceita somente URLs
+HTTPS exatas, sem caminho e sem `*`. A variável não é necessária para o
+Production Deployment nos domínios próprios.
+
+## Edge Functions, Resend e migrations
+
+Edge Functions continuam sendo publicadas separadamente no Supabase CLI/Console
+e continuam usando `PORTAL_URL`, `APP_URL`, `RESEND_API_KEY` e demais segredos
+server-side. Resend não é migrado para Vercel Functions.
+
+Migrations continuam sendo aplicadas manualmente no Supabase, em ordem e antes
+do deploy de código que dependa delas. A Vercel nunca executa migrations
+implicitamente.
+
+## Firebase rollback
+
+Mantidos temporariamente:
+
+- `firebase.json` — configuração de hosting e headers/fallback legados;
+- `.firebaserc` — identificação do projeto Firebase.
+
+Removido:
+
+- `.github/workflows/firebase-deploy.yml` — publicação automática no Firebase.
+
+Não existe dependência `firebase-tools` no `package.json`/lockfile. A remoção
+definitiva dos arquivos Firebase só deve ocorrer depois do cutover, da
+propagação DNS e da janela de rollback acordada.

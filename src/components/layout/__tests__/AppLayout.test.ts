@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildFinancialNavItemsForCounts, getNavIndicator, primaryNavItems } from '../appLayoutNav'
+import { buildFinancialNavItemsForCounts, financialNavItems, getNavIndicator, primaryNavItems } from '../appLayoutNav'
 
 describe('financial navigation badges', () => {
-  it('prioriza Faturamento e usa alerta booleano para pendencias de faturamento', () => {
+  it('segrega os três processos e usa badge numérico para revisão de taxas', () => {
     const items = buildFinancialNavItemsForCounts({
       pendingReview: 0,
       chargeReviewRequired: 3,
@@ -11,11 +11,11 @@ describe('financial navigation badges', () => {
       blsWithoutCustomer: 0,
     })
 
-    expect(items.slice(0, 2).map((item) => item.to)).toEqual(['/faturamento', '/taxas-locais'])
-    expect(items.find((item) => item.to === '/faturamento')).toMatchObject({ alert: true })
-    expect(items.find((item) => item.to === '/faturamento')?.badge).toBeUndefined()
+    expect(items.map((item) => item.to)).toEqual(['/taxas-locais', '/demurrage', '/reconciliacao'])
+    expect(financialNavItems.some((item) => item.to === '/relatorios')).toBe(false)
     expect(items.find((item) => item.to === '/taxas-locais')?.badge).toBe(3)
-    expect(getNavIndicator(items)).toEqual({ type: 'alert' })
+    expect(items.find((item) => item.to === '/taxas-locais')?.alert).toBeUndefined()
+    expect(getNavIndicator(items)).toEqual({ type: 'badge', count: 3 })
   })
 })
 

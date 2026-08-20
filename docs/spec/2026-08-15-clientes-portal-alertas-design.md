@@ -60,6 +60,21 @@ destino nem cria uma cópia por tela.
 
 ## 3. Vocabulário e princípios
 
+### 3.0 Integração obrigatória após as PRs #550 e #553
+
+O Portal conserva fronteira própria de notificações. A PR #553 já implementou
+uma Notificação do Portal para a Omissão e outra para o COD do B/L específico,
+incluindo correções/reversões; complementos posteriores do registro global de
+Transbordo atualizam o card sem criar nova entrega. Este bloco não pode
+republicar esses eventos como Notificação Interna nem criar uma segunda
+Notificação do Portal.
+
+A escala omitida continua visível como `OMIT`, enquanto o motivo interno não é
+exposto. Quando uma ação ou link precisar distinguir a operação dentro de um
+porto com múltiplos terminais, deve carregar `terminal_id`/código de terminal;
+porto sozinho não identifica ADR ou frente terminalizada. COD altera o destino
+final e a Taxa Local, mas não reescreve o terminal da descarga física.
+
 ### 3.1 Pendência, evento e notificação
 
 **Pendência** é uma condição que exige tratamento. Ela pode gerar alerta
@@ -504,6 +519,11 @@ de `alerts`. Nenhum alerta se torna crítico apenas por envelhecer.
 - **521-AC-22:** uma entidade com várias pendências mantém um único alerta
   agregado; cada item pode ser resolvido separadamente, atualizando a lista
   ativa, os departamentos e os destinos sem apagar o histórico.
+- **521-AC-23:** Omissão, COD, reversão e complementação de Transbordo reutilizam
+  os produtores da PR #553: uma entrega por evento contratual, nenhum aviso a
+  cada edição do card e nenhum vazamento do motivo interno.
+- **521-AC-24:** destinos terminalizados carregam terminal; COD não troca o
+  terminal físico usado por Transbordo/ADR.
 
 ## 10. Fora de escopo e dependências
 

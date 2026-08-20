@@ -6,14 +6,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
 const { mocks, depot, destination, service } = vi.hoisted(() => ({
-  mocks: { upsertDepotService: vi.fn(async () => {}), upsertDepot: vi.fn(async () => {}), deleteDepot: vi.fn(async () => {}), deleteDepotService: vi.fn(async () => {}), confirm: vi.fn(async () => true), showToast: vi.fn() },
+  mocks: { upsertDepotService: vi.fn(async () => {}), upsertDepot: vi.fn(async () => {}), deleteDepot: vi.fn(async () => {}), deleteDepotService: vi.fn(async () => {}), listBrazilianPorts: vi.fn(async () => [{ id: 10, locode: 'BRVIX', name: 'Vitória' }]), confirm: vi.fn(async () => true), showToast: vi.fn() },
   depot: { id: 'd1', code: 'VBR', name: 'Vila Velha', tipo: 'depot', free_time_vazio_days: 3, free_time_material_days: 2, active: true },
   destination: { id: 'd2', code: 'TVV', name: 'Terminal Vila Velha', tipo: 'terminal_portuario', free_time_vazio_days: 0, free_time_material_days: 0, active: true },
   service: { id: 's1', depot_id: 'd1', name: 'Transporte', natureza: 'transporte', container_type: null, route_destino_id: 'd2', condition: null, rate_brl: 100, active: true, created_at: '2026-01-01' },
 }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ can: () => true, profile: { id: 'user-1' } }) }))
 vi.mock('../../hooks/useDepots', () => ({ useDepots: () => ({ data: [depot, destination], error: null, refetch: vi.fn(async () => {}) }) }))
-vi.mock('../../services/depots', () => ({ listDepotServices: vi.fn(async () => [service]), upsertDepot: mocks.upsertDepot, upsertDepotService: mocks.upsertDepotService, deleteDepot: mocks.deleteDepot, deleteDepotService: mocks.deleteDepotService }))
+vi.mock('../../services/depots', () => ({ listDepotServices: vi.fn(async () => [service]), listBrazilianPorts: mocks.listBrazilianPorts, preflightDepotsTerminalPortMapping: vi.fn(async () => ({ pending_count: 0, codes: [] })), upsertDepot: mocks.upsertDepot, upsertDepotService: mocks.upsertDepotService, deleteDepot: mocks.deleteDepot, deleteDepotService: mocks.deleteDepotService }))
 vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => mocks.confirm }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
 import { DepotCadastro } from '../DepotCadastro'
@@ -52,4 +52,17 @@ describe('Cadastro de Depot', () => {
   it('pede confirmação antes de excluir um local', async () => { renderPage(); fireEvent.click(await screen.findByRole('button', { name: /excluir/i })); await waitFor(() => expect(mocks.confirm).toHaveBeenCalled()); expect(mocks.deleteDepot).toHaveBeenCalledWith('d1') })
   it('não exclui quando a confirmação é negada', async () => { mocks.confirm.mockResolvedValueOnce(false); renderPage(); fireEvent.click(await screen.findByRole('button', { name: /excluir/i })); await waitFor(() => expect(mocks.confirm).toHaveBeenCalled()); expect(mocks.deleteDepot).not.toHaveBeenCalled() })
   it('mostra toast de erro quando o salvamento falha', async () => { mocks.upsertDepot.mockRejectedValueOnce(new Error('sem permissão')); renderPage(); fireEvent.click(await screen.findByRole('button', { name: /salvar local/i })); await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith('sem permissão', 'error')) })
+  it('exige porto brasileiro para salvar terminal portuário', async () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /novo local/i }))
+    fireEvent.change(screen.getByLabelText('Código'), { target: { value: 'TVV' } })
+    fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'terminal_portuario' } })
+    expect(screen.getByLabelText('Porto brasileiro')).toBeTruthy()
+    expect((screen.getByRole('button', { name: /salvar local/i }) as HTMLButtonElement).disabled).toBe(true)
+    await waitFor(() => expect(screen.getByRole('option', { name: /BRVIX/ })).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Porto brasileiro'), { target: { value: '10' } })
+    expect((screen.getByRole('button', { name: /salvar local/i }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: /salvar local/i }))
+    await waitFor(() => expect(mocks.upsertDepot).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'terminal_portuario', port_id: 10 })))
+  })
 })

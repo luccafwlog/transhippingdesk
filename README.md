@@ -42,13 +42,13 @@ O catálogo de módulos e o mapa de rotas estão em [`docs/README.md`](docs/READ
 
 ## Como o sistema é construído
 
-O frontend é uma SPA React/TypeScript com rotas carregadas sob demanda. O Supabase fornece PostgreSQL, Auth e Edge Functions; Firebase Hosting serve o build estático.
+O frontend é uma SPA React/TypeScript com rotas carregadas sob demanda. A Vercel serve o build estático; o Supabase fornece PostgreSQL, Auth e Edge Functions.
 
 - **Frontend:** React 19, TypeScript, Vite, React Router, TanStack Query, Tailwind CSS e Zod.
 - **Dados e segurança:** PostgreSQL no Supabase, RLS, grants e RPCs auditadas. A autorização real está no banco; proteção de rota e visibilidade de controles são apenas UX.
 - **Sessões:** aplicação interna e Portal usam clientes Supabase separados, podendo coexistir no mesmo navegador.
 - **Integrações:** Resend para fluxos de email do Portal, Banco Central para PTAX e Sentry para observabilidade.
-- **Entrega:** GitHub Actions valida pull requests; pushes em `main` constroem e publicam a SPA no Firebase Hosting. Migrations e Edge Functions têm ciclo de deploy próprio no Supabase.
+- **Entrega:** GitHub Actions valida pull requests e pushes em `main`; a integração GitHub/Vercel cria Preview Deployments para PRs e Production Deployments a partir de `main`. Migrations e Edge Functions têm ciclo de deploy próprio no Supabase.
 
 O mapa técnico completo, as fronteiras de autenticação e as fontes de dados por módulo estão em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

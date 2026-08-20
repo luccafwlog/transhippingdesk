@@ -32,6 +32,15 @@ bloco transversal de e-mails/notificações para os canais concretos do Portal.
 
 ## Evidência técnica de partida
 
+- As PRs #550 e #553 já fazem parte da base. Não criar produtor paralelo para
+  Omissão, COD, reversão ou complementos do card de Transbordo. Omissão e COD
+  usam a tabela/canal de Notificação do Portal; edições posteriores do registro
+  global só atualizam a leitura vigente. O motivo interno permanece fora do
+  Portal.
+- Porto não basta para navegar para uma operação terminalizada. Payloads e
+  destinos que apontem ADR/frente devem preservar terminal (e `report_id`
+  quando disponível). COD muda destino final/taxa, não a descarga física.
+
 - `/clientes`, `/clientes/:cnpj` e `/clientes/portal` possuem dados de Portal,
   mas ainda não uma projeção unificada de pendências.
 - `alerts` ainda utiliza estados técnicos `open`, `acknowledged` e `closed`,
@@ -302,6 +311,11 @@ componentes do sino/Portal, conforme o bloco transversal.
   caia em `/faturamento` sem selecionar a fatura.
 - [ ] Delegar o envio de e-mail ao cliente e a notificação in-app do Portal ao
   bloco transversal, com contrato versionado.
+- [ ] Reusar os produtores da PR #553 para Omissão/COD e suas correções;
+  provar que complementar navio/viagem/ETD/ETA de Transbordo não cria nova
+  notificação e que o motivo interno nunca entra no payload.
+- [ ] Testar links/payloads com dois terminais no mesmo porto, preservando
+  terminal/`report_id` quando a ação for terminalizada.
 - [ ] Testar que uma mensagem não cria notificações duplicadas nem altera a
   resolução por simples leitura.
 

@@ -417,6 +417,8 @@ type EscalaScheduleRow = {
   omitted?: boolean
   temExportacao?: boolean
   hasGranite?: boolean
+  temGranito?: boolean
+  temVazios?: boolean
   containersQty?: number | null
   movementsQty?: number | null
 }
@@ -448,8 +450,8 @@ function collectEscalasBrasileiras(
     const current = byPort.get(port)
     const modules = 'temExportacao' in row
       ? {
-          ...(row.temExportacao && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0) ? { vaziosExp: true } : {}),
-          ...(row.hasGranite ? { granito: true } : {}),
+          ...(row.temExportacao === true && (row.temVazios || (row.temVazios === undefined && ((row.containersQty ?? 0) > 0 || (row.movementsQty ?? 0) > 0))) ? { vaziosExp: true } : {}),
+          ...(row.hasGranite || row.temGranito ? { granito: true } : {}),
         }
       : {}
     if (!current) byPort.set(port, { eta: row.eta ?? null, modules })
@@ -525,6 +527,7 @@ export type VoyageTimelineEventKind =
   | 'import'
   | 'baplie-import'
   | 'escala-date'
+  | 'escala-terminal'
   | 'escala-number'
   | 'manifestos-linked'
   | 'ce-status'
@@ -556,6 +559,7 @@ type TimelineAuditEvent = {
   new_value: string | null
   changed_by?: string | null
   actor_role?: string | null
+  actor_department?: string | null
   changed_at: string | null
   justification?: string | null
 }
@@ -619,11 +623,12 @@ const TIMELINE_KIND_ORDER: Record<VoyageTimelineEventKind, number> = {
   'manifestos-linked': 9,
   'escala-number': 10,
   'escala-date': 11,
-  'divergence-resolved': 12,
-  'voyage-data': 13,
-  'pod-removed': 14,
-  omission: 15,
-  'transshipment-info': 16,
+  'escala-terminal': 12,
+  'divergence-resolved': 13,
+  'voyage-data': 14,
+  'pod-removed': 15,
+  omission: 16,
+  'transshipment-info': 17,
 }
 
 export function buildVoyageTimeline({
@@ -640,12 +645,14 @@ export function buildVoyageTimeline({
 }: VoyageTimelineInput): VoyageTimelineEvent[] {
   const imports = buildImportTimeline(importBatches, actorNames, actorDepartments)
   const events = [...imports.events]
-  const appendActor = (detail: string, row: { changed_by?: string | null; actor_role?: string | null }) =>
+  const appendActor = (detail: string, row: { changed_by?: string | null; actor_role?: string | null; actor_department?: string | null }) =>
     appendTimelineActor(
       detail,
       row.changed_by,
       actorNames,
-      row.actor_role ? TIMELINE_ROLE_LABELS[row.actor_role] ?? row.actor_role : null,
+      row.actor_department
+        ? TIMELINE_ROLE_LABELS[row.actor_department] ?? row.actor_department
+        : row.actor_role ? TIMELINE_ROLE_LABELS[row.actor_role] ?? row.actor_role : null,
     )
   events.push(...buildCeCoverageTimeline(ceCoverage, imports.latestImportAt))
 
@@ -790,6 +797,44 @@ function buildScheduleTimeline(
     const value = (row.new_value ?? '').trim()
     const oldValue = (row.old_value ?? '').trim()
 
+    if (['front_created', 'front_removed', 'terminal_assignment', 'front_source', 'terminal_dates', 'export_expectation', 'adr_created', 'adr_removed', 'adr_preserved'].includes(row.field_name)) {
+      let parsed: Record<string, unknown> = {}
+      try {
+        const candidate = JSON.parse(value || oldValue)
+        if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) parsed = candidate as Record<string, unknown>
+      } catch {
+        // Audit logs anteriores podem conter texto simples; o evento continua legível.
+      }
+      const front = typeof parsed.modalidade === 'string' ? parsed.modalidade : null
+      const terminal = typeof parsed.terminal_code === 'string' ? parsed.terminal_code : null
+      const label = terminal ? `terminal ${terminal}` : 'terminal registrado'
+      const title = row.field_name === 'front_created'
+        ? `Frente ${front ?? 'operacional'} atribuída`
+        : row.field_name === 'front_removed'
+          ? `Frente ${front ?? 'operacional'} removida`
+          : row.field_name === 'terminal_assignment'
+            ? `Terminal da frente alterado`
+            : row.field_name === 'terminal_dates'
+              ? 'Datas do terminal alteradas'
+              : row.field_name === 'export_expectation'
+                ? 'Expectativa de exportação alterada'
+                : row.field_name === 'adr_created'
+                  ? 'ADR terminalizado criado'
+                  : row.field_name === 'adr_removed'
+                    ? 'ADR terminalizado removido'
+                    : row.field_name === 'adr_preserved'
+                      ? 'ADR terminalizado preservado'
+                      : 'Origem da frente alterada'
+      events.push({
+        id: `sched-${index}`,
+        kind: 'escala-terminal',
+        at,
+        title: `${title} em ${port}`,
+        detail: appendActor(front ? `${front} · ${label}` : label, row),
+      })
+      continue
+    }
+
     if (TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]) {
       if (!value) continue
       const changed = Boolean(oldValue && oldValue !== value)
@@ -890,6 +935,18 @@ function buildAuditTimeline(
         at,
         title: oldValue ? 'CE Master alterado' : 'CE Master definido',
         detail: appendActor(oldValue ? `${oldValue} -> ${value}` : value, row),
+      })
+      continue
+    }
+
+    if (row.field_name === 'omissao_revertida') {
+      const omittedPod = oldValue || '—'
+      events.push({
+        id: `audit-omission-reverted-${index}`,
+        kind: 'omission',
+        at,
+        title: `Omissão de ${omittedPod} revertida · correção — Porto de Transbordo — ${value || '—'}`,
+        detail: appendActor('Correção de omissão', row),
       })
       continue
     }

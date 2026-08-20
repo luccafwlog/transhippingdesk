@@ -18,6 +18,7 @@ import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, getVoyageUnifiedAtd, listVoyagePodSchedules } from './voyageRouteSchedules'
 import { normalizePortCode, portCodeVariants } from './portCode'
+import type { AgencyReportByTerminal, OperationFront, OperationFrontKind } from './escalaTerminalAllocation'
 
 // Seis seções assináveis (ADR 0036). 'operacao_patio' foi absorvida por
 // 'vazios_embarcados' — Embarque de Vazios é UM agregado por escala
@@ -108,6 +109,7 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
     .select('*, signoffs:agency_departure_report_signoffs(*), departmentSignoffs:agency_departure_report_department_signoffs(*), occurrences:agency_departure_report_occurrences(*)')
     .eq('voyage_id', voyageId)
     .eq('port', port)
+    .is('terminal_id', null)
     .maybeSingle()
   if (error) throw error
   if (!data) return null
@@ -115,28 +117,141 @@ export async function getAgencyReportOwnData(voyageId: number, port: string) {
 
   // Nomes de todos os atores (sign-offs, ocorrências, fechamento) em uma
   // chamada; absorve get_agency_report_closer_name (migration 217 → 220).
+  const actorNames = await resolveActorNames('get_agency_report_actor_names', {
+    p_voyage_id: voyageId,
+    p_port: port,
+  })
+
+  return {
+    ...report,
+    actor_names: actorNames,
+    closed_by_name: report.closed_by ? actorNames[report.closed_by] ?? null : null,
+  }
+}
+
+type TerminalizedReportRow = Omit<AgencyReportOwnData, 'actor_names' | 'closed_by_name'> & {
+  actor_names: Record<string, string>
+  closed_by_name: string | null
+  terminal_id?: string | null
+  terminal_port_id?: number | null
+}
+
+const terminalizedReportSelect = '*, signoffs:agency_departure_report_signoffs(*), departmentSignoffs:agency_departure_report_department_signoffs(*), occurrences:agency_departure_report_occurrences(*)'
+
+type AgencyReportQueryResult = { data: unknown; error: unknown | null }
+type AgencyReportQuery = {
+  select: (columns: string) => AgencyReportQuery
+  eq: (column: string, value: unknown) => AgencyReportQuery
+  is: (column: string, value: null) => AgencyReportQuery
+  maybeSingle: () => Promise<AgencyReportQueryResult>
+  then: Promise<AgencyReportQueryResult>['then']
+}
+
+function terminalizedReportsTable(): AgencyReportQuery {
+  return (supabase.from as unknown as (table: string) => AgencyReportQuery)('agency_departure_reports')
+}
+
+type ActorNameRow = { user_id?: string; full_name?: string | null }
+
+async function resolveActorNames(rpcName: string, args: Record<string, unknown>) {
   const actorNames: Record<string, string> = {}
   const { data: actorRows, error: actorError } = await (supabase.rpc as unknown as (
     fn: string,
     args: Record<string, unknown>,
-  ) => Promise<{ data: Array<{ user_id?: string; full_name?: string | null }> | null; error: { message?: string | null } | null }>)('get_agency_report_actor_names', {
-    p_voyage_id: voyageId,
-    p_port: port,
-  })
+  ) => Promise<{ data: ActorNameRow[] | null; error: { message?: string | null } | null }>)(rpcName, args)
   if (actorError) {
-    // A RPC pode estar ausente no remoto (migration 220 pendente); o ADR
-    // continua legível, só sem os nomes resolvidos.
+    // Uma migration antiga pode ainda não expor o resolver. O ADR continua
+    // legível, apenas sem nomes resolvidos para os atores.
     console.error('[agencyDepartureReport] erro ao resolver nomes dos atores:', actorError.message)
   } else if (Array.isArray(actorRows)) {
     for (const row of actorRows) {
       if (row.user_id && row.full_name) actorNames[row.user_id] = row.full_name
     }
   }
+  return actorNames
+}
 
+/** Leitura por identidade estável do ADR terminalizado. O caminho antigo acima permanece por (viagem, porto). */
+export async function getAgencyReportOwnDataByReportId(reportId: string): Promise<TerminalizedReportRow | null> {
+  const { data, error } = await terminalizedReportsTable()
+    .select(terminalizedReportSelect)
+    .eq('id', reportId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const report = data as TerminalizedReportRow
+  const actorNames = await resolveActorNames('get_agency_report_actor_names_by_report_id', { p_report_id: reportId })
   return {
     ...report,
+    signoffs: report.signoffs ?? [],
+    departmentSignoffs: report.departmentSignoffs ?? [],
+    occurrences: report.occurrences ?? [],
     actor_names: actorNames,
     closed_by_name: report.closed_by ? actorNames[report.closed_by] ?? null : null,
+  }
+}
+
+/** Retorna o ADR terminalizado da escala, sem transformar terminal em chave textual. */
+export async function getAgencyReportOwnDataByTerminal(voyageId: number, port: string, terminalId: string): Promise<TerminalizedReportRow | null> {
+  const normalizedPort = normalizePortCode(port) ?? port.trim().toUpperCase()
+  const { data, error } = await terminalizedReportsTable()
+    .select(terminalizedReportSelect)
+    .eq('voyage_id', voyageId)
+    .eq('port', normalizedPort)
+    .eq('terminal_id', terminalId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const report = data as TerminalizedReportRow
+  const actorNames = await resolveActorNames('get_agency_report_actor_names_by_report_id', { p_report_id: report.id })
+  return {
+    ...report,
+    signoffs: report.signoffs ?? [],
+    departmentSignoffs: report.departmentSignoffs ?? [],
+    occurrences: report.occurrences ?? [],
+    actor_names: actorNames,
+    closed_by_name: report.closed_by ? actorNames[report.closed_by] ?? null : null,
+  }
+}
+
+/** Lista ADRs da escala; registros legados (terminal_id nulo) continuam incluídos. */
+export async function listAgencyReportOwnDataByScale(voyageId: number, port: string): Promise<TerminalizedReportRow[]> {
+  const normalizedPort = normalizePortCode(port) ?? port.trim().toUpperCase()
+  const { data, error } = await terminalizedReportsTable()
+    .select(terminalizedReportSelect)
+    .eq('voyage_id', voyageId)
+    .eq('port', normalizedPort)
+  if (error) throw error
+  return [...(data ?? []) as TerminalizedReportRow[]].sort((left, right) =>
+    (left.terminal ?? '').localeCompare(right.terminal ?? '', 'pt-BR') || left.id.localeCompare(right.id),
+  )
+}
+
+/**
+ * Projeta as seções de um ADR terminalizado. A ausência de dados não remove a
+ * frente: ela vira `nothing_operated` e continua sujeita a resolução/sign-off.
+ */
+export function deriveAgencyReportByTerminal(
+  report: Pick<TerminalizedReportRow, 'id' | 'voyage_id' | 'port' | 'terminal_id' | 'terminal' | 'status'>,
+  fronts: OperationFront[],
+): AgencyReportByTerminal {
+  const sections = ['datas', 'carga_descarregada', 'carga_carregada', 'veiculos', 'vazios_embarcados', 'vazios_descarregados'].map((section) => {
+    const assigned = fronts.filter((front) => front.terminalId === (report.terminal_id ?? null) && front.section === section)
+    return {
+      section,
+      state: assigned.some((front) => front.hasData) ? 'operated' as const : 'nothing_operated' as const,
+      fronts: assigned.map((front) => front.modalidade as OperationFrontKind).sort((left, right) => left.localeCompare(right, 'pt-BR')),
+      frontKeys: assigned.map((front) => `${front.sentido}:${front.modalidade}`).sort((left, right) => left.localeCompare(right, 'pt-BR')),
+    }
+  })
+  return {
+    reportId: report.id,
+    voyageId: report.voyage_id,
+    port: report.port,
+    terminalId: report.terminal_id ?? null,
+    terminal: report.terminal ?? null,
+    status: report.status,
+    sections,
   }
 }
 
@@ -155,6 +270,88 @@ export async function setSignoff(input: {
     p_justification: input.justification,
   })
   if (error) throw error
+}
+
+export class TerminalizedAgencyReportRpcUnavailableError extends Error {
+  readonly code = 'TERMINALIZED_ADR_RPC_UNAVAILABLE'
+  readonly rpcName: string
+
+  constructor(rpcName: string) {
+    super(`A RPC ${rpcName} para ADR terminalizado não está disponível no projeto remoto. O caminho legado permanece inalterado.`)
+    this.name = 'TerminalizedAgencyReportRpcUnavailableError'
+    this.rpcName = rpcName
+  }
+}
+
+type ReportIdRpcResult = { data: unknown; error: { code?: string; message?: string } | null }
+
+function isMissingReportIdRpc(error: { code?: string; message?: string } | null) {
+  const text = `${error?.code ?? ''} ${error?.message ?? ''}`.toLowerCase()
+  return text.includes('42883')
+    || text.includes('pgrst202')
+    || /function .* does not exist/.test(text)
+    || text.includes('could not find the function')
+}
+
+async function callReportIdAwareRpc(rpcName: string, args: Record<string, unknown>) {
+  const rpc = supabase.rpc as unknown as (name: string, parameters: Record<string, unknown>) => Promise<ReportIdRpcResult>
+  const { error } = await rpc(rpcName, args)
+  if (!error) return
+  if (isMissingReportIdRpc(error)) throw new TerminalizedAgencyReportRpcUnavailableError(rpcName)
+  throw error
+}
+
+/** Mutação terminalizada: não cai no RPC legado quando a RPC nova não existe. */
+export async function setSignoffByReportId(input: {
+  reportId: string
+  voyageId: number
+  port: string
+  section: AgencyReportSection
+  state: AgencyReportSignoff['state']
+  justification?: string
+}) {
+  await callReportIdAwareRpc('set_agency_report_signoff_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_section: input.section,
+    p_state: input.state,
+    p_justification: input.justification,
+  })
+}
+
+export async function setSectionObservationByReportId(input: {
+  reportId: string
+  voyageId: number
+  port: string
+  section: AgencyReportSection
+  observation: string
+}) {
+  await callReportIdAwareRpc('set_agency_report_section_observation_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_section: input.section,
+    p_observation: input.observation,
+  })
+}
+
+export async function setDepartmentSignoffByReportId(input: {
+  reportId: string
+  voyageId: number
+  port: string
+  department: AgencyReportDepartmentKey
+  signed: boolean
+  justification?: string
+}) {
+  await callReportIdAwareRpc('set_agency_report_department_signoff_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_department: input.department,
+    p_signed: input.signed,
+    p_justification: input.justification,
+  })
 }
 
 // Observação por seção (ADR 0030): edição livre do dono da seção, sem
@@ -224,6 +421,27 @@ export async function listSignoffEvents(voyageId: number, port: string) {
   }))
 }
 
+/** Histórico de sign-off do ADR terminalizado; o legado continua por escala. */
+export async function listSignoffEventsByReportId(reportId: string) {
+  const prefix = `${reportId}::`
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')
+    .eq('entity_type', 'agency_departure_report_signoff')
+    .like('entity_id', `${prefix}%`)
+    .order('changed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row): AgencyReportSignoffEvent => ({
+    id: row.id,
+    section: row.entity_id.slice(prefix.length) as AgencyReportSection,
+    old_value: row.old_value,
+    new_value: row.new_value,
+    justification: row.justification,
+    changed_by: row.changed_by,
+    changed_at: row.changed_at,
+  }))
+}
+
 export type AgencyReportDepartmentSignoffEvent = {
   id: number
   department: AgencyReportDepartmentKey
@@ -241,6 +459,26 @@ export type AgencyReportDepartmentSignoffEvent = {
 // ADR); new_value='true' é a (re)assinatura, sem justificativa.
 export async function listDepartmentSignoffEvents(voyageId: number, port: string) {
   const prefix = `${voyageId}::${port.toUpperCase()}::`
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')
+    .eq('entity_type', 'agency_departure_report_department_signoff')
+    .like('entity_id', `${prefix}%`)
+    .order('changed_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row): AgencyReportDepartmentSignoffEvent => ({
+    id: row.id,
+    department: row.entity_id.slice(prefix.length) as AgencyReportDepartmentKey,
+    old_value: row.old_value,
+    new_value: row.new_value,
+    justification: row.justification,
+    changed_by: row.changed_by,
+    changed_at: row.changed_at,
+  }))
+}
+
+export async function listDepartmentSignoffEventsByReportId(reportId: string) {
+  const prefix = `${reportId}::`
   const { data, error } = await supabase
     .from('audit_logs')
     .select('id, entity_id, old_value, new_value, justification, changed_by, changed_at')
@@ -307,6 +545,15 @@ export async function closeReport(input: { voyageId: number; port: string; snaps
   }
 }
 
+export async function closeReportByReportId(input: { reportId: string; voyageId: number; port: string; snapshot: Json }) {
+  await callReportIdAwareRpc('close_agency_departure_report_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_snapshot: input.snapshot,
+  })
+}
+
 // Portos com ADR fechado da viagem (Task 2 do ADR 2026-07-31): uma escala
 // omitida DEPOIS de o ADR ter sido fechado continua reachable para consulta —
 // o fechamento é um registro imutável. Só o porto (não o registro inteiro)
@@ -328,6 +575,15 @@ export async function reopenReport(input: { voyageId: number; port: string; just
     p_justification: input.justification,
   })
   if (error) throw error
+}
+
+export async function reopenReportByReportId(input: { reportId: string; voyageId: number; port: string; justification: string }) {
+  await callReportIdAwareRpc('reopen_agency_departure_report_by_report_id', {
+    p_report_id: input.reportId,
+    p_voyage_id: input.voyageId,
+    p_port: input.port,
+    p_justification: input.justification,
+  })
 }
 
 export type MatrixCategory =

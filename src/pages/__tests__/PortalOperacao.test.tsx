@@ -15,16 +15,15 @@ const rows: PortalOperationBL[] = [
     voyage_number: '001W',
     vessel_name: 'NAVIO TESTE',
     transshipment: {
-      omission_id: 9,
-      disposition: 'transshipment',
-      omitted_pod: 'BRVIX',
-      discharge_pod: 'BRSSZ',
-      reason: null,
-      onward_vessel_name: 'COSCO STAR',
-      onward_carrier: null,
-      onward_voyage_number: 'T-1',
-      onward_etd: null,
-      onward_eta: null,
+        omission_id: 9,
+        disposition: 'transshipment',
+        omitted_pod: 'BRVIX',
+        discharge_pod: 'BRSSZ',
+        onward_vessel_name: 'COSCO STAR',
+        onward_carrier: null,
+        onward_voyage_number: 'T-1',
+        onward_etd: '2026-07-20',
+        onward_eta: '2026-07-22',
     },
     container_count: 2,
     containers_in_demurrage: 1,
@@ -62,6 +61,17 @@ const rows: PortalOperationBL[] = [
     voyage_id: 11,
     voyage_number: '002W',
     vessel_name: 'NAVIO SEM CONTAINER',
+    transshipment: {
+      omission_id: 10,
+      disposition: 'cod',
+      omitted_pod: 'BRVIX',
+      discharge_pod: 'BRSSA',
+      onward_vessel_name: null,
+      onward_carrier: null,
+      onward_voyage_number: null,
+      onward_etd: null,
+      onward_eta: null,
+    },
     container_count: 0,
     containers_in_demurrage: 0,
     containers_returned: 0,
@@ -158,7 +168,27 @@ describe('PortalOperacao (BLs e Containers)', () => {
 
     expect(screen.getByRole('heading', { name: 'Informações de Transbordo' })).toBeTruthy()
     expect(screen.getByText('COSCO STAR')).toBeTruthy()
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    expect(screen.getByText('20/07/2026')).toBeTruthy()
+    expect(screen.getByText('22/07/2026')).toBeTruthy()
+    expect(screen.queryByText('Motivo')).toBeNull()
+  })
+
+  it('exibe um card próprio para COD sem publicar dados de transbordo', async () => {
+    const user = userEvent.setup()
+    renderOperacao()
+
+    await user.click(screen.getByText('BL002'))
+
+    expect(screen.getByRole('heading', { name: 'Destino alterado para BRSSA (COD)' })).toBeTruthy()
+    expect(screen.getByText('Sua carga não seguirá em transbordo.')).toBeTruthy()
+    const codCard = screen.getByRole('heading', { name: 'Destino alterado para BRSSA (COD)' }).closest('section')
+    expect(codCard).not.toBeNull()
+    expect(within(codCard as HTMLElement).queryByText('Navio')).toBeNull()
+    expect(within(codCard as HTMLElement).queryByText('Armador')).toBeNull()
+    expect(within(codCard as HTMLElement).queryByText('Viagem')).toBeNull()
+    expect(within(codCard as HTMLElement).queryByText('ETD')).toBeNull()
+    expect(within(codCard as HTMLElement).queryByText('ETA')).toBeNull()
+    expect(within(codCard as HTMLElement).queryByText('Motivo')).toBeNull()
   })
 
   it('deriva a aba Containers dos containers dos B/Ls', async () => {

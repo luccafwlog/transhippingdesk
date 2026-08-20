@@ -26,7 +26,7 @@
 | **Interna** | `src/hooks/useAuth.tsx` | Supabase Auth + perfil em `user_profiles`; timeout de inatividade de **8 horas**; role → permissões. |
 | **Portal** | `src/hooks/usePortalAuth.tsx` | Supabase Auth. Login exclusivo por CNPJ normalizado via Edge Function `portal-login`. |
 
-> **Portal login:** o navegador envia apenas CNPJ e senha para `portal-login`; a identidade técnica e o email técnico permanecem no servidor. As Edge Functions do Portal chamadas pelo navegador compartilham uma allowlist de origens em `supabase/functions/_shared/cors.ts` (`transhippingdesk.com.br`, `portal.transhippingdesk.com.br`, `transhippingdesk.web.app`, `firebaseapp.com` e localhost de dev); `withCors` trata o preflight e injeta os headers em toda resposta. Origem fora da allowlist recebe a **ausência** de `Access-Control-Allow-Origin`, nunca a string `null` — `null` é uma origem real (iframe `sandbox`, documento `data:`, alguns redirecionamentos) e devolvê-la liberaria justamente o contexto mais anônimo; `Vary: Origin` acompanha para que cache compartilhado não sirva o header de uma origem a outra.
+> **Portal login:** o navegador envia apenas CNPJ e senha para `portal-login`; a identidade técnica e o email técnico permanecem no servidor. As Edge Functions do Portal chamadas pelo navegador compartilham uma allowlist de origens em `supabase/functions/_shared/cors.ts` (`transhippingdesk.com.br`, `portal.transhippingdesk.com.br`, os domínios Firebase mantidos para rollback e localhost de dev); Preview Deployments da Vercel só entram quando suas URLs HTTPS exatas são configuradas em `VERCEL_PREVIEW_ORIGINS`, separadas por vírgula. Origem fora da allowlist recebe a **ausência** de `Access-Control-Allow-Origin`, nunca a string `null` — `null` é uma origem real (iframe `sandbox`, documento `data:`, alguns redirecionamentos) e devolvê-la liberaria justamente o contexto mais anônimo; `Vary: Origin` acompanha para que cache compartilhado não sirva o header de uma origem a outra.
 
 > **Senha do Portal:** a ADR 0019 vale para as duas fronteiras. `supabase/functions/_shared/passwordPolicy.ts` espelha `src/lib/passwordPolicy.ts` e é a única regra aplicada em `admin-users`, `portal-invite-activate` e `portal-password-reset` — mínimo de 8 caracteres com maiúscula, minúscula e dígito, igual ao `password_requirements` de `supabase/config.toml`. As Edge Functions validam antes de chamar o GoTrue para que a recusa chegue ao cliente como regra explicada, e não como erro genérico de ativação.
 
@@ -50,10 +50,11 @@ As RPCs `SECURITY DEFINER` de provisionamento vigentes (`portal_set_exception`, 
 
 ## Headers HTTP / CSP
 
-Definidos em `firebase.json`:
+Definidos em `vercel.json`:
 
 - `X-Frame-Options: DENY` · `X-Content-Type-Options: nosniff` · `Referrer-Policy`
-- **CSP** sem `unsafe-inline` em scripts; `connect-src` restrito a Supabase, `olinda.bcb.gov.br`, `api.resend.com`, Sentry. Ver [Deploy](../setup/deploy.md#content-security-policy).
+- **CSP** sem `unsafe-inline` em scripts; `connect-src` restrito a Supabase, `olinda.bcb.gov.br` e Sentry. O browser não chama Resend diretamente; o envio permanece nas Edge Functions. Ver [Deploy](../setup/deploy.md#content-security-policy).
+- **Telemetria Vercel:** Web Analytics e Speed Insights removem query strings e normalizam identificadores dinâmicos de clientes, B/Ls, viagens e inspeções antes do envio.
 
 ## Outras defesas
 

@@ -40,7 +40,8 @@ em documentação.
 - Supabase PostgreSQL, Auth, RLS e RPCs;
 - Edge Functions Deno;
 - Resend para email;
-- Firebase Hosting;
+- Vercel para hosting da SPA, com Preview Deployments em PRs e Production
+  Deployments no `main`;
 - GitHub Actions para CI e deploy.
 
 ## 2. Arquitetura de execução
@@ -441,8 +442,9 @@ resultado e evidência conforme
 
 ### Pull request
 
-`.github/workflows/ci.yml` executa quatro jobs em paralelo, cada um com
-instalação reproduzível própria (`npm ci --legacy-peer-deps`):
+`.github/workflows/ci.yml` executa quatro jobs em paralelo em pull requests e
+pushes para `main`, usando Node.js 24 e instalação reproduzível própria (`npm ci
+--legacy-peer-deps`):
 
 1. `quality` — verificação documental e lint;
 2. `build` — build (`tsc` + `vite`) e orçamento de bundle;
@@ -456,12 +458,14 @@ recente do PR ocupa runners.
 
 ### Push em main
 
-`.github/workflows/firebase-deploy.yml` executa build + Firebase Hosting.
+O projeto Vercel integrado ao GitHub executa Preview Deployments para pull
+requests e Production Deployments para `main`. O CI do GitHub permanece como
+gate independente de documentação, lint, build, bundle size e testes.
 
 ### Edge Functions e banco
 
-O deploy Firebase não publica Edge Functions nem aplica migrations. Coordene
-essas etapas antes do frontend que depende delas.
+O deploy da Vercel não publica Edge Functions nem aplica migrations. Coordene
+essas etapas no Supabase antes do frontend que depende delas.
 
 ## 13. Telemetria e falhas
 

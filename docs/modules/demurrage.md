@@ -18,7 +18,7 @@ fronteira efetiva de autorização.
 O domínio não pertence ao ledger de taxas locais. Datas vivem em
 `bl_containers`; configuração por B/L, em `bls`; tarifas, em
 `demurrage_rates`; documentos e itens, em `demurrage_invoices` e
-`demurrage_invoice_items`. A experiência é agregada em `/faturamento`,
+`demurrage_invoice_items`. A experiência é agregada em `/taxas-locais`,
 `/reconciliacao` e `/portal/billing`, mas a persistência continua separada,
 conforme a [ADR 0008](../adr/0008-demurrage-integrado-sem-unificar-persistencia.md).
 
