@@ -42,8 +42,17 @@ describe('OmitEscalaModal', () => {
     await user.click(screen.getByRole('button', { name: 'Omitir escala' }))
 
     expect(mutateAsync).not.toHaveBeenCalled()
-    expect(screen.getByText('Salvador · 3 B/Ls afetados · clientes com vínculo serão notificados')).toBeTruthy()
+    const confirmButton = screen.getByRole('button', { name: 'Confirmar omissão' })
+    expect(screen.getByText('Salvador → Vitória · 3 B/Ls afetados · clientes com vínculo serão notificados')).toBeTruthy()
+    expect(document.activeElement).toBe(confirmButton)
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true)
 
+    await user.click(screen.getByRole('button', { name: 'Voltar' }))
+    const omitButton = screen.getByRole('button', { name: 'Omitir escala' })
+    expect(document.activeElement).toBe(omitButton)
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true)
+
+    await user.click(omitButton)
     await user.click(screen.getByRole('button', { name: 'Confirmar omissão' }))
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith({

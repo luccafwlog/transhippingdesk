@@ -76,13 +76,13 @@ export function OmitEscalaModal({
           <>
             <div className="app-panel app-panel--padded grid gap-2 text-sm">
               <p className="font-semibold text-[var(--app-text-strong)]">Confirme a omissão da escala:</p>
-              <p>{omittedPod} · {blCount} B/Ls afetados · clientes com vínculo serão notificados</p>
+              <p>{omittedPod} → {dischargePod} · {blCount} B/Ls afetados · clientes com vínculo serão notificados</p>
             </div>
             <div className="app-modal__actions">
               <Button variant="secondary" type="button" onClick={() => setIsConfirming(false)}>
                 Voltar
               </Button>
-              <Button loading={omit.isPending} type="button" onClick={handleConfirm}>
+              <Button autoFocus loading={omit.isPending} type="button" onClick={handleConfirm}>
                 Confirmar omissão
               </Button>
             </div>
@@ -136,7 +136,7 @@ export function OmitEscalaModal({
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>
-            <Button loading={omit.isPending} type="submit" disabled={!dischargePod}>
+            <Button autoFocus loading={omit.isPending} type="submit" disabled={!dischargePod}>
               Omitir escala
             </Button>
           </div>
