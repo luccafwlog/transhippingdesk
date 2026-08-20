@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, FileText, MessageSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePortalScope } from '../../hooks/usePortalScope'
 import { usePortalMarkAllRead, usePortalMarkRead, usePortalNotifications, usePortalUnreadCount } from '../../hooks/usePortalNotifications'
@@ -41,13 +41,24 @@ export function NotificationBell() {
 
   if (!scope.overview) return null
 
+  const formatDate = (value: string | undefined) => {
+    if (!value) return null
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    return new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'America/Sao_Paulo',
+    }).format(date)
+  }
+
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="portal-notifications">
       <button
         type="button"
-        className="relative flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)]"
+        className="portal-notifications__trigger"
         onClick={() => setOpen(!open)}
-        aria-label={`Notificacoes${unreadCount > 0 ? ` (${unreadCount} nao lidas)` : ''}`}
+        aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -60,13 +71,13 @@ export function NotificationBell() {
       </button>
 
       {open ? (
-        <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] shadow-lg">
-          <div className="flex items-center justify-between border-b border-[var(--app-border)] px-4 py-3">
-            <span className="text-sm font-semibold">Notificacoes</span>
+        <div role="menu" aria-label="Notificações" className="portal-notifications__panel">
+          <div className="portal-notifications__header">
+            <span className="portal-notifications__title">Notificações</span>
             {unreadCount > 0 ? (
               <button
                 type="button"
-                className="text-xs text-[var(--app-link)] hover:underline"
+                className="portal-notifications__mark-all"
                 onClick={handleMarkAllRead}
                 disabled={scope.mode === 'inspect'}
                 title={scope.mode === 'inspect' ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}
@@ -76,33 +87,34 @@ export function NotificationBell() {
             ) : null}
           </div>
 
-          <div className="max-h-80 overflow-y-auto">
+          <div className="portal-notifications__list">
             {isLoading ? (
-              <div className="px-4 py-6 text-center text-xs text-[var(--app-muted)]">Carregando...</div>
+              <div className="portal-notifications__state">Carregando notificações…</div>
             ) : (notifications ?? []).length === 0 ? (
-              <div className="px-4 py-6 text-center text-xs text-[var(--app-muted)]">Nenhuma notificacao.</div>
+              <div className="portal-notifications__state">Você não tem novas notificações.</div>
             ) : (
               (notifications ?? []).map((n) => (
                 <button
                   key={n.id}
                   type="button"
-                  className={`flex w-full gap-3 border-b border-[var(--app-border)] px-4 py-3 text-left text-sm transition-colors hover:bg-[var(--app-surface-hover)] ${
-                    !n.read ? 'bg-[var(--app-surface-muted)]' : ''
-                  }`}
+                  role="menuitem"
+                  data-read={String(n.read)}
+                  className="portal-notifications__item"
                   onClick={async () => {
                     if (!n.read && scope.mode === 'client') await markRead.mutateAsync(n.id)
                     if (n.link?.startsWith('/portal')) navigate(scope.mode === 'inspect' ? n.link.replace(/^\/portal/, scope.basePath) : n.link)
                     setOpen(false)
                   }}
                 >
-                  <div className="mt-1 shrink-0">
-                    {n.type === 'invoice_issued' || n.type === 'demurrage_issued' ? '📄' : n.type === 'dispute_responded' ? '💬' : '🔔'}
+                  <span className="portal-notifications__icon" aria-hidden="true">
+                    {n.type === 'invoice_issued' || n.type === 'demurrage_issued' ? <FileText size={18} /> : n.type === 'dispute_responded' ? <MessageSquare size={18} /> : <Bell size={18} />}
+                  </span>
+                  <div>
+                    <div className="portal-notifications__item-title">{n.title}</div>
+                    <div className="portal-notifications__message">{n.message}</div>
+                    {formatDate(n.created_at) ? <div className="portal-notifications__date">{formatDate(n.created_at)}</div> : null}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium">{n.title}</div>
-                    <div className="mt-0.5 text-xs text-[var(--app-muted)] line-clamp-2">{n.message}</div>
-                  </div>
-                  {!n.read ? <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--app-blue)]" /> : null}
+                  {!n.read ? <span className="portal-notifications__unread" aria-label="Não lida" /> : <span />}
                 </button>
               ))
             )}

@@ -48,9 +48,9 @@ export function PortalDashboard() {
         link: portalPath(scope, '/billing?tab=demurrage'),
       },
       {
-        label: 'Containers sem devolucao',
+        label: 'Containers sem devolução',
         primary: String(containersNoReturn),
-        secondary: 'container(es) ainda nao devolvido(s)',
+        secondary: 'container(es) ainda não devolvido(s)',
         link: portalPath(scope, '/operacao?tab=containers&devolucao=sem_devolucao'),
       },
       {
