@@ -65,9 +65,10 @@ describe('transshipments service', () => {
     await setBlTransshipment({
       blId: 'BL-1',
       omissionId: 9,
+      justification: 'COD revertido a pedido do cliente',
       changedBy: 'user-1',
     })
-    await setBlCod({ blId: 'BL-1', omissionId: 9, changedBy: 'user-1' })
+    await setBlCod({ blId: 'BL-1', omissionId: 9, justification: 'Cliente confirmou o destino original', changedBy: 'user-1' })
 
     expect(rpc).toHaveBeenNthCalledWith(1, 'set_bl_transshipment', {
       p_bl_id: 'BL-1',
@@ -77,11 +78,13 @@ describe('transshipments service', () => {
       p_onward_voyage_number: null,
       p_onward_etd: null,
       p_onward_eta: null,
+      p_justification: 'COD revertido a pedido do cliente',
       p_changed_by: 'user-1',
     })
     expect(rpc).toHaveBeenNthCalledWith(2, 'set_bl_cod', {
       p_bl_id: 'BL-1',
       p_omission_id: 9,
+      p_justification: 'Cliente confirmou o destino original',
       p_changed_by: 'user-1',
     })
   })

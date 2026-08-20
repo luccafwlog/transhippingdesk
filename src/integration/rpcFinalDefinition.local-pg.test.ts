@@ -39,8 +39,8 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     // é apenas rede secundária: fica cego a reescritas por DO/pg_get_functiondef
     // e não enxerga grants efetivos.
     omitVoyageEscala = getFunctionDefinition('public.omit_voyage_escala(bigint,text,text,text,uuid,text,text,text,timestamptz,timestamptz)')
-    setBlCod = getFunctionDefinition('public.set_bl_cod(text,bigint,uuid)')
-    setBlTransshipment = getFunctionDefinition('public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,uuid)')
+    setBlCod = getFunctionDefinition('public.set_bl_cod(text,bigint,text,uuid)')
+    setBlTransshipment = getFunctionDefinition('public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)')
     updateVoyageOmission = getFunctionDefinition('public.update_voyage_omission(bigint,text,text,text,timestamptz,timestamptz,text,uuid)')
   })
 
@@ -76,11 +76,13 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(definition).toContain('insert into public.portal_notifications(customer_id, bl_id, type, title, message, link)')
   })
 
-  it('consulta as definições finais de COD e transbordo sem o helper removido', () => {
+  it('consulta as definições finais de COD e transbordo com justificativa auditada', () => {
     const cod = compact(setBlCod)
     const transshipment = compact(setBlTransshipment)
 
     expect(cod).toContain('if auth.uid() is null or not public.is_active_user() or p_changed_by is distinct from auth.uid() then')
+    expect(cod).toContain('p_justification text')
+    expect(cod).toContain('marcar cod exige justificativa.')
     expect(cod).not.toContain('can_edit_voyages()')
     expect(cod).toContain("disposition = 'cod'")
     expect(cod).toContain('onward_vessel_name = null')
@@ -91,8 +93,10 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(cod).toContain('update public.bls set pod = v_discharge')
     expect(cod).toContain('select pod, customer_id into v_old_pod, v_customer from public.bls where id = p_bl_id for update')
     expect(cod).toContain('insert into public.portal_notifications(customer_id, bl_id, type, title, message, link)')
+    expect(cod).toContain('to_regprocedure(\'public.apply_cod_financial_effect(text,bigint,text)\')')
 
     expect(transshipment).toContain('if auth.uid() is null or not public.is_active_user() or p_changed_by is distinct from auth.uid() then')
+    expect(transshipment).toContain('p_justification text')
     expect(transshipment).not.toContain('can_edit_voyages()')
     expect(transshipment).toContain("disposition = 'transshipment'")
     expect(transshipment).toContain("onward_vessel_name = nullif(btrim(coalesce(p_onward_vessel_name, '')), '')")
@@ -101,8 +105,9 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(transshipment).toContain('onward_etd = p_onward_etd')
     expect(transshipment).toContain('onward_eta = p_onward_eta')
     expect(transshipment).toContain('update public.bls set pod = v_original_pod')
-    expect(transshipment).toContain('perform 1 from public.bls where id = p_bl_id for update')
-    expect(transshipment).toContain("'reversao de cod para transbordo'")
+    expect(transshipment).toContain('select pod, customer_id into v_old_pod, v_customer from public.bls where id = p_bl_id for update')
+    expect(transshipment).toContain("'reversao de cod para transbordo: ' || v_justification")
+    expect(transshipment).toContain("'correção de destino (cod)'")
   })
 
   it('consulta a definição final da complementação global sem notificar o Portal', () => {
@@ -123,8 +128,8 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
   it('mantém os grants finais das quatro RPCs no banco', () => {
     const signatures = [
       'public.omit_voyage_escala(bigint,text,text,text,uuid,text,text,text,timestamptz,timestamptz)',
-      'public.set_bl_cod(text,bigint,uuid)',
-      'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,uuid)',
+      'public.set_bl_cod(text,bigint,text,uuid)',
+      'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)',
       'public.update_voyage_omission(bigint,text,text,text,timestamptz,timestamptz,text,uuid)',
     ]
 

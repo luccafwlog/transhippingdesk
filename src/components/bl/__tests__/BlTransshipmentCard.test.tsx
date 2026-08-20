@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BlTransshipmentCard } from '../BlTransshipmentCard'
@@ -15,6 +15,24 @@ describe('BlTransshipmentCard', () => {
     expect(screen.getByText(/SANTOS/)).toBeTruthy()
     expect(screen.getByText('MSC X')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Marcar COD/ })).toBeTruthy()
+  })
+  it('exige confirmacao e justificativa antes de marcar COD', () => {
+    const onCod = vi.fn()
+    render(<MemoryRouter><BlTransshipmentCard omission={omission} disposition="transshipment" saving={false} onCod={onCod} /></MemoryRouter>)
+
+    fireEvent.click(screen.getByRole('button', { name: /Marcar COD/ }))
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByText(/altera o destino final/i)).toBeTruthy()
+    expect(screen.getByText(/notifica o cliente/i)).toBeTruthy()
+
+    const confirm = screen.getByRole('button', { name: /Confirmar COD/ }) as HTMLButtonElement
+    expect(confirm.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('Justificativa'), { target: { value: 'Cliente solicitou o novo destino' } })
+    expect(confirm.disabled).toBe(false)
+    fireEvent.click(confirm)
+
+    expect(onCod).toHaveBeenCalledWith('Cliente solicitou o novo destino')
   })
   it('exibe reversao quando disposicao e COD', () => {
     render(<MemoryRouter><BlTransshipmentCard omission={omission} disposition="cod" saving={false} onCod={vi.fn()} onRestore={vi.fn()} /></MemoryRouter>)

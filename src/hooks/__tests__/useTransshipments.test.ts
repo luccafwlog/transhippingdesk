@@ -43,7 +43,7 @@ describe('useSetBlDisposition', () => {
     const { Wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => useSetBlDisposition(7), { wrapper: Wrapper })
 
-    result.current.setCod.mutate({ blId: 'BL1', omissionId: 1, changedBy: 'user-1' })
+    result.current.setCod.mutate({ blId: 'BL1', omissionId: 1, justification: 'Cliente confirmou COD', changedBy: 'user-1' })
 
     await waitFor(() => expect(result.current.setCod.isSuccess).toBe(true))
     for (const queryKey of expectedSharedKeys) {
@@ -57,7 +57,7 @@ describe('useSetBlDisposition', () => {
     const { Wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => useSetBlDisposition(7), { wrapper: Wrapper })
 
-    result.current.setTransshipment.mutate({ blId: 'BL2', omissionId: 2, changedBy: 'user-1' })
+    result.current.setTransshipment.mutate({ blId: 'BL2', omissionId: 2, justification: 'COD revertido', changedBy: 'user-1' })
 
     await waitFor(() => expect(result.current.setTransshipment.isSuccess).toBe(true))
     for (const queryKey of expectedSharedKeys) {

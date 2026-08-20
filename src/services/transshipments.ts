@@ -75,6 +75,7 @@ export async function omitVoyageEscala(input: {
 export async function setBlTransshipment(input: {
   blId: string
   omissionId: number
+  justification: string
   changedBy: string
 }): Promise<void> {
   const { error } = await supabase.rpc('set_bl_transshipment', {
@@ -85,6 +86,7 @@ export async function setBlTransshipment(input: {
     p_onward_voyage_number: null,
     p_onward_etd: null,
     p_onward_eta: null,
+    p_justification: input.justification,
     p_changed_by: input.changedBy,
   })
   if (error) throw error
@@ -135,11 +137,13 @@ export async function revertVoyageOmission(input: {
 export async function setBlCod(input: {
   blId: string
   omissionId: number
+  justification: string
   changedBy: string
 }): Promise<void> {
   const { error } = await supabase.rpc('set_bl_cod', {
     p_bl_id: input.blId,
     p_omission_id: input.omissionId,
+    p_justification: input.justification,
     p_changed_by: input.changedBy,
   })
   if (error) throw error

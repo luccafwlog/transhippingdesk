@@ -64,8 +64,8 @@ function compact(definition: string) {
 
 const rpcSignatures = [
   'public.omit_voyage_escala(bigint,text,text,text,uuid,text,text,text,timestamptz,timestamptz)',
-  'public.set_bl_cod(text,bigint,uuid)',
-  'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,uuid)',
+  'public.set_bl_cod(text,bigint,text,uuid)',
+  'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)',
   'public.revert_voyage_omission(bigint,text,uuid)',
 ]
 
@@ -216,7 +216,7 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
 
     const initialTransshipment = callAsAuthenticated(
       adminId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Inicial', 'Carrier Inicial', 'VY-INITIAL', '2026-08-20T10:00:00Z', '2026-08-21T10:00:00Z', '${adminId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Inicial', 'Carrier Inicial', 'VY-INITIAL', '2026-08-20T10:00:00Z', '2026-08-21T10:00:00Z', 'Definicao inicial', '${adminId}')`,
     )
     expect(initialTransshipment.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('transshipment')
@@ -228,7 +228,7 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
       WHERE bl_id = '${blId}' AND omission_id = ${omissionId};
     `)).toBe('Navio Inicial|Carrier Inicial|VY-INITIAL|2026-08-20 10:00|2026-08-21 10:00')
 
-    const cod = callAsAuthenticated(adminId, `SELECT public.set_bl_cod('${blId}', ${omissionId}, '${adminId}')`)
+    const cod = callAsAuthenticated(adminId, `SELECT public.set_bl_cod('${blId}', ${omissionId}, 'Cliente confirmou COD', '${adminId}')`)
     expect(cod.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('cod')
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}'`)).toBe('BRSSA')
@@ -251,7 +251,7 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
 
     const transshipment = callAsAuthenticated(
       adminId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Restaurado', 'Carrier Restaurado', 'VY-RESTORED', '2026-08-22T10:00:00Z', '2026-08-23T10:00:00Z', '${adminId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Restaurado', 'Carrier Restaurado', 'VY-RESTORED', '2026-08-22T10:00:00Z', '2026-08-23T10:00:00Z', 'COD revertido pelo cliente', '${adminId}')`,
     )
     expect(transshipment.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('transshipment')
