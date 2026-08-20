@@ -456,7 +456,7 @@ CREATE OR REPLACE FUNCTION public.enforce_portal_invoice_gate()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
 DECLARE
   v_gate JSONB;
-  v_bl TEXT;
+  v_bl RECORD;
 BEGIN
   IF NEW.status = 'issued' THEN
     IF NEW.bl_id IS NOT NULL THEN
@@ -466,9 +466,9 @@ BEGIN
       END IF;
     END IF;
     FOR v_bl IN SELECT ib.bl_id FROM public.invoice_bls ib WHERE ib.invoice_id = NEW.id LOOP
-      v_gate := public.portal_billing_gate(v_bl);
+      v_gate := public.portal_billing_gate(v_bl.bl_id);
       IF NOT COALESCE((v_gate->>'allowed')::boolean, false) THEN
-        RAISE EXCEPTION 'Faturamento bloqueado pelo Portal para B/L %: %', v_bl, v_gate->>'reason' USING ERRCODE = 'P0003';
+        RAISE EXCEPTION 'Faturamento bloqueado pelo Portal para B/L %: %', v_bl.bl_id, v_gate->>'reason' USING ERRCODE = 'P0003';
       END IF;
     END LOOP;
   END IF;
