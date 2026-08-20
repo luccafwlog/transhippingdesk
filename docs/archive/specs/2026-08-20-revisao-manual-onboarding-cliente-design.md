@@ -1,7 +1,7 @@
 # Revisão manual orientada a cliente e onboarding via B/L
 
-**Issue:** #562 — Revisar a tela de revisão manual e o cadastro de cliente feito a partir dela  
-**Status:** aprovada para planejamento  
+**Issue:** #562 — Revisar a tela de revisão manual e o cadastro de cliente feito a partir dela
+**Status:** aprovada para planejamento
 **Data:** 2026-08-20
 
 ## Contexto
