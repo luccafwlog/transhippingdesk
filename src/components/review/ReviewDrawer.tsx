@@ -235,8 +235,16 @@ export function ReviewDrawer({
                   <Input type="number" value={totalCbm} onChange={(event) => setTotalCbm(event.target.value)} />
                 </Field>
               </div>
+              <Field label="Descrição da carga do B/L" hint="Texto extraído do documento; não é alterado nesta revisão.">
+                <Textarea
+                  className="review-drawer__cargo-description"
+                  value={item.cargo_description ?? ''}
+                  placeholder="Descrição não extraída do B/L."
+                  readOnly
+                />
+              </Field>
               <Field label="Notas da revisão">
-                <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+                <Textarea className="review-drawer__notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
               </Field>
             </>
           ) : null}

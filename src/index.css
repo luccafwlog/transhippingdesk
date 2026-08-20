@@ -1009,6 +1009,19 @@ textarea {
   text-wrap: pretty;
 }
 
+.review-onboarding-card__identity-fields {
+  align-items: start;
+}
+
+.review-onboarding-card__identity-fields .app-field {
+  align-content: start;
+}
+
+.review-onboarding-card__identity-fields .app-field__label {
+  min-height: 18px;
+  line-height: 1.4;
+}
+
 .review-onboarding-card__lookup-results {
   display: grid;
   gap: 8px;
@@ -1270,6 +1283,17 @@ textarea {
 
 .review-drawer__group-note {
   color: var(--app-muted);
+}
+
+.review-drawer__cargo-description {
+  min-height: 86px;
+  resize: vertical;
+  background: var(--app-surface-muted);
+  color: var(--app-text);
+}
+
+.review-drawer__notes {
+  min-height: 76px;
 }
 
 @media (max-width: 720px) {

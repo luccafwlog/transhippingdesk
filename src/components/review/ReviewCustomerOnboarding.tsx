@@ -75,7 +75,7 @@ export function ReviewCustomerOnboarding({
           {lookup.data.map((customer) => <button key={customer.id} type="button" className="review-onboarding-card__lookup-option" onClick={() => selectCustomer(customer as CustomerLookupResult)}><div className="font-semibold text-[var(--app-text-strong)]">{customer.name}</div><div className="text-xs text-[var(--app-muted)]">{formatCnpj(customer.cnpj_cpf)}</div></button>)}
         </div>
       ) : null}
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="review-onboarding-card__identity-fields grid gap-3 md:grid-cols-2">
         <Field label="Razão social" required><Input value={name} onChange={(event) => setName(event.target.value)} /></Field>
         <Field label="CNPJ" required hint={validCnpj ? `Confirmado: ${formatCnpj(validCnpj)}` : 'Informe um CNPJ válido para liberar o vínculo.'}><Input placeholder="00.000.000/0000-00" value={cnpj} onChange={(event) => setCnpj(normalizeCnpj(event.target.value))} /></Field>
       </div>

@@ -169,7 +169,7 @@ export function ReviewGroupBlock({
                       </div>
                       {item.source === 'granite' && item.suggested_customer?.name ? (
                         <div className="text-xs text-[var(--app-gold-strong)]">
-                          Sugerido: <strong>{item.suggested_customer.name}</strong> — confirme em Corrigir
+                          Sugerido: <strong>{item.suggested_customer.name}</strong> — confirme em Corrigir Dados
                         </div>
                       ) : null}
                       {item.source === 'bl' && needsWeightFix(item) ? (
@@ -194,7 +194,7 @@ export function ReviewGroupBlock({
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <Button variant="secondary" className="review-group__correct-button" onClick={() => onCorrect(item.id)}>
-                        Corrigir
+                        Corrigir Dados
                       </Button>
                       {item.source === 'bl' ? (
                         <Link className="app-table__action" to={`/manifestos/${item.id}`}>

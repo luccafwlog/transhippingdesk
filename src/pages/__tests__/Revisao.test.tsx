@@ -50,6 +50,7 @@ function makeBl(id: string, consignee: string): ReviewQueueItem {
     customer: null,
     charge_status: 'review_required',
     review_reasons: ['Cliente nao vinculado'],
+    cargo_description: 'Carga de teste do B/L',
     voyage: { id: 1, voyage_number: '14', vessel: { id: 1, name: 'GREEN SANTOS', carrier: null } },
     updated_at: `2026-06-10T12:00:00.${id.slice(-1)}Z`,
   } as unknown as ReviewQueueItem
@@ -144,7 +145,8 @@ describe('Revisao', () => {
     renderPage()
 
     await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'Corrigir Dados' })[0])
+    expect(screen.getByDisplayValue('Carga de teste do B/L')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
     await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
@@ -184,7 +186,7 @@ describe('Revisao', () => {
     expect(screen.getAllByText('Sugerido: Cliente Sugerido').length).toBeGreaterThan(0)
     expect(screen.queryByText('Vinculado')).toBeNull()
     await user.click(screen.getByRole('button', { name: /G-001/ }))
-    await user.click(screen.getByRole('button', { name: /Corrigir/ }))
+    await user.click(screen.getByRole('button', { name: /Corrigir Dados/ }))
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
     expect(mockedSaveGraniteBlReview).not.toHaveBeenCalled()
