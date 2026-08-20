@@ -2,11 +2,11 @@ import { Ship, Anchor } from 'lucide-react'
 import { usePortalScheduleVoyages } from '../../hooks/usePortalScheduleVoyages'
 import { PORTAL_SCHEDULE_LANES, formatScheduleDate } from '../../services/portalScheduleLanes'
 
-function DateCell({ value, isActual = false }: { value: string; isActual?: boolean }) {
+function DateCell({ value, isActual = false, omitted = false }: { value: string; isActual?: boolean; omitted?: boolean }) {
   const isX = value === 'X'
   return (
-    <td className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'text-[var(--app-blue-btn)] font-semibold' : 'text-[var(--app-text)]'}`}>
-      {isX ? 'X' : formatScheduleDate(value)}
+    <td title={omitted ? 'Escala omitida pelo armador' : undefined} className={`px-3 py-2.5 text-center text-sm border-r border-[var(--app-border)] ${omitted || isX ? 'text-[var(--app-muted-soft)]' : isActual ? 'text-[var(--app-blue-btn)] font-semibold' : 'text-[var(--app-text)]'}`}>
+      {omitted ? 'OMIT' : isX ? 'X' : formatScheduleDate(value)}
     </td>
   )
 }
@@ -79,7 +79,7 @@ export function ShipScheduleWidget() {
                         {vessel.voyage}
                       </td>
                       {PORTAL_SCHEDULE_LANES.map((lane) => (
-                        <DateCell key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} isActual={Boolean(vessel.actualDatesByLabel?.[lane.label])} />
+                        <DateCell key={lane.label} value={vessel.datesByLabel[lane.label] ?? 'X'} omitted={Boolean(vessel.omittedByLabel?.[lane.label])} isActual={Boolean(vessel.actualDatesByLabel?.[lane.label])} />
                       ))}
                     </tr>
                   )
