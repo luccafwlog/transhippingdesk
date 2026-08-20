@@ -48,9 +48,23 @@ export function ReviewCustomerOnboarding({
   const validCnpj = canonicalizeValidCnpj(cnpj)
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
   const lookup = useCustomerLookup(search)
-  const canSubmit = Boolean(validCnpj && name.trim() && validEmail && !saving && group.items.some((item) => item.source === 'bl'))
+  const expectedCnpjs = group.candidateCnpjs.length ? group.candidateCnpjs : group.cnpj ? [group.cnpj] : []
+  const selectedCustomerCnpjMismatch = Boolean(validCnpj && expectedCnpjs.length > 0 && !expectedCnpjs.includes(validCnpj))
+  const canSubmit = Boolean(validCnpj && name.trim() && validEmail && !selectedCustomerCnpjMismatch && !saving && group.items.some((item) => item.source === 'bl'))
   const count = group.items.filter((item) => item.source === 'bl').length
   const customerAlreadyHasEmail = Boolean(selectedCustomer?.customer_contacts?.some((contact) => contact.email?.trim()))
+  const cnpjHint = selectedCustomerCnpjMismatch
+    ? 'O CNPJ selecionado não corresponde às evidências deste grupo.'
+    : validCnpj
+      ? `Confirmado: ${formatCnpj(validCnpj)}`
+      : selectedId
+        ? 'O cliente selecionado não possui um CNPJ válido para o onboarding; use o vínculo de cliente existente.'
+        : undefined
+
+  function clearSelectedCustomer() {
+    setSelectedId(null)
+    setSelectedCustomer(null)
+  }
 
   function selectCustomer(customer: CustomerLookupResult) {
     const next: ReviewCustomer = { id: customer.id, name: customer.name, cnpj_cpf: customer.cnpj_cpf, customer_contacts: customer.customer_contacts ?? [] }
@@ -77,8 +91,8 @@ export function ReviewCustomerOnboarding({
         </div>
       ) : null}
       <div className="review-onboarding-card__identity-fields grid gap-3 md:grid-cols-2">
-        <Field label="Razão social" required><Input value={name} onChange={(event) => setName(event.target.value)} /></Field>
-        <Field label="CNPJ" required hint={validCnpj ? `Confirmado: ${formatCnpj(validCnpj)}` : undefined}><Input placeholder="00.000.000/0000-00" value={cnpj} onChange={(event) => setCnpj(normalizeCnpj(event.target.value))} /></Field>
+        <Field label="Razão social" required><Input value={name} onChange={(event) => { clearSelectedCustomer(); setName(event.target.value) }} /></Field>
+        <Field label="CNPJ" required hint={cnpjHint}><Input placeholder="00.000.000/0000-00" value={cnpj} onChange={(event) => { clearSelectedCustomer(); setCnpj(normalizeCnpj(event.target.value)) }} /></Field>
       </div>
       <Field label="E-mail principal do cliente" required hint={email.trim() ? 'Será salvo como contato do cliente.' : 'O cliente precisa ter pelo menos um e-mail cadastrado.'}>
         <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="financeiro@cliente.com.br" />

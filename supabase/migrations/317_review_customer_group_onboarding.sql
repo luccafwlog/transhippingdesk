@@ -125,7 +125,6 @@ CREATE OR REPLACE FUNCTION public.complete_review_customer_group(
   p_cnpj_cpf TEXT DEFAULT NULL,
   p_name TEXT DEFAULT NULL,
   p_email TEXT DEFAULT NULL,
-  p_group_name TEXT DEFAULT NULL,
   p_changed_by UUID DEFAULT NULL
 )
 RETURNS JSONB
@@ -273,9 +272,9 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.complete_review_customer_group(TEXT[], BIGINT, TEXT, TEXT, TEXT, TEXT, UUID)
+REVOKE ALL ON FUNCTION public.complete_review_customer_group(TEXT[], BIGINT, TEXT, TEXT, TEXT, UUID)
   FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.complete_review_customer_group(TEXT[], BIGINT, TEXT, TEXT, TEXT, TEXT, UUID)
+GRANT EXECUTE ON FUNCTION public.complete_review_customer_group(TEXT[], BIGINT, TEXT, TEXT, TEXT, UUID)
   TO authenticated;
 
 ALTER FUNCTION public.import_bl_freight_transactional(JSONB, UUID)
@@ -295,33 +294,51 @@ DECLARE
   v_bl_id TEXT;
   v_email TEXT;
   v_customer_id BIGINT;
-  v_ids TEXT[] := ARRAY[]::TEXT[];
+  v_reasons TEXT[];
+  v_human_notes TEXT;
+  v_notes TEXT;
 BEGIN
   v_result := public.import_bl_freight_transactional_legacy_284(p_bls, p_changed_by);
-
-  UPDATE public.bls AS b
-  SET suggested_customer_id = NULLIF(item->>'suggested_customer_id', '')::BIGINT
-  FROM jsonb_array_elements(COALESCE(p_bls, '[]'::JSONB)) AS item
-  WHERE b.id = item->>'id';
 
   FOR v_bl_id, v_email IN
     SELECT item->>'id', NULLIF(btrim(item->>'manifest_customer_email'), '')
     FROM jsonb_array_elements(COALESCE(p_bls, '[]'::JSONB)) AS item
     WHERE item->>'id' IS NOT NULL
   LOOP
-    v_ids := array_append(v_ids, v_bl_id);
     IF v_email IS NOT NULL THEN
       SELECT customer_id INTO v_customer_id FROM public.bls WHERE id = v_bl_id;
       IF v_customer_id IS NOT NULL THEN
         PERFORM public.ensure_customer_contact_email(v_customer_id, v_email);
       END IF;
     END IF;
-  END LOOP;
 
-  PERFORM public.apply_bl_review_gate_after_import(v_ids, p_changed_by);
+    SELECT b.notes INTO v_notes
+    FROM public.bls AS b
+    WHERE b.id = v_bl_id;
 
-  FOREACH v_bl_id IN ARRAY v_ids
-  LOOP
+    v_reasons := public.compute_bl_review_pendencies(v_bl_id);
+    v_human_notes := btrim(
+      regexp_replace(
+        COALESCE(v_notes, ''),
+        E'(^|\\n)Pendencias de importacao:[^\\n]*$',
+        '',
+        'i'
+      )
+    );
+    v_notes := CASE
+      WHEN COALESCE(cardinality(v_reasons), 0) > 0 THEN concat_ws(
+        E'\n',
+        NULLIF(v_human_notes, ''),
+        'Pendencias de importacao: ' || array_to_string(v_reasons, ', ')
+      )
+      ELSE NULLIF(v_human_notes, '')
+    END;
+
+    UPDATE public.bls
+    SET review_status = CASE WHEN COALESCE(cardinality(v_reasons), 0) = 0 THEN 'reviewed' ELSE 'pending_review' END,
+        notes = v_notes
+    WHERE id = v_bl_id;
+
     PERFORM public.sync_customer_reconciliation_queue_for_bl(v_bl_id);
   END LOOP;
 

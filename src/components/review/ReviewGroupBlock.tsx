@@ -59,7 +59,7 @@ export function ReviewGroupBlock({
   const showConflictOnboarding = group.identityKind === 'conflict' && group.items.length === 1 && unlinkedCount > 0
   // Mixed-source groups keep one customer-oriented action. The explicit
   // exception prevents the source check from becoming an accidental gate.
-  const showMixedSourceOnboarding = group.items.some((item) => item.source === 'granite') && blItems.length > 0 && group.identityKind === 'document' && (unlinkedCount > 0 || needsEmail)
+  const showMixedSourceOnboarding = group.items.some((item) => item.source === 'granite') && blItems.length > 0 && group.identityKind !== 'conflict' && (unlinkedCount > 0 || needsEmail)
   const showOnboarding = (allItemsAreBls && (group.canBulkOnboard || group.identityKind === 'name') && (unlinkedCount > 0 || needsEmail)) || showConflictOnboarding || showMixedSourceOnboarding
   const groupReasons = useMemo(() => {
     const reasons = new Set<string>()
@@ -101,9 +101,9 @@ export function ReviewGroupBlock({
         <Badge tone="slate">{formatResultCount(group.items.length, 'B/L', 'B/Ls')}</Badge>
         {groupReasons.length > 0 ? <span className="review-group__issue-count">{formatResultCount(groupReasons.length, 'pendência operacional', 'pendências operacionais')}</span> : null}
         <div className="review-group__actions">
-          {unlinkedCount > 0 && blItems.length === 0 ? (
+          {unlinkedCount > 0 ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[var(--app-muted)]">Vincular cliente a {unlinkedCount}:</span>
+              <span className="text-xs text-[var(--app-muted)]">Vincular cliente existente a {unlinkedCount}:</span>
               <InlineCustomerPicker saving={savingGroup} onSelect={onGroupLink} />
             </div>
           ) : null}

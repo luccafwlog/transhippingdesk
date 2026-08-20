@@ -329,7 +329,6 @@ export function Revisao() {
         cnpjCpf: input.cnpjCpf,
         name: input.name,
         email: input.email,
-        groupName: group.displayName,
         changedBy: user.id,
         sendPortalInvite: input.sendPortalInvite,
       })
@@ -366,7 +365,7 @@ export function Revisao() {
       const graniteMessage = graniteLinkedCount > 0 ? ` ${graniteLinkedCount} item(ns) de Granito vinculado(s).` : ''
       const resolvedCount = result.onboarding.bls.filter((bl) => bl.resolved).length
       showToast(`${resolvedCount} B/L(s) vinculados; ${pendingCount} ainda com pendências.${graniteMessage}${invoiceMessage}${inviteMessage}`, result.portalInvite === 'failed' ? 'info' : 'success')
-      await invalidateReviewQueueCaches(queryClient, { includeCustomers: true, includeCharges: true, includeInvoices: true })
+      await invalidateReviewQueueCaches(queryClient, { includeCustomers: true, includeCharges: true, includeInvoices: true, includePortal: input.sendPortalInvite })
     } catch (err) {
       if (err instanceof ConcurrentEditError) {
         await queryClient.invalidateQueries({ queryKey: ['review-queue'] })

@@ -12,7 +12,6 @@ export type CompleteReviewCustomerGroupInput = {
   cnpjCpf: string
   name: string
   email: string
-  groupName: string
   changedBy: string
   sendPortalInvite?: boolean
 }
@@ -40,7 +39,6 @@ export async function completeReviewCustomerGroup(input: CompleteReviewCustomerG
     p_cnpj_cpf: cnpjCpf,
     p_name: input.name.trim(),
     p_email: email,
-    p_group_name: input.groupName.trim(),
     p_changed_by: input.changedBy,
   })
   if (error) {

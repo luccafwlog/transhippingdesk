@@ -247,6 +247,27 @@ describe('Revisao', () => {
     await waitFor(() => expect(mockedSaveGraniteBlReview).toHaveBeenCalledWith({ graniteBlId: 'GR-MIXED', clientId: 99, changedBy: 'user-1' }))
   })
 
+  it('mantém onboarding e vínculo existente em grupo misto sem CNPJ', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [
+        { ...makeBl('BL-MIXED-NAME', 'Cliente sem documento'), manifest_customer_cnpj_cpf: null },
+        {
+          id: 'GR-MIXED-NAME', source: 'granite', bl_number: 'GR-MIXED-NAME', consignee: null,
+          shipper: 'Cliente sem documento', manifest_customer_cnpj_cpf: null, customer_id: null, customer: null,
+          review_reasons: ['Cliente nao vinculado (Granito)'],
+        },
+      ],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Cliente sem documento/ }))
+    expect(screen.getByText('Cadastrar ou vincular cliente')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Vincular cliente...')).toBeTruthy()
+  })
+
   it('adiciona e-mail ao cliente do grupo direto da fila', async () => {
     const user = userEvent.setup()
     mockedUseReviewQueue.mockReturnValue({

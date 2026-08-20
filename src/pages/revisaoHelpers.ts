@@ -77,21 +77,38 @@ function getReviewItemIdentityKind(item: ReviewQueueItem, candidates: string[]):
     : candidates.length === 1 || getReviewItemCnpj(item) ? 'document' : 'name'
 }
 
-// Chave de grupo: CNPJ válido quando existe; senão, nome de exibição normalizado.
-export function getReviewItemGroupKey(item: ReviewQueueItem): string {
+type ReviewItemAnalysis = {
+  item: ReviewQueueItem
+  candidates: string[]
+  identityKind: ReviewIdentityKind
+  cnpj: string | null
+  key: string
+}
+
+function analyzeReviewItem(item: ReviewQueueItem): ReviewItemAnalysis {
   const candidates = getReviewItemDocumentCandidates(item)
   const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
-  if (registered) {
-    // A linked customer remains the grouping anchor only while the document
-    // evidence is compatible. Incompatible evidence gets its own review item
-    // so a bulk action cannot silently repoint an already-linked B/L.
-    if (candidates.some((candidate) => candidate !== registered)) return `conflict:${item.source}:${item.id}`
-    return `document:${registered}`
-  }
+  const identityKind = getReviewItemIdentityKind(item, candidates)
+  const key = registered && candidates.some((candidate) => candidate !== registered)
+    ? `conflict:${item.source}:${item.id}`
+    : candidates.length > 1
+      ? `conflict:${item.source}:${item.id}`
+      : candidates.length === 1 || registered
+        ? `document:${registered ?? candidates[0]}`
+        : `name:${getReviewItemDisplayName(item).toLowerCase()}:missing`
 
-  if (candidates.length > 1) return `conflict:${item.source}:${item.id}`
-  const cnpj = candidates[0] ?? getReviewItemCnpj(item)
-  return cnpj ? `document:${cnpj}` : `name:${getReviewItemDisplayName(item).toLowerCase()}:missing`
+  return {
+    item,
+    candidates,
+    identityKind,
+    cnpj: registered ?? (candidates.length === 1 ? candidates[0] : null),
+    key,
+  }
+}
+
+// Chave de grupo: CNPJ válido quando existe; senão, nome de exibição normalizado.
+export function getReviewItemGroupKey(item: ReviewQueueItem): string {
+  return analyzeReviewItem(item).key
 }
 
 // Agrupa a fila por cliente/consignatário usando o CNPJ como chave. Itens sem
@@ -99,13 +116,11 @@ export function getReviewItemGroupKey(item: ReviewQueueItem): string {
 // nome de exibição para a fila ficar previsível.
 export function groupReviewItems(items: ReviewQueueItem[]): ReviewGroup[] {
   const groups = new Map<string, ReviewGroup>()
-  for (const item of items) {
-    const candidates = getReviewItemDocumentCandidates(item)
-    const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
-    const cnpj = registered ?? (candidates.length === 1 ? candidates[0] : candidates.length === 0 ? getReviewItemCnpj(item) : null)
+  // Candidate extraction is the expensive part (two regex scans per B/L).
+  // Analyze each queue item once; the queue is capped at 500 rows.
+  for (const analysis of items.map(analyzeReviewItem)) {
+    const { item, candidates, cnpj, key, identityKind } = analysis
     const displayName = getReviewItemDisplayName(item)
-    const key = getReviewItemGroupKey(item)
-    const identityKind = getReviewItemIdentityKind(item, candidates)
     let group = groups.get(key)
     if (!group) {
       group = {
@@ -123,10 +138,10 @@ export function groupReviewItems(items: ReviewQueueItem[]): ReviewGroup[] {
     for (const candidate of candidates) {
       if (!group.candidateCnpjs.includes(candidate)) group.candidateCnpjs.push(candidate)
     }
-    group.identityKind = group.items.some((row) => getReviewItemIdentityKind(row, getReviewItemDocumentCandidates(row)) === 'conflict') || group.candidateCnpjs.length > 1
+    group.identityKind = identityKind === 'conflict' || group.candidateCnpjs.length > 1
       ? 'conflict'
       : group.candidateCnpjs.length === 1 || group.items.some((row) => getReviewItemCnpj(row)) ? 'document' : 'name'
-    group.canBulkOnboard = group.identityKind === 'document' && group.items.every((row) => row.source === 'bl')
+    group.canBulkOnboard = group.canBulkOnboard && item.source === 'bl' && group.identityKind === 'document'
     // Prefere a razão social cadastrada como nome do grupo.
     if (item.customer?.name) group.displayName = item.customer.name
   }
