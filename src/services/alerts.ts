@@ -96,6 +96,22 @@ export async function createAlert(input: {
   if (error) reportBestEffortFailure('criar item de alerta', error, { type: input.type })
 }
 
+export async function resolveAlertItem(input: {
+  type: string
+  entityType: string
+  entityId: string
+  source?: string
+}): Promise<void> {
+  const { error } = await alertsRpc.rpc('resolve_alert_item', {
+    p_type: input.type,
+    p_entity_type: input.entityType,
+    p_entity_id: input.entityId,
+    p_source: input.source ?? 'client_compatibility',
+    p_metadata: {},
+  })
+  if (error) reportBestEffortFailure('resolver item de alerta', error, { type: input.type })
+}
+
 export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
   return listAlerts('active', 'invoice')
 }

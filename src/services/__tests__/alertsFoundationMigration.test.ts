@@ -38,6 +38,13 @@ describe('fundação transversal de alertas', () => {
     expect(sql).not.toContain('SET type = \'aggregate\'')
     expect(sql).toContain('CREATE TRIGGER route_catalog_alert_insert\n  AFTER INSERT')
     expect(sql).toContain("v_reopened := v_item.status = 'resolved'")
+    expect(sql).toMatch(/ORDER BY[\s\S]*a\.type = p_type[\s\S]*a\.type = 'aggregate'/)
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.sync_legacy_alert_item_lifecycle')
+    expect(sql).toContain('CREATE TRIGGER sync_legacy_alert_item_lifecycle')
+    expect(sql).toContain('AFTER UPDATE OF status ON public.alerts')
+    expect(sql).toContain("p_source <> 'foundation_backfill'")
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.resolve_invoice_alerts_on_status_change[\s\S]*resolve_alert_item\(/)
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.list_internal_notifications[\s\S]*public\.is_active_user\(\)/)
     expect(sql).not.toContain('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated')
     expect(sql).toContain('REVOKE USAGE, SELECT ON SEQUENCE')
     expect(sql).toContain('count_alert_queue')
@@ -68,6 +75,12 @@ describe('fundação transversal de alertas', () => {
     expect(page).not.toContain('detectAgencyReportPending')
     expect(page).not.toContain('detectAgencyReportDeadlineMissed')
     expect(page).toContain('Dispensar')
+  })
+
+  it('mantém uma chave única por item no painel financeiro', () => {
+    const panel = readFileSync(resolve(process.cwd(), 'src/components/billing/FinancialAlertsPanel.tsx'), 'utf8')
+
+    expect(panel).toContain('key={alert.item_id ?? alert.id}')
   })
 
   it('mantém os três arquivos de migration no repositório para o rollout', () => {

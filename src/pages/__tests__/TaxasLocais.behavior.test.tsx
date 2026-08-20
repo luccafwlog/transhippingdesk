@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   detailInvoiceId: vi.fn(),
   invalidateQueries: vi.fn(),
+  detectOverdueInvoices: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -21,6 +22,7 @@ vi.mock('../../hooks/useBilling', () => ({
 }))
 vi.mock('../../services/alerts', () => ({
   listFinancialAlerts: vi.fn().mockResolvedValue([]),
+  detectOverdueInvoices: mocks.detectOverdueInvoices,
 }))
 vi.mock('../../components/billing/InvoiceDetailModal', () => ({
   InvoiceDetailModal: ({ invoiceId }: { invoiceId: number | null }) => {
@@ -64,4 +66,5 @@ it('preserves non-tab query parameters when redirecting demurrage', async () => 
 
 it('não executa detector de vencimento ao abrir Faturamento', () => {
   render(<MemoryRouter><TaxasLocais /></MemoryRouter>)
+  expect(mocks.detectOverdueInvoices).not.toHaveBeenCalled()
 })

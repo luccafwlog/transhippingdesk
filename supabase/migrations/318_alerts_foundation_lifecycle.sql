@@ -288,6 +288,9 @@ BEGIN
     RAISE EXCEPTION 'Tipo de alerta fora do catálogo: %', p_type USING ERRCODE = '22023';
   END IF;
 
+  -- Suppress the compatibility UPDATE trigger while this RPC is changing a
+  -- carrier. The RPC itself owns the item transition and event emission.
+  PERFORM set_config('alerts.foundation_internal', 'on', true);
   PERFORM pg_advisory_xact_lock(hashtextextended('alert:' || p_entity_type || ':' || p_entity_id, 0));
 
   SELECT * INTO v_alert
@@ -297,15 +300,19 @@ BEGIN
     AND (
       a.type = 'aggregate'
       OR a.type = p_type
-      OR EXISTS (SELECT 1 FROM public.alert_items existing_item WHERE existing_item.alert_id = a.id)
+      OR EXISTS (
+        SELECT 1
+        FROM public.alert_items existing_item
+        WHERE existing_item.alert_id = a.id AND existing_item.item_type = p_type
+      )
     )
   ORDER BY
-    (a.type = 'aggregate') DESC,
+    (a.type = p_type AND a.status <> 'closed') DESC,
     EXISTS (SELECT 1 FROM public.alert_items matching_item WHERE matching_item.alert_id = a.id AND matching_item.item_type = p_type) DESC,
-    EXISTS (SELECT 1 FROM public.alert_items any_item WHERE any_item.alert_id = a.id) DESC,
-    (a.type = p_type) DESC,
+    (a.type = 'aggregate' AND a.status <> 'closed') DESC,
     (a.status <> 'closed') DESC,
-    a.id
+    (a.type = p_type) DESC,
+    a.id DESC
   LIMIT 1
   FOR UPDATE;
 
@@ -367,7 +374,9 @@ BEGIN
       'active', auth.uid(), COALESCE(p_metadata, '{}'::jsonb)
     )
     RETURNING id INTO v_event_id;
-    PERFORM public.fanout_alert_item(v_alert.id, v_item.id, v_event_id);
+    IF p_source <> 'foundation_backfill' THEN
+      PERFORM public.fanout_alert_item(v_alert.id, v_item.id, v_event_id);
+    END IF;
   ELSE
     INSERT INTO public.alert_item_events (
       alert_item_id, occurrence_id, event_type, previous_status, new_status,
@@ -377,6 +386,7 @@ BEGIN
   END IF;
 
   PERFORM public.refresh_alert_aggregate(v_alert.id);
+  PERFORM set_config('alerts.foundation_internal', 'off', true);
   RETURN jsonb_build_object('alert_id', v_alert.id, 'item_id', v_item.id, 'event_id', v_event_id, 'reopened', v_reopened);
 END;
 $function$;
@@ -418,6 +428,41 @@ BEGIN
 END;
 $function$;
 
+-- Invoice state is authoritative for the two validation alert types created
+-- by the billing UI. A successful payment/cancellation resolves the related
+-- item without requiring a manual queue action.
+CREATE OR REPLACE FUNCTION public.resolve_invoice_alerts_on_status_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status THEN
+    IF NEW.status IN ('paid', 'partially_paid', 'cancelled') THEN
+      PERFORM public.resolve_alert_item(
+        'invoice_payment_invalid', 'invoice', NEW.id::TEXT,
+        'invoice_status_change', jsonb_build_object('invoice_status', NEW.status)
+      );
+    END IF;
+    IF NEW.status = 'cancelled' THEN
+      PERFORM public.resolve_alert_item(
+        'invoice_cancel_blocked', 'invoice', NEW.id::TEXT,
+        'invoice_status_change', jsonb_build_object('invoice_status', NEW.status)
+      );
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS resolve_invoice_alerts_on_status_change ON public.invoices;
+CREATE TRIGGER resolve_invoice_alerts_on_status_change
+  AFTER INSERT OR UPDATE OF status ON public.invoices
+  FOR EACH ROW EXECUTE FUNCTION public.resolve_invoice_alerts_on_status_change();
+
+REVOKE ALL ON FUNCTION public.resolve_invoice_alerts_on_status_change() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_invoice_alerts_on_status_change() TO service_role;
+
 -- Compatibility boundary for producers that have not yet moved to the
 -- block-specific RPC. The original legacy row is preserved because its
 -- producers still close/dedupe by concrete `alerts.type`; the AFTER trigger
@@ -427,12 +472,34 @@ RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
+DECLARE
+  v_existing_alert_id BIGINT;
 BEGIN
   IF NEW.type <> 'aggregate'
      AND NEW.entity_type IS NOT NULL
      AND NEW.entity_id IS NOT NULL
      AND EXISTS (SELECT 1 FROM public.alert_type_catalog WHERE type = NEW.type AND active)
      AND current_setting('alerts.foundation_direct_insert', true) IS DISTINCT FROM 'on' THEN
+    -- If this type already has an item for the entity, the newly inserted
+    -- legacy row is a duplicate producer carrier. Consume it before upsert so
+    -- the existing occurrence is reopened/updated instead of creating a
+    -- second item or violating the Portal partial unique index.
+    SELECT i.alert_id INTO v_existing_alert_id
+    FROM public.alert_items i
+    JOIN public.alerts a ON a.id = i.alert_id
+    WHERE i.item_type = NEW.type
+      AND a.entity_type = NEW.entity_type
+      AND a.entity_id = NEW.entity_id
+      AND i.alert_id <> NEW.id
+    ORDER BY (i.status = 'active') DESC, i.id DESC
+    LIMIT 1;
+
+    IF v_existing_alert_id IS NOT NULL THEN
+      UPDATE public.alerts
+      SET status = 'closed', closed_at = COALESCE(closed_at, now())
+      WHERE id = NEW.id;
+    END IF;
+
     PERFORM public.upsert_alert_item(
       NEW.type, NEW.entity_type, NEW.entity_id, NEW.message,
       'legacy_insert', '{}'::jsonb, NULL
@@ -449,6 +516,77 @@ CREATE TRIGGER route_catalog_alert_insert
 
 REVOKE ALL ON FUNCTION public.route_catalog_alert_insert() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.route_catalog_alert_insert() TO service_role;
+
+-- Legacy producers still close and reopen concrete rows directly. Mirror
+-- those transitions into the item lifecycle so a new occurrence is emitted
+-- when the same carrier returns after resolution.
+CREATE OR REPLACE FUNCTION public.sync_legacy_alert_item_lifecycle()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_item public.alert_items%ROWTYPE;
+  v_event_id BIGINT;
+BEGIN
+  IF NEW.type = 'aggregate'
+     OR current_setting('alerts.foundation_internal', true) = 'on'
+     OR OLD.status IS NOT DISTINCT FROM NEW.status THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status <> 'closed' AND NEW.status = 'closed' THEN
+    FOR v_item IN
+      SELECT *
+      FROM public.alert_items
+      WHERE alert_id = NEW.id AND item_type = NEW.type AND status = 'active'
+      FOR UPDATE
+    LOOP
+      UPDATE public.alert_items
+      SET status = 'resolved', updated_at = now(), resolved_at = now()
+      WHERE id = v_item.id;
+      INSERT INTO public.alert_item_events (
+        alert_item_id, occurrence_id, event_type, previous_status, new_status,
+        actor_id, metadata
+      ) VALUES (
+        v_item.id, v_item.occurrence_id, 'resolved', 'active', 'resolved',
+        auth.uid(), jsonb_build_object('source', 'legacy_alert_status')
+      );
+    END LOOP;
+  ELSIF OLD.status = 'closed' AND NEW.status <> 'closed' THEN
+    FOR v_item IN
+      SELECT *
+      FROM public.alert_items
+      WHERE alert_id = NEW.id AND item_type = NEW.type AND status = 'resolved'
+      FOR UPDATE
+    LOOP
+      UPDATE public.alert_items
+      SET status = 'active', updated_at = now(), resolved_at = NULL,
+          occurrence_id = gen_random_uuid()
+      WHERE id = v_item.id
+      RETURNING * INTO v_item;
+      INSERT INTO public.alert_item_events (
+        alert_item_id, occurrence_id, event_type, previous_status, new_status,
+        actor_id, metadata
+      ) VALUES (
+        v_item.id, v_item.occurrence_id, 'opened', 'resolved', 'active',
+        auth.uid(), jsonb_build_object('source', 'legacy_alert_status')
+      ) RETURNING id INTO v_event_id;
+      PERFORM public.fanout_alert_item(NEW.id, v_item.id, v_event_id);
+    END LOOP;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS sync_legacy_alert_item_lifecycle ON public.alerts;
+CREATE TRIGGER sync_legacy_alert_item_lifecycle
+  AFTER UPDATE OF status ON public.alerts
+  FOR EACH ROW EXECUTE FUNCTION public.sync_legacy_alert_item_lifecycle();
+
+REVOKE ALL ON FUNCTION public.sync_legacy_alert_item_lifecycle() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_legacy_alert_item_lifecycle() TO service_role;
 
 CREATE OR REPLACE FUNCTION public.dismiss_alert_item(
   p_item_id BIGINT,
@@ -616,7 +754,9 @@ AS $$
     'read_at', n.read_at, 'created_at', n.created_at, 'payload', n.payload
   )
   FROM public.internal_notifications n
-  WHERE n.recipient_id = auth.uid() AND (p_include_read OR n.read_at IS NULL)
+  WHERE public.is_active_user()
+    AND n.recipient_id = auth.uid()
+    AND (p_include_read OR n.read_at IS NULL)
   ORDER BY n.created_at DESC;
 $$;
 

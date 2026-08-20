@@ -1,12 +1,12 @@
 import { AlertTriangle } from 'lucide-react'
 import { Badge } from '../ui/Badge'
-import type { Alert } from '../../services/alerts'
+import type { AlertQueueRow } from '../../services/alerts'
 
 export function FinancialAlertsPanel({
   alerts,
   loading = false,
 }: {
-  alerts: Alert[]
+  alerts: AlertQueueRow[]
   loading?: boolean
 }) {
   if (loading) {
@@ -32,7 +32,7 @@ export function FinancialAlertsPanel({
       <div className="grid gap-2">
         {alerts.slice(0, 5).map((alert) => (
           <div
-            key={alert.id}
+            key={alert.item_id ?? alert.id}
             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/20 bg-[#0d1117]/60 px-3 py-2 sm:gap-3"
           >
             <div className="flex min-w-0 flex-1 basis-56 items-center gap-2">

@@ -58,7 +58,12 @@ leitura ao destinatário e permite somente marcar `read_at`. Alertas críticos
 sem audiência ativa tentam Administrativo/Admin e registram a falha em
 `alert_notification_failures` quando o fallback também não encontra ninguém.
 Linhas antigas de `alerts` continuam na fila pela RPC `list_alert_queue` até
-que seus produtores sejam migrados.
+que seus produtores sejam migrados. Enquanto isso, o bridge acompanha inserts,
+fechamentos e reaberturas de carriers concretos: fecha o item correspondente e
+emite nova ocorrência/notificação quando a mesma pendência retorna. O backfill
+não dispara notificações históricas no deploy; os tipos financeiros são
+resolvidos pelas transições de `invoices` e a emissão automática resolve sua
+falha anterior ao concluir com sucesso.
 
 Os detectores server-side são executados pela Edge Function
 `alerts-detector`, protegida por `ALERTS_DETECTOR_SECRET`, a cada 15 minutos
