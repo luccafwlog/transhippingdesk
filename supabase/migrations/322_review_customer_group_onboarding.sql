@@ -1,4 +1,4 @@
--- 317: onboarding transacional de cliente a partir da revisão manual.
+-- 322: onboarding transacional de cliente a partir da revisão manual.
 -- Rollback: remover as funções desta migration e restaurar o wrapper de
 -- importação da migration 284 em banco descartável; não desfazer sobre dados
 -- de clientes, contatos ou vínculos já confirmados.

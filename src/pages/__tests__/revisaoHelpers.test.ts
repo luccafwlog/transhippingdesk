@@ -10,7 +10,6 @@ import {
   groupNeedsEmail,
   groupNeedsPortal,
   groupReviewItems,
-  needsCeMercante,
   needsCustomerLink,
   needsWeightFix,
   reviewReasonLabel,
@@ -39,15 +38,6 @@ describe('rótulos da fila de revisão', () => {
   it('exibe a modalidade operacional do B/L', () => {
     expect(getReviewCargoTypeLabel(item({ source: 'bl', cargo_mode: 'container' }))).toBe('Contêiner')
     expect(getReviewCargoTypeLabel(item({ source: 'bl', cargo_mode: 'carga_solta' }))).toBe('Carga solta')
-  })
-})
-
-describe('needsCeMercante', () => {
-  it('só vale para itens de B/L com motivo de CE Mercante', () => {
-    expect(needsCeMercante(item({ source: 'granite', review_reasons: ['CE Mercante ausente'] }))).toBe(false)
-    expect(needsCeMercante(item({ source: 'bl', review_reasons: ['CE Mercante ausente'] }))).toBe(true)
-    expect(needsCeMercante(item({ source: 'bl', review_reasons: ['ceMercante faltando'] }))).toBe(true)
-    expect(needsCeMercante(item({ source: 'bl', review_reasons: ['outro motivo'] }))).toBe(false)
   })
 })
 

@@ -25,11 +25,11 @@
 
 ### Contrato Supabase
 
-- Create: `supabase/migrations/317_review_customer_group_onboarding.sql` —
+- Create: `supabase/migrations/322_review_customer_group_onboarding.sql` —
   helper de contato idempotente, extração/validação server-side de candidatos,
   RPC transacional do onboarding e extensão do wrapper de importação atual.
 - Create: `src/services/__tests__/reviewCustomerGroupMigration.test.ts` — teste
-  de contrato SQL da migration 317.
+  de contrato SQL da migration 322.
 - Modify: `src/types/database.ts` — regenerar os tipos gerados depois que a RPC
   estiver definida; não editar manualmente para esconder drift.
 
@@ -227,12 +227,12 @@ git commit -m "feat: modelar grupos seguros da revisao por cliente"
 
 **Files:**
 
-- Create: `supabase/migrations/317_review_customer_group_onboarding.sql`
+- Create: `supabase/migrations/322_review_customer_group_onboarding.sql`
 - Test: `src/services/__tests__/reviewCustomerGroupMigration.test.ts`
 
 - [ ] **Step 1: Escrever o teste de contrato SQL**
 
-O teste deve carregar a migration 317 e exigir os seguintes contratos:
+O teste deve carregar a migration 322 e exigir os seguintes contratos:
 
 ```ts
 expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.ensure_customer_contact_email/i)
@@ -250,7 +250,7 @@ expect(sql).toMatch(/manifest_customer_email/i)
 
 Run: `npx vitest run src/services/__tests__/reviewCustomerGroupMigration.test.ts`
 
-Expected: FAIL com ausência da migration 317 e das funções novas.
+Expected: FAIL com ausência da migration 322 e das funções novas.
 
 - [ ] **Step 3: Implementar o helper de contato idempotente**
 
@@ -330,7 +330,7 @@ frontend somente após o retorno bem-sucedido.
 
 - [ ] **Step 6: Atualizar o wrapper de importação atual**
 
-Na migration 317, substituir o wrapper vigente de
+Na migration 322, substituir o wrapper vigente de
 `import_bl_freight_transactional(jsonb, uuid)` sem alterar a função histórica
 `import_bl_freight_transactional_legacy_205`:
 
@@ -355,7 +355,7 @@ Expected: PASS.
 Commit:
 
 ```bash
-git add supabase/migrations/317_review_customer_group_onboarding.sql src/services/__tests__/reviewCustomerGroupMigration.test.ts
+git add supabase/migrations/322_review_customer_group_onboarding.sql src/services/__tests__/reviewCustomerGroupMigration.test.ts
 git commit -m "feat: adicionar onboarding transacional de cliente na revisao"
 ```
 
@@ -733,7 +733,7 @@ Expected: PASS.
 Commit:
 
 ```bash
-git add src/services/__tests__ supabase/migrations/317_review_customer_group_onboarding.sql
+git add src/services/__tests__ supabase/migrations/322_review_customer_group_onboarding.sql
 git commit -m "test: garantir enriquecimento idempotente de emails na importacao"
 ```
 

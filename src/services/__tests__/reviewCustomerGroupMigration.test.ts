@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const migrationPath = resolve(process.cwd(), 'supabase/migrations/317_review_customer_group_onboarding.sql')
+const migrationPath = resolve(process.cwd(), 'supabase/migrations/322_review_customer_group_onboarding.sql')
 
 describe('migration de onboarding da revisão por cliente', () => {
   it('declara o helper idempotente, a RPC transacional e o wrapper de importação', () => {
