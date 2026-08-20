@@ -3,6 +3,24 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **PR #565 — correções da revisão de código da revisão de UI/UX:** o
+  relatório de Demurrage por consignatário ainda podia imprimir vazio quando
+  o modal era filho direto de `.app-main` (caso da Demurrage, sem wrapper de
+  página); a regra de impressão em `src/index.css` passou a excluir
+  `.app-modal-backdrop` da ocultação e a mantê-lo visível nesse cenário. O
+  indicador de foco por teclado das notificações do Portal, removido sem
+  substituto, voltou a existir. O botão de atualizar câmbio no cabeçalho
+  deixou de dobrar a altura da faixa de PTAX ao ganhar alvo de toque de
+  40×40 px — a área de toque agora é um pseudo-elemento fora do fluxo.
+- **Revisão completa de UI/UX e Portal do Cliente:** notificações passaram a
+  usar painel responsivo e legível, com hierarquia, datas e estados explícitos;
+  navegação ganhou skip link e alvos mínimos de 40 px; o cabeçalho mobile e a
+  cópia pt-BR do Portal foram refinados; tokens compartilhados de link/hover e
+  redução de movimento foram consolidados. O relatório de Demurrage por
+  consignatário deixou de imprimir vazio. A verificação percorreu 31
+  superfícies desktop e 25 rotas autenticadas mobile sem overflow ou erros de
+  console no passe final. Evidências em
+  `docs/archive/audits/2026-08-19-revisao-completa-ui-ux.md`.
 - **PR #553 — transbordo e COD:** a omissão de escala passou a preservar os
   dados globais de transbordo, exigir confirmação com resumo, permitir reversão
   administrativa justificada e invalidar as projeções afetadas. COD passou a

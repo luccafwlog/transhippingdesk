@@ -90,8 +90,8 @@ describe('PortalDashboard (Painel)', () => {
     // Demurrage em aberto: 1 fatura
     expect(screen.getByText('Demurrage em aberto')).toBeTruthy()
 
-    // Containers sem devolucao: C2 e C3 -> 2
-    expect(screen.getByText('Containers sem devolucao')).toBeTruthy()
+    // Containers sem devolução: C2 e C3 -> 2
+    expect(screen.getByText('Containers sem devolução')).toBeTruthy()
     // Containers em demurrage: C3 -> 1
     expect(screen.getByText('Containers em demurrage')).toBeTruthy()
 
