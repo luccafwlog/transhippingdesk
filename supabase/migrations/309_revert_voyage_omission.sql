@@ -1,8 +1,9 @@
 -- 309: torna a omissão de escala reversível por Admin, com rastro e aviso de correção.
--- A reversão remove somente a decisão de omissão e seus vínculos de transbordo.
+-- A reversão marca a decisão como inativa, preservando omissão e vínculos para
+-- auditoria e para os ajustes financeiros append-only.
 -- Não altera B/Ls, estado terminalizado, frentes de operação ou ADRs.
--- Rollback: em ambiente descartável, reaplicar a definição final da 308; não
--- reverter dados operacionais já removidos sem uma restauração transacional.
+-- Rollback: em ambiente descartável, restaurar a definição final da 308 e
+-- remover as colunas de reversão; não há backfill destrutivo.
 
 -- A omissão do mesmo POD é uma decisão nova, não uma atualização silenciosa.
 -- A remoção catalogada do CHECK legado permanece na migration 308; esta
@@ -127,8 +128,16 @@ REVOKE ALL ON FUNCTION public.omit_voyage_escala(BIGINT, TEXT, TEXT, TEXT, UUID,
 GRANT EXECUTE ON FUNCTION public.omit_voyage_escala(BIGINT, TEXT, TEXT, TEXT, UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
 
 -- As definições finais de 215 após a 295 exigem apenas usuario ativo. Esta
--- reaplicação conserva esse contrato e serializa toda transição de disposição
+-- Reaplicação conserva esse contrato e serializa toda transição de disposição
 -- com a reversão pelo mesmo registro-pai da omissão.
+
+-- Omissões são eventos de auditoria referenciados por cod_adjustments. A
+-- reversão é uma transição de estado, não uma exclusão física.
+ALTER TABLE public.voyage_omissions
+  ADD COLUMN IF NOT EXISTS reverted_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS reverted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS revert_justification TEXT;
+
 CREATE OR REPLACE FUNCTION public.set_bl_cod(
   p_bl_id TEXT,
   p_omission_id BIGINT,
@@ -282,7 +291,7 @@ BEGIN
     RAISE EXCEPTION 'Reversao de omissao exige justificativa.' USING ERRCODE = '22023';
   END IF;
 
-  SELECT o.id, o.voyage_id, o.omitted_pod, o.discharge_pod
+  SELECT o.id, o.voyage_id, o.omitted_pod, o.discharge_pod, o.reverted_at
   INTO v_omission
   FROM public.voyage_omissions AS o
   WHERE o.id = p_omission_id
@@ -290,6 +299,9 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Omissao % nao encontrada.', p_omission_id USING ERRCODE = 'P0002';
+  END IF;
+  IF v_omission.reverted_at IS NOT NULL THEN
+    RAISE EXCEPTION 'Omissao % ja foi revertida.', p_omission_id USING ERRCODE = '22023';
   END IF;
 
   SELECT COUNT(*)::INTEGER
@@ -344,10 +356,10 @@ BEGIN
   WHERE t.omission_id = p_omission_id
     AND b.customer_id IS NOT NULL;
 
-  DELETE FROM public.bl_transshipments
-  WHERE omission_id = p_omission_id;
-
-  DELETE FROM public.voyage_omissions
+  UPDATE public.voyage_omissions
+  SET reverted_at = now(),
+      reverted_by = p_changed_by,
+      revert_justification = v_justification
   WHERE id = p_omission_id;
 END;
 $function$;

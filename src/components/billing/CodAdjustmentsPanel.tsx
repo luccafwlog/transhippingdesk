@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
@@ -26,10 +27,20 @@ export function CodAdjustmentsPanel() {
   const settleMutation = useSettleCodAdjustment()
   const canSettle = typeof can === 'function' ? can('settle_financial_adjustments') : false
   const rows = adjustmentsQuery.data ?? []
+  const [documentIds, setDocumentIds] = useState<Record<number, string>>({})
 
   async function settle(id: number) {
     try {
-      await settleMutation.mutateAsync(id)
+      const row = rows.find((candidate) => candidate.id === id)
+      const isManualDocument = row?.action === 'complementary_invoice' || row?.action === 'cancel_and_reissue' || row?.action === 'manual_charge_review'
+      const documentId = isManualDocument ? Number(documentIds[id]) : null
+      if (isManualDocument && (documentId == null || !Number.isInteger(documentId) || documentId <= 0)) {
+        showToast('Informe o ID da invoice emitida para concluir este ajuste.', 'error')
+        return
+      }
+      await settleMutation.mutateAsync(isManualDocument
+        ? { adjustmentId: id, resultingDocumentId: documentId, resultingDocumentType: 'invoice' }
+        : id)
       showToast('Ajuste de COD liquidado. A restituição, quando aplicável, permanece pendente para baixa.', 'success')
       await queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() })
     } catch (error) {
@@ -80,11 +91,30 @@ export function CodAdjustmentsPanel() {
                     <td className={`px-4 py-3 ${row.difference_brl < 0 ? 'text-emerald-300' : 'text-amber-200'}`}>{formatBRL(row.difference_brl)}</td>
                     <td className="px-4 py-3">
                       {isManualDocument ? (
-                        <div className="flex max-w-[320px] items-center gap-2 text-xs text-slate-400">
+                        <div className="flex max-w-[390px] flex-wrap items-center gap-2 text-xs text-slate-400">
                           <AlertTriangle size={15} className="shrink-0 text-amber-300" />
-                          <span>
-                            Ação manual pendente. <Link className="text-[var(--app-blue-btn)] hover:underline" to={`/taxas-locais?tab=invoices&bl=${encodeURIComponent(row.bl_id)}`}>Abrir faturas</Link>
-                          </span>
+                          <span>Ação manual pendente.</span>
+                          <Link className="text-[var(--app-blue-btn)] hover:underline" to={`/taxas-locais?tab=invoices&bl=${encodeURIComponent(row.bl_id)}`}>Abrir faturas</Link>
+                          <input
+                            aria-label={`ID da invoice do ajuste ${row.id}`}
+                            className="w-24 rounded border border-[#30363d] bg-[#0d1117] px-2 py-1 text-xs text-slate-200"
+                            inputMode="numeric"
+                            min="1"
+                            onChange={(event) => setDocumentIds((current) => ({ ...current, [row.id]: event.target.value }))}
+                            placeholder="ID invoice"
+                            type="number"
+                            value={documentIds[row.id] ?? ''}
+                          />
+                          <Button
+                            variant="secondary"
+                            type="button"
+                            disabled={!canSettle}
+                            loading={settleMutation.isPending && settleMutation.variables === row.id}
+                            title={!canSettle ? 'Somente Financeiro, Administrativo ou Admin pode liquidar.' : undefined}
+                            onClick={() => void settle(row.id)}
+                          >
+                            Vincular e concluir
+                          </Button>
                         </div>
                       ) : (
                         <Button

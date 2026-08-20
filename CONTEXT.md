@@ -75,12 +75,10 @@ cliente no Portal (ADR 0052). `OMIT` e distinto de `X`: um diz que a escala nao
 vai acontecer, o outro que a data ainda nao foi informada. O motivo interno da
 omissao nao acompanha essa marca.
 
-> **Ainda nao implementado.** Reversao, recusa de re-omissao e a marca `OMIT`
-> sao decisao registrada, nao comportamento vigente: hoje a omissao e
-> irreversivel, a segunda omissao do mesmo POD sobrescreve a primeira em
-> silencio, e a escala omitida some da programacao em vez de ser marcada.
-> Execucao nas Tasks 3, 4 e 10b de
-> `docs/plans/2026-08-18-transbordo-cod-correcoes.md`.
+Reversão da omissão é uma operação Admin com justificativa: a decisão fica
+marcada como revertida e seus vínculos permanecem para auditoria e histórico
+financeiro. Uma segunda omissão do mesmo POD é rejeitada. A escala omitida é
+projetada como `OMIT` no Portal; a marca é distinta de `X` (data desconhecida).
 
 **Porto de Transbordo**
 Porto onde a carga de uma escala omitida é efetivamente descarregada para seguir
@@ -124,11 +122,11 @@ final (ADR 0051). O Transbordo nao reprecifica, porque nele o destino final e
 preservado — a carga segue por navio de terceiro ate o POD original. A diferenca
 apurada vira um Ajuste de COD; CE Mercante e Demurrage seguem manuais.
 
-> **Ainda nao implementado.** A reprecificacao e o Ajuste de COD sao decisao
-> aceita (ADR 0051), nao comportamento vigente: hoje `set_bl_cod` altera POD e
-> disposicao, grava auditoria e notifica o cliente, sem nenhum efeito na Taxa
-> Local. Execucao nas Tasks 5 a 7 de
-> `docs/plans/2026-08-18-transbordo-cod-correcoes.md`.
+`set_bl_cod` grava a decisão e calcula um Ajuste de COD append-only. A prévia
+usa o ROE vigente para linhas em USD; quando o B/L já foi faturado, o valor
+original vem do snapshot do documento efetivamente emitido e nunca da tabela
+atual do POD antigo. A emissão de fatura complementar, cancelamento/reemissão
+e restituição exige conclusão vinculada pelo Financeiro.
 
 O CE Mercante do B/L nunca muda. O CE Master tambem nao muda de numero, mas o
 B/L em COD deixa de constar no manifesto do porto omitido e passa a constar no
@@ -152,7 +150,9 @@ fatura integralmente paga, a diferenca a menor vira restituicao direto.
 O COD apura e registra a diferenca; a emissao do documento e a liberacao da
 restituicao sao atos do Financeiro, nunca automaticos.
 
-> **Ainda nao implementado** — ver a marca no verbete COD.
+O ajuste é criado automaticamente pela transição de COD e permanece pendente
+até que Financeiro vincule o documento resultante (ou registre abatimento/
+restituição pela operação transacional de liquidação).
 
 - **Related:** COD, Taxas Locais, Recebivel Local, Invoice Individual
 
@@ -765,12 +765,11 @@ O cálculo tem **duas fases**:
   os B/Ls da viagem já existem e o rateio de container compartilhado está certo.
 
 O **fato gerador é a emissão do CE Mercante**, não a chegada da carga. Emitido o
-CE, a taxa local é devida pelo porto declarado nele, e nada que aconteça depois
-com o navio a altera: Omissão de Escala, Transbordo e COD são irrelevantes para
-taxa local. No transbordo a carga chega ao POD original de qualquer forma; no
-COD o cliente retira em outro porto por conveniência própria, e a taxa continua
-sendo a do porto do CE — o desvio físico é ônus operacional do armador, não
-reprecificação para o cliente.
+CE, a taxa local é devida pelo porto declarado nele. O Transbordo preserva o
+destino e não reprecifica; o COD é a exceção de ADR 0051: altera o destino final
+e gera um Ajuste de COD pela diferença entre os valores localizados, mantendo o
+CE Mercante inalterado. A emissão do documento financeiro resultante é um ato
+do Financeiro.
 
 Por isso a fatura de taxas locais é emitida dias antes da atracação: o cliente
 precisa dela paga para retirar a carga, e não há fato posterior capaz de mudar

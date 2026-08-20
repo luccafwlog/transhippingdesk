@@ -201,9 +201,29 @@ export async function listPendingCodAdjustments(): Promise<CodAdjustment[]> {
   }))
 }
 
-export async function settleCodAdjustment(adjustmentId: number): Promise<unknown> {
-  const { data, error } = await supabase.rpc('settle_cod_adjustment', {
-    p_adjustment_id: adjustmentId,
+export type SettleCodAdjustmentInput = number | {
+  adjustmentId: number
+  resultingDocumentId?: number | null
+  resultingDocumentType?: 'invoice' | 'refund' | null
+}
+
+export async function settleCodAdjustment(input: SettleCodAdjustmentInput): Promise<unknown> {
+  const normalized = typeof input === 'number' ? { adjustmentId: input } : input
+  // ponytail: database.ts ainda reflete a assinatura de 313 antes do vínculo
+  // manual; regenerar os tipos após aplicar a migration remove este adapter.
+  const rpc = supabase.rpc as unknown as (
+    functionName: 'settle_cod_adjustment',
+    args: {
+      p_adjustment_id: number
+      p_actor?: string
+      p_resulting_document_id?: number
+      p_resulting_document_type?: 'invoice' | 'refund'
+    },
+  ) => Promise<{ data: unknown; error: Error | null }>
+  const { data, error } = await rpc('settle_cod_adjustment', {
+    p_adjustment_id: normalized.adjustmentId,
+    ...(normalized.resultingDocumentId == null ? {} : { p_resulting_document_id: normalized.resultingDocumentId }),
+    ...(normalized.resultingDocumentType == null ? {} : { p_resulting_document_type: normalized.resultingDocumentType }),
   })
   if (error) throw error
   return data

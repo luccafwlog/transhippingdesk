@@ -176,9 +176,13 @@ $function$;
 REVOKE ALL ON FUNCTION public.apply_cod_open_balance_offset(BIGINT, TEXT, NUMERIC, UUID)
   FROM PUBLIC, anon, authenticated;
 
+DROP FUNCTION IF EXISTS public.settle_cod_adjustment(BIGINT, UUID);
+
 CREATE OR REPLACE FUNCTION public.settle_cod_adjustment(
   p_adjustment_id BIGINT,
-  p_actor UUID DEFAULT NULL
+  p_actor UUID DEFAULT NULL,
+  p_resulting_document_id BIGINT DEFAULT NULL,
+  p_resulting_document_type TEXT DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -191,6 +195,7 @@ DECLARE
   v_invoice_id BIGINT;
   v_offset NUMERIC(14,2) := 0;
   v_refund_id BIGINT;
+  v_document_type TEXT := NULLIF(lower(btrim(COALESCE(p_resulting_document_type, ''))), '');
 BEGIN
   IF auth.uid() IS NULL OR NOT public.is_financeiro_user() THEN
     RAISE EXCEPTION 'Apenas Financeiro, Administrativo ou Admin pode liquidar ajustes de COD.'
@@ -212,8 +217,13 @@ BEGIN
     RAISE EXCEPTION 'Ajuste de COD % nao esta pendente (status=%).', p_adjustment_id, v_adjustment.status
       USING ERRCODE = '22023';
   END IF;
-  IF v_adjustment.action NOT IN ('offset_open_balance', 'refund_overpayment') THEN
-    RAISE EXCEPTION 'A acao % permanece manual e nao pode ser liquidada por esta RPC.', v_adjustment.action
+  IF v_adjustment.action IN ('complementary_invoice', 'cancel_and_reissue', 'manual_charge_review') THEN
+    IF p_resulting_document_id IS NULL OR v_document_type IS DISTINCT FROM 'invoice' THEN
+      RAISE EXCEPTION 'A ação % exige o ID de uma invoice emitida para concluir o ajuste.', v_adjustment.action
+        USING ERRCODE = '22023';
+    END IF;
+  ELSIF p_resulting_document_id IS NOT NULL OR v_document_type IS NOT NULL THEN
+    RAISE EXCEPTION 'A ação % não aceita vínculo manual de documento.', v_adjustment.action
       USING ERRCODE = '22023';
   END IF;
 
@@ -234,6 +244,34 @@ BEGIN
     ORDER BY i.issued_at DESC NULLS LAST, i.id DESC
     LIMIT 1
     FOR UPDATE;
+  END IF;
+
+  IF p_resulting_document_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.invoices AS resulting
+      WHERE resulting.id = p_resulting_document_id
+        AND COALESCE(resulting.status, 'issued') NOT IN ('cancelled', 'obsolete', 'covered')
+        AND (resulting.bl_id = v_adjustment.bl_id OR EXISTS (
+          SELECT 1
+          FROM public.invoice_bls AS resulting_link
+          WHERE resulting_link.invoice_id = resulting.id
+            AND resulting_link.bl_id = v_adjustment.bl_id
+        ))
+    ) THEN
+      RAISE EXCEPTION 'O documento % não pertence ao B/L % ou não está ativo.',
+        p_resulting_document_id, v_adjustment.bl_id USING ERRCODE = '22023';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM public.cod_adjustments AS linked
+      WHERE linked.id <> p_adjustment_id
+        AND linked.resulting_document_id = p_resulting_document_id
+    ) THEN
+      RAISE EXCEPTION 'O documento % já está vinculado a outro ajuste de COD.', p_resulting_document_id
+        USING ERRCODE = '23505';
+    END IF;
   END IF;
 
   IF v_invoice_id IS NULL THEN
@@ -264,8 +302,16 @@ BEGIN
 
   UPDATE public.cod_adjustments
   SET status = 'settled',
-      resulting_document_id = CASE WHEN v_refund_id IS NULL THEN v_invoice_id ELSE NULL END,
-      resulting_document_type = CASE WHEN v_refund_id IS NULL THEN 'invoice' ELSE 'refund' END
+      resulting_document_id = CASE
+        WHEN v_refund_id IS NOT NULL THEN v_refund_id
+        WHEN p_resulting_document_id IS NOT NULL THEN p_resulting_document_id
+        ELSE v_invoice_id
+      END,
+      resulting_document_type = CASE
+        WHEN v_refund_id IS NOT NULL THEN 'refund'
+        WHEN p_resulting_document_type IS NOT NULL THEN v_document_type
+        ELSE 'invoice'
+      END
   WHERE id = p_adjustment_id;
 
   INSERT INTO public.audit_logs (
@@ -286,8 +332,8 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.settle_cod_adjustment(BIGINT, UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.settle_cod_adjustment(BIGINT, UUID) TO authenticated;
+REVOKE ALL ON FUNCTION public.settle_cod_adjustment(BIGINT, UUID, BIGINT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.settle_cod_adjustment(BIGINT, UUID, BIGINT, TEXT) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.settle_invoice_refund(
   p_refund_id BIGINT,

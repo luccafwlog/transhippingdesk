@@ -139,6 +139,7 @@ export async function listVoyageOmissions(voyageId: number): Promise<VoyageOmiss
     .from('voyage_omissions')
     .select('id, voyage_id, omitted_pod, discharge_pod, reason, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
     .eq('voyage_id', voyageId)
+    .is('reverted_at', null)
   if (error) throw error
   return (data ?? []).map((row) => ({
     id: row.id,

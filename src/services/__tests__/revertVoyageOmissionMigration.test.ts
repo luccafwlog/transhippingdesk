@@ -44,7 +44,7 @@ function callAsAuthenticated(userId: string, sql: string) {
       '-d',
       databaseUrl,
       '-c',
-      `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub', '${userId}', true); ${sql}; COMMIT;`,
+      `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claims', '{"sub":"${userId}"}', true); ${sql}; COMMIT;`,
     ],
     { encoding: 'utf8' },
   )
@@ -72,6 +72,7 @@ const rpcSignatures = [
 const cleanupSql = `
   DELETE FROM public.portal_notifications WHERE bl_id = '${blId}';
   DELETE FROM public.audit_logs WHERE entity_id IN ('${voyageId}::BRVIX', '${voyageId}', '${blId}') OR changed_by = '${adminId}';
+  DELETE FROM public.cod_adjustments WHERE bl_id = '${blId}';
   DELETE FROM public.bl_transshipments WHERE bl_id = '${blId}';
   DELETE FROM public.voyage_omissions WHERE voyage_id = ${voyageId};
   DELETE FROM public.voyage_escala_operation_fronts WHERE id = '${frontId}';
@@ -103,8 +104,8 @@ describe('contrato da reversão de omissão de escala', () => {
     expect(body).toMatch(/'voyage_pod_schedule'.*'omitted'.*'true'.*'false'/is)
     expect(body).toMatch(/INSERT INTO public\.portal_notifications\s*\(customer_id, bl_id, type, title, message, link\)/i)
     expect(body).toMatch(/Corre[cç][aã]o.*omiss[aã]o|omiss[aã]o.*revertida/is)
-    expect(body).toMatch(/DELETE FROM public\.bl_transshipments/i)
-    expect(body).toMatch(/DELETE FROM public\.voyage_omissions/i)
+    expect(body).toMatch(/reverted_at|revert_justification/i)
+    expect(body).not.toMatch(/DELETE FROM public\.(bl_transshipments|voyage_omissions)/i)
     expect(body).toMatch(/FOR UPDATE OF o/i)
     expect(body).toMatch(/'voyage'.*'omissao_revertida'.*v_omission\.omitted_pod.*v_omission\.discharge_pod/is)
     expect(body).not.toMatch(/UPDATE public\.(voyage_escala_terminal_state|voyage_escala_operation_fronts|agency_departure_reports)/i)
@@ -256,8 +257,8 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
       `SELECT public.revert_voyage_omission(${omissionId}, 'Correção confirmada pelo Admin', '${adminId}')`,
     )
     expect(reverted.status).toBe(0)
-    expect(psql(`SELECT count(*) FROM public.voyage_omissions WHERE id = ${omissionId}`)).toBe('0')
-    expect(psql(`SELECT count(*) FROM public.bl_transshipments WHERE omission_id = ${omissionId}`)).toBe('0')
+    expect(psql(`SELECT count(*) FROM public.voyage_omissions WHERE id = ${omissionId} AND reverted_at IS NOT NULL`)).toBe('1')
+    expect(psql(`SELECT count(*) FROM public.bl_transshipments WHERE omission_id = ${omissionId}`)).toBe('1')
     expect(psql(`SELECT count(*) FROM public.portal_notifications WHERE bl_id = '${blId}' AND title = 'Correção de omissão de escala'`)).toBe('1')
     expect(psql(`SELECT count(*) FROM public.audit_logs WHERE entity_type = 'voyage_pod_schedule' AND entity_id = '${voyageId}::BRVIX' AND field_name = 'omitted' AND old_value = 'true' AND new_value = 'false'`)).toBe('1')
     expect(psql(`SELECT count(*) FROM public.audit_logs WHERE entity_type = 'voyage' AND entity_id = '${voyageId}' AND field_name = 'omissao_revertida' AND old_value = 'BRVIX' AND new_value = 'BRSSA'`)).toBe('1')

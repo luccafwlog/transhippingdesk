@@ -144,7 +144,7 @@ describe('transshipments service', () => {
     )
 
     from.mockImplementation((table: string) => {
-      if (table === 'voyage_omissions') return { select: () => ({ eq: omissionsEq }) }
+      if (table === 'voyage_omissions') return { select: () => ({ eq: () => ({ is: omissionsEq }) }) }
       if (table === 'bl_transshipments') return { select: () => ({ eq: transshipmentsEq }) }
       throw new Error(`Tabela nao mockada: ${table}`)
     })

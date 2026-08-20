@@ -36,7 +36,7 @@ function callAsAuthenticated(userId: string, sql: string) {
       '-d',
       databaseUrl,
       '-c',
-      `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub', '${userId}', true); ${sql}; COMMIT;`,
+      `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claims', '{"sub":"${userId}"}', true); ${sql}; COMMIT;`,
     ],
     { encoding: 'utf8' },
   )
@@ -57,7 +57,7 @@ describe('contrato da reprecificação de Taxa Local no COD', () => {
     ]) {
       expect(migration).toContain(column)
     }
-    expect(migration).toMatch(/UNIQUE\s*\(bl_id,\s*omission_id\)/i)
+    expect(migration).not.toMatch(/CONSTRAINT cod_adjustments_bl_omission_key UNIQUE/i)
     expect(migration).toMatch(/action TEXT NOT NULL[\s\S]*?complementary_invoice[\s\S]*?cancel_and_reissue[\s\S]*?manual_charge_review[\s\S]*?offset_open_balance[\s\S]*?refund_overpayment/i)
     expect(migration).toMatch(/status TEXT NOT NULL[\s\S]*?pending[\s\S]*?settled[\s\S]*?cancelled/i)
     expect(migration).toMatch(/CONSTRAINT cod_adjustments_difference_check[\s\S]*difference_brl[\s\S]*new_destination_value_brl[\s\S]*original_value_brl/i)
@@ -65,7 +65,7 @@ describe('contrato da reprecificação de Taxa Local no COD', () => {
 
   it('abre leitura somente a usuários ativos e não cria policy de escrita', () => {
     expect(migration).toMatch(/ALTER TABLE public\.cod_adjustments ENABLE ROW LEVEL SECURITY/i)
-    expect(migration).toMatch(/CREATE POLICY cod_adjustments_select_active[\s\S]*FOR SELECT[\s\S]*TO authenticated[\s\S]*public\.is_active_user\(\)/i)
+    expect(migration).toMatch(/CREATE POLICY cod_adjustments_select_active[\s\S]*FOR SELECT[\s\S]*TO authenticated[\s\S]*public\.is_active_read_user\(\)/i)
     expect(migration).not.toMatch(/CREATE POLICY cod_adjustments_(insert|update|delete)/i)
     expect(migration).toMatch(/GRANT SELECT ON (TABLE )?public\.cod_adjustments TO authenticated/i)
     expect(migration).toMatch(/REVOKE ALL ON (TABLE )?public\.cod_adjustments FROM PUBLIC, anon/i)
@@ -76,7 +76,7 @@ describe('contrato da reprecificação de Taxa Local no COD', () => {
     const body = functionBody(migration, 'apply_cod_financial_effect')
     expect(body).toMatch(/v_actor UUID := auth\.uid\(\)|v_actor := auth\.uid\(\)/i)
     expect(body).not.toMatch(/p_changed_by|changed_by/i)
-    expect(body).toMatch(/resolve_bl_local_charge_items\(p_bl_id,\s*p_previous_pod\)/i)
+    expect(body).toMatch(/invoice_bls|invoice_items/i)
     expect(body).toMatch(/resolve_bl_local_charge_items\(p_bl_id,\s*v_bl\.pod\)/i)
     expect(migration).toMatch(/REVOKE ALL ON FUNCTION public\.apply_cod_financial_effect\(TEXT, BIGINT, TEXT\) FROM PUBLIC, anon, authenticated/i)
   })
@@ -101,12 +101,34 @@ describe('contrato da reprecificação de Taxa Local no COD', () => {
     expect(body).not.toMatch(/INSERT INTO public\.(invoices|invoice_refunds)/i)
   })
 
+  it('converte USD pelo ROE e ancora o original no documento faturado', () => {
+    const body = functionBody(migration, 'apply_cod_financial_effect')
+    expect(body).toMatch(/total_value_usd/i)
+    expect(body).toMatch(/exchange_rate_reference/i)
+    expect(body).toMatch(/invoice_items|invoice_bls/i)
+    expect(body).toMatch(/snapshot_payload/i)
+  })
+
+  it('preserva um ajuste distinto para cada transição COD/transbordo', () => {
+    expect(migration).not.toMatch(/CONSTRAINT cod_adjustments_bl_omission_key UNIQUE/i)
+    expect(migration).not.toMatch(/ON CONFLICT \(bl_id, p_omission_id\)/i)
+    expect(migration).toMatch(/INSERT INTO public\.cod_adjustments/i)
+  })
+
   it('mantém a ordem POD atualizado → efeito financeiro nas duas funções pai de 310', () => {
     const codBody = functionBody(migration310, 'set_bl_cod')
     const restoreBody = functionBody(migration310, 'set_bl_transshipment')
     expect(codBody.indexOf('UPDATE public.bls SET pod = v_discharge')).toBeLessThan(codBody.indexOf('apply_cod_financial_effect'))
     expect(restoreBody.indexOf('UPDATE public.bls SET pod = v_original_pod')).toBeLessThan(restoreBody.indexOf('apply_cod_financial_effect'))
     expect(migration310).toMatch(/apply_cod_financial_effect\(p_bl_id, p_omission_id, v_old_pod\)/i)
+  })
+
+  it('remove server-side os dados internos do COD no Portal', () => {
+    const portal = fs.readFileSync(path.join(migrationsDir, '315_portal_operation_hide_omission_reason.sql'), 'utf8')
+    const body = portal.match(/CREATE OR REPLACE FUNCTION public\.portal_list_operation_bls[\s\S]*?\$function\$;/i)?.[0] ?? ''
+    const codBranch = body.match(/WHEN omission\.disposition = 'cod' THEN jsonb_build_object\(([\s\S]*?)\)\s*ELSE/i)?.[1] ?? ''
+    expect(codBranch).not.toMatch(/onward_vessel_name|onward_carrier|onward_voyage_number|onward_etd|onward_eta/i)
+    expect(codBranch).toMatch(/disposition/)
   })
 })
 
@@ -202,7 +224,8 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
       SELECT action || '|' || original_value_brl || '|' || new_destination_value_brl || '|' ||
         difference_brl || '|' || paid_amount_brl || '|' || outstanding_balance_brl || '|' ||
         offset_amount_brl || '|' || refund_amount_brl
-      FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId};
+      FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}
+      ORDER BY id DESC LIMIT 1;
     `)).toBe('offset_open_balance|100.00|80.00|-20.00|10.00|90.00|20.00|0.00')
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}';`)).toBe('BRSSA')
     expect(psql("SELECT count(*) FROM public.invoices WHERE invoice_number = 'INV-312';")).toBe(invoicesBefore)
@@ -227,7 +250,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
     )
     expect(reversal.status).toBe(0)
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}';`)).toBe('BRVIX')
-    expect(psql(`SELECT action || '|' || original_value_brl || '|' || new_destination_value_brl || '|' || difference_brl FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId};`)).toBe('complementary_invoice|80.00|100.00|20.00')
+    expect(psql(`SELECT action || '|' || original_value_brl || '|' || new_destination_value_brl || '|' || difference_brl FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId} ORDER BY id DESC LIMIT 1;`)).toBe('complementary_invoice|80.00|100.00|20.00')
 
     psql(`
       UPDATE public.invoices SET status = 'partially_paid', total_paid_brl = 95, balance_brl = 5
@@ -241,7 +264,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
       `SELECT public.set_bl_cod('${blId}', ${omissionId}, 'COD 312 com excedente', '${userId}')`,
     )
     expect(overpayment.status).toBe(0)
-    expect(psql(`SELECT action || '|' || offset_amount_brl || '|' || refund_amount_brl FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId};`)).toBe('refund_overpayment|5.00|15.00')
+    expect(psql(`SELECT action || '|' || offset_amount_brl || '|' || refund_amount_brl FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId} ORDER BY id DESC LIMIT 1;`)).toBe('refund_overpayment|5.00|15.00')
 
     const reverseOverpayment = callAsAuthenticated(
       userId,
@@ -258,7 +281,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
       `SELECT public.set_bl_cod('${blId}', ${omissionId}, 'COD 312 sem pagamento', '${userId}')`,
     )
     expect(unpaid.status).toBe(0)
-    expect(psql(`SELECT action || '|' || manual_review_required FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId};`)).toBe('cancel_and_reissue|true')
+    expect(psql(`SELECT action || '|' || manual_review_required FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId} ORDER BY id DESC LIMIT 1;`)).toBe('cancel_and_reissue|true')
 
     const reverseUnpaid = callAsAuthenticated(
       userId,
@@ -276,7 +299,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
       `SELECT public.set_bl_cod('${blId}', ${omissionId}, 'COD 312 pago integralmente', '${userId}')`,
     )
     expect(fullyPaid.status).toBe(0)
-    expect(psql(`SELECT action || '|' || paid_amount_brl || '|' || offset_amount_brl || '|' || refund_amount_brl FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId};`)).toBe('refund_overpayment|100.00|0.00|20.00')
+    expect(psql(`SELECT action || '|' || paid_amount_brl || '|' || offset_amount_brl || '|' || refund_amount_brl FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId} ORDER BY id DESC LIMIT 1;`)).toBe('refund_overpayment|100.00|0.00|20.00')
 
     const reverseFullyPaid = callAsAuthenticated(
       userId,
@@ -298,7 +321,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
       `SELECT public.set_bl_cod('${blId}', ${omissionId}, 'COD 312 com linha manual', '${userId}')`,
     )
     expect(manual.status).toBe(0)
-    expect(psql(`SELECT action || '|' || manual_review_required FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId};`)).toBe('manual_charge_review|true')
+    expect(psql(`SELECT action || '|' || manual_review_required FROM public.cod_adjustments WHERE bl_id = '${blId}' AND omission_id = ${omissionId} ORDER BY id DESC LIMIT 1;`)).toBe('manual_charge_review|true')
     expect(psql(`SELECT count(*) FROM public.charge_calculations WHERE bl_id = '${blId}' AND source = 'manual';`)).toBe('1')
 
     const pureBefore = psql(`SELECT count(*) FROM public.charge_calculations WHERE bl_id = '${blId}';`)

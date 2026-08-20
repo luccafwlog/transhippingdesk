@@ -37,8 +37,8 @@ describe('contrato da liquidação de ajustes de COD', () => {
   it('mantém cod_adjustments sem policy de escrita e liquida por RPC', () => {
     expect(migration).not.toMatch(/CREATE POLICY cod_adjustments_(insert|update|delete)/i)
     expect(migration).toMatch(/CREATE OR REPLACE FUNCTION public\.settle_cod_adjustment\(\s*p_adjustment_id BIGINT/i)
-    expect(migration).toMatch(/REVOKE ALL ON FUNCTION public\.settle_cod_adjustment\(BIGINT, UUID\) FROM PUBLIC, anon/i)
-    expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION public\.settle_cod_adjustment\(BIGINT, UUID\) TO authenticated/i)
+    expect(migration).toMatch(/REVOKE ALL ON FUNCTION public\.settle_cod_adjustment\(BIGINT, UUID, BIGINT, TEXT\) FROM PUBLIC, anon/i)
+    expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION public\.settle_cod_adjustment\(BIGINT, UUID, BIGINT, TEXT\) TO authenticated/i)
   })
 
   it('aplica abatimento antes de criar restituição de excedente', () => {
@@ -51,9 +51,20 @@ describe('contrato da liquidação de ajustes de COD', () => {
 
   it('preserva emissão complementar e cancelar/reemitir como pendências manuais', () => {
     const body = functionBody('settle_cod_adjustment')
-    expect(body).toMatch(/action NOT IN \('offset_open_balance', 'refund_overpayment'\)/i)
-    expect(body).toMatch(/permanece manual/i)
-    expect(migration).toMatch(/resulting_document_type = CASE[\s\S]*'invoice'/i)
+    expect(body).not.toMatch(/action NOT IN \('offset_open_balance', 'refund_overpayment'\)/i)
+    expect(body).toMatch(/complementary_invoice|cancel_and_reissue|manual_charge_review/i)
+    expect(body).toMatch(/p_document_id|p_resulting_document_id/i)
+    expect(body).toMatch(/resulting_document_type/i)
+  })
+
+  it('grava o id do refund no ajuste liquidado', () => {
+    const body = functionBody('settle_cod_adjustment')
+    expect(body).toMatch(/resulting_document_id\s*=\s*CASE[\s\S]*WHEN v_refund_id IS NOT NULL THEN v_refund_id/i)
+  })
+
+  it('expõe uma operação transacional para concluir documentos manuais', () => {
+    expect(migration).toMatch(/CREATE OR REPLACE FUNCTION public\.settle_cod_adjustment[\s\S]*p_resulting_document_id/i)
+    expect(migration).toMatch(/is_financeiro_user\(\)/i)
   })
 
   it('regrava a baixa de restituição com o mesmo gate', () => {
@@ -72,6 +83,7 @@ describe('contrato da liquidação de ajustes de COD', () => {
 describeLocal('comportamento efetivo da liquidação de COD no Postgres local', () => {
   const adminId = '63000000-0000-0000-0000-000000000001'
   const opsId = '63000000-0000-0000-0000-000000000002'
+  const equipmentId = '63000000-0000-0000-0000-000000000003'
   const customerId = 630001
   const carrierId = 630002
   const vesselId = 630003
@@ -85,18 +97,20 @@ describeLocal('comportamento efetivo da liquidação de COD no Postgres local', 
   }
 
   function callAs(role: string, userId: string, sql: string) {
-    return spawnSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-At', '-d', databaseUrl, '-c', `BEGIN; SET LOCAL ROLE ${role}; SELECT set_config('request.jwt.claim.sub','${userId}',true); ${sql}; COMMIT;`], { encoding: 'utf8' })
+    return spawnSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-At', '-d', databaseUrl, '-c', `BEGIN; SET LOCAL ROLE ${role}; SELECT set_config('request.jwt.claims','{"sub":"${userId}"}',true); ${sql}; COMMIT;`], { encoding: 'utf8' })
   }
 
   beforeAll(() => {
     psql(`
       INSERT INTO auth.users (id, email) VALUES
         ('${adminId}', 't7-313-admin@example.test'),
-        ('${opsId}', 't7-313-ops@example.test')
+        ('${opsId}', 't7-313-ops@example.test'),
+        ('${equipmentId}', 't7-313-equipment@example.test')
       ON CONFLICT (id) DO NOTHING;
       INSERT INTO public.user_profiles (id, full_name, role, active) VALUES
         ('${adminId}', 'T7 Financeiro', 'financeiro', true),
-        ('${opsId}', 'T7 Operacoes', 'operacoes', true)
+        ('${opsId}', 'T7 Operacoes', 'operacoes', true),
+        ('${equipmentId}', 'T7 Equipamentos', 'equipamentos', true)
       ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, active = true;
       INSERT INTO public.customers (id, cnpj_cpf, name)
       VALUES (${customerId}, '12345678000195', 'Cliente T7 313')
@@ -138,13 +152,37 @@ describeLocal('comportamento efetivo da liquidação de COD no Postgres local', 
       DELETE FROM public.vessels WHERE id = ${vesselId};
       DELETE FROM public.carriers WHERE id = ${carrierId};
       DELETE FROM public.customer_contacts WHERE customer_id = ${customerId};
+      DELETE FROM public.audit_logs WHERE changed_by IN ('${adminId}', '${opsId}', '${equipmentId}');
+      DELETE FROM public.user_profiles WHERE id IN ('${adminId}', '${opsId}', '${equipmentId}');
+      DELETE FROM auth.users WHERE id IN ('${adminId}', '${opsId}', '${equipmentId}');
     `)
   })
 
   it('liquida abatimento antes da restituição e bloqueia portas indevidas', () => {
-    const offset = callAs('authenticated', adminId, `SELECT public.settle_cod_adjustment((SELECT id FROM public.cod_adjustments WHERE omission_id = ${offsetOmissionId}), '${adminId}')`)
+    const equipmentRead = callAs('authenticated', equipmentId, 'SELECT count(*) FROM public.cod_adjustments;')
+    expect(equipmentRead.status).toBe(0)
+    const equipmentCount = equipmentRead.stdout.trim().split(/\r?\n/).findLast((line) => /^\d+$/.test(line))
+    expect(Number(equipmentCount)).toBeGreaterThanOrEqual(2)
+
+    const invoiceId = psql("SELECT id FROM public.invoices WHERE invoice_number = 'T7-313-INV';")
+    const manualInsertOutput = psql(`
+      INSERT INTO public.cod_adjustments
+        (bl_id, omission_id, original_value_brl, new_destination_value_brl, difference_brl,
+         paid_amount_brl, outstanding_balance_brl, offset_amount_brl, refund_amount_brl,
+         action, created_by)
+      VALUES ('${blId}', ${offsetOmissionId}, 100, 95, -5, 10, 90, 5, 0,
+              'complementary_invoice', '${adminId}')
+      RETURNING id;
+    `)
+    const manualId = manualInsertOutput.split(/\r?\n/).findLast((line) => /^\d+$/.test(line))
+    expect(manualId).toMatch(/^\d+$/)
+    const manual = callAs('authenticated', adminId, `SELECT public.settle_cod_adjustment(${manualId}, '${adminId}', ${invoiceId}, 'invoice')`)
+    expect(manual.status, `${manual.stdout}\n${manual.stderr}`).toBe(0)
+    expect(psql(`SELECT status || '|' || resulting_document_type || '|' || resulting_document_id FROM public.cod_adjustments WHERE id = ${manualId};`)).toBe(`settled|invoice|${invoiceId}`)
+
+    const offset = callAs('authenticated', adminId, `SELECT public.settle_cod_adjustment((SELECT id FROM public.cod_adjustments WHERE omission_id = ${offsetOmissionId} AND action = 'offset_open_balance' AND status = 'pending'), '${adminId}')`)
     expect(offset.status).toBe(0)
-    expect(psql("SELECT status || '|' || total_brl || '|' || balance_brl FROM public.invoices WHERE invoice_number = 'T7-313-INV';")).toBe('partially_paid|100.00|70.00')
+    expect(psql("SELECT status || '|' || total_brl || '|' || balance_brl FROM public.invoices WHERE invoice_number = 'T7-313-INV';")).toBe('partially_paid|100.00|65.00')
 
     const refund = callAs('authenticated', adminId, `SELECT public.settle_cod_adjustment((SELECT id FROM public.cod_adjustments WHERE omission_id = ${refundOmissionId}), '${adminId}')`)
     expect(refund.status).toBe(0)
@@ -158,7 +196,7 @@ describeLocal('comportamento efetivo da liquidação de COD no Postgres local', 
     expect(directWrite.status).not.toBe(0)
     expect(`${directWrite.stdout}\n${directWrite.stderr}`).toMatch(/permission denied|42501|row-level security/i)
 
-    const ops = callAs('authenticated', opsId, `SELECT public.settle_cod_adjustment((SELECT id FROM public.cod_adjustments WHERE omission_id = ${offsetOmissionId}), '${opsId}')`)
+    const ops = callAs('authenticated', opsId, `SELECT public.settle_cod_adjustment((SELECT id FROM public.cod_adjustments WHERE omission_id = ${offsetOmissionId} AND action = 'offset_open_balance' AND status = 'settled'), '${opsId}')`)
     expect(ops.status).not.toBe(0)
     expect(`${ops.stdout}\n${ops.stderr}`).toMatch(/42501|sem permissao|Apenas Financeiro/i)
   })
