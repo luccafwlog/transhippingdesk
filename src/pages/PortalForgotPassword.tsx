@@ -79,7 +79,7 @@ export function PortalForgotPassword() {
           <img alt="Transhipping" className="app-auth__logo app-auth__logo--on-light" src="/branding/transhipping-logo.png" />
           <div>
             <h1 className="app-auth__title">Recuperar senha</h1>
-            <p className="app-auth__subtitle">Informe seu CNPJ cadastrado para receber o link de redefinicao.</p>
+            <p className="app-auth__subtitle">Informe seu CNPJ cadastrado para receber o link de redefinição.</p>
           </div>
         </div>
 
@@ -100,7 +100,7 @@ export function PortalForgotPassword() {
           {error ? <InlineError message={error} /> : null}
 
           <Button loading={submitting} type="submit">
-            Enviar link de recuperacao
+            Enviar link de recuperação
           </Button>
         </form>
 
@@ -111,7 +111,7 @@ export function PortalForgotPassword() {
         </div>
 
         <p className="app-auth__meta">
-          O link sera enviado para o email cadastrado na sua conta de portal.
+          O link será enviado para o email cadastrado na sua conta de portal.
           <br />
           Problemas? Solicite um novo acesso ao seu contato comercial na Transhipping.
         </p>
