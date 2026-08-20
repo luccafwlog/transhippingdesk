@@ -49,7 +49,7 @@ abrir o ambiente onde a ação realmente acontece:
 | Pendência geral de Cliente/Portal | `/clientes/portal?cliente={id}` |
 | Bloqueio financeiro de B/L | `/manifestos/{blId}?tab=faturamento` |
 | Falha técnica de emissão ou reprocessamento | `/manifestos/{blId}?tab=faturamento` |
-| Invoice já criada | `/faturamento?invoice={invoiceId}` |
+| Invoice já criada | `/taxas-locais?invoice={invoiceId}` |
 | Reconciliação de cliente | `/manifestos/{blId}?tab=detalhes` |
 | Dispute de Demurrage interna | `/demurrage`, diretamente na conversa da Dispute |
 | Dispute de Demurrage no Portal | `/portal/billing`, diretamente na conversa da Dispute |
