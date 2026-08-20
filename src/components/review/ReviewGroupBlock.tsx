@@ -55,7 +55,7 @@ export function ReviewGroupBlock({
   const needsEmail = groupNeedsEmail(group)
   const blItems = group.items.filter((item) => item.source === 'bl')
   const linked = getGroupLinkedItem(group)
-  const showOnboarding = blItems.length > 0 && group.identityKind !== 'conflict' && (unlinkedCount > 0 || needsEmail)
+  const showOnboarding = blItems.length > 0 && (group.identityKind !== 'conflict' || group.items.length === 1) && (unlinkedCount > 0 || needsEmail)
   const groupReasons = useMemo(() => {
     const reasons = new Set<string>()
     for (const item of group.items) {

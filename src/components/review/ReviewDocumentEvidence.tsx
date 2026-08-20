@@ -15,7 +15,7 @@ export function ReviewDocumentEvidence({ group }: { group: ReviewGroup }) {
       </div>
       <p className="review-evidence__description">
         {conflict
-          ? 'Há indícios de CNPJs diferentes. O grupo foi segregado e nenhum vínculo em lote está disponível.'
+          ? 'Há indícios de CNPJs diferentes. O B/L foi segregado; confirme um dos CNPJs evidenciados antes de cadastrar ou vincular o cliente.'
           : 'Confira o texto original para confirmar o CNPJ antes de criar ou vincular o cliente.'}
       </p>
       {group.candidateCnpjs.length ? (

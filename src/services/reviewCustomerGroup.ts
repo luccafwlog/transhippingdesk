@@ -44,9 +44,11 @@ export async function completeReviewCustomerGroup(input: CompleteReviewCustomerG
     p_changed_by: input.changedBy,
   })
   if (error) {
-    if (error.code === 'PT409' || error.code === '40001') throw new ConcurrentEditError(error.message ?? 'O grupo foi alterado por outro usuário.')
+    const message = error.message ?? ''
+    const isConcurrentConflict = error.code === '40001' || (error.code === 'PT409' && /grupo alterado|não estão mais pendentes|foi alterado por outro usuário/i.test(message))
+    if (isConcurrentConflict) throw new ConcurrentEditError(message || 'O grupo foi alterado por outro usuário.')
     const classified = classifyDbError(error)
-    throw Object.assign(new Error(classified.message), { code: error.code })
+    throw Object.assign(new Error(message || classified.message), { code: error.code })
   }
 
   const payload = (data ?? {}) as { customer?: { id?: number; cnpj_cpf?: string; name?: string }; bls?: Array<{ bl_id?: string; review_status?: string | null; pendencias?: unknown; resolved?: boolean }> }

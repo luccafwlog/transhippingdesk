@@ -64,7 +64,7 @@ BEGIN
     SELECT match[1]
     FROM regexp_matches(
       p_text,
-      '(?i)\bCNPJ(?:/CPF)?\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})',
+      '\mCNPJ\M[[:space:]]*[:-]?[[:space:]]*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})([^0-9A-Z]|$)',
       'g'
     ) AS match
   LOOP
@@ -137,13 +137,13 @@ DECLARE
   v_actor UUID := auth.uid();
   v_cnpj TEXT := public.normalize_cnpj(p_cnpj_cpf);
   v_name TEXT := NULLIF(btrim(p_name), '');
-  v_group_name TEXT := NULLIF(btrim(p_group_name), '');
   v_email TEXT := lower(NULLIF(btrim(p_email), ''));
   v_customer public.customers%ROWTYPE;
   v_bl public.bls%ROWTYPE;
   v_candidates TEXT[];
-  v_name_candidate TEXT;
   v_reasons TEXT[];
+  v_human_notes TEXT;
+  v_notes TEXT;
   v_bls JSONB := '[]'::JSONB;
   v_missing INTEGER := 0;
 BEGIN
@@ -202,19 +202,12 @@ BEGIN
       v_bl.cargo_description
     );
 
-    IF cardinality(v_candidates) > 1 THEN
+    IF cardinality(v_candidates) > 1
+       AND NOT (cardinality(p_bl_ids) = 1 AND v_cnpj = ANY(v_candidates)) THEN
       RAISE EXCEPTION 'O B/L % contém CNPJs conflitantes nas evidências.', v_bl.id USING ERRCODE = 'PT409';
     END IF;
     IF cardinality(v_candidates) = 1 AND v_cnpj <> v_candidates[1] THEN
       RAISE EXCEPTION 'O CNPJ do B/L % não corresponde ao grupo informado.', v_bl.id USING ERRCODE = 'PT409';
-    END IF;
-
-    v_name_candidate := lower(regexp_replace(btrim(COALESCE(v_bl.manifest_customer_name, v_bl.consignee, '')), '\s+', ' ', 'g'));
-    IF v_group_name IS NOT NULL
-       AND v_name_candidate IS NOT NULL
-       AND v_name_candidate <> lower(regexp_replace(v_group_name, '\s+', ' ', 'g'))
-       AND v_name_candidate <> lower(regexp_replace(v_customer.name, '\s+', ' ', 'g')) THEN
-      RAISE EXCEPTION 'O B/L % não pertence ao nome do grupo informado.', v_bl.id USING ERRCODE = 'PT409';
     END IF;
 
     PERFORM public.ensure_customer_contact_email(v_customer.id, v_email);
@@ -230,18 +223,37 @@ BEGIN
     VALUES ('bl', v_bl.id, 'customer_id', v_bl.customer_id::TEXT, v_customer.id::TEXT, v_actor,
             'Onboarding transacional de cliente pela revisão manual.');
 
-    PERFORM public.sync_customer_reconciliation_queue_for_bl(v_bl.id);
     v_reasons := public.compute_bl_review_pendencies(v_bl.id);
+    v_human_notes := btrim(
+      regexp_replace(
+        COALESCE(v_bl.notes, ''),
+        E'(^|\\n)Pendencias de importacao:[^\\n]*$',
+        '',
+        'i'
+      )
+    );
+    v_notes := CASE
+      WHEN COALESCE(cardinality(v_reasons), 0) > 0 THEN concat_ws(
+        E'\\n',
+        NULLIF(v_human_notes, ''),
+        'Pendencias de importacao: ' || array_to_string(v_reasons, ', ')
+      )
+      ELSE NULLIF(v_human_notes, '')
+    END;
+
     UPDATE public.bls
-    SET review_status = CASE WHEN cardinality(v_reasons) = 0 THEN 'reviewed' ELSE 'pending_review' END
+    SET review_status = CASE WHEN COALESCE(cardinality(v_reasons), 0) = 0 THEN 'reviewed' ELSE 'pending_review' END,
+        notes = v_notes
     WHERE id = v_bl.id;
 
-    IF cardinality(v_reasons) > 0 THEN v_missing := v_missing + 1; END IF;
+    PERFORM public.sync_customer_reconciliation_queue_for_bl(v_bl.id);
+
+    IF COALESCE(cardinality(v_reasons), 0) > 0 THEN v_missing := v_missing + 1; END IF;
     v_bls := v_bls || jsonb_build_array(jsonb_build_object(
       'bl_id', v_bl.id,
-      'review_status', CASE WHEN cardinality(v_reasons) = 0 THEN 'reviewed' ELSE 'pending_review' END,
+      'review_status', CASE WHEN COALESCE(cardinality(v_reasons), 0) = 0 THEN 'reviewed' ELSE 'pending_review' END,
       'pendencias', to_jsonb(v_reasons),
-      'resolved', cardinality(v_reasons) = 0
+      'resolved', COALESCE(cardinality(v_reasons), 0) = 0
     ));
   END LOOP;
 
@@ -258,6 +270,12 @@ REVOKE ALL ON FUNCTION public.complete_review_customer_group(TEXT[], BIGINT, TEX
 GRANT EXECUTE ON FUNCTION public.complete_review_customer_group(TEXT[], BIGINT, TEXT, TEXT, TEXT, TEXT, UUID)
   TO authenticated;
 
+ALTER FUNCTION public.import_bl_freight_transactional(JSONB, UUID)
+  RENAME TO import_bl_freight_transactional_legacy_284;
+
+REVOKE ALL ON FUNCTION public.import_bl_freight_transactional_legacy_284(JSONB, UUID)
+  FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.import_bl_freight_transactional(p_bls JSONB, p_changed_by UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -271,7 +289,7 @@ DECLARE
   v_customer_id BIGINT;
   v_ids TEXT[] := ARRAY[]::TEXT[];
 BEGIN
-  v_result := public.import_bl_freight_transactional_legacy_205(p_bls, p_changed_by);
+  v_result := public.import_bl_freight_transactional_legacy_284(p_bls, p_changed_by);
 
   UPDATE public.bls AS b
   SET suggested_customer_id = NULLIF(item->>'suggested_customer_id', '')::BIGINT

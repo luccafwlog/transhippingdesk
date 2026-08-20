@@ -32,6 +32,7 @@ import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
 import { useReviewCustomerGroup } from '../../hooks/useReviewCustomerGroup'
 import { saveBlReview, saveGraniteBlReview } from '../../services/review'
+import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
 
 const mockedUseReviewQueue = vi.mocked(useReviewQueue)
@@ -39,6 +40,7 @@ const mockedUseCustomerLookup = vi.mocked(useCustomerLookup)
 const mockedUseReviewCustomerGroup = vi.mocked(useReviewCustomerGroup)
 const mockedSaveBlReview = vi.mocked(saveBlReview)
 const mockedSaveGraniteBlReview = vi.mocked(saveGraniteBlReview)
+const mockedTryAutoIssueInvoice = vi.mocked(tryAutoIssueInvoice)
 
 function makeBl(id: string, consignee: string): ReviewQueueItem {
   return {
@@ -155,6 +157,8 @@ describe('Revisao', () => {
     await user.click(screen.getByRole('button', { name: /criar cliente e vincular 2 b\/ls/i }))
     const mutateAsync = mockedUseReviewCustomerGroup.mock.results[0].value.mutateAsync
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ blIds: ['BL1', 'BL2'], cnpjCpf: '11222333000181', email: 'financeiro@alfa.com', changedBy: 'user-1' })))
+    await waitFor(() => expect(mockedTryAutoIssueInvoice).toHaveBeenCalledWith(expect.objectContaining({ blId: 'BL1', customerId: 99 })))
+    expect(mockedTryAutoIssueInvoice).toHaveBeenCalledWith(expect.objectContaining({ blId: 'BL2', customerId: 99 }))
   })
 
   it('mantém o drawer para exceções operacionais do B/L sem cadastrar cliente', async () => {
@@ -170,6 +174,77 @@ describe('Revisao', () => {
     expect(mockedSaveBlReview).toHaveBeenCalledWith(
       expect.objectContaining({ justification: 'Revisão manual' }),
     )
+  })
+
+  it('permite vincular individualmente um B/L com CNPJs conflitantes', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [{
+        ...makeBl('BL-CONFLICT', 'Conflito SA'),
+        manifest_customer_cnpj_cpf: null,
+        consignee_block: 'Conflito SA CNPJ: 11.222.333/0001-81',
+        cargo_description: 'Carga CNPJ: 06.352.972/0001-21',
+      }],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Conflito SA/ }))
+    await user.click(screen.getByRole('button', { name: 'Corrigir Dados' }))
+    const drawerCustomerSearch = screen.getAllByPlaceholderText('Digite ao menos 2 caracteres').at(-1)!
+    await user.type(drawerCustomerSearch, 'Cliente')
+    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
+    await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
+
+    await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledWith(expect.objectContaining({ customerId: 99 })))
+  })
+
+  it('permite confirmar um dos CNPJs evidenciados no cartão do conflito', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [{
+        ...makeBl('BL-CONFLICT-ONBOARD', 'Conflito Cadastro SA'),
+        manifest_customer_cnpj_cpf: null,
+        consignee_block: 'Conflito Cadastro SA CNPJ: 11.222.333/0001-81',
+        cargo_description: 'Carga CNPJ: 06.352.972/0001-21',
+      }],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Conflito Cadastro SA/ }))
+    await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '11222333000181')
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'conflito@cliente.com')
+    await user.click(screen.getByRole('button', { name: /criar cliente e vincular 1 b\/ls/i }))
+
+    const mutateAsync = mockedUseReviewCustomerGroup.mock.results[0].value.mutateAsync
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ blIds: ['BL-CONFLICT-ONBOARD'], cnpjCpf: '11222333000181' })))
+  })
+
+  it('vincula também as linhas de Granito quando compartilham o grupo do B/L', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [
+        { ...makeBl('BL-MIXED', 'Cliente misto'), manifest_customer_cnpj_cpf: '11222333000181' },
+        {
+          id: 'GR-MIXED', source: 'granite', bl_number: 'GR-MIXED', consignee: 'Cliente misto',
+          manifest_customer_cnpj_cpf: '11222333000181', customer_id: null, customer: null,
+          review_reasons: ['Cliente nao vinculado (Granito)'],
+        },
+      ],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Cliente misto/ }))
+    await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '11222333000181')
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'misto@cliente.com')
+    await user.click(screen.getByRole('button', { name: /criar cliente e vincular 1 b\/ls/i }))
+
+    await waitFor(() => expect(mockedSaveGraniteBlReview).toHaveBeenCalledWith({ graniteBlId: 'GR-MIXED', clientId: 99, changedBy: 'user-1' }))
   })
 
   it('adiciona e-mail ao cliente do grupo direto da fila', async () => {

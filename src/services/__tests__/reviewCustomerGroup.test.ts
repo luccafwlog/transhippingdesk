@@ -21,6 +21,12 @@ describe('reviewCustomerGroup service', () => {
     await expect(completeReviewCustomerGroup({ blIds: ['BL1'], customerId: null, cnpjCpf: '11222333000181', name: 'Cliente', email: 'a@b.com', groupName: 'Cliente', changedBy: 'actor-1' })).rejects.toBeInstanceOf(ConcurrentEditError)
   })
 
+  it('preserva a mensagem acionável para conflito documental PT409', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PT409', message: 'O B/L BL1 contém CNPJs conflitantes nas evidências.' } })
+    await expect(completeReviewCustomerGroup({ blIds: ['BL1'], customerId: null, cnpjCpf: '11222333000181', name: 'Cliente', email: 'a@b.com', groupName: 'Cliente', changedBy: 'actor-1' })).rejects.toMatchObject({ message: 'O B/L BL1 contém CNPJs conflitantes nas evidências.' })
+    await expect(completeReviewCustomerGroup({ blIds: ['BL1'], customerId: null, cnpjCpf: '11222333000181', name: 'Cliente', email: 'a@b.com', groupName: 'Cliente', changedBy: 'actor-1' })).rejects.not.toBeInstanceOf(ConcurrentEditError)
+  })
+
   it('envia o convite para o mesmo e-mail informado', async () => {
     await sendReviewPortalInvite(8, ' Portal@Example.com ')
     expect(mockInvite).toHaveBeenCalledWith(8, 'portal@example.com', 'informado_manualmente')

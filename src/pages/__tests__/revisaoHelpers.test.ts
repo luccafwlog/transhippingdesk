@@ -211,6 +211,28 @@ describe('groupReviewItems', () => {
     ])
   })
 
+  it('mantém o CNPJ do cliente vinculado como chave do grupo', () => {
+    const groups = groupReviewItems([
+      item({
+        id: 'BL-LINKED',
+        customer_id: 7,
+        customer: { id: 7, name: 'Cliente cadastrado', cnpj_cpf: '11222333000181' },
+        consignee: 'Cliente cadastrado',
+        manifest_customer_cnpj_cpf: '12345678000195',
+      }),
+      item({
+        id: 'BL-UNLINKED',
+        customer: null,
+        customer_id: null,
+        consignee: 'Cliente cadastrado',
+        manifest_customer_cnpj_cpf: '11222333000181',
+      }),
+    ])
+
+    expect(groups[0].key).toBe('document:11222333000181')
+    expect(groups[0].items.map((row) => row.id)).toEqual(['BL-LINKED', 'BL-UNLINKED'])
+  })
+
   it('preserva Granite sem habilitar onboarding em lote de B/L', () => {
     const group = groupReviewItems([
       item({

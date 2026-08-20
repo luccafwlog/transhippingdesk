@@ -76,6 +76,9 @@ function getReviewItemIdentityKind(item: ReviewQueueItem, candidates: string[]):
 
 // Chave de grupo: CNPJ válido quando existe; senão, nome de exibição normalizado.
 export function getReviewItemGroupKey(item: ReviewQueueItem): string {
+  const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
+  if (registered) return `document:${registered}`
+
   const candidates = getReviewItemDocumentCandidates(item)
   if (candidates.length > 1) return `conflict:${item.source}:${item.id}`
   const cnpj = candidates[0] ?? getReviewItemCnpj(item)
@@ -89,7 +92,8 @@ export function groupReviewItems(items: ReviewQueueItem[]): ReviewGroup[] {
   const groups = new Map<string, ReviewGroup>()
   for (const item of items) {
     const candidates = getReviewItemDocumentCandidates(item)
-    const cnpj = candidates.length === 1 ? candidates[0] : candidates.length === 0 ? getReviewItemCnpj(item) : null
+    const registered = canonicalizeValidCnpj(item.customer?.cnpj_cpf)
+    const cnpj = registered ?? (candidates.length === 1 ? candidates[0] : candidates.length === 0 ? getReviewItemCnpj(item) : null)
     const displayName = getReviewItemDisplayName(item)
     const key = getReviewItemGroupKey(item)
     const identityKind = getReviewItemIdentityKind(item, candidates)

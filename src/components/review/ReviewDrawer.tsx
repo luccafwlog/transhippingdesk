@@ -25,6 +25,7 @@ export function ReviewDrawer({
   onReviewSaved,
   onNavigate,
   siblingIds,
+  allowCustomerLink = false,
 }: {
   item: ReviewQueueItem | null
   currentIndex: number
@@ -34,6 +35,7 @@ export function ReviewDrawer({
   onReviewSaved: (item: ReviewQueueItem) => void
   onNavigate: (id: string) => void
   siblingIds: string[]
+  allowCustomerLink?: boolean
 }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -162,6 +164,7 @@ export function ReviewDrawer({
   const canGoPrev = currentIndex > 0
   const canGoNext = currentIndex >= 0 && currentIndex < totalItems - 1
   const isGranite = item?.source === 'granite'
+  const canSelectCustomer = Boolean(isGranite || allowCustomerLink)
   const pendencies = item?.review_reasons?.length ? item.review_reasons : ['Pendente de revisão']
 
   return (
@@ -249,14 +252,17 @@ export function ReviewDrawer({
             </>
           ) : null}
 
-          {isGranite ? <Card className="review-drawer__granite-card grid gap-4">
+          {canSelectCustomer ? <Card className="review-drawer__customer-card grid gap-4">
             {item.source === 'granite' && item.suggested_customer?.name ? (
               <div className="review-drawer__suggestion rounded-lg px-3 py-2 text-sm">
                 Sugestao por nome — confirme o documento antes de vincular: <strong>{item.suggested_customer.name}</strong>{' '}
                 ({formatCnpj(item.suggested_customer.cnpj_cpf)})
               </div>
             ) : null}
-            <div className="font-semibold text-[var(--app-text-strong)]">Vinculação de cliente</div>
+            <div className="font-semibold text-[var(--app-text-strong)]">
+              {isGranite ? 'Vinculação de cliente' : 'Vinculação individual de cliente'}
+            </div>
+            {!isGranite ? <p className="text-sm text-[var(--app-muted)]">Use esta ação para confirmar o cliente deste B/L quando as evidências documentais estiverem divergentes.</p> : null}
             <Field label="Buscar cliente por nome ou CNPJ">
               <div className="relative">
                 <Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Digite ao menos 2 caracteres" />

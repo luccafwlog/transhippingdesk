@@ -218,6 +218,7 @@ export function Revisao() {
   }, [data])
 
   const selected = selectedId ? (filteredData.find((item) => item.id === selectedId) ?? null) : null
+  const selectedGroup = selected ? groups.find((group) => group.items.some((item) => item.id === selected.id)) ?? null : null
   const currentIndex = selectedId ? filteredData.findIndex((item) => item.id === selectedId) : -1
   const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0)
   const filterDescription = describeActiveFilters([
@@ -309,8 +310,8 @@ export function Revisao() {
   async function handleGroupOnboard(group: ReviewGroup, input: ReviewCustomerOnboardingInput) {
     if (!user) return
     const blIds = group.items.filter((item) => item.source === 'bl').map((item) => item.id)
-    if (!blIds.length || group.identityKind === 'conflict') {
-      showToast('Nenhum vínculo permitido para este grupo. Resolva os CNPJs conflitantes.', 'error')
+    if (!blIds.length || (group.identityKind === 'conflict' && group.items.length !== 1)) {
+      showToast('Nenhum B/L elegível para o cadastro deste grupo.', 'error')
       return
     }
     setSavingGroupKey(group.key)
@@ -325,9 +326,38 @@ export function Revisao() {
         changedBy: user.id,
         sendPortalInvite: input.sendPortalInvite,
       })
+      let invoiceCount = 0
+      for (const bl of result.onboarding.bls) {
+        if (!bl.resolved || !bl.blId) continue
+        try {
+          const autoInvoice = await tryAutoIssueInvoice({
+            blId: bl.blId,
+            customerId: result.onboarding.customer.id,
+            actorId: user.id,
+          })
+          if (autoInvoice.status === 'invoiced') invoiceCount++
+        } catch {
+          addRecalcNotice({ id: bl.blId, label: bl.blId, source: 'bl' })
+        }
+      }
+
+      const graniteTargets = group.items.filter((item) => item.source === 'granite' && needsCustomerLink(item))
+      let graniteLinkedCount = 0
+      for (const item of graniteTargets) {
+        try {
+          await saveGraniteBlReview({ graniteBlId: item.id, clientId: result.onboarding.customer.id, changedBy: user.id })
+          graniteLinkedCount++
+          evaluateRecalcNotice(item)
+        } catch {
+          // A falha pontual no Granito não desfaz o onboarding transacional dos B/Ls.
+        }
+      }
+
       const pendingCount = result.onboarding.bls.filter((bl) => !bl.resolved).length
       const inviteMessage = result.portalInvite === 'failed' ? ' Não foi possível iniciar o convite do Portal; o cadastro foi concluído.' : ''
-      showToast(`${blIds.length - pendingCount} B/L(s) vinculados; ${pendingCount} ainda com pendências.${inviteMessage}`, result.portalInvite === 'failed' ? 'info' : 'success')
+      const invoiceMessage = invoiceCount > 0 ? ` ${invoiceCount} fatura(s) emitida(s).` : ''
+      const graniteMessage = graniteLinkedCount > 0 ? ` ${graniteLinkedCount} item(ns) de Granito vinculado(s).` : ''
+      showToast(`${blIds.length - pendingCount} B/L(s) vinculados; ${pendingCount} ainda com pendências.${graniteMessage}${invoiceMessage}${inviteMessage}`, result.portalInvite === 'failed' ? 'info' : 'success')
       await invalidateReviewQueueCaches(queryClient, { includeCustomers: true, includeCharges: true, includeInvoices: true })
     } catch (err) {
       if (err instanceof ConcurrentEditError) {
@@ -540,6 +570,7 @@ export function Revisao() {
         onReviewSaved={evaluateRecalcNotice}
         onNavigate={(id) => setSelectedId(id)}
         siblingIds={filteredData.map((item) => item.id)}
+        allowCustomerLink={selectedGroup?.identityKind === 'conflict'}
       />
 
     </>

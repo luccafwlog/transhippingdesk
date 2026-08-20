@@ -73,7 +73,10 @@ export function extractCnpjsFromText(value?: string | null): string[] {
  * CEP ou número de série, e só devolve o que passa nos dígitos verificadores.
  */
 export function extractCnpjFromText(value?: string | null): string | null {
-  return extractCnpjsFromText(value)[0] ?? null
+  const match = (value ?? '').match(
+    /\bCNPJ\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})/i,
+  )
+  return canonicalizeValidCnpj(match?.[1] ?? '')
 }
 
 function calculateDigit(value: string, weights: number[]): string {
