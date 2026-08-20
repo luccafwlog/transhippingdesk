@@ -165,7 +165,11 @@ O sino vive no cabeçalho do `AppLayout` e, por consequência, não existe em
 
 - Lista as Notificações Internas do próprio usuário, não lidas primeiro, com
   paginação servida pelo servidor.
-- Exibe tipo, gravidade do catálogo, mensagem congelada, entidade e data.
+- Exibe tipo, gravidade, mensagem, entidade e data **da própria entrega**. A
+  gravidade vem de `internal_notifications.severity`, não de uma releitura do
+  catálogo: a Notificação Interna é Cópia Congelada do evento, e o Eco de
+  Tratamento é normal mesmo carregando o `item_type` de um item crítico. O
+  catálogo continua sendo a fonte única de severidade **dos itens**, na fila.
 - Marca uma como lida e oferece marcar todas como lidas. Nenhuma das duas ações
   toca `alerts`, `alert_items` ou `alert_item_dismissals`.
 - Identifica visivelmente a entrega **por fallback**, usando `is_fallback`, e
@@ -206,7 +210,10 @@ fallback declaradamente inferior a ele.
 - Rótulo e destino para **todo** `entity_type` da §4, incluindo `customer`.
 - Ordenação: não dispensados antes de dispensados; **críticos antes de normais**
   dentro de cada faixa; depois, mais recentes primeiro.
-- Filtro por departamento responsável, além dos filtros de estado já existentes.
+- Filtro por departamento responsável, além dos filtros de estado já existentes,
+  aplicado **no servidor antes do corte de 200 linhas** — como já acontece com o
+  filtro por entidade. Filtrar no cliente operaria sobre a lista já truncada e
+  faria a fila discordar do resumo do `/painel`, que é agregado sem corte.
 - Dispensa por formulário — motivo e data/hora futura de revisão validados antes
   do envio, sem `window.prompt` — e exibição de **motivo, autor e revisão** na
   linha dispensada.
@@ -354,8 +361,10 @@ Contrato verificável, não apenas afirmação:
   produtor de alerta ou notificação, e o sino não renderiza fora do `AppLayout`.
 - **525-AC-15:** nenhuma RPC ou projeção do Portal alcança a fila interna, os
   itens, as dispensas, as Notificações Internas ou as falhas de roteamento.
-- **525-AC-16:** nenhuma gravidade de tipo existente muda por causa deste bloco; a
-  fila e o sino leem severidade exclusivamente do `alert_type_catalog`.
+- **525-AC-16:** nenhuma gravidade de tipo existente muda por causa deste bloco. A
+  fila lê severidade exclusivamente do `alert_type_catalog`; o sino lê a
+  severidade congelada da entrega, para que o Eco permaneça normal e para que uma
+  mudança futura de catálogo não reescreva um aviso já entregue.
 
 ## Fora desta etapa
 

@@ -126,21 +126,32 @@ Vitest e testes de contrato SQL.
   sino, sem baixar linhas, no mesmo padrão de `count_alert_queue`. Grants:
   revogar de `PUBLIC`/`anon`, conceder a `authenticated`, exigir usuário interno
   ativo.
-- [ ] **Step 3: Projetar motivo e autor da dispensa.** `list_alert_queue` hoje
+- [ ] **Step 3: Criar a baixa em massa.** `mark_internal_notification_read` só
+  aceita um id por chamada. Com a lista paginada, um laço no cliente zera no
+  máximo a página carregada e deixa badge diferente de zero. Criar RPC de baixa em
+  massa escopada a `recipient_id = auth.uid()`, com os mesmos grants e a mesma
+  exigência de usuário interno ativo, no padrão de
+  `portal_mark_all_notifications_read`. Testar com mais de uma página.
+- [ ] **Step 4: Filtrar a fila por departamento no servidor.** `list_alert_queue`
+  já aceita `p_entity_type`; acrescentar o departamento do mesmo jeito, aplicado
+  **antes** do `LIMIT 200`. Filtrar no cliente operaria sobre a lista truncada e
+  faria a fila discordar do resumo do `/painel`, que é agregado sem corte.
+- [ ] **Step 5: Projetar motivo e autor da dispensa.** `list_alert_queue` hoje
   projeta apenas `dismissed_until`. Acrescentar motivo, autor e data/hora da
   dispensa vigente, sem alterar o `LIMIT 200` nem a união com o legado.
-- [ ] **Step 4: Ordenar por gravidade.** Dentro de `list_alert_queue`, ordenar
+- [ ] **Step 6: Ordenar por gravidade.** Dentro de `list_alert_queue`, ordenar
   não dispensados antes de dispensados, **críticos antes de normais** e depois
   mais recentes primeiro. Preservar a visibilidade das linhas legadas sem item.
-- [ ] **Step 5: Criar o agregado do `/painel`.** RPC de resumo que devolve, por
+- [ ] **Step 7: Criar o agregado do `/painel`.** RPC de resumo que devolve, por
   departamento responsável, a contagem de itens **ativos não dispensados**, a
   contagem de dispensados em separado e um grupo próprio para linhas legadas sem
   departamento. A função **não** usa `list_alert_queue` e não sofre o corte de
   200 linhas.
-- [ ] **Step 6: Estender o serviço.** Acrescentar as funções correspondentes em
+- [ ] **Step 8: Estender o serviço.** Acrescentar as funções correspondentes em
   `src/services/alerts.ts`, mantendo o `alertsRpc` estreito já usado ali —
   `src/types/database.ts` é protegido e não é regenerado por este bloco.
-- [ ] **Step 7: Testar.** Teste SQL de limite/cursor, de contagem, de ordenação
+- [ ] **Step 9: Testar.** Teste SQL de limite/cursor, de contagem, de baixa em
+  massa com duas páginas, de filtro por departamento com mais de 200 itens, de ordenação
   com crítico antigo × normal recente × dispensado, e do agregado com mais de 200
   itens ativos provando divergência zero contra a fila.
 
@@ -179,17 +190,21 @@ testes de UI e de contrato.
 - [ ] **Step 2: Montar no cabeçalho do `AppLayout`.** Por consequência, o sino não
   existe em `/login`, `/line-up-tv/display`, nas telas do Portal nem na inspeção
   de Portal — todas fora do `AppLayout` (`src/App.tsx:152-170`).
-- [ ] **Step 3: Exibir a Cópia Congelada.** Tipo com rótulo do catálogo,
-  gravidade, mensagem congelada, entidade, data e link pelo roteador
-  compartilhado. Não reconsultar o estado atual da entidade para reescrever a
-  mensagem.
+- [ ] **Step 3: Exibir a Cópia Congelada.** Rótulo do tipo, mensagem, entidade,
+  data e link pelo roteador compartilhado. A gravidade vem de
+  `internal_notifications.severity`, **não** de uma releitura do catálogo: o Eco
+  é normal mesmo carregando o `item_type` de um item crítico, e um aviso já
+  entregue não pode ser reescrito por mudança futura de catálogo. Não reconsultar
+  o estado atual da entidade para reescrever a mensagem.
 - [ ] **Step 4: Distinguir o Eco.** Uma entrega marcada como Eco de Tratamento é
   apresentada como "pendência dispensada por fulano até tal data", nunca como
   pendência nova. Ela não oferece ação e não reaparece como item a tratar.
 - [ ] **Step 5: Identificar a entrega por fallback.** Quando `is_fallback` for
   verdadeiro, deixar explícito que a entrega veio pelo fallback de Administrativo
   e que o departamento responsável pelo tratamento não mudou.
-- [ ] **Step 6: Ler sem tratar.** Marcar uma como lida e marcar todas como lidas.
+- [ ] **Step 6: Ler sem tratar.** Marcar uma como lida e marcar todas como lidas,
+  esta pela RPC de baixa em massa da Task 2 — nunca por laço sobre a página
+  carregada.
   Nenhuma das duas ações pode tocar `alerts`, `alert_items` ou
   `alert_item_dismissals`. O sino **não** oferece dispensar, resolver, reconhecer
   ou fechar.
@@ -220,9 +235,9 @@ testes de UI e de contrato.
 - [ ] **Step 5: Exibir a dispensa por inteiro.** Motivo, autor e revisão na linha
   dispensada, consumindo a projeção da Task 2. A ADR 0053 exige os quatro dados; a
   fila mostra hoje apenas a data.
-- [ ] **Step 6: Filtrar por departamento.** Acrescentar o filtro por departamento
-  responsável aos filtros de estado existentes, e aceitar o parâmetro vindo do
-  atalho do `/painel`.
+- [ ] **Step 6: Filtrar por departamento.** Consumir o parâmetro server-side da
+  Task 2, Step 4 — não filtrar o resultado no cliente — e aceitar o departamento
+  vindo do atalho do `/painel`.
 - [ ] **Step 7: Preservar as guardas.** Nenhum caminho de reconhecer ou fechar.
   `acknowledgeAlert` e `closeAlert` (`src/services/alerts.ts:75-84`) continuam
   lançando e sem chamador de UI.
@@ -322,8 +337,8 @@ testes.
 - O contrato atende `525-AC-01` a `525-AC-16` da spec.
 - Nenhuma migration histórica é editada; `317`–`322` permanecem intactas.
 - Nenhum produtor de pendência operacional é criado, movido ou duplicado.
-- Nenhuma gravidade de tipo existente muda; a fila e o sino leem severidade
-  exclusivamente do `alert_type_catalog`.
+- Nenhuma gravidade de tipo existente muda. A fila lê severidade do
+  `alert_type_catalog`; o sino lê a severidade congelada da entrega.
 - O Eco de Tratamento é a única Notificação Interna nova, é sempre normal, nunca
   vai ao autor e nunca cria Alerta, item ou reabertura.
 - Existe **um** roteador de destino, consumido pela fila e pelo sino;
