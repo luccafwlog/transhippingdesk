@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -14,6 +14,7 @@ export function BlTransshipmentCard({ omission, disposition, saving, onCod, onRe
 }) {
   const [pendingAction, setPendingAction] = useState<'cod' | 'restore' | null>(null)
   const [justification, setJustification] = useState('')
+  const justificationRef = useRef<HTMLTextAreaElement>(null)
   const values = [omission.onwardVesselName, omission.onwardCarrier, omission.onwardVoyageNumber, omission.onwardEtd?.slice(0, 10), omission.onwardEta?.slice(0, 10)]
   const isCod = pendingAction === 'cod'
   const actionHandler = isCod ? onCod : onRestore
@@ -58,18 +59,20 @@ export function BlTransshipmentCard({ omission, disposition, saving, onCod, onRe
         open={pendingAction !== null}
         title={isCod ? 'Confirmar COD' : 'Confirmar reversão de COD'}
         onClose={closeDialog}
+        initialFocusRef={justificationRef}
         className="w-[min(100%,520px)]"
       >
         <div className="grid gap-4">
           <p className="text-sm leading-relaxed" style={{ color: 'var(--app-text)' }}>
             {isCod
-              ? 'Esta ação altera o destino final do B/L para o porto de descarga e notifica o cliente.'
-              : 'Esta ação restaura o destino original do B/L e notifica o cliente sobre a correção.'}
+              ? 'Esta ação altera o destino final do B/L para o porto de descarga e notifica o cliente quando houver cliente vinculado.'
+              : 'Esta ação restaura o destino original do B/L e notifica o cliente sobre a correção quando houver cliente vinculado.'}
           </p>
           <div className="grid gap-2">
             <label className="text-sm font-semibold" htmlFor="cod-justification">Justificativa</label>
             <textarea
               id="cod-justification"
+              ref={justificationRef}
               className="min-h-24 w-full rounded border border-[#30363d] bg-[var(--app-surface-muted)] p-2 text-sm text-[var(--app-text)]"
               value={justification}
               onChange={(event) => setJustification(event.target.value)}

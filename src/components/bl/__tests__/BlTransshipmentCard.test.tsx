@@ -23,8 +23,9 @@ describe('BlTransshipmentCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Marcar COD/ }))
 
     expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(document.activeElement).toBe(screen.getByLabelText('Justificativa'))
     expect(screen.getByText(/altera o destino final/i)).toBeTruthy()
-    expect(screen.getByText(/notifica o cliente/i)).toBeTruthy()
+    expect(screen.getByText(/notifica o cliente quando houver cliente vinculado/i)).toBeTruthy()
 
     const confirm = screen.getByRole('button', { name: /Confirmar COD/ }) as HTMLButtonElement
     expect(confirm.disabled).toBe(true)
