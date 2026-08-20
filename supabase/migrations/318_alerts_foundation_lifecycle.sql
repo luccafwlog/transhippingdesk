@@ -136,6 +136,7 @@ LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
   SELECT auth.role() IS NOT DISTINCT FROM 'service_role'
+    OR (pg_trigger_depth() > 0 AND current_setting('alerts.foundation_trigger', true) = 'on')
     OR (auth.uid() IS NOT NULL AND public.is_active_user());
 $$;
 
@@ -438,6 +439,7 @@ SET search_path = public, pg_temp
 AS $function$
 BEGIN
   IF TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status THEN
+    PERFORM set_config('alerts.foundation_trigger', 'on', true);
     IF NEW.status IN ('paid', 'partially_paid', 'cancelled') THEN
       PERFORM public.resolve_alert_item(
         'invoice_payment_invalid', 'invoice', NEW.id::TEXT,
@@ -450,6 +452,13 @@ BEGIN
         'invoice_status_change', jsonb_build_object('invoice_status', NEW.status)
       );
     END IF;
+    IF NEW.status <> 'overdue' THEN
+      PERFORM public.resolve_alert_item(
+        'invoice_overdue', 'invoice', NEW.id::TEXT,
+        'invoice_status_change', jsonb_build_object('invoice_status', NEW.status)
+      );
+    END IF;
+    PERFORM set_config('alerts.foundation_trigger', 'off', true);
   END IF;
   RETURN NEW;
 END;
@@ -462,6 +471,84 @@ CREATE TRIGGER resolve_invoice_alerts_on_status_change
 
 REVOKE ALL ON FUNCTION public.resolve_invoice_alerts_on_status_change() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.resolve_invoice_alerts_on_status_change() TO service_role;
+
+-- Portal account state is authoritative for the legacy provisioning alerts.
+-- These transitions are observable without inventing a manual close action:
+-- resend/activation resolves invite and delivery failures, while a healthy
+-- recovery address resolves the suppression item.
+CREATE OR REPLACE FUNCTION public.resolve_portal_alert_items_on_account_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF NEW.account_situation IS DISTINCT FROM OLD.account_situation
+     OR NEW.recovery_email_status IS DISTINCT FROM OLD.recovery_email_status THEN
+    PERFORM set_config('alerts.foundation_trigger', 'on', true);
+    IF NEW.account_situation <> 'convite_expirado' THEN
+      PERFORM public.resolve_alert_item(
+        'portal_convite_expirado', 'customer', NEW.customer_id::TEXT,
+        'portal_account_status', jsonb_build_object('account_situation', NEW.account_situation)
+      );
+    END IF;
+    IF NEW.account_situation <> 'falha_no_envio' THEN
+      PERFORM public.resolve_alert_item(
+        'portal_falha_envio', 'customer', NEW.customer_id::TEXT,
+        'portal_account_status', jsonb_build_object('account_situation', NEW.account_situation)
+      );
+    END IF;
+    IF NEW.recovery_email_status = 'ok' THEN
+      PERFORM public.resolve_alert_item(
+        'portal_email_suprimido', 'customer', NEW.customer_id::TEXT,
+        'portal_account_status', jsonb_build_object('recovery_email_status', NEW.recovery_email_status)
+      );
+    END IF;
+    PERFORM set_config('alerts.foundation_trigger', 'off', true);
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS resolve_portal_alert_items_on_account_change ON public.customer_portal_accounts;
+CREATE TRIGGER resolve_portal_alert_items_on_account_change
+  AFTER UPDATE OF account_situation, recovery_email_status ON public.customer_portal_accounts
+  FOR EACH ROW EXECUTE FUNCTION public.resolve_portal_alert_items_on_account_change();
+
+REVOKE ALL ON FUNCTION public.resolve_portal_alert_items_on_account_change() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_portal_alert_items_on_account_change() TO service_role;
+
+-- A dispute is no longer an internal pendency when its authoritative invoice
+-- state says the conversation is closed or no longer open.
+CREATE OR REPLACE FUNCTION public.resolve_demurrage_alert_on_status_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF (NEW.dispute_open IS DISTINCT FROM OLD.dispute_open
+      OR NEW.dispute_status IS DISTINCT FROM OLD.dispute_status)
+     AND (COALESCE(NEW.dispute_open, false) = false OR NEW.dispute_status IN ('resolvido', 'cancelado')) THEN
+    PERFORM set_config('alerts.foundation_trigger', 'on', true);
+    PERFORM public.resolve_alert_item(
+      'portal_dispute_opened', 'demurrage_invoice', NEW.id::TEXT,
+      'demurrage_dispute_status', jsonb_build_object(
+        'dispute_open', NEW.dispute_open,
+        'dispute_status', NEW.dispute_status
+      )
+    );
+    PERFORM set_config('alerts.foundation_trigger', 'off', true);
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS resolve_demurrage_alert_on_status_change ON public.demurrage_invoices;
+CREATE TRIGGER resolve_demurrage_alert_on_status_change
+  AFTER UPDATE OF dispute_open, dispute_status ON public.demurrage_invoices
+  FOR EACH ROW EXECUTE FUNCTION public.resolve_demurrage_alert_on_status_change();
+
+REVOKE ALL ON FUNCTION public.resolve_demurrage_alert_on_status_change() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_demurrage_alert_on_status_change() TO service_role;
 
 -- Compatibility boundary for producers that have not yet moved to the
 -- block-specific RPC. The original legacy row is preserved because its
@@ -500,10 +587,12 @@ BEGIN
       WHERE id = NEW.id;
     END IF;
 
+    PERFORM set_config('alerts.foundation_trigger', 'on', true);
     PERFORM public.upsert_alert_item(
       NEW.type, NEW.entity_type, NEW.entity_id, NEW.message,
       'legacy_insert', '{}'::jsonb, NULL
     );
+    PERFORM set_config('alerts.foundation_trigger', 'off', true);
   END IF;
   RETURN NEW;
 END;
@@ -630,47 +719,50 @@ BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501'; END IF;
   IF p_filter NOT IN ('active', 'dismissed', 'all') THEN RAISE EXCEPTION 'Filtro inválido.' USING ERRCODE = '22023'; END IF;
 
-  RETURN QUERY
-  SELECT jsonb_build_object(
-    'id', a.id,
-    'item_id', i.id,
-    'status', a.status,
-    'item_status', i.status,
-    'type', i.item_type,
-    'severity', i.severity,
-    'department', i.department,
-    'message', i.message,
-    'entity_type', a.entity_type,
-    'entity_id', a.entity_id,
-    'destination', i.destination,
-    'created_at', a.created_at,
-    'updated_at', i.updated_at,
-    'dismissed_until', d.review_at,
-    'metadata', i.metadata
-  )
-  FROM public.alerts a
-  JOIN public.alert_items i ON i.alert_id = a.id AND i.status = 'active'
-  LEFT JOIN LATERAL (
-    SELECT ad.review_at
-    FROM public.alert_item_dismissals ad
-    WHERE ad.alert_item_id = i.id AND ad.occurrence_id = i.occurrence_id
-    ORDER BY ad.dismissed_at DESC
-    LIMIT 1
-  ) d ON true
-  WHERE a.status <> 'closed'
-    AND (
-      p_filter = 'all'
-      OR (p_filter = 'dismissed' AND d.review_at > now())
-      OR (p_filter = 'active' AND (d.review_at IS NULL OR d.review_at <= now()))
-    )
-    AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
-  ORDER BY (d.review_at > now()) ASC, a.created_at DESC, i.id DESC;
-
   -- Alertas históricos continuam visíveis até que seus produtores sejam
-  -- migrados para alert_items. Eles não podem ser dispensados pela nova
-  -- fila, pois não têm occurrence_id nem histórico de dispensa.
-  IF p_filter IN ('active', 'all') THEN
-    RETURN QUERY
+  -- migrados para alert_items. A união é limitada como um todo, preservando
+  -- o cap legado de 200 linhas mesmo quando itens e carriers aparecem juntos.
+  RETURN QUERY
+  WITH queue_rows AS (
+    SELECT jsonb_build_object(
+      'id', a.id,
+      'item_id', i.id,
+      'status', a.status,
+      'item_status', i.status,
+      'type', i.item_type,
+      'severity', i.severity,
+      'department', i.department,
+      'message', i.message,
+      'entity_type', a.entity_type,
+      'entity_id', a.entity_id,
+      'destination', i.destination,
+      'created_at', a.created_at,
+      'updated_at', i.updated_at,
+      'dismissed_until', d.review_at,
+      'metadata', i.metadata
+    ) AS payload,
+    (d.review_at > now()) AS is_dismissed,
+    a.created_at,
+    i.id AS item_id
+    FROM public.alerts a
+    JOIN public.alert_items i ON i.alert_id = a.id AND i.status = 'active'
+    LEFT JOIN LATERAL (
+      SELECT ad.review_at
+      FROM public.alert_item_dismissals ad
+      WHERE ad.alert_item_id = i.id AND ad.occurrence_id = i.occurrence_id
+      ORDER BY ad.dismissed_at DESC
+      LIMIT 1
+    ) d ON true
+    WHERE a.status <> 'closed'
+      AND (
+        p_filter = 'all'
+        OR (p_filter = 'dismissed' AND d.review_at > now())
+        OR (p_filter = 'active' AND (d.review_at IS NULL OR d.review_at <= now()))
+      )
+      AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
+
+    UNION ALL
+
     SELECT jsonb_build_object(
       'id', a.id,
       'item_id', NULL,
@@ -687,16 +779,23 @@ BEGIN
       'updated_at', a.created_at,
       'dismissed_until', NULL,
       'metadata', '{}'::jsonb
-    )
+    ) AS payload,
+    false AS is_dismissed,
+    a.created_at,
+    a.id AS item_id
     FROM public.alerts a
     LEFT JOIN public.alert_type_catalog c ON c.type = a.type
-    WHERE a.status <> 'closed'
+    WHERE p_filter IN ('active', 'all')
+      AND a.status <> 'closed'
       AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
       AND NOT EXISTS (
         SELECT 1 FROM public.alert_items i WHERE i.alert_id = a.id
       )
-    ORDER BY a.created_at DESC, a.id DESC;
-  END IF;
+  )
+  SELECT payload
+  FROM queue_rows
+  ORDER BY is_dismissed ASC, created_at DESC, item_id DESC
+  LIMIT 200;
 END;
 $function$;
 
@@ -754,7 +853,7 @@ AS $$
     'read_at', n.read_at, 'created_at', n.created_at, 'payload', n.payload
   )
   FROM public.internal_notifications n
-  WHERE public.is_active_user()
+  WHERE public.is_active_read_user()
     AND n.recipient_id = auth.uid()
     AND (p_include_read OR n.read_at IS NULL)
   ORDER BY n.created_at DESC;
@@ -766,7 +865,7 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501'; END IF;
+  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501'; END IF;
   UPDATE public.internal_notifications
   SET read_at = COALESCE(read_at, now())
   WHERE id = p_notification_id AND recipient_id = auth.uid();

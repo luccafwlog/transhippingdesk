@@ -23,7 +23,7 @@ BEGIN
 
   SELECT id INTO v_actor
   FROM public.user_profiles
-  WHERE active = true
+  WHERE active = true AND role <> 'equipamentos'
   ORDER BY CASE WHEN role IN ('admin', 'administrativo') THEN 0 ELSE 1 END, created_at, id
   LIMIT 1;
 

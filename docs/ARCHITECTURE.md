@@ -57,13 +57,18 @@ itens novos: os produtores resolvem a origem por RPC.
 leitura ao destinatário e permite somente marcar `read_at`. Alertas críticos
 sem audiência ativa tentam Administrativo/Admin e registram a falha em
 `alert_notification_failures` quando o fallback também não encontra ninguém.
-Linhas antigas de `alerts` continuam na fila pela RPC `list_alert_queue` até
-que seus produtores sejam migrados. Enquanto isso, o bridge acompanha inserts,
-fechamentos e reaberturas de carriers concretos: fecha o item correspondente e
-emite nova ocorrência/notificação quando a mesma pendência retorna. O backfill
-não dispara notificações históricas no deploy; os tipos financeiros são
-resolvidos pelas transições de `invoices` e a emissão automática resolve sua
-falha anterior ao concluir com sucesso.
+A leitura das notificações usa `is_active_read_user()`, portanto inclui o papel
+`equipamentos`, que é audiência válida de Dispute e PIX. Linhas antigas de
+`alerts` continuam na fila pela RPC `list_alert_queue` até que seus produtores
+sejam migrados; a projeção mantém limite global de 200 linhas. Enquanto isso,
+o bridge acompanha inserts, fechamentos e reaberturas de carriers concretos:
+fecha o item correspondente e emite nova ocorrência/notificação quando a mesma
+pendência retorna. O backfill não dispara notificações históricas no deploy.
+Transições autoritativas resolvem invoice vencida/pagamento/cancelamento,
+convite e falha de envio do Portal, email de recuperação saudável e Dispute de
+Demurrage; a emissão automática resolve sua falha anterior ao concluir com
+sucesso. Abuso investigável de login continua dependendo da análise do bloco
+Portal, como definido na spec #521.
 
 Os detectores server-side são executados pela Edge Function
 `alerts-detector`, protegida por `ALERTS_DETECTOR_SECRET`, a cada 15 minutos

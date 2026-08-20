@@ -15,7 +15,8 @@ describe('fundação transversal de alertas', () => {
     expect(sql).toContain("'invoice_payment_invalid'")
     expect(sql).toContain("'invoice_cancel_blocked'")
     expect(sql).toContain('public.alert_type_catalog')
-    expect(sql).not.toContain("type IN ('portal_excecao_critica_fatura','portal_convite_expirado','portal_falha_envio','portal_abuso_login')")
+    expect(sql).toContain("al.type IN ('portal_excecao_critica_fatura','portal_convite_expirado','portal_falha_envio','portal_abuso_login')")
+    expect(sql).not.toContain('atc.severity = \'critical\'')
     expect(sql).not.toMatch(/CREATE OR REPLACE FUNCTION public\.portal_list_provisioning_console\(/)
     expect(sql).toContain('pg_get_functiondef')
   })
@@ -44,7 +45,13 @@ describe('fundação transversal de alertas', () => {
     expect(sql).toContain('AFTER UPDATE OF status ON public.alerts')
     expect(sql).toContain("p_source <> 'foundation_backfill'")
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.resolve_invoice_alerts_on_status_change[\s\S]*resolve_alert_item\(/)
-    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.list_internal_notifications[\s\S]*public\.is_active_user\(\)/)
+    expect(sql).toContain('pg_trigger_depth() > 0')
+    expect(sql).toContain("set_config('alerts.foundation_trigger', 'on', true)")
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.resolve_portal_alert_items_on_account_change')
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.resolve_demurrage_alert_on_status_change')
+    expect(sql).toContain('LIMIT 200')
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.list_internal_notifications[\s\S]*public\.is_active_read_user\(\)/)
+    expect(sql).not.toMatch(/CREATE OR REPLACE FUNCTION public\.list_internal_notifications[\s\S]*public\.is_active_user\(\)/)
     expect(sql).not.toContain('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated')
     expect(sql).toContain('REVOKE USAGE, SELECT ON SEQUENCE')
     expect(sql).toContain('count_alert_queue')
@@ -65,6 +72,7 @@ describe('fundação transversal de alertas', () => {
     expect(sql).toContain("auth.role() IS DISTINCT FROM 'service_role'")
     expect(sql).toContain('RAISE WARNING')
     expect(sql).not.toContain("AND NULLIF(v_url, '') IS NOT NULL")
+    expect(sql).toContain("role <> 'equipamentos'")
   })
 
   it('retira a detecção da tela e a ação de reconhecimento da fila', () => {
@@ -81,6 +89,12 @@ describe('fundação transversal de alertas', () => {
     const panel = readFileSync(resolve(process.cwd(), 'src/components/billing/FinancialAlertsPanel.tsx'), 'utf8')
 
     expect(panel).toContain('key={alert.item_id ?? alert.id}')
+  })
+
+  it('mantém o rótulo da fatura criada pelo Portal', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/Alertas.tsx'), 'utf8')
+
+    expect(page).toContain("portal_invoice_created: 'Fatura criada no portal'")
   })
 
   it('mantém os três arquivos de migration no repositório para o rollout', () => {

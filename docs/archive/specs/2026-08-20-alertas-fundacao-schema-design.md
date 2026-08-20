@@ -59,14 +59,19 @@ legada é consumida pelo carrier existente para não duplicar a fila nem reabrir
 um carrier Portal em conflito com o índice parcial. O tipo
 `agency_report_section_pending` é encerrado pela migration `320`, preservando
 as linhas para auditoria. O backfill inicial cria itens sem fan-out de
-notificações; notificações só nas aberturas/reaberturas operacionais. O status
-histórico `acknowledged` continua aceito para leitura; as novas RPCs não o
-produzem.
+notificações; notificações só nas aberturas/reaberturas operacionais. A leitura
+usa `is_active_read_user()` para que a audiência `equipamentos` consiga ler e
+marcar suas próprias notificações. A fila limita a projeção a 200 linhas. O
+status histórico `acknowledged` continua aceito para leitura; as novas RPCs não
+o produzem.
 
-Os tipos financeiros `invoice_payment_invalid` e `invoice_cancel_blocked` são
-resolvidos automaticamente pelas transições autoritativas de `invoices`, e
-`billing_auto_issue_failed` é resolvido quando a emissão automática termina
-com sucesso.
+As transições autoritativas resolvem `invoice_overdue`,
+`invoice_payment_invalid` e `invoice_cancel_blocked`; mudanças da conta do
+Portal resolvem convite expirado, falha de envio e email suprimido quando a
+origem volta ao estado saudável; fechamento de Dispute resolve
+`portal_dispute_opened`. `billing_auto_issue_failed` é resolvido quando a
+emissão automática termina com sucesso. `portal_abuso_login` permanece até a
+análise e providência do bloco Portal.
 
 O executor `alerts-detector` é uma Edge Function server-only chamada pelo job
 `alerts-foundation-detectors` a cada 15 minutos. Ela invoca os detectores

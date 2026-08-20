@@ -78,11 +78,9 @@ DECLARE
   v_end INTEGER;
   v_replacement TEXT := $replacement$
     'has_critical_alert', EXISTS (
-      SELECT 1
-      FROM public.alerts al
-      JOIN public.alert_type_catalog atc
-        ON atc.type = al.type AND atc.active AND atc.severity = 'critical'
+      SELECT 1 FROM public.alerts al
       WHERE al.status <> 'closed'
+        AND al.type IN ('portal_excecao_critica_fatura','portal_convite_expirado','portal_falha_envio','portal_abuso_login')
         AND (
           (al.entity_type = 'customer' AND al.entity_id = c.id::text)
           OR (al.entity_type = 'invoice' AND EXISTS (

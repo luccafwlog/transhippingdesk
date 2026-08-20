@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
   invoice_overdue: 'Fatura vencida',
   invoice_payment_invalid: 'Pagamento inválido',
   invoice_cancel_blocked: 'Cancelamento bloqueado',
+  portal_invoice_created: 'Fatura criada no portal',
   portal_consolidation_obsoleted: 'Consolidada obsoleta (portal)',
   demurrage: 'Demurrage',
   billing_calculation_blocked: 'Cálculo bloqueado',
