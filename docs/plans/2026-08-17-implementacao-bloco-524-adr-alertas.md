@@ -10,7 +10,7 @@ agregado por ADR/terminal, preservando as regras de sign-off, prazo e histórico
 ADRs 0027–0039.
 
 **Architecture:** a fundação transversal da PR #517 fornece o agregado, itens,
-dispensa conforme a ADR 0050, fan-out e executor server-only. O Bloco 5 apenas
+dispensa conforme a ADR 0053, fan-out e executor server-only. O Bloco 5 apenas
 registra os dois
 produtores do ADR no catálogo central: pendência departamental normal e prazo
 vencido crítico. ADRs novos usam
@@ -42,7 +42,7 @@ contrato SQL.
   invalida atomicamente o sign-off proprietário, exige justificativa/auditoria e
   requer nova assinatura antes do fechamento. A seção pendente com sign-off
   vigente continua proibida.
-- A dispensa do item crítico segue a ADR 0050: motivo, autor, data/hora e data
+- A dispensa do item crítico segue a ADR 0053: motivo, autor, data/hora e data
   futura de revisão informada pelo operador; sem data padrão, dispensa
   indefinida ou exceção por tipo.
 
@@ -104,7 +104,7 @@ tipos; testes de contrato SQL.
   de audiência.
 - [ ] **Step 3: Preservar os estados da fundação.** Não criar reconhecimento,
   estado paralelo ou fechamento manual local. O agregado fecha somente sem
-  itens ativos; a origem decide a resolução. A dispensa segue a ADR 0050 como
+  itens ativos; a origem decide a resolução. A dispensa segue a ADR 0053 como
   metadado temporário revisável e nunca como resolução.
 - [ ] **Step 4: Escrever testes SQL antes da alteração dos produtores.** Cobrir
   três departamentos, dois tipos simultâneos, reexecução do mesmo detector,
@@ -307,7 +307,7 @@ arquivo histórico deve ser editado.
 ## Critérios de aceite do plano
 
 - O contrato atende `524-AC-01` a `524-AC-10` da spec, incluindo a decisão
-  atômica de reabertura e a dispensa global da ADR 0050.
+  atômica de reabertura e a dispensa global da ADR 0053.
 - Nenhuma migration histórica é editada.
 - `271` continua sendo a fonte do detector de prazo.
 - As guardas de elegibilidade de `258`, `272` e `273` não são regredidas.

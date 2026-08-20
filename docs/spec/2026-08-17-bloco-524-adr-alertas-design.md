@@ -43,7 +43,7 @@ PRs documentais [#517](https://github.com/luccafwlog/transhippingdesk/pull/517),
 [0029](../adr/0029-adr-signoff-departamental-fases-ciclo.md),
 [0030](../adr/0030-adr-observacoes-por-secao-substitui-ocorrencias.md),
 [0034](../adr/0034-notificacao-interna-separada-do-alerta-sino-entrega-alertas-trata.md),
-[ADR 0050](https://github.com/luccafwlog/transhippingdesk/blob/4d975d4ac50cfab822fa8a11247c7b717ce72db4/docs/adr/0050-ciclo-de-vida-alerta-dispensa-temporaria.md),
+[ADR 0053](../adr/0053-ciclo-de-vida-alerta-dispensa-temporaria.md),
 [0035](../adr/0035-escala-unificada-ancora-do-adr-fontes-da-descarga-e-relatorio-sem-zeros.md),
 [0036](../adr/0036-adr-embarque-vazios-secao-unica-escala-fora-das-fases.md) e
 [0039](../adr/0039-prazo-de-conclusao-do-adr-medido-por-departamento.md).
@@ -64,7 +64,7 @@ marcada na matriz abaixo e vira trabalho de implementação.
    audiência, com leitura individual. Não existe reconhecimento.
 3. A audiência é derivada do departamento do item. `alerts.assigned_to` não é
    departamento nem será usado para fan-out.
-4. Resolução vem da origem. Conforme a ADR 0050, dispensa é triagem temporária
+4. Resolução vem da origem. Conforme a ADR 0053, dispensa é triagem temporária
    com motivo, autor, data/hora e data futura de revisão; não há data padrão,
    dispensa indefinida ou exceção por tipo de alerta. Ela não resolve a origem
    nem libera gate.
@@ -312,7 +312,7 @@ voltarem a estar resolvidas. A terceira alternativa permanece proibida.
 
 O contrato de Alertas já está fechado independentemente: qualquer estado-fonte
 que resulte em seção pendente deve reavaliar o item departamental, sem criar um
-novo tipo. A dispensa, inclusive para o item crítico de prazo, segue a ADR 0050:
+novo tipo. A dispensa, inclusive para o item crítico de prazo, segue a ADR 0053:
 é temporária, exige data futura de revisão informada pelo operador, não tem
 data padrão nem exceção por tipo e nunca resolve a origem.
 
@@ -325,7 +325,7 @@ data padrão nem exceção por tipo e nunca resolve a origem.
   resolve no sign-off vigente e não usa `assigned_to` como audiência.
 - **524-AC-03:** `agency_report_deadline_missed` é crítico, independente da
   pendência, usa ATD + três dias úteis da migration 271 e resolve no sign-off
-  vigente. Dispensa-se somente conforme a ADR 0050: com motivo, autor, data/hora
+  vigente. Dispensa-se somente conforme a ADR 0053: com motivo, autor, data/hora
   e data futura de revisão, sem data padrão, dispensa indefinida ou exceção por
   tipo.
 - **524-AC-04:** reabrir seção ou sign-off reutiliza os itens existentes; não há

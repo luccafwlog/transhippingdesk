@@ -81,7 +81,7 @@ testes de importação.
 serviços de revisão, RPCs do gate e integração com alertas.
 
 Se a integração exigir alteração de banco, a migration nova deve usar o próximo
-prefixo disponível (`304` neste checkout); nunca editar
+prefixo disponível (`317` neste checkout); nunca editar
 `188_review_gate_remove_portal.sql`. Migrations são arquivos protegidos: antes
 de criá-las ou editá-las, obter autorização explícita e usar o override previsto
 em `CLAUDE.md` apenas para essa sessão. A ADR 0054 restabelece o Portal como
@@ -98,9 +98,14 @@ gate de revisão/faturamento; a implementação deve fazê-lo em migration nova.
   por uma fonte canônica server-side (RPC/view sobre
   `compute_bl_review_pendencies`) e tornar a abertura imediata nas mutações
   autoritativas, com cron idempotente a cada 15 minutos como segurança.
-- [ ] Remover os predicados mortos `groupNeedsPortal` e `needsCeMercante` de
-  `src/pages/revisaoHelpers.ts:105-110`, sem reintroduzir esses conceitos como
-  motivos paralelos fora da fonte canônica.
+- [ ] Remover o predicado morto `needsCeMercante`
+  (`src/pages/revisaoHelpers.ts:110`), sem reintroduzir o conceito como motivo
+  paralelo fora da fonte canônica; o bloqueio por CE Mercante vive em
+  `src/components/billing/validacaoPipeline.ts:120`, outra fila.
+- [ ] **Manter** `groupNeedsPortal` (`src/pages/revisaoHelpers.ts:105`). A ADR
+  0054 restabelece o Portal como gate e devolve `Acesso ao portal nao
+  provisionado` ao conjunto canônico, de modo que o predicado volta a ter
+  produtor a partir da migration nova que restaura o gate.
 - [ ] Atualizar a mensagem quando houver correção parcial.
 - [ ] Fechar o alerta e retirar o B/L da fila somente quando todos os motivos
   forem resolvidos; nenhum reconhecimento; a dispensa é temporária, exige
