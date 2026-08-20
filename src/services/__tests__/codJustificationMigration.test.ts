@@ -53,11 +53,11 @@ describe('contrato da confirmação de COD', () => {
 describeLocal('assinaturas de COD no catálogo local', () => {
   it('remove o caminho antigo e publica somente a assinatura com justificativa', () => {
     expect(psql("SELECT to_regprocedure('public.set_bl_cod(text,bigint,uuid)') IS NULL AND to_regprocedure('public.set_bl_cod(text,bigint,text,uuid)') IS NOT NULL;")).toBe('t')
-    expect(psql("SELECT to_regprocedure('public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,uuid)') IS NULL AND to_regprocedure('public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)') IS NOT NULL;")).toBe('t')
+    expect(psql("SELECT to_regprocedure('public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,uuid)') IS NULL AND to_regprocedure('public.set_bl_transshipment(text,bigint,text,uuid)') IS NOT NULL;")).toBe('t')
   })
 
   it('mantém EXECUTE apenas para authenticated', () => {
     expect(psql("SELECT has_function_privilege('authenticated', 'public.set_bl_cod(text,bigint,text,uuid)', 'EXECUTE') AND NOT has_function_privilege('anon', 'public.set_bl_cod(text,bigint,text,uuid)', 'EXECUTE');")).toBe('t')
-    expect(psql("SELECT has_function_privilege('authenticated', 'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)', 'EXECUTE') AND NOT has_function_privilege('anon', 'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)', 'EXECUTE');")).toBe('t')
+    expect(psql("SELECT has_function_privilege('authenticated', 'public.set_bl_transshipment(text,bigint,text,uuid)', 'EXECUTE') AND NOT has_function_privilege('anon', 'public.set_bl_transshipment(text,bigint,text,uuid)', 'EXECUTE');")).toBe('t')
   })
 })

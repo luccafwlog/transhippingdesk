@@ -38,7 +38,6 @@ import { VoyageExportacaoTab } from './VoyageExportacaoTab'
 import { VoyageManifestosTab } from './VoyageManifestosTab'
 import { VoyageAgencyReportTab } from './VoyageAgencyReportTab'
 import { OmitEscalaModal } from './OmitEscalaModal'
-import { TransshipmentPanel } from './TransshipmentPanel'
 import type {
   EditingPolPayload,
   Voyage,
@@ -493,7 +492,6 @@ export function VoyageCard({
           blCount={podRows.find((row) => (normalizePortCode(row.pod) ?? normalizePortName(row.pod)) === (normalizePortCode(omitTarget) ?? normalizePortName(omitTarget)))?.blCount ?? 0}
         />
       ) : null}
-      <TransshipmentPanel voyageId={voyage.id} />
     </Card>
   )
 }

@@ -73,6 +73,7 @@ function invalidateVoyageOmissionCaches(
   queryClient.invalidateQueries({ queryKey: queryKeys.bls.timeline() })
   queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus() })
   queryClient.invalidateQueries({ queryKey: ['portal-operation-bls'] })
+  queryClient.invalidateQueries({ queryKey: ['portal-schedule-voyages'] })
   if (blId !== undefined) {
     queryClient.invalidateQueries({ queryKey: queryKeys.portal.blStatus(blId) })
   }

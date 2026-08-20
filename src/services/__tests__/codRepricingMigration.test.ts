@@ -223,7 +223,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
 
     const reversal = callAsAuthenticated(
       userId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio 312', 'Carrier 312', 'VY-312', NULL, NULL, 'Reversão simétrica', '${userId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Reversão simétrica', '${userId}')`,
     )
     expect(reversal.status).toBe(0)
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}';`)).toBe('BRVIX')
@@ -245,7 +245,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
 
     const reverseOverpayment = callAsAuthenticated(
       userId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio 312', 'Carrier 312', 'VY-312', NULL, NULL, 'Reverter excedente', '${userId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Reverter excedente', '${userId}')`,
     )
     expect(reverseOverpayment.status).toBe(0)
     psql(`
@@ -262,7 +262,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
 
     const reverseUnpaid = callAsAuthenticated(
       userId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio 312', 'Carrier 312', 'VY-312', NULL, NULL, 'Reverter sem pagamento', '${userId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Reverter sem pagamento', '${userId}')`,
     )
     expect(reverseUnpaid.status).toBe(0)
     psql(`
@@ -280,7 +280,7 @@ describeLocal('comportamento efetivo da reprecificação de COD no Postgres loca
 
     const reverseFullyPaid = callAsAuthenticated(
       userId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio 312', 'Carrier 312', 'VY-312', NULL, NULL, 'Reverter pago integralmente', '${userId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Reverter pago integralmente', '${userId}')`,
     )
     expect(reverseFullyPaid.status).toBe(0)
     psql(`

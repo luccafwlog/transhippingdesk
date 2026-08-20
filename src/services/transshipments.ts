@@ -11,11 +11,6 @@ type BlTransshipmentRow = Pick<
   | 'bl_id'
   | 'omission_id'
   | 'disposition'
-  | 'onward_vessel_name'
-  | 'onward_carrier'
-  | 'onward_voyage_number'
-  | 'onward_etd'
-  | 'onward_eta'
 >
 
 export interface BlTransshipment {
@@ -23,11 +18,6 @@ export interface BlTransshipment {
   blId: string
   omissionId: number
   disposition: BlDisposition
-  onwardVesselName: string | null
-  onwardCarrier: string | null
-  onwardVoyageNumber: string | null
-  onwardEtd: string | null
-  onwardEta: string | null
 }
 
 export interface VoyageOmission {
@@ -81,11 +71,6 @@ export async function setBlTransshipment(input: {
   const { error } = await supabase.rpc('set_bl_transshipment', {
     p_bl_id: input.blId,
     p_omission_id: input.omissionId,
-    p_onward_vessel_name: null,
-    p_onward_carrier: null,
-    p_onward_voyage_number: null,
-    p_onward_etd: null,
-    p_onward_eta: null,
     p_justification: input.justification,
     p_changed_by: input.changedBy,
   })
@@ -172,7 +157,7 @@ export async function listVoyageOmissions(voyageId: number): Promise<VoyageOmiss
 export async function listBlTransshipments(omissionId: number): Promise<BlTransshipment[]> {
   const { data, error } = await supabase
     .from('bl_transshipments')
-    .select('id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta')
+    .select('id, bl_id, omission_id, disposition')
     .eq('omission_id', omissionId)
   if (error) throw error
   return (data ?? []).map(mapBlTransshipment)
@@ -185,7 +170,7 @@ export async function listBlTransshipmentByBlId(blId: string): Promise<BlTranssh
   const { data, error } = await supabase
     .from('bl_transshipments')
     .select(
-      'id, bl_id, omission_id, disposition, onward_vessel_name, onward_carrier, onward_voyage_number, onward_etd, onward_eta, voyage_omissions!inner(omitted_at)',
+      'id, bl_id, omission_id, disposition, voyage_omissions!inner(omitted_at)',
     )
     .eq('bl_id', blId)
     .order('omitted_at', { foreignTable: 'voyage_omissions', ascending: false })
@@ -207,10 +192,5 @@ function mapBlTransshipment(row: BlTransshipmentRow): BlTransshipment {
     blId: row.bl_id,
     omissionId: row.omission_id,
     disposition: parseDisposition(row.disposition),
-    onwardVesselName: row.onward_vessel_name,
-    onwardCarrier: row.onward_carrier,
-    onwardVoyageNumber: row.onward_voyage_number,
-    onwardEtd: row.onward_etd,
-    onwardEta: row.onward_eta,
   }
 }

@@ -83,7 +83,7 @@ export function CodAdjustmentsPanel() {
                         <div className="flex max-w-[320px] items-center gap-2 text-xs text-slate-400">
                           <AlertTriangle size={15} className="shrink-0 text-amber-300" />
                           <span>
-                            Ação manual pendente. <Link className="text-[var(--app-blue-btn)] hover:underline" to={`/taxas-locais?tab=validacao&bl=${encodeURIComponent(row.bl_id)}`}>Abrir operação</Link>
+                            Ação manual pendente. <Link className="text-[var(--app-blue-btn)] hover:underline" to={`/taxas-locais?tab=invoices&bl=${encodeURIComponent(row.bl_id)}`}>Abrir faturas</Link>
                           </span>
                         </div>
                       ) : (

@@ -73,11 +73,6 @@ describe('transshipments service', () => {
     expect(rpc).toHaveBeenNthCalledWith(1, 'set_bl_transshipment', {
       p_bl_id: 'BL-1',
       p_omission_id: 9,
-      p_onward_vessel_name: null,
-      p_onward_carrier: null,
-      p_onward_voyage_number: null,
-      p_onward_etd: null,
-      p_onward_eta: null,
       p_justification: 'COD revertido a pedido do cliente',
       p_changed_by: 'user-1',
     })
@@ -142,11 +137,6 @@ describe('transshipments service', () => {
             bl_id: 'BL-1',
             omission_id: 1,
             disposition: 'transshipment',
-            onward_vessel_name: 'THIRD',
-            onward_carrier: null,
-            onward_voyage_number: null,
-            onward_etd: null,
-            onward_eta: '2026-07-15',
           },
         ],
         error: null,
@@ -168,11 +158,6 @@ describe('transshipments service', () => {
         blId: 'BL-1',
         omissionId: 1,
         disposition: 'transshipment',
-        onwardVesselName: 'THIRD',
-        onwardCarrier: null,
-        onwardVoyageNumber: null,
-        onwardEtd: null,
-        onwardEta: '2026-07-15',
       },
     ])
   })
@@ -192,11 +177,6 @@ describe('transshipments service', () => {
       blId: 'BL-1',
       omissionId: 9,
       disposition: 'cod',
-      onwardVesselName: null,
-      onwardCarrier: null,
-      onwardVoyageNumber: null,
-      onwardEtd: null,
-      onwardEta: null,
     })
     expect(eq).toHaveBeenCalledWith('bl_id', 'BL-1')
     expect(orderByOmittedAt).toHaveBeenCalledWith('omitted_at', { foreignTable: 'voyage_omissions', ascending: false })

@@ -9,6 +9,7 @@ const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:pos
 const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations')
 const migration308 = fs.readFileSync(path.join(migrationsDir, '308_restore_omit_voyage_escala.sql'), 'utf8').toLowerCase()
 const migration309 = fs.readFileSync(path.join(migrationsDir, '309_revert_voyage_omission.sql'), 'utf8').toLowerCase()
+const migration316 = fs.readFileSync(path.join(migrationsDir, '316_drop_dead_bl_transshipment_columns.sql'), 'utf8').toLowerCase()
 
 function psql(sql: string) {
   return execFileSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-At', '-d', databaseUrl, '-c', sql], { encoding: 'utf8' }).trim()
@@ -40,7 +41,7 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     // e não enxerga grants efetivos.
     omitVoyageEscala = getFunctionDefinition('public.omit_voyage_escala(bigint,text,text,text,uuid,text,text,text,timestamptz,timestamptz)')
     setBlCod = getFunctionDefinition('public.set_bl_cod(text,bigint,text,uuid)')
-    setBlTransshipment = getFunctionDefinition('public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)')
+    setBlTransshipment = getFunctionDefinition('public.set_bl_transshipment(text,bigint,text,uuid)')
     updateVoyageOmission = getFunctionDefinition('public.update_voyage_omission(bigint,text,text,text,timestamptz,timestamptz,text,uuid)')
   })
 
@@ -85,11 +86,8 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(cod).toContain('marcar cod exige justificativa.')
     expect(cod).not.toContain('can_edit_voyages()')
     expect(cod).toContain("disposition = 'cod'")
-    expect(cod).toContain('onward_vessel_name = null')
-    expect(cod).toContain('onward_carrier = null')
-    expect(cod).toContain('onward_voyage_number = null')
-    expect(cod).toContain('onward_etd = null')
-    expect(cod).toContain('onward_eta = null')
+    expect(cod).not.toContain('onward_vessel_name')
+    expect(cod).not.toContain('onward_carrier')
     expect(cod).toContain('update public.bls set pod = v_discharge')
     expect(cod).toContain('select pod, customer_id into v_old_pod, v_customer from public.bls where id = p_bl_id for update')
     expect(cod).toContain('insert into public.portal_notifications(customer_id, bl_id, type, title, message, link)')
@@ -99,11 +97,8 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     expect(transshipment).toContain('p_justification text')
     expect(transshipment).not.toContain('can_edit_voyages()')
     expect(transshipment).toContain("disposition = 'transshipment'")
-    expect(transshipment).toContain("onward_vessel_name = nullif(btrim(coalesce(p_onward_vessel_name, '')), '')")
-    expect(transshipment).toContain("onward_carrier = nullif(btrim(coalesce(p_onward_carrier, '')), '')")
-    expect(transshipment).toContain("onward_voyage_number = nullif(btrim(coalesce(p_onward_voyage_number, '')), '')")
-    expect(transshipment).toContain('onward_etd = p_onward_etd')
-    expect(transshipment).toContain('onward_eta = p_onward_eta')
+    expect(transshipment).not.toContain('p_onward_')
+    expect(transshipment).toContain('set disposition = \'transshipment\', updated_at = now()')
     expect(transshipment).toContain('update public.bls set pod = v_original_pod')
     expect(transshipment).toContain('select pod, customer_id into v_old_pod, v_customer from public.bls where id = p_bl_id for update')
     expect(transshipment).toContain("'reversao de cod para transbordo: ' || v_justification")
@@ -115,12 +110,12 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
 
     expect(definition).toContain('if auth.uid() is null or not public.is_active_user() or p_changed_by is distinct from auth.uid() then')
     expect(definition).not.toContain('can_edit_voyages()')
-    expect(definition).toContain('onward_vessel_name = nullif(btrim(coalesce(p_onward_vessel_name, \'\')), \'\')')
-    expect(definition).toContain('onward_carrier = nullif(btrim(coalesce(p_onward_carrier, \'\')), \'\')')
-    expect(definition).toContain('onward_voyage_number = nullif(btrim(coalesce(p_onward_voyage_number, \'\')), \'\')')
-    expect(definition).toContain('onward_etd = p_onward_etd')
-    expect(definition).toContain('onward_eta = p_onward_eta')
-    expect(definition).toContain("values ('voyage', v_voyage_id::text, 'transshipment_info'")
+    expect(definition).toContain('v_new_vessel := nullif(btrim(coalesce(p_onward_vessel_name, \'\')), \'\')')
+    expect(definition).toContain('v_new_carrier := nullif(btrim(coalesce(p_onward_carrier, \'\')), \'\')')
+    expect(definition).toContain('v_new_voyage := nullif(btrim(coalesce(p_onward_voyage_number, \'\')), \'\')')
+    expect(definition).toContain('v_new_etd := p_onward_etd')
+    expect(definition).toContain('v_new_eta := p_onward_eta')
+    expect(definition).toContain("values ('voyage', v_old.voyage_id::text, 'transshipment_info'")
     expect(definition).toContain("select 'bls', bt.bl_id, 'transshipment_info'")
     expect(definition).not.toContain('portal_notifications')
   })
@@ -129,7 +124,7 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
     const signatures = [
       'public.omit_voyage_escala(bigint,text,text,text,uuid,text,text,text,timestamptz,timestamptz)',
       'public.set_bl_cod(text,bigint,text,uuid)',
-      'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)',
+      'public.set_bl_transshipment(text,bigint,text,uuid)',
       'public.update_voyage_omission(bigint,text,text,text,timestamptz,timestamptz,text,uuid)',
     ]
 
@@ -149,6 +144,12 @@ describeLocal('contrato SQL das definições finais das RPCs de omissão', () =>
           AND p.proname = 'can_edit_voyages'
       );
     `)).toBe('t')
+  })
+
+  it('confirma que os dados de transbordo não vivem mais no vínculo B/L', () => {
+    expect(migration316).toContain('drop column if exists onward_vessel_name')
+    expect(migration316).toContain('drop column if exists onward_eta')
+    expect(setBlTransshipment).not.toContain('onward_vessel_name')
   })
 
   it('confirma no catálogo que a omissão do mesmo POD é permitida', () => {

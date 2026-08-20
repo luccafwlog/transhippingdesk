@@ -65,7 +65,7 @@ function compact(definition: string) {
 const rpcSignatures = [
   'public.omit_voyage_escala(bigint,text,text,text,uuid,text,text,text,timestamptz,timestamptz)',
   'public.set_bl_cod(text,bigint,text,uuid)',
-  'public.set_bl_transshipment(text,bigint,text,text,text,timestamptz,timestamptz,text,uuid)',
+  'public.set_bl_transshipment(text,bigint,text,uuid)',
   'public.revert_voyage_omission(bigint,text,uuid)',
 ]
 
@@ -216,30 +216,17 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
 
     const initialTransshipment = callAsAuthenticated(
       adminId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Inicial', 'Carrier Inicial', 'VY-INITIAL', '2026-08-20T10:00:00Z', '2026-08-21T10:00:00Z', 'Definicao inicial', '${adminId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Definicao inicial', '${adminId}')`,
     )
     expect(initialTransshipment.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('transshipment')
-    expect(psql(`
-      SELECT onward_vessel_name || '|' || onward_carrier || '|' || onward_voyage_number || '|' ||
-        to_char(onward_etd AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || '|' ||
-        to_char(onward_eta AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI')
-      FROM public.bl_transshipments
-      WHERE bl_id = '${blId}' AND omission_id = ${omissionId};
-    `)).toBe('Navio Inicial|Carrier Inicial|VY-INITIAL|2026-08-20 10:00|2026-08-21 10:00')
 
     const cod = callAsAuthenticated(adminId, `SELECT public.set_bl_cod('${blId}', ${omissionId}, 'Cliente confirmou COD', '${adminId}')`)
     expect(cod.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('cod')
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}'`)).toBe('BRSSA')
     expect(psql(`SELECT count(*) FROM public.portal_notifications WHERE bl_id = '${blId}' AND title = 'Destino alterado (COD)'`)).toBe('1')
-    expect(psql(`
-      SELECT count(*)
-      FROM public.bl_transshipments
-      WHERE bl_id = '${blId}' AND omission_id = ${omissionId}
-        AND onward_vessel_name IS NULL AND onward_carrier IS NULL
-        AND onward_voyage_number IS NULL AND onward_etd IS NULL AND onward_eta IS NULL;
-    `)).toBe('1')
+    expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('cod')
 
     const blocked = callAsAuthenticated(
       adminId,
@@ -251,18 +238,11 @@ describeLocal('reversão de omissão em replay local do Postgres', () => {
 
     const transshipment = callAsAuthenticated(
       adminId,
-      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'Navio Restaurado', 'Carrier Restaurado', 'VY-RESTORED', '2026-08-22T10:00:00Z', '2026-08-23T10:00:00Z', 'COD revertido pelo cliente', '${adminId}')`,
+      `SELECT public.set_bl_transshipment('${blId}', ${omissionId}, 'COD revertido pelo cliente', '${adminId}')`,
     )
     expect(transshipment.status).toBe(0)
     expect(psql(`SELECT disposition FROM public.bl_transshipments WHERE bl_id = '${blId}' AND omission_id = ${omissionId}`)).toBe('transshipment')
     expect(psql(`SELECT pod FROM public.bls WHERE id = '${blId}'`)).toBe('BRVIX')
-    expect(psql(`
-      SELECT onward_vessel_name || '|' || onward_carrier || '|' || onward_voyage_number || '|' ||
-        to_char(onward_etd AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || '|' ||
-        to_char(onward_eta AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI')
-      FROM public.bl_transshipments
-      WHERE bl_id = '${blId}' AND omission_id = ${omissionId};
-    `)).toBe('Navio Restaurado|Carrier Restaurado|VY-RESTORED|2026-08-22 10:00|2026-08-23 10:00')
 
     const invariantBefore = psql(`
       SELECT
