@@ -83,6 +83,13 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   consome o convite quando há o que aplicar, reuso do convite de recuperação
   vivo e caminho bloqueado do login em segundo plano. ADR 0049 (nota
   editorial).
+- [`2026-08-13-correcao-regressao-inicializacao-login-navegacao`](2026-08-13-correcao-regressao-inicializacao-login-navegacao.md)
+  — **arquivado por superação, não por conclusão.** Escrito para Firebase
+  Hosting; a PR #552 migrou o hosting para Vercel e esvaziou a Task 4C. A
+  Task 2 chegou a descartar o banco como gargalo e as PRs #554/#555
+  substituíram o diagnóstico por Vercel Speed Insights. O harness
+  `npm run perf:authenticated-startup` segue vivo. Nota editorial no topo do
+  plano.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.
