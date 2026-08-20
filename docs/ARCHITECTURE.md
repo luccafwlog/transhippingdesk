@@ -63,8 +63,10 @@ que seus produtores sejam migrados.
 Os detectores server-side são executados pela Edge Function
 `alerts-detector`, protegida por `ALERTS_DETECTOR_SECRET`, a cada 15 minutos
 por `pg_cron` + `pg_net`. O browser não dispara detectores nem cria
-notificações internas. A agenda só é instalada quando as extensões e o segredo
-`app.settings.alerts_detector_secret` estão configurados.
+notificações internas. A agenda é instalada quando as extensões estão
+disponíveis; se `app.settings.supabase_url` ou
+`app.settings.alerts_detector_secret` faltar, a migration emite warning e o job
+continua visível, falhando de forma observável até a configuração ser corrigida.
 
 ## Fronteiras de autenticação
 

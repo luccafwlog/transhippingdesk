@@ -17,7 +17,7 @@ DECLARE
   v_adr_pending INTEGER := 0;
   v_adr_deadline INTEGER := 0;
 BEGIN
-  IF auth.role() <> 'service_role' THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Executor server-only.' USING ERRCODE = '42501';
   END IF;
 
@@ -56,19 +56,17 @@ DECLARE
   v_secret TEXT := current_setting('app.settings.alerts_detector_secret', true);
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron')
-     AND NULLIF(v_url, '') IS NOT NULL
-     AND NULLIF(v_secret, '') IS NOT NULL THEN
+     AND EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'net') THEN
+    IF NULLIF(v_url, '') IS NULL OR NULLIF(v_secret, '') IS NULL THEN
+      RAISE WARNING 'alerts-foundation-detectors será agendado sem URL/segredo completos; a execução falhará visivelmente até app.settings.* ser configurado.';
+    END IF;
     IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'alerts-foundation-detectors') THEN
       PERFORM cron.unschedule('alerts-foundation-detectors');
     END IF;
     PERFORM cron.schedule(
       'alerts-foundation-detectors',
       '*/15 * * * *',
-      format(
-        $job$SELECT net.http_post(url := %L || '/functions/v1/alerts-detector', headers := jsonb_build_object('Authorization', 'Bearer ' || %L, 'Content-Type', 'application/json'), body := '{}'::jsonb);$job$,
-        v_url,
-        v_secret
-      )
+      $job$SELECT net.http_post(url := COALESCE(NULLIF(current_setting('app.settings.supabase_url', true), ''), 'https://invalid-alerts-detector-config.invalid') || '/functions/v1/alerts-detector', headers := jsonb_build_object('Authorization', 'Bearer ' || COALESCE(NULLIF(current_setting('app.settings.alerts_detector_secret', true), ''), 'missing-alerts-detector-secret'), 'Content-Type', 'application/json'), body := '{}'::jsonb);$job$
     );
   END IF;
 END;

@@ -36,7 +36,8 @@ de transição para os planos dos blocos `#520`–`#524`.
 | `upsert_alert_item` | Abre, atualiza ou reabre item e dispara fan-out apenas em abertura/reabertura |
 | `resolve_alert_item` | Resolve item e fecha o agregado quando não restam itens ativos |
 | `dismiss_alert_item` | Registra dispensa com motivo obrigatório e revisão futura |
-| `list_alert_queue` | Projeta a fila ativa, dispensada ou completa para `/alertas`; inclui legado |
+| `list_alert_queue` | Projeta a fila ativa, dispensada ou completa para `/alertas`; inclui legado e aceita filtro server-side por entidade |
+| `count_alert_queue` | Conta a mesma projeção da fila para badges sem baixar as linhas |
 | `list_internal_notifications` / `mark_internal_notification_read` | Consulta e leitura das notificações próprias |
 
 As escritas de ciclo de vida são feitas por RPCs `SECURITY DEFINER` para
@@ -49,7 +50,9 @@ mas não é gravável pelo cliente.
 
 As linhas antigas de `alerts` permanecem consultáveis por `list_alert_queue`
 até que o produtor correspondente seja migrado. Inserts legados de tipos
-presentes no catálogo são roteados para o novo ciclo por trigger. O tipo
+presentes no catálogo são roteados para o novo ciclo por trigger AFTER INSERT,
+preservando o tipo concreto porque produtores legados ainda fecham/deduplicam
+por esse campo. O tipo
 `agency_report_section_pending` é encerrado pela migration `320`, preservando
 as linhas para auditoria. O status histórico `acknowledged` continua aceito
 para leitura; as novas RPCs não o produzem.
@@ -57,8 +60,9 @@ para leitura; as novas RPCs não o produzem.
 O executor `alerts-detector` é uma Edge Function server-only chamada pelo job
 `alerts-foundation-detectors` a cada 15 minutos. Ela invoca os detectores
 existentes com contexto de serviço e não é chamada pelo browser. A agenda só é
-criada quando `pg_cron`, `pg_net` e `app.settings.alerts_detector_secret` estão
-disponíveis.
+criada quando `pg_cron` e `pg_net` estão disponíveis. Se URL ou segredo
+estiverem ausentes, a migration avisa e deixa o job agendado para que a falha
+seja observável até a configuração ser corrigida.
 
 ## Próximos consumidores
 

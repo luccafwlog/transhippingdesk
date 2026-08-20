@@ -7,5 +7,7 @@ describe('useOperationalCounts realtime contract', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/hooks/useOperationalCounts.ts'), 'utf8')
     expect(source).not.toContain('supabase.channel')
     expect(source).toContain('staleTime: 60_000')
+    expect(source).toContain('countAlertQueue')
+    expect(source).not.toContain(".from('alerts')")
   })
 })

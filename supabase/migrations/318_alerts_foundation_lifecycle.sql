@@ -1,8 +1,10 @@
 -- 318: agregado, itens, histórico, dispensa e Notificação Interna.
 --
--- `alerts` continua existindo para preservar o histórico legado. A partir
--- daqui, `type` identifica o item; o agregado é a linha de `alerts` por
--- entidade e o ciclo de vida é operado pelas RPCs abaixo.
+-- `alerts` continua existindo para preservar o histórico legado. Agregados
+-- criados pela fundação usam `type = 'aggregate'`; carriers legados preservam
+-- seu tipo concreto porque seus produtores ainda fecham/deduplicam por ele.
+-- `alert_items` identifica cada pendência e o ciclo de vida é operado pelas
+-- RPCs abaixo.
 -- O status histórico `acknowledged` não é apagado; nenhuma RPC nova o cria.
 
 CREATE TABLE IF NOT EXISTS public.alert_items (
@@ -117,14 +119,24 @@ REVOKE INSERT, UPDATE, DELETE ON public.alert_items, public.alert_item_events,
 GRANT SELECT ON public.alert_items, public.alert_item_events, public.alert_item_dismissals,
   public.alert_notification_failures TO authenticated;
 GRANT SELECT, UPDATE (read_at) ON public.internal_notifications TO authenticated;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+-- These tables are written only by SECURITY DEFINER RPCs. Revoke the
+-- historical schema-wide sequence grant for their BIGSERIAL sequences rather
+-- than reopening sequence access for every public table.
+REVOKE USAGE, SELECT ON SEQUENCE
+  public.alert_items_id_seq,
+  public.alert_item_events_id_seq,
+  public.alert_item_dismissals_id_seq,
+  public.internal_notifications_id_seq,
+  public.alert_notification_failures_id_seq
+FROM authenticated, anon, PUBLIC;
 
 CREATE OR REPLACE FUNCTION public.alert_actor_is_authorized()
 RETURNS BOOLEAN
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT auth.role() = 'service_role' OR (auth.uid() IS NOT NULL AND public.is_active_user());
+  SELECT auth.role() IS NOT DISTINCT FROM 'service_role'
+    OR (auth.uid() IS NOT NULL AND public.is_active_user());
 $$;
 
 REVOKE ALL ON FUNCTION public.alert_actor_is_authorized() FROM PUBLIC, anon;
@@ -145,8 +157,7 @@ BEGIN
   WHERE i.alert_id = p_alert_id;
 
   UPDATE public.alerts
-  SET type = 'aggregate',
-      message = COALESCE(v_message, message),
+  SET message = COALESCE(v_message, message),
       status = CASE WHEN COALESCE(v_open, false) THEN 'open' ELSE 'closed' END,
       closed_at = CASE WHEN COALESCE(v_open, false) THEN NULL ELSE COALESCE(closed_at, now()) END
   WHERE id = p_alert_id;
@@ -280,9 +291,21 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('alert:' || p_entity_type || ':' || p_entity_id, 0));
 
   SELECT * INTO v_alert
-  FROM public.alerts
-  WHERE entity_type = p_entity_type AND entity_id = p_entity_id
-  ORDER BY (status <> 'closed') DESC, (type = 'aggregate') DESC, id
+  FROM public.alerts a
+  WHERE a.entity_type = p_entity_type
+    AND a.entity_id = p_entity_id
+    AND (
+      a.type = 'aggregate'
+      OR a.type = p_type
+      OR EXISTS (SELECT 1 FROM public.alert_items existing_item WHERE existing_item.alert_id = a.id)
+    )
+  ORDER BY
+    (a.type = 'aggregate') DESC,
+    EXISTS (SELECT 1 FROM public.alert_items matching_item WHERE matching_item.alert_id = a.id AND matching_item.item_type = p_type) DESC,
+    EXISTS (SELECT 1 FROM public.alert_items any_item WHERE any_item.alert_id = a.id) DESC,
+    (a.type = p_type) DESC,
+    (a.status <> 'closed') DESC,
+    a.id
   LIMIT 1
   FOR UPDATE;
 
@@ -292,9 +315,8 @@ BEGIN
     RETURNING * INTO v_alert;
   ELSE
     UPDATE public.alerts
-    SET type = 'aggregate', status = 'open', closed_at = NULL
+    SET status = 'open', closed_at = NULL
     WHERE id = v_alert.id;
-    v_alert.type := 'aggregate';
     v_alert.status := 'open';
   END IF;
 
@@ -317,6 +339,7 @@ BEGIN
     RETURNING * INTO v_item;
     v_new_item := true;
   ELSE
+    v_reopened := v_item.status = 'resolved';
     UPDATE public.alert_items
     SET source = p_source,
         severity = v_catalog.severity,
@@ -327,14 +350,9 @@ BEGIN
         status = 'active',
         updated_at = now(),
         resolved_at = NULL,
-        occurrence_id = CASE WHEN status = 'resolved' THEN gen_random_uuid() ELSE occurrence_id END
+        occurrence_id = CASE WHEN v_reopened THEN gen_random_uuid() ELSE occurrence_id END
     WHERE id = v_item.id
     RETURNING * INTO v_item;
-    v_reopened := v_item.status = 'active' AND EXISTS (
-      SELECT 1 FROM public.alert_item_events e
-      WHERE e.alert_item_id = v_item.id AND e.event_type = 'resolved'
-        AND e.occurrence_id <> v_item.occurrence_id
-    );
   END IF;
 
   IF v_new_item OR v_reopened THEN
@@ -401,8 +419,9 @@ END;
 $function$;
 
 -- Compatibility boundary for producers that have not yet moved to the
--- block-specific RPC. Known catalog types are routed into the aggregate so a
--- legacy INSERT cannot create a second queue row for the same entity.
+-- block-specific RPC. The original legacy row is preserved because its
+-- producers still close/dedupe by concrete `alerts.type`; the AFTER trigger
+-- attaches the item to that row without replacing its type.
 CREATE OR REPLACE FUNCTION public.route_catalog_alert_insert()
 RETURNS TRIGGER
 LANGUAGE plpgsql SECURITY DEFINER
@@ -418,7 +437,6 @@ BEGIN
       NEW.type, NEW.entity_type, NEW.entity_id, NEW.message,
       'legacy_insert', '{}'::jsonb, NULL
     );
-    RETURN NULL;
   END IF;
   RETURN NEW;
 END;
@@ -426,7 +444,7 @@ $function$;
 
 DROP TRIGGER IF EXISTS route_catalog_alert_insert ON public.alerts;
 CREATE TRIGGER route_catalog_alert_insert
-  BEFORE INSERT ON public.alerts
+  AFTER INSERT ON public.alerts
   FOR EACH ROW EXECUTE FUNCTION public.route_catalog_alert_insert();
 
 REVOKE ALL ON FUNCTION public.route_catalog_alert_insert() FROM PUBLIC, anon, authenticated;
@@ -460,7 +478,12 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.list_alert_queue(p_filter TEXT DEFAULT 'active')
+DROP FUNCTION IF EXISTS public.list_alert_queue(TEXT);
+
+CREATE OR REPLACE FUNCTION public.list_alert_queue(
+  p_filter TEXT DEFAULT 'active',
+  p_entity_type TEXT DEFAULT NULL
+)
 RETURNS SETOF JSONB
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = public, pg_temp
@@ -502,6 +525,7 @@ BEGIN
       OR (p_filter = 'dismissed' AND d.review_at > now())
       OR (p_filter = 'active' AND (d.review_at IS NULL OR d.review_at <= now()))
     )
+    AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
   ORDER BY (d.review_at > now()) ASC, a.created_at DESC, i.id DESC;
 
   -- Alertas históricos continuam visíveis até que seus produtores sejam
@@ -529,11 +553,53 @@ BEGIN
     FROM public.alerts a
     LEFT JOIN public.alert_type_catalog c ON c.type = a.type
     WHERE a.status <> 'closed'
+      AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
       AND NOT EXISTS (
         SELECT 1 FROM public.alert_items i WHERE i.alert_id = a.id
       )
     ORDER BY a.created_at DESC, a.id DESC;
   END IF;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.count_alert_queue(p_filter TEXT DEFAULT 'active')
+RETURNS BIGINT
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_count BIGINT;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501'; END IF;
+  IF p_filter NOT IN ('active', 'dismissed', 'all') THEN RAISE EXCEPTION 'Filtro inválido.' USING ERRCODE = '22023'; END IF;
+
+  SELECT count(*) INTO v_count
+  FROM (
+    SELECT i.id
+    FROM public.alerts a
+    JOIN public.alert_items i ON i.alert_id = a.id AND i.status = 'active'
+    LEFT JOIN LATERAL (
+      SELECT ad.review_at
+      FROM public.alert_item_dismissals ad
+      WHERE ad.alert_item_id = i.id AND ad.occurrence_id = i.occurrence_id
+      ORDER BY ad.dismissed_at DESC
+      LIMIT 1
+    ) d ON true
+    WHERE a.status <> 'closed'
+      AND (
+        p_filter = 'all'
+        OR (p_filter = 'dismissed' AND d.review_at > now())
+        OR (p_filter = 'active' AND (d.review_at IS NULL OR d.review_at <= now()))
+      )
+    UNION ALL
+    SELECT a.id
+    FROM public.alerts a
+    WHERE p_filter IN ('active', 'all')
+      AND a.status <> 'closed'
+      AND NOT EXISTS (SELECT 1 FROM public.alert_items i WHERE i.alert_id = a.id)
+  ) queue_rows;
+
+  RETURN v_count;
 END;
 $function$;
 
@@ -571,13 +637,15 @@ $function$;
 REVOKE ALL ON FUNCTION public.upsert_alert_item(TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.resolve_alert_item(TEXT, TEXT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.dismiss_alert_item(BIGINT, TEXT, TIMESTAMPTZ) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.list_alert_queue(TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.list_alert_queue(TEXT, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.count_alert_queue(TEXT) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.list_internal_notifications(BOOLEAN) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.mark_internal_notification_read(BIGINT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.upsert_alert_item(TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, TEXT) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.resolve_alert_item(TEXT, TEXT, TEXT, TEXT, JSONB) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.dismiss_alert_item(BIGINT, TEXT, TIMESTAMPTZ) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.list_alert_queue(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.list_alert_queue(TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.count_alert_queue(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.list_internal_notifications(BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mark_internal_notification_read(BIGINT) TO authenticated;
 
@@ -587,7 +655,14 @@ GRANT EXECUTE ON FUNCTION public.mark_internal_notification_read(BIGINT) TO auth
 DO $backfill$
 DECLARE
   v_row RECORD;
+  v_result JSONB;
+  v_alert_id BIGINT;
 BEGIN
+  -- The migration runner has no JWT. The claim is local to this transaction
+  -- and lets the protected RPC perform the backfill without weakening its
+  -- runtime authorization boundary.
+  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+
   FOR v_row IN
     SELECT a.type, a.entity_type, a.entity_id, a.message
     FROM public.alerts a
@@ -595,10 +670,22 @@ BEGIN
     WHERE a.status <> 'closed' AND a.entity_type IS NOT NULL AND a.entity_id IS NOT NULL
     ORDER BY a.id
   LOOP
-    PERFORM public.upsert_alert_item(
+    v_result := public.upsert_alert_item(
       v_row.type, v_row.entity_type, v_row.entity_id, v_row.message,
       'foundation_backfill', '{}'::jsonb, NULL
     );
+    v_alert_id := (v_result ->> 'alert_id')::BIGINT;
+
+    -- The first legacy row becomes the carrier. Subsequent rows of the same
+    -- known type for this entity are consumed by that carrier and closed so
+    -- they cannot appear as duplicate historical queue rows.
+    UPDATE public.alerts a
+    SET status = 'closed', closed_at = COALESCE(a.closed_at, now())
+    WHERE a.type = v_row.type
+      AND a.entity_type = v_row.entity_type
+      AND a.entity_id = v_row.entity_id
+      AND a.id <> v_alert_id
+      AND a.status <> 'closed';
   END LOOP;
 END;
 $backfill$;

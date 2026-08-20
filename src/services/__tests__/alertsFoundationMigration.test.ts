@@ -12,8 +12,12 @@ describe('fundação transversal de alertas', () => {
     expect(sql).toContain("'portal_abuso_login', 'critical'")
     expect(sql).toContain("'portal_convite_expirado', 'normal'")
     expect(sql).toContain("'portal_falha_envio', 'normal'")
+    expect(sql).toContain("'invoice_payment_invalid'")
+    expect(sql).toContain("'invoice_cancel_blocked'")
     expect(sql).toContain('public.alert_type_catalog')
     expect(sql).not.toContain("type IN ('portal_excecao_critica_fatura','portal_convite_expirado','portal_falha_envio','portal_abuso_login')")
+    expect(sql).not.toMatch(/CREATE OR REPLACE FUNCTION public\.portal_list_provisioning_console\(/)
+    expect(sql).toContain('pg_get_functiondef')
   })
 
   it('cria agregado, itens, histórico, dispensa e notificação por destinatário', () => {
@@ -31,6 +35,15 @@ describe('fundação transversal de alertas', () => {
     expect(sql).toContain('is_fallback')
     expect(sql).toContain('RLS por destinatário')
     expect(sql).toContain('acknowledged')
+    expect(sql).not.toContain('SET type = \'aggregate\'')
+    expect(sql).toContain('CREATE TRIGGER route_catalog_alert_insert\n  AFTER INSERT')
+    expect(sql).toContain("v_reopened := v_item.status = 'resolved'")
+    expect(sql).not.toContain('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated')
+    expect(sql).toContain('REVOKE USAGE, SELECT ON SEQUENCE')
+    expect(sql).toContain('count_alert_queue')
+    expect(sql).toContain('p_entity_type TEXT DEFAULT NULL')
+    expect(sql).toContain("SET status = 'closed'")
+    expect(sql).toContain("set_config('request.jwt.claim.role', 'service_role', true)")
   })
 
   it('agenda a reconciliação sem chamar RPCs autenticadas diretamente pelo cron', () => {
@@ -42,6 +55,9 @@ describe('fundação transversal de alertas', () => {
     expect(sql).not.toContain('SELECT public.detect_overdue_invoices()')
     expect(sql).not.toContain('SELECT public.detect_agency_report_pending()')
     expect(sql).not.toContain('SELECT public.detect_agency_report_deadline_missed()')
+    expect(sql).toContain("auth.role() IS DISTINCT FROM 'service_role'")
+    expect(sql).toContain('RAISE WARNING')
+    expect(sql).not.toContain("AND NULLIF(v_url, '') IS NOT NULL")
   })
 
   it('retira a detecção da tela e a ação de reconhecimento da fila', () => {

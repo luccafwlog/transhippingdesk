@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { dismissAlertItem } from '../alerts'
+import { dismissAlertItem, listFinancialAlerts } from '../alerts'
 
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }))
 vi.mock('../supabase', () => ({ supabase: { rpc: rpcMock } }))
@@ -15,4 +15,11 @@ it('envia dispensa temporária ao RPC central com motivo e revisão futura', asy
     p_reason: 'aguardar retorno do armador',
     p_review_at: '2026-08-22T12:00:00Z',
   })
+})
+
+it('lista somente alertas financeiros no RPC, sem baixar a fila inteira', async () => {
+  rpcMock.mockResolvedValue({ data: [{ entity_type: 'invoice', id: 3 }], error: null })
+
+  await expect(listFinancialAlerts()).resolves.toEqual([{ entity_type: 'invoice', id: 3 }])
+  expect(rpcMock).toHaveBeenCalledWith('list_alert_queue', { p_filter: 'active', p_entity_type: 'invoice' })
 })

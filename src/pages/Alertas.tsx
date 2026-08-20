@@ -11,6 +11,8 @@ import { dismissAlertItem, formatAgencyReportAlertEntity, listAlerts, type Alert
 
 const TYPE_LABELS: Record<string, string> = {
   invoice_overdue: 'Fatura vencida',
+  invoice_payment_invalid: 'Pagamento inválido',
+  invoice_cancel_blocked: 'Cancelamento bloqueado',
   portal_consolidation_obsoleted: 'Consolidada obsoleta (portal)',
   demurrage: 'Demurrage',
   billing_calculation_blocked: 'Cálculo bloqueado',
@@ -189,10 +191,10 @@ function alertEntityLink(alert: { type: string; entity_type: string | null; enti
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'agency_departure_report') {
-    const [voyageId, port, terminal] = alert.entity_id.split('::')
+    const [voyageId, port, terminalOrLegacyKey, terminalizedKey] = alert.entity_id.split('::')
     if (!/^\d+$/.test(voyageId)) return null
     const params = new URLSearchParams({ tab: 'adr', escala: port })
-    if (terminal) params.set('terminal', terminal)
+    if (terminalizedKey !== undefined) params.set('terminal', terminalOrLegacyKey)
     return `/viagens/${voyageId}?${params.toString()}`
   }
   if (alert.entity_type === 'voyage' && /^\d+$/.test(alert.entity_id)) return `/viagens/${alert.entity_id}`

@@ -42,10 +42,19 @@ export function formatAgencyReportAlertEntity(entityId: string): string | null {
     : `Viagem ${voyageId} · ${port} · ${label}`
 }
 
-export async function listAlerts(statusFilter: AlertStatusFilter = 'all'): Promise<AlertQueueRow[]> {
-  const { data, error } = await alertsRpc.rpc('list_alert_queue', { p_filter: statusFilter })
+export async function listAlerts(statusFilter: AlertStatusFilter = 'all', entityType?: string): Promise<AlertQueueRow[]> {
+  const { data, error } = await alertsRpc.rpc('list_alert_queue', {
+    p_filter: statusFilter,
+    ...(entityType ? { p_entity_type: entityType } : {}),
+  })
   if (error) throw error
   return (Array.isArray(data) ? data : []) as AlertQueueRow[]
+}
+
+export async function countAlertQueue(statusFilter: AlertStatusFilter = 'active'): Promise<number> {
+  const { data, error } = await alertsRpc.rpc('count_alert_queue', { p_filter: statusFilter })
+  if (error) throw error
+  return typeof data === 'number' ? data : Number(data ?? 0)
 }
 
 export async function dismissAlertItem(itemId: number, reason: string, reviewAt: string): Promise<void> {
@@ -88,8 +97,7 @@ export async function createAlert(input: {
 }
 
 export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
-  const rows = await listAlerts('active')
-  return rows.filter((alert) => alert.entity_type === 'invoice')
+  return listAlerts('active', 'invoice')
 }
 
 // Deprecated browser compatibility. The only production scheduler is the
