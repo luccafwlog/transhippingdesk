@@ -1,5 +1,6 @@
 import { Suspense, useEffect, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { routeTitle } from './lib/pageTitle'
 import { AppLayout } from './components/layout/AppLayout'
 import { PortalProtectedRoute } from './components/layout/PortalProtectedRoute'
@@ -9,7 +10,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { lazyPage } from './lib/lazyPage'
 import { matchRoutePreload, type RoutePreloadTable } from './lib/routePreload'
 import { resolveLegacyFaturamentoRedirect, resolveTaxasLocaisRedirect, toRouteTarget } from './lib/routeRedirects'
-import { markStartupStage } from './lib/telemetry'
+import { markStartupStage, redactVercelTelemetryEvent } from './lib/telemetry'
 
 const Login = lazyPage(() => import('./pages/Login'), 'Login')
 const PortalLogin = lazyPage(() => import('./pages/PortalLogin'), 'PortalLogin')
@@ -205,6 +206,7 @@ export default function App() {
       </>
       )}
       </Routes>
+      <Analytics beforeSend={redactVercelTelemetryEvent} />
     </>
   )
 }

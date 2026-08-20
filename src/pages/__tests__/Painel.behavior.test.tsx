@@ -55,6 +55,8 @@ vi.mock('@tanstack/react-query', () => ({
           ata: '2026-07-10',
           atb: '2026-07-10',
           rowType: 'import',
+          importTerminal: 'TVV',
+          exportTerminal: 'TBC',
           vin: 1,
           car: 0,
           cg: 1,
@@ -84,6 +86,8 @@ vi.mock('@tanstack/react-query', () => ({
           ata: null,
           atb: '2026-07-10',
           rowType: 'import',
+          importTerminal: 'TBC',
+          exportTerminal: 'TBC',
           vin: 0,
           car: 0,
           cg: 1,
@@ -113,6 +117,8 @@ vi.mock('@tanstack/react-query', () => ({
           ata: null,
           atb: null,
           rowType: 'export',
+          importTerminal: 'TBC',
+          exportTerminal: 'PORTMAC',
           vin: 0,
           car: 0,
           cg: 0,
@@ -207,6 +213,14 @@ it('US-121: exibe escala aguardando com status vermelho', () => {
   renderPainel()
 
   expect(screen.getAllByText('Aguardando').some((element) => element.classList.contains('app-badge--red'))).toBe(true)
+})
+
+it('exibe terminal por sentido na mesma linha da escala e preserva TBC', () => {
+  renderPainel()
+
+  expect(screen.getByText('TVV')).toBeTruthy()
+  expect(screen.getByText('PORTMAC')).toBeTruthy()
+  expect(screen.getByText(/TBC = sem atribuição/)).toBeTruthy()
 })
 
 it('usa ATA na coluna ETA e destaca somente a escala atracada', () => {

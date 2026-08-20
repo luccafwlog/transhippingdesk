@@ -42,6 +42,7 @@ export function LineUpTable({
           <col className={isDisplay ? 'w-[20%]' : 'w-[19%]'} />
           <col className={isDisplay ? 'w-[5%]' : 'w-[5%]'} />
           <col className={isDisplay ? 'w-[7%]' : 'w-[7%]'} />
+          <col className={isDisplay ? 'w-[6%]' : 'w-[7%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[6%]'} />
           <col className={isDisplay ? 'w-[6%]' : 'w-[5%]'} />
@@ -59,6 +60,7 @@ export function LineUpTable({
             <th scope="col" className="px-1 py-2 text-center" title="Navio">Vessel</th>
             <th scope="col" className="px-1 py-2 text-center" title="Número da viagem">Voy</th>
             <th scope="col" className="px-1 py-2 text-center" title="Porto de descarga">POD</th>
+            <th scope="col" className="px-1 py-2 text-center" title="Terminal da operação, por sentido">Terminal</th>
             <th scope="col" className="px-1 py-2 text-center" title="Chegada estimada">ETA</th>
             <th scope="col" className="px-1 py-2 text-center" title="Atracação estimada">ETB</th>
 <th scope="col" className="px-1 py-2 text-center" title="Veículos">VIN</th>
@@ -78,7 +80,7 @@ export function LineUpTable({
         >
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={14} className="p-0">
+              <td colSpan={15} className="p-0">
                 <EmptyState title={emptyTitle} description={emptyDescription} />
               </td>
             </tr>
@@ -86,6 +88,7 @@ export function LineUpTable({
 
           {rows.map((row, index) => {
             const isExport = row.rowType === 'export'
+            const terminal = isExport ? row.exportTerminal : row.importTerminal
             const arrival = arrivalDisplay({ eta: row.eta, ata: row.ata })
             const isBerthed = deriveEscalaState({ atb: row.atb, atd: row.atd }) === 'atracada'
             return (
@@ -105,7 +108,13 @@ export function LineUpTable({
                 </td>
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>{row.voyageNumber}</td>
                 <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
-                  {row.pod}
+                  <div className="flex flex-wrap items-center justify-center gap-1">
+                    <span>{row.pod}</span>
+                    {row.omitted ? <OmittedChip /> : null}
+                  </div>
+                </td>
+                <td className={isDisplay ? 'px-1 py-1 text-center font-black text-[#214b2f]' : 'px-3 py-3 text-center font-semibold text-white'}>
+                  {terminal}
                 </td>
                 <td className={isDisplay ? 'px-1 py-1 text-center' : 'px-3 py-3 text-center'}>
                   <span className={arrival.isActual ? 'text-green-600' : undefined}>{formatShortDate(arrival.value)}</span>
@@ -213,7 +222,7 @@ export function LineUpTable({
 
           {Array.from({ length: placeholderSlots }).map((_, index) => (
             <tr key={`lineup-placeholder-${index}`} className="app-lineup-placeholder-row" aria-hidden="true">
-              <td colSpan={14} />
+              <td colSpan={15} />
             </tr>
           ))}
         </tbody>
@@ -255,4 +264,15 @@ function formatShortDate(value: string | null) {
 
 function formatInteger(value: number) {
   return new Intl.NumberFormat('pt-BR').format(Number(value ?? 0))
+}
+
+function OmittedChip() {
+  return (
+    <span
+      className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+      title="Escala omitida — o navio não atracou neste porto."
+    >
+      Omitida
+    </span>
+  )
 }

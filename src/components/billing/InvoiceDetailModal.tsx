@@ -58,7 +58,7 @@ type InvoiceDetailModalProps = {
 }
 
 export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, paymentId }: InvoiceDetailModalProps) {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, can } = useAuth()
   const { showToast } = useToast()
   const confirm = useConfirm()
   const queryClient = useQueryClient()
@@ -85,6 +85,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     .filter((refund) => refund.status === 'pending')
     .reduce((sum, refund) => sum + Number(refund.amount_brl ?? 0), 0)
   const settleRefundMutation = useSettleInvoiceRefund()
+  const canSettleRefund = typeof can === 'function' ? can('settle_financial_adjustments') : isAdmin
   const detailInvoice = detailQuery.data?.invoice ?? null
   const isLedgerPayable = isLedgerInvoicePayable(detailInvoice)
   const registerPaymentMutation = useRegisterInvoicePayment()
@@ -494,10 +495,12 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                             <td className="px-3 py-2">{formatDate(refund.created_at)}</td>
                             <td className="px-3 py-2">{formatBRL(refund.amount_brl)}</td>
                             <td className="px-3 py-2">
-                              {refund.status === 'pending' ? (
+                              {refund.status === 'pending' && canSettleRefund ? (
                                 <Badge tone="yellow">Pendente</Badge>
                               ) : refund.status === 'settled' ? (
                                 <Badge tone="green">Efetuada</Badge>
+                              ) : refund.status === 'pending' ? (
+                                <span className="text-xs text-slate-500">Aguardando Financeiro</span>
                               ) : (
                                 <Badge tone="slate">Cancelada</Badge>
                               )}

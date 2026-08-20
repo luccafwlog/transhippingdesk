@@ -7,7 +7,7 @@ const select = vi.fn().mockReturnValue({ eq: eqNatureza })
 const from = vi.fn().mockReturnValue({ select })
 vi.mock('../supabase', () => ({ supabase: { from } }))
 
-const { resolveDepot, listArmazenagemServices } = await import('../depots')
+const { resolveDepot, listArmazenagemServices, upsertDepot } = await import('../depots')
 
 describe('Cadastro de Depot', () => {
   it('trata entrada vazia como Embarque Direto', async () => {
@@ -23,5 +23,18 @@ describe('listArmazenagemServices', () => {
     expect(from).toHaveBeenCalledWith('depot_services')
     expect(eqNatureza).toHaveBeenCalledWith('natureza', 'armazenagem')
     expect(eqActive).toHaveBeenCalledWith('active', true)
+  })
+})
+
+describe('upsertDepot', () => {
+  it.each([null, 0])('rejeita terminal portuário sem port_id válido (%s)', async (portId) => {
+    from.mockClear()
+
+    await expect(upsertDepot({
+      code: 'TVV', name: 'Terminal', tipo: 'terminal_portuario', port_id: portId,
+      active: true, free_time_vazio_days: 0, free_time_material_days: 0,
+    } as never)).rejects.toThrow('Terminal portuário exige um porto brasileiro.')
+
+    expect(from).not.toHaveBeenCalled()
   })
 })

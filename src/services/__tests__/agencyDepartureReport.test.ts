@@ -45,6 +45,7 @@ function queryBuilder(data: unknown[] = []) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    is: vi.fn(() => builder),
     in: vi.fn(() => builder),
     order: vi.fn(() => builder),
     range: vi.fn(() => builder),
@@ -63,6 +64,7 @@ function pagedQueryBuilder(data: unknown[]) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    is: vi.fn(() => builder),
     in: vi.fn(() => builder),
     order: vi.fn(() => builder),
     range: vi.fn((from: number, to: number) => {
@@ -77,6 +79,7 @@ function singleQueryBuilder(data: unknown) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
+    is: vi.fn(() => builder),
     in: vi.fn(() => builder),
     maybeSingle: vi.fn(() => Promise.resolve({ data, error: null })),
   }
@@ -643,6 +646,8 @@ describe('getAgencyReportOwnData', () => {
       closed_by_name: 'Lucca F.',
       actor_names: { 'other-user': 'Lucca F.' },
     })
+
+    expect(reportQuery.is).toHaveBeenCalledWith('terminal_id', null)
 
     expect(rpcMock).toHaveBeenCalledWith('get_agency_report_actor_names', {
       p_voyage_id: 7,

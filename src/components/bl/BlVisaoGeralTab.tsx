@@ -40,8 +40,8 @@ export function BlVisaoGeralTab({ active, bl, cockpit, isContainerMode, containe
   isContainerMode: boolean
   containerSummary: ContainerSummary
   breakbulkSummary: BreakbulkSummary
-  onCod?: () => void
-  onRestore?: () => void
+  onCod?: (justification: string) => void
+  onRestore?: (justification: string) => void
   disposition?: BlDisposition | null
   omission?: VoyageOmission | null
   savingDisposition?: boolean

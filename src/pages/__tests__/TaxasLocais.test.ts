@@ -53,6 +53,8 @@ vi.mock('../../hooks/useBillingLedger', () => ({
   useConsolidatableReceivables: () => ({ data: [], isLoading: false }),
   useCreateConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRegisterLedgerInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  usePendingCodAdjustments: () => ({ data: [], isLoading: false, error: null }),
+  useSettleCodAdjustment: () => ({ mutateAsync: vi.fn(), isPending: false, variables: undefined }),
   useInvoiceRefunds: () => ({ data: [] }),
   useSettleInvoiceRefund: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
@@ -88,13 +90,14 @@ vi.mock('../../components/billing/ValidacaoTab', () => ({
 }))
 
 describe('TaxasLocais', () => {
-  it('usa abas destacadas com apenas Faturas e Validação (etapa 12: Pendências e Demurrage saíram)', () => {
+  it('usa abas destacadas com Faturas e Validação e mantém o painel de ajustes COD', () => {
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
     expect(html).toContain('class="app-tab app-tab--active"')
     expect(html).toContain('Valida')
     expect(html).toContain('Faturas')
-    expect(html).not.toContain('Pendências')
+    expect(html).toContain('Ajustes de COD')
+    expect(html).not.toContain('role="tab" aria-selected="false">Pendências')
     // Demurrage não é mais uma aba, lista, modal, faixa ou impressão duplicada
     // nesta superfície; sua operação própria continua em /demurrage.
     expect(html).not.toContain('role="tab" aria-selected="false">Demurrage')

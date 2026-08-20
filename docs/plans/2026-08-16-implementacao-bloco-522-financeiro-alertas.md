@@ -44,6 +44,10 @@ existentes.
 - [ ] Confirmar que o bloco não cria dependência de cliente ou Portal para
   Granito. A documentação específica do apoio quantitativo do Granito fica
   fora deste plano.
+- [ ] Ler ADR 0051 e migrations 312–313 da PR #553. Manter `cod_adjustments`
+  no painel/ledger próprio, sem produtor de Alerta ou Notificação Interna para
+  Financeiro. Taxa Local resolve por destino/porto; terminal identifica apenas
+  descarga/ADR e não muda com COD.
 
 ## Task 1: Ajustar o catálogo e a resolução de destino
 
@@ -210,6 +214,8 @@ disponíveis.
   Portal, Demurrage overdue e guards transitórios.
 - [ ] Verificar que não existe chamada direta para Financeiro em nenhum evento
   do bloco.
+- [ ] Provar que COD, reversão para Transbordo e liquidação de `cod_adjustment`
+  não criam fan-out; testar separadamente destino tarifário e terminal físico.
 - [ ] Verificar que a importação PIX não perde candidatos órfãos ao desmontar
   a tela e que a resolução não ignora as validações financeiras.
 - [ ] Executar `npm run typecheck`, `npm run lint`, testes focados, `npm test`,

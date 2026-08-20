@@ -2,7 +2,9 @@
 
 Status: aceito — 2026-08-06 (decisão 3 supersedida parcialmente pela
 [ADR 0040](./0040-vigencia-da-tabela-de-taxas-e-informativa.md) em 2026-08-07;
-ver nota editorial ao final)
+decisão 1 supersedida parcialmente pela
+[ADR 0051](./0051-cod-reprecifica-no-destino-final.md) em 2026-08-18;
+ver notas editoriais ao final)
 
 ## Contexto
 
@@ -280,3 +282,22 @@ O gap conhecido registrado na nota editorial anterior — "a taxa de preenchimen
 real da ETA por escala não foi verificada contra produção" — foi o que motivou a
 0040. As demais decisões desta ADR permanecem íntegras, em especial a 2
 (congelamento na emissão) e a 5 (vigência da Condição de Cliente).
+
+## Nota editorial — 2026-08-18 (decisão 1 supersedida parcialmente)
+
+A [ADR 0051](./0051-cod-reprecifica-no-destino-final.md) inverteu a parte da
+decisão 1 que afirmava que COD não altera a Taxa Local. A Taxa Local é cobrança
+de chegada no **destino final**, e o COD muda o destino final — logo ele
+reprecifica. O Transbordo continua não reprecificando, porque nele o destino
+final é preservado.
+
+Cai junto a justificativa "a taxa devida continua sendo a do porto declarado no
+CE": o CE Mercante permanece o **fato gerador** da cobrança, mas nunca foi o
+seletor do preço, e o schema nunca vinculou um CE a um porto — `bls.ce_mercante`
+é `TEXT` livre. A [revisão de 2026-08-18](../archive/audits/2026-08-18-revisao-transbordo-cod.md)
+também apurou que a regra nunca chegou a ser aplicada: nada no fluxo de COD
+disparava recálculo, e o resultado dependia de o B/L ser tocado depois ou não.
+
+O restante desta ADR permanece íntegro — em especial a decisão 2 (congelamento
+na emissão e recusa de recálculo para B/L faturado), que é justamente o que
+define os três ramos do ajuste financeiro na 0051.

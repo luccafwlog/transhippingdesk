@@ -39,7 +39,49 @@ vi.mock('../../hooks/useViagemSchedulesAndStats', () => ({
     polSchedules: new Map(),
     podSchedules: new Map(),
     podSchedulesByVoyage: new Map(),
-    exportSchedulesData: new Map(),
+    escalaSchedulesByVoyage: new Map([
+      [41, [{
+        voyageId: 41,
+        port: 'BRVIX',
+        eta: null,
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: null,
+        atd: null,
+        rtw: null,
+        ceStatus: 'waiting',
+        podCeStatus: 'waiting',
+        exportCeStatus: 'waiting',
+        linked: false,
+        escalaNumber: null,
+        omitted: false,
+        deleted: false,
+        temImportacao: false,
+        temExportacao: true,
+        temGranito: true,
+        temVazios: true,
+        containersQty: null,
+        movementsQty: null,
+        dischargePorts: [],
+        divergences: [],
+      }]],
+    ]),
+    exportSchedulesData: new Map([
+      [41, new Map([['BRVIX', {
+        id: 'export-41',
+        voyageId: 41,
+        pol: 'BRVIX',
+        temExportacao: true,
+        hasGranite: true,
+        hasEmpty: true,
+        containersQty: null,
+        movementsQty: null,
+        ceStatus: 'waiting',
+        linked: false,
+        dischargePorts: [],
+      }]])],
+    ]),
   }),
 }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ isAdmin: false, user: null, can: () => false }) }))
@@ -76,6 +118,13 @@ it('filtra o rail por viagens canceladas', () => {
 it('US-213: sem selecao mostra "Selecione uma viagem"', () => {
   renderAt('/viagens')
   expect(screen.getByText('Selecione uma viagem')).toBeTruthy()
+})
+
+it('declara granito e vazios no rail mesmo sem quantidades operadas', () => {
+  renderAt('/viagens')
+
+  expect(screen.getByLabelText('Vazios EXP')).toBeTruthy()
+  expect(screen.getByLabelText('Granito')).toBeTruthy()
 })
 
 it('seleciona a viagem pelo id do item do rail', () => {

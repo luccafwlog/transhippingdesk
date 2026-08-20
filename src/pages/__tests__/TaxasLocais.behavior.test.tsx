@@ -13,9 +13,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: [], isLoading: false, error: null }),
+  useMutation: () => ({ mutateAsync: vi.fn(), isPending: false, variables: null }),
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }))
-vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' } }) }))
+vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' }, can: () => false }) }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../hooks/useBilling', () => ({
   useInvoices: () => ({ data: { rows: [], count: 0 }, isLoading: false, error: null }),

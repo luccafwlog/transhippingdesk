@@ -31,14 +31,13 @@ import {
 } from '../../services/voyageRouteSchedules'
 import type { VoyageExportSchedule } from '../../services/voyageExportSchedules'
 import { ESTADO_CONCILIACAO_META, statusLabel, VOYAGE_STATUS_BADGE_TONE, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
-import { buildVoyageRouteLegs, type VoyageImportBatch } from './voyageCardHelpers'
+import { buildVoyageRouteLegs, collectVoyageManifestBatchRows, type VoyageImportBatch } from './voyageCardHelpers'
 import { VoyageVisaoTab } from './VoyageVisaoTab'
 import { VoyageImportacaoTab } from './VoyageImportacaoTab'
 import { VoyageExportacaoTab } from './VoyageExportacaoTab'
 import { VoyageManifestosTab } from './VoyageManifestosTab'
 import { VoyageAgencyReportTab } from './VoyageAgencyReportTab'
 import { OmitEscalaModal } from './OmitEscalaModal'
-import { TransshipmentPanel } from './TransshipmentPanel'
 import type {
   EditingPolPayload,
   Voyage,
@@ -108,6 +107,8 @@ type VoyageCardProps = {
   onEditPol: (payload: EditingPolPayload) => void
   initialTab?: VoyageTabKey
   initialEscala?: string
+  initialReportId?: string
+  initialTerminalCode?: string
 }
 
 export function VoyageCard({
@@ -126,6 +127,8 @@ export function VoyageCard({
   onEditPol,
   initialTab = 'visao',
   initialEscala,
+  initialReportId,
+  initialTerminalCode,
 }: VoyageCardProps) {
   const [activeTab, setActiveTab] = useState<VoyageTabKey>(initialTab)
   const [omitTarget, setOmitTarget] = useState<string | null>(null)
@@ -170,6 +173,24 @@ export function VoyageCard({
     escalas: scheduledEscalaRows,
     exportDischargePorts: (voyage.granite_manifests ?? []).map((manifest) => manifest.discharge_port),
   })
+  const manifestRows = useMemo(
+    () => collectVoyageManifestBatchRows({
+      voyageId: voyage.id,
+      batches: importBatches,
+      bls: voyage.bls,
+      polSchedules,
+      routeCeMasters,
+    }),
+    [importBatches, polSchedules, routeCeMasters, voyage.bls, voyage.id],
+  )
+  const blCountByPod = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const row of manifestRows) {
+      const podKey = normalizePortCode(row.pod) ?? normalizePortName(row.pod)
+      counts.set(podKey, (counts.get(podKey) ?? 0) + row.blCount)
+    }
+    return counts
+  }, [manifestRows])
   const escalasByPort = new Map(scheduledEscalaRows.map((schedule) => [normalizePortCode(schedule.port) ?? normalizePortName(schedule.port), schedule]))
   const podRows: VoyagePodRow[] = destinationPorts.map((pod) => {
     const schedule = escalasByPort.get(normalizePortCode(pod) ?? normalizePortName(pod))
@@ -178,6 +199,7 @@ export function VoyageCard({
     const autoCeStatus = deriveAutomaticVoyagePodCeStatus(routeCeFilledCount, routeBls.length)
     return {
       pod: schedule?.port ?? pod,
+      blCount: blCountByPod.get(normalizePortCode(pod) ?? normalizePortName(pod)) ?? 0,
       eta: schedule?.eta ?? null,
       etb: schedule?.etb ?? null,
       ata: schedule?.ata ?? null,
@@ -454,6 +476,8 @@ export function VoyageCard({
               carrierName={voyage.vessel?.carrier?.name ?? 'Armador não informado'}
               pods={adrPods}
               initialEscala={initialEscala}
+              reportId={initialReportId}
+              terminalCode={initialTerminalCode}
             />
           ) : null}
         </div>
@@ -465,9 +489,9 @@ export function VoyageCard({
           voyageId={voyage.id}
           omittedPod={omitTarget}
           candidateDischargePods={activePods.length > 1 ? activePods.filter((pod) => pod !== omitTarget) : activePods}
+          blCount={podRows.find((row) => (normalizePortCode(row.pod) ?? normalizePortName(row.pod)) === (normalizePortCode(omitTarget) ?? normalizePortName(omitTarget)))?.blCount ?? 0}
         />
       ) : null}
-      <TransshipmentPanel voyageId={voyage.id} />
     </Card>
   )
 }

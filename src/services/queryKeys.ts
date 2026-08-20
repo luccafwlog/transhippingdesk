@@ -11,7 +11,7 @@ export const queryKeys = {
       (blId === undefined ? (['bl-local-charge-lines'] as const) : (['bl-local-charge-lines', blId] as const)),
     manualChargeItems: (blId?: string) =>
       (blId === undefined ? (['manual-charge-items'] as const) : (['manual-charge-items', blId] as const)),
-    timeline: (blId: string) => ['bl-timeline', blId] as const,
+    timeline: (blId?: string) => (blId === undefined ? (['bl-timeline'] as const) : (['bl-timeline', blId] as const)),
   },
   invoices: {
     all: () => ['invoices'] as const,
@@ -60,10 +60,25 @@ export const queryKeys = {
     billingStatus: (voyageIds: number[]) => ['voyage-billing-status', voyageIds] as const,
     polSchedules: (entityIds: string[]) => ['voyage-pol-schedules', entityIds] as const,
     podSchedules: (voyageIds: number[]) => ['voyage-pod-schedules', voyageIds] as const,
-    escalaSchedules: (voyageIds: number[]) => ['voyage-escala-schedules', voyageIds] as const,
+    escalaSchedules: (voyageIds?: number[]) => voyageIds === undefined
+      ? (['voyage-escala-schedules'] as const)
+      : (['voyage-escala-schedules', voyageIds] as const),
     routeCeMasters: (voyageIds: number[]) => ['voyage-route-ce-masters', voyageIds] as const,
     exportSchedules: (voyageIds: number[]) => ['voyage-export-schedules', voyageIds] as const,
     vaziosExportPorts: (voyageId: number) => ['voyage-vazios-export-ports', voyageId] as const,
+    escalaTerminal: (voyageId: number, port: string) => ['voyage-escala-terminal', voyageId, port] as const,
+    escalaTerminalAll: () => ['voyage-escala-terminal'] as const,
+    timeline: (voyageId: number) => ['voyage-timeline', String(voyageId)] as const,
+  },
+  agencyReports: {
+    all: () => ['agency-report'] as const,
+    byScale: (voyageId: number, port: string) => ['agency-report', voyageId, port] as const,
+    ownByScale: (voyageId: number, port: string) => ['agency-report-own', voyageId, port] as const,
+    ownByReportId: (reportId: string) => ['agency-report-own', 'report', reportId] as const,
+    terminalState: (voyageId: number, port: string) => ['agency-report-terminal-state', voyageId, port] as const,
+    byReportId: (reportId: string) => ['agency-report', 'report', reportId] as const,
+    signoffEvents: (voyageId: number, port: string) => ['agency-report-signoff-events', voyageId, port] as const,
+    departmentSignoffEvents: (voyageId: number, port: string) => ['agency-report-department-signoff-events', voyageId, port] as const,
   },
   transshipments: {
     byVoyage: (voyageId: number) => ['transshipments', 'voyage', voyageId] as const,

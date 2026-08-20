@@ -42,6 +42,7 @@ export type AddingPodPayload = { voyageId: number; voyageLabel: string }
 // Linha da tabela de planejamento POD, derivada do schedule + cobertura de CE.
 export type VoyagePodRow = {
   pod: string
+  blCount: number
   eta: string | null
   etb: string | null
   ata: string | null

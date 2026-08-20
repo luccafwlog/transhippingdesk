@@ -18,6 +18,19 @@ legados. Essa reorganização de telas não altera a audiência: eventos de Taxa
 Locais continuam sendo tratados por Documentação, e Financeiro permanece fora
 do fan-out de Alertas/Notificações deste bloco.
 
+### Nota de integração após as PRs #550 e #553
+
+COD passou a reprecificar a Taxa Local pelo novo destino final e pode criar um
+`cod_adjustment` append-only. A liquidação (fatura complementar,
+cancelamento/reemissão, abatimento ou restituição) é um fluxo explícito do
+Financeiro no painel de Ajustes de COD, mas continua fora do fan-out deste
+épico: não criar Alerta nem Notificação Interna sem nova decisão na #519.
+
+A tarifa local continua determinada pelo destino/porto, não pelo terminal. O
+terminal identifica a descarga física e o ADR; Transbordo preserva o destino e
+não reprecifica, enquanto COD muda o destino mas não reescreve o terminal onde
+a carga foi descarregada.
+
 ## Princípios do contrato
 
 - **Código:** `Aguardando CE` é estado normal e obrigatório depois que a
@@ -227,6 +240,8 @@ Bloco 3:
 8. Upload/leitura de extrato bem-sucedidos sem transação insegura.
 9. Apoio quantitativo do Granito, inclusive dados de taxa, CE, cliente ou
    contagem operacional: não há faturamento nem alerta financeiro.
+10. Ajuste de COD pendente de liquidação: permanece no painel financeiro
+    próprio e no ledger append-only, sem Alerta/Notificação Interna nesta rodada.
 
 ## Invariantes financeiras que não podem ser alteradas
 
@@ -244,6 +259,8 @@ Bloco 3:
   vínculo de cliente ou Portal neste bloco.
 - Um alerta ou notificação nunca substitui a confirmação financeira nem
   libera uma invoice por si só.
+- COD usa o destino final para reprecificar; terminal é dimensão operacional do
+  ADR e nunca seleciona tabela de Taxa Local. Transbordo não reprecifica.
 
 ## Dependências e bloqueios
 
@@ -287,3 +304,5 @@ de revisão de cliente que permanece ativo é o de B/Ls do #520.
   resolvível em `/demurrage`.
 - A implementação não encerra #522 até que código, verificação e documentação
   de entrega estejam completos.
+- Nenhum `cod_adjustment` cria fan-out para Financeiro; testes distinguem porto
+  de destino, terminal de descarga e reversão COD → Transbordo.
