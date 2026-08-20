@@ -398,14 +398,14 @@ $function$;
 CREATE OR REPLACE FUNCTION public.portal_invoice_exception_on_issue()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
 DECLARE
-  v_bl TEXT;
+  v_bl RECORD;
 BEGIN
   IF NEW.status <> 'issued' OR (TG_OP = 'UPDATE' AND OLD.status = 'issued') THEN RETURN NEW; END IF;
   IF NEW.bl_id IS NOT NULL THEN
     PERFORM public.upsert_portal_invoice_exception(NEW.id, NEW.bl_id);
   END IF;
   FOR v_bl IN SELECT ib.bl_id FROM public.invoice_bls ib WHERE ib.invoice_id = NEW.id LOOP
-    PERFORM public.upsert_portal_invoice_exception(NEW.id, v_bl);
+    PERFORM public.upsert_portal_invoice_exception(NEW.id, v_bl.bl_id);
   END LOOP;
   RETURN NEW;
 END;
@@ -435,12 +435,12 @@ FOR EACH ROW EXECUTE FUNCTION public.portal_invoice_exception_on_invoice_bl();
 CREATE OR REPLACE FUNCTION public.portal_invoice_exception_on_close()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
 DECLARE
-  v_bl TEXT;
+  v_bl RECORD;
 BEGIN
   IF NEW.status IN ('paid', 'partially_paid', 'cancelled', 'obsolete') AND OLD.status IS DISTINCT FROM NEW.status THEN
     IF NEW.bl_id IS NOT NULL THEN PERFORM public.block521_resolve_alert('portal_excecao_critica_fatura', 'bl', NEW.bl_id, 'documentacao', 'portal_invoice_status'); END IF;
     FOR v_bl IN SELECT ib.bl_id FROM public.invoice_bls ib WHERE ib.invoice_id = NEW.id LOOP
-      PERFORM public.block521_resolve_alert('portal_excecao_critica_fatura', 'bl', v_bl, 'documentacao', 'portal_invoice_status');
+      PERFORM public.block521_resolve_alert('portal_excecao_critica_fatura', 'bl', v_bl.bl_id, 'documentacao', 'portal_invoice_status');
     END LOOP;
   END IF;
   RETURN NEW;
@@ -556,14 +556,14 @@ GRANT EXECUTE ON FUNCTION public.reprocess_customer_billing_after_portal_activat
 DO $backfill$
 DECLARE
   v_invoice RECORD;
-  v_bl TEXT;
+  v_bl RECORD;
 BEGIN
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
   PERFORM set_config('alerts.foundation_backfill', 'on', true);
   FOR v_invoice IN SELECT id, bl_id FROM public.invoices WHERE status = 'issued' LOOP
     IF v_invoice.bl_id IS NOT NULL THEN PERFORM public.upsert_portal_invoice_exception(v_invoice.id, v_invoice.bl_id); END IF;
     FOR v_bl IN SELECT ib.bl_id FROM public.invoice_bls ib WHERE ib.invoice_id = v_invoice.id LOOP
-      PERFORM public.upsert_portal_invoice_exception(v_invoice.id, v_bl);
+      PERFORM public.upsert_portal_invoice_exception(v_invoice.id, v_bl.bl_id);
     END LOOP;
   END LOOP;
   PERFORM set_config('alerts.foundation_backfill', '', true);
