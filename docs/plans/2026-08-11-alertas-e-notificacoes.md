@@ -86,11 +86,15 @@ Fazer isso **antes** de E2, que adiciona um tipo à lista.
 ### E2 — Cron para os detectores que hoje dependem de alguém abrir a tela
 
 `detect_agency_report_pending` e `detect_agency_report_deadline_missed` só rodam
-no mount de `/alertas` (`src/pages/Alertas.tsx:53-59`); `detect_overdue_invoices`
-só roda a partir do Faturamento (`src/services/alerts.ts:98`). Nenhum tem
-agendamento — os `cron.schedule` existentes cobrem expiração de convite,
-digest do Portal, pendências gerais do Portal e `mark_overdue_invoices`, que é
-outra função.
+no mount de `/alertas` (`src/pages/Alertas.tsx:54,57`). `detect_overdue_invoices`
+tem **dois** pontos de disparo pelo browser, ambos em `src/services/alerts.ts:103`:
+a abertura de `/taxas-locais` (`src/pages/TaxasLocais.tsx:108`) e a emissão no
+detalhe da invoice (`src/components/billing/InvoiceDetailModal.tsx:246`). A rota
+`/faturamento` é apenas redirect legado desde a PR #549 e não dispara nada.
+
+Nenhum dos três tem agendamento — os `cron.schedule` existentes cobrem expiração
+de convite, digest do Portal, pendências gerais do Portal e
+`mark_overdue_invoices`, que é outra função.
 
 Consequência atual: um prazo vencido não existe enquanto ninguém abre a tela, e
 portanto não pode notificar. Agendar os três, seguindo o padrão do Portal, mas
@@ -102,7 +106,10 @@ autenticada. É pré-requisito de qualquer notificação por sino.
 
 Para cada entidade existe no máximo um alerta agregado, identificado pela chave
 `(entity_type, entity_id)`, independentemente da quantidade de condições ou dos
-departamentos envolvidos. Cada condição ativa é um item de pendência persistido,
+departamentos envolvidos. Os valores canônicos de `entity_type`/`entity_id` —
+incluindo a camada de terminal introduzida pela PR #550 — estão na tabela da
+[#519, §4](https://github.com/luccafwlog/transhippingdesk/issues/519); porto não
+identifica sozinho uma operação terminalizada. Cada condição ativa é um item de pendência persistido,
 com origem, tipo, departamento, destino, estado, timestamps e histórico próprios.
 
 - Um novo evento adiciona ou atualiza o item correspondente no mesmo agregado;
@@ -144,7 +151,8 @@ Motivos canônicos, de `compute_bl_review_pendencies`
 
 ### A2 — Taxa não calculada → pendência + sino (Faturamento)
 
-Hoje é contador no menu do faturamento. Vira pendência identificando o B/L e o
+Hoje é contador no menu de Taxas Locais (`/taxas-locais`; `/faturamento` é só
+redirect legado desde a PR #549). Vira pendência identificando o B/L e o
 motivo da trava. É o único caso do catálogo que impede dinheiro de entrar; o
 valor está em ver o acumulado do que não pode ser faturado.
 
@@ -247,9 +255,15 @@ porque o QR é estático e o cliente pode pagar com um de ontem (`158`, ADR 0015
 
 O desenho atual está correto e não muda: a migration 225 trocou pendência por
 seção por pendência **por departamento** (ADR 0029), fechando ao assinar; a 271
-somou um item independente de prazo vencido (ATD da escala unificada + 3 dias
-úteis) no agregado da escala, que fecha no Fechamento do ADR. Os dois itens
-convivem porque dizem coisas diferentes, sem criar dois alertas para a escala.
+somou um item independente de prazo vencido (ATD + 3 dias úteis) no agregado do
+ADR, que fecha no Fechamento do ADR. Os dois itens convivem porque dizem coisas
+diferentes, sem criar dois alertas para a mesma unidade.
+
+A **unidade** deste bloco mudou com a terminalização (PR #550): o ADR novo agrega
+por `agency_departure_report / voyageId::PORTO::TERMINAL` e o prazo é apurado por
+`terminal_atd`, não pelo ATD de uma escala unificada por porto. O ADR legado sem
+terminal preserva `voyageId::PORTO`. A tabela canônica está na
+[#519, §4](https://github.com/luccafwlog/transhippingdesk/issues/519).
 
 ### D1 — Encerrar o tipo legado `agency_report_section_pending`
 
