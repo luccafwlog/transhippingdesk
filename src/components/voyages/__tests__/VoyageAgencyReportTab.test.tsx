@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render as rtlRender, screen, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { VoyageAgencyReportTab } from '../VoyageAgencyReportTab'
 import { ToastProvider } from '../../ui/Toast'
 import { formatBRL } from '../../../lib/utils'
@@ -12,9 +12,11 @@ import { formatBRL } from '../../../lib/utils'
 // inalteradas em vez de repetir o provider em cada uma delas.
 const render = (ui: ReactElement) => rtlRender(ui, { wrapper: ToastProvider })
 
-const { useAgencyReportDerivedMock, useAgencyReportOwnMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
+const { useAgencyReportDerivedMock, useAgencyReportOwnMock, useAgencyReportTerminalStateMock, terminalMutateMock, closeMutateMock, reopenMutateMock, useAuthMock } = vi.hoisted(() => ({
   useAgencyReportDerivedMock: vi.fn(),
   useAgencyReportOwnMock: vi.fn(),
+  useAgencyReportTerminalStateMock: vi.fn(),
+  terminalMutateMock: vi.fn(),
   closeMutateMock: vi.fn(),
   reopenMutateMock: vi.fn(),
   useAuthMock: vi.fn(),
@@ -31,12 +33,13 @@ const { signoffMutateMock, departmentSignoffMutateMock, observationMutateMock, u
 vi.mock('../../../hooks/useAgencyReport', () => ({
   useAgencyReportDerived: useAgencyReportDerivedMock,
   useAgencyReportOwn: useAgencyReportOwnMock,
+  useAgencyReportTerminalState: useAgencyReportTerminalStateMock,
   useAgencyReportSignoffEvents: useAgencyReportSignoffEventsMock,
   useAgencyReportDepartmentSignoffEvents: useAgencyReportDepartmentSignoffEventsMock,
   useSetAgencyReportSignoff: () => ({ mutate: signoffMutateMock, isPending: false }),
   useSetAgencyReportDepartmentSignoff: () => ({ mutate: departmentSignoffMutateMock, isPending: false }),
   useSetAgencyReportSectionObservation: () => ({ mutate: observationMutateMock }),
-  useSetAgencyReportTerminal: () => ({ mutate: vi.fn() }),
+  useSetAgencyReportTerminal: () => ({ mutate: terminalMutateMock, isPending: false }),
   useCloseAgencyReport: () => ({ mutate: closeMutateMock, isPending: false }),
   useReopenAgencyReport: () => ({ mutate: reopenMutateMock, isPending: false }),
 }))
@@ -59,13 +62,16 @@ function allDepartmentsSigned() {
   ]
 }
 
-afterEach(cleanup)
+beforeEach(() => {
+  useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
+  useAgencyReportOwnMock.mockReturnValue({ data: undefined })
+  useAgencyReportTerminalStateMock.mockReturnValue({ data: { agencyReports: [] }, isLoading: false, error: null })
+  useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
+  useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+})
 
-useAgencyReportDerivedMock.mockReturnValue({ data: undefined, isLoading: false, error: null })
-useAgencyReportOwnMock.mockReturnValue({ data: undefined })
-useAgencyReportSignoffEventsMock.mockReturnValue({ data: [] })
-useAgencyReportDepartmentSignoffEventsMock.mockReturnValue({ data: [] })
-useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+afterEach(cleanup)
 
 it('abre a escala indicada no deep-link e permite trocar a escala do ADR', () => {
   render(
@@ -113,6 +119,148 @@ it('exibe a linha de serviço pelo nome, nao pelo id', () => {
   const serviceTable = screen.getByText('Bundle Composition').closest('table')!
   expect(within(serviceTable).queryByRole('columnheader', { name: '%' })).toBeNull()
   expect(within(serviceTable).queryByText('100')).toBeNull()
+})
+
+it('mantém o cabeçalho da escala e exibe granito no ADR terminalizado', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'report-portmac', voyageId: 7, port: 'BRVIX', terminalId: 'portmac', terminalCode: 'PORTMAC', terminal: 'Porto Macuco', status: 'open',
+        sections: [
+          { section: 'datas', state: 'nothing_operated', fronts: [] },
+          { section: 'carga_carregada', state: 'operated', fronts: ['granito'] },
+        ],
+      }],
+    },
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { status: 'open', terminal: 'Porto Macuco', signoffs: [], departmentSignoffs: [], occurrences: [], actor_names: {} } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [], granite: [{ real_weight_kg: 25_000, blocks_qty: 25 }], vaziosExp: [],
+      storage: { containers: 0, days: 0 }, operation: {}, schedule: { ata: '2026-08-18', atb: '2026-08-18', atd: null, rtw: 0 }, unifiedAtd: { atd: null, atdSource: null, atdRegisteredAt: null },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="report-portmac" terminalCode="PORTMAC" />)
+
+  expect(screen.getByText('Armador teste')).toBeTruthy()
+  expect(screen.getAllByText(/PORTMAC/).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('25').length).toBeGreaterThan(0)
+})
+
+it('não congela vazios de exportação no ADR que só recebeu vazio de importação', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'report-tvv', voyageId: 7, port: 'BRVIX', terminalId: 'tvv', terminalCode: 'TVV', terminal: 'TVV', status: 'open',
+        sections: [
+          { section: 'vazios_descarregados', state: 'operated', fronts: ['vazio'], frontKeys: ['importacao:vazio'] },
+          { section: 'vazios_embarcados', state: 'nothing_operated', fronts: [], frontKeys: [] },
+        ],
+      }],
+    },
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { status: 'open', terminal: 'TVV', signoffs: allSectionsSignoffs(), departmentSignoffs: allDepartmentsSigned(), occurrences: [], actor_names: {} } })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], vaziosImp: [{ container_type: '20DV' }], granite: [],
+      vaziosExp: [{ container_type: '40HC', local: { code: 'PORTMAC', tipo: 'terminal_portuario' } }],
+      storage: { containers: 2, days: 3 }, operation: { os_number: 'OS-1' }, costs: { serviceLines: [{ id: 'line-1' }] },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="report-tvv" terminalCode="TVV" />)
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar ADR' }))
+
+  const snapshot = closeMutateMock.mock.calls.at(-1)?.[0]?.snapshot
+  expect(snapshot.sections).toMatchObject({
+    vaziosDescarregados: expect.objectContaining({ totals: expect.any(Object) }),
+    vaziosEmbarcados: [],
+    vaziosUnidades: [],
+    depots: [],
+    directEmbarkCount: 0,
+    storage: null,
+    operation: null,
+    costs: null,
+  })
+})
+
+it('mantém ADR legado fora das RPCs terminalizadas quando há deep-link legado', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [
+        {
+          reportId: 'legacy-report', voyageId: 7, port: 'BRVIX', terminalId: null, terminalCode: null, terminal: null, status: 'open',
+          sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+        },
+        {
+          reportId: 'report-tvv', voyageId: 7, port: 'BRVIX', terminalId: 'tvv', terminalCode: 'TVV', terminal: 'TVV', status: 'open',
+          sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+        },
+      ],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="legacy-report" />)
+
+  expect(useAgencyReportOwnMock.mock.calls.at(-1)?.[2]).toBeNull()
+})
+
+it('mantém o terminal editável no ADR legado sem frente atribuída', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'legacy-report', voyageId: 7, port: 'BRVIX', terminalId: null, terminalCode: null, terminal: null, status: 'open',
+        sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+      }],
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { id: 'legacy-report', status: 'open', terminal: null, signoffs: [], departmentSignoffs: [], occurrences: [], actor_names: {} } })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="legacy-report" />)
+
+  const terminalInput = screen.getByLabelText('Terminal') as HTMLInputElement
+  fireEvent.change(terminalInput, { target: { value: 'TVV' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+  expect(terminalMutateMock).toHaveBeenCalledWith(expect.objectContaining({ voyageId: 7, port: 'BRVIX', terminal: 'TVV' }), expect.any(Object))
+})
+
+it('mantém o Terminal legado somente leitura fora de operações e administração', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: {
+      agencyReports: [{
+        reportId: 'legacy-report', voyageId: 7, port: 'BRVIX', terminalId: null, terminalCode: null, terminal: null, status: 'open',
+        sections: [{ section: 'datas', state: 'nothing_operated', fronts: [], frontKeys: [] }],
+      }],
+    },
+    isLoading: false,
+    error: null,
+  })
+  useAgencyReportOwnMock.mockReturnValue({ data: { id: 'legacy-report', status: 'open', terminal: 'TVV', signoffs: [], departmentSignoffs: [], occurrences: [], actor_names: {} } })
+  useAuthMock.mockReturnValue({ effectiveRole: 'documentacao', isAdmin: false })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} reportId="legacy-report" />)
+
+  expect(screen.queryByLabelText('Terminal')).toBeNull()
+  expect(screen.getByText('TVV')).toBeTruthy()
+})
+
+it('não habilita ADR legado enquanto o estado terminalizado está carregando ou falhou', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined, isLoading: true, error: null })
+  const { rerender } = render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+  expect(screen.getByText(/Carregando frentes, terminais e ADRs/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Salvar' })).toBeNull()
+
+  useAgencyReportTerminalStateMock.mockReturnValue({ data: undefined, isLoading: false, error: new Error('indisponivel') })
+  rerender(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+  expect(screen.getByText(/Nenhuma ação foi habilitada/)).toBeTruthy()
 })
 
 it('a soma das linhas exibidas bate com o "Total da operação" para uma linha legada de armazenagem com percentual não nulo', () => {

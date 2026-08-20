@@ -6,13 +6,15 @@
 > checkbox syntax for tracking.
 
 **Goal:** implementar os Alertas e Notificações Internas do ADR em um único
-agregado por escala, preservando as regras de sign-off, prazo e histórico das
+agregado por ADR/terminal, preservando as regras de sign-off, prazo e histórico das
 ADRs 0027–0039.
 
 **Architecture:** a fundação transversal da PR #517 fornece o agregado, itens,
 dispensa, fan-out e executor server-only. O Bloco 5 apenas registra os dois
 produtores do ADR no catálogo central: pendência departamental normal e prazo
-vencido crítico. Ambos usam `agency_departure_report / voyageId::PORTO`; o
+vencido crítico. ADRs novos usam
+`agency_departure_report / voyageId::PORTO::TERMINAL`; ADR legado preserva
+`voyageId::PORTO`. O
 departamento fica no item e determina a audiência. As RPCs existentes de
 resolução, sign-off, fechamento e reabertura continuam sendo as origens da
 verdade, com reconciliação idempotente imediata e varredura de segurança de 15
@@ -86,8 +88,10 @@ tipos; testes de contrato SQL.
   `agency_report_department_pending` e `agency_report_deadline_missed`; o
   primeiro é `normal`, o segundo `critical`. Declare o departamento como
   atributo/audiência do item, nunca como `alerts.assigned_to`.
-- [ ] **Step 2: Fixar a entidade pai.** Criar a chave única do agregado em
-  `(entity_type = 'agency_departure_report', entity_id = voyageId::PORTO)`.
+- [ ] **Step 2: Fixar a entidade pai.** Criar a chave única do agregado
+  terminalizado em `(entity_type = 'agency_departure_report', entity_id =
+  voyageId::PORTO::TERMINAL)` e preservar `voyageId::PORTO` somente para ADR
+  legado. Nunca colapsar terminais do mesmo porto.
   O departamento deve existir somente na chave interna do item e no payload
   de audiência.
 - [ ] **Step 3: Preservar os estados da fundação.** Não criar reconhecimento,
@@ -153,7 +157,8 @@ tipos; testes de contrato SQL.
 imutável de regra; testes SQL e de serviço.
 
 - [ ] **Step 1: Reusar `agency_report_deadline_date`.** Não criar segunda
-  função de calendário. A data inicial é o ATD real da escala unificada; o dia
+  função de calendário. A data inicial é `terminal_atd` do ADR terminalizado;
+  somente ADR legado usa o ATD real da escala unificada. O dia
   do ATD não conta, sábados/domingos não contam e feriados contam.
 - [ ] **Step 2: Reusar a baseline.** Não retroagir a regra para ATDs anteriores
   à baseline `agency_report_deadline_missed`; sem ATD não criar item; `omitted`
@@ -221,15 +226,17 @@ e de fan-out.
 
 - [ ] **Step 1: Extrair o roteador.** Retirar `alertEntityLink` da página e
   compartilhar a mesma função com o sino. Para `agency_departure_report`,
-  validar `voyageId::PORTO` e retornar
-  `/viagens/:voyageId?tab=adr&escala=PORTO`.
+  validar `voyageId::PORTO::TERMINAL` (e a forma legada) e retornar
+  `/viagens/:voyageId?tab=adr&escala=PORTO&terminal=TERMINAL`; incluir
+  `report=REPORT_ID` quando o payload congelado o trouxer.
 - [ ] **Step 2: Rotular o agregado.** Exibir “ADR” e a escala/departamento na
   apresentação; nunca mostrar `::departamento` como se fosse entidade.
 - [ ] **Step 3: Remover o contrato morto.** Alinhar filtros e ações da fila à
   fundação: não introduzir reconhecimento, fechamento manual de item derivado
   ou rótulo principal de seção legada.
-- [ ] **Step 4: Preservar deep-link.** Testar `Viagens.tsx` lendo `tab=adr` e
-  `escala=PORTO`, inclusive quando a escala é somente exportação elegível.
+- [ ] **Step 4: Preservar deep-link.** Testar `Viagens.tsx` lendo `tab=adr`,
+  `escala=PORTO`, `terminal=TERMINAL` e, quando disponível, `report=REPORT_ID`,
+  inclusive com dois terminais no mesmo porto.
 
 ### Task 8: alinhar o serviço do ADR e prevenir regressão de domínio
 
@@ -247,7 +254,11 @@ e de fan-out.
   Alertas, contadores e dashboard sem produzir alerta no browser.
 - [ ] **Step 4: Testar o contrato da aba.** Verificar estados vazio/pending,
   `Confirmado`/`Nada a declarar`, justificativa, histórico, três sign-offs,
-  fechamento 3/3 e deep-link para o porto correto.
+  fechamento 3/3 e deep-link para o terminal correto.
+- [ ] **Step 5: Cobrir Transbordo e COD.** Contar a carga em transbordo no ADR
+  do terminal atribuído à frente de descarga no Porto de Transbordo, separada
+  da carga própria do destino. COD altera destino final/taxa, não o terminal da
+  descarga física. Impedir fechamento enquanto a frente estiver `TBC`.
 
 ### Task 9: rollout, regressões e aceite
 
@@ -283,4 +294,4 @@ arquivo histórico deve ser editado.
 - Não há alerta por seção, por pessoa, por Financeiro ou por Demurrage.
 - O detector server-side roda independentemente de `/alertas`, com frequência
   de 15 minutos e deduplicação idempotente.
-- Toda ação de alerta/notificação ADR abre a aba ADR da escala correta.
+- Toda ação de alerta/notificação ADR abre a aba ADR do terminal correto.

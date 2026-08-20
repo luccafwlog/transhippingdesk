@@ -111,7 +111,7 @@ export function Painel() {
             emptyDescription="Ajuste os filtros ou aguarde o próximo ciclo de atualização."
           />
           <p className="border-t border-[var(--app-border)] px-4 py-2 text-[11px] text-[var(--app-muted)]">
-            VIN = veículos · VIN CNTR = containers com veículos · CG = carga geral · MTY = vazios · RTW = restow ·
+            Terminal = importação/exportação · TBC = sem atribuição · VIN = veículos · VIN CNTR = containers com veículos · CG = carga geral · MTY = vazios · RTW = restow ·
             BB = break-bulk (máquinas/pacotes) · CEs = status dos CEs Mercante · Linked = manifesto vinculado
           </p>
         </Card>

@@ -200,11 +200,11 @@ export function BlDetalhe() {
         omission={cockpitQuery.data?.omission}
         disposition={cockpitQuery.data?.transshipment?.disposition}
         savingDisposition={setTransshipment.isPending || setCod.isPending}
-        onCod={canEditVoyages ? () => {
-          if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setCod.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, changedBy: user.id })
+        onCod={canEditVoyages ? (justification) => {
+          if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setCod.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, justification, changedBy: user.id })
         } : undefined}
-        onRestore={canEditVoyages ? () => {
-          if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setTransshipment.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, changedBy: user.id })
+        onRestore={canEditVoyages ? (justification) => {
+          if (user?.id && bl?.voyage_id && cockpitQuery.data?.omission) setTransshipment.mutate({ blId: bl.id, omissionId: cockpitQuery.data.omission.id, justification, changedBy: user.id })
         } : undefined}
         portalStatus={portalStatus}
         baplieStatus={baplieStatus}

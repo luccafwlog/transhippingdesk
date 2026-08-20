@@ -52,6 +52,7 @@ export type ClosedAgencyReportSnapshotForSla = {
 export type ClosedAgencyReportListItem = {
   voyage_id: number
   port: string
+  terminal: string | null
   closed_at: string | null
   closed_by: string | null
   closed_snapshot: ClosedAgencyReportSnapshotForSla | null
@@ -75,7 +76,7 @@ export type AgencyReportSlaDateRange = {
 export async function listClosedAgencyReports(range?: AgencyReportSlaDateRange): Promise<ClosedAgencyReportListItem[]> {
   let query = supabase
     .from('agency_departure_reports')
-    .select('voyage_id, port, closed_at, closed_by, closed_snapshot, voyage:voyages(voyage_number, vessel:vessels(name))')
+    .select('voyage_id, port, terminal, closed_at, closed_by, closed_snapshot, voyage:voyages(voyage_number, vessel:vessels(name))')
     .eq('status', 'closed')
     .order('closed_at', { ascending: false })
 
@@ -99,6 +100,7 @@ export type AgencyReportSlaDepartmentRow = {
 export type AgencyReportSlaRow = {
   voyageId: number
   port: string
+  terminal: string | null
   voyageNumber: string | null
   vesselName: string | null
   /** ATD da escala unificada (YYYY-MM-DD), congelado no Fechamento. */
@@ -156,6 +158,7 @@ export function mapClosedReportToSlaRow(row: ClosedAgencyReportListItem): Agency
   return {
     voyageId: row.voyage_id,
     port: row.port,
+    terminal: row.terminal,
     voyageNumber: row.voyage?.voyage_number ?? null,
     vesselName: row.voyage?.vessel?.name ?? null,
     atd,

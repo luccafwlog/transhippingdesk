@@ -19,9 +19,13 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 | [`2026-08-17-bloco-524-adr-alertas-design.md`](./2026-08-17-bloco-524-adr-alertas-design.md) | Contrato de Alertas e Notificações Internas do Relatório de Agência (ADR) |
 
 Há uma spec funcional viva em consolidação. Specs funcionais aprovadas cujo
-plano já foi concluído estão preservadas no
-[arquivo histórico](../archive/specs/). A spec comportamental abaixo é
-permanente e não entra nesta tabela.
+plano já foi concluído estão preservadas no [arquivo histórico](../archive/specs/).
+
+A spec de múltiplos terminais foi concluída na PR #550 e está arquivada em
+[`../archive/specs/`](../archive/specs/). O comportamento vigente foi promovido
+para `CONTEXT.md` e `docs/ARCHITECTURE.md`.
+
+A spec comportamental abaixo é permanente e não entra nesta tabela.
 
 ## Behavioral Specification
 

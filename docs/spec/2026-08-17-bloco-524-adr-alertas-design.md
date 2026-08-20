@@ -65,12 +65,16 @@ marcada na matriz abaixo e vira trabalho de implementação.
 4. Resolução vem da origem. Dispensa é triagem temporária com motivo, autor,
    validade e revisão; não resolve a origem nem libera gate.
 5. Backfill, deduplicação e reavaliação são server-side e idempotentes.
-6. A unidade canônica do ADR é
-   `entity_type = 'agency_departure_report'` e `entity_id = voyageId::PORTO`.
-   O departamento não entra no `entity_id` do agregado.
-7. O ADR existe por escala brasileira reconstruída pela projeção atual, com POD
-   canônico e POL preenchendo lacunas. Portos estrangeiros, escalas `deleted` e
-   escalas `omitted` não são elegíveis para novos detectores.
+6. A unidade canônica de ADR novo é o terminal que operou a frente:
+   `entity_type = 'agency_departure_report'` e
+   `entity_id = voyageId::PORTO::TERMINAL`. O departamento não entra no
+   `entity_id` do agregado. ADR legado sem terminal conserva
+   `voyageId::PORTO`, sem conversão artificial.
+7. O ADR terminalizado existe por `(voyage_id, port, terminal_id)` e é acessado
+   pelas RPCs `*_by_report_id`. Portos estrangeiros e escalas `deleted` ou
+   `omitted` não são elegíveis para novos detectores. Uma frente `TBC` impede o
+   fechamento até receber terminal, mas não pode ser atribuída a um terminal
+   arbitrário pelo detector.
 8. O ADR tem seis seções: `datas`, `carga_descarregada`,
    `vazios_descarregados`, `veiculos`, `carga_carregada` e
    `vazios_embarcados`. Operação de pátio é subseção de vazios embarcados.
@@ -78,7 +82,8 @@ marcada na matriz abaixo e vira trabalho de implementação.
    departamento resolvidas; o fechamento exige os três.
 10. Ausência de dado continua pendente até `Confirmado` ou `Nada a declarar`.
     Reaberturas exigem justificativa e histórico auditável.
-11. O prazo segue a ADR 0039: ATD real da escala unificada, data sem hora,
+11. O prazo segue a ADR 0039 e a PR #550: ATD real do terminal do ADR; somente
+    ADR legado sem terminal usa o ATD da escala unificada. A data é tratada sem hora,
     três dias úteis, dia do ATD fora da conta, feriados contam, três prazos
     independentes, sem prazo próprio para o fechamento, sem retroatividade e
     sem prazo quando não houver ATD.
@@ -89,7 +94,7 @@ marcada na matriz abaixo e vira trabalho de implementação.
 
 | Área | Comportamento atual | Decisão alvo | Gap | Fonte | Risco de implementação | Teste ou verificação necessária |
 |---|---|---|---|---|---|---|
-| Unidade do Alerta | **Código:** migrations 225 e 271 inserem uma linha por departamento com `entity_id = voyageId::PORTO::departamento`. | Um agregado por escala, com itens `department_pending` e `deadline_missed` dentro dele. | A chave atual viola o contrato da fundação e duplica o agregado. | `225`, `271`, ADR 0034, plano da #517 | Perder histórico ou gerar duas filas na migração. | Teste de contrato SQL: duas condições e três departamentos resultam em uma entidade e itens distintos, com operação idempotente. |
+| Unidade do Alerta | **Código:** a migration 306 introduziu ADRs por terminal e chaves atuais `voyageId::PORTO::TERMINAL::departamento`; ADRs legados permanecem sem terminal. | Um agregado por ADR terminalizado (`voyageId::PORTO::TERMINAL`) ou legado (`voyageId::PORTO`), com itens `department_pending` e `deadline_missed`. | A fundação ainda precisa retirar o departamento da chave sem apagar a dimensão terminal. | `306`, `225`, `271`, ADR 0034, plano da #517 | Colapsar dois terminais do mesmo porto ou migrar histórico legado para o terminal errado. | Teste SQL: dois terminais no mesmo porto geram dois agregados; dois tipos e três departamentos permanecem itens; legado fica separado e idempotente. |
 | Pendência departamental | **Código:** `detect_agency_report_pending` usa ATD de `audit_logs`, avalia se alguma seção está pendente e abre `agency_report_department_pending`; o sign-off departamental fecha a linha. | Item normal por departamento após ATD enquanto o departamento ainda não tiver concluído seu sign-off; reavaliação mantém o mesmo item. | Abertura depende da lista de seções e não cobre de forma explícita um departamento já resolvido nas seções mas ainda sem sign-off; não há agregado central. | `225`, `251`, `253`, ADR 0029 | Fechar cedo ou perder pendência quando resolução e sign-off ocorrerem em mutações separadas. | Matriz SQL de ATD, seis seções, sign-off vigente, escala mista, exportação-only e omissão. |
 | Prazo vencido | **Código:** migration 271 calcula ATD unificado + três dias úteis e abre uma linha `agency_report_deadline_missed` por departamento sem `signed_at`. | Item crítico independente, no mesmo agregado, resolvido pelo sign-off vigente e reaberto se o sign-off for retirado após o vencimento. | A linha atual usa a unidade errada e não fecha imediatamente na assinatura departamental. | `271`, ADR 0039 | Recriar a regra de prazo ou confundir prazo com pendência. | Teste SQL da aritmética, baseline, `deleted/omitted`, POD→POL, assinatura e reabertura. |
 | Legado de seção | **Código:** `214` criou `agency_report_section_pending`; `225` deixou de produzir o tipo; `271` ainda o fecha como legado no fechamento. | Nenhum produtor novo. Linhas antigas abertas são migradas para o item departamental correspondente e depois fechadas, sem apagar ou renomear o histórico. | Linhas antigas podem permanecer abertas; `Alertas.tsx` ainda rotula o legado e não rotula o tipo ativo. | `214`, `219`, `225`, `271`, `src/pages/Alertas.tsx:28-45` | Recontar seção aposentada, enviar notificação duplicada ou perder auditoria. | Teste de backfill: uma linha por seção vira no máximo um item por departamento; row legado fica fechado e preservado. |
@@ -99,24 +104,25 @@ marcada na matriz abaixo e vira trabalho de implementação.
 | Reabertura do ADR | **Código:** migration 227 preserva seções e sign-offs e limpa somente o snapshot; reabertura é administrativa e auditada. | Não cria novo tipo nem reinicia prazo. Reavalia o estado vigente; só mutações de origem reabrem itens. | O detector server-side ainda não é independente da tela. | `227`, `src/services/agencyDepartureReport.ts:324-333`, ADR 0030 | Reiniciar SLA ou resetar assinaturas contra a decisão aceita. | Teste de reabertura preservando `signed_at`, `closed_snapshot` nulo e sem item espúrio. |
 | Detecção | **Código:** `Alertas.tsx:53-59` chama os dois RPCs no mount de `/alertas`; RPCs exigem `auth.uid()` e role ativa. | Executor server-only, protegido, a cada 15 minutos, mais reavaliação nas mutações autorizadoras; nunca depender da tela nem chamar diretamente pelo `pg_cron` uma função que exige `auth.uid()`. | Um prazo pode não existir até alguém abrir a tela. | `src/pages/Alertas.tsx`, `214`, `251`, `271`, plano #517/E2 | Cron sem contexto de autenticação ou dupla execução não idempotente. | Teste SQL do wrapper e verificação do agendamento em banco descartável. |
 | Audiência | **Código:** `alerts` é fila coletiva; não existe tabela/fan-out de Notificação Interna neste checkout. | Alerta legível por usuários internos autorizados; Notificação para usuários ativos do departamento do item. Financeiro nunca é audiência. | E3 ainda é dependência de implementação; `assigned_to` não deve ser sobrecarregado. | ADR 0034, PR #517, `001` | Vazamento entre departamentos ou entrega por pessoa errada. | Teste RLS/fan-out por usuário ativo, inativo, departamento e Financeiro. |
-| Destino | **Código:** `alertEntityLink` leva ADR apenas a `/viagens/:voyageId`; não preserva a escala. | Link compartilhado para `/viagens/:voyageId?tab=adr&escala=PORTO`, onde a ação de resolução/sign-off ocorre. | Alertas/notificações podem abrir a viagem sem a aba nem o porto corretos. | `src/pages/Alertas.tsx:177-203`, `src/pages/Viagens.tsx:70-74`, `VoyageAgencyReportTab.tsx:260-264` | Notificação sem ação direta ou escala errada selecionada. | Teste de roteamento com `voyageId::PORTO` e label de ação. |
+| Destino | **Código:** `Viagens.tsx` já aceita `tab=adr`, `escala`, `terminal` e `report`; `alertEntityLink` ainda abre só a viagem. | Link compartilhado para `/viagens/:voyageId?tab=adr&escala=PORTO&terminal=TERMINAL`; quando o payload congelado possuir `report_id`, preferir também `&report=REPORT_ID`. | Abrir apenas o porto pode selecionar o ADR de outro terminal. | `src/pages/Alertas.tsx`, `src/pages/Viagens.tsx`, `VoyageAgencyReportTab.tsx` | Notificação executar ação no ADR errado. | Teste com dois terminais no mesmo porto, chave legada e `report_id` válido. |
 | Seções e rótulos | **Código:** SQL 253 mantém `carga_carregada` em Documentação e chama a seção “Carga carregada”; TypeScript usa Equipamentos e “Granito”. | Implementação deve espelhar ADR 0035/0036 e SQL vigente: “Carga carregada”, dono Documentação; Granito é conteúdo atual. | Drift de contrato em `agencyDepartureReport.ts`. | `253`, ADRs 0027, 0035, 0036, `src/services/agencyDepartureReport.ts:34-52` | Sign-off enviado ao departamento errado. | Teste de serviço/UI comparando mapa TypeScript, função SQL e seis seções. |
 
 ## Modelo funcional alvo
 
 ### Agregado e itens
 
-O agregado vivo é único por escala:
+O agregado vivo é único por ADR/terminal, com compatibilidade legada:
 
 ```text
 Alerta agregado
   entity_type = agency_departure_report
-  entity_id   = voyageId::PORTO
+  entity_id   = voyageId::PORTO::TERMINAL
   ├─ item agency_report_department_pending / departamento
   └─ item agency_report_deadline_missed / departamento
 ```
 
-O `department` é atributo do item e regra de audiência. Nunca é gravado em
+Para ADR sem terminal anterior à PR #550, `entity_id = voyageId::PORTO`. O
+`department` é atributo do item e regra de audiência. Nunca é gravado em
 `alerts.assigned_to` nem anexado à chave do agregado. Os identificadores de
 item podem continuar usando os tipos ativos já conhecidos (`agency_report_department_pending`
 e `agency_report_deadline_missed`) para preservar origem, filtros e histórico;
@@ -149,10 +155,11 @@ evento apenas por serem administradores.
 Todo item deste bloco aponta para:
 
 ```text
-/viagens/:voyageId?tab=adr&escala=PORTO
+/viagens/:voyageId?tab=adr&escala=PORTO&terminal=TERMINAL
 ```
 
-`PORTO` é o porto normalizado da escala e deve ser codificado na URL. A aba ADR
+`PORTO` é o porto normalizado e `TERMINAL` é o código cadastrado. Se a entrega
+congelar `report_id`, o roteador acrescenta `report=REPORT_ID`. A aba ADR
 é a tela onde se resolve seção, assina departamento, reabre sign-off ou fecha o
 ADR. A fila e o sino usam a mesma função de roteamento; não haverá mapa de
 rotas duplicado em SQL.
@@ -176,7 +183,9 @@ seção, pessoa ou tentativa do detector.
    departamento volta a `pending`, respeitada a decisão pendente abaixo. Se o
    item já estiver ativo por outra causa, a atualização não entrega uma segunda
    Notificação.
-4. **Unidade e chave?** Agregado `agency_departure_report / voyageId::PORTO`;
+4. **Unidade e chave?** Agregado terminalizado
+   `agency_departure_report / voyageId::PORTO::TERMINAL` (ou legado
+   `voyageId::PORTO`);
    item identificado por `agency_report_department_pending + department`.
 5. **Gravidade?** Normal. É trabalho pendente após a saída, mas ainda não é
    prova de violação do prazo de três dias úteis.
@@ -195,7 +204,8 @@ seção, pessoa ou tentativa do detector.
    Reabre quando esse sign-off é reaberto depois de a data-limite já ter
    passado. O fechamento do ADR faz reconciliação de segurança, mas não substitui
    a resolução por sign-off.
-4. **Unidade e chave?** Mesmo agregado `agency_departure_report / voyageId::PORTO`;
+4. **Unidade e chave?** Mesmo agregado terminalizado
+   `agency_departure_report / voyageId::PORTO::TERMINAL` (ou legado sem terminal);
    item identificado por `agency_report_deadline_missed + department`.
 5. **Gravidade?** Crítico. O tipo representa o descumprimento explícito da
    obrigação da ADR 0039; isso não cria escalonamento genérico por idade.
@@ -231,7 +241,7 @@ seção, pessoa ou tentativa do detector.
    estado resolvido exige justificativa e grava evento em `audit_logs`, conforme
    ADR 0028. A reabertura faz o item departamental refletir a pendência; não há
    alerta por seção.
-4. **Unidade e chave?** ADR por escala; a seção é metadado de origem do item,
+4. **Unidade e chave?** ADR por terminal (ou ADR legado); a seção é metadado de origem do item,
    não parte de `entity_id`.
 5. **Gravidade?** Herda normal da pendência departamental; não é escalonamento.
 6. **Detecção e frequência?** Reavaliação server-side na RPC de resolução,
@@ -248,7 +258,7 @@ seção, pessoa ou tentativa do detector.
    item de prazo; `signed_at = NULL` com seções resolvidas pode reabrir apenas o
    item normal, e com data-limite vencida reabre também o crítico. A RPC exige
    justificativa e audita `true → false`, como já define a migration 253.
-4. **Unidade e chave?** ADR por escala; item por origem e departamento dentro
+4. **Unidade e chave?** ADR por terminal (ou ADR legado); item por origem e departamento dentro
    do agregado.
 5. **Gravidade?** Normal para pendência; crítico para prazo já vencido.
 6. **Detecção e frequência?** Reavaliação na RPC autorizada e cron server-only
@@ -267,7 +277,8 @@ seção, pessoa ou tentativa do detector.
    exige justificativa administrativa, limpa o snapshot e preserva seções e
    sign-offs, conforme ADR 0030/migration 227. Só uma mutação de origem — por
    exemplo reabrir seção ou sign-off — pode reativar os itens correspondentes.
-4. **Unidade e chave?** O mesmo agregado `voyageId::PORTO`; não criar entidade
+4. **Unidade e chave?** O mesmo agregado `voyageId::PORTO::TERMINAL` (ou a
+   chave legada sem terminal); não criar entidade
    para o fechamento.
 5. **Gravidade?** Não aplicável; não é alerta.
 6. **Detecção e frequência?** RPC transacional na ação de fechamento/reabertura
@@ -298,9 +309,9 @@ sem criar um novo tipo.
 
 ## Critérios de aceite do contrato
 
-- **524-AC-01:** uma escala brasileira elegível possui no máximo um agregado
-  `agency_departure_report / voyageId::PORTO`, mesmo com os dois tipos ativos e
-  três departamentos.
+- **524-AC-01:** cada ADR terminalizado possui no máximo um agregado
+  `agency_departure_report / voyageId::PORTO::TERMINAL`; dois terminais do
+  mesmo porto não colapsam. ADR legado conserva `voyageId::PORTO`.
 - **524-AC-02:** `agency_report_department_pending` é normal, por departamento,
   resolve no sign-off vigente e não usa `assigned_to` como audiência.
 - **524-AC-03:** `agency_report_deadline_missed` é crítico, independente da
@@ -316,11 +327,15 @@ sem criar um novo tipo.
   minutos no servidor e não são chamados diretamente pelo `pg_cron` com
   `auth.uid()` ausente.
 - **524-AC-08:** o destino leva diretamente a
-  `/viagens/:voyageId?tab=adr&escala=PORTO`.
+  `/viagens/:voyageId?tab=adr&escala=PORTO&terminal=TERMINAL`, preferindo também
+  `report=REPORT_ID` quando disponível.
 - **524-AC-09:** escala `deleted` ou `omitted`, porto estrangeiro e ATD fora da
   baseline não criam item novo; sem ATD não há prazo.
 - **524-AC-10:** a implementação alinha o dono e o rótulo de `carga_carregada`
   com SQL/ADRs antes de publicar qualquer controle de sign-off.
+- **524-AC-11:** carga em transbordo conta no ADR do terminal da frente de
+  descarga no Porto de Transbordo, separada da carga de destino final; COD não
+  muda essa descarga física. Frente `TBC` bloqueia o fechamento.
 
 ## Fora desta etapa
 

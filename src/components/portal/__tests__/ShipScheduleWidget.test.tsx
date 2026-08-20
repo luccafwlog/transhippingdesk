@@ -12,6 +12,7 @@ vi.mock('../../../hooks/usePortalScheduleVoyages', () => ({
       voyage: '001',
       imoNumber: '9876543',
       datesByLabel: { QINGDAO: '2026-01-04', SALVADOR: '2026-01-22' },
+      omittedByLabel: { VITÓRIA: true },
       earliestEta: '2026-01-22',
     }],
   }),
@@ -28,4 +29,5 @@ it('renderiza a programação projetada das viagens visíveis', () => {
   expect(screen.getByText('04/01/2026')).toBeTruthy()
   expect(screen.getByText('22/01/2026')).toBeTruthy()
   expect(screen.getByText('PECÉM')).toBeTruthy()
+  expect(screen.getByText('OMIT')).toBeTruthy()
 })

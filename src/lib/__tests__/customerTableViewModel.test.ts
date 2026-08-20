@@ -11,7 +11,7 @@ import {
 describe('customerTableViewModel', () => {
   it('monta URL de faturas filtrada pelo cliente', () => {
     expect(buildCustomerBillingUrl({ id: 42, name: 'ACME EXPORTS & LOGISTICS' })).toBe(
-      '/faturamento?tab=invoices&customer=42&customerName=ACME%20EXPORTS%20%26%20LOGISTICS',
+      '/taxas-locais?tab=invoices&customer=42&customerName=ACME%20EXPORTS%20%26%20LOGISTICS',
     )
   })
 

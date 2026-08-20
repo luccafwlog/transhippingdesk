@@ -34,8 +34,8 @@ describe('buildCustomerTimeline', () => {
     })
     expect(events.map((event) => event.kind)).toEqual(['local_payment', 'demurrage_invoice_issued', 'local_invoice_issued', 'portal_event', 'cadastro_audit', 'contact_created', 'bl_created'])
     expect(events[0].at).toBe('2026-07-06T10:00:00Z')
-    expect(events.find((event) => event.kind === 'local_invoice_issued')?.link).toBe('/faturamento?customer=101&invoice=4')
-    expect(events.find((event) => event.kind === 'local_payment')?.link).toBe('/faturamento?customer=101&invoice=4')
+    expect(events.find((event) => event.kind === 'local_invoice_issued')?.link).toBe('/taxas-locais?customer=101&invoice=4')
+    expect(events.find((event) => event.kind === 'local_payment')?.link).toBe('/taxas-locais?customer=101&invoice=4')
   })
 })
 

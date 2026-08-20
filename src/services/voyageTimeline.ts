@@ -8,6 +8,7 @@ export type VoyageScheduleEvent = {
   new_value: string | null
   changed_by?: string | null
   actor_role?: string | null
+  actor_department?: string | null
   justification?: string | null
   changed_at: string | null
 }
@@ -44,14 +45,14 @@ export async function fetchVoyageTimelineSources(
   const [scheduleRes, auditRes, resolutionRes, baplieRes, importsRes] = await Promise.all([
     supabase
       .from('audit_logs')
-      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, actor_role, justification, changed_at')
+      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, actor_role, actor_department, justification, changed_at')
       .in('entity_type', ['voyage_pod_schedule', 'voyage_pol_schedule'])
       .like('entity_id', `${voyageId}::%`)
       .order('changed_at', { ascending: false })
       .range(0, 499),
     supabase
       .from('audit_logs')
-      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, actor_role, justification, changed_at')
+      .select('entity_type, entity_id, field_name, old_value, new_value, changed_by, actor_role, actor_department, justification, changed_at')
       .in('entity_type', ['voyages', 'voyage', 'import_batches', 'import_batch', 'baplie_import'])
       .eq('entity_id', String(voyageId))
       .order('changed_at', { ascending: false })
@@ -81,7 +82,7 @@ export async function fetchVoyageTimelineSources(
   const importBatchAuditRes = importBatchIds.length
     ? await supabase
         .from('audit_logs')
-        .select('entity_id, field_name, changed_by, actor_role')
+      .select('entity_id, field_name, changed_by, actor_role, actor_department')
         .eq('entity_type', 'import_batches')
         .eq('field_name', 'criado')
         .in('entity_id', importBatchIds)
@@ -118,7 +119,11 @@ export async function fetchVoyageTimelineSources(
       const audit = (importBatchAuditRes.data ?? []).find(
         (event) => event.entity_id === String(row.id) && event.changed_by === row.uploaded_by,
       )
-      const department = audit?.actor_role ? TIMELINE_ROLE_LABELS[audit.actor_role] ?? audit.actor_role : null
+      const department = audit?.actor_department
+        ? TIMELINE_ROLE_LABELS[audit.actor_department] ?? audit.actor_department
+        : audit?.actor_role
+          ? TIMELINE_ROLE_LABELS[audit.actor_role] ?? audit.actor_role
+          : null
       if (department) actorDepartments[row.uploaded_by] = department
     }
   }

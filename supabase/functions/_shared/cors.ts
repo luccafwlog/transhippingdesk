@@ -1,14 +1,40 @@
 // Allowlist única de origens do navegador para as Edge Functions do Portal.
 // Mantém a paridade com src/App e evita a divergência que quebrou o Console
 // quando o app passou a ser servido pelos domínios próprios.
-export const ALLOWED_ORIGINS = new Set([
+const FIXED_ALLOWED_ORIGINS = [
   'https://transhippingdesk.com.br',
   'https://portal.transhippingdesk.com.br',
+  // Mantidos temporariamente para rollback durante o cutover do hosting.
   'https://transhippingdesk.web.app',
   'https://transhippingdesk.firebaseapp.com',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-])
+]
+
+// Preview URLs são efêmeras e não devem ser liberadas por um wildcard de
+// `vercel.app`. Configure no Supabase apenas as URLs exatas que precisam
+// acessar as funções, separadas por vírgula.
+export function parseConfiguredOrigins(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .flatMap((value) => {
+      try {
+        const url = new URL(value)
+        return url.protocol === 'https:' && url.origin === value ? [url.origin] : []
+      } catch {
+        return []
+      }
+    })
+}
+
+const denoRuntime = (globalThis as typeof globalThis & {
+  Deno?: { env: { get(name: string): string | undefined } }
+}).Deno
+const configuredPreviewOrigins = parseConfiguredOrigins(denoRuntime?.env.get('VERCEL_PREVIEW_ORIGINS'))
+
+export const ALLOWED_ORIGINS = new Set([...FIXED_ALLOWED_ORIGINS, ...configuredPreviewOrigins])
 
 // Origem fora da allowlist recebe a AUSÊNCIA do header, que é a negação correta
 // em CORS. Devolver a string 'null' não nega: `null` é uma origem real — a que o

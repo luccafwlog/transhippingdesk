@@ -61,7 +61,7 @@ screenshot to `docs/design-audit/assets/` (viewport 1440×900; `fullPage` for
 long list pages). Routes: `/login` (+ error state with wrong password),
 `/painel`, `/viagens` (+ Nova Viagem modal), `/manifestos`, `/containers`,
 `/carga-solta`, `/veiculos`, `/manifestos/:blId`, `/revisao`, `/clientes`,
-`/clientes/:cnpj`, `/taxas-locais`, `/faturamento` (+ Detalhes modal),
+`/clientes/:cnpj`, `/taxas-locais`, `/taxas-locais/tabelas` (+ Detalhes modal),
 `/alertas`, `/relatorios`, `/demurrage`, `/demurrage/taxas`, `/reconciliacao`,
 `/granito`, `/granito/taxas`, `/embarquevazios`, `/vazios-importacao`,
 `/baplie`, `/line-up-tv/display`, `/admin/usuarios`, `/portal/login`.
