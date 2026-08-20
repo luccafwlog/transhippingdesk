@@ -34,6 +34,11 @@ describe('formatAgencyReportAlertEntity', () => {
     expect(formatAgencyReportAlertEntity('10::BRVIX::operacao_patio')).toBe('Viagem 10 · BRVIX · Operação de pátio')
   })
 
+  it('não interpreta uma seção histórica desconhecida como terminal', () => {
+    expect(formatAgencyReportAlertEntity('10::BRVIX::secao_historica')).toBe('Viagem 10 · BRVIX · secao_historica')
+    expect(agencyReportAlertLink('10::BRVIX::secao_historica')).toBe('/viagens/10?tab=adr&escala=BRVIX')
+  })
+
   it('cai para null quando o formato não é o composto do ADR', () => {
     expect(formatAgencyReportAlertEntity('qualquer-coisa')).toBeNull()
     expect(formatAgencyReportAlertEntity('')).toBeNull()

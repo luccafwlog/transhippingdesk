@@ -30,9 +30,14 @@ const alertsRpc = supabase as unknown as AlertsRpcClient
 // voyageId::porto::terminal) ou uma chave legada com departamento/seção. O
 // departamento deixou de fazer parte da identidade do agregado, mas as formas
 // antigas continuam legíveis durante a transição.
-function isLegacyAgencyReportKey(value: string | undefined): boolean {
-  if (!value) return false
-  return value in AGENCY_REPORT_DEPARTMENT_LABELS || agencyReportSectionLabel(value) !== value
+function isTerminalCode(value: string | undefined): boolean {
+  return Boolean(value && /^[A-Z0-9][A-Z0-9._-]*$/.test(value))
+}
+
+function isTerminalizedAgencyReportKey(value: string | undefined, metadata: Record<string, unknown> = {}): boolean {
+  const metadataTerminal = metadata.terminal_code
+  return (typeof metadataTerminal === 'string' && metadataTerminal.trim().length > 0)
+    || isTerminalCode(value)
 }
 
 export function formatAgencyReportAlertEntity(entityId: string): string | null {
@@ -41,7 +46,7 @@ export function formatAgencyReportAlertEntity(entityId: string): string | null {
   if (!voyageId || !port || parts.length < 2 || parts.length > 4) return null
   if (parts.length === 2) return `Viagem ${voyageId} · ${port}`
 
-  const terminalized = parts.length === 4 || !isLegacyAgencyReportKey(third)
+  const terminalized = parts.length === 4 || (parts.length === 3 && isTerminalizedAgencyReportKey(third))
   if (terminalized) {
     const terminalLabel = parts.length === 4 && fourth
       ? ` · ${((AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[fourth] ?? agencyReportSectionLabel(fourth))}`
@@ -63,7 +68,7 @@ export function agencyReportAlertLink(
   if (!/^\d+$/.test(voyageId ?? '') || !port || parts.length < 2 || parts.length > 4) return null
 
   const params = new URLSearchParams({ tab: 'adr', escala: port })
-  const terminal = parts.length === 4 || (parts.length === 3 && !isLegacyAgencyReportKey(third))
+  const terminal = parts.length === 4 || (parts.length === 3 && isTerminalizedAgencyReportKey(third, metadata))
     ? third
     : undefined
   if (terminal) params.set('terminal', terminal)

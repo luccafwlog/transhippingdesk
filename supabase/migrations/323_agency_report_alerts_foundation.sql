@@ -40,7 +40,7 @@ GRANT EXECUTE ON FUNCTION public.agency_report_alert_entity_key(BIGINT, TEXT, TE
 ALTER TABLE public.alert_items
   DROP CONSTRAINT IF EXISTS alert_items_alert_id_item_type_key;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_alert_items_type_department
-  ON public.alert_items (alert_id, item_type, department);
+  ON public.alert_items (alert_id, item_type, department) NULLS NOT DISTINCT;
 
 -- A audiência do ADR é o departamento do item, não o departamento padrão do
 -- catálogo. A sobrecarga mantém intacta a RPC de sete argumentos usada pelos
@@ -267,19 +267,27 @@ BEGIN
     v_new_item := true;
   ELSE
     v_reopened := v_item.status = 'resolved';
-    UPDATE public.alert_items
-    SET source = p_source,
-        severity = v_catalog.severity,
-        department = v_department,
-        destination = COALESCE(p_destination, v_catalog.default_destination),
-        message = p_message,
-        metadata = COALESCE(p_metadata, '{}'::jsonb),
-        status = 'active',
-        updated_at = now(),
-        resolved_at = NULL,
-        occurrence_id = CASE WHEN v_reopened THEN gen_random_uuid() ELSE occurrence_id END
-    WHERE id = v_item.id
-    RETURNING * INTO v_item;
+    IF v_reopened
+       OR v_item.source IS DISTINCT FROM p_source
+       OR v_item.severity IS DISTINCT FROM v_catalog.severity
+       OR v_item.department IS DISTINCT FROM v_department
+       OR v_item.destination IS DISTINCT FROM COALESCE(p_destination, v_catalog.default_destination)
+       OR v_item.message IS DISTINCT FROM p_message
+       OR v_item.metadata IS DISTINCT FROM COALESCE(p_metadata, '{}'::jsonb) THEN
+      UPDATE public.alert_items
+      SET source = p_source,
+          severity = v_catalog.severity,
+          department = v_department,
+          destination = COALESCE(p_destination, v_catalog.default_destination),
+          message = p_message,
+          metadata = COALESCE(p_metadata, '{}'::jsonb),
+          status = 'active',
+          updated_at = now(),
+          resolved_at = NULL,
+          occurrence_id = CASE WHEN v_reopened THEN gen_random_uuid() ELSE occurrence_id END
+      WHERE id = v_item.id
+      RETURNING * INTO v_item;
+    END IF;
   END IF;
 
   IF v_new_item OR v_reopened THEN
@@ -296,7 +304,12 @@ BEGIN
     IF p_source <> 'foundation_backfill' THEN
       PERFORM public.fanout_alert_item_for_department(v_alert.id, v_item.id, v_event_id, v_department);
     END IF;
-  ELSE
+  ELSIF v_item.source IS DISTINCT FROM p_source
+     OR v_item.severity IS DISTINCT FROM v_catalog.severity
+     OR v_item.department IS DISTINCT FROM v_department
+     OR v_item.destination IS DISTINCT FROM COALESCE(p_destination, v_catalog.default_destination)
+     OR v_item.message IS DISTINCT FROM p_message
+     OR v_item.metadata IS DISTINCT FROM COALESCE(p_metadata, '{}'::jsonb) THEN
     INSERT INTO public.alert_item_events (
       alert_item_id, occurrence_id, event_type, previous_status, new_status,
       actor_id, metadata
@@ -309,7 +322,7 @@ BEGIN
   PERFORM set_config('alerts.foundation_internal', 'off', true);
   RETURN jsonb_build_object(
     'alert_id', v_alert.id, 'item_id', v_item.id, 'event_id', v_event_id,
-    'reopened', v_reopened
+    'reopened', v_reopened, 'created', v_new_item
   );
 END;
 $function$;
@@ -330,9 +343,15 @@ AS $function$
 DECLARE
   v_report RECORD;
   v_atd DATE;
+  v_pod_atd DATE;
+  v_pol_atd DATE;
+  v_pod_atd_changed_at TIMESTAMPTZ;
+  v_pol_atd_changed_at TIMESTAMPTZ;
   v_deadline DATE;
-  v_baseline DATE;
-  v_eligible BOOLEAN := false;
+  v_deadline_baseline DATE;
+  v_pending_baseline TIMESTAMPTZ;
+  v_pending_eligible BOOLEAN := false;
+  v_deadline_eligible BOOLEAN := false;
   v_omitted BOOLEAN := false;
   v_deleted BOOLEAN := false;
   v_terminal_code TEXT;
@@ -343,7 +362,9 @@ DECLARE
   v_deadline_missed BOOLEAN;
   v_metadata JSONB;
   v_message TEXT;
+  v_upsert_result JSONB;
   v_changed INTEGER := 0;
+  v_created INTEGER := 0;
 BEGIN
   IF NOT public.alert_actor_is_authorized() THEN
     RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501';
@@ -359,28 +380,26 @@ BEGIN
     RETURN jsonb_build_object('report_id', p_report_id, 'eligible', false, 'changed', 0);
   END IF;
 
-  IF v_report.terminal_id IS NOT NULL THEN
-    SELECT s.terminal_atd::DATE INTO v_atd
-    FROM public.voyage_escala_terminal_state s
-    WHERE s.voyage_id = v_report.voyage_id
-      AND s.port = upper(btrim(v_report.port))
-      AND s.terminal_id = v_report.terminal_id;
-  ELSE
-    SELECT COALESCE(
-      (SELECT NULLIF(btrim(a.new_value), '')::DATE
-       FROM public.audit_logs a
-       WHERE a.entity_type = 'voyage_pod_schedule'
-         AND a.entity_id = v_report.voyage_id || '::' || upper(btrim(v_report.port))
-         AND a.field_name = 'atd'
-       ORDER BY a.changed_at DESC LIMIT 1),
-      (SELECT NULLIF(btrim(a.new_value), '')::DATE
-       FROM public.audit_logs a
-       WHERE a.entity_type = 'voyage_pol_schedule'
-         AND a.entity_id = v_report.voyage_id || '::' || upper(btrim(v_report.port))
-         AND a.field_name = 'atd'
-       ORDER BY a.changed_at DESC LIMIT 1)
-    ) INTO v_atd;
-  END IF;
+  -- ATD is the unified escala value: POD is canonical and POL only fills a
+  -- missing POD value. Terminal-local dates are operational detail and must
+  -- not change the ADR deadline source.
+  SELECT NULLIF(btrim(a.new_value), '')::DATE, a.changed_at
+  INTO v_pod_atd, v_pod_atd_changed_at
+  FROM public.audit_logs a
+  WHERE a.entity_type = 'voyage_pod_schedule'
+    AND a.entity_id = v_report.voyage_id || '::' || upper(btrim(v_report.port))
+    AND a.field_name = 'atd'
+    AND NULLIF(btrim(a.new_value), '') ~ '^\d{4}-\d{2}-\d{2}$'
+  ORDER BY a.changed_at DESC, a.id DESC LIMIT 1;
+  SELECT NULLIF(btrim(a.new_value), '')::DATE, a.changed_at
+  INTO v_pol_atd, v_pol_atd_changed_at
+  FROM public.audit_logs a
+  WHERE a.entity_type = 'voyage_pol_schedule'
+    AND a.entity_id = v_report.voyage_id || '::' || upper(btrim(v_report.port))
+    AND a.field_name = 'atd'
+    AND NULLIF(btrim(a.new_value), '') ~ '^\d{4}-\d{2}-\d{2}$'
+  ORDER BY a.changed_at DESC, a.id DESC LIMIT 1;
+  v_atd := COALESCE(v_pod_atd, v_pol_atd);
 
   SELECT COALESCE((
     SELECT a.new_value = 'true'
@@ -398,15 +417,28 @@ BEGIN
       AND a.field_name = 'deleted'
     ORDER BY a.changed_at DESC LIMIT 1
   ), false) INTO v_deleted;
-  SELECT captured_at::DATE INTO v_baseline
+  SELECT captured_at INTO v_pending_baseline
+  FROM public.agency_report_pending_baselines
+  WHERE baseline_key = 'voyage_pol_schedule_atd';
+  SELECT captured_at::DATE INTO v_deadline_baseline
   FROM public.agency_report_pending_baselines
   WHERE baseline_key = 'agency_report_deadline_missed';
 
-  v_eligible := v_report.status = 'open'
+  v_pending_eligible := v_report.status = 'open'
     AND v_atd IS NOT NULL
     AND NOT v_omitted
     AND NOT v_deleted
-    AND (v_baseline IS NULL OR v_atd >= v_baseline);
+    AND upper(btrim(v_report.port)) LIKE 'BR%'
+    AND (
+      (v_pod_atd IS NOT NULL AND v_pod_atd_changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00')
+      OR (v_pol_atd IS NOT NULL AND v_pol_atd_changed_at >= v_pending_baseline)
+    );
+  v_deadline_eligible := v_report.status = 'open'
+    AND v_atd IS NOT NULL
+    AND NOT v_omitted
+    AND NOT v_deleted
+    AND upper(btrim(v_report.port)) LIKE 'BR%'
+    AND (v_deadline_baseline IS NULL OR v_atd >= v_deadline_baseline);
 
   -- A legacy ADR is no longer an eligible producer once a terminalized ADR
   -- exists for the same scale. The historical carrier remains auditable.
@@ -416,7 +448,8 @@ BEGIN
       AND newer.port = v_report.port
       AND newer.terminal_id IS NOT NULL
   ) THEN
-    v_eligible := false;
+    v_pending_eligible := false;
+    v_deadline_eligible := false;
   END IF;
 
   v_entity_id := public.agency_report_alert_entity_key(
@@ -450,18 +483,15 @@ BEGIN
       v_message := 'ADR ' || upper(btrim(v_report.port))
         || CASE WHEN v_report.terminal_code IS NULL THEN '' ELSE ' / ' || v_report.terminal_code END
         || ': departamento "' || public.agency_report_department_label(v_department) || '" pendente.';
-      IF v_eligible AND v_pending THEN
-        IF NOT EXISTS (
-          SELECT 1 FROM public.alert_items i JOIN public.alerts a ON a.id = i.alert_id
-          WHERE i.item_type = 'agency_report_department_pending'
-            AND i.status = 'active' AND a.entity_type = 'agency_departure_report'
-            AND a.entity_id = v_entity_id AND i.department = v_department
-        ) THEN
-          PERFORM public.upsert_alert_item(
-            'agency_report_department_pending', 'agency_departure_report', v_entity_id,
-            v_message, 'agency_report_reconcile', v_department, v_metadata, '/viagens'
-          );
+      IF v_pending_eligible AND v_pending THEN
+        v_upsert_result := public.upsert_alert_item(
+          'agency_report_department_pending', 'agency_departure_report', v_entity_id,
+          v_message, 'agency_report_reconcile', v_department, v_metadata, '/viagens'
+        );
+        IF COALESCE((v_upsert_result->>'created')::BOOLEAN, false)
+           OR COALESCE((v_upsert_result->>'reopened')::BOOLEAN, false) THEN
           v_changed := v_changed + 1;
+          v_created := v_created + 1;
         END IF;
       ELSE
         IF public.resolve_alert_item_for_department(
@@ -479,22 +509,19 @@ BEGIN
         FROM public.agency_departure_report_department_signoffs ds
         WHERE ds.report_id = v_report.id AND ds.department = v_department
       ), false) INTO v_signed;
-      v_deadline_missed := v_eligible AND v_deadline < CURRENT_DATE AND NOT v_signed;
+      v_deadline_missed := v_deadline_eligible AND v_deadline < CURRENT_DATE AND NOT v_signed;
       v_message := 'ADR ' || upper(btrim(v_report.port))
         || CASE WHEN v_report.terminal_code IS NULL THEN '' ELSE ' / ' || v_report.terminal_code END
         || ': prazo de conclusão vencido para "' || public.agency_report_department_label(v_department) || '".';
       IF v_deadline_missed THEN
-        IF NOT EXISTS (
-          SELECT 1 FROM public.alert_items i JOIN public.alerts a ON a.id = i.alert_id
-          WHERE i.item_type = 'agency_report_deadline_missed'
-            AND i.status = 'active' AND a.entity_type = 'agency_departure_report'
-            AND a.entity_id = v_entity_id AND i.department = v_department
-        ) THEN
-          PERFORM public.upsert_alert_item(
-            'agency_report_deadline_missed', 'agency_departure_report', v_entity_id,
-            v_message, 'agency_report_reconcile', v_department, v_metadata, '/viagens'
-          );
+        v_upsert_result := public.upsert_alert_item(
+          'agency_report_deadline_missed', 'agency_departure_report', v_entity_id,
+          v_message, 'agency_report_reconcile', v_department, v_metadata, '/viagens'
+        );
+        IF COALESCE((v_upsert_result->>'created')::BOOLEAN, false)
+           OR COALESCE((v_upsert_result->>'reopened')::BOOLEAN, false) THEN
           v_changed := v_changed + 1;
+          v_created := v_created + 1;
         END IF;
       ELSE
         IF public.resolve_alert_item_for_department(
@@ -509,14 +536,117 @@ BEGIN
 
   RETURN jsonb_build_object(
     'report_id', v_report.id, 'entity_id', v_entity_id,
-    'eligible', v_eligible, 'atd', v_atd, 'deadline_date', v_deadline,
-    'changed', v_changed
+    'eligible', v_deadline_eligible, 'pending_eligible', v_pending_eligible,
+    'atd', v_atd, 'deadline_date', v_deadline, 'changed', v_changed,
+    'created', v_created
   );
 END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.reconcile_agency_report_alerts(UUID, BOOLEAN, BOOLEAN) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reconcile_agency_report_alerts(UUID, BOOLEAN, BOOLEAN) TO service_role;
+
+-- O detector histórico também alertava escalas com ATD antes da criação do
+-- ADR. Mantemos esse comportamento sem fabricar uma linha em
+-- agency_departure_reports: o agregado legado por escala é um carrier válido
+-- até que o ADR seja criado ou terminalizado.
+CREATE OR REPLACE FUNCTION public.reconcile_agency_report_alerts_for_scale(
+  p_voyage_id BIGINT,
+  p_port TEXT,
+  p_atd DATE,
+  p_pending_eligible BOOLEAN,
+  p_deadline_eligible BOOLEAN,
+  p_omitted BOOLEAN DEFAULT FALSE,
+  p_deleted BOOLEAN DEFAULT FALSE
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_department TEXT;
+  v_pending BOOLEAN;
+  v_deadline_missed BOOLEAN;
+  v_deadline DATE := public.agency_report_deadline_date(p_atd);
+  v_entity_id TEXT := public.agency_report_alert_entity_key(p_voyage_id, p_port);
+  v_metadata JSONB;
+  v_message TEXT;
+  v_upsert_result JSONB;
+  v_changed INTEGER := 0;
+  v_created INTEGER := 0;
+BEGIN
+  IF NOT public.alert_actor_is_authorized() THEN
+    RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501';
+  END IF;
+  IF upper(btrim(p_port)) NOT LIKE 'BR%' THEN
+    RETURN jsonb_build_object('entity_id', v_entity_id, 'created', 0, 'changed', 0);
+  END IF;
+
+  FOR v_department IN SELECT unnest(ARRAY['operacoes', 'documentacao', 'equipamentos'])
+  LOOP
+    v_metadata := jsonb_build_object(
+      'report_id', NULL,
+      'voyage_id', p_voyage_id,
+      'port', upper(btrim(p_port)),
+      'terminal_code', NULL,
+      'department', v_department,
+      'deadline_date', v_deadline
+    );
+    v_message := 'ADR ' || upper(btrim(p_port))
+      || ': departamento "' || public.agency_report_department_label(v_department) || '" pendente.';
+    v_pending := p_pending_eligible AND NOT p_omitted AND NOT p_deleted;
+    IF v_pending THEN
+      v_upsert_result := public.upsert_alert_item(
+        'agency_report_department_pending', 'agency_departure_report', v_entity_id,
+        v_message, 'agency_report_reconcile', v_department, v_metadata, '/viagens'
+      );
+      IF COALESCE((v_upsert_result->>'created')::BOOLEAN, false)
+         OR COALESCE((v_upsert_result->>'reopened')::BOOLEAN, false) THEN
+        v_changed := v_changed + 1;
+        v_created := v_created + 1;
+      END IF;
+    ELSE
+      IF public.resolve_alert_item_for_department(
+        'agency_report_department_pending', 'agency_departure_report', v_entity_id,
+        v_department, 'agency_report_reconcile', v_metadata
+      ) THEN
+        v_changed := v_changed + 1;
+      END IF;
+    END IF;
+
+    v_deadline_missed := p_deadline_eligible AND NOT p_omitted AND NOT p_deleted
+      AND v_deadline < CURRENT_DATE;
+    v_message := 'ADR ' || upper(btrim(p_port))
+      || ': prazo de conclusão vencido para "' || public.agency_report_department_label(v_department) || '".';
+    IF v_deadline_missed THEN
+      v_upsert_result := public.upsert_alert_item(
+        'agency_report_deadline_missed', 'agency_departure_report', v_entity_id,
+        v_message, 'agency_report_reconcile', v_department, v_metadata, '/viagens'
+      );
+      IF COALESCE((v_upsert_result->>'created')::BOOLEAN, false)
+         OR COALESCE((v_upsert_result->>'reopened')::BOOLEAN, false) THEN
+        v_changed := v_changed + 1;
+        v_created := v_created + 1;
+      END IF;
+    ELSE
+      IF public.resolve_alert_item_for_department(
+        'agency_report_deadline_missed', 'agency_departure_report', v_entity_id,
+        v_department, 'agency_report_reconcile', v_metadata
+      ) THEN
+        v_changed := v_changed + 1;
+      END IF;
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object('entity_id', v_entity_id, 'created', v_created, 'changed', v_changed);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.reconcile_agency_report_alerts_for_scale(BIGINT, TEXT, DATE, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_agency_report_alerts_for_scale(BIGINT, TEXT, DATE, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN)
+  TO service_role;
 
 -- Converte os carriers ADR ainda abertos para o agregado correto. Nenhuma
 -- notificação histórica é criada: a sobrecarga usa foundation_backfill.
@@ -580,6 +710,9 @@ DECLARE
 BEGIN
   IF NEW.entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule')
      AND NEW.field_name IN ('atd', 'omitted', 'deleted', 'terminal_dates', 'terminal_state_removed', 'terminal_assignment') THEN
+    IF NEW.entity_id !~ '^[0-9]+::[^:]+$' THEN
+      RETURN NEW;
+    END IF;
     v_voyage_id := split_part(NEW.entity_id, '::', 1)::BIGINT;
     v_port := upper(btrim(split_part(NEW.entity_id, '::', 2)));
     FOR v_report IN
@@ -591,11 +724,13 @@ BEGIN
   ELSIF NEW.entity_type IN ('agency_departure_report_signoff', 'agency_departure_report_department_signoff') THEN
     IF NEW.entity_id ~ '^[0-9a-fA-F-]{36}::' THEN
       v_report_id := split_part(NEW.entity_id, '::', 1)::UUID;
-    ELSE
+    ELSIF NEW.entity_id ~ '^[0-9]+::[^:]+(::[^:]+)?$' THEN
       v_voyage_id := split_part(NEW.entity_id, '::', 1)::BIGINT;
       v_port := upper(btrim(split_part(NEW.entity_id, '::', 2)));
       SELECT id INTO v_report_id FROM public.agency_departure_reports
       WHERE voyage_id = v_voyage_id AND port = v_port AND terminal_id IS NULL;
+    ELSE
+      RETURN NEW;
     END IF;
 
     IF NEW.entity_type = 'agency_departure_report_signoff'
@@ -630,6 +765,12 @@ BEGIN
       PERFORM public.reconcile_agency_report_alerts(v_report_id, TRUE, TRUE);
     END IF;
   END IF;
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- Reconciliation is an optimization for freshness. It must never turn a
+  -- malformed or unauthorized audit row into a failed business write; the
+  -- scheduled detector remains the recovery path.
+  RAISE WARNING 'Reconciliação de alertas ADR ignorada para audit_logs.id=%: %', NEW.id, SQLERRM;
   RETURN NEW;
 END;
 $function$;
@@ -667,26 +808,83 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
 DECLARE
+  v_scale RECORD;
   v_report RECORD;
+  v_result JSONB;
   v_count INTEGER := 0;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
     RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
   END IF;
-  FOR v_report IN 
-    SELECT r.id 
-    FROM public.agency_departure_reports r
-    LEFT JOIN public.depots d ON d.id = r.terminal_id
-    WHERE r.status = 'open' 
-       OR EXISTS (
-         SELECT 1 FROM public.alerts a
-         WHERE a.entity_type = 'agency_departure_report'
-           AND a.entity_id = public.agency_report_alert_entity_key(r.voyage_id, r.port, d.code)
-           AND a.status = 'open'
-       )
+  FOR v_scale IN
+    WITH latest_atd AS (
+      SELECT DISTINCT ON (a.entity_type, a.entity_id)
+        a.entity_type, a.entity_id, a.new_value, a.changed_at
+      FROM public.audit_logs a
+      WHERE a.entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule')
+        AND a.field_name = 'atd'
+        AND a.entity_id ~ '^[0-9]+::[^:]+$'
+      ORDER BY a.entity_type, a.entity_id, a.changed_at DESC, a.id DESC
+    ), source_atd AS (
+      SELECT
+        split_part(entity_id, '::', 1)::BIGINT AS voyage_id,
+        upper(btrim(split_part(entity_id, '::', 2))) AS port,
+        entity_type,
+        CASE WHEN NULLIF(btrim(new_value), '') ~ '^\d{4}-\d{2}-\d{2}$'
+          THEN NULLIF(btrim(new_value), '')::DATE END AS atd,
+        changed_at
+      FROM latest_atd
+      WHERE NULLIF(btrim(new_value), '') IS NOT NULL
+    ), scales AS (
+      SELECT voyage_id, port,
+        COALESCE(MAX(atd) FILTER (WHERE entity_type = 'voyage_pod_schedule'),
+                 MAX(atd) FILTER (WHERE entity_type = 'voyage_pol_schedule')) AS atd,
+        MAX(changed_at) FILTER (WHERE entity_type = 'voyage_pod_schedule') AS pod_changed_at,
+        MAX(changed_at) FILTER (WHERE entity_type = 'voyage_pol_schedule') AS pol_changed_at
+      FROM source_atd
+      WHERE port LIKE 'BR%'
+      GROUP BY voyage_id, port
+    )
+    SELECT s.voyage_id, s.port, s.atd,
+      (s.pod_changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00'
+       OR s.pol_changed_at >= (
+         SELECT captured_at FROM public.agency_report_pending_baselines
+         WHERE baseline_key = 'voyage_pol_schedule_atd'
+       )) AS pending_eligible,
+      COALESCE((SELECT a.new_value = 'true' FROM public.audit_logs a
+        WHERE a.entity_type = 'voyage_pod_schedule'
+          AND a.entity_id = s.voyage_id || '::' || s.port AND a.field_name = 'omitted'
+        ORDER BY a.changed_at DESC, a.id DESC LIMIT 1), false) AS omitted,
+      COALESCE((SELECT a.new_value = 'true' FROM public.audit_logs a
+        WHERE a.entity_type = 'voyage_pod_schedule'
+          AND a.entity_id = s.voyage_id || '::' || s.port AND a.field_name = 'deleted'
+        ORDER BY a.changed_at DESC, a.id DESC LIMIT 1), false) AS deleted
+    FROM scales s
+    WHERE s.atd IS NOT NULL
+      AND (s.pod_changed_at >= TIMESTAMPTZ '2026-07-19 00:00:00+00'
+        OR s.pol_changed_at >= (
+          SELECT captured_at FROM public.agency_report_pending_baselines
+          WHERE baseline_key = 'voyage_pol_schedule_atd'
+        ))
   LOOP
-    PERFORM public.reconcile_agency_report_alerts(v_report.id, TRUE, FALSE);
-    v_count := v_count + 1;
+    IF EXISTS (
+      SELECT 1 FROM public.agency_departure_reports r
+      WHERE r.voyage_id = v_scale.voyage_id AND r.port = v_scale.port
+    ) THEN
+      FOR v_report IN
+        SELECT id FROM public.agency_departure_reports
+        WHERE voyage_id = v_scale.voyage_id AND port = v_scale.port
+      LOOP
+        v_result := public.reconcile_agency_report_alerts(v_report.id, TRUE, FALSE);
+        v_count := v_count + COALESCE((v_result->>'created')::INTEGER, 0);
+      END LOOP;
+    ELSE
+      v_result := public.reconcile_agency_report_alerts_for_scale(
+        v_scale.voyage_id, v_scale.port, v_scale.atd,
+        v_scale.pending_eligible, FALSE, v_scale.omitted, v_scale.deleted
+      );
+      v_count := v_count + COALESCE((v_result->>'created')::INTEGER, 0);
+    END IF;
   END LOOP;
   RETURN v_count;
 END;
@@ -710,26 +908,75 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
 DECLARE
+  v_scale RECORD;
   v_report RECORD;
+  v_result JSONB;
   v_count INTEGER := 0;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
     RAISE EXCEPTION 'Sem permissao.' USING ERRCODE = '42501';
   END IF;
-  FOR v_report IN 
-    SELECT r.id 
-    FROM public.agency_departure_reports r
-    LEFT JOIN public.depots d ON d.id = r.terminal_id
-    WHERE r.status = 'open' 
-       OR EXISTS (
-         SELECT 1 FROM public.alerts a
-         WHERE a.entity_type = 'agency_departure_report'
-           AND a.entity_id = public.agency_report_alert_entity_key(r.voyage_id, r.port, d.code)
-           AND a.status = 'open'
-       )
+  FOR v_scale IN
+    WITH latest_atd AS (
+      SELECT DISTINCT ON (a.entity_type, a.entity_id)
+        a.entity_type, a.entity_id, a.new_value, a.changed_at
+      FROM public.audit_logs a
+      WHERE a.entity_type IN ('voyage_pod_schedule', 'voyage_pol_schedule')
+        AND a.field_name = 'atd'
+        AND a.entity_id ~ '^[0-9]+::[^:]+$'
+      ORDER BY a.entity_type, a.entity_id, a.changed_at DESC, a.id DESC
+    ), source_atd AS (
+      SELECT split_part(entity_id, '::', 1)::BIGINT AS voyage_id,
+        upper(btrim(split_part(entity_id, '::', 2))) AS port, entity_type,
+        CASE WHEN NULLIF(btrim(new_value), '') ~ '^\d{4}-\d{2}-\d{2}$'
+          THEN NULLIF(btrim(new_value), '')::DATE END AS atd,
+        changed_at
+      FROM latest_atd
+      WHERE NULLIF(btrim(new_value), '') IS NOT NULL
+    ), scales AS (
+      SELECT voyage_id, port,
+        COALESCE(MAX(atd) FILTER (WHERE entity_type = 'voyage_pod_schedule'),
+                 MAX(atd) FILTER (WHERE entity_type = 'voyage_pol_schedule')) AS atd,
+        MAX(changed_at) FILTER (WHERE entity_type = 'voyage_pod_schedule') AS pod_changed_at,
+        MAX(changed_at) FILTER (WHERE entity_type = 'voyage_pol_schedule') AS pol_changed_at
+      FROM source_atd
+      WHERE port LIKE 'BR%'
+      GROUP BY voyage_id, port
+    )
+    SELECT s.voyage_id, s.port, s.atd,
+      (s.atd >= (SELECT captured_at::DATE FROM public.agency_report_pending_baselines
+        WHERE baseline_key = 'agency_report_deadline_missed')) AS deadline_eligible,
+      COALESCE((SELECT a.new_value = 'true' FROM public.audit_logs a
+        WHERE a.entity_type = 'voyage_pod_schedule'
+          AND a.entity_id = s.voyage_id || '::' || s.port AND a.field_name = 'omitted'
+        ORDER BY a.changed_at DESC, a.id DESC LIMIT 1), false) AS omitted,
+      COALESCE((SELECT a.new_value = 'true' FROM public.audit_logs a
+        WHERE a.entity_type = 'voyage_pod_schedule'
+          AND a.entity_id = s.voyage_id || '::' || s.port AND a.field_name = 'deleted'
+        ORDER BY a.changed_at DESC, a.id DESC LIMIT 1), false) AS deleted
+    FROM scales s
+    WHERE s.atd IS NOT NULL
+      AND s.atd >= (SELECT captured_at::DATE FROM public.agency_report_pending_baselines
+        WHERE baseline_key = 'agency_report_deadline_missed')
   LOOP
-    PERFORM public.reconcile_agency_report_alerts(v_report.id, FALSE, TRUE);
-    v_count := v_count + 1;
+    IF EXISTS (
+      SELECT 1 FROM public.agency_departure_reports r
+      WHERE r.voyage_id = v_scale.voyage_id AND r.port = v_scale.port
+    ) THEN
+      FOR v_report IN
+        SELECT id FROM public.agency_departure_reports
+        WHERE voyage_id = v_scale.voyage_id AND port = v_scale.port
+      LOOP
+        v_result := public.reconcile_agency_report_alerts(v_report.id, FALSE, TRUE);
+        v_count := v_count + COALESCE((v_result->>'created')::INTEGER, 0);
+      END LOOP;
+    ELSE
+      v_result := public.reconcile_agency_report_alerts_for_scale(
+        v_scale.voyage_id, v_scale.port, v_scale.atd,
+        FALSE, v_scale.deadline_eligible, v_scale.omitted, v_scale.deleted
+      );
+      v_count := v_count + COALESCE((v_result->>'created')::INTEGER, 0);
+    END IF;
   END LOOP;
   RETURN v_count;
 END;

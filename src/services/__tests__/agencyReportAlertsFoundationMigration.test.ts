@@ -21,7 +21,9 @@ describe('migration 323 — produtores de Alertas do ADR na fundação transvers
 
   it('usa um agregado por ADR terminalizado e preserva a chave legada', () => {
     expect(sql).toContain('agency_report_alert_entity_key')
-    expect(sql).toContain('terminal_atd')
+    expect(sql).toContain("voyage_pod_schedule")
+    expect(sql).toContain("voyage_pol_schedule")
+    expect(sql).not.toContain('SELECT s.terminal_atd')
     expect(sql).toMatch(/terminal_id IS NOT NULL[\s\S]+terminal_code/i)
     expect(sql).toMatch(/terminal_id IS NULL[\s\S]+agency_report_alert_entity_key/i)
   })

@@ -60,6 +60,9 @@ describeLocal('migration 323 — runtime do agregado de alertas do ADR', () => {
       INSERT INTO public.voyage_escala_terminal_state (voyage_id, port, port_id, terminal_id, terminal_atb, terminal_atd)
       SELECT ${voyageId}, 'BRSSZ', id, '${terminalId}', now() - interval '21 days', now() - interval '20 days'
       FROM public.ports WHERE locode = 'BRSSZ';
+      INSERT INTO public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by)
+      VALUES ('voyage_pod_schedule', '${voyageId}::BRSSZ', 'atd', NULL,
+        to_char((now() - interval '20 days')::date, 'YYYY-MM-DD'), '${adminId}');
       UPDATE public.agency_report_pending_baselines
       SET captured_at = now() - interval '30 days'
       WHERE baseline_key = 'agency_report_deadline_missed';
