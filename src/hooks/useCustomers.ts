@@ -287,11 +287,11 @@ export async function fetchCustomerLookup(search: string) {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id, cnpj_cpf, name, city, state')
+    .select('id, cnpj_cpf, name, city, state, customer_contacts(email)')
     .or(filter)
     .order('name', { ascending: true })
     .range(0, 24)
 
   if (error) throw error
-  return (data ?? []) as Pick<Customer, 'id' | 'cnpj_cpf' | 'name' | 'city' | 'state'>[]
+  return (data ?? []) as (Pick<Customer, 'id' | 'cnpj_cpf' | 'name' | 'city' | 'state'> & { customer_contacts?: { email: string | null }[] | null })[]
 }

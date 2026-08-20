@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canonicalizeDocument, canonicalizeValidCnpj, formatCnpj, isValidCnpj, normalizeCnpj } from '../cnpj'
+import { canonicalizeDocument, canonicalizeValidCnpj, extractCnpjFromText, formatCnpj, isValidCnpj, normalizeCnpj } from '../cnpj'
 
 describe('normalizeCnpj', () => {
   it('remove pontuação, preserva letras e converte para maiúsculas', () => {
@@ -67,5 +67,11 @@ describe('canonicalizeValidCnpj', () => {
   it('valida a entrada completa antes de canonicalizar', () => {
     expect(canonicalizeValidCnpj('06.352.972/0001-21')).toBe('06352972000121')
     expect(canonicalizeValidCnpj('063529720001219')).toBeNull()
+  })
+})
+
+describe('extractCnpjFromText', () => {
+  it('preserva o contrato de primeiro match rotulado e validado', () => {
+    expect(extractCnpjFromText('CNPJ: 06.352.972/0001-22; CNPJ: 06.352.972/0001-21')).toBeNull()
   })
 })

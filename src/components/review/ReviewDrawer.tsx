@@ -10,13 +10,10 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import type { ReviewQueueItem } from '../../hooks/useReview'
-import { canonicalizeValidCnpj, normalizeCnpj, formatCnpj } from '../../lib/cnpj'
-import { classifyDbError, extractErrorText } from '../../lib/errors'
-import { createCustomer } from '../../services/customers'
+import { formatCnpj } from '../../lib/cnpj'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { ConcurrentEditError, saveBlReview, saveGraniteBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
-import { supabase } from '../../services/supabase'
 import { invalidateReviewQueueCaches } from './reviewCaches'
 
 export function ReviewDrawer({
@@ -28,6 +25,7 @@ export function ReviewDrawer({
   onReviewSaved,
   onNavigate,
   siblingIds,
+  allowCustomerLink = false,
 }: {
   item: ReviewQueueItem | null
   currentIndex: number
@@ -37,6 +35,7 @@ export function ReviewDrawer({
   onReviewSaved: (item: ReviewQueueItem) => void
   onNavigate: (id: string) => void
   siblingIds: string[]
+  allowCustomerLink?: boolean
 }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -51,9 +50,6 @@ export function ReviewDrawer({
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
   const [selectedCustomerDisplay, setSelectedCustomerDisplay] = useState<string | null>(null)
-  const [newCustomerName, setNewCustomerName] = useState('')
-  const [newCustomerCnpj, setNewCustomerCnpj] = useState('')
-  const [newCustomerEmail, setNewCustomerEmail] = useState('')
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
   const customerLookup = useCustomerLookup(customerSearch)
@@ -73,63 +69,7 @@ export function ReviewDrawer({
     setSelectedCustomerId(item.customer_id ?? null)
     setSelectedCustomerDisplay(item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : null)
     setCustomerSearch('')
-    const manifestName = item.source === 'bl' ? (item.manifest_customer_name ?? null) : null
-    const manifestCnpj = item.source === 'bl' ? (item.manifest_customer_cnpj_cpf ?? null) : null
-    const manifestEmail = item.source === 'bl' ? (item.manifest_customer_email ?? null) : null
-    setNewCustomerName(manifestName ?? item.consignee ?? '')
-    setNewCustomerCnpj(manifestCnpj ?? '')
-    setNewCustomerEmail(manifestEmail ?? '')
     setJustification('')
-  }
-
-  async function handleCreateCustomer() {
-    if (!newCustomerName.trim() || !newCustomerCnpj.trim()) {
-      showToast('Informe nome e CNPJ para criar o cliente.', 'error')
-      return
-    }
-    const documentCanonical = canonicalizeValidCnpj(newCustomerCnpj)
-    if (!documentCanonical) {
-      showToast('Informe um CNPJ de 14 posições válido.', 'error')
-      return
-    }
-
-    try {
-      const contacts = newCustomerEmail.trim()
-        ? [{ name: 'Contato manifesto', email: newCustomerEmail.trim(), purpose: 'financeiro' as const, is_primary: true }]
-        : []
-      const customer = await createCustomer({ cnpjCpf: newCustomerCnpj, name: newCustomerName, contacts })
-      setSelectedCustomerId(customer.id)
-      setSelectedCustomerDisplay(`${customer.name} (${formatCnpj(customer.cnpj_cpf)})`)
-      setCustomerSearch(`${customer.name} ${formatCnpj(customer.cnpj_cpf)}`)
-      await queryClient.invalidateQueries({ queryKey: ['customers'] })
-      showToast('Cliente criado e pronto para vinculação. Clique em "Marcar como revisado" para concluir.', 'success')
-    } catch (error) {
-      const message = extractErrorText(error)
-      const haystack = message.toLowerCase()
-      if (haystack.includes('duplicate key') || haystack.includes('customers_cnpj_cpf_key')) {
-        const { data: existing } = await supabase
-          .from('customers')
-          .select('id, name, cnpj_cpf')
-          .eq('cnpj_cpf', documentCanonical)
-          .maybeSingle()
-
-        if (existing) {
-          setSelectedCustomerId(existing.id)
-          setSelectedCustomerDisplay(`${existing.name} (${formatCnpj(existing.cnpj_cpf)})`)
-          setCustomerSearch(`${existing.name} ${formatCnpj(existing.cnpj_cpf)}`)
-          showToast('Cliente já existia e foi selecionado para vinculação.', 'success')
-          return
-        }
-
-        showToast('Este CNPJ já está cadastrado. Selecione o cliente na busca acima.', 'error')
-        return
-      }
-      if (classifyDbError(error).kind === 'permissao') {
-        showToast('Seu usuário não tem permissão para cadastrar cliente. Solicite acesso administrativo.', 'error')
-        return
-      }
-      showToast(`Falha ao criar cliente. ${message ? `Motivo: ${message}` : ''}`.trim(), 'error')
-    }
   }
 
   async function handleSave() {
@@ -224,6 +164,7 @@ export function ReviewDrawer({
   const canGoPrev = currentIndex > 0
   const canGoNext = currentIndex >= 0 && currentIndex < totalItems - 1
   const isGranite = item?.source === 'granite'
+  const canSelectCustomer = Boolean(isGranite || allowCustomerLink)
   const pendencies = item?.review_reasons?.length ? item.review_reasons : ['Pendente de revisão']
 
   return (
@@ -236,24 +177,24 @@ export function ReviewDrawer({
       {item ? (
         <div className="grid gap-5">
           {totalItems > 1 && currentIndex >= 0 ? (
-            <div className="flex items-center justify-between rounded-lg border border-[#30363d] bg-[#161b22] px-3 py-2 text-sm">
+            <div className="review-drawer__pager flex items-center justify-between rounded-lg px-3 py-2 text-sm">
               <button
                 type="button"
                 disabled={!canGoPrev}
                 onClick={() => canGoPrev && onNavigate(siblingIds[currentIndex - 1])}
-                className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+                className="review-drawer__pager-button flex items-center gap-1 disabled:opacity-30"
               >
                 <ChevronLeft size={15} />
                 Anterior
               </button>
-              <span className="text-xs text-slate-500">
+              <span className="review-drawer__pager-count text-xs">
                 {currentIndex + 1} de {totalItems}
               </span>
               <button
                 type="button"
                 disabled={!canGoNext}
                 onClick={() => canGoNext && onNavigate(siblingIds[currentIndex + 1])}
-                className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+                className="review-drawer__pager-button flex items-center gap-1 disabled:opacity-30"
               >
                 Próximo
                 <ChevronRight size={15} />
@@ -261,7 +202,7 @@ export function ReviewDrawer({
             </div>
           ) : null}
 
-          <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+          <div className="review-drawer__warning rounded-xl p-3 text-sm">
             <div className="mb-2 flex items-center gap-2 font-semibold">
               <AlertTriangle size={16} />
               Pendências a resolver
@@ -297,24 +238,35 @@ export function ReviewDrawer({
                   <Input type="number" value={totalCbm} onChange={(event) => setTotalCbm(event.target.value)} />
                 </Field>
               </div>
+              <Field label="Descrição da carga do B/L" hint="Texto extraído do documento; não é alterado nesta revisão.">
+                <Textarea
+                  className="review-drawer__cargo-description"
+                  value={item.cargo_description ?? ''}
+                  placeholder="Descrição não extraída do B/L."
+                  readOnly
+                />
+              </Field>
               <Field label="Notas da revisão">
-                <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+                <Textarea className="review-drawer__notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
               </Field>
             </>
           ) : null}
 
-          <Card className="grid gap-4 bg-[#0d1117]">
+          {canSelectCustomer ? <Card className="review-drawer__customer-card grid gap-4">
             {item.source === 'granite' && item.suggested_customer?.name ? (
-              <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
+              <div className="review-drawer__suggestion rounded-lg px-3 py-2 text-sm">
                 Sugestao por nome — confirme o documento antes de vincular: <strong>{item.suggested_customer.name}</strong>{' '}
                 ({formatCnpj(item.suggested_customer.cnpj_cpf)})
               </div>
             ) : null}
-            <div className="font-semibold text-white">Vinculação de cliente</div>
+            <div className="font-semibold text-[var(--app-text-strong)]">
+              {isGranite ? 'Vinculação de cliente' : 'Vinculação individual de cliente'}
+            </div>
+            {!isGranite ? <p className="text-sm text-[var(--app-muted)]">Use esta ação para confirmar o cliente deste B/L quando as evidências documentais estiverem divergentes.</p> : null}
             <Field label="Buscar cliente por nome ou CNPJ">
               <div className="relative">
                 <Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Digite ao menos 2 caracteres" />
-                <Search className="pointer-events-none absolute right-3 top-2.5 text-slate-500" size={16} />
+                <Search className="pointer-events-none absolute right-3 top-2.5 text-[var(--app-muted)]" size={16} />
               </div>
             </Field>
             {customerLookup.data?.length ? (
@@ -323,10 +275,10 @@ export function ReviewDrawer({
                   <button
                     key={customer.id}
                     type="button"
-                    className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    className={`review-drawer__customer-option rounded-lg border px-3 py-2 text-left text-sm transition ${
                       selectedCustomerId === customer.id
-                        ? 'border-[#1f6feb] bg-[#1f6feb]/15 text-white'
-                        : 'border-[#30363d] bg-[#161b22] text-slate-300 hover:bg-[#21262d]'
+                        ? 'review-drawer__customer-option--selected'
+                        : ''
                     }`}
                     onClick={() => {
                       setSelectedCustomerId(customer.id)
@@ -335,39 +287,25 @@ export function ReviewDrawer({
                     }}
                   >
                     <div className="font-semibold">{customer.name}</div>
-                    <div className="text-xs text-slate-400">{formatCnpj(customer.cnpj_cpf)}</div>
+                    <div className="text-xs text-[var(--app-muted)]">{formatCnpj(customer.cnpj_cpf)}</div>
                   </button>
                 ))}
               </div>
             ) : null}
 
             {selectedCustomerId ? (
-              <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
+              <div className="review-drawer__selected-customer rounded-lg px-3 py-2 text-xs">
                 <div>Cliente selecionado para vinculação.</div>
                 <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : selectedCustomerDisplay ?? 'Cliente'}.</div>
               </div>
             ) : null}
 
-            <div className="grid gap-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Ou cadastre um novo cliente</div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Nome">
-                  <Input value={newCustomerName} onChange={(event) => setNewCustomerName(event.target.value)} />
-                </Field>
-                  <Field label="CNPJ">
-                    <Input maxLength={14} value={newCustomerCnpj} onChange={(event) => setNewCustomerCnpj(normalizeCnpj(event.target.value))} />
-                </Field>
-                <Field label="E-mail">
-                  <Input value={newCustomerEmail} onChange={(event) => setNewCustomerEmail(event.target.value)} placeholder="(opcional)" />
-                </Field>
-                <div className="flex items-end">
-                  <Button type="button" variant="secondary" onClick={handleCreateCustomer}>
-                    Cadastrar cliente
-                  </Button>
-                </div>
-              </div>
+          </Card> : (
+            <div className="review-drawer__group-note rounded-xl p-3 text-sm">
+              <div className="font-semibold text-[var(--app-text-strong)]">Cliente definido pelo grupo</div>
+              <div className="mt-1">{item.customer ? `${item.customer.name} (${formatCnpj(item.customer.cnpj_cpf)})` : 'O cadastro e o vínculo são tratados no cartão do grupo.'}</div>
             </div>
-          </Card>
+          )}
 
           <Field label="Justificativa (opcional)">
             <Textarea

@@ -41,6 +41,13 @@ export type QueueRow = PortalProvisioningRow & {
   exceptionReason: string | null
 }
 
+export async function sendPortalInvite(customerId: number, recoveryEmail: string, source: RecoveryEmailSource = 'informado_manualmente') {
+  const { error } = await supabase.functions.invoke('portal-invite-send', {
+    body: { customer_id: customerId, recovery_email: recoveryEmail.trim().toLowerCase(), recovery_email_source: source },
+  })
+  if (error) throw error
+}
+
 export type PortalProvisioningConsolePayload = {
   account_id: number
   customer_id: number

@@ -50,6 +50,22 @@ export function canonicalizeValidCnpj(value?: string | null): string | null {
   return canonicalizeDocument(value)
 }
 
+const LABELED_CNPJ_PATTERN =
+  /\bCNPJ\b\s*[:-]?\s*([0-9A-Z]{2}[./][0-9A-Z]{3}[./][0-9A-Z]{3}\/[0-9A-Z]{4}-[0-9]{2}|[0-9A-Z]{14})(?![0-9A-Z])/gi
+
+/** Extrai todos os CNPJs rotulados em texto livre, preservando a ordem. */
+export function extractCnpjsFromText(value?: string | null): string[] {
+  const matches = [...(value ?? '').matchAll(LABELED_CNPJ_PATTERN)]
+  const cnpjs: string[] = []
+
+  for (const match of matches) {
+    const cnpj = canonicalizeValidCnpj(match[1])
+    if (cnpj) cnpjs.push(cnpj)
+  }
+
+  return cnpjs
+}
+
 /**
  * Extrai o CNPJ escrito em texto livre — bloco de consignee de manifesto ou de
  * B/L, onde o documento vem colado ao nome ("TIMBRO TRADING S.A - CNPJ:

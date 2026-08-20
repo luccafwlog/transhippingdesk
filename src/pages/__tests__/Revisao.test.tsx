@@ -9,12 +9,9 @@ import type { ReviewQueueItem } from '../../hooks/useReview'
 vi.mock('../../hooks/useReview', () => ({ useReviewQueue: vi.fn() }))
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'user-1' }, isAdmin: true }) }))
 vi.mock('../../hooks/useCustomers', () => ({ useCustomerLookup: vi.fn() }))
+vi.mock('../../hooks/useReviewCustomerGroup', () => ({ useReviewCustomerGroup: vi.fn() }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../services/charges/chargeOperationsService', () => ({ calculateBlLocalCharges: vi.fn() }))
-vi.mock('../../services/customers', () => ({
-  createCustomer: vi.fn(),
-  addCustomerEmail: vi.fn().mockResolvedValue(undefined),
-}))
 vi.mock('../../services/operationalEvents', () => ({ logOperationalEvent: vi.fn() }))
 vi.mock('../../services/review', async () => {
   const actual = await vi.importActual<typeof import('../../services/review')>('../../services/review')
@@ -33,18 +30,17 @@ vi.mock('../../services/reviewBillingAutomation', () => ({
 
 import { useCustomerLookup } from '../../hooks/useCustomers'
 import { useReviewQueue } from '../../hooks/useReview'
-import { addCustomerEmail, createCustomer } from '../../services/customers'
-import { applyInlineBlReviewFix, saveBlReview, saveGraniteBlReview } from '../../services/review'
+import { useReviewCustomerGroup } from '../../hooks/useReviewCustomerGroup'
+import { saveBlReview, saveGraniteBlReview } from '../../services/review'
 import { tryAutoIssueInvoice } from '../../services/reviewBillingAutomation'
 import { Revisao } from '../Revisao'
 
 const mockedUseReviewQueue = vi.mocked(useReviewQueue)
 const mockedUseCustomerLookup = vi.mocked(useCustomerLookup)
-const mockedApplyInlineBlReviewFix = vi.mocked(applyInlineBlReviewFix)
+const mockedUseReviewCustomerGroup = vi.mocked(useReviewCustomerGroup)
 const mockedSaveBlReview = vi.mocked(saveBlReview)
 const mockedSaveGraniteBlReview = vi.mocked(saveGraniteBlReview)
-const mockedTryIssueInvoice = vi.mocked(tryAutoIssueInvoice)
-const mockedAddCustomerEmail = vi.mocked(addCustomerEmail)
+const mockedTryAutoIssueInvoice = vi.mocked(tryAutoIssueInvoice)
 
 function makeBl(id: string, consignee: string): ReviewQueueItem {
   return {
@@ -56,6 +52,8 @@ function makeBl(id: string, consignee: string): ReviewQueueItem {
     customer: null,
     charge_status: 'review_required',
     review_reasons: ['Cliente nao vinculado'],
+    cargo_mode: 'container',
+    cargo_description: 'Carga de teste do B/L',
     voyage: { id: 1, voyage_number: '14', vessel: { id: 1, name: 'GREEN SANTOS', carrier: null } },
     updated_at: `2026-06-10T12:00:00.${id.slice(-1)}Z`,
   } as unknown as ReviewQueueItem
@@ -110,6 +108,7 @@ beforeEach(() => {
   mockedUseCustomerLookup.mockImplementation((search: string) => ({
     data: search.trim().length >= 2 ? [{ id: 99, name: 'Cliente Modelo', cnpj_cpf: '11222333000181' }] : [],
   } as never))
+  mockedUseReviewCustomerGroup.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({ onboarding: { customer: { id: 99, cnpj_cpf: '11222333000181', name: 'Cliente Modelo' }, bls: [{ blId: 'BL1', resolved: true }, { blId: 'BL2', resolved: true }] }, portalInvite: 'not_requested' }) } as never)
 })
 
 afterEach(() => {
@@ -118,11 +117,25 @@ afterEach(() => {
 })
 
 describe('Revisao', () => {
+  it('oferece os motivos disponíveis em um seletor de inconsistências', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const filter = screen.getByRole('combobox', { name: 'Filtrar por inconsistência' })
+    expect(screen.getByRole('option', { name: 'Todas as inconsistências' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Cadastro de cliente pendente' })).toBeTruthy()
+
+    await user.selectOptions(filter, 'Cliente nao vinculado')
+    expect((filter as HTMLSelectElement).value).toBe('Cliente nao vinculado')
+  })
+
   it('agrupa os B/Ls por cliente/consignatario e inicia os processos recolhidos', () => {
     renderPage()
     // grupos sao nomeados pelo consignatario quando nao ha cliente cadastrado
     expect(screen.getByText('AC Comercial')).toBeTruthy()
     expect(screen.getByText('Alma Trading')).toBeTruthy()
+    expect(screen.getAllByText('Cadastro de cliente pendente').length).toBeGreaterThan(0)
+    expect(screen.queryByText('CNPJ pendente')).toBeNull()
     // A fila inicia expandida para expor imediatamente as ações de cada B/L.
     expect(screen.getByRole('button', { name: /AC Comercial/ }).getAttribute('aria-expanded')).toBe('false')
     expect(screen.getByRole('button', { name: /Alma Trading/ }).getAttribute('aria-expanded')).toBe('false')
@@ -131,86 +144,128 @@ describe('Revisao', () => {
     expect(screen.queryByText('BL3')).toBeNull()
   })
 
-  it('vincula em lote todos os B/Ls de um cliente pelo cabecalho do grupo', async () => {
+  it('cria e vincula todos os B/Ls do grupo após confirmar CNPJ e e-mail', async () => {
     const user = userEvent.setup()
     renderPage()
 
     // o grupo "AC Comercial" (2 B/Ls) e o primeiro na ordem alfabetica
     await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    const pickers = screen.getAllByPlaceholderText('Vincular cliente...')
-    await user.type(pickers[0], 'Cliente')
-    await user.click(screen.getByText('Cliente Modelo'))
-
-    await waitFor(() => expect(mockedApplyInlineBlReviewFix).toHaveBeenCalledTimes(2))
-    expect(mockedApplyInlineBlReviewFix).toHaveBeenCalledWith(
-      expect.objectContaining({ blId: 'BL1', field: 'customer_id', value: 99, changedBy: 'user-1' }),
-    )
-    expect(mockedApplyInlineBlReviewFix).toHaveBeenCalledWith(
-      expect.objectContaining({ blId: 'BL2', field: 'customer_id', value: 99, changedBy: 'user-1' }),
-    )
-    // gate resolvido -> tenta faturar cada B/L
-    expect(mockedTryIssueInvoice).toHaveBeenCalledTimes(2)
-    expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
-    expect(mockedTryIssueInvoice).toHaveBeenCalledWith({ blId: 'BL2', customerId: 99, actorId: 'user-1' })
+    expect(screen.getAllByText('Contêiner').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Tratada no cadastro do grupo')).toBeNull()
+    await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '11222333000181')
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'financeiro@alfa.com')
+    await user.click(screen.getByRole('button', { name: /criar cliente e vincular 2 b\/ls/i }))
+    const mutateAsync = mockedUseReviewCustomerGroup.mock.results[0].value.mutateAsync
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ blIds: ['BL1', 'BL2'], cnpjCpf: '11222333000181', email: 'financeiro@alfa.com', changedBy: 'user-1' })))
+    await waitFor(() => expect(mockedTryAutoIssueInvoice).toHaveBeenCalledWith(expect.objectContaining({ blId: 'BL1', customerId: 99 })))
+    expect(mockedTryAutoIssueInvoice).toHaveBeenCalledWith(expect.objectContaining({ blId: 'BL2', customerId: 99 }))
   })
 
-  it('US-126: cria e seleciona um novo cliente pelo drawer', async () => {
-    const user = userEvent.setup()
-    vi.mocked(createCustomer).mockResolvedValue({ id: 321, name: 'Novo Cliente', cnpj_cpf: '11222333000181' } as never)
-    renderPage()
-
-    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
-    const nome = screen.getByLabelText('Nome')
-    await user.clear(nome)
-    await user.type(nome, 'Novo Cliente')
-    const doc = screen.getByLabelText('CNPJ')
-    await user.clear(doc)
-    await user.type(doc, '11222333000181')
-    await user.click(screen.getByRole('button', { name: 'Cadastrar cliente' }))
-
-    await waitFor(() =>
-      expect(createCustomer).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Novo Cliente', cnpjCpf: '11222333000181' }),
-      ),
-    )
-    // cliente recém-criado fica selecionado para vinculação
-    expect(screen.getByText('Cliente selecionado para vinculação.')).toBeTruthy()
-  })
-
-  it('recalcula e emite a fatura ao salvar cliente pelo drawer', async () => {
+  it('mantém o drawer para exceções operacionais do B/L sem cadastrar cliente', async () => {
     const user = userEvent.setup()
     renderPage()
 
     await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
-    await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
-    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
-    await user.type(screen.getByLabelText('Justificativa (opcional)'), 'Cliente cadastrado e vinculado.')
-    await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
-
-    await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
-    expect(mockedTryIssueInvoice).toHaveBeenCalledWith({
-      blId: 'BL1',
-      customerId: 99,
-      actorId: 'user-1',
-    })
-  })
-
-  it('salva sem justificativa (campo opcional)', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
-    await user.click(screen.getAllByRole('button', { name: 'Corrigir' })[0])
-    await user.type(screen.getByPlaceholderText('Digite ao menos 2 caracteres'), 'Cliente')
-    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
+    await user.click(screen.getAllByRole('button', { name: 'Corrigir Dados' })[0])
+    expect(screen.getByDisplayValue('Carga de teste do B/L')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
     await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledTimes(1))
     expect(mockedSaveBlReview).toHaveBeenCalledWith(
       expect.objectContaining({ justification: 'Revisão manual' }),
     )
+  })
+
+  it('permite vincular individualmente um B/L com CNPJs conflitantes', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [{
+        ...makeBl('BL-CONFLICT', 'Conflito SA'),
+        manifest_customer_cnpj_cpf: null,
+        consignee_block: 'Conflito SA CNPJ: 11.222.333/0001-81',
+        cargo_description: 'Carga CNPJ: 06.352.972/0001-21',
+      }],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Conflito SA/ }))
+    await user.click(screen.getByRole('button', { name: 'Corrigir Dados' }))
+    const drawerCustomerSearch = screen.getAllByPlaceholderText('Digite ao menos 2 caracteres').at(-1)!
+    await user.type(drawerCustomerSearch, 'Cliente')
+    await user.click(screen.getByRole('button', { name: /Cliente Modelo/ }))
+    await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
+
+    await waitFor(() => expect(mockedSaveBlReview).toHaveBeenCalledWith(expect.objectContaining({ customerId: 99 })))
+  })
+
+  it('permite confirmar um dos CNPJs evidenciados no cartão do conflito', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [{
+        ...makeBl('BL-CONFLICT-ONBOARD', 'Conflito Cadastro SA'),
+        manifest_customer_cnpj_cpf: null,
+        consignee_block: 'Conflito Cadastro SA CNPJ: 11.222.333/0001-81',
+        cargo_description: 'Carga CNPJ: 06.352.972/0001-21',
+      }],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Conflito Cadastro SA/ }))
+    await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '11222333000181')
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'conflito@cliente.com')
+    await user.click(screen.getByRole('button', { name: /criar cliente e vincular 1 b\/ls/i }))
+
+    const mutateAsync = mockedUseReviewCustomerGroup.mock.results[0].value.mutateAsync
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ blIds: ['BL-CONFLICT-ONBOARD'], cnpjCpf: '11222333000181' })))
+  })
+
+  it('vincula também as linhas de Granito quando compartilham o grupo do B/L', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [
+        { ...makeBl('BL-MIXED', 'Cliente misto'), manifest_customer_cnpj_cpf: '11222333000181' },
+        {
+          id: 'GR-MIXED', source: 'granite', bl_number: 'GR-MIXED', consignee: 'Cliente misto',
+          manifest_customer_cnpj_cpf: '11222333000181', customer_id: null, customer: null,
+          review_reasons: ['Cliente nao vinculado (Granito)'],
+        },
+      ],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Cliente misto/ }))
+    await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '11222333000181')
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'misto@cliente.com')
+    await user.click(screen.getByRole('button', { name: /criar cliente e vincular 1 b\/ls/i }))
+
+    await waitFor(() => expect(mockedSaveGraniteBlReview).toHaveBeenCalledWith({ graniteBlId: 'GR-MIXED', clientId: 99, changedBy: 'user-1' }))
+  })
+
+  it('mantém onboarding e vínculo existente em grupo misto sem CNPJ', async () => {
+    const user = userEvent.setup()
+    mockedUseReviewQueue.mockReturnValue({
+      data: [
+        { ...makeBl('BL-MIXED-NAME', 'Cliente sem documento'), manifest_customer_cnpj_cpf: null },
+        {
+          id: 'GR-MIXED-NAME', source: 'granite', bl_number: 'GR-MIXED-NAME', consignee: null,
+          shipper: 'Cliente sem documento', manifest_customer_cnpj_cpf: null, customer_id: null, customer: null,
+          review_reasons: ['Cliente nao vinculado (Granito)'],
+        },
+      ],
+      isLoading: false,
+      error: null,
+    } as never)
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: /Cliente sem documento/ }))
+    expect(screen.getByText('Cadastrar ou vincular cliente')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Vincular cliente...')).toBeTruthy()
   })
 
   it('adiciona e-mail ao cliente do grupo direto da fila', async () => {
@@ -222,10 +277,12 @@ describe('Revisao', () => {
     } as never)
     renderPage()
 
-    await user.type(screen.getByPlaceholderText('E-mail de faturamento'), 'novo@cliente.com')
-    await user.click(screen.getByRole('button', { name: 'Salvar e-mail' }))
+    await user.click(screen.getByRole('button', { name: /Linked Co/ }))
+    await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'novo@cliente.com')
+    await user.click(screen.getByRole('button', { name: /adicionar e-mail e vincular 1 b\/ls/i }))
 
-    await waitFor(() => expect(mockedAddCustomerEmail).toHaveBeenCalledWith(7, 'novo@cliente.com'))
+    const mutateAsync = mockedUseReviewCustomerGroup.mock.results[0].value.mutateAsync
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ blIds: ['BLX'], customerId: 7, email: 'novo@cliente.com', changedBy: 'user-1' })))
   })
 
   it('exibe sugestao de Granito sem trata-la como vinculo automatico', async () => {
@@ -242,7 +299,7 @@ describe('Revisao', () => {
     expect(screen.getAllByText('Sugerido: Cliente Sugerido').length).toBeGreaterThan(0)
     expect(screen.queryByText('Vinculado')).toBeNull()
     await user.click(screen.getByRole('button', { name: /G-001/ }))
-    await user.click(screen.getByRole('button', { name: /Corrigir/ }))
+    await user.click(screen.getByRole('button', { name: /Corrigir Dados/ }))
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
     expect(mockedSaveGraniteBlReview).not.toHaveBeenCalled()

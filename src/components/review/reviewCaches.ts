@@ -18,6 +18,8 @@ export type ReviewCacheScope = {
   includeCharges?: boolean
   /** Inclui as faturas quando o pós-correção pode ter emitido fatura. */
   includeInvoices?: boolean
+  /** Inclui a fila de provisionamento quando o Portal foi alterado. */
+  includePortal?: boolean
 }
 
 export async function invalidateReviewQueueCaches(
@@ -31,5 +33,8 @@ export async function invalidateReviewQueueCaches(
   if (scope.includeCustomers) keys.push(['customers'])
   if (scope.includeCharges) keys.push(queryKeys.charges.operations())
   if (scope.includeInvoices) keys.push(queryKeys.invoices.all())
+  keys.push(['customer-lookup'])
+  if (scope.includeCharges) keys.push(['local-charge-pendencies'])
+  if (scope.includePortal) keys.push(['portal-provisioning'])
   await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
 }

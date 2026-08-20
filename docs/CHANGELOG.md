@@ -3,6 +3,13 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **PR #569 — revisão manual orientada a cliente (#562):** a fila passou a
+  separar grupos por identidade documental segura, exibir evidências brutas do
+  consignatário/carga e bloquear vínculos quando há CNPJs conflitantes. O novo
+  onboarding transacional cria/resolve cliente, cadastra e-mail de forma
+  idempotente, vincula todos os B/Ls do grupo e preserva somente exceções
+  específicas. O convite do Portal é opcional e é enviado para o mesmo e-mail
+  informado, enquanto o ciclo de vida permanece no Console de Provisionamento.
 - **Fundação de Alertas e Notificações:** migrations `317`–`320` centralizam
   catálogo de severidade/audiência, agregado por entidade, itens com histórico,
   dispensa temporária auditável, fan-out de notificações internas por usuário e

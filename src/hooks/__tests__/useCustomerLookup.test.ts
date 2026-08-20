@@ -40,5 +40,6 @@ describe('fetchCustomerLookup', () => {
     await fetchCustomerLookup('ACME,ME')
 
     expect(mocks.or).toHaveBeenCalledWith('name.ilike.%ACME ME%,cnpj_cpf.ilike.%ACME ME%')
+    expect(mocks.from.mock.results[0]?.value.select).toHaveBeenCalledWith('id, cnpj_cpf, name, city, state, customer_contacts(email)')
   })
 })

@@ -4,19 +4,24 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Search, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
-import { Input } from '../components/ui/Input'
+import { Input, Select } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
 import {
   getGroupLinkedItem,
+  getReviewItemDocumentCandidates,
   groupReviewItems,
+  hasCustomerDocumentConflict,
   needsCustomerLink,
+  reviewReasonLabel,
   type ReviewGroup,
 } from './revisaoHelpers'
 import { extractErrorText } from '../lib/errors'
+import { canonicalizeValidCnpj } from '../lib/cnpj'
 import { invalidateReviewQueueCaches } from '../components/review/reviewCaches'
 import { ReviewGroupBlock } from '../components/review/ReviewGroupBlock'
+import type { ReviewCustomerOnboardingInput } from '../components/review/ReviewCustomerOnboarding'
 import { ReviewDrawer } from '../components/review/ReviewDrawer'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { addCustomerEmail } from '../services/customers'
@@ -30,6 +35,7 @@ import {
   type SaveBlReviewResult,
 } from '../services/review'
 import { tryAutoIssueInvoice } from '../services/reviewBillingAutomation'
+import { useReviewCustomerGroup } from '../hooks/useReviewCustomerGroup'
 
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
 
@@ -38,6 +44,7 @@ export function Revisao() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
+  const reviewCustomerGroup = useReviewCustomerGroup()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchText, setSearchText] = useState('')
   const [reasonFilter, setReasonFilter] = useState<string | null>(null)
@@ -214,11 +221,12 @@ export function Revisao() {
   }, [data])
 
   const selected = selectedId ? (filteredData.find((item) => item.id === selectedId) ?? null) : null
+  const selectedGroup = selected ? groups.find((group) => group.items.some((item) => item.id === selected.id)) ?? null : null
   const currentIndex = selectedId ? filteredData.findIndex((item) => item.id === selectedId) : -1
   const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0)
   const filterDescription = describeActiveFilters([
     { label: 'Busca', value: searchText },
-    { label: 'Motivo', value: reasonFilter },
+    { label: 'Motivo', value: reasonFilter ? reviewReasonLabel(reasonFilter) : null },
   ])
   const emptyState = describeEmptyState({
     entitySingular: 'B/L pendente',
@@ -302,6 +310,74 @@ export function Revisao() {
     )
   }
 
+  async function handleGroupOnboard(group: ReviewGroup, input: ReviewCustomerOnboardingInput) {
+    if (!user) return
+    const selectedCnpj = canonicalizeValidCnpj(input.cnpjCpf)
+    const blIds = group.items
+      .filter((item) => item.source === 'bl')
+      .filter((item) => item.customer_id == null || getReviewItemDocumentCandidates(item).every((candidate) => !selectedCnpj || candidate === selectedCnpj))
+      .map((item) => item.id)
+    if (!blIds.length || (group.identityKind === 'conflict' && group.items.length !== 1)) {
+      showToast('Nenhum B/L elegível para o cadastro deste grupo.', 'error')
+      return
+    }
+    setSavingGroupKey(group.key)
+    try {
+      const result = await reviewCustomerGroup.mutateAsync({
+        blIds,
+        customerId: input.customerId,
+        cnpjCpf: input.cnpjCpf,
+        name: input.name,
+        email: input.email,
+        changedBy: user.id,
+        sendPortalInvite: input.sendPortalInvite,
+      })
+      let invoiceCount = 0
+      for (const bl of result.onboarding.bls) {
+        if (!bl.resolved || !bl.blId) continue
+        try {
+          const autoInvoice = await tryAutoIssueInvoice({
+            blId: bl.blId,
+            customerId: result.onboarding.customer.id,
+            actorId: user.id,
+          })
+          if (autoInvoice.status === 'invoiced') invoiceCount++
+        } catch {
+          addRecalcNotice({ id: bl.blId, label: bl.blId, source: 'bl' })
+        }
+      }
+
+      const graniteTargets = group.items.filter((item) => item.source === 'granite' && needsCustomerLink(item))
+      let graniteLinkedCount = 0
+      for (const item of graniteTargets) {
+        try {
+          await saveGraniteBlReview({ graniteBlId: item.id, clientId: result.onboarding.customer.id, changedBy: user.id })
+          graniteLinkedCount++
+          evaluateRecalcNotice(item)
+        } catch {
+          // A falha pontual no Granito não desfaz o onboarding transacional dos B/Ls.
+        }
+      }
+
+      const pendingCount = result.onboarding.bls.filter((bl) => !bl.resolved).length
+      const inviteMessage = result.portalInvite === 'failed' ? ' Não foi possível iniciar o convite do Portal; o cadastro foi concluído.' : ''
+      const invoiceMessage = invoiceCount > 0 ? ` ${invoiceCount} fatura(s) emitida(s).` : ''
+      const graniteMessage = graniteLinkedCount > 0 ? ` ${graniteLinkedCount} item(ns) de Granito vinculado(s).` : ''
+      const resolvedCount = result.onboarding.bls.filter((bl) => bl.resolved).length
+      showToast(`${resolvedCount} B/L(s) vinculados; ${pendingCount} ainda com pendências.${graniteMessage}${invoiceMessage}${inviteMessage}`, result.portalInvite === 'failed' ? 'info' : 'success')
+      await invalidateReviewQueueCaches(queryClient, { includeCustomers: true, includeCharges: true, includeInvoices: true, includePortal: input.sendPortalInvite })
+    } catch (err) {
+      if (err instanceof ConcurrentEditError) {
+        await queryClient.invalidateQueries({ queryKey: ['review-queue'] })
+        showToast('Este grupo foi alterado por outro usuário. A fila foi recarregada.', 'error')
+      } else {
+        showToast(`Falha ao concluir o onboarding do cliente. ${extractErrorText(err)}`.trim(), 'error')
+      }
+    } finally {
+      setSavingGroupKey(null)
+    }
+  }
+
   // Apos uma correcao de nivel-cliente (e-mail/portal), reavalia o gate de todos
   // os B/Ls ja vinculados do grupo: os que zerarem saem da fila e, se elegiveis,
   // sao faturados. O updated_at do B/L nao muda (alteramos tabelas do cliente),
@@ -365,7 +441,7 @@ export function Revisao() {
         description="Fila de B/Ls com pendências de importação que exigem validação humana, agrupada por cliente."
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="review-toolbar mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:w-72">
           <Input
             value={searchText}
@@ -387,27 +463,26 @@ export function Revisao() {
         </div>
 
         {allReasons.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
+          <Select
+            aria-label="Filtrar por inconsistência"
+            value={reasonFilter ?? ''}
+            onChange={(event) => setReasonFilter(event.target.value || null)}
+            className="review-reason-filter w-full sm:w-72"
+          >
+            <option value="">Todas as inconsistências</option>
             {allReasons.map((reason) => (
-              <button
+              <option
                 key={reason}
-                type="button"
-                aria-pressed={reasonFilter === reason}
-                onClick={() => setReasonFilter(reasonFilter === reason ? null : reason)}
-                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  reasonFilter === reason
-                    ? 'border-[var(--app-gold)] bg-[var(--app-gold-soft)] text-[var(--app-gold)]'
-                    : 'border-[var(--app-border)] text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]'
-                }`}
+                value={reason}
               >
-                {reason}
-              </button>
+                {reviewReasonLabel(reason)}
+              </option>
             ))}
-          </div>
+          </Select>
         ) : null}
 
         {data && data.length > 0 ? (
-          <span className="ml-auto text-xs text-slate-500">
+          <span className="review-toolbar__count ml-auto text-xs">
             {formatResultCount(groups.length, 'cliente', 'clientes')} · {formatResultCount(filteredData.length, 'B/L', 'B/Ls')} de {data.length}
           </span>
         ) : null}
@@ -418,7 +493,7 @@ export function Revisao() {
           {recalcQueue.map((notice) => (
             <div
               key={notice.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-100"
+              className="review-recalc-notice flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm"
             >
               <div className="flex items-center gap-2">
                 <AlertTriangle size={15} />
@@ -445,7 +520,7 @@ export function Revisao() {
                 )}
                 <button
                   type="button"
-                  className="text-amber-300 hover:text-amber-100"
+                  className="review-recalc-notice__dismiss"
                   onClick={() => dismissRecalcNotice(notice.id)}
                   aria-label="Dispensar aviso"
                 >
@@ -457,10 +532,10 @@ export function Revisao() {
         </div>
       ) : null}
 
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-semibold text-white">{formatResultCount(filteredData.length, 'pendência retornada', 'pendências retornadas')}</span>
-          <span className="text-xs text-slate-400">{filterDescription}</span>
+      <Card className="review-queue-card overflow-hidden p-0">
+        <div className="review-queue-card__summary flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-semibold text-[var(--app-text-strong)]">{formatResultCount(filteredData.length, 'pendência retornada', 'pendências retornadas')}</span>
+          <span className="text-xs text-[var(--app-muted)]">{filterDescription}</span>
         </div>
         {error ? <InlineError message="Erro ao carregar a fila de revisão." /> : null}
         {graniteUnavailable ? (
@@ -468,13 +543,13 @@ export function Revisao() {
         ) : null}
 
         {isLoading ? (
-          <div className="px-4 py-8 text-center text-slate-400">Carregando fila de revisão...</div>
+          <div className="px-4 py-8 text-center text-[var(--app-muted)]">Carregando fila de revisão...</div>
         ) : null}
         {!isLoading && !filteredData.length ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : null}
 
-        <div className="divide-y divide-[#30363d]">
+        <div className="review-queue-card__groups divide-y">
           {groups.map((group) => (
             <ReviewGroupBlock
               key={group.key}
@@ -485,6 +560,7 @@ export function Revisao() {
               onToggle={() => toggleGroupCollapsed(group.key)}
               onGroupLink={(customerId) => handleGroupLinkCustomer(group, customerId)}
               onGroupAddEmail={(email) => handleGroupAddEmail(group, email)}
+              onGroupOnboard={(input) => void handleGroupOnboard(group, input)}
               onCorrect={(id) => setSelectedId(id)}
               onInlineField={handleInlineField}
             />
@@ -501,6 +577,11 @@ export function Revisao() {
         onReviewSaved={evaluateRecalcNotice}
         onNavigate={(id) => setSelectedId(id)}
         siblingIds={filteredData.map((item) => item.id)}
+        allowCustomerLink={Boolean(
+          selected?.source === 'bl' && selected.customer_id != null
+            || selectedGroup?.identityKind === 'conflict'
+            || (selected && hasCustomerDocumentConflict(selected)),
+        )}
       />
 
     </>
