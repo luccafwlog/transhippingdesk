@@ -862,6 +862,10 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+.review-reason-filter {
+  min-width: 250px;
+}
+
 .review-queue-card {
   box-shadow: var(--app-shadow);
 }
@@ -965,12 +969,6 @@ textarea {
   gap: 8px 12px;
   color: var(--app-muted);
   font-size: 12px;
-}
-
-.review-group__row-context {
-  color: var(--app-muted);
-  font-size: 11px;
-  font-style: italic;
 }
 
 .review-group__table-scroll {
@@ -1329,6 +1327,10 @@ textarea {
 
   .review-onboarding-card__footer .app-btn {
     width: 100%;
+    min-width: 0;
+  }
+
+  .review-reason-filter {
     min-width: 0;
   }
 }

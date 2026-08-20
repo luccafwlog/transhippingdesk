@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Search, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
-import { Input } from '../components/ui/Input'
+import { Input, Select } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useReviewQueue, type ReviewQueueItem } from '../hooks/useReview'
@@ -12,6 +12,7 @@ import {
   getGroupLinkedItem,
   groupReviewItems,
   needsCustomerLink,
+  reviewReasonLabel,
   type ReviewGroup,
 } from './revisaoHelpers'
 import { extractErrorText } from '../lib/errors'
@@ -221,7 +222,7 @@ export function Revisao() {
   const activeFilterCount = (searchText.trim() ? 1 : 0) + (reasonFilter ? 1 : 0)
   const filterDescription = describeActiveFilters([
     { label: 'Busca', value: searchText },
-    { label: 'Motivo', value: reasonFilter },
+    { label: 'Motivo', value: reasonFilter ? reviewReasonLabel(reasonFilter) : null },
   ])
   const emptyState = describeEmptyState({
     entitySingular: 'B/L pendente',
@@ -425,23 +426,22 @@ export function Revisao() {
         </div>
 
         {allReasons.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
+          <Select
+            aria-label="Filtrar por inconsistência"
+            value={reasonFilter ?? ''}
+            onChange={(event) => setReasonFilter(event.target.value || null)}
+            className="review-reason-filter w-full sm:w-72"
+          >
+            <option value="">Todas as inconsistências</option>
             {allReasons.map((reason) => (
-              <button
+              <option
                 key={reason}
-                type="button"
-                aria-pressed={reasonFilter === reason}
-                onClick={() => setReasonFilter(reasonFilter === reason ? null : reason)}
-                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                  reasonFilter === reason
-                    ? 'border-[var(--app-gold)] bg-[var(--app-gold-soft)] text-[var(--app-gold)]'
-                    : 'border-[var(--app-border)] text-[var(--app-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]'
-                }`}
+                value={reason}
               >
-                {reason}
-              </button>
+                {reviewReasonLabel(reason)}
+              </option>
             ))}
-          </div>
+          </Select>
         ) : null}
 
         {data && data.length > 0 ? (

@@ -6,6 +6,20 @@ export function normalizeConsignee(value?: string | null) {
   return value?.trim() || ''
 }
 
+const reviewReasonLabels: Record<string, string> = {
+  'Cliente nao vinculado': 'Cadastro de cliente pendente',
+  'Cliente nao vinculado (Granito)': 'Cadastro de cliente pendente (Granito)',
+}
+
+/** Texto operacional exibido na fila, mantendo o motivo bruto para filtros e persistência. */
+export function reviewReasonLabel(reason: string) {
+  return reviewReasonLabels[reason] ?? reason
+}
+
+export function getReviewCargoTypeLabel(item: ReviewQueueItem) {
+  return item.source === 'bl' && item.cargo_mode === 'carga_solta' ? 'Carga solta' : 'Contêiner'
+}
+
 // Cliente e consignatário são a mesma entidade, chaveada por CNPJ. Se o CNPJ já
 // está cadastrado, vale a razão social do cliente; senão, vale o dado do
 // manifesto (que pode ter ruído de leitura). Por isso o CNPJ do cliente

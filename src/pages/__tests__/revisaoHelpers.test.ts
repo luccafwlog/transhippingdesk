@@ -5,6 +5,7 @@ import {
   getReviewItemDocumentCandidates,
   getReviewItemCnpj,
   getReviewItemDisplayName,
+  getReviewCargoTypeLabel,
   getSelectionConsignee,
   groupNeedsEmail,
   groupNeedsPortal,
@@ -12,6 +13,7 @@ import {
   needsCeMercante,
   needsCustomerLink,
   needsWeightFix,
+  reviewReasonLabel,
 } from '../revisaoHelpers'
 import { extractCnpjFromText, extractCnpjsFromText } from '../../lib/cnpj'
 import type { ReviewQueueItem } from '../../hooks/useReview'
@@ -24,6 +26,19 @@ describe('needsCustomerLink', () => {
   it('é verdadeiro só quando não há cliente vinculado', () => {
     expect(needsCustomerLink(item({ customer_id: null }))).toBe(true)
     expect(needsCustomerLink(item({ customer_id: 5 }))).toBe(false)
+  })
+})
+
+describe('rótulos da fila de revisão', () => {
+  it('padroniza a pendência de cliente sem alterar o valor bruto do motivo', () => {
+    expect(reviewReasonLabel('Cliente nao vinculado')).toBe('Cadastro de cliente pendente')
+    expect(reviewReasonLabel('Cliente nao vinculado (Granito)')).toBe('Cadastro de cliente pendente (Granito)')
+    expect(reviewReasonLabel('CE Mercante ausente')).toBe('CE Mercante ausente')
+  })
+
+  it('exibe a modalidade operacional do B/L', () => {
+    expect(getReviewCargoTypeLabel(item({ source: 'bl', cargo_mode: 'container' }))).toBe('Contêiner')
+    expect(getReviewCargoTypeLabel(item({ source: 'bl', cargo_mode: 'carga_solta' }))).toBe('Carga solta')
   })
 })
 

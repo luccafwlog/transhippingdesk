@@ -50,6 +50,7 @@ function makeBl(id: string, consignee: string): ReviewQueueItem {
     customer: null,
     charge_status: 'review_required',
     review_reasons: ['Cliente nao vinculado'],
+    cargo_mode: 'container',
     cargo_description: 'Carga de teste do B/L',
     voyage: { id: 1, voyage_number: '14', vessel: { id: 1, name: 'GREEN SANTOS', carrier: null } },
     updated_at: `2026-06-10T12:00:00.${id.slice(-1)}Z`,
@@ -114,11 +115,25 @@ afterEach(() => {
 })
 
 describe('Revisao', () => {
+  it('oferece os motivos disponíveis em um seletor de inconsistências', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const filter = screen.getByRole('combobox', { name: 'Filtrar por inconsistência' })
+    expect(screen.getByRole('option', { name: 'Todas as inconsistências' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Cadastro de cliente pendente' })).toBeTruthy()
+
+    await user.selectOptions(filter, 'Cliente nao vinculado')
+    expect((filter as HTMLSelectElement).value).toBe('Cliente nao vinculado')
+  })
+
   it('agrupa os B/Ls por cliente/consignatario e inicia os processos recolhidos', () => {
     renderPage()
     // grupos sao nomeados pelo consignatario quando nao ha cliente cadastrado
     expect(screen.getByText('AC Comercial')).toBeTruthy()
     expect(screen.getByText('Alma Trading')).toBeTruthy()
+    expect(screen.getAllByText('Cadastro de cliente pendente').length).toBeGreaterThan(0)
+    expect(screen.queryByText('CNPJ pendente')).toBeNull()
     // A fila inicia expandida para expor imediatamente as ações de cada B/L.
     expect(screen.getByRole('button', { name: /AC Comercial/ }).getAttribute('aria-expanded')).toBe('false')
     expect(screen.getByRole('button', { name: /Alma Trading/ }).getAttribute('aria-expanded')).toBe('false')
@@ -133,6 +148,8 @@ describe('Revisao', () => {
 
     // o grupo "AC Comercial" (2 B/Ls) e o primeiro na ordem alfabetica
     await user.click(screen.getByRole('button', { name: /AC Comercial/ }))
+    expect(screen.getAllByText('Contêiner').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Tratada no cadastro do grupo')).toBeNull()
     await user.type(screen.getByPlaceholderText('00.000.000/0000-00'), '11222333000181')
     await user.type(screen.getByPlaceholderText('financeiro@cliente.com.br'), 'financeiro@alfa.com')
     await user.click(screen.getByRole('button', { name: /criar cliente e vincular 2 b\/ls/i }))

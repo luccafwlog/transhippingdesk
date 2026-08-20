@@ -10,9 +10,11 @@ import { formatCnpjCpf } from '../../lib/utils'
 import { formatResultCount } from '../../lib/operationalState'
 import {
   getGroupLinkedItem,
+  getReviewCargoTypeLabel,
   groupNeedsEmail,
   needsCustomerLink,
   needsWeightFix,
+  reviewReasonLabel,
   type ReviewGroup,
 } from '../../pages/revisaoHelpers'
 import { ReviewCustomerOnboarding, type ReviewCustomerOnboardingInput } from './ReviewCustomerOnboarding'
@@ -81,8 +83,13 @@ export function ReviewGroupBlock({
         </button>
         <div className="review-group__identity">
           {group.cnpj ? <span className="review-group__cnpj">{formatCnpjCpf(group.cnpj)}</span> : null}
-          {group.identityKind === 'conflict' ? <Badge tone="yellow">CNPJ conflitante</Badge> : null}
-          {group.identityKind === 'name' ? <Badge tone="yellow">CNPJ pendente</Badge> : null}
+          {group.identityKind === 'conflict' ? (
+            <>
+              <Badge tone="yellow">Cadastro de cliente pendente</Badge>
+              <Badge tone="red">CNPJs divergentes</Badge>
+            </>
+          ) : null}
+          {group.identityKind === 'name' ? <Badge tone="yellow">Cadastro de cliente pendente</Badge> : null}
           {hasLinkedCustomer && unlinkedCount === 0 ? <Badge tone="blue">Cliente vinculado</Badge> : null}
           {hasLinkedCustomer && needsEmail ? <Badge tone="yellow">E-mail pendente</Badge> : null}
         </div>
@@ -124,7 +131,7 @@ export function ReviewGroupBlock({
             <div className="review-group__reason-strip">
               <span>Pendências específicas do B/L</span>
               <div className="flex flex-wrap gap-1.5">
-                {groupReasons.map((reason) => <Badge key={reason} tone="yellow">{reason}</Badge>)}
+                {groupReasons.map((reason) => <Badge key={reason} tone="yellow">{reviewReasonLabel(reason)}</Badge>)}
               </div>
             </div>
           ) : null}
@@ -160,11 +167,11 @@ export function ReviewGroupBlock({
                           : showOnboarding ? [] : ['Pendente de revisão']
                         ).map((reason) => (
                           <Badge key={reason} tone="yellow">
-                            {reason}
+                            {reviewReasonLabel(reason)}
                           </Badge>
                         ))}
                         {showOnboarding && item.review_reasons?.some((reason) => customerLevelReasons.has(reason)) ? (
-                          <span className="review-group__row-context">Tratada no cadastro do grupo</span>
+                          <Badge tone="slate">{getReviewCargoTypeLabel(item)}</Badge>
                         ) : null}
                       </div>
                       {item.source === 'granite' && item.suggested_customer?.name ? (
