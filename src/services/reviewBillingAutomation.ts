@@ -26,6 +26,7 @@ type BillingAttemptBl = {
   customer_reconciliation_status: string | null
   review_status: string | null
   billing_hold_reason: string | null
+  charge_status: string | null
 }
 
 type CalculationBlockReason = 'review:no_table' | 'pending_review' | 'invalid_lines' | 'billing_hold_reason' | 'no_billable_value'
@@ -39,7 +40,7 @@ function hasInvalidCalculationLines(calculation: LocalChargeCalculationResult) {
   const totals = [calculation.total_brl, calculation.total_usd]
   return calculation.line_count < 0
     || totals.some((value) => !Number.isFinite(Number(value)) || Number(value) < 0)
-    || /(linha|line).*(inválid|invalid)/i.test(calculation.reason)
+    || /(linha|line).*(inválid|invalid)|review:(?:weight_missing|unsupported_basis|thd_any_profile|no_containers|imo_oog_thd)/i.test(calculation.reason)
 }
 
 function isKnownCalculationStatus(status: LocalChargeCalculationResult['status']) {
@@ -50,8 +51,31 @@ function hasAuthoritativeCalculationState(bl: BillingAttemptBl, calculation: Loc
   return isKnownCalculationStatus(calculation.status)
     || calculation.exempt
     || /review:no_table/i.test(calculation.reason)
-    || bl.review_status === 'pending_review'
+    || calculation.review_required
+    || bl.charge_status === 'review_required'
     || Boolean(bl.billing_hold_reason?.trim())
+}
+
+function isCustomerReviewFlow(bl: BillingAttemptBl, calculation: LocalChargeCalculationResult) {
+  const text = `${calculation.reason} ${bl.billing_hold_reason ?? ''}`.toLowerCase()
+  if (/peso\s+bb|bb_weight|pend[eê]ncia de revis[aã]o operacional/.test(text)) return true
+  return bl.review_status === 'pending_review'
+    && /cliente|reconcil|portal|e-?mail|consignat/.test(text)
+}
+
+function isCustomerReconciliationReview(bl: BillingAttemptBl) {
+  return bl.review_status === 'pending_review'
+    && /cliente|reconcil|portal|e-?mail|consignat/.test((bl.billing_hold_reason ?? '').toLowerCase())
+}
+
+function calculationBlockReason(
+  bl: BillingAttemptBl,
+  calculation: LocalChargeCalculationResult,
+): CalculationBlockReason {
+  if (/review:no_table/i.test(calculation.reason)) return 'review:no_table'
+  if (hasInvalidCalculationLines(calculation)) return 'invalid_lines'
+  if (bl.billing_hold_reason?.trim()) return 'billing_hold_reason'
+  return 'pending_review'
 }
 
 function getCalculationBlock(
@@ -65,20 +89,18 @@ function getCalculationBlock(
   if (calculation.exempt || calculation.status === 'exempt') return null
 
   const calculationReason = calculation.reason.trim()
-  if (/review:no_table/i.test(calculationReason) || calculation.status === 'not_calculated' && bl.billing_hold_reason?.trim()) {
+  if (isCustomerReviewFlow(bl, calculation)) return null
+  if (/review:no_table/i.test(calculationReason)) {
     return { reason: 'review:no_table', message: calculationReason || 'Tabela de taxas locais ausente ou inválida.' }
-  }
-  if (bl.review_status === 'pending_review') {
-    return { reason: 'pending_review', message: bl.billing_hold_reason ?? (calculationReason || 'Revisão pendente antes do faturamento.') }
-  }
-  if (bl.billing_hold_reason?.trim()) {
-    return { reason: 'billing_hold_reason', message: bl.billing_hold_reason }
   }
   if (hasInvalidCalculationLines(calculation)) {
     return { reason: 'invalid_lines', message: calculationReason || 'Há linhas de taxa inválidas.' }
   }
+  if (bl.billing_hold_reason?.trim()) {
+    return { reason: 'billing_hold_reason', message: bl.billing_hold_reason }
+  }
   if (calculation.review_required || calculation.status === 'review_required') {
-    return null
+    return { reason: calculationBlockReason(bl, calculation), message: calculationReason || 'Há uma pendência persistida no cálculo das taxas locais.' }
   }
   if (['calculated', 'reviewed', 'ready_for_billing'].includes(calculation.status)
     && Number(calculation.total_brl ?? 0) <= 0
@@ -96,9 +118,12 @@ function calculationAlertMetadata(
   calculation: LocalChargeCalculationResult,
   reason: CalculationBlockReason,
 ) {
+  const correctionRoute = reason === 'review:no_table' || /review:no_table/i.test(calculation.reason)
+    ? '/taxas-locais/tabelas'
+    : '/taxas-locais'
   return {
     source: 'authoritative_local_calculation',
-    correction_route: '/taxas-locais',
+    correction_route: correctionRoute,
     reason,
     calculation_status: calculation.status,
     table_id: calculation.table_id,
@@ -107,7 +132,17 @@ function calculationAlertMetadata(
     total_usd: calculation.total_usd,
     review_status: bl.review_status,
     billing_hold_reason: bl.billing_hold_reason,
+    persisted_charge_status: bl.charge_status,
+    persisted_billing_hold_reason: bl.billing_hold_reason,
   }
+}
+
+async function loadBillingAttemptBl(blId: string) {
+  return supabase
+    .from('bls')
+    .select('ce_mercante, cargo_mode, customer_id, customer_reconciliation_status, review_status, billing_hold_reason, charge_status')
+    .eq('id', blId)
+    .single()
 }
 
 export async function tryAutoIssueInvoice({
@@ -119,11 +154,7 @@ export async function tryAutoIssueInvoice({
   customerId: number
   actorId: string | null
 }): Promise<ReviewBillingAutomationResult> {
-  const { data: blData, error: blError } = await supabase
-    .from('bls')
-    .select('ce_mercante, cargo_mode, customer_id, customer_reconciliation_status, review_status, billing_hold_reason')
-    .eq('id', blId)
-    .single()
+  const { data: blData, error: blError } = await loadBillingAttemptBl(blId)
   if (blError) {
     return {
       status: 'blocked',
@@ -145,9 +176,13 @@ export async function tryAutoIssueInvoice({
     customer_reconciliation_status: bl.customer_reconciliation_status ?? null,
     review_status: bl.review_status ?? null,
     billing_hold_reason: bl.billing_hold_reason ?? null,
+    charge_status: bl.charge_status ?? null,
   }
   if (!customerId || !attemptBl.customer_id || !isCustomerReconciliationResolved(attemptBl.customer_reconciliation_status)) {
     return { status: 'blocked', reason: 'awaiting_flow', message: 'Aguardando vínculo e reconciliação do cliente.' }
+  }
+  if (isCustomerReconciliationReview(attemptBl)) {
+    return { status: 'blocked', reason: 'awaiting_flow', message: 'Aguardando conclusão da revisão de cliente.' }
   }
 
   let calculation: LocalChargeCalculationResult
@@ -163,7 +198,33 @@ export async function tryAutoIssueInvoice({
     }
   }
 
-  if (!hasAuthoritativeCalculationState(attemptBl, calculation)) {
+  // O RPC grava charge_status/billing_hold_reason durante a tentativa. O
+  // snapshot anterior ao RPC não é suficiente para decidir se houve uma
+  // pendência financeira real.
+  const { data: persistedBlData, error: persistedBlError } = await loadBillingAttemptBl(blId)
+  if (persistedBlError) {
+    return {
+      status: 'blocked',
+      reason: 'rpc_error',
+      message: persistedBlError instanceof Error ? persistedBlError.message : 'Falha ao confirmar o estado do cálculo local.',
+      calculation,
+      unexpected: true,
+      stage: 'calculation',
+    }
+  }
+  const persistedBl = (persistedBlData ?? {}) as Partial<BillingAttemptBl>
+  const authoritativeBl: BillingAttemptBl = {
+    ...attemptBl,
+    ce_mercante: persistedBl.ce_mercante ?? attemptBl.ce_mercante,
+    cargo_mode: persistedBl.cargo_mode ?? attemptBl.cargo_mode,
+    customer_id: persistedBl.customer_id ?? attemptBl.customer_id,
+    customer_reconciliation_status: persistedBl.customer_reconciliation_status ?? attemptBl.customer_reconciliation_status,
+    review_status: persistedBl.review_status ?? attemptBl.review_status,
+    billing_hold_reason: persistedBl.billing_hold_reason ?? attemptBl.billing_hold_reason,
+    charge_status: persistedBl.charge_status ?? attemptBl.charge_status,
+  }
+
+  if (!hasAuthoritativeCalculationState(authoritativeBl, calculation)) {
     return {
       status: 'blocked',
       reason: 'rpc_error',
@@ -174,14 +235,14 @@ export async function tryAutoIssueInvoice({
     }
   }
 
-  const calculationBlock = getCalculationBlock(attemptBl, customerId, calculation)
+  const calculationBlock = getCalculationBlock(authoritativeBl, customerId, calculation)
   if (calculationBlock) {
     await createAlert({
       type: 'billing_calculation_blocked',
       entityType: 'bl',
       entityId: blId,
       message: calculationBlock.message,
-      metadata: calculationAlertMetadata(attemptBl, calculation, calculationBlock.reason),
+      metadata: calculationAlertMetadata(authoritativeBl, calculation, calculationBlock.reason),
     })
     return { status: 'blocked', reason: 'calculation_blocked', message: calculationBlock.message, calculation }
   }
@@ -266,7 +327,7 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
     financial_status: string | null
   } | null
 
-  if (!bl?.customer_id || bl.customer_reconciliation_status !== 'matched_document') return null
+  if (!bl?.customer_id || !isCustomerReconciliationResolved(bl.customer_reconciliation_status)) return null
   const cargoMode = bl.cargo_mode ?? 'container'
   if (cargoMode !== 'container' && cargoMode !== '') return null
 

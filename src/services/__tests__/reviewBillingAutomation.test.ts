@@ -218,8 +218,54 @@ describe('tryAutoIssueInvoice', () => {
       entityType: 'bl',
       entityId: 'BL1',
       message: 'review:no_table',
-      metadata: expect.objectContaining({ reason: 'review:no_table', table_id: null, correction_route: '/taxas-locais' }),
+      metadata: expect.objectContaining({ reason: 'review:no_table', table_id: null, correction_route: '/taxas-locais/tabelas' }),
     }))
+  })
+
+  it('abre A2 para peso invalido quando o RPC persiste o hold durante o calculo', async () => {
+    const initialBl = {
+      ...baseBl(),
+      billing_hold_reason: null,
+      charge_status: 'calculated',
+    }
+    const persistedBl = {
+      ...initialBl,
+      charge_status: 'review_required',
+      billing_hold_reason: 'Pendencia de revisao nas taxas locais.',
+    }
+    const blQuery = (data: unknown) => ({
+      select: () => ({
+        eq: () => ({ single: async () => ({ data, error: null }) }),
+      }),
+    })
+    mockFrom
+      .mockImplementationOnce(() => blQuery(initialBl))
+      .mockImplementationOnce(() => blQuery(persistedBl))
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1',
+      status: 'review_required',
+      table_id: 1,
+      line_count: 1,
+      total_brl: 0,
+      total_usd: 0,
+      review_required: true,
+      exempt: false,
+      reason: 'review:weight_missing:42',
+    })
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'calculation_blocked' })
+    expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'billing_calculation_blocked',
+      metadata: expect.objectContaining({
+        reason: 'invalid_lines',
+        calculation_status: 'review_required',
+        persisted_charge_status: 'review_required',
+        persisted_billing_hold_reason: 'Pendencia de revisao nas taxas locais.',
+      }),
+    }))
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
 
   it('não abre A2 para retorno esperado de revisão operacional', async () => {
@@ -242,23 +288,24 @@ describe('tryAutoIssueInvoice', () => {
   })
 
   it('abre A2 quando o estado autoritativo mantém revisão ou hold de cálculo', async () => {
-    mockFrom.mockImplementationOnce(() => ({
+    const pendingReviewBl = {
+      ce_mercante: '122605051526081',
+      cargo_mode: 'container',
+      customer_id: 99,
+      customer_reconciliation_status: 'matched_document',
+      review_status: 'pending_review',
+      billing_hold_reason: 'Tabela precisa de revisão',
+    }
+    const pendingReviewQuery = () => ({
       select: () => ({
         eq: () => ({
-          single: async () => ({
-            data: {
-              ce_mercante: '122605051526081',
-              cargo_mode: 'container',
-              customer_id: 99,
-              customer_reconciliation_status: 'matched_document',
-              review_status: 'pending_review',
-              billing_hold_reason: 'Tabela precisa de revisão',
-            },
-            error: null,
-          }),
+          single: async () => ({ data: pendingReviewBl, error: null }),
         }),
       }),
-    }))
+    })
+    mockFrom
+      .mockImplementationOnce(pendingReviewQuery)
+      .mockImplementationOnce(pendingReviewQuery)
     mockedCalculate.mockResolvedValueOnce({
       bl_id: 'BL1', status: 'calculated', table_id: 1, line_count: 1, total_brl: 100, total_usd: 0,
       review_required: false, exempt: false, reason: '',
@@ -407,6 +454,30 @@ describe('tryAutoIssueInvoice', () => {
     expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
 
+  it('não cria A2 para revisão de cliente do #520 mesmo com hold de reconciliação', async () => {
+    const customerReviewBl = {
+      ...baseBl(),
+      review_status: 'pending_review',
+      billing_hold_reason: 'Cliente exige reconciliacao manual antes do faturamento.',
+    }
+    const customerReviewQuery = () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: customerReviewBl, error: null }),
+        }),
+      }),
+    })
+    mockFrom
+      .mockImplementationOnce(customerReviewQuery)
+      .mockImplementationOnce(customerReviewQuery)
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'awaiting_flow' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+  })
+
   it('não cria A2 para isenção válida', async () => {
     mockedCalculate.mockResolvedValueOnce({
       bl_id: 'BL1', status: 'exempt', table_id: 1, line_count: 0, total_brl: 0, total_usd: 0,
@@ -454,6 +525,18 @@ describe('maybeAutoBillAfterCeMercante', () => {
     expect(mockLogOperationalEvent).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'ce_reimport_already_invoiced', entityId: 'BL1', changedBy: 'user-1' }),
     )
+  })
+
+  it('aceita reconciled no auto billing local', async () => {
+    mockBl({ customer_reconciliation_status: 'reconciled' })
+    mockedCalculate.mockReset()
+    mockedCalculate.mockResolvedValue(validCalculation())
+
+    const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
+
+    expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
+    expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
+    expect(mockedCreateInvoice).toHaveBeenCalled()
   })
 
   it('registra falha inesperada quando a emissao lanca erro', async () => {

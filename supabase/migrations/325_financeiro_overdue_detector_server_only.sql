@@ -1,8 +1,10 @@
--- 322: detector de faturas vencidas locais, exclusivamente server-side.
+-- 325: detector de faturas vencidas locais, exclusivamente server-side.
 --
--- O detector não é uma RPC de tela. O único caminho de execução é o wrapper
--- protegido por service_role, chamado pela Edge Function agendada em 319.
--- Granito e Demurrage não participam do fluxo financeiro local.
+-- A migration 322_review_customer_group_onboarding.sql já ocupa o prefixo
+-- 322. Esta cópia forward preserva a alteração ainda não aplicada do Bloco
+-- 522 sem criar duas versões com o mesmo número.
+-- Rollback: restaurar as definições anteriores de detect_overdue_invoices e
+-- run_alert_detectors em banco descartável; não desfazer alertas já emitidos.
 
 CREATE OR REPLACE FUNCTION public.detect_overdue_invoices()
 RETURNS INTEGER
@@ -80,10 +82,6 @@ $function$;
 REVOKE ALL ON FUNCTION public.detect_overdue_invoices() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.detect_overdue_invoices() TO service_role;
 
--- O wrapper continua sendo o único executor dos detectores. A claim
--- authenticated usada pela implementação histórica não pode permanecer aqui:
--- ela permitiria que o detector server-only confundisse uma chamada de tela com
--- a execução agendada.
 CREATE OR REPLACE FUNCTION public.run_alert_detectors()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -128,3 +126,4 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.run_alert_detectors() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.run_alert_detectors() TO service_role;
+
