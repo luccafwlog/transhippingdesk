@@ -1,6 +1,6 @@
 # Agent Skills
 
-A unified collection of 49 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
+A unified collection of 50 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
 
 Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) plus optional supporting files (prompts, references, scripts, tests).
 
@@ -100,6 +100,7 @@ Note: `tdd` overlaps in purpose with the Superpowers `test-driven-development` s
 | Skill | Description |
 |-------|-------------|
 | **caveman** | Ultra-compressed communication mode. Cuts token usage ~75% by dropping filler while keeping technical accuracy. |
+| **eli5** *(Third-party)* | Explain any topic, code, concept, or error tailored to a specific audience's level of understanding (age, education level, job role, or relationship). |
 
 ## Structure
 
