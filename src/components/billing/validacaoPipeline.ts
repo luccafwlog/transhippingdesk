@@ -50,6 +50,13 @@ export function getBillingBlock(row: {
   customer?: { id: number | null } | null
   totals: { total_brl: number; line_count: number; review_required_count: number }
 }): { code: BillingBlockCode; label: string; detail: string } {
+  if (row.cargo_mode === 'granito') {
+    return {
+      code: 'operacao_granito',
+      label: 'Apoio operacional',
+      detail: 'Granito fornece conferência de quantidades e não participa da emissão de invoices.',
+    }
+  }
   if (row.financial_status === 'invoiced') return { code: 'faturado', label: 'Faturado', detail: 'Fatura ja emitida.' }
   if (row.charge_status === 'exempt') return { code: 'isento', label: 'Isento', detail: row.charge_exemption_reason ?? 'B/L isento de taxas locais.' }
   if (!row.customer?.id || !isCustomerReconciliationResolved(row.customer_reconciliation_status)) {
@@ -68,12 +75,12 @@ export function getBillingBlock(row: {
       detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Ha linhas de taxa com revisao pendente.' : 'Sem linhas de taxa calculadas.'),
     }
   }
+  if (row.billing_hold_reason) {
+    return { code: 'calculo_incompleto', label: 'Cálculo incompleto', detail: row.billing_hold_reason }
+  }
   const mode = row.cargo_mode ?? 'container'
   if (!row.ce_mercante?.trim() && (mode === 'container' || mode === '' || mode === 'granito')) {
     return { code: 'aguardando_ce', label: 'Aguardando CE Mercante', detail: 'Aguardando cadastro do CE Mercante para emitir a fatura.' }
-  }
-  if (row.billing_hold_reason) {
-    return { code: 'calculo_incompleto', label: 'Cálculo incompleto', detail: row.billing_hold_reason }
   }
   return { code: 'pronto', label: 'Pronto para emitir', detail: 'Pronto para emissão individual.' }
 }
@@ -93,6 +100,7 @@ export function getLegacyBillingBlockReason(row: {
   customer?: { id: number | null } | null
   totals: { total_brl: number; line_count: number; review_required_count: number }
 }) {
+  if (row.cargo_mode === 'granito') return 'Granito e apoio operacional; nao participa da emissao de invoices.'
   if (row.financial_status === 'invoiced') return 'Fatura ja emitida.'
   if (row.billing_hold_reason) return row.billing_hold_reason
   if (!row.customer?.id) return 'Cliente nao vinculado.'
@@ -127,7 +135,7 @@ export function isAwaitingCeMercante(row: {
   customer_reconciliation_status: string | null
 }) {
   return (
-    ((row.cargo_mode ?? 'container') === 'container' || row.cargo_mode === 'granito') &&
+    (row.cargo_mode ?? 'container') === 'container' &&
     (row.financial_status ?? 'pending') === 'pending' &&
     !row.ce_mercante?.trim() &&
     // Achado 9 da review da PR 501: sem isto o card "Aguardando CE" contava

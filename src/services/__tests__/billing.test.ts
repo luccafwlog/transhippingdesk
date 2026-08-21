@@ -15,7 +15,6 @@ import {
   addManualInvoiceCharge,
   cancelInvoice,
   createInvoiceFromBls,
-  createInvoiceFromGraniteBls,
   deleteManualInvoiceCharge,
   getInvoiceBls,
   getInvoicePaymentDate,
@@ -267,67 +266,6 @@ describe('createInvoiceFromBls', () => {
   it('propaga erro do RPC de criação', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('rpc falhou') })
     await expect(createInvoiceFromBls({ blIds: ['BL001'] })).rejects.toThrow('rpc falhou')
-  })
-})
-
-describe('createInvoiceFromGraniteBls', () => {
-  it('chama o RPC create_invoice_from_granite_bls com payload exato', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null })
-
-    const result = await createInvoiceFromGraniteBls({
-      graniteBlIds: ['GR1'],
-      customerId: 3,
-      dueDate: '2026-08-01',
-      notes: 'granito',
-      actorId: 'user-2',
-    })
-
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_granite_bls', {
-      p_granite_bl_ids: ['GR1'],
-      p_customer_id: 3,
-      p_due_date: '2026-08-01',
-      p_notes: 'granito',
-      p_actor: 'user-2',
-    })
-    // Sem invoice_id no retorno, não persiste PIX nem vincula ledger.
-    expect(result).toEqual({ ok: true })
-    expect(supabaseMocks.from).not.toHaveBeenCalled()
-  })
-
-  it('com invoice_id: persiste payload PIX mas NÃO chama link_invoice_to_ledger', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: { invoice_id: 77 }, error: null })
-    const update = invoiceUpdateQuery({ error: null })
-    supabaseMocks.from
-      .mockReturnValueOnce(invoiceFetchQuery({ data: { invoice_number: 'INV-77', total_brl: 250.5 }, error: null }))
-      .mockReturnValueOnce(update.builder)
-
-    const result = await createInvoiceFromGraniteBls({ graniteBlIds: ['GR1'] })
-
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_granite_bls', {
-      p_granite_bl_ids: ['GR1'],
-    })
-    expect(supabaseMocks.buildPix).toHaveBeenCalledWith(250.5, 'INV-77')
-    expect(update.eq).toHaveBeenCalledWith('id', 77)
-    expect(supabaseMocks.rpc).toHaveBeenCalledTimes(1)
-    expect(result).toEqual({ invoice_id: 77 })
-  })
-
-  it('pula a persistência do PIX silenciosamente quando total_brl é zero', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: { invoice_id: 78 }, error: null })
-    supabaseMocks.from.mockReturnValueOnce(
-      invoiceFetchQuery({ data: { invoice_number: 'INV-78', total_brl: 0 }, error: null }),
-    )
-
-    const result = await createInvoiceFromGraniteBls({ graniteBlIds: ['GR2'] })
-
-    expect(supabaseMocks.buildPix).not.toHaveBeenCalled()
-    expect(supabaseMocks.from).toHaveBeenCalledTimes(1)
-    expect(result).toEqual({ invoice_id: 78 })
-  })
-
-  it('propaga erro do RPC', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('granito falhou') })
-    await expect(createInvoiceFromGraniteBls({ graniteBlIds: ['GR1'] })).rejects.toThrow('granito falhou')
   })
 })
 

@@ -750,32 +750,6 @@ export async function listInvoiceDetails(invoiceId: number) {
 
   return result
 }
-export async function createInvoiceFromGraniteBls(input: {
-  graniteBlIds: string[]
-  customerId?: number | null
-  dueDate?: string | null
-  notes?: string | null
-  actorId?: string | null
-}) {
-  const { data, error } = await supabase.rpc('create_invoice_from_granite_bls', {
-    p_granite_bl_ids: input.graniteBlIds,
-    ...(input.customerId == null ? {} : { p_customer_id: input.customerId }),
-    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
-    ...(input.notes == null ? {} : { p_notes: input.notes }),
-    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
-  })
-
-  if (error) throw error
-
-  const result = (data ?? {}) as Json
-  const invoiceId = (result as { invoice_id?: number }).invoice_id
-  if (invoiceId) {
-    await persistPixPayload(invoiceId)
-  }
-
-  return result
-}
-
 export async function createInvoiceFromBls(input: {
   blIds: string[]
   customerId?: number | null

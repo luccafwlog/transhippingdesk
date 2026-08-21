@@ -8,17 +8,32 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   parse: vi.fn(),
   match: vi.fn(),
+  createImportKey: vi.fn(),
+  getLineIdentity: vi.fn(),
+  persist: vi.fn(),
+  listExceptions: vi.fn(),
+  listCandidates: vi.fn(),
+  linkCandidate: vi.fn(),
+  resolveException: vi.fn(),
   confirm: vi.fn(),
   reverseDemurrage: vi.fn(),
   getDemurrageDetail: vi.fn(),
   showToast: vi.fn(),
 }))
+const authState = vi.hoisted(() => ({ isAdmin: true }))
 
 vi.mock('../../services/demurrage/demurrageKpis', () => ({
   parsePixExtractFile: mocks.parse,
 }))
 vi.mock('../../services/reconciliacao', () => ({
   matchUnifiedPixTransactions: mocks.match,
+  createPixImportKey: mocks.createImportKey,
+  getPixLineIdentity: mocks.getLineIdentity,
+  persistUnresolvedPixMatches: mocks.persist,
+  listPixReconciliationExceptions: mocks.listExceptions,
+  listPixReconciliationCandidates: mocks.listCandidates,
+  linkPixReconciliationCandidate: mocks.linkCandidate,
+  resolvePixReconciliationException: mocks.resolveException,
   confirmUnifiedPixReconciliation: mocks.confirm,
   reverseDemurragePayment: mocks.reverseDemurrage,
 }))
@@ -26,7 +41,7 @@ vi.mock('../../services/demurrage/demurrageInvoices', () => ({
   getInvoiceDetail: mocks.getDemurrageDetail,
 }))
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({ isAdmin: true }),
+  useAuth: () => ({ isAdmin: authState.isAdmin }),
 }))
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: mocks.showToast }),
@@ -104,8 +119,19 @@ describe('Reconciliacao PIX user behaviours', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    authState.isAdmin = true
     mocks.parse.mockResolvedValue([transaction])
     mocks.match.mockResolvedValue([safeMatch, ambiguousMatch, unmatchedMatch])
+    mocks.createImportKey.mockResolvedValue('sha256:pix-import')
+    mocks.getLineIdentity.mockImplementation((transaction: { lineNumber?: number }) => transaction.lineNumber ?? 1)
+    mocks.persist.mockResolvedValue([
+      { id: 42, lineNumber: 1, status: 'active' },
+      { id: 43, lineNumber: 2, status: 'active' },
+    ])
+    mocks.listExceptions.mockResolvedValue([])
+    mocks.listCandidates.mockResolvedValue([])
+    mocks.linkCandidate.mockResolvedValue({ id: 42, status: 'active' })
+    mocks.resolveException.mockResolvedValue({ id: 42, status: 'resolved' })
     mocks.confirm.mockResolvedValue({
       local: 1,
       demurrage: 0,
@@ -126,9 +152,54 @@ describe('Reconciliacao PIX user behaviours', () => {
     await user.upload(input, new File(['xlsx'], 'pix.xlsx', { type: 'application/vnd.ms-excel' }))
 
     expect(await screen.findByText('Sem documento candidato (1)')).toBeTruthy()
+    expect(mocks.persist).toHaveBeenCalledWith('sha256:pix-import', [safeMatch, ambiguousMatch, unmatchedMatch])
     expect(screen.getByText('Correspondencias confirmadas (1)')).toBeTruthy()
     expect(screen.getByText('Ambiguas - ignoradas na confirmacao (1)')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Confirmar 1 pagamento(s)' })).toBeTruthy()
+  })
+
+  it('recarrega pendencias PIX persistidas e oferece nova tentativa segura', async () => {
+    mocks.listExceptions.mockResolvedValueOnce([{
+      id: 42,
+      importKey: 'sha256:pix-import',
+      lineNumber: 8,
+      txid: '',
+      cnpj: '123',
+      paidAt: '2026-06-23',
+      amount: 100,
+      reason: 'unmatched',
+      candidateCount: 0,
+      metadata: {},
+      status: 'active',
+      createdAt: '2026-06-23T10:00:00Z',
+      updatedAt: '2026-06-23T10:00:00Z',
+      resolvedAt: null,
+    }])
+    renderPage()
+
+    expect(await screen.findByText('Pendencias PIX persistidas (1)')).toBeTruthy()
+    expect(screen.getByText(/Linha 8 · TXID ausente/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Tentar conciliar' })).toBeTruthy()
+  })
+
+  it('permite escolher candidata e confirma somente pela autoridade financeira', async () => {
+    const user = userEvent.setup()
+    mocks.listExceptions.mockResolvedValueOnce([{
+      id: 42, importKey: 'sha256:pix-import', lineNumber: 8, txid: 'TX-42', cnpj: '123',
+      paidAt: '2026-06-23', amount: 100, reason: 'ambiguous', candidateCount: 2,
+      metadata: {}, status: 'active', createdAt: '2026-06-23T10:00:00Z', updatedAt: '2026-06-23T10:00:00Z', resolvedAt: null,
+    }])
+    mocks.listCandidates.mockResolvedValueOnce([{ source: 'local', invoiceId: 10, docNumber: 'INV-010', amount: 100 }])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Escolher candidata' }))
+    expect(await screen.findByText('INV-010')).toBeTruthy()
+    expect(screen.getByText(/vinculo nao confirma a baixa/i)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Vincular candidata' }))
+    await waitFor(() => expect(mocks.linkCandidate).toHaveBeenCalledWith(42, expect.objectContaining({ source: 'local', invoiceId: 10 })))
+    expect(mocks.confirm).toHaveBeenCalledWith([expect.objectContaining({ source: 'local', invoiceId: 10, ambiguous: false })])
+    expect(mocks.resolveException).toHaveBeenCalledWith(42, expect.objectContaining({ source: 'local', invoiceId: 10, txid: 'TX-42' }))
+    expect(mocks.showToast).toHaveBeenCalledWith(expect.stringMatching(/Pendência conciliada/), 'success')
   })
 
   it('confirma somente o match seguro, exibe o resultado e invalida consumidores', async () => {
@@ -139,7 +210,7 @@ describe('Reconciliacao PIX user behaviours', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Confirmar 1 pagamento(s)' }))
 
-    expect(mocks.confirm).toHaveBeenCalledWith([safeMatch])
+    expect(mocks.confirm).toHaveBeenCalledWith([expect.objectContaining(safeMatch)])
     expect(await screen.findByText('Pagamentos confirmados')).toBeTruthy()
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['reconciliation-history'] })
   })
@@ -163,5 +234,12 @@ describe('Reconciliacao PIX user behaviours', () => {
 
     await waitFor(() => expect(mocks.reverseDemurrage).toHaveBeenCalledWith(31, 'Pagamento duplicado'))
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['reconciliation-history'] })
+  })
+
+  it('bloqueia a página para quem não é administrador', () => {
+    authState.isAdmin = false
+    renderPage()
+    expect(screen.getByText('Acesso restrito')).toBeTruthy()
+    expect(screen.queryByText('Conciliação PIX')).toBeNull()
   })
 })

@@ -96,7 +96,7 @@ describe('ceMercanteImport', () => {
     expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', null)
   })
 
-  it('resolve o numero do B/L de Granito para UUID e grava pela RPC auditavel', async () => {
+  it('resolve o numero do B/L de Granito para UUID e grava pela RPC auditavel sem auto-faturar', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table !== 'granite_bls') throw new Error(`Tabela nao mockada: ${table}`)
       return {
@@ -116,7 +116,7 @@ describe('ceMercanteImport', () => {
     expect(mockRpc).toHaveBeenCalledWith('apply_granite_ce_mercante_update', {
       p_bl_id: 'uuid-gr1', p_new_ce: '122605051526081', p_changed_by: 'user-1',
     })
-    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('uuid-gr1', 'user-1', 'granite')
+    expect(mockMaybeAutoBillAfterCeMercante).not.toHaveBeenCalled()
   })
 
   it('conta CE de Granito unchanged sem incrementar updated', async () => {

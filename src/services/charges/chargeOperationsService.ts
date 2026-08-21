@@ -396,8 +396,8 @@ async function loadGraniteOperationalRows(
   const limit = Math.max(50, Math.min(5000, Number(filters?.limit ?? 400)))
 
   // Mapeia o filtro de chargeStatus do mundo bls para o domínio enxuto de granite_bls.
-  // granite_bls aceita: not_calculated | calculated | ready_for_billing | invoiced.
-  // Filtros bls que não existem em granite (review_required, reviewed, exempt) eliminam o resultado.
+  // Estados legados do Granite são somente leitura nesta fila; o workflow atual
+  // só recalcula o snapshot quantitativo.
   const requested = filters?.chargeStatus ?? ''
   if (requested === 'review_required' || requested === 'reviewed' || requested === 'exempt') {
     return { rows: [], truncated: false }
@@ -585,17 +585,6 @@ export async function markBlReadyForBilling(blId: string, actorId?: string | nul
 
   if (error) throw error
   return data
-}
-
-// Helpers para a integracao Granito → Taxas Locais.
-// granite_bls usa motor próprio (graniteCharges) — aqui só expomos a transicao
-// de estado pra "ready_for_billing", que e o único hook usado pelo lote.
-export async function markGraniteBlReady(blId: string) {
-  const { error } = await supabase
-    .from('granite_bls')
-    .update({ charge_status: 'ready_for_billing' })
-    .eq('id', blId)
-  if (error) throw error
 }
 
 export async function calculateLocalChargesBatch(

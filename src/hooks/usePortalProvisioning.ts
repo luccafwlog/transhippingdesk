@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listPortalProvisioningEvents, listPortalProvisioningQueue, releaseSuppressedEmail, returnToAnalysis, sendPortalInvite, setProvisioningException, type RecoveryEmailSource } from '../services/portalProvisioning'
+import { listPortalProvisioningEvents, listPortalProvisioningQueue, releaseSuppressedEmail, returnToAnalysis, sendPortalInvite, type RecoveryEmailSource } from '../services/portalProvisioning'
 import { supabase } from '../services/supabase'
 
 export const PORTAL_PROVISIONING_QUERY_KEY = ['portal-provisioning'] as const
@@ -22,14 +22,6 @@ export function usePortalEvents(customerId: number | null, enabled = true) {
     queryKey: [...PORTAL_PROVISIONING_QUERY_KEY, 'events', customerId],
     enabled: Boolean(customerId) && enabled,
     queryFn: () => listPortalProvisioningEvents(customerId!),
-  })
-}
-
-export function useSetProvisioningException() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ customerId, reason }: { customerId: number; reason: string }) => setProvisioningException(customerId, reason),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: PORTAL_PROVISIONING_QUERY_KEY }),
   })
 }
 

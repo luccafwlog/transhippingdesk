@@ -64,15 +64,15 @@ function renderTable(overrides: Partial<React.ComponentProps<typeof ValidacaoOpe
 }
 
 describe('ValidacaoOperationsTable', () => {
-  it('mostra Emitir para Granito com CE e bloqueia Granito sem CE', () => {
+  it('não oferece emissão para Granito mesmo com CE e preserva o estado operacional', () => {
     renderTable({ rows: [{ ...row, id: 'GR-READY', cargo_mode: 'granito', ce_mercante: '122605051526081' }] })
-    expect(screen.getByRole('button', { name: 'Emitir' })).toBeTruthy()
-    expect(screen.getByText('Pronto para emitir')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Emitir' })).toBeNull()
+    expect(screen.getByText('Apoio operacional')).toBeTruthy()
     cleanup()
 
     renderTable({ rows: [{ ...row, id: 'GR-WAIT', cargo_mode: 'granito', ce_mercante: null }] })
     expect(screen.queryByRole('button', { name: 'Emitir' })).toBeNull()
-    expect(screen.getByText('Aguardando CE Mercante')).toBeTruthy()
+    expect(screen.getByText('Apoio operacional')).toBeTruthy()
   })
 
   it('delega a emissão individual com a linha selecionada', async () => {

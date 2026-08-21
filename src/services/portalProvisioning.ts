@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { supabase } from './supabase'
 
-export type ProvisioningDecision = 'aguardando_analise' | 'aprovado_para_provisionar' | 'provisionamento_nao_necessario'
+export type ProvisioningDecision = 'aguardando_analise' | 'aprovado_para_provisionar'
 export type AccountSituation = 'sem_conta' | 'convite_pendente' | 'convite_expirado' | 'falha_no_envio' | 'ativo' | 'suspenso'
 export type RecoveryEmailSource = 'candidato' | 'informado_manualmente'
 export type PortalDeliveryStatus = 'aceito' | 'entregue' | 'bounce' | 'complaint' | 'falha_transitoria' | 'falha_permanente'
@@ -38,7 +38,6 @@ export type QueueRow = PortalProvisioningRow & {
   candidates: EmailCandidate[]
   sharedEmailCount: number
   latestDeliveryStatus: PortalDeliveryStatus | null
-  exceptionReason: string | null
 }
 
 export async function sendPortalInvite(customerId: number, recoveryEmail: string, source: RecoveryEmailSource = 'informado_manualmente') {
@@ -61,7 +60,6 @@ export type PortalProvisioningConsolePayload = {
   recovery_email_status: RecoveryEmailStatus | null
   recovery_email_suppressed: boolean
   latest_delivery_status: PortalDeliveryStatus | null
-  exception_reason: string | null
   last_event_at: string | null
   has_critical_alert: boolean
   has_open_invoice: boolean
@@ -75,7 +73,7 @@ const portalProvisioningConsolePayloadSchema: z.ZodType<PortalProvisioningConsol
   customer_id: z.number(),
   customer_name: z.string(),
   cnpj_cpf: z.string(),
-  provisioning_decision: z.enum(['aguardando_analise', 'aprovado_para_provisionar', 'provisionamento_nao_necessario']),
+  provisioning_decision: z.enum(['aguardando_analise', 'aprovado_para_provisionar']),
   account_situation: z.enum(['sem_conta', 'convite_pendente', 'convite_expirado', 'falha_no_envio', 'ativo', 'suspenso']),
   recovery_email: z.string().nullable(),
   recovery_email_source: z.enum(['candidato', 'informado_manualmente']).nullable(),
@@ -87,7 +85,6 @@ const portalProvisioningConsolePayloadSchema: z.ZodType<PortalProvisioningConsol
   recovery_email_status: z.enum(['ok', 'bounce_permanente', 'complaint']).nullable(),
   recovery_email_suppressed: z.boolean(),
   latest_delivery_status: z.enum(['aceito', 'entregue', 'bounce', 'complaint', 'falha_transitoria', 'falha_permanente']).nullable(),
-  exception_reason: z.string().nullable(),
   last_event_at: z.string().nullable(),
   has_critical_alert: z.boolean(),
   has_open_invoice: z.boolean(),
@@ -107,7 +104,6 @@ export function effectiveSituation(situation: AccountSituation, pendingInviteExp
 
 export function comparePriority(a: QueueRow, b: QueueRow): number {
   const rank = (row: QueueRow): number => {
-    if (row.provisioning_decision === 'provisionamento_nao_necessario') return 6
     if (row.hasCriticalAlert) return 0
     if (row.hasOpenInvoice) return 1
     if (row.hasActiveProcess) return 2
@@ -146,7 +142,6 @@ export async function listPortalProvisioningQueue(customerId?: number): Promise<
     candidates: row.candidates ?? [],
     sharedEmailCount: row.shared_email_count ?? 0,
     latestDeliveryStatus: row.latest_delivery_status,
-    exceptionReason: row.exception_reason,
   })).sort(comparePriority)
 }
 
@@ -154,11 +149,6 @@ export async function listPortalProvisioningEvents(customerId: number, limit = 1
   const { data, error } = await supabase.rpc('portal_list_provisioning_events', { p_customer_id: customerId, p_limit: limit })
   if (error) throw error
   return data ?? []
-}
-
-export async function setProvisioningException(customerId: number, reason: string) {
-  const { error } = await supabase.rpc('portal_set_exception', { p_customer_id: customerId, p_reason: reason })
-  if (error) throw error
 }
 
 export async function returnToAnalysis(customerId: number, reason: string) {

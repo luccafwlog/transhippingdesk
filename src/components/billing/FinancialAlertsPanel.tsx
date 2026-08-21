@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
 import { Badge } from '../ui/Badge'
-import type { AlertQueueRow } from '../../services/alerts'
+import { getAlertTypeLabel, getEffectiveAlertType, type AlertQueueRow } from '../../services/alerts'
 
 export function FinancialAlertsPanel({
   alerts,
@@ -39,7 +39,10 @@ export function FinancialAlertsPanel({
               <Badge tone="yellow">
                 Aberto
               </Badge>
-              <span className="min-w-0 break-words text-xs text-slate-200">{alert.message}</span>
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold text-amber-200">{getAlertTypeLabel(getEffectiveAlertType(alert))}</div>
+                <span className="block break-words text-xs text-slate-200">{alert.message}</span>
+              </div>
             </div>
           </div>
         ))}

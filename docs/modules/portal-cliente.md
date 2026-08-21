@@ -11,8 +11,7 @@
 O console interno usa `/clientes/portal`, filtro Todos, expansão inline acessível, deep links por cliente e exportação XLSX. A leitura usa o read model protegido pelas migrations `196`, `197` e `198`; antes da projeção, a migration `198` repara de forma idempotente Clientes sem `customer_portal_accounts` e registra evento de sistema. Financeiro consulta tudo, Operações recebe a situação resumida e os booleanos `has_open_invoice`/`has_active_process`, e somente Administrativo/Documentação executam ações.
 
 O registro interno de Portal possui dois eixos independentes: `provisioning_decision`
-(`aguardando_analise`, `aprovado_para_provisionar` ou
-`provisionamento_nao_necessario`) e `account_situation` (`sem_conta`, convite,
+(`aguardando_analise` ou `aprovado_para_provisionar`) e `account_situation` (`sem_conta`, convite,
 falha, `ativo` ou `suspenso`). `recovery_email` é um contato operacional separado
 da identidade técnica do Supabase Auth e pode ser compartilhado entre CNPJs após
 análise humana.
@@ -106,6 +105,24 @@ No recorte RBAC do provisionamento, `administrativo` mantém todas as ações,
 leitura nesta frente e `operacoes` não recebe ações de Portal. As telas
 `ClienteFicha`, `Clientes` e `Revisao` usam `can()` para esse recorte; as demais
 ocorrências legadas de `isAdmin` pertencem à auditoria RBAC global futura.
+
+### Gate de faturamento e Dispute
+
+A migration 324 consolida a pendência do Portal por Cliente e o bloqueio
+final de emissão por B/L: a invoice só pode ficar issued quando a conta está
+ativa, o acesso Auth está presente e o e-mail de recuperação é válido,
+entregável e não suprimido. A ativação chama o reprocessamento idempotente dos
+B/Ls com reconciliação matched_document ou reconciled; bloqueios funcionais e
+falhas técnicas permanecem projetados no B/L.
+
+Disputes de Demurrage são conversas append-only em demurrage_disputes e
+demurrage_dispute_messages, com anexos privados por mensagem em Storage, RLS e
+próximo responsável (cliente, equipamentos ou ninguem). O Portal pode responder
+e solicitar reabertura; somente Equipamentos reabre o caso. As rotas
+/portal/billing e /demurrage projetam a mesma conversa e a pendência interna só
+é mantida quando a próxima ação é de Equipamentos. **Código:** migration 324 e
+os componentes PortalDisputeConversation e DemurrageDisputeConversation.
+**Teste de contrato SQL:** src/services/__tests__/block521Migration.test.ts.
 
 ### Email transacional
 

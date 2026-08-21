@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '../services/queryKeys'
-import { fetchVoyagesWithUnpaidBls } from '../services/voyages'
+import { fetchVoyagesWithUnpaidBls, listVoyagesIndicatedFirstBrazilianPort } from '../services/voyages'
 import {
   listVoyageEscalaSchedulesByVoyageIds,
   listVoyagePolSchedules,
@@ -61,6 +61,12 @@ export function useViagemSchedulesAndStats(voyageIds: number[], polEntityIds: st
     queryFn: () => listVoyageRouteCeMasters(voyageIds),
   })
 
+  const { data: indicatedFirstPorts } = useQuery({
+    queryKey: queryKeys.voyages.indicatedFirstPort(voyageIds),
+    enabled: voyageIds.length > 0,
+    queryFn: () => listVoyagesIndicatedFirstBrazilianPort(voyageIds),
+  })
+
   const podSchedulesByVoyage = useMemo(() => groupPodSchedulesByVoyageId(podSchedulesRaw), [podSchedulesRaw])
 
   return {
@@ -71,5 +77,6 @@ export function useViagemSchedulesAndStats(voyageIds: number[], polEntityIds: st
     escalaSchedulesByVoyage: escalaSchedulesByVoyage ?? new Map(),
     exportSchedulesData,
     routeCeMasters,
+    indicatedFirstPorts: indicatedFirstPorts ?? new Map(),
   }
 }

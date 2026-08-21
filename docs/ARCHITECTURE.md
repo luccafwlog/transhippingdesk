@@ -57,6 +57,11 @@ itens novos: os produtores resolvem a origem por RPC.
 leitura ao destinatário e permite somente marcar `read_at`. Alertas críticos
 sem audiência ativa tentam Administrativo/Admin e registram a falha em
 `alert_notification_failures` quando o fallback também não encontra ninguém.
+A audiência efetiva é a união de `alert_type_catalog.audience_departments` com
+o departamento concreto de um item terminalizado do ADR; cada notificação
+preserva o `recipient_department` real. O destino de itens ativos é derivado
+por `alertEntityLink`, sem uma segunda cópia em PL/pgSQL. A identidade pública
+de terminal é `voyage::porto::depots.code`; UUID fica somente no metadata.
 A leitura das notificações usa `is_active_read_user()`, portanto inclui o papel
 `equipamentos`, que é audiência válida de Dispute e PIX. Linhas antigas de
 `alerts` continuam na fila pela RPC `list_alert_queue` até que seus produtores
@@ -73,7 +78,10 @@ Portal, como definido na spec #521.
 Os detectores server-side são executados pela Edge Function
 `alerts-detector`, protegida por `ALERTS_DETECTOR_SECRET`, a cada 15 minutos
 por `pg_cron` + `pg_net`. O browser não dispara detectores nem cria
-notificações internas. A agenda é instalada quando as extensões estão
+notificações internas. Triggers em audit logs e no estado terminalizado também
+reconciliam a origem imediatamente; o cron é a rede de segurança. A pendência
+de exportação pós-ATD fica no nível `(viagem, escala)` enquanto os manifests
+não possuírem vínculo de terminal. A agenda é instalada quando as extensões estão
 disponíveis; se `app.settings.supabase_url` ou
 `app.settings.alerts_detector_secret` faltar, a migration emite warning e o job
 continua visível, falhando de forma observável até a configuração ser corrigida.
@@ -317,6 +325,19 @@ mais de um portador, a linha POD é canônica e POL/EXP só preenchem campos
 vazios; divergências ficam expostas para a interface em vez de serem resolvidas
 silenciosamente.
 
+O ADR segue o mesmo contrato transversal desde a migration `323`: cada
+combinação `(agency_departure_report, voyage::port[::terminal])` tem dois itens
+independentes — `agency_report_department_pending` (normal) e
+`agency_report_deadline_missed` (crítico) — um por Operações, Documentação e
+Equipamentos. O terminalizado lê `terminal_atd` de
+`voyage_escala_terminal_state`; o legado conserva `voyage::port`. A
+reconciliação server-side é acionada pelos audit logs de escala, pelas mudanças
+de sign-off e pelo cron de 15 minutos. Reabrir uma seção invalida
+atomicamente o sign-off departamental dono e reabre apenas as condições
+correspondentes. `Alertas.tsx` e futuras notificações usam o mesmo deep-link
+`/viagens/:voyageId?tab=adr&escala=...`, com `terminal` e `report` quando
+disponíveis; o browser não executa detectores.
+
 Consumidores principais:
 
 - `/viagens` e `/viagens/:voyageId`: `useViagemSchedulesAndStats`,
@@ -329,9 +350,10 @@ Consumidores principais:
   mantém o caminho legado por `(voyage_id, port)`; o modal da escala atribui
   frentes, datas e terminais.
 - ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)` para legado,
-  enquanto ADRs novos usam `(voyage_id, port, terminal_id)`, e
-  `detect_agency_report_pending` passa a considerar ATD vindo de POD ou POL,
-  com baseline próprio para a nova fonte POL.
+  enquanto ADRs novos usam `(voyage_id, port, terminal_id)`; a fila usa um
+  agregado por ADR terminalizado, dois itens independentes por departamento,
+  `terminal_atd` como ATD autoritativo e reconciliação imediata mais cron de
+  15 minutos.
 - A RPC transacional também recebe o snapshot dos campos do POD quando o modal
   terminalizado salva a escala; os audit rows de datas, CE, vínculo e número de
   escala entram na mesma transação das frentes. A expectativa de vazios faz

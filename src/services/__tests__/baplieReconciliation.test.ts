@@ -217,6 +217,26 @@ describe('reconcileBaplieWithManifest', () => {
     await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'not_imported' })
   })
 
+  it('força reconciliação em D-7 mesmo com cobertura incompleta de rotas', async () => {
+    installReconcileMocks({
+      bls: [{ id: 'BL1', pol: 'CNTAO', pod: 'BRSSZ' }],
+      baplie: [
+        { container_number: 'ABCD1234567', pol: 'CNTAO', pod: 'BRSSZ', status: 'full' },
+        { container_number: 'XYZU9876543', pol: 'CNNBO', pod: 'BRSSZ', status: 'full' },
+      ],
+      containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567' }],
+    })
+
+    // Sem forçar D-7: aguarda cobertura
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'awaiting_route_coverage' })
+
+    // Forçando D-7: reconcilia e aponta divergência de existência
+    const result = await reconcileBaplieWithManifest(1, { isD7: true })
+    expect(result.source).toBe('reconciled')
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]).toMatchObject({ kind: 'missing_in_manifest', container_number: 'XYZU9876543' })
+  })
+
   it('audita flags Baplie com old_value real e new_value aplicado', async () => {
     installReconcileMocks({
       bls: [{ id: 'BL1' }],

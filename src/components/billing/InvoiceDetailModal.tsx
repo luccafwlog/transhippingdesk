@@ -30,7 +30,6 @@ import {
 import { isConsolidatedInvoice } from '../../services/billing'
 import { buildInvoiceFileBaseName, describeInvoiceItemsFreezeNote, describeUsdConversionNote } from '../shared/invoiceFormat'
 import { formatValidationError, manualInvoiceChargeSchema, paymentFormSchema } from '../../services/financialValidation'
-import { createAlert } from '../../services/alerts'
 import { logOperationalEvent } from '../../services/operationalEvents'
 import { formatBRL, formatDate, stripBlPrefix } from '../../lib/utils'
 import { isLedgerInvoicePayable } from '../../pages/faturamentoLedgerPayment'
@@ -162,10 +161,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     } catch (error) {
       const msg = extractMessage(error, 'Falha ao registrar pagamento.')
       showToast(msg, 'error')
-      void createAlert({ type: 'invoice_payment_invalid', entityType: 'invoice', entityId: String(invoiceId ?? ''), message: msg })
       void logOperationalEvent({ code: 'invoice_payment_invalid', message: msg, changedBy: user?.id ?? null, entityId: String(invoiceId ?? '') })
-      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
-      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
     }
   }
 
@@ -229,10 +225,7 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     } catch (error) {
       const msg = extractMessage(error, 'Falha ao cancelar invoice.')
       showToast(msg, 'error')
-      void createAlert({ type: 'invoice_cancel_blocked', entityType: 'invoice', entityId: String(invoiceId ?? ''), message: msg })
       void logOperationalEvent({ code: 'invoice_cancel_blocked', message: msg, changedBy: user?.id ?? null, entityId: String(invoiceId ?? '') })
-      void queryClient.invalidateQueries({ queryKey: ['financial-alerts'] })
-      void queryClient.invalidateQueries({ queryKey: ['op-count'] })
     }
   }
 

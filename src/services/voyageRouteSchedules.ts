@@ -462,6 +462,10 @@ export async function saveVoyagePodSchedule({
   temImportacao?: boolean
   changedBy: string | null
 }) {
+  if (temImportacao === false && (eta || ata || etb || atb)) {
+    throw new Error('Uma escala marcada como somente exportação não pode ter POD ou datas de importação.')
+  }
+
   const entityId = buildVoyagePodEntityId(voyageId, pod)
   const current = (await listVoyagePodSchedules([entityId])).get(entityId) ?? makeEmptyPodSchedule(entityId)
 

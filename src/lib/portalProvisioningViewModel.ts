@@ -4,7 +4,6 @@ import type { AccountSituation, PortalDeliveryStatus, ProvisioningDecision, Queu
 const DECISION_LABELS: Record<ProvisioningDecision, string> = {
   aguardando_analise: 'Aguardando análise',
   aprovado_para_provisionar: 'Provisionamento autorizado',
-  provisionamento_nao_necessario: 'Provisionamento não necessário no momento',
 }
 const SITUATION_LABELS: Record<AccountSituation, string> = {
   sem_conta: 'Sem conta', convite_pendente: 'Ativação pendente', convite_expirado: 'Convite expirado',
@@ -39,16 +38,12 @@ export function hasBrokenRecoveryEmail(row: Pick<QueueRow, 'recoveryEmailStatus'
   return row.recoveryEmailSuppressed || (row.recoveryEmailStatus !== null && row.recoveryEmailStatus !== 'ok')
 }
 
-// Um cliente marcado como provisionamento_nao_necessario foi analisado e
-// deliberadamente excluido do Portal — nao e uma pendencia (migration 190).
 export function hasPortalPendency(row: Pick<QueueRow, 'account_situation' | 'provisioning_decision'> | null | undefined): boolean {
   if (!row) return false
-  if (row.provisioning_decision === 'provisionamento_nao_necessario') return false
   return row.account_situation !== 'ativo'
 }
 
 export function getPortalNextAction(row: QueueRow): string {
-  if (row.provisioning_decision === 'provisionamento_nao_necessario') return 'Reabrir análise'
   if (row.account_situation === 'convite_pendente') return 'Aguardar ativação'
   if (row.account_situation === 'convite_expirado') return 'Reenviar convite'
   if (row.account_situation === 'falha_no_envio') return row.recovery_email ? 'Revisar email e reenviar' : 'Revisar email'

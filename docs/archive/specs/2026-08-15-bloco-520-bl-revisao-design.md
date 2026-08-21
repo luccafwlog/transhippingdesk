@@ -22,7 +22,7 @@ de leitura individual e resolução coletiva.
 |---|---|
 | `/manifestos` | Lista de B/Ls, importação em lote e indicação de pendências. |
 | `/manifestos/:blId` | Ficha do B/L, painel contextual e correções diretas quando possível. |
-| `/revisao` | Fila operacional combinada de B/Ls de `bls` e `granite_bls` que impedem o avanço normal do fluxo. |
+| `/revisao` | Fila operacional orientada a grupos de clientes com onboarding transacional em lote para `bls` e tratamento de `granite_bls`, exibindo B/Ls individuais apenas como exceções operacionais ou conflitos documentais. |
 | `/containers` | Projeção de pendências originadas em B/L, viagem ou Demurrage, sem duplicação. |
 | `/carga-solta` | Importação e projeção de pendências dos B/Ls de carga solta. |
 | `/veiculos` | Importação com validação antes da persistência; sem pendência própria de vínculo inválido. |
@@ -30,7 +30,10 @@ de leitura individual e resolução coletiva.
 
 `/revisao` é uma fila de trabalho e não uma segunda fonte de alertas. A mesma
 pendência pode ser tratada diretamente na ficha do B/L ou no módulo responsável
-por sua origem.
+por sua origem. Na interface `/revisao`, o trabalho é orientado a grupos de
+cliente (`ReviewGroup`), permitindo resolver CNPJ, razão social e e-mail para
+todos os B/Ls do grupo em uma operação transacional única, mantendo o drawer
+individual do B/L focado em correções operacionais.
 
 Neste bloco, B/L inclui registros de `bls` e `granite_bls`. Existe um único
 alerta agregado por entidade, identificado por `(entity_type, entity_id)`. O
@@ -47,12 +50,17 @@ a condição vigente `client_id IS NULL`.
 
 ## 3. Princípios
 
-### 3.0 Integração obrigatória após as PRs #550 e #553
+### 3.0 Integração obrigatória após as PRs #550, #553 e #569
 
 O agregado deste bloco continua no B/L; terminal não entra na identidade da
 Revisão Manual. Porém, qualquer destino que abra ADR/frente operacional deve
 preservar terminal (e `report_id` quando disponível), pois porto sozinho não
 identifica mais a operação.
+
+A tela `/revisao` opera prioritariamente por Grupo de Cliente (PR #569), com
+onboarding transacional (`complete_review_customer_group`), segregação de
+CNPJs conflitantes e exibição de evidências documentais (`consignee_block` e
+`cargo_description`). O drawer individual não duplica a criação de cliente.
 
 Omissão, Transbordo e COD não são novos motivos genéricos de Revisão Manual.
 Omissão/COD já publicam as Notificações do Portal da PR #553; complemento do
@@ -149,14 +157,19 @@ A importação de carga solta segue a mesma separação:
 
 ## 5. Motivos da Revisão Manual
 
-Para B/Ls de `bls`, o gate de revisão deve expor quatro motivos canônicos, todos
-com o mesmo tratamento de pendência:
+Para B/Ls de `bls`, o gate canônico de revisão documental expõe os motivos
+operacionais que exigem intervenção humana documental:
 
 - cliente não vinculado;
 - cliente sem e-mail cadastrado/utilizável;
-- Conta de Portal não ativa, não vinculada ao usuário de autenticação ou sem
-  acesso utilizável para visualizar a fatura;
-- peso de carga solta ausente.
+- Conta de Portal não pronta;
+- peso de carga solta ausente (`bb_weight_ton`).
+
+A prontidão do Portal atua como gate server-side para avanço e emissão do
+faturamento (conforme a ADR 0054) e também produz o item crítico
+`review_portal_not_ready` enquanto o B/L estiver em Revisão Manual. A condição é
+recomputada quando a conta do cliente muda; a ativação resolve somente esse item
+e não altera os demais motivos independentes do mesmo B/L.
 
 Para `granite_bls`, a condição vigente da fila é `client_id IS NULL`; ela é a
 fonte do motivo de revisão do Granito. O vínculo de cliente não resolvido é
@@ -165,12 +178,9 @@ origem. A implementação deve recomputar essa condição após
 `save_granite_bl_review` e fechar o alerta quando `client_id` deixar de ser
 nulo; não deve inventar motivos de Portal ou de peso.
 
-Quando o problema for a ausência de e-mail ou a falta de prontidão do Portal, a
-pendência de cliente segue também a regra própria do bloco de Clientes. A
-prontidão do Portal é condição do gate de revisão/faturamento conforme a ADR
-0054; deve compor o alerta único do B/L, sem duplicar o alerta geral do cliente.
-Como a migration `188_review_gate_remove_portal.sql` é histórica e protegida, a
-restauração ocorre em migration nova e não por edição retroativa.
+A inclusão de e-mails extraídos na importação é realizada de forma idempotente
+pela função `ensure_customer_contact_email` (migration `322`), reavaliando o
+gate imediatamente sem abrir revisões desnecessárias.
 
 Quando a reconciliação identificar corretamente o cliente por documento, o
 vínculo é resolvido automaticamente. Correspondência somente por nome ou fuzzy
@@ -178,11 +188,22 @@ match é sugestão e exige validação.
 
 ## 6. Correção direta e correção em outro módulo
 
-### 6.1 Cliente no B/L
+### 6.1 Cliente no B/L e no Grupo
 
-Se o cliente já existir, o usuário pode vinculá-lo diretamente na ficha do B/L.
-Se não existir, pode iniciar o cadastro pelo fluxo disponível. A revisão é
-apoio operacional, não local exclusivo da correção.
+Na fila `/revisao`, a decisão e o onboarding de cliente são operados no nível
+do Grupo de Cliente (`ReviewCustomerOnboarding`), permitindo criar cliente,
+cadastrar e-mail e vincular todos os B/Ls daquele CNPJ/identidade documental numa
+transação única (`complete_review_customer_group`).
+
+Na ficha do B/L (`/manifestos/:blId`), o usuário pode vincular ou iniciar o
+cadastro diretamente se necessário, seguindo a mesma integridade documental
+(CNPJ válido e e-mail).
+
+No `ReviewDrawer`, o cadastro/busca de cliente foi removido para preservar a
+consistência do grupo; o drawer exibe a identidade do cliente em modo leitura
+(com `allowCustomerLink` restrito a Granito e CNPJs divergentes) e foca
+exclusivamente nas correções operacionais do B/L individual (`shipper`,
+`consignee`, `pol`, `pod`, `total_weight_kg`, `total_cbm`, `notes`).
 
 ### 6.2 Baplie EDI
 

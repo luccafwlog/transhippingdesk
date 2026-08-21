@@ -1,5 +1,11 @@
 # Bloco 3 — Financeiro: implementação de alertas e notificações
 
+> **Status de encerramento — 2026-08-20:** implementado e verificado nos
+> commits da branch `codex/bloco-522-financeiro`. A fundação E3/E4 estava
+> disponível; o bloco entregou os produtores, persistência, guards e testes
+> previstos. A abertura/atualização da PR e a comunicação no GitHub ficam para
+> a etapa de integração, não são executadas automaticamente neste worktree.
+
 > **Para agentes:** SUB-SKILL OBRIGATÓRIA: usar `superpowers:subagent-driven-development` (recomendado) ou `superpowers:executing-plans` para executar tarefa a tarefa. Os passos usam checkbox (`- [ ]`) para rastreio.
 
 **Objetivo:** implementar o contrato funcional do Bloco 3 — issue #522 — para

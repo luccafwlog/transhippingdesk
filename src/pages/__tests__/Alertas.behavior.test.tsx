@@ -20,11 +20,14 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }))
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
-vi.mock('../../services/alerts', () => ({
-  listAlerts: vi.fn(),
-  dismissAlertItem: vi.fn().mockResolvedValue(undefined),
-  formatAgencyReportAlertEntity: (entityId: string) => entityId,
-}))
+vi.mock('../../services/alerts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/alerts')>()
+  return {
+    ...actual,
+    listAlerts: vi.fn(),
+    dismissAlertItem: vi.fn().mockResolvedValue(undefined),
+  }
+})
 
 import { Alertas } from '../Alertas'
 

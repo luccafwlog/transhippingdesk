@@ -190,6 +190,54 @@ export async function portalOpenDemurrageDispute(demurrageInvoiceId: number, rea
   await callPortalRpc(scope, 'portal_open_demurrage_dispute', { p_demurrage_invoice_id: demurrageInvoiceId, p_reason: reason })
 }
 
+export type PortalDisputeMessage = {
+  id: number
+  author_type: 'cliente' | 'equipamentos' | 'sistema'
+  body: string
+  next_responder: 'cliente' | 'equipamentos' | 'ninguem'
+  created_at: string
+  attachments: Array<{ id: number; file_name: string; mime_type: string; storage_path: string }>
+}
+
+export type PortalDispute = {
+  id: number
+  demurrage_invoice_id: number
+  doc_number: string
+  state: 'aberta' | 'resolvida' | 'cancelada'
+  next_responder: 'cliente' | 'equipamentos' | 'ninguem'
+  subject: string | null
+  created_at: string
+  updated_at: string
+  messages: PortalDisputeMessage[]
+}
+
+export async function portalListDisputes(scope: PortalScope = clientPortalScope): Promise<PortalDispute[]> {
+  const data = await callPortalRpc<PortalDispute[]>(scope, 'portal_list_disputes')
+  return Array.isArray(data) ? data : []
+}
+
+export async function portalAddDisputeMessage(demurrageInvoiceId: number, body: string, scope: PortalScope = clientPortalScope) {
+  return callPortalRpc<{ dispute_id: number; message_id: number }>(scope, 'portal_add_dispute_message', {
+    p_demurrage_invoice_id: demurrageInvoiceId,
+    p_body: body,
+  })
+}
+
+export async function portalUploadDisputeAttachment(messageId: number, disputeId: number, customerId: number, file: File, scope: PortalScope = clientPortalScope) {
+  const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png', 'text/plain'])
+  if (!allowed.has(file.type) || file.size <= 0 || file.size > 10 * 1024 * 1024) throw new Error('Anexo inválido. Use PDF, JPG, PNG ou TXT de até 10 MB.')
+  const path = `${customerId}/disputes/${disputeId}/${messageId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const { error: uploadError } = await supabasePortal.storage.from('demurrage-disputes').upload(path, file, { upsert: false })
+  if (uploadError) throw uploadError
+  return callPortalRpc(scope, 'add_demurrage_dispute_attachment', {
+    p_message_id: messageId, p_storage_path: path, p_file_name: file.name, p_mime_type: file.type, p_size_bytes: file.size,
+  })
+}
+
+export async function portalRequestDisputeReopen(disputeId: number, body: string, scope: PortalScope = clientPortalScope) {
+  await callPortalRpc(scope, 'portal_request_dispute_reopen', { p_dispute_id: disputeId, p_body: body })
+}
+
 export type PortalProfile = {
   contact_email: string | null
   phone: string | null

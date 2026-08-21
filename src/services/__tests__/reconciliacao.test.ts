@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions } from '../reconciliacao'
+import {
+  confirmUnifiedPixReconciliation,
+  createPixImportKey,
+  listPixReconciliationExceptions,
+  matchUnifiedPixTransactions,
+  persistUnresolvedPixMatches,
+  resolvePixReconciliationException,
+} from '../reconciliacao'
 import type { UnifiedPixMatch } from '../reconciliacao'
 
 const { mockFrom, mockRpc, mockInvoiceUpdate, mockDemurrageUpdate } = vi.hoisted(() => ({
@@ -82,7 +89,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           status: 'issued',
-          pix_txid: null,
+          pix_txid: 'PIX-LOCAL-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -109,6 +116,84 @@ describe('reconciliacao PIX unificada', () => {
     ])
   })
 
+  it('usa o TXID PIX da invoice como chave, não o número do documento', async () => {
+    installFromMock({
+      localInvoices: [{
+        id: 10,
+        invoice_number: 'INV-001',
+        total_brl: 100,
+        balance_brl: 100,
+        status: 'issued',
+        pix_txid: 'txid-real-001',
+        customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
+      }],
+    })
+
+    const matches = await matchUnifiedPixTransactions([{
+      txid: 'TXID-REAL-001',
+      cnpj: '12.345.678/0001-95',
+      date: '2026-05-28',
+      amount: 100,
+    }])
+
+    expect(matches[0]).toMatchObject({ source: 'local', docNumber: 'INV-001', ambiguous: false })
+  })
+
+  it('persiste apenas linhas nao conciliadas com import e linha estaveis', async () => {
+    installFromMock({})
+    mockRpc.mockResolvedValue({
+      data: { items: [{ id: 42, line_number: 8, status: 'active' }] },
+      error: null,
+    })
+    const match: UnifiedPixMatch = {
+      transaction: { txid: '', cnpj: '123', date: '2026-06-05', amount: 100, lineNumber: 8 },
+      source: 'unmatched',
+      invoiceId: 0,
+      docNumber: '',
+      customerName: '',
+      customerCnpj: '123',
+      amount: 100,
+      ambiguous: true,
+      ambiguityReason: 'Nenhum documento aberto usa este TXID.',
+      candidateCount: 0,
+      matchType: 'unmatched',
+    }
+
+    const result = await persistUnresolvedPixMatches('sha256:import-1', [match])
+
+    expect(mockRpc).toHaveBeenCalledWith('upsert_pix_reconciliation_exceptions', {
+      p_import_key: 'sha256:import-1',
+      p_rows: [expect.objectContaining({ line_number: 8, txid: '', amount_brl: 100 })],
+    })
+    expect(result).toEqual([{ id: 42, lineNumber: 8, status: 'active' }])
+  })
+
+  it('lista pendencias apos reload e resolve somente por RPCs server-side', async () => {
+    installFromMock({})
+    mockRpc
+      .mockResolvedValueOnce({ data: [{ id: 42, import_key: 'sha256:import-1', line_number: 8, txid: '', cnpj: '123', paid_at: '2026-06-05', amount_brl: 100, reason: 'unmatched', candidate_count: 0, metadata: {}, status: 'active', created_at: '2026-06-05T10:00:00Z', updated_at: '2026-06-05T10:00:00Z', resolved_at: null }], error: null })
+      .mockResolvedValueOnce({ data: { id: 42, status: 'resolved' }, error: null })
+
+    const rows = await listPixReconciliationExceptions()
+    const resolved = await resolvePixReconciliationException(42, { source: 'local', invoiceId: 10, txid: 'INV-010' })
+
+    expect(rows[0]).toMatchObject({ id: 42, lineNumber: 8, txid: '', amount: 100, status: 'active' })
+    expect(resolved).toEqual({ id: 42, status: 'resolved' })
+    expect(mockRpc).toHaveBeenNthCalledWith(1, 'list_pix_reconciliation_exceptions', { p_status: 'active' })
+    expect(mockRpc).toHaveBeenNthCalledWith(2, 'resolve_pix_reconciliation_exception', {
+      p_exception_id: 42,
+      p_resolution_source: 'local',
+      p_invoice_id: 10,
+      p_demurrage_invoice_id: null,
+      p_txid: 'INV-010',
+    })
+  })
+
+  it('gera chave de importacao deterministica pelo conteudo do arquivo', async () => {
+    const file = new File(['pix-content'], 'pix.xlsx', { type: 'application/vnd.ms-excel', lastModified: 123 })
+    await expect(createPixImportKey(file)).resolves.toMatch(/^sha256:/)
+  })
+
   it('marca como ambiguo quando o mesmo TXID existe em fatura local e demurrage', async () => {
     installFromMock({
       localInvoices: [
@@ -117,7 +202,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Local', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -126,7 +211,7 @@ describe('reconciliacao PIX unificada', () => {
           id: 20,
           doc_number: 'INV-001',
           current_total_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Demurrage', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -147,7 +232,7 @@ describe('reconciliacao PIX unificada', () => {
           id: 20,
           doc_number: 'DEM-001',
           current_total_brl: 100,
-          pix_txid: null,
+          pix_txid: 'DEM-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -168,7 +253,7 @@ describe('reconciliacao PIX unificada', () => {
           id: 20,
           doc_number: 'DEM-001',
           current_total_brl: 110, // valor de hoje (PTAX nova)
-          pix_txid: null,
+          pix_txid: 'DEM-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -195,7 +280,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -217,15 +302,15 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'DUPLICATE-PIX',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
     })
 
     const matches = await matchUnifiedPixTransactions([
-      { txid: 'INV-001', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 100 },
-      { txid: 'INV-001', cnpj: '12.345.678/0001-95', date: '2026-05-29', amount: 100 },
+      { txid: 'DUPLICATE-PIX', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 100 },
+      { txid: 'DUPLICATE-PIX', cnpj: '12.345.678/0001-95', date: '2026-05-29', amount: 100 },
     ])
 
     expect(matches).toHaveLength(2)
@@ -241,7 +326,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],

@@ -54,14 +54,14 @@ describe('VisaoGeralTab — pendencias', () => {
     expect(screen.queryByText('Nenhuma pendência aberta.')).toBeNull()
   })
 
-  it('nao trata excecao aprovada do Portal (provisionamento_nao_necessario) como pendencia', () => {
+  it('trata conta suspensa como pendência de Portal após a remoção da exceção', () => {
     mocks.portal = {
-      data: { account_situation: 'suspenso', provisioning_decision: 'provisionamento_nao_necessario' },
+      data: { account_situation: 'suspenso', provisioning_decision: 'aguardando_analise' },
       isLoading: false,
       isError: false,
     }
     renderTab()
-    expect(screen.getByText('Nenhuma pendência aberta.')).toBeTruthy()
+    expect(screen.getByText(/Portal não ativo/)).toBeTruthy()
   })
 
   it('mantem pendencia de Portal para situacoes realmente pendentes', () => {
