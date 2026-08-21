@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync('supabase/migrations/325_clientes_portal_disputes_alerts.sql', 'utf8')
 
-describe('324 — Clientes, Portal e Disputes do bloco 521', () => {
+describe('325 — Clientes, Portal e Disputes do bloco 521', () => {
   it('remove o estado de provisionamento obsoleto e reconcilia pendências no agregado', () => {
     expect(sql).toMatch(/DROP CONSTRAINT IF EXISTS customer_portal_accounts_provisioning_decision_check/i)
     expect(sql).toMatch(/provisioning_decision IN \('aguardando_analise', 'aprovado_para_provisionar'\)/i)

@@ -1,8 +1,7 @@
--- 325: detector de faturas vencidas locais, exclusivamente server-side.
+-- 329: detector de faturas vencidas locais, exclusivamente server-side.
 --
 -- A migration 322_review_customer_group_onboarding.sql já ocupa o prefixo
--- 322. Esta cópia forward preserva a alteração ainda não aplicada do Bloco
--- 522 sem criar duas versões com o mesmo número.
+-- 322. Esta cópia forward preserva a alteração do Bloco 522 linearizada na sequência 323–332.
 -- Rollback: restaurar as definições anteriores de detect_overdue_invoices e
 -- run_alert_detectors em banco descartável; não desfazer alertas já emitidos.
 
@@ -93,6 +92,10 @@ DECLARE
   v_overdue INTEGER := 0;
   v_adr_pending INTEGER := 0;
   v_adr_deadline INTEGER := 0;
+  v_bl_review INTEGER := 0;
+  v_granite_review INTEGER := 0;
+  v_portal JSONB;
+  v_voyage_ops INTEGER := 0;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Executor server-only.' USING ERRCODE = '42501';
@@ -115,11 +118,19 @@ BEGIN
   v_overdue := public.detect_overdue_invoices();
   v_adr_pending := public.detect_agency_report_pending();
   v_adr_deadline := public.detect_agency_report_deadline_missed();
+  v_bl_review := public.detect_bl_review_pendencies();
+  v_granite_review := public.detect_granite_bl_review_pendencies();
+  v_portal := public.reconcile_client_portal_alerts();
+  v_voyage_ops := public.detect_voyage_operation_alerts();
 
   RETURN jsonb_build_object(
     'overdue_invoices', v_overdue,
     'agency_report_pending', v_adr_pending,
-    'agency_report_deadline_missed', v_adr_deadline
+    'agency_report_deadline_missed', v_adr_deadline,
+    'bl_review_pendencies', v_bl_review,
+    'granite_bl_review_pendencies', v_granite_review,
+    'client_portal', v_portal,
+    'voyage_operation_alerts', v_voyage_ops
   );
 END;
 $function$;

@@ -1,10 +1,8 @@
--- 324: Bloco 2 (#521) — Clientes, Portal e Disputes.
+-- 325: Bloco 2 (#521) — Clientes, Portal e Disputes.
 --
 -- A migration é aditiva sobre a fundação 317–321. Ela troca os produtores
 -- legados pelo agregado de itens, remove a decisão funcional obsoleta do
 -- Portal, fecha o gate no banco e transforma a Dispute em conversa auditável.
--- A PR do ADR (#524/#570) usa a migration 323; este bloco usa 324 para que as
--- duas PRs possam ser integradas sem renomear histórico já publicado.
 -- Rollback operacional: reverter a PR e restaurar os produtores históricos;
 -- não apagar alert_items, eventos, mensagens ou anexos, que são auditoria.
 
@@ -869,6 +867,8 @@ DECLARE
   v_overdue INTEGER := 0;
   v_adr_pending INTEGER := 0;
   v_adr_deadline INTEGER := 0;
+  v_bl_review INTEGER := 0;
+  v_granite_review INTEGER := 0;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE EXCEPTION 'Executor server-only.' USING ERRCODE = '42501'; END IF;
   SELECT id INTO v_actor FROM public.user_profiles WHERE active AND role <> 'equipamentos' ORDER BY CASE WHEN role IN ('admin', 'administrativo') THEN 0 ELSE 1 END, created_at, id LIMIT 1;
@@ -879,9 +879,18 @@ BEGIN
   v_overdue := public.detect_overdue_invoices();
   v_adr_pending := public.detect_agency_report_pending();
   v_adr_deadline := public.detect_agency_report_deadline_missed();
+  v_bl_review := public.detect_bl_review_pendencies();
+  v_granite_review := public.detect_granite_bl_review_pendencies();
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
   v_portal := public.reconcile_client_portal_alerts();
-  RETURN jsonb_build_object('overdue_invoices', v_overdue, 'agency_report_pending', v_adr_pending, 'agency_report_deadline_missed', v_adr_deadline, 'client_portal', v_portal);
+  RETURN jsonb_build_object(
+    'overdue_invoices', v_overdue,
+    'agency_report_pending', v_adr_pending,
+    'agency_report_deadline_missed', v_adr_deadline,
+    'bl_review_pendencies', v_bl_review,
+    'granite_bl_review_pendencies', v_granite_review,
+    'client_portal', v_portal
+  );
 END;
 $function$;
 

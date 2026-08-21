@@ -1,4 +1,4 @@
--- 326: bloqueios forward para retirar Granito do faturamento financeiro.
+-- 330: bloqueios forward para retirar Granito do faturamento financeiro.
 --
 -- As funções históricas permanecem no catálogo para preservar auditabilidade,
 -- mas nenhum overload de create_invoice_from_granite_bls pode mais emitir uma

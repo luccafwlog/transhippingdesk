@@ -7,7 +7,7 @@ const sql = readFileSync(
   'utf-8',
 )
 
-describe('migration 325 — detectores e reconciliação de alertas de operação e viagem', () => {
+describe('migration 326 — detectores e reconciliação de alertas de operação e viagem', () => {
   it('define funções helper para resolução de PODs elegíveis e 1º ETA brasileiro', () => {
     expect(sql).toContain('CREATE OR REPLACE FUNCTION public.get_voyage_eligible_pods')
     expect(sql).toContain('CREATE OR REPLACE FUNCTION public.get_voyage_first_brazilian_eta')

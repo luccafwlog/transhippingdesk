@@ -1,4 +1,4 @@
--- 323: Bloco 3 (#522), Task 5 — disputa Demurrage e produtores sem ação.
+-- 327: Bloco 3 (#522), Task 5 — disputa Demurrage e produtores sem ação.
 -- O contrato do épico #519 mantém a conversa de Dispute no Portal (#521), mas
 -- só cria trabalho interno enquanto a próxima resposta for Equipamentos.
 -- Esta migration é aditiva: não reescreve 318/321 nem apaga histórico.
@@ -115,32 +115,6 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.portal_obsolete_consolidation(BIGINT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.portal_obsolete_consolidation(BIGINT) TO authenticated;
-
-CREATE OR REPLACE FUNCTION public.portal_open_demurrage_dispute(p_demurrage_invoice_id BIGINT, p_reason TEXT)
-RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
-AS $function$
-DECLARE
-  v_customer_id BIGINT := public.current_portal_customer_id();
-  v_invoice RECORD;
-BEGIN
-  PERFORM public.check_portal_rate_limit('open_dispute', 3, 30);
-  IF p_reason IS NULL OR trim(p_reason) = '' THEN RAISE EXCEPTION 'Informe o motivo da disputa.' USING ERRCODE = '22023'; END IF;
-  SELECT id, doc_number, customer_id, dispute_open, dispute_status INTO v_invoice
-  FROM public.demurrage_invoices WHERE id = p_demurrage_invoice_id AND customer_id = v_customer_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Fatura de demurrage nao encontrada.' USING ERRCODE = 'P0002'; END IF;
-  IF v_invoice.dispute_open THEN RAISE EXCEPTION 'Esta fatura ja possui uma disputa em aberto.' USING ERRCODE = 'P0002'; END IF;
-  UPDATE public.demurrage_invoices
-  SET dispute_open = true, dispute_reason = trim(p_reason), dispute_status = 'aberto',
-      dispute_notes = COALESCE(dispute_notes, '') || CASE WHEN dispute_notes IS NOT NULL THEN E'\n' ELSE '' END || '[Portal] ' || trim(p_reason)
-  WHERE id = p_demurrage_invoice_id;
-  INSERT INTO public.portal_notifications (customer_id, type, title, message, link)
-  VALUES (v_customer_id, 'dispute_opened', 'Disputa registrada',
-    'Sua disputa para a fatura ' || v_invoice.doc_number || ' foi registrada. Acompanhe o retorno.', '/portal/billing');
-  RETURN jsonb_build_object('success', true, 'demurrage_invoice_id', p_demurrage_invoice_id);
-END;
-$function$;
-REVOKE ALL ON FUNCTION public.portal_open_demurrage_dispute(BIGINT, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.portal_open_demurrage_dispute(BIGINT, TEXT) TO authenticated;
 
 -- Fecha carriers antigos por evento de lifecycle; não remove alerts, items,
 -- eventos, notificações ou audit_logs.

@@ -7,7 +7,7 @@ const migration = readFileSync(
   'utf8',
 )
 
-describe('migration 326 — guards financeiros forward do Bloco 522', () => {
+describe('migration 330 — guards financeiros forward do Bloco 522', () => {
   it('bloqueia os overloads históricos de emissão de Granito sem apagar histórico', () => {
     expect(migration).toContain('CREATE OR REPLACE FUNCTION public.create_invoice_from_granite_bls(')
     expect(migration).toContain('p_issue_now BOOLEAN')
