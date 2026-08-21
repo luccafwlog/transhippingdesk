@@ -27,31 +27,38 @@ TanStack Query, Vitest e testes de contrato SQL.
 
 ---
 
-## Pré-condições bloqueantes
+## Pré-condições e fundação
 
-### Task 0: liberar a fundação transversal
+### Task 0: confirmar fundação transversal e migrations
 
 **Files:**
 
-- Read: plano central de alertas na PR #517
-- Read: ADR 0034
+- Read: fundação de alertas na PR #568 (migrations `317`–`321`)
+- Read: ADR 0034, ADR 0053 e ADR 0054
 - Read: schema atual de viagem, escala, BL, Baplie e alerts
 - Read: src/services/baplieReconciliation.ts
-- Read: migrations de alertas e migration 271
+- Read: migrations de alertas (`317`–`321`), onboarding (`322`), ADR (`323`), revisão B/L (`324`)
 
-- [ ] **Step 1: Confirmar merge da PR #517 e disponibilidade de E1/E2/E3.**
+- [x] **Step 1: Confirmar merge da fundação transversal (PR #568 / migrations `317`–`321`).**
 
-Se a PR não estiver mergeada, manter o trabalho de implementação BLOCKED.
+A fundação transversal E1–E4 foi entregue pelas migrations `317`–`321` e já
+catalogou os tipos do Bloco 4 (`voyage_bl_expected`, `voyage_baplie_missing`,
+`voyage_baplie_documentary_coverage`, `voyage_ce_mercante_missing`,
+`voyage_schedule_date_pending`, `voyage_terminal_date_pending` e
+`voyage_export_after_atd`) com suas gravidades e audiências.
 
 - [ ] **Step 2: Confirmar o ponto server-only dos detectores.**
 
-Não criar cron client-side, não depender de auth.uid de uma tela e não duplicar o
-produtor do #517.
+Não criar cron client-side, não depender de auth.uid de uma tela e conectar os
+detectores ao runner server-only periódico (`run_alert_detectors` / Edge Function
+`alerts-detector`).
 
-- [ ] **Step 3: Confirmar tabelas e próxima migration.**
+- [ ] **Step 3: Confirmar tabelas e próxima migration sequencial.**
 
-Localizar as tabelas de viagem/escala e validar o contrato de alerts antes de
-escolher qualquer nome de coluna, enum, RPC ou número de migration.
+Conferir o próximo prefixo de migration no branch integrado (as migrations `322`,
+`323` e `324` foram reservadas/entregues pelas PRs #569, #570 e #571; as novas
+migrations deste bloco e sucessores devem usar prefixos a partir de `325`, ex.:
+nas PRs #573 e #574).
 
 A projeção por porto é reconstruída de `audit_logs` (`voyage_pod_schedule`,
 `voyageId::PORTO`), com `deleted` e `omitted`. A PR #550 acrescentou
@@ -195,28 +202,31 @@ preenchida antecipadamente; ATD preenchido encerrando o ciclo; escala com
 outros itens do Bloco 4; dispensa vencida com nova Notificação; dedupe e
 isolamento entre Operações, Documentação e Financeiro.
 
-### Task 3: completar modelo comum de alertas e dispensa
+### Task 3: consumir modelo comum de alertas e dispensa
 
 **Files:**
 
-- Modify: contrato/migration comum da PR #517, somente se necessário
+- Modify: migrations novas a partir de `325` (em PRs como #573/#574)
 - Modify: serviços centrais de alertas/notificações
 - Test: contrato SQL e testes de fechamento
 
-- [ ] **Step 1: Registrar tipos funcionais.**
+- [x] **Step 1: Consumir tipos funcionais já catalogados.**
 
-Registrar BL por cobertura POL/POD, Baplie ausente, cobertura documental
-Baplie/BL, CE ausente, exportação pós-ATD e
-`voyage_schedule_date_pending` com `milestone` para ATA, ETB, ATB, ETD e
-ATD.
+Os tipos de BL por cobertura POL/POD (`voyage_bl_expected`), Baplie ausente
+(`voyage_baplie_missing`), cobertura documental Baplie/BL
+(`voyage_baplie_documentary_coverage`), CE ausente
+(`voyage_ce_mercante_missing`), datas da escala
+(`voyage_schedule_date_pending`, `voyage_terminal_date_pending`) e exportação
+pós-ATD (`voyage_export_after_atd`) já foram catalogados na migration `317`. As
+novas RPCs/triggers devem apenas chamar `upsert_alert_item` e `resolve_alert_item`.
 
 - [ ] **Step 2: Consumir a dispensa da fundação.**
 
 Não criar reconhecimento nem usar a dispensa como resolução. Consumir o
-metadado/registro compartilhado com motivo, usuário, data/hora, revisão e
-histórico; a dispensa não fecha item ou alerta, não libera faturamento e deve
-ser incluída no predicado de idempotência para impedir nova abertura/reabertura
-antes do vencimento.
+metadado/registro compartilhado (`alert_item_dismissals`) com motivo, usuário,
+data/hora, revisão e histórico; a dispensa não fecha item ou alerta, não libera
+faturamento e deve ser incluída no predicado de idempotência para impedir nova
+abertura/reabertura antes do vencimento.
 
 - [ ] **Step 3: Implementar vencimento da revisão.**
 

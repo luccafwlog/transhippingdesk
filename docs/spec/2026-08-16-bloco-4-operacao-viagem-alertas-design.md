@@ -344,19 +344,21 @@ sequencial.
 
 ## Bloqueios
 
-### BLOCKED — fundação transversal #517
+### Fundação transversal E1–E4 entregue (PR #568 / migrations `317`–`321`)
 
-A fundação E1/E2/E3 precisa estar mergeada para gravidade, detectores
-server-only, estado de dispensa e fan-out de notificações.
+A fundação transversal está disponível em `main`. O catálogo de gravidade,
+audiência, agregado `(entity_type, entity_id)`, itens e dispensa temporária
+(ADR 0053) já suportam os tipos deste bloco (`voyage_bl_expected`,
+`voyage_baplie_missing`, `voyage_baplie_documentary_coverage`,
+`voyage_ce_mercante_missing`, `voyage_schedule_date_pending`,
+`voyage_terminal_date_pending`, `voyage_export_after_atd`).
 
-### BLOCKED — schema de configuração e ciclo de vida
+### Schema de configuração e detectores server-side
 
-O schema atual não contém necessariamente a indicação de outro 1º porto
-brasileiro, a expectativa explícita de exportação,
-gravidade, audiência, estado de dispensa e revisão. A migration própria só pode
-ser criada depois da validação do contrato central e das tabelas atuais.
-
-### BLOCKED — detectores server-side
+As novas migrations deste bloco (âncora de 1º porto brasileiro em `audit_logs`,
+seletor de exportação e detectores server-side) usam os prefixos livres a partir
+de `325` (em PRs como #573 e #574), após as migrations `322` (PR #569), `323` (PR
+#570) e `324` (PR #571).
 
 A reconciliação Baplie hoje é consumida por TypeScript/telas e a importação
 transacional não persiste os eventos descritos. O detector deve ser idempotente,
