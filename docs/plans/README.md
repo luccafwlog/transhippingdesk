@@ -12,7 +12,6 @@ Quando um plano é totalmente executado, ele é movido para
 |---|---|---|
 | [`2026-08-15-implementacao-bloco-520-bl-revisao.md`](./2026-08-15-implementacao-bloco-520-bl-revisao.md) | Implementação de B/L, Revisão Manual, importações e projeções de pendências — Bloco #520 | TODO |
 | [`2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md`](./2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md) | Implementação das pendências de clientes, Portal, faturamento dependente e Disputes de Demurrage | TODO |
-| [`2026-08-16-implementacao-bloco-522-financeiro-alertas.md`](./2026-08-16-implementacao-bloco-522-financeiro-alertas.md) | Implementação do contrato de alertas, notificações e reconciliação PIX do Bloco 3 — Financeiro (#522) | BLOCKED — implementação da fundação E3/E4 |
 | [`2026-08-16-bloco-4-operacao-viagem-alertas.md`](./2026-08-16-bloco-4-operacao-viagem-alertas.md) | Implementação dos alertas BL, Baplie, CE e exportação do Bloco 4 | BLOCKED — schema da fundação (E3/E4) e detectores server-side pendentes |
 | [`2026-08-17-implementacao-bloco-524-adr-alertas.md`](./2026-08-17-implementacao-bloco-524-adr-alertas.md) | Implementação dos Alertas e Notificações Internas do Relatório de Agência (ADR) | TODO |
 | [`2026-08-20-implementacao-bloco-525-transversal-portal.md`](./2026-08-20-implementacao-bloco-525-transversal-portal.md) | Implementação das superfícies transversais: sino interno, fila `/alertas`, resumo do `/painel`, falha de roteamento e Eco de Tratamento — Bloco #525 | BLOCKED — depende da PR de integração dos Blocos 1–5 (#519, §2, passo 11) |
@@ -42,9 +41,9 @@ registro de dispensa.
 > plano e seu contrato de schema estão em
 > [`../archive/plans/2026-08-11-alertas-e-notificacoes.md`](../archive/plans/2026-08-11-alertas-e-notificacoes.md)
 > e [`../archive/specs/2026-08-20-alertas-fundacao-schema-design.md`](../archive/specs/2026-08-20-alertas-fundacao-schema-design.md).
-> A persistência da Notificação Interna deixou de bloquear o plano do Bloco #520,
-> e o bloqueio remanescente dos Blocos #522 e #523 é a migração dos próprios
-> produtores, não o schema da fundação.
+> A persistência da Notificação Interna deixou de bloquear o plano do Bloco #520.
+> O plano do Bloco #522 foi executado e arquivado em
+> [`../archive/plans/2026-08-16-implementacao-bloco-522-financeiro-alertas.md`](../archive/plans/2026-08-16-implementacao-bloco-522-financeiro-alertas.md); o bloqueio remanescente do Bloco #523 é a migração dos próprios produtores.
 
 ### Nota editorial sobre o registro de decisões de #519
 

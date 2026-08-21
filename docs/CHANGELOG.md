@@ -20,6 +20,14 @@
   obsoleto `agency_report_section_pending` foi encerrado e o dead code
   `needsCeMercante` removido. *(plano `2026-08-11-alertas-e-notificacoes`;
   issue #519)*
+- **Bloco 3 Financeiro (#522, parte de #519):** alertas financeiros passaram a
+  usar catálogo/agregado por entidade; cálculo e emissão local distinguem
+  bloqueio real de estados normais; vencimentos rodam apenas no detector
+  server-side para invoices locais; PIX inseguro é persistido por importação e
+  linha com confirmação autoritativa, vínculo manual seguro e reabertura; as
+  disputas Demurrage só geram trabalho quando a próxima ação é Equipamentos.
+  Granito foi retirado do faturamento financeiro, e guards forward preservam o
+  histórico sem permitir nova emissão. Migrations `323`–`327`.
 - **PR #565 — correções da revisão de código da revisão de UI/UX:** o
   relatório de Demurrage por consignatário ainda podia imprimir vazio quando
   o modal era filho direto de `.app-main` (caso da Demurrage, sem wrapper de
