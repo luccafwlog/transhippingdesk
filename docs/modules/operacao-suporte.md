@@ -103,7 +103,7 @@ Os alertas de revisão de B/L e Granito (`review_customer_unlinked`, `review_cus
 
 Os dois produtores do ADR (`agency_report_department_pending` e `agency_report_deadline_missed`) são reconciliados pela migration `323` em um agregado por `(viagem, porto, terminal)` — ou `(viagem, porto)` no legado — com um item independente para cada um dos três departamentos. O ATD do ADR terminalizado vem de `voyage_escala_terminal_state.terminal_atd`; audit logs, sign-offs e o cron server-side de 15 minutos acionam a mesma reconciliação. Se uma seção confirmada volta a pendente, o sign-off departamental dono é invalidado com a justificativa da reabertura. O link para a viagem é produzido por `agencyReportAlertLink`, preservando `terminal` e `report_id` quando existirem.
 
-Detectores server-side de operação e viagem (migration `326`) reconciliam B/L esperado, Baplie ausente/cobertura, CE Mercante, datas de escala/terminal e exportação pós-ATD.
+Detectores server-side de operação e viagem (migrations `326` e `338`) reconciliam B/L esperado, Baplie ausente/cobertura, CE Mercante, datas de escala/terminal e exportação pós-ATD. A audiência usa a união declarada no catálogo; terminais usam `depots.code` na chave/deep-link; e audit logs/estado terminalizado acionam reconciliação imediata, com o cron como rede de segurança. Como os manifests de Granito/Vazios ainda só têm `voyage_id`, a pendência de exportação pós-ATD é agregada por escala, não por terminal.
 
 Dispensar exige motivo e uma data futura e grava o histórico por ocorrência; a resolução acontece no produtor autoritativo. As mutations invalidam `['alerts']`, `['op-count']` e `['dashboard']`. O realtime de `alerts` usado por `useOperationalCounts` invalida especificamente `['op-count', 'open-alerts']`.
 

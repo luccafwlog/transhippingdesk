@@ -57,6 +57,11 @@ itens novos: os produtores resolvem a origem por RPC.
 leitura ao destinatário e permite somente marcar `read_at`. Alertas críticos
 sem audiência ativa tentam Administrativo/Admin e registram a falha em
 `alert_notification_failures` quando o fallback também não encontra ninguém.
+A audiência efetiva é a união de `alert_type_catalog.audience_departments` com
+o departamento concreto de um item terminalizado do ADR; cada notificação
+preserva o `recipient_department` real. O destino de itens ativos é derivado
+por `alertEntityLink`, sem uma segunda cópia em PL/pgSQL. A identidade pública
+de terminal é `voyage::porto::depots.code`; UUID fica somente no metadata.
 A leitura das notificações usa `is_active_read_user()`, portanto inclui o papel
 `equipamentos`, que é audiência válida de Dispute e PIX. Linhas antigas de
 `alerts` continuam na fila pela RPC `list_alert_queue` até que seus produtores
@@ -73,7 +78,10 @@ Portal, como definido na spec #521.
 Os detectores server-side são executados pela Edge Function
 `alerts-detector`, protegida por `ALERTS_DETECTOR_SECRET`, a cada 15 minutos
 por `pg_cron` + `pg_net`. O browser não dispara detectores nem cria
-notificações internas. A agenda é instalada quando as extensões estão
+notificações internas. Triggers em audit logs e no estado terminalizado também
+reconciliam a origem imediatamente; o cron é a rede de segurança. A pendência
+de exportação pós-ATD fica no nível `(viagem, escala)` enquanto os manifests
+não possuírem vínculo de terminal. A agenda é instalada quando as extensões estão
 disponíveis; se `app.settings.supabase_url` ou
 `app.settings.alerts_detector_secret` faltar, a migration emite warning e o job
 continua visível, falhando de forma observável até a configuração ser corrigida.

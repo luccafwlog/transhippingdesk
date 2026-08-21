@@ -68,4 +68,3 @@ CREATE TRIGGER guard_granite_financial_status_on_change
   BEFORE INSERT OR UPDATE OF charge_status ON public.granite_bls
   FOR EACH ROW
   EXECUTE FUNCTION public.guard_granite_financial_status();
-

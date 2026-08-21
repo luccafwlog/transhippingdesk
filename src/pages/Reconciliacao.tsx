@@ -47,6 +47,25 @@ function getAmountStatus(match: UnifiedPixMatch): { tone: 'green' | 'yellow' | '
 }
 
 export function Reconciliacao() {
+  const { isAdmin } = useAuth()
+
+  if (!isAdmin) {
+    return (
+      <div className="mx-auto max-w-2xl p-6">
+        <Card>
+          <PageHeader
+            title="Acesso restrito"
+            description="A Conciliação PIX é uma operação administrativa e não está disponível para este perfil."
+          />
+        </Card>
+      </div>
+    )
+  }
+
+  return <ReconciliacaoContent />
+}
+
+function ReconciliacaoContent() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { isAdmin } = useAuth()

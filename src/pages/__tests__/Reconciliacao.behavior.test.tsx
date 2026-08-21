@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   getDemurrageDetail: vi.fn(),
   showToast: vi.fn(),
 }))
+const authState = vi.hoisted(() => ({ isAdmin: true }))
 
 vi.mock('../../services/demurrage/demurrageKpis', () => ({
   parsePixExtractFile: mocks.parse,
@@ -40,7 +41,7 @@ vi.mock('../../services/demurrage/demurrageInvoices', () => ({
   getInvoiceDetail: mocks.getDemurrageDetail,
 }))
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({ isAdmin: true }),
+  useAuth: () => ({ isAdmin: authState.isAdmin }),
 }))
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: mocks.showToast }),
@@ -118,6 +119,7 @@ describe('Reconciliacao PIX user behaviours', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    authState.isAdmin = true
     mocks.parse.mockResolvedValue([transaction])
     mocks.match.mockResolvedValue([safeMatch, ambiguousMatch, unmatchedMatch])
     mocks.createImportKey.mockResolvedValue('sha256:pix-import')
@@ -232,5 +234,12 @@ describe('Reconciliacao PIX user behaviours', () => {
 
     await waitFor(() => expect(mocks.reverseDemurrage).toHaveBeenCalledWith(31, 'Pagamento duplicado'))
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['reconciliation-history'] })
+  })
+
+  it('bloqueia a página para quem não é administrador', () => {
+    authState.isAdmin = false
+    renderPage()
+    expect(screen.getByText('Acesso restrito')).toBeTruthy()
+    expect(screen.queryByText('Conciliação PIX')).toBeNull()
   })
 })

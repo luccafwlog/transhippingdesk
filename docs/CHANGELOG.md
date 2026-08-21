@@ -3,6 +3,14 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **PR #576 — correções da revisão independente da integração:** o fan-out de
+  notificações agora respeita a união de `audience_departments`; os
+  reconciliadores de viagem são server-only; alertas terminalizados usam
+  `depots.code` e alertas de exportação sem granularidade documental ficam no
+  nível da escala. Avanços de marco geram nova ocorrência/notificação,
+  mutações de escala têm reconciliação imediata, a Conciliação PIX é
+  administrativa-only, Disputes só aparecem para Equipamentos e falhas
+  best-effort passam pela telemetria compartilhada (`338_alerts_review_hardening.sql`).
 - **PR de Integração Transversal — Épico de Alertas e Operação (#519, Blocos 520–524):**
   Unifica as implementações dos 5 blocos operacionais em uma sequência linear de migrações (`323` a `332`):
   - **Bloco 1 (#520 — B/L e Revisão Manual):** Ciclo de vida e reconciliação de pendências de B/L e Granito (`324_review_bl_alerts_lifecycle.sql`), painel de contexto de revisão e bloqueio de faturamento de B/L pendente.

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { Alert } from '../types/database'
+import { reportBestEffortFailure } from '../lib/telemetry'
 
 // Catálogo vivo de alertas suportados pela aplicação.
 export type ActiveAlertType =
@@ -313,10 +314,6 @@ export type AlertStatusFilter = 'all' | 'active' | 'dismissed'
 
 const alertsRpc = supabase as unknown as {
   rpc: (fn: string, params?: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>
-}
-
-function reportBestEffortFailure(action: string, error: unknown, context?: Record<string, unknown>): void {
-  console.warn(`[alerts] Falha ao ${action} (best-effort):`, error, context ?? {})
 }
 
 export async function dismissAlertItem(

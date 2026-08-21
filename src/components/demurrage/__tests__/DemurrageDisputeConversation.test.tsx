@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { DemurrageDisputeConversation } from '../DemurrageDisputeConversation'
 
+const authState = vi.hoisted(() => ({ role: 'equipamentos' }))
+
 const mockDispute = {
   id: 1,
   demurrage_invoice_id: 1,
@@ -33,11 +35,15 @@ vi.mock('@tanstack/react-query', () => ({
     isPending: false,
   })),
 }))
+vi.mock('../../../hooks/useAuth', () => ({
+  useAuth: () => ({ effectiveRole: authState.role }),
+}))
 
 describe('DemurrageDisputeConversation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockState = 'aberta'
+    authState.role = 'equipamentos'
   })
 
   it('renders the dispute subject and status', () => {
@@ -62,5 +68,11 @@ describe('DemurrageDisputeConversation', () => {
     render(<DemurrageDisputeConversation />)
     expect(screen.getByPlaceholderText('Justifique a reabertura...')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Reabrir Dispute/ })).toBeTruthy()
+  })
+
+  it('oculta a conversa para departamentos diferentes de Equipamentos', () => {
+    authState.role = 'documentacao'
+    const { container } = render(<DemurrageDisputeConversation />)
+    expect(container.firstChild).toBeNull()
   })
 })

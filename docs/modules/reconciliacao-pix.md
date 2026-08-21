@@ -1,6 +1,6 @@
 # Reconciliação PIX
 
-> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/reconciliacao`; `/demurrage/reconciliacao` redireciona para esta rota
+> **Status:** ativo · **Atualizado:** 2026-08-21 · **Rotas:** `/reconciliacao` (Administrativo/Admin); `/demurrage/reconciliacao` redireciona para esta rota
 
 ## Propósito e escopo
 
@@ -16,13 +16,16 @@ confirma o lote, apresenta histórico/exportação e permite cancelar baixas.
 - Taxas locais são liquidadas pelo ledger descrito em
   [Faturamento](faturamento.md); Demurrage é atualizado em persistência própria.
 - A capacidade visual `reconciliacao_edit` existe em `src/hooks/useAuth.tsx`;
-  as RPCs críticas também exigem sessão ativa/admin.
+  as RPCs críticas também exigem sessão ativa/admin. A tela bloqueia o acesso
+  para os demais perfis antes do upload ou matching; nenhuma pendência PIX
+  fica apenas em memória do browser.
 
 ## Anatomia das telas
 
 ### Upload e matching
 
-`src/pages/Reconciliacao.tsx` começa com uma dropzone acessível por clique,
+`src/pages/Reconciliacao.tsx` começa, para Administrativo/Admin, com uma
+dropzone acessível por clique,
 teclado ou drag-and-drop. Aceita `.xlsx`/`.xls`, mostra estado “Processando
 extrato...” e limpa o resultado anterior antes de processar outro arquivo.
 
@@ -77,7 +80,7 @@ Depois da RPC, a página substitui os matches por um cartão de resultado com:
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| `/reconciliacao` · selecionar/upload de planilha | Arquivo `.xlsx`/`.xls` dentro do limite | Dropzone/input → `processFile` | `matchMutation` chama `parsePixExtractFile` | Leitura local do arquivo; sem escrita remota | Limpa `matches` e `confirmationResult`; inicia estado de processamento | Arquivo grande, formato inválido ou nenhuma transação gera toast de erro | **Código:** `src/pages/Reconciliacao.tsx`, `src/services/demurrage/demurrageKpis.ts` |
+| `/reconciliacao` · selecionar/upload de planilha | Perfil Administrativo/Admin e arquivo `.xlsx`/`.xls` dentro do limite | Dropzone/input → `processFile` | `matchMutation` chama `parsePixExtractFile` e persiste exceções via `upsert_pix_reconciliation_exceptions` | Linhas sem match seguro ficam persistidas por importação/linha e geram `pix_unreconciled` | Limpa `matches` e `confirmationResult`; inicia estado de processamento | Perfil não autorizado vê “Acesso restrito”; arquivo grande/formato inválido gera toast | **Código:** `src/pages/Reconciliacao.tsx`, `src/services/reconciliacao.ts`, `supabase/migrations/328_pix_unreconciled_persistence.sql` · **Teste:** `src/pages/__tests__/Reconciliacao.behavior.test.tsx` |
 | Parser · extrair linhas bancárias | Cabeçalho `identificador` e coluna `valor pago` | `parsePixExtractFile` | `assertUploadSize` → `parsePixExtract` → import dinâmico de `@e965/xlsx` | Nenhuma persistência | Retorna `{txid, cnpj, date, amount}`; ignora TXID vazio/valor não positivo | Cabeçalho/valor ausente lança erro; data inválida vira string vazia e falhará na confirmação | **Código:** `src/services/demurrage/demurrageKpis.ts` |
 | Matching · carregar documentos locais e Demurrage | Transações parseadas | `matchUnifiedPixTransactions` | Duas queries paralelas; normalização alfanumérica maiúscula | `SELECT invoices` locais pagáveis e `SELECT demurrage_invoices` emitidas | Sem cache React Query; monta mapa único de TXID para os dois domínios | Erro de qualquer query aborta o matching | **Código:** `src/services/reconciliacao.ts` · **Teste:** `src/services/__tests__/reconciliacao.test.ts` |
 | Matching · classificar sem match | TXID sem candidato aberto | Loop de `matchUnifiedPixTransactions` | `txidMap.get(key)` retorna vazio | Sem persistência | Retorna linha `source = unmatched`, painel dedicado e contagem; nunca entra na confirmação | Nenhum documento é alterado | **Código:** `src/services/reconciliacao.ts`, `src/pages/Reconciliacao.tsx` · **Teste:** `src/services/__tests__/reconciliacao.test.ts`, `src/pages/__tests__/Reconciliacao.behavior.test.tsx` |

@@ -18,6 +18,7 @@ import {
   type AlertQueueRow,
   type AlertStatusFilter,
 } from '../services/alerts'
+import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   invoice: 'Fatura',
@@ -262,7 +263,7 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
           <AlertTriangle size={14} className="shrink-0 text-amber-400" />
           <span className="text-xs text-[var(--app-text)]">{getAlertTypeLabel(effectiveType)}</span>
         </div>
-        {alert.department ? <div className="mt-1 text-[11px] text-[var(--app-muted)]">Responsável: {alert.department}</div> : null}
+        {alert.department ? <div className="mt-1 text-[11px] text-[var(--app-muted)]">Responsável: {AGENCY_REPORT_DEPARTMENT_LABELS[alert.department] ?? alert.department}</div> : null}
       </td>
       <td className="max-w-sm px-4 py-3 text-[var(--app-text)]">{alert.message}</td>
       <td className="px-4 py-3 text-[var(--app-muted)]">

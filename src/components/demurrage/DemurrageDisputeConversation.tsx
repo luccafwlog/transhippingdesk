@@ -7,9 +7,18 @@ import { Card, InlineError } from '../ui/Card'
 import { Textarea } from '../ui/Input'
 import { formatDate } from '../../lib/utils'
 import { portalErrorMessage } from '../../lib/portalErrorMessage'
+import { useAuth } from '../../hooks/useAuth'
 import { addDemurrageDisputeMessage, listDemurrageDisputes, reopenDemurrageDispute, uploadDemurrageDisputeAttachment, type DemurrageDispute } from '../../services/demurrage/demurrageDisputes'
 
 export function DemurrageDisputeConversation() {
+  const { effectiveRole } = useAuth()
+
+  if (effectiveRole !== 'equipamentos') return null
+
+  return <DemurrageDisputeConversationContent />
+}
+
+function DemurrageDisputeConversationContent() {
   const queryClient = useQueryClient()
   const [drafts, setDrafts] = useState<Record<number, string>>({})
   const [nextResponders, setNextResponders] = useState<Record<number, 'cliente' | 'ninguem'>>({})

@@ -896,4 +896,3 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.run_alert_detectors() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.run_alert_detectors() TO service_role;
-
