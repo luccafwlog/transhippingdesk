@@ -27,7 +27,6 @@ vi.mock('../../hooks/useBls', () => ({
 vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
 vi.mock('../../services/graniteImport', () => ({ parseGraniteManifestFile: mocks.parse, importGraniteManifest: mocks.importManifest }))
 vi.mock('../../services/graniteCharges', () => ({ listGraniteBls: vi.fn(), calculateGraniteBlCharges: vi.fn() }))
-vi.mock('../../services/billing', () => ({ createInvoiceFromGraniteBls: vi.fn() }))
 vi.mock('../../services/customerReconciliation', () => ({
   loadCustomerMaps: mocks.loadMaps,
   findMatchedCustomer: mocks.findMatch,

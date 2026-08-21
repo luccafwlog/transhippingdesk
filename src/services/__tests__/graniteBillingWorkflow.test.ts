@@ -3,11 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   calculate: vi.fn(),
   markReady: vi.fn(),
-  createGranite: vi.fn(),
-  createLocal: vi.fn(),
-  from: vi.fn(),
-  restoreStatus: vi.fn(),
-  logOperationalEvent: vi.fn(),
 }))
 
 vi.mock('../graniteCharges', () => ({
@@ -16,13 +11,6 @@ vi.mock('../graniteCharges', () => ({
 vi.mock('../charges/chargeOperationsService', () => ({
   markGraniteBlReady: mocks.markReady,
 }))
-vi.mock('../billing', () => ({
-  createInvoiceFromGraniteBls: mocks.createGranite,
-  createInvoiceFromBls: mocks.createLocal,
-}))
-vi.mock('../supabase', () => ({ supabase: { from: mocks.from } }))
-vi.mock('../operationalEvents', () => ({ logOperationalEvent: mocks.logOperationalEvent }))
-
 const workflowModulePath = '../graniteBillingWorkflow'
 
 async function loadWorkflow() {
@@ -37,75 +25,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.calculate.mockResolvedValue([{ id: 1 }])
   mocks.markReady.mockResolvedValue(undefined)
-  mocks.createGranite.mockResolvedValue({ invoice_id: 10 })
-  mocks.createLocal.mockResolvedValue({ invoice_id: 20 })
-  mocks.restoreStatus.mockResolvedValue({ error: null })
-  mocks.from.mockImplementation((table: string) => {
-    if (table === 'granite_bls') return { select: () => ({ eq: () => ({ single: async () => ({ data: { charge_status: 'calculated' }, error: null }) }) }), update: (payload: unknown) => ({ eq: async () => { mocks.restoreStatus(payload); return mocks.restoreStatus() } }) }
-    return { select: () => ({ eq: () => ({ in: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }
-  })
 })
 
 describe('Granite billing workflow', () => {
-  it('calculates, marks ready, then creates the Granite invoice in order', async () => {
+  it('não expõe funções capazes de emitir invoice para Granito', async () => {
     const workflow = await loadWorkflow()
     expect(workflow).not.toBeNull()
-
-    const result = await workflow!.calculateAndIssueGraniteInvoice({
-      blId: 'GR-1',
-      customerId: 7,
-      actorId: 'user-1',
-    })
-
-    expect(mocks.calculate).toHaveBeenCalledWith('GR-1')
-    expect(mocks.markReady).toHaveBeenCalledWith('GR-1')
-    expect(mocks.createGranite).toHaveBeenCalledWith({
-      graniteBlIds: ['GR-1'],
-      customerId: 7,
-      actorId: 'user-1',
-    })
-    expect(mocks.calculate.mock.invocationCallOrder[0]).toBeLessThan(mocks.markReady.mock.invocationCallOrder[0])
-    expect(mocks.markReady.mock.invocationCallOrder[0]).toBeLessThan(mocks.createGranite.mock.invocationCallOrder[0])
-    expect(result).toEqual({ lines: [{ id: 1 }], invoice: { invoice_id: 10 } })
-  })
-
-  it('routes a Granite operational row to the Granite invoice RPC', async () => {
-    const workflow = await loadWorkflow()
-    expect(workflow).not.toBeNull()
-
-    await workflow!.issueOperationalInvoice({
-      blId: 'GR-2',
-      cargoMode: 'granito',
-      customerId: 8,
-      actorId: 'user-2',
-    })
-
-    expect(mocks.createGranite).toHaveBeenCalledWith({
-      graniteBlIds: ['GR-2'],
-      customerId: 8,
-      actorId: 'user-2',
-    })
-    expect(mocks.createLocal).not.toHaveBeenCalled()
-  })
-
-  it('routes non-Granite operational rows to the local ledger invoice RPC', async () => {
-    const workflow = await loadWorkflow()
-    expect(workflow).not.toBeNull()
-
-    await workflow!.issueOperationalInvoice({
-      blId: 'BL-1',
-      cargoMode: 'container',
-      customerId: 9,
-      actorId: 'user-3',
-    })
-
-    expect(mocks.createLocal).toHaveBeenCalledWith({
-      blIds: ['BL-1'],
-      customerId: 9,
-      issueNow: true,
-      actorId: 'user-3',
-    })
-    expect(mocks.createGranite).not.toHaveBeenCalled()
+    expect(Object.keys(workflow!).sort()).toEqual(['runGraniteBatch'])
   })
 
   it('marks Granite as ready when requested', async () => {
@@ -120,24 +46,4 @@ describe('Granite billing workflow', () => {
     expect(mocks.markReady).toHaveBeenNthCalledWith(2, 'GR-2')
   })
 
-  it('nao recalcula nem chama RPC para B/L ja faturado', async () => {
-    mocks.from.mockImplementation((table: string) => {
-      if (table === 'granite_bls') return { select: () => ({ eq: () => ({ single: async () => ({ data: { charge_status: 'invoiced' }, error: null }) }) }) }
-      return { select: () => ({ eq: () => ({ in: () => ({ maybeSingle: async () => ({ data: { invoice_id: 99 }, error: null }) }) }) }) }
-    })
-    const workflow = await loadWorkflow()
-    const result = await workflow!.calculateAndIssueGraniteInvoice({ blId: 'GR-1', customerId: 7, actorId: 'user-1' })
-    expect(result).toMatchObject({ skipped: true, invoice: null })
-    expect(mocks.calculate).not.toHaveBeenCalled()
-    expect(mocks.markReady).not.toHaveBeenCalled()
-    expect(mocks.createGranite).not.toHaveBeenCalled()
-    expect(mocks.logOperationalEvent).toHaveBeenCalledWith(expect.objectContaining({ code: 'granite_reimport_already_invoiced' }))
-  })
-
-  it('restaura o status anterior se a RPC de invoice falhar', async () => {
-    mocks.createGranite.mockRejectedValue(new Error('PT409'))
-    const workflow = await loadWorkflow()
-    await expect(workflow!.calculateAndIssueGraniteInvoice({ blId: 'GR-1', customerId: 7, actorId: 'user-1' })).rejects.toThrow('PT409')
-    expect(mocks.restoreStatus).toHaveBeenCalledWith({ charge_status: 'calculated' })
-  })
 })

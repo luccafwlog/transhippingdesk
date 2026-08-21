@@ -99,7 +99,7 @@ export function ValidacaoOperationsTable({
               const reconciliationPending = !isCustomerReconciliationResolved(row.customer_reconciliation_status)
               const queueItem = reconciliationPending ? (reconciliationQueue.find((q) => q.bl_id === row.id) ?? null) : null
               const block = getBillingBlock(row)
-              const canIssueSingleInvoice = isChargeReady(row.charge_status) && row.financial_status !== 'invoiced' && Boolean(row.customer?.id) && (row.cargo_mode !== 'granito' || Boolean(row.ce_mercante?.trim()))
+              const canIssueSingleInvoice = row.cargo_mode !== 'granito' && isChargeReady(row.charge_status) && row.financial_status !== 'invoiced' && Boolean(row.customer?.id)
               return (
                 <Fragment key={row.id}>
                   <tr className={isExpanded ? 'bg-[var(--app-surface-muted)]' : undefined}>

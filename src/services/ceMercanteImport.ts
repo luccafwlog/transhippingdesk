@@ -204,10 +204,9 @@ export async function importCeMercanteRows(
         inserted += 1
         break
     }
-    const automation = target === 'granite'
-      ? maybeAutoBillAfterCeMercante(resolvedIds.get(row.bl_id) ?? row.bl_id, options.changedBy, target)
-      : maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy)
-    void automation.catch(() => {})
+    if (target !== 'granite') {
+      void maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy).catch(() => {})
+    }
   }
 
   return {

@@ -68,12 +68,12 @@ export function getBillingBlock(row: {
       detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Ha linhas de taxa com revisao pendente.' : 'Sem linhas de taxa calculadas.'),
     }
   }
+  if (row.billing_hold_reason) {
+    return { code: 'calculo_incompleto', label: 'Cálculo incompleto', detail: row.billing_hold_reason }
+  }
   const mode = row.cargo_mode ?? 'container'
   if (!row.ce_mercante?.trim() && (mode === 'container' || mode === '' || mode === 'granito')) {
     return { code: 'aguardando_ce', label: 'Aguardando CE Mercante', detail: 'Aguardando cadastro do CE Mercante para emitir a fatura.' }
-  }
-  if (row.billing_hold_reason) {
-    return { code: 'calculo_incompleto', label: 'Cálculo incompleto', detail: row.billing_hold_reason }
   }
   return { code: 'pronto', label: 'Pronto para emitir', detail: 'Pronto para emissão individual.' }
 }

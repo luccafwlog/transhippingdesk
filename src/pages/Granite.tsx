@@ -21,7 +21,6 @@ import {
   type ReconciliationStatus,
 } from '../services/graniteImport'
 import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCharges'
-import { calculateAndIssueGraniteInvoice } from '../services/graniteBillingWorkflow'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { canonicalizeDocument, normalizeCnpj } from '../lib/cnpj'
 import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../services/customerReconciliation'
@@ -141,33 +140,16 @@ export function Granite() {
     }
   }
 
-  async function handleCalculateCharges(blId: string, clientId: number | null, ceMercante: string | null) {
+  async function handleCalculateCharges(blId: string) {
     try {
-      if (clientId && user && ceMercante?.trim()) {
-        await calculateAndIssueGraniteInvoice({ blId, customerId: clientId, actorId: user.id })
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
-          queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-          queryClient.invalidateQueries({ queryKey: ['invoices'] }),
-        ])
-        showToast('CE Mercante confirmado: taxas calculadas e fatura emitida.', 'success')
-        return
-      }
-
       const lines = await calculateGraniteBlCharges(blId)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
-      if (clientId && user) {
-        setChargeLines(lines)
-        setChargeBlId(blId)
-        showToast('Taxas calculadas. A emissão aguarda o CE Mercante.', 'info')
-      } else {
-        setChargeLines(lines)
-        setChargeBlId(blId)
-        showToast('Taxas calculadas. Vincule um cliente via Revisão para faturar.', 'info')
-      }
+      setChargeLines(lines)
+      setChargeBlId(blId)
+      showToast('Quantidades operacionais do Granito calculadas.', 'success')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao calcular taxas.', 'error')
     }
@@ -318,7 +300,7 @@ export function Granite() {
                     {canWrite ? (
                       <button
                         className="app-table__action mr-2"
-                        onClick={() => handleCalculateCharges(bl.id, (bl as { client_id?: number | null }).client_id ?? null, bl.ce_mercante)}
+                        onClick={() => handleCalculateCharges(bl.id)}
                       >
                         Calcular taxas
                       </button>
