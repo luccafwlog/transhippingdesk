@@ -78,6 +78,12 @@ BEGIN
     INSERT INTO public.portal_notifications(customer_id, bl_id, type, title, message, link)
     SELECT v_dispute.customer_id, NULL, 'dispute_responded', 'Disputa respondida', 'Equipamentos respondeu à sua disputa.', '/demurrage';
     PERFORM public.block521_resolve_alert('portal_dispute_opened', 'demurrage_invoice', v_dispute.demurrage_invoice_id::text, 'equipamentos', 'portal_dispute_message');
+  ELSIF p_next_responder = 'equipamentos' THEN
+    PERFORM public.block521_upsert_alert(
+      'portal_dispute_opened', 'demurrage_invoice', v_dispute.demurrage_invoice_id::text,
+      'Nova resposta na Dispute; ação de Equipamentos pendente.', 'portal_dispute_message', 'equipamentos',
+      jsonb_build_object('dispute_id', p_dispute_id, 'message_id', v_message_id), '/demurrage?dispute=' || p_dispute_id
+    );
   ELSE
     PERFORM public.block521_resolve_alert('portal_dispute_opened', 'demurrage_invoice', v_dispute.demurrage_invoice_id::text, 'equipamentos', 'portal_dispute_message');
   END IF;

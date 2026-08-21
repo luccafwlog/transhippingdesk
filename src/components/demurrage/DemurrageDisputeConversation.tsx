@@ -47,6 +47,7 @@ export function DemurrageDisputeConversation() {
         if (file && result.message_id) await uploadDemurrageDisputeAttachment(result.message_id, dispute.id, dispute.customer_id, file)
       }
       setDrafts((current) => ({ ...current, [dispute.id]: '' }))
+      setAttachments((current) => ({ ...current, [dispute.id]: null }))
     } catch (cause) {
       setErrors((current) => ({ ...current, [dispute.id]: portalErrorMessage(cause, 'Falha ao atualizar a Dispute.') }))
     }

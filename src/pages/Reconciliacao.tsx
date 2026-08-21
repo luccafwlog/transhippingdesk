@@ -85,7 +85,7 @@ export function Reconciliacao() {
         createPixImportKey(file),
         matchUnifiedPixTransactions(transactions),
       ])
-      const persisted = await persistUnresolvedPixMatches(importKey, found)
+      const persisted = isAdmin ? await persistUnresolvedPixMatches(importKey, found) : []
       const idsByLine = new Map(persisted.map((item) => [item.lineNumber, item.id]))
       return found.map((match) => ({
         ...match,

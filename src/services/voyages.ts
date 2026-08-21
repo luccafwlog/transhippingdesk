@@ -273,11 +273,15 @@ export async function getVoyageIndicatedFirstBrazilianPort(voyageId: number): Pr
 
   let port: string | null = null
   let eta: string | null = null
+  let portSeen = false
+  let etaSeen = false
   for (const row of data ?? []) {
-    if (row.field_name === 'indicated_first_brazilian_port' && port === null) {
+    if (row.field_name === 'indicated_first_brazilian_port' && !portSeen) {
+      portSeen = true
       port = row.new_value ? row.new_value.trim().toUpperCase() : null
     }
-    if (row.field_name === 'indicated_first_brazilian_eta' && eta === null) {
+    if (row.field_name === 'indicated_first_brazilian_eta' && !etaSeen) {
+      etaSeen = true
       eta = row.new_value ? row.new_value.trim() : null
     }
   }
@@ -302,10 +306,13 @@ export async function listVoyagesIndicatedFirstBrazilianPort(voyageIds: number[]
     const id = Number(row.entity_id)
     if (!id) continue
     const current = result.get(id) ?? { port: null, eta: null }
-    if (row.field_name === 'indicated_first_brazilian_port' && current.port === null) {
+    const seen = (current as typeof current & { portSeen?: boolean; etaSeen?: boolean })
+    if (row.field_name === 'indicated_first_brazilian_port' && !seen.portSeen) {
+      seen.portSeen = true
       current.port = row.new_value ? row.new_value.trim().toUpperCase() : null
     }
-    if (row.field_name === 'indicated_first_brazilian_eta' && current.eta === null) {
+    if (row.field_name === 'indicated_first_brazilian_eta' && !seen.etaSeen) {
+      seen.etaSeen = true
       current.eta = row.new_value ? row.new_value.trim() : null
     }
     result.set(id, current)

@@ -22,8 +22,11 @@ export type ActiveAlertType =
   | 'portal_abuso_login'
   | 'agency_report_department_pending'
   | 'agency_report_deadline_missed'
-  | 'bl_review_pendency'
-  | 'granite_bl_review_pendency'
+  | 'review_customer_unlinked'
+  | 'review_customer_email_missing'
+  | 'review_portal_not_ready'
+  | 'review_breakbulk_weight_missing'
+  | 'review_granite_customer_unlinked'
   | 'voyage_bl_expected'
   | 'voyage_baplie_missing'
   | 'voyage_baplie_documentary_coverage'
@@ -52,8 +55,11 @@ export const TYPE_LABELS: Record<string, string> = {
   portal_abuso_login: 'Portal do Cliente — abuso de login',
   agency_report_department_pending: 'ADR — departamento pendente',
   agency_report_deadline_missed: 'ADR — prazo vencido',
-  bl_review_pendency: 'Pendência de revisão de B/L',
-  granite_bl_review_pendency: 'Pendência de revisão de Granito',
+  review_customer_unlinked: 'Revisão de B/L — cliente não vinculado',
+  review_customer_email_missing: 'Revisão de B/L — cliente sem e-mail',
+  review_portal_not_ready: 'Revisão de B/L — Portal não provisionado',
+  review_breakbulk_weight_missing: 'Revisão de B/L — peso BB ausente',
+  review_granite_customer_unlinked: 'Revisão de Granito — cliente não vinculado',
   voyage_bl_expected: 'B/L esperado pendente',
   voyage_baplie_missing: 'Baplie ausente',
   voyage_baplie_documentary_coverage: 'Cobertura Baplie / B/L',
@@ -216,7 +222,7 @@ export function alertEntityLink(alert: {
   if (alert.entity_type === 'invoice') return invoiceLink(alert)
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
-  if (alert.entity_type === 'granite_bl') return `/granito/${encodeURIComponent(alert.entity_id)}`
+  if (alert.entity_type === 'granite_bl') return '/granito'
   if (alert.entity_type === 'demurrage_invoice') return '/demurrage'
   if (alert.entity_type === 'agency_departure_report') {
     return agencyReportAlertLink(alert.entity_id, alert.metadata ?? undefined)
@@ -371,9 +377,15 @@ export async function resolveAlertItem(input: {
 export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
   const financialEntityTypes = ['bl', 'invoice', 'pix_transaction'] as const
   const financialTypes = new Set<string>(FINANCIAL_ALERT_TYPES)
-  const alertsByEntityType = await Promise.all(
-    financialEntityTypes.map((entityType) => listAlerts('active', entityType)),
-  )
+  const alertsByEntityType = await Promise.all(financialEntityTypes.map(async (entityType) => {
+    const rows: AlertQueueRow[] = []
+    for (let page = 0; ; page += 1) {
+      const batch = await listAlerts('active', entityType, page)
+      rows.push(...batch)
+      if (batch.length < 100) break
+    }
+    return rows
+  }))
   const uniqueAlerts = new Map<string, AlertQueueRow>()
 
   for (const alerts of alertsByEntityType) {

@@ -45,8 +45,8 @@ it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/De
       { id: 31, type: 'demurrage', entity_type: 'pix_transaction', created_at: '2026-08-23T10:00:00Z' },
     ],
   }
-  rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType }) => ({
-    data: args.p_entity_type ? rowsByEntityType[args.p_entity_type] : [],
+  rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType; p_offset?: number; p_limit?: number }) => ({
+    data: args.p_entity_type ? rowsByEntityType[args.p_entity_type].slice(args.p_offset ?? 0, (args.p_offset ?? 0) + (args.p_limit ?? 100)) : [],
     error: null,
   }))
 
@@ -85,8 +85,8 @@ it('combina as entidades financeiras antes de cortar a fila em 200 itens', async
       created_at: '2026-08-21T10:00:00Z',
     }],
   }
-  rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType }) => ({
-    data: args.p_entity_type ? rowsByEntityType[args.p_entity_type] : [],
+  rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType; p_offset?: number; p_limit?: number }) => ({
+    data: args.p_entity_type ? rowsByEntityType[args.p_entity_type].slice(args.p_offset ?? 0, (args.p_offset ?? 0) + (args.p_limit ?? 100)) : [],
     error: null,
   }))
 

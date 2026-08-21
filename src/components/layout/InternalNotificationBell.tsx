@@ -42,7 +42,7 @@ export function InternalNotificationBell() {
                   role="menuitem"
                   className="flex w-full gap-3 rounded-lg px-3 py-3 text-left hover:bg-white/5"
                   onClick={() => {
-                    if (!notification.read_at) void markRead.mutateAsync(notification.id)
+                    if (!notification.read_at) void markRead.mutateAsync(notification.id).catch(() => undefined)
                     navigate(destination)
                     setOpen(false)
                   }}
