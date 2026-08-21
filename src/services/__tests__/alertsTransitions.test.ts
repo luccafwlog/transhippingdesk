@@ -131,6 +131,22 @@ it('expõe somente os tipos financeiros ativos do contrato', () => {
   expect(FINANCIAL_ALERT_TYPES).not.toContain('demurrage')
 })
 
+it('respeita apenas correction_route interno e seguro no bloqueio de cálculo', () => {
+  expect(alertEntityLink({
+    type: 'billing_calculation_blocked',
+    entity_type: 'bl',
+    entity_id: 'BL-1',
+    metadata: { correction_route: '/taxas-locais/tabelas' },
+  })).toBe('/taxas-locais/tabelas')
+
+  expect(alertEntityLink({
+    type: 'billing_calculation_blocked',
+    entity_type: 'bl',
+    entity_id: 'BL-2',
+    metadata: { correction_route: 'https://evil.example' },
+  })).toBe('/taxas-locais')
+})
+
 it('usa o upsert/resolver da fundação, com metadata opcional, para manter idempotência', async () => {
   rpcMock.mockResolvedValue({ data: { item_id: 9 }, error: null })
 

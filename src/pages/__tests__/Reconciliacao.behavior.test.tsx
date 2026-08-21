@@ -9,8 +9,11 @@ const mocks = vi.hoisted(() => ({
   parse: vi.fn(),
   match: vi.fn(),
   createImportKey: vi.fn(),
+  getLineIdentity: vi.fn(),
   persist: vi.fn(),
   listExceptions: vi.fn(),
+  listCandidates: vi.fn(),
+  linkCandidate: vi.fn(),
   resolveException: vi.fn(),
   confirm: vi.fn(),
   reverseDemurrage: vi.fn(),
@@ -24,8 +27,11 @@ vi.mock('../../services/demurrage/demurrageKpis', () => ({
 vi.mock('../../services/reconciliacao', () => ({
   matchUnifiedPixTransactions: mocks.match,
   createPixImportKey: mocks.createImportKey,
+  getPixLineIdentity: mocks.getLineIdentity,
   persistUnresolvedPixMatches: mocks.persist,
   listPixReconciliationExceptions: mocks.listExceptions,
+  listPixReconciliationCandidates: mocks.listCandidates,
+  linkPixReconciliationCandidate: mocks.linkCandidate,
   resolvePixReconciliationException: mocks.resolveException,
   confirmUnifiedPixReconciliation: mocks.confirm,
   reverseDemurragePayment: mocks.reverseDemurrage,
@@ -115,11 +121,14 @@ describe('Reconciliacao PIX user behaviours', () => {
     mocks.parse.mockResolvedValue([transaction])
     mocks.match.mockResolvedValue([safeMatch, ambiguousMatch, unmatchedMatch])
     mocks.createImportKey.mockResolvedValue('sha256:pix-import')
+    mocks.getLineIdentity.mockImplementation((transaction: { lineNumber?: number }) => transaction.lineNumber ?? 1)
     mocks.persist.mockResolvedValue([
       { id: 42, lineNumber: 1, status: 'active' },
       { id: 43, lineNumber: 2, status: 'active' },
     ])
     mocks.listExceptions.mockResolvedValue([])
+    mocks.listCandidates.mockResolvedValue([])
+    mocks.linkCandidate.mockResolvedValue({ id: 42, status: 'active' })
     mocks.resolveException.mockResolvedValue({ id: 42, status: 'resolved' })
     mocks.confirm.mockResolvedValue({
       local: 1,
@@ -171,6 +180,24 @@ describe('Reconciliacao PIX user behaviours', () => {
     expect(screen.getByRole('button', { name: 'Tentar conciliar' })).toBeTruthy()
   })
 
+  it('permite escolher candidata sem esconder que a confirmação autoritativa ainda é necessária', async () => {
+    const user = userEvent.setup()
+    mocks.listExceptions.mockResolvedValueOnce([{
+      id: 42, importKey: 'sha256:pix-import', lineNumber: 8, txid: 'TX-42', cnpj: '123',
+      paidAt: '2026-06-23', amount: 100, reason: 'ambiguous', candidateCount: 2,
+      metadata: {}, status: 'active', createdAt: '2026-06-23T10:00:00Z', updatedAt: '2026-06-23T10:00:00Z', resolvedAt: null,
+    }])
+    mocks.listCandidates.mockResolvedValueOnce([{ source: 'local', invoiceId: 10, docNumber: 'INV-010', amount: 100 }])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Escolher candidata' }))
+    expect(await screen.findByText('INV-010')).toBeTruthy()
+    expect(screen.getByText(/vinculo nao confirma a baixa/i)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Vincular candidata' }))
+    await waitFor(() => expect(mocks.linkCandidate).toHaveBeenCalledWith(42, expect.objectContaining({ source: 'local', invoiceId: 10 })))
+    expect(mocks.showToast).toHaveBeenCalledWith(expect.stringMatching(/Vínculo|Vinculo/), 'info')
+  })
+
   it('confirma somente o match seguro, exibe o resultado e invalida consumidores', async () => {
     const user = userEvent.setup()
     const { invalidate } = renderPage()
@@ -179,7 +206,7 @@ describe('Reconciliacao PIX user behaviours', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Confirmar 1 pagamento(s)' }))
 
-    expect(mocks.confirm).toHaveBeenCalledWith([safeMatch])
+    expect(mocks.confirm).toHaveBeenCalledWith([expect.objectContaining(safeMatch)])
     expect(await screen.findByText('Pagamentos confirmados')).toBeTruthy()
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['reconciliation-history'] })
   })

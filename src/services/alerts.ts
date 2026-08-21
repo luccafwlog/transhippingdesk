@@ -128,6 +128,22 @@ export function alertEntityLink(alert: {
     return `/manifestos/${encodeURIComponent(alert.entity_id)}?tab=faturamento`
   }
   if (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed') {
+    const correctionRoute = alert.metadata?.correction_route
+    const hasControlCharacter = typeof correctionRoute === 'string'
+      && Array.from(correctionRoute).some((character) => {
+        const code = character.charCodeAt(0)
+        return code < 0x20 || code === 0x7f
+      })
+    if (
+      effectiveType === 'billing_calculation_blocked'
+      && typeof correctionRoute === 'string'
+      && correctionRoute.startsWith('/')
+      && !correctionRoute.startsWith('//')
+      && !hasControlCharacter
+      && !/^[^/]+:\/\//.test(correctionRoute)
+    ) {
+      return correctionRoute
+    }
     return '/taxas-locais'
   }
   if (alert.entity_type === 'pix_transaction') return '/reconciliacao'

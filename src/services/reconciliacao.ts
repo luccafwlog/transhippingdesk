@@ -63,6 +63,13 @@ export type PixExceptionResolution = {
   txid?: string
 }
 
+export type PixReconciliationCandidate = {
+  source: 'local' | 'demurrage'
+  invoiceId: number
+  docNumber: string
+  amount: number
+}
+
 export type UnifiedPixConfirmationResult = {
   local: number
   demurrage: number
@@ -71,6 +78,22 @@ export type UnifiedPixConfirmationResult = {
 
 function normTxid(str: string) {
   return (str ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+}
+
+/**
+ * Parser rows normally carry the physical spreadsheet line. This fallback is
+ * deterministic for callers that construct PixTransaction objects manually;
+ * it intentionally never depends on the filtered match-array index.
+ */
+export function getPixLineIdentity(transaction: Pick<PixTransaction, 'txid' | 'cnpj' | 'date' | 'amount' | 'lineNumber'>): number {
+  if (Number.isInteger(transaction.lineNumber) && (transaction.lineNumber ?? 0) > 0) return transaction.lineNumber as number
+  const value = `${transaction.txid ?? ''}\u001f${transaction.cnpj ?? ''}\u001f${transaction.date ?? ''}\u001f${transaction.amount}`
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0) % 2_000_000_000 + 1
 }
 
 function normalizePixException(row: PixExceptionRpcRow): PixReconciliationException {
@@ -107,8 +130,8 @@ export async function persistUnresolvedPixMatches(
 ): Promise<Array<{ id: number; lineNumber: number; status: 'active' | 'resolved' }>> {
   const rows = matches
     .filter((match) => match.source === 'unmatched' || match.ambiguous)
-    .map((match, index) => ({
-      line_number: match.transaction.lineNumber ?? index + 1,
+    .map((match) => ({
+      line_number: getPixLineIdentity(match.transaction),
       txid: match.transaction.txid ?? '',
       cnpj: match.transaction.cnpj ?? '',
       paid_at: match.transaction.date || null,
@@ -121,6 +144,7 @@ export async function persistUnresolvedPixMatches(
         customer_cnpj: match.customerCnpj,
         ambiguity_reason: match.ambiguityReason ?? null,
         source: match.source,
+        line_identity: getPixLineIdentity(match.transaction),
       },
     }))
 
@@ -132,6 +156,32 @@ export async function persistUnresolvedPixMatches(
   if (error) throw error
   const items = ((data as { items?: Array<{ id: number; line_number: number; status: 'active' | 'resolved' }> } | null)?.items ?? [])
   return items.map((item) => ({ id: Number(item.id), lineNumber: Number(item.line_number), status: item.status }))
+}
+
+export async function listPixReconciliationCandidates(exceptionId: number): Promise<PixReconciliationCandidate[]> {
+  const { data, error } = await callPixRpc('list_pix_reconciliation_candidates', { p_exception_id: exceptionId })
+  if (error) throw error
+  return ((data ?? []) as Array<{ source: 'local' | 'demurrage'; invoice_id: number; doc_number: string; amount_brl: number | string }>).map((row) => ({
+    source: row.source,
+    invoiceId: Number(row.invoice_id),
+    docNumber: row.doc_number,
+    amount: Number(row.amount_brl ?? 0),
+  }))
+}
+
+export async function linkPixReconciliationCandidate(
+  exceptionId: number,
+  candidate: Pick<PixReconciliationCandidate, 'source' | 'invoiceId'>,
+): Promise<{ id: number; status: 'active' | 'resolved' }> {
+  const { data, error } = await callPixRpc('link_pix_reconciliation_candidate', {
+    p_exception_id: exceptionId,
+    p_resolution_source: candidate.source,
+    p_invoice_id: candidate.source === 'local' ? candidate.invoiceId : null,
+    p_demurrage_invoice_id: candidate.source === 'demurrage' ? candidate.invoiceId : null,
+  })
+  if (error) throw error
+  const result = data as { id?: number; status?: 'active' | 'resolved' } | null
+  return { id: Number(result?.id ?? exceptionId), status: result?.status ?? 'active' }
 }
 
 export async function listPixReconciliationExceptions(

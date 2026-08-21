@@ -14,6 +14,9 @@ import { parsePixExtractFile } from '../services/demurrage/demurrageKpis'
 import {
   confirmUnifiedPixReconciliation,
   createPixImportKey,
+  getPixLineIdentity,
+  linkPixReconciliationCandidate,
+  listPixReconciliationCandidates,
   listPixReconciliationExceptions,
   matchUnifiedPixTransactions,
   persistUnresolvedPixMatches,
@@ -24,7 +27,7 @@ import { getInvoiceDetail as getDemurrageDetail } from '../services/demurrage/de
 import { InvoiceDetailModal } from '../components/billing/InvoiceDetailModal'
 import { ReconciliationHistoryTable } from '../components/billing/ReconciliationHistoryTable'
 import { InvoiceDocument as DemurrageInvoiceDoc } from '../components/demurrage/InvoiceDocument'
-import type { PixReconciliationException, UnifiedPixConfirmationResult, UnifiedPixMatch } from '../services/reconciliacao'
+import type { PixReconciliationCandidate, PixReconciliationException, UnifiedPixConfirmationResult, UnifiedPixMatch } from '../services/reconciliacao'
 import { queryKeys } from '../services/queryKeys'
 import type { DemurrageInvoiceDetail } from '../types/database'
 
@@ -53,12 +56,19 @@ export function Reconciliacao() {
   const [dragOver, setDragOver] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<{ invoiceId: number; paymentId: number | null } | null>(null)
   const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
+  const [selectedExceptionId, setSelectedExceptionId] = useState<number | null>(null)
   const [demurrageReason, setDemurrageReason] = useState('')
 
   const pendingExceptionsQuery = useQuery({
     queryKey: queryKeys.reconciliation.pixExceptions(),
     queryFn: () => listPixReconciliationExceptions(),
     enabled: isAdmin,
+  })
+
+  const candidatesQuery = useQuery({
+    queryKey: ['pix-reconciliation-candidates', selectedExceptionId],
+    queryFn: () => listPixReconciliationCandidates(selectedExceptionId!),
+    enabled: selectedExceptionId != null,
   })
 
   const demurrageDetailQuery = useQuery({
@@ -79,12 +89,23 @@ export function Reconciliacao() {
       const idsByLine = new Map(persisted.map((item) => [item.lineNumber, item.id]))
       return found.map((match) => ({
         ...match,
-        exceptionId: idsByLine.get(match.transaction.lineNumber ?? -1),
+        exceptionId: idsByLine.get(getPixLineIdentity(match.transaction)),
       }))
     },
     onSuccess: (found) => {
       setMatches(found)
       if (!found.length) showToast('Nenhuma correspondencia encontrada.', 'info')
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
+  const linkCandidateMutation = useMutation({
+    mutationFn: async ({ exception, candidate }: { exception: PixReconciliationException; candidate: PixReconciliationCandidate }) => {
+      return linkPixReconciliationCandidate(exception.id, candidate)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reconciliation.pixExceptions() })
+      showToast('Vínculo salvo; a pendência continua ativa até confirmação autoritativa.', 'info')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -240,7 +261,8 @@ export function Reconciliacao() {
           ) : pendingExceptionsQuery.data?.length ? (
             <div className="divide-y divide-[#30363d]">
               {pendingExceptionsQuery.data.map((exception) => (
-                <div key={exception.id} className="flex flex-col gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div key={exception.id} className="flex flex-col gap-3 px-4 py-3 text-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="font-semibold text-white">
                       Linha {exception.lineNumber} · {exception.txid || 'TXID ausente'}
@@ -249,13 +271,47 @@ export function Reconciliacao() {
                       {exception.reason === 'ambiguous' ? 'Ambigua' : 'Sem documento candidato'} · {fmtBRL(exception.amount)}
                     </div>
                   </div>
-                  <Button
-                    variant="secondary"
-                    loading={retryExceptionMutation.isPending && retryExceptionMutation.variables?.id === exception.id}
-                    onClick={() => retryExceptionMutation.mutate(exception)}
-                  >
-                    Tentar conciliar
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="secondary"
+                      loading={retryExceptionMutation.isPending && retryExceptionMutation.variables?.id === exception.id}
+                      onClick={() => retryExceptionMutation.mutate(exception)}
+                    >
+                      Tentar conciliar
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSelectedExceptionId((current) => current === exception.id ? null : exception.id)}
+                    >
+                      Escolher candidata
+                    </Button>
+                  </div>
+                  </div>
+                  {selectedExceptionId === exception.id ? (
+                    <div className="rounded-lg border border-[#30363d] bg-[#0d1117] p-3">
+                      <div className="text-xs text-slate-400">Vinculo nao confirma a baixa; a baixa so fecha apos settlement/baixa autoritativa.</div>
+                      {candidatesQuery.isLoading ? <div className="mt-2 text-xs text-slate-500">Carregando candidatas...</div> : null}
+                      {candidatesQuery.isError ? <div className="mt-2 text-xs text-red-300">Não foi possível carregar candidatas.</div> : null}
+                      {!candidatesQuery.isLoading && !candidatesQuery.isError && !candidatesQuery.data?.length ? (
+                        <div className="mt-2 text-xs text-slate-500">Nenhuma candidata segura para o TXID desta linha.</div>
+                      ) : null}
+                      {candidatesQuery.data?.map((candidate) => (
+                        <div key={`${candidate.source}-${candidate.invoiceId}`} className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                          <div>
+                            <span className="font-semibold text-white">{candidate.docNumber}</span>
+                            <span className="ml-2 text-xs text-slate-400">{candidate.source === 'demurrage' ? 'Demurrage' : 'Fatura'} · {fmtBRL(candidate.amount)}</span>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            loading={linkCandidateMutation.isPending && linkCandidateMutation.variables?.candidate.invoiceId === candidate.invoiceId}
+                            onClick={() => linkCandidateMutation.mutate({ exception, candidate })}
+                          >
+                            Vincular candidata
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
