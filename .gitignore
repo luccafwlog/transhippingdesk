@@ -39,5 +39,5 @@ artifacts/qa-display-production/operational-fixture.json
 
 # Playwright MCP artifacts (design-audit skill)
 .playwright-mcp/
-.worktrees/
-.worktrees/
+.agent/
+.agents/

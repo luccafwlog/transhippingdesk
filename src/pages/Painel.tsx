@@ -40,13 +40,12 @@ export function Painel() {
     refetchInterval: 90_000,
   })
 
-  const { data: rawSummary } = useQuery<AlertDepartmentSummary[]>({
+  const { data: departmentSummary } = useQuery<AlertDepartmentSummary[]>({
     queryKey: ['alert-department-summary'],
     queryFn: getAlertDepartmentSummary,
     staleTime: 60_000,
     refetchInterval: 90_000,
   })
-  const departmentSummary = Array.isArray(rawSummary) ? rawSummary : []
 
   const rows = useMemo(() => {
     // ponytail: o snapshot cobre só as 60 viagens mais recentes; paginar ou ampliar a query quando o painel precisar de histórico maior.
@@ -72,8 +71,10 @@ export function Painel() {
   // Mapear departamentos garantindo presença dos 3 setores principais
   const summaryByDept = useMemo(() => {
     const map = new Map<string, AlertDepartmentSummary>()
-    for (const item of departmentSummary) {
-      map.set(item.department, item)
+    if (Array.isArray(departmentSummary)) {
+      for (const item of departmentSummary) {
+        map.set(item.department, item)
+      }
     }
     return map
   }, [departmentSummary])
