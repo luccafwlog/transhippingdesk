@@ -35,6 +35,20 @@ describe('normalizeVoyageFormValues (US-214 criar/editar viagem)', () => {
 
     expect(result.dischargePortEtas).toEqual([{ pod: 'BRVIT', eta: '2026-06-02' }])
   })
+
+  it('normaliza o 1º porto brasileiro indicado e seu ETA', () => {
+    const result = normalizeVoyageFormValues({
+      ...initialVoyageFormValues,
+      vesselName: 'NAV',
+      voyageNumber: '1',
+      indicatedFirstBrazilianPort: '  brssz  ',
+      indicatedFirstBrazilianEta: ' 2026-07-01 ',
+      dischargePortEtas: [],
+    })
+
+    expect(result.indicatedFirstBrazilianPort).toBe('BRSSZ')
+    expect(result.indicatedFirstBrazilianEta).toBe('2026-07-01')
+  })
 })
 
 describe('voyageFormSchema (US-214 validacao)', () => {
@@ -64,5 +78,65 @@ describe('voyageFormSchema (US-214 validacao)', () => {
       dischargePortEtas: [{ pod: 'BRVIT', eta: '2026-06-01' }],
     })
     expect(parsed.success).toBe(true)
+  })
+
+  it('valida regras de 1º porto brasileiro indicado', () => {
+    // 1. Porto sem ETA
+    expect(
+      voyageFormSchema.safeParse({
+        ...initialVoyageFormValues,
+        vesselName: 'NAV',
+        voyageNumber: '1',
+        indicatedFirstBrazilianPort: 'BRSSZ',
+        dischargePortEtas: [{ pod: 'BRVIX', eta: '2026-08-01' }],
+      }).success,
+    ).toBe(false)
+
+    // 2. ETA sem Porto
+    expect(
+      voyageFormSchema.safeParse({
+        ...initialVoyageFormValues,
+        vesselName: 'NAV',
+        voyageNumber: '1',
+        indicatedFirstBrazilianEta: '2026-07-01',
+        dischargePortEtas: [{ pod: 'BRVIX', eta: '2026-08-01' }],
+      }).success,
+    ).toBe(false)
+
+    // 3. Sem PODs na viagem
+    expect(
+      voyageFormSchema.safeParse({
+        ...initialVoyageFormValues,
+        vesselName: 'NAV',
+        voyageNumber: '1',
+        indicatedFirstBrazilianPort: 'BRSSZ',
+        indicatedFirstBrazilianEta: '2026-07-01',
+        dischargePortEtas: [],
+      }).success,
+    ).toBe(false)
+
+    // 4. ETA indicado posterior ou igual ao menor ETA próprio
+    expect(
+      voyageFormSchema.safeParse({
+        ...initialVoyageFormValues,
+        vesselName: 'NAV',
+        voyageNumber: '1',
+        indicatedFirstBrazilianPort: 'BRSSZ',
+        indicatedFirstBrazilianEta: '2026-08-05',
+        dischargePortEtas: [{ pod: 'BRVIX', eta: '2026-08-01' }],
+      }).success,
+    ).toBe(false)
+
+    // 5. ETA indicado estritamente anterior ao menor ETA próprio
+    expect(
+      voyageFormSchema.safeParse({
+        ...initialVoyageFormValues,
+        vesselName: 'NAV',
+        voyageNumber: '1',
+        indicatedFirstBrazilianPort: 'BRSSZ',
+        indicatedFirstBrazilianEta: '2026-07-25',
+        dischargePortEtas: [{ pod: 'BRVIX', eta: '2026-08-01' }],
+      }).success,
+    ).toBe(true)
   })
 })

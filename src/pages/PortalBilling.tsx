@@ -13,6 +13,7 @@ import { InvoiceDocument as DemurrageInvoiceDocument } from '../components/demur
 import { PortalConsolidatedModal } from '../components/portal/PortalConsolidatedModal'
 import { DisputeModal } from '../components/portal/DisputeModal'
 import { PortalDemurrageDetailModal } from '../components/portal/PortalDemurrageDetailModal'
+import { PortalDisputeConversation } from '../components/portal/PortalDisputeConversation'
 import { PortalInvoiceDetailModal } from '../components/portal/PortalInvoiceDetailModal'
 import { DemurrageTab, LocalFeesTab } from '../components/portal/PortalBillingTabs'
 import { usePortalAuth } from '../hooks/usePortalAuth'
@@ -26,6 +27,7 @@ import {
   usePortalInvoices,
   usePortalObsoleteConsolidation,
 } from '../hooks/usePortalBilling'
+import { usePortalDisputes } from '../hooks/usePortalDisputes'
 import { buildInvoiceFileBaseName } from '../components/shared/invoiceFormat'
 import { exportPortalDemurrageWorkbook, exportPortalLocalInvoicesWorkbook } from '../services/exports'
 import { EMPTY_PORTAL_BILLING_FILTERS, type PortalBillingFilters } from '../lib/portalBillingFilters'
@@ -68,6 +70,7 @@ export function PortalBilling() {
   const { data: demurrageInvoices, isLoading: demurrageLoading, error: demurrageError } = usePortalDemurrageInvoices()
   const { data: currentRoe } = usePortalCurrentRoe()
   const obsoleteMutation = usePortalObsoleteConsolidation()
+  const { data: disputes } = usePortalDisputes()
 
   const [searchParams, setSearchParams] = useSearchParams()
   const tab: PortalTab = searchParams.get('tab') === 'demurrage' ? 'demurrage' : 'local'
@@ -221,6 +224,7 @@ export function PortalBilling() {
         />
       ) : (
         <>
+          <PortalDisputeConversation disputes={disputes ?? []} />
           {currentRoe ? (
             <div className="mb-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-3 text-sm font-semibold text-[var(--app-text-strong)]">
               ROE vigente: R$ {currentRoe.roe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}

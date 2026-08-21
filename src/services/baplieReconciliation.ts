@@ -208,10 +208,15 @@ async function fetchStagingAndBlContainers(voyageId: number) {
   return { staged: dedupeBaplieContainers(staged), blContainers, blRows: (blRows ?? []) as RouteRow[] }
 }
 
-export async function reconcileBaplieWithManifest(voyageId: number): Promise<BaplieReconciliationResult> {
+export async function reconcileBaplieWithManifest(
+  voyageId: number,
+  options?: { isD7?: boolean; firstBrazilianEta?: string | null },
+): Promise<BaplieReconciliationResult> {
   const { staged, blContainers, blRows } = await fetchStagingAndBlContainers(voyageId)
   if (!staged.length) return { items: [], source: 'not_imported' }
-  if (!hasCompleteBaplieRouteCoverage(staged, blRows)) return { items: [], source: 'awaiting_route_coverage' }
+  const hasCoverage = hasCompleteBaplieRouteCoverage(staged, blRows)
+  const forceReconcile = Boolean(options?.isD7)
+  if (!hasCoverage && !forceReconcile) return { items: [], source: 'awaiting_route_coverage' }
   return { items: computeExistenceDivergences(staged, blContainers), source: 'reconciled' }
 }
 

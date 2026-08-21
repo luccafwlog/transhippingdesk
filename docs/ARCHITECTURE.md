@@ -317,6 +317,19 @@ mais de um portador, a linha POD é canônica e POL/EXP só preenchem campos
 vazios; divergências ficam expostas para a interface em vez de serem resolvidas
 silenciosamente.
 
+O ADR segue o mesmo contrato transversal desde a migration `323`: cada
+combinação `(agency_departure_report, voyage::port[::terminal])` tem dois itens
+independentes — `agency_report_department_pending` (normal) e
+`agency_report_deadline_missed` (crítico) — um por Operações, Documentação e
+Equipamentos. O terminalizado lê `terminal_atd` de
+`voyage_escala_terminal_state`; o legado conserva `voyage::port`. A
+reconciliação server-side é acionada pelos audit logs de escala, pelas mudanças
+de sign-off e pelo cron de 15 minutos. Reabrir uma seção invalida
+atomicamente o sign-off departamental dono e reabre apenas as condições
+correspondentes. `Alertas.tsx` e futuras notificações usam o mesmo deep-link
+`/viagens/:voyageId?tab=adr&escala=...`, com `terminal` e `report` quando
+disponíveis; o browser não executa detectores.
+
 Consumidores principais:
 
 - `/viagens` e `/viagens/:voyageId`: `useViagemSchedulesAndStats`,
@@ -329,9 +342,10 @@ Consumidores principais:
   mantém o caminho legado por `(voyage_id, port)`; o modal da escala atribui
   frentes, datas e terminais.
 - ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)` para legado,
-  enquanto ADRs novos usam `(voyage_id, port, terminal_id)`, e
-  `detect_agency_report_pending` passa a considerar ATD vindo de POD ou POL,
-  com baseline próprio para a nova fonte POL.
+  enquanto ADRs novos usam `(voyage_id, port, terminal_id)`; a fila usa um
+  agregado por ADR terminalizado, dois itens independentes por departamento,
+  `terminal_atd` como ATD autoritativo e reconciliação imediata mais cron de
+  15 minutos.
 - A RPC transacional também recebe o snapshot dos campos do POD quando o modal
   terminalizado salva a escala; os audit rows de datas, CE, vínculo e número de
   escala entram na mesma transação das frentes. A expectativa de vazios faz

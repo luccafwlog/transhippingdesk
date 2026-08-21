@@ -15,7 +15,7 @@ import { PortalReviewPanel } from '../PortalReviewPanel'
 const row: QueueRow = {
   account_id: 1, customer_id: 1, customer_name: 'Cliente', cnpj_cpf: '123', provisioning_decision: 'aguardando_analise', account_situation: 'sem_conta', recovery_email: null, recovery_email_source: null, pending_invite_expires_at: null,
   hasCriticalAlert: false, hasOpenInvoice: false, hasActiveProcess: false, lastActivityAt: null,
-  candidates: [{ email: 'financeiro@example.com', purpose: 'financeiro', origin: 'Contato do Cliente' }], sharedEmailCount: 0, latestDeliveryStatus: null, exceptionReason: null, recoveryEmailStatus: 'ok', recoveryEmailSuppressed: false,
+  candidates: [{ email: 'financeiro@example.com', purpose: 'financeiro', origin: 'Contato do Cliente' }], sharedEmailCount: 0, latestDeliveryStatus: null, recoveryEmailStatus: 'ok', recoveryEmailSuppressed: false,
 }
 
 describe('PortalReviewPanel', () => {

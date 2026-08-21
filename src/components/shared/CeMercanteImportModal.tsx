@@ -211,7 +211,6 @@ export function CeMercanteImportModal({
     if (target === 'granite') {
       invalidations.push(
         queryClient.invalidateQueries({ queryKey: ['granite-bls'] }),
-        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
         queryClient.invalidateQueries({ queryKey: ['charges'] }),
       )
     }

@@ -152,7 +152,7 @@ export function Viagens() {
   const voyageIds = useMemo(() => voyages.map((voyage) => voyage.id), [voyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(voyageIds)
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
-  const { voyagesWithUnpaidBls, polSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters } =
+  const { voyagesWithUnpaidBls, polSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters, indicatedFirstPorts } =
     useViagemSchedulesAndStats(voyageIds, polEntityIds)
   const escalaSchedulesByVoyage = useMemo(() => escalaSchedulesByVoyageData ?? new Map(), [escalaSchedulesByVoyageData])
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
@@ -335,6 +335,7 @@ export function Viagens() {
               pod: schedule.pod,
               eta: schedule.eta ?? '',
             })),
+          indicatedFirstPorts?.get(editingVoyageId ?? -1),
         )}
         onSaved={() => setEditingVoyageId(null)}
       />
@@ -567,6 +568,7 @@ function makeVoyageInitialValues(
     | undefined,
   loadPortEtds: Array<{ pol: string; etd: string }> = [],
   dischargePortEtas: Array<{ pod: string; eta: string }> = [],
+  indicatedFirstPort?: { port: string | null; eta: string | null },
 ) {
   if (!voyage) return undefined
 
@@ -577,6 +579,8 @@ function makeVoyageInitialValues(
     vesselImo: voyage.vessel?.imo ?? '',
     voyageNumber: voyage.voyage_number,
     status: normalizeVoyageStatus(voyage.status),
+    indicatedFirstBrazilianPort: indicatedFirstPort?.port ?? null,
+    indicatedFirstBrazilianEta: indicatedFirstPort?.eta ?? null,
     loadPortEtds,
     dischargePortEtas,
   }

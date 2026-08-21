@@ -36,6 +36,7 @@ export function VoyageCreateModal({
   const { showToast } = useToast()
   const { user } = useAuth()
   const [form, setForm] = useState<VoyageFormValues>(initialVoyageFormValues)
+  const [hasIndicatedFirstPort, setHasIndicatedFirstPort] = useState(false)
   const [errors, setErrors] = useState<VoyageFormErrors>({})
   const [saving, setSaving] = useState(false)
 
@@ -45,12 +46,17 @@ export function VoyageCreateModal({
   if (open !== prevReset.open || initialValues !== prevReset.initialValues) {
     setPrevReset({ open, initialValues })
     if (open) {
+      const indicatedPort = initialValues?.indicatedFirstBrazilianPort ?? initialVoyageFormValues.indicatedFirstBrazilianPort
+      const indicatedEta = initialValues?.indicatedFirstBrazilianEta ?? initialVoyageFormValues.indicatedFirstBrazilianEta
       setForm({
         ...initialVoyageFormValues,
         ...initialValues,
+        indicatedFirstBrazilianPort: indicatedPort,
+        indicatedFirstBrazilianEta: indicatedEta,
         loadPortEtds: initialValues?.loadPortEtds ?? initialVoyageFormValues.loadPortEtds,
         dischargePortEtas: initialValues?.dischargePortEtas ?? initialVoyageFormValues.dischargePortEtas,
       })
+      setHasIndicatedFirstPort(Boolean(indicatedPort || indicatedEta))
       setErrors({})
     }
   }
@@ -201,6 +207,65 @@ export function VoyageCreateModal({
               {form.status === 'cancelled' ? <option value="cancelled" disabled>Cancelada</option> : null}
             </Select>
           </Field>
+        </div>
+
+        <div className="app-panel app-panel--padded grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="app-panel__title">1º Porto Brasileiro (Âncora D−7 / D−5)</div>
+              <div className="app-panel__meta">
+                Por padrão, a âncora de prazos é o menor ETA das escalas próprias. Ative para indicar outro 1º porto brasileiro com ETA anterior.
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--app-text)] font-medium">
+              <input
+                type="checkbox"
+                checked={hasIndicatedFirstPort}
+                onChange={(event) => {
+                  const checked = event.target.checked
+                  setHasIndicatedFirstPort(checked)
+                  if (!checked) {
+                    setForm((current) => ({
+                      ...current,
+                      indicatedFirstBrazilianPort: null,
+                      indicatedFirstBrazilianEta: null,
+                    }))
+                  }
+                }}
+                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
+              />
+              Indicar outro 1º porto brasileiro
+            </label>
+          </div>
+
+          {hasIndicatedFirstPort ? (
+            <div className="grid gap-3 md:grid-cols-2 pt-2 border-t border-[var(--app-border)]">
+              <Field label="Porto indicado" error={errors.indicatedFirstBrazilianPort}>
+                <Input
+                  value={form.indicatedFirstBrazilianPort ?? ''}
+                  placeholder="Ex.: BRSSZ"
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      indicatedFirstBrazilianPort: event.target.value.toUpperCase(),
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="ETA indicado" error={errors.indicatedFirstBrazilianEta}>
+                <Input
+                  type="date"
+                  value={form.indicatedFirstBrazilianEta ?? ''}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      indicatedFirstBrazilianEta: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
+            </div>
+          ) : null}
         </div>
 
         <div className="app-panel app-panel--padded grid gap-3">

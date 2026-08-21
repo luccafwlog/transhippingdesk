@@ -117,6 +117,13 @@ vi.mock('../../hooks/usePortalBilling', () => ({
   usePortalObsoleteConsolidation: () => ({ isPending: false, mutateAsync: mocks.obsolete }),
 }))
 
+vi.mock('../../hooks/usePortalDisputes', () => ({
+  usePortalDisputes: () => ({ data: [] }),
+  usePortalOpenDispute: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  usePortalAddDisputeMessage: () => ({ isPending: false, mutateAsync: vi.fn() }),
+  usePortalRequestDisputeReopen: () => ({ isPending: false, mutateAsync: vi.fn() }),
+}))
+
 vi.mock('../../services/exports', () => ({
   exportPortalLocalInvoicesWorkbook: (...args: unknown[]) => exportLocal(...args),
   exportPortalDemurrageWorkbook: (...args: unknown[]) => exportDemurrage(...args),

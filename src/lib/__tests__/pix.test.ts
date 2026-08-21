@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { buildTransshippingPixPayload } from '../pix'
+import { buildTransshippingPixPayload, normalizePixTxid } from '../pix'
+
+describe('normalizePixTxid', () => {
+  it('remove caracteres especiais e converte para maiúsculo', () => {
+    expect(normalizePixTxid('txid-123_abc!')).toBe('TXID123ABC')
+  })
+
+  it('retorna string vazia para valores nulos, indefinidos ou vazios', () => {
+    expect(normalizePixTxid(null)).toBe('')
+    expect(normalizePixTxid(undefined)).toBe('')
+    expect(normalizePixTxid('')).toBe('')
+  })
+})
 
 // Vetores dourados: payloads completos calculados e validados com uma
 // implementação independente de CRC-16/CCITT-FALSE (table-driven), conferida

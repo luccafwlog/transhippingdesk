@@ -155,7 +155,6 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const row = rows[i]
     const txid = String(row[colId] ?? '').trim()
-    if (!txid) continue
 
     let date = ''
     if (colDate >= 0) {
@@ -169,7 +168,7 @@ export async function parsePixExtract(arrayBuffer: ArrayBuffer): Promise<PixTran
     if (amount <= 0) continue
 
     const cnpj = colCnpj >= 0 ? String(row[colCnpj] ?? '').trim() : ''
-    transactions.push({ txid, cnpj, date, amount })
+    transactions.push({ txid, cnpj, date, amount, lineNumber: i + 1 })
   }
   return transactions
 }

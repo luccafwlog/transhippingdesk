@@ -23,6 +23,7 @@ describe('parsePixExtract', () => {
         cnpj: '12.345.678/0001-95',
         date: '2026-06-05',
         amount: 1234.56,
+        lineNumber: 3,
       },
     ])
   })
@@ -41,6 +42,7 @@ describe('parsePixExtract', () => {
         cnpj: '12.345.678/0001-95',
         date: '',
         amount: 100,
+        lineNumber: 2,
         },
       ])
     })
@@ -59,6 +61,24 @@ describe('parsePixExtract', () => {
         cnpj: '12.345.678/0001-95',
         date: '2026-06-05',
         amount: 100,
+        lineNumber: 2,
+      },
+    ])
+  })
+
+  it('preserva linha paga sem TXID para persistencia da pendencia', async () => {
+    const rows = [
+      ['identificador', 'CPF/CNPJ', 'pago em', 'valor pago'],
+      ['', '12.345.678/0001-95', '05/06/2026', '100,00'],
+    ]
+
+    await expect(parsePixExtract(pixWorkbook(rows))).resolves.toEqual([
+      {
+        txid: '',
+        cnpj: '12.345.678/0001-95',
+        date: '2026-06-05',
+        amount: 100,
+        lineNumber: 2,
       },
     ])
   })

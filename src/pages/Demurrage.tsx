@@ -14,6 +14,7 @@ import { DemurrageContainersTab } from '../components/demurrage/DemurrageContain
 import { DemurrageCustomersTab } from '../components/demurrage/DemurrageCustomersTab'
 import { DemurrageInvoicesTab } from '../components/demurrage/DemurrageInvoicesTab'
 import { DemurragePaymentReversalModal } from '../components/demurrage/DemurragePaymentReversalModal'
+import { DemurrageDisputeConversation } from '../components/demurrage/DemurrageDisputeConversation'
 import { DiscountModal } from '../components/demurrage/DiscountModal'
 import { DisputeModal } from '../components/demurrage/DisputeModal'
 import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
@@ -351,6 +352,7 @@ export function Demurrage() {
           BCB offline — usando PTAX em cache de {new Date(roeOfflineWarning).toLocaleString('pt-BR')}. Verifique a taxa antes de emitir faturas.
         </div>
       ) : null}
+      <DemurrageDisputeConversation />
 
       <div className="mb-4 flex gap-2 border-b border-[#30363d]">
         {TAB_LABELS.map((item) => (

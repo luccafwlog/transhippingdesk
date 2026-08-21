@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useToast } from '../ui/Toast'
 import { useBatchCalculateLocalCharges, useCustomerReconciliationQueue, useApproveCustomerReconciliation, useRejectCustomerReconciliation, useLocalChargeOperations } from '../../hooks/useLocalCharges'
 import { queryKeys } from '../../services/queryKeys'
-import { issueOperationalInvoice } from '../../services/graniteBillingWorkflow'
+import { createInvoiceFromBls } from '../../services/billing'
 import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
 import { getBillingBlock, isBlLockedForRecalc } from './validacaoPipeline'
 import { ValidacaoControls } from './ValidacaoControls'
@@ -57,7 +57,7 @@ export function ValidacaoTab({ userId, initialBlockCode, initialBlSearch }: { us
       const graniteIds = eligible.filter((id) => (operationsRows ?? []).find((row) => row.id === id)?.cargo_mode === 'granito')
       const localIds = eligible.filter((id) => !graniteIds.includes(id))
       const [graniteResult, localResult] = await Promise.all([
-        graniteIds.length ? runGraniteBatch(graniteIds, action) : Promise.resolve({ total: 0, successCount: 0, errorCount: 0, errors: [] as Array<{ blId: string; message: string }> }),
+        graniteIds.length ? runGraniteBatch(graniteIds) : Promise.resolve({ total: 0, successCount: 0, errorCount: 0, errors: [] as Array<{ blId: string; message: string }> }),
         localIds.length ? batchCalculateMutation.mutateAsync({ blIds: localIds, actorId: userId, recalculate: action === 'recalculate' }) : Promise.resolve({ total: 0, successCount: 0, errorCount: 0, errors: [] as Array<{ blId: string; message: string }> }),
       ])
       const result = { total: graniteResult.total + localResult.total, successCount: graniteResult.successCount + localResult.successCount, errorCount: graniteResult.errorCount + localResult.errorCount, errors: [...graniteResult.errors, ...localResult.errors] }
@@ -87,8 +87,9 @@ export function ValidacaoTab({ userId, initialBlockCode, initialBlSearch }: { us
     } catch { showToast('Falha ao exportar planilha de conferência.', 'error') } finally { setExportingConference(false) }
   }
   async function handleIssueSingleInvoice(row: LocalChargeOperationalRow) {
+    if (row.cargo_mode === 'granito') return showToast('Granito é apoio operacional; cobrança não está disponível neste fluxo.', 'info')
     if (!row.customer?.id) return showToast('Nao ha cliente vinculado para emitir esta fatura.', 'error')
-    try { await issueOperationalInvoice({ blId: row.id, cargoMode: row.cargo_mode, customerId: row.customer.id, actorId: userId }); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }), queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }), queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }), queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() })]); showToast(`Fatura emitida para ${row.id}.`, 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao emitir fatura individual.', 'error') }
+    try { await createInvoiceFromBls({ blIds: [row.id], customerId: row.customer.id, issueNow: true, actorId: userId }); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }), queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }), queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }), queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() })]); showToast(`Fatura emitida para ${row.id}.`, 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao emitir fatura individual.', 'error') }
   }
   async function handleRecalculateRow(row: LocalChargeOperationalRow) { await runBatchOperation('recalculate', [row.id]) }
   async function handleApproveQueueItem(queueId: number, customerId?: number | null) { if (!customerId) return showToast('Não há cliente vinculado para aprovação automática.', 'error'); try { await approveReconciliationMutation.mutateAsync({ queueId, customerId, actorId: userId }); showToast('Reconciliação aprovada.', 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliação.', 'error') } }

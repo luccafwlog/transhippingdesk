@@ -13,6 +13,7 @@ import { BlFaturamentoTab } from '../components/bl/BlFaturamentoTab'
 import { BlHistoricoTab } from '../components/bl/BlHistoricoTab'
 import { BlVisaoGeralTab, type BaplieStatus } from '../components/bl/BlVisaoGeralTab'
 import { BlRailsPipeline } from '../components/bl/BlRailsPipeline'
+import { BlReviewContextPanel } from '../components/bl/BlReviewContextPanel'
 import { Button } from '../components/ui/Button'
 import { useBlDetail } from '../hooks/useBls'
 import { useBlEditForm } from '../hooks/useBlEditForm'
@@ -159,6 +160,12 @@ export function BlDetalhe() {
           </div>
         }
       />
+
+      {bl.review_status === 'pending_review' ? (
+        <div className="mb-5">
+          <BlReviewContextPanel bl={bl} />
+        </div>
+      ) : null}
 
       <div className="mb-5">
         <BlRailsPipeline operational={operational} financial={financial} nextAction={pickNextAction(financial)} />

@@ -92,9 +92,9 @@ describe('fundação transversal de alertas', () => {
   })
 
   it('mantém o rótulo da fatura criada pelo Portal', () => {
-    const page = readFileSync(resolve(process.cwd(), 'src/pages/Alertas.tsx'), 'utf8')
+    const labels = readFileSync(resolve(process.cwd(), 'src/services/alerts.ts'), 'utf8')
 
-    expect(page).toContain("portal_invoice_created: 'Fatura criada no portal'")
+    expect(labels).toContain("portal_invoice_created: 'Fatura criada no portal'")
   })
 
   it('mantém os três arquivos de migration no repositório para o rollout', () => {

@@ -47,6 +47,18 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
     await admin.from('portal_invites').update({ status: 'pendente', consumed_at: null }).eq('id', invite.id).eq('status', 'consumido')
     return cors(500, { error: 'Não foi possível registrar a ativação. Tente novamente.' })
   }
-  await admin.from('alerts').update({ status: 'closed', closed_at: new Date().toISOString() }).in('type', ['portal_pendencia_geral', 'portal_convite_expirado']).eq('entity_type', 'customer').eq('entity_id', String(account.customer_id)).neq('status', 'closed')
-  return cors(200, { activated: true })
+  // A ativação muda o gate de faturamento. O reprocessamento roda no banco,
+  // com a mesma autorização/idempotência dos caminhos internos; uma falha de
+  // emissão não desfaz a ativação e permanece registrada no alerta do B/L.
+  const { data: reprocess, error: reprocessError } = await admin.rpc('reprocess_customer_billing_after_portal_activation', {
+    p_customer_id: account.customer_id,
+  })
+  const { error: reconcileError } = await admin.rpc('reconcile_client_portal_alerts')
+  if (reprocessError) console.error('portal activation reprocess failed', reprocessError)
+  if (reconcileError) console.error('portal activation alert reconciliation failed', reconcileError)
+  return cors(200, {
+    activated: true,
+    reprocess: reprocess ?? null,
+    reprocess_error: reprocessError ? 'failed' : null,
+  })
 })
