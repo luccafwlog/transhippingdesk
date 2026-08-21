@@ -40,6 +40,10 @@ function buildPixPayload(chavePix: string, nomeBeneficiario: string, cidade: str
   return payload + pixCRC16(payload)
 }
 
+export function normalizePixTxid(txid?: string | null): string {
+  return (txid ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+}
+
 export function buildTransshippingPixPayload(valorBRL: number, txid: string): string {
   return buildPixPayload(COMPANY.cnpj, COMPANY.pixMerchantName, COMPANY.pixCity, valorBRL, txid)
 }

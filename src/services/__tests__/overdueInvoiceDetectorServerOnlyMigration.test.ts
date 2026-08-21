@@ -11,7 +11,8 @@ describe('detector server-side de faturas vencidas do bloco 522', () => {
   it('processa somente invoices locais e usa a identidade canônica', () => {
     expect(migration).toContain("invoice_type IN ('individual', 'consolidated')")
     expect(migration).not.toContain("invoice_type = 'granite'")
-    expect(migration).toContain("status IN ('issued', 'partially_paid', 'overdue')")
+    expect(migration).toContain("status IN ('issued', 'partially_paid')")
+    expect(migration).not.toContain("status IN ('issued', 'partially_paid', 'overdue')")
     expect(migration).toContain("due_date < CURRENT_DATE")
     expect(migration).toContain("'invoice',\n      v_row.id::TEXT")
     expect(migration).toContain("'invoice_type', v_row.invoice_type")

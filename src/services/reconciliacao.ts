@@ -1,6 +1,7 @@
 import { canonicalizeDocument } from '../lib/cnpj'
 import { formatDate } from '../lib/utils'
 import { sanitizeSheetRows } from '../lib/spreadsheetSafe'
+import { normalizePixTxid } from '../lib/pix'
 import { supabase } from './supabase'
 import type { PixTransaction } from '../types/database'
 
@@ -76,9 +77,8 @@ export type UnifiedPixConfirmationResult = {
   items: Array<{ source: 'local' | 'demurrage'; invoice_id: number; doc_number: string; status: 'ok' }>
 }
 
-function normTxid(str: string) {
-  return (str ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-}
+const normTxid = normalizePixTxid
+
 
 /**
  * Parser rows normally carry the physical spreadsheet line. This fallback is

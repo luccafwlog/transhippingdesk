@@ -31,7 +31,7 @@ BEGIN
     UPDATE public.invoices
     SET status = 'overdue'
     WHERE invoice_type IN ('individual', 'consolidated')
-      AND status IN ('issued', 'partially_paid', 'overdue')
+      AND status IN ('issued', 'partially_paid')
       AND due_date IS NOT NULL
       AND due_date < CURRENT_DATE
       AND COALESCE(balance_brl, 0) > 0.01
