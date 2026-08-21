@@ -577,6 +577,60 @@ GRANT EXECUTE ON FUNCTION public.reconcile_voyage_schedule_date_alerts(BIGINT, T
 GRANT EXECUTE ON FUNCTION public.reconcile_voyage_export_after_atd_alerts(BIGINT, TEXT, TEXT, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.reconcile_voyage_operation_alerts(BIGINT, TEXT) TO service_role;
 
+-- O editor legado de Demurrage ainda atualiza diretamente a invoice. A
+-- conversa da Dispute precisa acompanhar essa transição para não deixar a
+-- invoice encerrada com uma conversa operacional ainda aberta.
+CREATE OR REPLACE FUNCTION public.sync_demurrage_dispute_lifecycle_from_invoice()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE
+  v_state TEXT;
+  v_next_responder TEXT;
+BEGIN
+  IF NEW.dispute_status = 'resolvido' THEN
+    v_state := 'resolvida';
+    v_next_responder := 'ninguem';
+  ELSIF NEW.dispute_status = 'cancelado' THEN
+    v_state := 'cancelada';
+    v_next_responder := 'ninguem';
+  ELSIF COALESCE(NEW.dispute_open, false) THEN
+    v_state := 'aberta';
+    v_next_responder := 'equipamentos';
+  ELSE
+    RETURN NEW;
+  END IF;
+
+  WITH target AS (
+    SELECT id
+    FROM public.demurrage_disputes
+    WHERE demurrage_invoice_id = NEW.id
+    ORDER BY CASE WHEN state = 'aberta' THEN 0 ELSE 1 END, id DESC
+    LIMIT 1
+  )
+  UPDATE public.demurrage_disputes d
+  SET state = v_state,
+      next_responder = v_next_responder,
+      resolved_at = CASE WHEN v_state = 'resolvida' THEN COALESCE(d.resolved_at, now()) ELSE NULL END,
+      cancelled_at = CASE WHEN v_state = 'cancelada' THEN COALESCE(d.cancelled_at, now()) ELSE NULL END
+  FROM target
+  WHERE d.id = target.id;
+
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS sync_demurrage_dispute_lifecycle_from_invoice ON public.demurrage_invoices;
+CREATE TRIGGER sync_demurrage_dispute_lifecycle_from_invoice
+  AFTER INSERT OR UPDATE OF dispute_open, dispute_status
+  ON public.demurrage_invoices
+  FOR EACH ROW EXECUTE FUNCTION public.sync_demurrage_dispute_lifecycle_from_invoice();
+
+REVOKE ALL ON FUNCTION public.sync_demurrage_dispute_lifecycle_from_invoice() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_demurrage_dispute_lifecycle_from_invoice() TO service_role;
+
 CREATE INDEX IF NOT EXISTS idx_pix_reconciliation_exceptions_resolved_invoice
   ON public.pix_reconciliation_exceptions (resolved_invoice_id)
   WHERE resolved_invoice_id IS NOT NULL;

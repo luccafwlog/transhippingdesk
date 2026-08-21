@@ -18,4 +18,12 @@ describe('migration 338 — hardening da revisão de alertas', () => {
     expect(migration).toContain("'voyage_export_after_atd', 'voyage_pod_schedule'")
     expect(migration).toContain('idx_pix_reconciliation_exceptions_resolved_invoice')
   })
+
+  it('sincroniza o estado da conversa quando o editor legado atualiza a invoice', () => {
+    expect(migration).toContain('sync_demurrage_dispute_lifecycle_from_invoice')
+    expect(migration).toContain("NEW.dispute_status = 'resolvido'")
+    expect(migration).toContain("NEW.dispute_status = 'cancelado'")
+    expect(migration).toContain("WHERE demurrage_invoice_id = NEW.id")
+    expect(migration).toContain('DROP TRIGGER IF EXISTS sync_demurrage_dispute_lifecycle_from_invoice')
+  })
 })
