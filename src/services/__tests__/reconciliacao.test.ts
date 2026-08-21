@@ -89,7 +89,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           status: 'issued',
-          pix_txid: null,
+          pix_txid: 'PIX-LOCAL-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -114,6 +114,29 @@ describe('reconciliacao PIX unificada', () => {
         matchType: 'unmatched',
       }),
     ])
+  })
+
+  it('usa o TXID PIX da invoice como chave, não o número do documento', async () => {
+    installFromMock({
+      localInvoices: [{
+        id: 10,
+        invoice_number: 'INV-001',
+        total_brl: 100,
+        balance_brl: 100,
+        status: 'issued',
+        pix_txid: 'txid-real-001',
+        customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
+      }],
+    })
+
+    const matches = await matchUnifiedPixTransactions([{
+      txid: 'TXID-REAL-001',
+      cnpj: '12.345.678/0001-95',
+      date: '2026-05-28',
+      amount: 100,
+    }])
+
+    expect(matches[0]).toMatchObject({ source: 'local', docNumber: 'INV-001', ambiguous: false })
   })
 
   it('persiste apenas linhas nao conciliadas com import e linha estaveis', async () => {
@@ -179,7 +202,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Local', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -188,7 +211,7 @@ describe('reconciliacao PIX unificada', () => {
           id: 20,
           doc_number: 'INV-001',
           current_total_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Demurrage', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -209,7 +232,7 @@ describe('reconciliacao PIX unificada', () => {
           id: 20,
           doc_number: 'DEM-001',
           current_total_brl: 100,
-          pix_txid: null,
+          pix_txid: 'DEM-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -230,7 +253,7 @@ describe('reconciliacao PIX unificada', () => {
           id: 20,
           doc_number: 'DEM-001',
           current_total_brl: 110, // valor de hoje (PTAX nova)
-          pix_txid: null,
+          pix_txid: 'DEM-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -257,7 +280,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
@@ -279,15 +302,15 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'DUPLICATE-PIX',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],
     })
 
     const matches = await matchUnifiedPixTransactions([
-      { txid: 'INV-001', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 100 },
-      { txid: 'INV-001', cnpj: '12.345.678/0001-95', date: '2026-05-29', amount: 100 },
+      { txid: 'DUPLICATE-PIX', cnpj: '12.345.678/0001-95', date: '2026-05-28', amount: 100 },
+      { txid: 'DUPLICATE-PIX', cnpj: '12.345.678/0001-95', date: '2026-05-29', amount: 100 },
     ])
 
     expect(matches).toHaveLength(2)
@@ -303,7 +326,7 @@ describe('reconciliacao PIX unificada', () => {
           invoice_number: 'INV-001',
           total_brl: 100,
           balance_brl: 100,
-          pix_txid: null,
+          pix_txid: 'INV-001',
           customer: { name: 'Cliente Alfa', cnpj_cpf: '12.345.678/0001-95' },
         },
       ],

@@ -223,13 +223,6 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
     return Math.abs(currentBrl - amount) <= 0.01
   }
 
-  const usedTxids = new Set<string>(
-    [
-      ...localInvoices.map((i) => i.pix_txid ?? '').filter(Boolean),
-      ...demurrageInvoices.map((i) => i.pix_txid ?? '').filter(Boolean),
-    ].map(normTxid).filter(Boolean),
-  )
-
   type InvEntry = {
     source: 'local' | 'demurrage'
     id: number
@@ -251,7 +244,9 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       customerCnpj: canonicalizeDocument(inv.customer?.cnpj_cpf ?? ''),
       amount: inv.balance_brl ?? inv.total_brl ?? 0,
     }
-    const key = normTxid(docNum)
+    // O TXID normalizado é a identidade primária do PIX. O número da invoice
+    // permanece apenas como rótulo; nunca deve ser usado como chave de match.
+    const key = normTxid(inv.pix_txid ?? '')
     if (key) txidMap.set(key, [...(txidMap.get(key) ?? []), entry])
   }
 
@@ -264,7 +259,7 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
       customerCnpj: canonicalizeDocument(inv.customer?.cnpj_cpf ?? ''),
       amount: inv.current_total_brl ?? 0,
     }
-    const key = normTxid(inv.doc_number)
+    const key = normTxid(inv.pix_txid ?? '')
     if (key) txidMap.set(key, [...(txidMap.get(key) ?? []), entry])
   }
 
@@ -272,8 +267,6 @@ export async function matchUnifiedPixTransactions(transactions: PixTransaction[]
   const seenTxids = new Set<string>()
   for (const tx of transactions) {
     const key = normTxid(tx.txid)
-    if (key && usedTxids.has(key)) continue
-
     const entries = key ? txidMap.get(key) ?? [] : []
     if (!entries.length) {
       matches.push({
