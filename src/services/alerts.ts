@@ -325,13 +325,6 @@ export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
     .slice(0, 200)
 }
 
-// Deprecated browser compatibility. The only production scheduler is the
-// server-only alerts-detector Edge Function from migration 319.
-export async function detectOverdueInvoices(): Promise<void> {
-  const { error } = await supabase.rpc('detect_overdue_invoices')
-  if (error) throw error
-}
-
 export async function detectAgencyReportPending(): Promise<void> {
   const { error } = await supabase.rpc('detect_agency_report_pending')
   if (error) throw error
