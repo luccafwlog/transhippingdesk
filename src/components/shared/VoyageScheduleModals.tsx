@@ -515,6 +515,7 @@ export function EscalaModal({
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [escalaNumber, setEscalaNumber] = useState('')
+  const [temImportacao, setTemImportacao] = useState(true)
   const [temExportacao, setTemExportacao] = useState(false)
   const [hasGranite, setHasGranite] = useState(false)
   const [hasEmpty, setHasEmpty] = useState(false)
@@ -567,6 +568,7 @@ export function EscalaModal({
     setCeStatus(getEditableVoyagePodCeStatus(escala.ceStatus))
     setLinked(escala.linked ? 'true' : 'false')
     setEscalaNumber(escala.escalaNumber ?? '')
+    setTemImportacao(escala.temImportacao)
     setTemExportacao(escala.temExportacao)
     setHasGranite(escala.hasGranite)
     setHasEmpty(escala.hasEmpty)
@@ -733,6 +735,12 @@ export function EscalaModal({
       setExportError('Uma nova declaração de exportação exige granito ou vazios.')
       return
     }
+    if (!temImportacao && temExportacao) {
+      if (eta.trim() || ata.trim() || etb.trim() || atb.trim()) {
+        setExportError('Uma escala marcada como somente exportação não pode ter POD ou datas de importação.')
+        return
+      }
+    }
 
     const terminalPayload = buildTerminalPayload({
       terminalScale,
@@ -773,7 +781,7 @@ export function EscalaModal({
       await onSaved({
         voyageId: escala.voyageId,
         port: normalizedPort,
-        temImportacao: escala.temImportacao,
+        temImportacao,
         eta: eta || null,
         etb: etb || null,
         ata: ata || null,
@@ -914,7 +922,25 @@ export function EscalaModal({
           </div>
 
           <div className="grid gap-3 rounded-lg border border-[var(--app-border)] p-3">
-            <div className="text-sm font-semibold text-[var(--app-text-strong)]">Declaração de exportação</div>
+            <div className="text-sm font-semibold text-[var(--app-text-strong)]">Tipo de operação da escala</div>
+
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                checked={temImportacao}
+                onChange={(event) => {
+                  const checked = event.target.checked
+                  if (!checked && !temExportacao) {
+                    setTemExportacao(true)
+                    setHasGranite(true)
+                  }
+                  setTemImportacao(checked)
+                  setExportError(null)
+                }}
+                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
+              />
+              <span className="text-sm text-[var(--app-text)]">Esta escala terá importação (descarregamento)</span>
+            </label>
 
             <label className="flex cursor-pointer items-center gap-3">
               <input
@@ -927,29 +953,43 @@ export function EscalaModal({
               <span className="text-sm text-[var(--app-text)]">Esta escala terá exportação</span>
             </label>
 
-            {temExportacao ? <>
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={hasGranite}
-                disabled={(escala.graniteLocked ?? escala.exportLocked) && hasGranite}
-                onChange={(event) => { void handleDeclarationChange('granito', event.target.checked) }}
-                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
-              />
-              <span className="text-sm text-[var(--app-text)]">Terá embarque de granito</span>
-            </label>
+            {temExportacao ? (
+              <div className="grid gap-2 pl-6 pt-1 border-t border-[var(--app-border)]">
+                <div className="text-xs font-semibold text-[var(--app-muted)]">Expectativa de exportação:</div>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={hasGranite}
+                      disabled={Boolean((escala.graniteLocked ?? escala.exportLocked) && hasGranite)}
+                      onChange={(event) => { void handleDeclarationChange('granito', event.target.checked) }}
+                      className="h-4 w-4 rounded border-slate-500 accent-amber-500"
+                    />
+                    <span className="text-sm text-[var(--app-text)]">Terá embarque de granito</span>
+                  </label>
 
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={hasEmpty}
-                disabled={(escala.emptyLocked ?? escala.exportLocked) && hasEmpty}
-                onChange={(event) => { void handleDeclarationChange('vazios', event.target.checked) }}
-                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
-              />
-              <span className="text-sm text-[var(--app-text)]">Terá embarque de vazios</span>
-            </label>
-            </> : null}
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={hasEmpty}
+                      disabled={Boolean((escala.emptyLocked ?? escala.exportLocked) && hasEmpty)}
+                      onChange={(event) => { void handleDeclarationChange('vazios', event.target.checked) }}
+                      className="h-4 w-4 rounded border-slate-500 accent-amber-500"
+                    />
+                    <span className="text-sm text-[var(--app-text)]">Terá embarque de vazios</span>
+                  </label>
+                </div>
+                <div className="text-xs text-[var(--app-muted)]">
+                  {hasGranite && hasEmpty
+                    ? 'Modalidade ativa: Ambos (granito e vazios)'
+                    : hasGranite
+                    ? 'Modalidade ativa: Somente granito'
+                    : hasEmpty
+                    ? 'Modalidade ativa: Somente vazios'
+                    : 'Nenhuma modalidade selecionada'}
+                </div>
+              </div>
+            ) : null}
 
             {exportError ? <p role="alert" className="text-xs text-red-300">{exportError}</p> : null}
 

@@ -3,6 +3,15 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Bloco 4 — Operação e Viagem (#523):** migration `325_voyage_operation_alerts.sql`
+  implementa os detectores server-side e reconciliadores de B/L esperado, Baplie
+  ausente, cobertura Baplie / B/L, CE Mercante pendente, datas de escala/terminal
+  pendentes e exportação pendente pós-ATD com severidade e audiências departamentais.
+  A criação/edição de viagem suporta indicação de outro 1º porto brasileiro e ETA
+  com validação estrita e auditoria. O modal de escala explicita a expectativa de
+  exportação (somente granito, somente vazios ou ambos) e bloqueia dados de importação
+  em escalas declaradas como somente exportação. Integrado ao executor transversal
+  `run_alert_detectors()` e à fila de alertas. *(issue #523)*
 - **PR #569 — revisão manual orientada a cliente (#562):** a fila passou a
   separar grupos por identidade documental segura, exibir evidências brutas do
   consignatário/carga e bloquear vínculos quando há CNPJs conflitantes. O novo

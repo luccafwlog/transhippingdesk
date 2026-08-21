@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
 import { formatDate } from '../lib/utils'
-import { dismissAlertItem, formatAgencyReportAlertEntity, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
+import { dismissAlertItem, formatAgencyReportAlertEntity, formatAlertEntity, listAlerts, type AlertQueueRow, type AlertStatusFilter } from '../services/alerts'
 
 const TYPE_LABELS: Record<string, string> = {
   invoice_overdue: 'Fatura vencida',
@@ -26,6 +26,13 @@ const TYPE_LABELS: Record<string, string> = {
   portal_abuso_login: 'Portal do Cliente — abuso de login',
   agency_report_department_pending: 'ADR — departamento pendente',
   agency_report_deadline_missed: 'ADR — prazo vencido',
+  voyage_bl_expected: 'B/L esperado pendente',
+  voyage_baplie_missing: 'Baplie ausente',
+  voyage_baplie_documentary_coverage: 'Cobertura Baplie / B/L',
+  voyage_ce_mercante_missing: 'CE Mercante pendente',
+  voyage_schedule_date_pending: 'Data da escala pendente',
+  voyage_terminal_date_pending: 'Data de terminal pendente',
+  voyage_export_after_atd: 'Exportação pendente pós-ATD',
 }
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -34,6 +41,8 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   bl: 'B/L',
   agency_departure_report: 'ADR',
   voyage: 'Viagem',
+  voyage_pod_schedule: 'Escala',
+  voyage_escala_terminal: 'Terminal da escala',
 }
 
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
@@ -163,7 +172,9 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
       </td>
       <td className="max-w-sm px-4 py-3 text-[var(--app-text)]">{alert.message}</td>
       <td className="px-4 py-3 text-[var(--app-muted)]">
-        {alert.entity_type === 'agency_departure_report' && alert.entity_id && formatAgencyReportAlertEntity(alert.entity_id) ? (
+        {alert.entity_type && alert.entity_id && formatAlertEntity(alert.entity_type, alert.entity_id) ? (
+          <span className="text-xs">{formatAlertEntity(alert.entity_type, alert.entity_id)}</span>
+        ) : alert.entity_type === 'agency_departure_report' && alert.entity_id && formatAgencyReportAlertEntity(alert.entity_id) ? (
           <span className="text-xs">{formatAgencyReportAlertEntity(alert.entity_id)}</span>
         ) : alert.entity_type ? (
           <span className="font-mono text-xs">{ENTITY_TYPE_LABELS[alert.entity_type] ?? alert.entity_type}{alert.entity_id ? ` ${alert.entity_id}` : ''}</span>
@@ -198,14 +209,43 @@ function alertEntityLink(alert: { type: string; entity_type: string | null; enti
     if (terminalizedKey !== undefined) params.set('terminal', terminalOrLegacyKey)
     return `/viagens/${voyageId}?${params.toString()}`
   }
-  if (alert.entity_type === 'voyage' && /^\d+$/.test(alert.entity_id)) return `/viagens/${alert.entity_id}`
+  if (alert.entity_type === 'voyage') {
+    if (alert.type.startsWith('voyage_baplie_')) {
+      return `/baplie?voyage=${encodeURIComponent(alert.entity_id)}`
+    }
+    if (/^\d+$/.test(alert.entity_id)) return `/viagens/${encodeURIComponent(alert.entity_id)}`
+    return '/viagens'
+  }
+  if (alert.entity_type === 'voyage_pod_schedule') {
+    const [voyageId, port] = alert.entity_id.split('::')
+    if (!/^\d+$/.test(voyageId)) return '/viagens'
+    const params = new URLSearchParams()
+    if (port) params.set('escala', port)
+    return `/viagens/${voyageId}${params.toString() ? `?${params.toString()}` : ''}`
+  }
+  if (alert.entity_type === 'voyage_escala_terminal') {
+    const [voyageId, port, terminalId] = alert.entity_id.split('::')
+    if (!/^\d+$/.test(voyageId)) return '/viagens'
+    const params = new URLSearchParams()
+    if (port) params.set('escala', port)
+    if (terminalId) params.set('terminal', terminalId)
+    return `/viagens/${voyageId}${params.toString() ? `?${params.toString()}` : ''}`
+  }
   return null
 }
 
-function alertEntityLinkLabel(alert: { entity_type: string | null }) {
+function alertEntityLinkLabel(alert: { type: string; entity_type: string | null }) {
+  if (alert.type.startsWith('voyage_baplie_')) return 'Abrir Baplie'
   if (alert.entity_type === 'invoice') return 'Ver Fatura'
   if (alert.entity_type === 'container') return 'Ver Demurrage'
   if (alert.entity_type === 'bl') return 'Abrir B/L'
-  if (alert.entity_type === 'agency_departure_report' || alert.entity_type === 'voyage') return 'Abrir Viagem'
+  if (
+    alert.entity_type === 'agency_departure_report' ||
+    alert.entity_type === 'voyage' ||
+    alert.entity_type === 'voyage_pod_schedule' ||
+    alert.entity_type === 'voyage_escala_terminal'
+  ) {
+    return 'Abrir Viagem'
+  }
   return 'Abrir'
 }

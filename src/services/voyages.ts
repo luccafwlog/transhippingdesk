@@ -27,6 +27,8 @@ export async function createVoyage(form: VoyageFormValues, changedBy: string | n
 
   await insertVoyageAuditRows([
     makeVoyageAuditRow(created.id, 'created', null, form.voyageNumber.trim(), changedBy),
+    makeVoyageAuditRow(created.id, 'indicated_first_brazilian_port', null, form.indicatedFirstBrazilianPort ?? null, changedBy),
+    makeVoyageAuditRow(created.id, 'indicated_first_brazilian_eta', null, form.indicatedFirstBrazilianEta ?? null, changedBy),
   ])
   await syncLoadPortEtds(created.id, form, changedBy)
   await syncDischargePortEtas(created.id, form, changedBy)
@@ -37,11 +39,14 @@ export async function createVoyage(form: VoyageFormValues, changedBy: string | n
 export async function updateVoyage(voyageId: number, form: VoyageFormValues, changedBy: string | null) {
   const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
   const vesselId = await getOrCreateVessel(form.vesselName, form.vesselImo, carrierId)
-  const { data: current, error: currentError } = await supabase
-    .from('voyages')
-    .select('vessel_id, voyage_number, status')
-    .eq('id', voyageId)
-    .single()
+  const [{ data: current, error: currentError }, currentIndicated] = await Promise.all([
+    supabase
+      .from('voyages')
+      .select('vessel_id, voyage_number, status')
+      .eq('id', voyageId)
+      .single(),
+    getVoyageIndicatedFirstBrazilianPort(voyageId),
+  ])
   if (currentError) throw currentError
 
   const { data: updated, error: updateError } = await supabase
@@ -61,6 +66,8 @@ export async function updateVoyage(voyageId: number, form: VoyageFormValues, cha
     makeVoyageAuditRow(voyageId, 'vessel_id', current?.vessel_id == null ? null : String(current.vessel_id), String(vesselId), changedBy),
     makeVoyageAuditRow(voyageId, 'voyage_number', current?.voyage_number ?? null, form.voyageNumber.trim(), changedBy),
     makeVoyageAuditRow(voyageId, 'status', current?.status ?? null, form.status, changedBy),
+    makeVoyageAuditRow(voyageId, 'indicated_first_brazilian_port', currentIndicated?.port ?? null, form.indicatedFirstBrazilianPort ?? null, changedBy),
+    makeVoyageAuditRow(voyageId, 'indicated_first_brazilian_eta', currentIndicated?.eta ?? null, form.indicatedFirstBrazilianEta ?? null, changedBy),
   ])
   await syncLoadPortEtds(voyageId, form, changedBy)
   await syncDischargePortEtas(voyageId, form, changedBy)
@@ -229,7 +236,13 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
 
 function makeVoyageAuditRow(
   voyageId: number,
-  fieldName: 'created' | 'vessel_id' | 'voyage_number' | 'status',
+  fieldName:
+    | 'created'
+    | 'vessel_id'
+    | 'voyage_number'
+    | 'status'
+    | 'indicated_first_brazilian_port'
+    | 'indicated_first_brazilian_eta',
   oldValue: string | null,
   newValue: string | null,
   changedBy: string | null,
@@ -245,6 +258,59 @@ function makeVoyageAuditRow(
     changed_by: changedBy,
     justification: 'Atualizacao de dados da viagem',
   }
+}
+
+export async function getVoyageIndicatedFirstBrazilianPort(voyageId: number): Promise<{ port: string | null; eta: string | null }> {
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('field_name, new_value, changed_at')
+    .eq('entity_type', 'voyages')
+    .eq('entity_id', String(voyageId))
+    .in('field_name', ['indicated_first_brazilian_port', 'indicated_first_brazilian_eta'])
+    .order('changed_at', { ascending: false })
+
+  if (error) throw error
+
+  let port: string | null = null
+  let eta: string | null = null
+  for (const row of data ?? []) {
+    if (row.field_name === 'indicated_first_brazilian_port' && port === null) {
+      port = row.new_value ? row.new_value.trim().toUpperCase() : null
+    }
+    if (row.field_name === 'indicated_first_brazilian_eta' && eta === null) {
+      eta = row.new_value ? row.new_value.trim() : null
+    }
+  }
+  return { port, eta }
+}
+
+export async function listVoyagesIndicatedFirstBrazilianPort(voyageIds: number[]): Promise<Map<number, { port: string | null; eta: string | null }>> {
+  const result = new Map<number, { port: string | null; eta: string | null }>()
+  if (!voyageIds.length) return result
+
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('entity_id, field_name, new_value, changed_at')
+    .eq('entity_type', 'voyages')
+    .in('entity_id', voyageIds.map(String))
+    .in('field_name', ['indicated_first_brazilian_port', 'indicated_first_brazilian_eta'])
+    .order('changed_at', { ascending: false })
+
+  if (error) throw error
+
+  for (const row of data ?? []) {
+    const id = Number(row.entity_id)
+    if (!id) continue
+    const current = result.get(id) ?? { port: null, eta: null }
+    if (row.field_name === 'indicated_first_brazilian_port' && current.port === null) {
+      current.port = row.new_value ? row.new_value.trim().toUpperCase() : null
+    }
+    if (row.field_name === 'indicated_first_brazilian_eta' && current.eta === null) {
+      current.eta = row.new_value ? row.new_value.trim() : null
+    }
+    result.set(id, current)
+  }
+  return result
 }
 
 async function insertVoyageAuditRows(rows: Array<ReturnType<typeof makeVoyageAuditRow>>) {

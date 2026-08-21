@@ -90,6 +90,10 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   substituíram o diagnóstico por Vercel Speed Insights. O harness
   `npm run perf:authenticated-startup` segue vivo. Nota editorial no topo do
   plano.
+- [`2026-08-16-bloco-4-operacao-viagem-alertas.md`](2026-08-16-bloco-4-operacao-viagem-alertas.md)
+  — implementação dos alertas e reconciliação de B/L esperado, Baplie ausente e cobertura,
+  CE Mercante pendente, datas de escala/terminal pendentes e exportação pendente pós-ATD
+  do Bloco 4 (#523). Migration `325_voyage_operation_alerts.sql`.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

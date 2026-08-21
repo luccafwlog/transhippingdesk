@@ -13,7 +13,6 @@ Quando um plano é totalmente executado, ele é movido para
 | [`2026-08-15-implementacao-bloco-520-bl-revisao.md`](./2026-08-15-implementacao-bloco-520-bl-revisao.md) | Implementação de B/L, Revisão Manual, importações e projeções de pendências — Bloco #520 | IN PROGRESS — entregue via PR #574 (`324_review_bl_alerts_lifecycle.sql`) |
 | [`2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md`](./2026-08-15-implementacao-bloco-521-clientes-portal-alertas.md) | Implementação das pendências de clientes, Portal, faturamento dependente e Disputes de Demurrage | IN PROGRESS — entregue via PR #571 (`324_clientes_portal_disputes_alerts.sql`) |
 | [`2026-08-16-implementacao-bloco-522-financeiro-alertas.md`](./2026-08-16-implementacao-bloco-522-financeiro-alertas.md) | Implementação do contrato de alertas, notificações e reconciliação PIX do Bloco 3 — Financeiro (#522) | IN PROGRESS — entregue via PR #573 |
-| [`2026-08-16-bloco-4-operacao-viagem-alertas.md`](./2026-08-16-bloco-4-operacao-viagem-alertas.md) | Implementação dos alertas BL, Baplie, CE e exportação do Bloco 4 | TODO — próximo a ser implementado |
 | [`2026-08-17-implementacao-bloco-524-adr-alertas.md`](./2026-08-17-implementacao-bloco-524-adr-alertas.md) | Implementação dos Alertas e Notificações Internas do Relatório de Agência (ADR) | IN PROGRESS — integrado via PR #570 (migration `323`) |
 | [`2026-08-20-implementacao-bloco-525-transversal-portal.md`](./2026-08-20-implementacao-bloco-525-transversal-portal.md) | Implementação das superfícies transversais: sino interno, fila `/alertas`, resumo do `/painel`, falha de roteamento e Eco de Tratamento — Bloco #525 | BLOCKED — depende da integração dos produtores dos Blocos 1–5 (#519, §2, passo 11) |
 
@@ -35,7 +34,7 @@ catálogo (A–D) e as issues #520–#525.
 > - PR #571 implementou o Bloco 2 (#521 — Clientes, Portal e Disputes) via migration `324_clientes_portal_disputes_alerts.sql`.
 > - PR #573 implementou o Bloco 3 (#522 — Financeiro e Reconciliação PIX).
 > - PR #574 implementou o Bloco 1 (#520 — B/L e Revisão Manual) via migration `324_review_bl_alerts_lifecycle.sql`.
-> - O **Bloco 4 (#523 — Operação e Viagem)** é o próximo bloco a ser implementado para fechar o pacote dos Blocos 1–5 antes da PR de integração.
+> - O **Bloco 4 (#523 — Operação e Viagem)** foi implementado via migration `325_voyage_operation_alerts.sql`.
 > - O Bloco 6 (#525) consome as superfícies transversais após a integração dos produtores.
 
 ### Nota editorial sobre o registro de decisões de #519

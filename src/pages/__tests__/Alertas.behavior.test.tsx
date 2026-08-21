@@ -24,6 +24,7 @@ vi.mock('../../services/alerts', () => ({
   listAlerts: vi.fn(),
   dismissAlertItem: vi.fn().mockResolvedValue(undefined),
   formatAgencyReportAlertEntity: (entityId: string) => entityId,
+  formatAlertEntity: (entityType: string, entityId: string) => (entityType === 'agency_departure_report' ? entityId : null),
 }))
 
 import { Alertas } from '../Alertas'

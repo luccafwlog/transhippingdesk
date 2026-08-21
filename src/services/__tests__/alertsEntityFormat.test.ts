@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAgencyReportAlertEntity } from '../alerts'
+import { formatAgencyReportAlertEntity, formatAlertEntity } from '../alerts'
 
 describe('formatAgencyReportAlertEntity', () => {
   it('formata voyageId::porto::departamento (migration 225) para leitura humana', () => {
@@ -26,5 +26,22 @@ describe('formatAgencyReportAlertEntity', () => {
   it('cai para null quando o formato não é o composto do ADR', () => {
     expect(formatAgencyReportAlertEntity('qualquer-coisa')).toBeNull()
     expect(formatAgencyReportAlertEntity('')).toBeNull()
+  })
+})
+
+describe('formatAlertEntity', () => {
+  it('formata entidades de viagem, escala e terminal', () => {
+    expect(formatAlertEntity('voyage', '42')).toBe('Viagem 42')
+    expect(formatAlertEntity('voyage_pod_schedule', '42::BRSSZ')).toBe('Viagem 42 · Escala BRSSZ')
+    expect(formatAlertEntity('voyage_escala_terminal', '42::BRSSZ::BTP')).toBe('Viagem 42 · BRSSZ · Terminal BTP')
+  })
+
+  it('delega agency_departure_report para formatAgencyReportAlertEntity', () => {
+    expect(formatAlertEntity('agency_departure_report', '10::BRVIX::equipamentos')).toBe('Viagem 10 · BRVIX · Equipamentos')
+  })
+
+  it('retorna null para tipos ou ids nulos/desconhecidos', () => {
+    expect(formatAlertEntity(null, null)).toBeNull()
+    expect(formatAlertEntity('invoice', '123')).toBeNull()
   })
 })

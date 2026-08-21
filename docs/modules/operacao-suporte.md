@@ -182,7 +182,7 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 | Filtrar/listar | Sessão interna ativa | Abas Todos/Ativos/Dispensados | `useQuery(['alerts', statusFilter])` → `listAlerts` | RPC `list_alert_queue`, com cap global de 200 e carriers legados sem item | Troca de filtro usa cache por status | Erro exibe `InlineError` | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
 | Dispensar | Item ativo; motivo e data futura | Botão “Dispensar” | `dismissAlert(item_id, reason, reviewAt)` → `dismiss_alert_item` | `alert_item_dismissals` por ocorrência | Invalida alerts/op-count/dashboard | Motivo ausente ou data passada é rejeitado | **Código:** `src/pages/Alertas.tsx`, `src/services/alerts.ts` |
 | Resolver | Estado autoritativo alterado | Produtor do alerta | Triggers/RPCs chamam `resolve_alert_item`; abuso de login exige análise humana | `alert_items.status = resolved` e evento de resolução | Agregado e contadores são atualizados | Falha da origem permanece visível na fila | **Código:** migrations `318`/`321`, produtores de faturamento/Portal/demurrage |
-| Abrir entidade | `entity_type`/`entity_id` suportados | Link na linha | Mapeia invoice, container ou B/L para rota interna | Nenhuma | Navega para faturamento, demurrage ou manifesto | Tipos sem mapeamento não exibem link | **Código:** `src/pages/Alertas.tsx` |
+| Abrir entidade | `entity_type`/`entity_id` suportados | Link na linha | Mapeia invoice, container, B/L, ADR, viagem, escala ou terminal para rota interna | Nenhuma | Navega para faturamento, demurrage, manifesto, Baplie ou viagens com parâmetros de escala/terminal | Tipos sem mapeamento não exibem link | **Código:** `src/pages/Alertas.tsx` |
 
 ### `/relatorios`
 

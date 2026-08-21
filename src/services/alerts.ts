@@ -42,6 +42,25 @@ export function formatAgencyReportAlertEntity(entityId: string): string | null {
     : `Viagem ${voyageId} · ${port} · ${label}`
 }
 
+export function formatAlertEntity(entityType: string | null, entityId: string | null): string | null {
+  if (!entityType || !entityId) return null
+  if (entityType === 'agency_departure_report') {
+    return formatAgencyReportAlertEntity(entityId)
+  }
+  if (entityType === 'voyage') {
+    return `Viagem ${entityId}`
+  }
+  if (entityType === 'voyage_pod_schedule') {
+    const [voyageId, port] = entityId.split('::')
+    return port ? `Viagem ${voyageId} · Escala ${port}` : `Escala ${entityId}`
+  }
+  if (entityType === 'voyage_escala_terminal') {
+    const [voyageId, port, terminalId] = entityId.split('::')
+    return terminalId ? `Viagem ${voyageId} · ${port} · Terminal ${terminalId}` : `Terminal ${entityId}`
+  }
+  return null
+}
+
 export async function listAlerts(statusFilter: AlertStatusFilter = 'all', entityType?: string): Promise<AlertQueueRow[]> {
   const { data, error } = await alertsRpc.rpc('list_alert_queue', {
     p_filter: statusFilter,

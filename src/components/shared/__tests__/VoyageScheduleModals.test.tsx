@@ -368,6 +368,23 @@ describe('EscalaModal', () => {
     expect(graniteToggle.checked).toBe(false)
   })
 
+  it('bloqueia salvamento de escala somente exportação se houver dados de POD/importação', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala({
+      ...escalaBase,
+      temImportacao: true,
+      temExportacao: true,
+      hasGranite: true,
+      eta: '2026-08-10',
+    })
+
+    await user.click(screen.getByLabelText('Esta escala terá importação (descarregamento)'))
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('somente exportação não pode ter POD')
+  })
+
   it('não rebasa campos digitados quando o estado terminal chega depois', () => {
     const loadingTerminalScale = {
       ...terminalScaleBase,
