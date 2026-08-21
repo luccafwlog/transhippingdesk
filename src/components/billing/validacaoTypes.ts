@@ -7,6 +7,6 @@ export type OpsFilters = {
   includeResolved: boolean
 }
 
-export type BillingBlockCode = 'sem_cliente' | 'calculo_incompleto' | 'aguardando_ce' | 'faturado' | 'isento' | 'pronto'
+export type BillingBlockCode = 'sem_cliente' | 'calculo_incompleto' | 'aguardando_ce' | 'faturado' | 'isento' | 'pronto' | 'operacao_granito'
 
 export type BatchOperation = 'recalculate'

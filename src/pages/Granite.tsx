@@ -125,7 +125,7 @@ export function Granite() {
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
       ])
       const msg = pendingCount
-        ? `Importado com ${manifest.bls.length} B/Ls. ${pendingCount} com faturamento pendente.`
+        ? `Importado com ${manifest.bls.length} B/Ls. ${pendingCount} com reconciliação pendente.`
         : `${manifest.bls.length} B/Ls importados com sucesso.`
       showToast(msg, 'success')
       setUploadOpen(false)
@@ -362,7 +362,7 @@ export function Granite() {
           </div>
         )}
         <div className="app-modal__actions">
-          <p className="mr-auto text-sm text-[var(--app-muted)]">Para faturar, vincule o cliente na Revisão e recalcule as taxas.</p>
+          <p className="mr-auto text-sm text-[var(--app-muted)]">O apoio quantitativo permanece operacional; revise o cliente e recalcule os dados quando necessário.</p>
           <Button variant="ghost" onClick={() => { setChargeBlId(null); setChargeLines([]) }}>
             Fechar
           </Button>
@@ -403,7 +403,7 @@ export function Granite() {
 
               {pendingInManifest > 0 ? (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                  {pendingInManifest} B/L(s) sem cliente resolvido. Preencha os CNPJs abaixo ou confirme importar com pendencias (faturamento bloqueado nesses B/Ls).
+                  {pendingInManifest} B/L(s) sem cliente resolvido. Preencha os CNPJs abaixo ou confirme importar com reconciliação pendente.
                 </div>
               ) : null}
 
@@ -483,8 +483,8 @@ export function Granite() {
 function ChargeStatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'calculated': return <span className="app-badge app-badge--blue">Calculado</span>
-    case 'ready_for_billing': return <span className="app-badge app-badge--green">Pronto</span>
-    case 'invoiced': return <span className="app-badge app-badge--green">Faturado</span>
+    case 'ready_for_billing': return <span className="app-badge app-badge--blue">Calculado (legado)</span>
+    case 'invoiced': return <span className="app-badge app-badge--slate">Estado legado</span>
     default: return <span className="app-badge app-badge--slate">Não calc.</span>
   }
 }

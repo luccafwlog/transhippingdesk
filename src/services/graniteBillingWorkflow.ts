@@ -1,13 +1,11 @@
 import { calculateGraniteBlCharges } from './graniteCharges'
-import { markGraniteBlReady } from './charges/chargeOperationsService'
 
-export async function runGraniteBatch(ids: string[], action: 'recalculate' | 'ready') {
+export async function runGraniteBatch(ids: string[]) {
   const errors: Array<{ blId: string; message: string }> = []
   let successCount = 0
   for (const id of ids) {
     try {
-      if (action === 'recalculate') await calculateGraniteBlCharges(id)
-      else await markGraniteBlReady(id)
+      await calculateGraniteBlCharges(id)
       successCount += 1
     } catch (error) { errors.push({ blId: id, message: error instanceof Error ? error.message : 'Erro inesperado no processamento Granito.' }) }
   }

@@ -279,7 +279,95 @@ describe('tryAutoIssueInvoice', () => {
 
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
-    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', message: 'ledger failed', unexpected: true })
+    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', message: 'ledger failed', unexpected: true, stage: 'emission' })
+  })
+
+  it('diferencia falha transitória de cálculo e não abre alerta de emissão', async () => {
+    mockedCalculate.mockRejectedValueOnce(new Error('timeout no cálculo'))
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', message: 'timeout no cálculo', unexpected: true, stage: 'calculation' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+  })
+
+  it('não abre A2 quando o cálculo retorna um estado desconhecido', async () => {
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1', status: 'not_calculated', table_id: null, line_count: 0, total_brl: 0, total_usd: 0,
+      review_required: false, exempt: false, reason: '',
+    })
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'rpc_error', stage: 'calculation' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+  })
+
+  it('não transforma ausência de cliente em alerta ou tentativa de emissão', async () => {
+    mockFrom.mockImplementationOnce(() => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { ...baseBl(), customer_id: null, customer_reconciliation_status: 'pending' },
+            error: null,
+          }),
+        }),
+      }),
+    }))
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'awaiting_flow' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+  })
+
+  it('não abre alerta para isenção ou qualquer awaiting_flow', async () => {
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1', status: 'exempt', table_id: 1, line_count: 0, total_brl: 0, total_usd: 0,
+      review_required: false, exempt: true, reason: 'Isento por contrato.',
+    })
+
+    const exemptResult = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    expect(exemptResult).toMatchObject({ status: 'blocked', reason: 'awaiting_flow' })
+
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1', status: 'review_required', table_id: 1, line_count: 1, total_brl: 0, total_usd: 0,
+      review_required: true, exempt: false, reason: 'Peso BB ausente.',
+    })
+    const awaitingResult = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(awaitingResult).toMatchObject({ status: 'blocked', reason: 'awaiting_flow' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+  })
+
+  it('resolve A2 após cálculo válido e reabre quando a causa de cálculo volta', async () => {
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1', status: 'calculated', table_id: 1, line_count: 1, total_brl: 0, total_usd: 0,
+      review_required: false, exempt: false, reason: '',
+    })
+    await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_calculation_blocked' }))
+
+    mockedCalculate.mockResolvedValueOnce({ ...validCalculation() })
+    await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    expect(mockResolveAlertItem).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'billing_calculation_blocked',
+      metadata: expect.objectContaining({ resolution: 'calculation_valid' }),
+    }))
+
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1', status: 'calculated', table_id: 1, line_count: 1, total_brl: 0, total_usd: 0,
+      review_required: false, exempt: false, reason: '',
+    })
+    await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+    expect(mockCreateAlert).toHaveBeenLastCalledWith(expect.objectContaining({
+      type: 'billing_calculation_blocked',
+      metadata: expect.objectContaining({ reason: 'no_billable_value' }),
+    }))
   })
 
   it('nao exige CE Mercante para carga solta', async () => {
@@ -298,6 +386,38 @@ describe('tryAutoIssueInvoice', () => {
 
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
     expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
+  })
+
+  it('não cria A2 quando o cliente ainda pertence ao fluxo de reconciliação', async () => {
+    mockFrom.mockImplementationOnce(() => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { ce_mercante: '122605051526081', cargo_mode: 'container', customer_id: null, customer_reconciliation_status: 'missing_customer' },
+            error: null,
+          }),
+        }),
+      }),
+    }))
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'awaiting_flow' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+  })
+
+  it('não cria A2 para isenção válida', async () => {
+    mockedCalculate.mockResolvedValueOnce({
+      bl_id: 'BL1', status: 'exempt', table_id: 1, line_count: 0, total_brl: 0, total_usd: 0,
+      review_required: false, exempt: true, reason: 'Isento por contrato.',
+    })
+
+    const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'awaiting_flow' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
 })
 
@@ -342,11 +462,23 @@ describe('maybeAutoBillAfterCeMercante', () => {
 
     const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
 
-    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', message: 'ledger failed', unexpected: true })
+    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', stage: 'emission', message: 'ledger failed', unexpected: true })
     expect(mockLogOperationalEvent).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'bl_auto_billing_failed', entityId: 'BL1', changedBy: 'user-1' }),
     )
     expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed', entityType: 'bl', entityId: 'BL1', message: 'ledger failed' }))
+  })
+
+  it('classifica falha de cálculo como calculation e não emite A2 de emissão', async () => {
+    mockBl({})
+    mockedCalculate.mockRejectedValueOnce(new Error('calculation failed'))
+
+    const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
+
+    expect(result).toEqual({ status: 'blocked', reason: 'rpc_error', stage: 'calculation', message: 'calculation failed', unexpected: true })
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
+    expect(mockCreateAlert).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed' }))
+    expect(mockLogOperationalEvent).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'bl_auto_billing_failed' }))
   })
 
   it('fecha a falha de emissão válida e reabre na falha seguinte', async () => {
@@ -390,4 +522,43 @@ describe('maybeAutoBillAfterCeMercante', () => {
     expect(mockCreateAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_calculation_blocked', entityId: 'BL1' }))
     expect(mockCreateAlert).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'billing_auto_issue_failed' }))
   })
+
+  it('classifica falha de consulta como lookup sem abrir alerta de emissão', async () => {
+    mockFrom.mockImplementationOnce(() => ({
+      select: () => ({
+        eq: () => ({ single: async () => ({ data: null, error: new Error('consulta indisponível') }) }),
+      }),
+    }))
+
+    const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
+
+    expect(result).toMatchObject({ status: 'blocked', reason: 'rpc_error', stage: 'lookup' })
+    expect(mockCreateAlert).not.toHaveBeenCalled()
+    expect(mockedCalculate).not.toHaveBeenCalled()
+  })
 })
+
+function baseBl() {
+  return {
+    ce_mercante: '122605051526081',
+    cargo_mode: 'container',
+    customer_id: 99,
+    customer_reconciliation_status: 'matched_document',
+    review_status: 'reviewed',
+    billing_hold_reason: null,
+  }
+}
+
+function validCalculation() {
+  return {
+    bl_id: 'BL1',
+    status: 'calculated' as const,
+    table_id: 1,
+    line_count: 1,
+    total_brl: 100,
+    total_usd: 0,
+    review_required: false,
+    exempt: false,
+    reason: '',
+  }
+}

@@ -122,9 +122,9 @@ it('US-079: importar com pendencias chama importGraniteManifest e reporta a pend
   expect(mocks.importManifest).toHaveBeenCalledWith(
     expect.objectContaining({ voyageId: 7, uploadedBy: 'u1', filename: 'cosco.xlsx' }),
   )
-  // O toast de sucesso comunica que houve faturamento pendente.
+  // A pendência de cliente é operacional; Granito não promete faturamento.
   expect(mocks.showToast).toHaveBeenCalledWith(
-    expect.stringContaining('2 com faturamento pendente'),
+    expect.stringContaining('2 com reconciliação pendente'),
     'success',
   )
 })

@@ -118,7 +118,7 @@ export function ValidacaoOperationsTable({
                     <td className="px-4 py-3"><div className="max-w-[360px] whitespace-normal"><Badge tone={block.code === 'aguardando_ce' ? 'slate' : block.code === 'sem_cliente' ? 'yellow' : block.code === 'calculo_incompleto' ? 'red' : 'blue'}>{block.label}</Badge><div className="mt-1 text-xs text-[var(--app-muted)]">{block.detail}</div></div></td>
                     <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                     <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
-                    <td className="px-4 py-3">{renderChargeStatus(row.charge_status, row.financial_status)}</td>
+                    <td className="px-4 py-3">{renderChargeStatus(row.charge_status, row.financial_status, row.cargo_mode)}</td>
                     <td className="px-4 py-3"><span className="app-table__truncate app-table__truncate--lg" title={row.customer?.name ?? '-'}>{row.customer?.name ?? '-'}</span></td>
                     <td className="px-4 py-3">{renderReconciliationStatus(row.customer_reconciliation_status)}</td>
                     <td className="px-4 py-3">{formatBRL(row.totals.total_brl)}</td>
@@ -152,7 +152,7 @@ export function ValidacaoOperationsTable({
                           <div className="grid gap-3">
                             {block.detail ? (
                               <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">Por que não fatura?</div>
+                                <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">{row.cargo_mode === 'granito' ? 'Escopo da operação' : 'Por que não fatura?'}</div>
                                 <div className="mt-0.5">{block.detail}</div>
                               </div>
                             ) : null}
@@ -289,7 +289,12 @@ function ReviewRequiredReasons({ blId, holdReason }: { blId: string; holdReason:
   )
 }
 
-function renderChargeStatus(status: string | null, financialStatus?: string | null) {
+function renderChargeStatus(status: string | null, financialStatus?: string | null, cargoMode?: string | null) {
+  if (cargoMode === 'granito') {
+    if (financialStatus === 'invoiced') return <Badge tone="slate">Registro histórico</Badge>
+    if (status === 'calculated' || status === 'ready_for_billing') return <Badge tone="green">Quantidades calculadas</Badge>
+    return <Badge tone="slate">Quantidades pendentes</Badge>
+  }
   if (financialStatus === 'invoiced') return <Badge tone="blue">Faturado</Badge>
   if (status === 'review_required') return <Badge tone="yellow">Revisão</Badge>
   if (status === 'ready_for_billing') return <Badge tone="green">Pronto</Badge>
