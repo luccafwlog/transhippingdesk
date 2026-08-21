@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ExternalLink, History } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { useToast } from '../components/ui/Toast'
@@ -15,24 +15,11 @@ import {
   getAlertTypeLabel,
   getEffectiveAlertType,
   listAlerts,
+  ENTITY_TYPE_LABELS,
   type AlertQueueRow,
   type AlertStatusFilter,
 } from '../services/alerts'
 import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
-
-const ENTITY_TYPE_LABELS: Record<string, string> = {
-  invoice: 'Fatura',
-  container: 'Container',
-  bl: 'B/L',
-  granite_bl: 'Granito',
-  agency_departure_report: 'ADR',
-  voyage: 'Viagem',
-  voyage_pod_schedule: 'Escala',
-  voyage_escala_terminal: 'Terminal da escala',
-  customer: 'Cliente',
-  demurrage_invoice: 'Invoice Demurrage',
-  pix_transaction: 'Transação PIX',
-}
 
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -40,8 +27,19 @@ const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
   { value: 'dismissed', label: 'Dispensados' },
 ]
 
+const DEPARTMENT_OPTIONS = [
+  { value: 'all', label: 'Todos os setores' },
+  { value: 'documentacao', label: 'Documentação' },
+  { value: 'equipamentos', label: 'Equipamentos' },
+  { value: 'operacoes', label: 'Operações' },
+]
+
 export function Alertas() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialDept = searchParams.get('departamento') || searchParams.get('department') || 'all'
+
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>('all')
+  const [departmentFilter, setDepartmentFilter] = useState<string>(initialDept)
   const [page, setPage] = useState(0)
   const [dismissTarget, setDismissTarget] = useState<AlertQueueRow | null>(null)
   const [dismissReason, setDismissReason] = useState('')
@@ -54,9 +52,11 @@ export function Alertas() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
 
+  const activeDepartment = departmentFilter === 'all' ? undefined : departmentFilter
+
   const { data, isLoading, isError, error, refetch } = useQuery<AlertQueueRow[]>({
-    queryKey: ['alerts', statusFilter, page],
-    queryFn: () => listAlerts(statusFilter, undefined, page),
+    queryKey: ['alerts', statusFilter, page, departmentFilter],
+    queryFn: () => listAlerts(statusFilter, undefined, page, activeDepartment),
   })
 
   const dismissMutation = useMutation({
@@ -99,6 +99,20 @@ export function Alertas() {
     setDismissTarget(alert)
   }
 
+  function handleDepartmentChange(newDept: string) {
+    setDepartmentFilter(newDept)
+    setPage(0)
+    const newParams = new URLSearchParams(searchParams)
+    if (newDept === 'all') {
+      newParams.delete('departamento')
+      newParams.delete('department')
+    } else {
+      newParams.set('departamento', newDept)
+      newParams.delete('department')
+    }
+    setSearchParams(newParams)
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -107,17 +121,36 @@ export function Alertas() {
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          {FILTER_TABS.map((tab) => (
-            <Button
-              key={tab.value}
-              variant={statusFilter === tab.value ? 'primary' : 'secondary'}
-              onClick={() => { setStatusFilter(tab.value); setPage(0) }}
-            >
-              {tab.label}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card-bg)] p-1">
+            {FILTER_TABS.map((tab) => (
+              <Button
+                key={tab.value}
+                variant={statusFilter === tab.value ? 'primary' : 'secondary'}
+                onClick={() => {
+                  setStatusFilter(tab.value)
+                  setPage(0)
+                }}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </div>
+
+          <select
+            className="app-input app-select text-xs py-1.5 px-3 w-44"
+            value={departmentFilter}
+            aria-label="Filtrar por setor"
+            onChange={(e) => handleDepartmentChange(e.target.value)}
+          >
+            {DEPARTMENT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
+
         <Button variant="secondary" onClick={() => void refetch()} loading={isLoading}>
           Atualizar
         </Button>
@@ -171,10 +204,24 @@ export function Alertas() {
       </Card>
 
       <div className="flex items-center justify-between text-xs text-[var(--app-muted)]">
-        <span>Página {page + 1} · {data?.length ?? 0} itens carregados</span>
+        <span>
+          Página {page + 1} · {data?.length ?? 0} itens carregados
+        </span>
         <div className="flex gap-2">
-          <Button variant="secondary" disabled={page === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>Anterior</Button>
-          <Button variant="secondary" disabled={!data || data.length < 100} onClick={() => setPage((current) => current + 1)}>Próxima</Button>
+          <Button
+            variant="secondary"
+            disabled={page === 0}
+            onClick={() => setPage((current) => Math.max(0, current - 1))}
+          >
+            Anterior
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={!data || data.length < 100}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Próxima
+          </Button>
         </div>
       </div>
 
@@ -235,14 +282,23 @@ export function Alertas() {
   )
 }
 
-function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMutating: boolean; onDismiss: () => void }) {
+function AlertRow({
+  alert,
+  isMutating,
+  onDismiss,
+}: {
+  alert: AlertQueueRow
+  isMutating: boolean
+  onDismiss: () => void
+}) {
   const isDismissed = Boolean(alert.dismissed_until && new Date(alert.dismissed_until) > new Date())
   const effectiveType = getEffectiveAlertType(alert)
   const link = alertEntityLink(alert)
   const linkLabel = alertEntityLinkLabel(alert)
 
   const entityFormatted = alert.entity_type && alert.entity_id
-    ? (formatAlertEntity(alert.entity_type, alert.entity_id) ?? (alert.entity_type === 'agency_departure_report' ? formatAgencyReportAlertEntity(alert.entity_id) : null))
+    ? (formatAlertEntity(alert.entity_type, alert.entity_id) ??
+        (alert.entity_type === 'agency_departure_report' ? formatAgencyReportAlertEntity(alert.entity_id) : null))
     : null
 
   return (
@@ -263,14 +319,21 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
           <AlertTriangle size={14} className="shrink-0 text-amber-400" />
           <span className="text-xs text-[var(--app-text)]">{getAlertTypeLabel(effectiveType)}</span>
         </div>
-        {alert.department ? <div className="mt-1 text-[11px] text-[var(--app-muted)]">Responsável: {AGENCY_REPORT_DEPARTMENT_LABELS[alert.department] ?? alert.department}</div> : null}
+        {alert.department ? (
+          <div className="mt-1 text-[11px] text-[var(--app-muted)]">
+            Responsável: {AGENCY_REPORT_DEPARTMENT_LABELS[alert.department] ?? alert.department}
+          </div>
+        ) : null}
       </td>
       <td className="max-w-sm px-4 py-3 text-[var(--app-text)]">{alert.message}</td>
       <td className="px-4 py-3 text-[var(--app-muted)]">
         {entityFormatted ? (
           <span className="text-xs">{entityFormatted}</span>
         ) : alert.entity_type ? (
-          <span className="font-mono text-xs">{ENTITY_TYPE_LABELS[alert.entity_type] ?? alert.entity_type}{alert.entity_id ? ` ${alert.entity_id}` : ''}</span>
+          <span className="font-mono text-xs">
+            {ENTITY_TYPE_LABELS[alert.entity_type] ?? alert.entity_type}
+            {alert.entity_id ? ` ${alert.entity_id}` : ''}
+          </span>
         ) : (
           <span className="text-[var(--app-muted)]">—</span>
         )}
@@ -288,16 +351,27 @@ function AlertRow({ alert, isMutating, onDismiss }: { alert: AlertQueueRow; isMu
             </Link>
           ) : null}
           {isDismissed ? (
-            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--app-muted)]" title={`Dispensado até ${formatDate(alert.dismissed_until)}: ${alert.dismissal_reason ?? ''}`}>
-              <History size={12} />
-              <span>Dispensado</span>
-            </span>
+            <div className="flex flex-col gap-0.5">
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400"
+                title={alert.dismissal_reason ?? ''}
+              >
+                <History size={12} />
+                <span>Dispensado até {formatDate(alert.dismissed_until)}</span>
+              </span>
+              {alert.dismissal_reason ? (
+                <span className="text-[10px] text-[var(--app-muted)] max-w-xs truncate" title={alert.dismissal_reason}>
+                  Motivo: {alert.dismissal_reason}
+                </span>
+              ) : null}
+              {alert.dismissed_by_name || alert.dismissed_by ? (
+                <span className="text-[10px] text-[var(--app-muted)]">
+                  Por: {alert.dismissed_by_name ?? alert.dismissed_by}
+                </span>
+              ) : null}
+            </div>
           ) : alert.item_id ? (
-            <Button
-              variant="secondary"
-              onClick={onDismiss}
-              disabled={isMutating}
-            >
+            <Button variant="secondary" onClick={onDismiss} disabled={isMutating}>
               Dispensar
             </Button>
           ) : null}

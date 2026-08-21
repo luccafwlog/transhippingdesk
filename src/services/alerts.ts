@@ -70,6 +70,20 @@ export const TYPE_LABELS: Record<string, string> = {
   voyage_export_after_atd: 'Exportação pendente pós-ATD',
 }
 
+export const ENTITY_TYPE_LABELS: Record<string, string> = {
+  invoice: 'Fatura',
+  container: 'Container',
+  bl: 'B/L',
+  granite_bl: 'Granito',
+  agency_departure_report: 'ADR',
+  voyage: 'Viagem',
+  voyage_pod_schedule: 'Escala',
+  voyage_escala_terminal: 'Terminal da escala',
+  customer: 'Cliente',
+  demurrage_invoice: 'Invoice Demurrage',
+  pix_transaction: 'Transação PIX',
+}
+
 export type AlertAudience = 'documentacao' | 'equipamentos' | 'operacoes'
 export type AlertEventUnit = 'bl' | 'invoice' | 'pix_transaction' | 'demurrage_invoice'
 
@@ -137,6 +151,27 @@ export function formatAlertEntity(entityType: string | null, entityId: string | 
     const [voyageId, port, terminalId] = entityId.split('::')
     return terminalId ? `Viagem ${voyageId} · ${port} · Terminal ${terminalId}` : `Terminal ${entityId}`
   }
+  if (entityType === 'customer') {
+    return `Cliente ${entityId}`
+  }
+  if (entityType === 'bl') {
+    return `B/L ${entityId}`
+  }
+  if (entityType === 'container') {
+    return `Container ${entityId}`
+  }
+  if (entityType === 'invoice') {
+    return `Fatura ${entityId}`
+  }
+  if (entityType === 'demurrage_invoice') {
+    return `Invoice Demurrage ${entityId}`
+  }
+  if (entityType === 'pix_transaction') {
+    return `Transação PIX ${entityId}`
+  }
+  if (entityType === 'granite_bl') {
+    return `Granito B/L ${entityId}`
+  }
   return null
 }
 
@@ -175,8 +210,9 @@ export function alertEntityLink(alert: {
   entity_type: string | null
   entity_id: string | null
   metadata?: Record<string, unknown> | null
+  destination?: string | null
 }): string | null {
-  if (!alert.entity_id) return null
+  if (!alert.entity_id) return alert.destination ?? null
   const effectiveType = getEffectiveAlertType(alert)
 
   if (
@@ -220,6 +256,9 @@ export function alertEntityLink(alert: {
     if (alert.entity_type === 'invoice') return invoiceLink(alert)
     return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
   }
+  if (alert.entity_type === 'customer') {
+    return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
+  }
   if (alert.entity_type === 'invoice') return invoiceLink(alert)
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
@@ -250,7 +289,7 @@ export function alertEntityLink(alert: {
     if (terminalId) params.set('terminal', terminalId)
     return `/viagens/${voyageId}${params.toString() ? `?${params.toString()}` : ''}`
   }
-  return null
+  return alert.destination ?? null
 }
 
 export function alertEntityLinkLabel(alert: {
@@ -264,6 +303,7 @@ export function alertEntityLinkLabel(alert: {
     return 'Taxas Locais'
   }
   if (alert.entity_type === 'pix_transaction') return 'Abrir Reconciliação'
+  if (alert.entity_type === 'customer') return 'Abrir Portal'
   if (alert.entity_type === 'invoice') return 'Ver Fatura'
   if (alert.entity_type === 'demurrage_invoice') return 'Ver Demurrage'
   if (alert.entity_type === 'container') return 'Ver Demurrage'
@@ -303,6 +343,8 @@ export type AlertQueueRow = Alert & {
   dismissed_until: string | null
   dismissal_reason: string | null
   dismissed_by: string | null
+  dismissed_by_name?: string | null
+  dismissed_at?: string | null
   resolved_at: string | null
   resolved_by: string | null
   resolution_source: string | null
@@ -311,6 +353,13 @@ export type AlertQueueRow = Alert & {
 }
 
 export type AlertStatusFilter = 'all' | 'active' | 'dismissed'
+
+export type AlertDepartmentSummary = {
+  department: string
+  active_count: number
+  dismissed_count: number
+  is_legacy: boolean
+}
 
 const alertsRpc = supabase as unknown as {
   rpc: (fn: string, params?: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>
@@ -415,12 +464,18 @@ export async function detectAgencyReportPending(): Promise<void> {
   if (error) throw error
 }
 
-export async function listAlerts(statusFilter: AlertStatusFilter = 'all', entityType?: string, page = 0): Promise<AlertQueueRow[]> {
+export async function listAlerts(
+  statusFilter: AlertStatusFilter = 'all',
+  entityType?: string,
+  page = 0,
+  department?: string,
+): Promise<AlertQueueRow[]> {
   const { data, error } = await alertsRpc.rpc('list_alert_queue_page', {
     p_filter: statusFilter,
     p_entity_type: entityType ?? null,
     p_offset: page * 100,
     p_limit: 100,
+    p_department: department ?? null,
   })
   if (error) throw error
   return (data as AlertQueueRow[]) ?? []
@@ -432,10 +487,18 @@ export async function countAlertQueue(statusFilter: AlertStatusFilter = 'active'
   return typeof data === 'number' ? data : Number(data ?? 0)
 }
 
+export async function getAlertDepartmentSummary(): Promise<AlertDepartmentSummary[]> {
+  const { data, error } = await alertsRpc.rpc('summarize_alert_queue_by_department')
+  if (error) throw error
+  return (Array.isArray(data) ? data : []) as AlertDepartmentSummary[]
+}
+
 export type InternalNotification = {
   id: number
-  item_id: number
-  type: string
+  alert_id?: number
+  alert_item_id?: number
+  item_id?: number
+  type?: string
   item_type?: string | null
   entity_type: string | null
   entity_id: string | null
@@ -443,18 +506,39 @@ export type InternalNotification = {
   message: string
   severity: 'normal' | 'critical'
   destination?: string | null
+  is_fallback?: boolean
   read_at: string | null
   created_at: string
   payload?: Record<string, unknown> | null
 }
 
-export async function listInternalNotifications(includeRead = false): Promise<InternalNotification[]> {
-  const { data, error } = await alertsRpc.rpc('list_internal_notifications', { p_include_read: includeRead })
+export async function listInternalNotifications(options: {
+  includeRead?: boolean
+  limit?: number
+  offset?: number
+} = {}): Promise<InternalNotification[]> {
+  const { data, error } = await alertsRpc.rpc('list_internal_notifications', {
+    p_include_read: options.includeRead ?? false,
+    p_limit: options.limit ?? 20,
+    p_offset: options.offset ?? 0,
+  })
   if (error) throw error
   return (Array.isArray(data) ? data : []) as InternalNotification[]
+}
+
+export async function countUnreadInternalNotifications(): Promise<number> {
+  const { data, error } = await alertsRpc.rpc('count_unread_internal_notifications')
+  if (error) throw error
+  return typeof data === 'number' ? data : Number(data ?? 0)
 }
 
 export async function markInternalNotificationRead(notificationId: number): Promise<void> {
   const { error } = await alertsRpc.rpc('mark_internal_notification_read', { p_notification_id: notificationId })
   if (error) throw error
+}
+
+export async function markAllInternalNotificationsRead(): Promise<number> {
+  const { data, error } = await alertsRpc.rpc('mark_all_internal_notifications_read')
+  if (error) throw error
+  return typeof data === 'number' ? data : Number(data ?? 0)
 }

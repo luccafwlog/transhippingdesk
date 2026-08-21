@@ -96,6 +96,9 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   — implementação dos alertas e reconciliação de B/L esperado, Baplie ausente e cobertura,
   CE Mercante pendente, datas de escala/terminal pendentes e exportação pendente pós-ATD
   do Bloco 4 (#523). Migration `326_voyage_operation_alerts.sql`.
+- [`2026-08-20-implementacao-bloco-525-transversal-portal.md`](2026-08-20-implementacao-bloco-525-transversal-portal.md)
+  — entrega das superfícies transversais de Alertas e Notificações (sino interno, fila `/alertas` completa,
+  resumo do `/painel`, falha de roteamento em `/admin/usuarios`, contratos negativos e Eco de Tratamento) do Bloco 6 (#525). Migration `339_treatment_echo_and_transversal_surfaces.sql`.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.
