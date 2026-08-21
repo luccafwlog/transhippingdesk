@@ -317,14 +317,14 @@ BEGIN
 
   -- Cálculo de divergências de existência de container
   WITH baplie_cntrs AS (
-    SELECT DISTINCT upper(btrim(container_number)) AS container_number
+    SELECT DISTINCT regexp_replace(upper(btrim(container_number)), '\s+', '', 'g') AS container_number
     FROM public.baplie_containers
     WHERE voyage_id = p_voyage_id
       AND COALESCE(status, '') <> 'empty'
       AND NULLIF(btrim(container_number), '') IS NOT NULL
   ),
   bl_cntrs AS (
-    SELECT DISTINCT upper(btrim(bc.container_number)) AS container_number
+    SELECT DISTINCT regexp_replace(upper(btrim(bc.container_number)), '\s+', '', 'g') AS container_number
     FROM public.bl_containers bc
     JOIN public.bls b ON b.id = bc.bl_id
     WHERE b.voyage_id = p_voyage_id

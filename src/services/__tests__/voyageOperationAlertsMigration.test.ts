@@ -27,6 +27,7 @@ describe('migration 325 — detectores e reconciliação de alertas de operaçã
     expect(sql).toContain("'voyage_baplie_documentary_coverage'")
     expect(sql).toContain("'voyage_ce_mercante_missing'")
 
+    expect(sql).toContain("regexp_replace(upper(btrim(container_number)), '\\s+', '', 'g')")
     expect(sql).toContain("v_today < (v_first_eta - 7)")
     expect(sql).toContain("v_today < (v_first_eta - 5)")
   })
