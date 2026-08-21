@@ -470,13 +470,16 @@ export async function listAlerts(
   page = 0,
   department?: string,
 ): Promise<AlertQueueRow[]> {
-  const { data, error } = await alertsRpc.rpc('list_alert_queue_page', {
+  const params: Record<string, unknown> = {
     p_filter: statusFilter,
     p_entity_type: entityType ?? null,
     p_offset: page * 100,
     p_limit: 100,
-    p_department: department ?? null,
-  })
+  }
+  if (department) {
+    params.p_department = department
+  }
+  const { data, error } = await alertsRpc.rpc('list_alert_queue_page', params)
   if (error) throw error
   return (data as AlertQueueRow[]) ?? []
 }

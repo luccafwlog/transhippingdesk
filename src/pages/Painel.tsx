@@ -40,12 +40,13 @@ export function Painel() {
     refetchInterval: 90_000,
   })
 
-  const { data: departmentSummary = [] } = useQuery<AlertDepartmentSummary[]>({
+  const { data: rawSummary } = useQuery<AlertDepartmentSummary[]>({
     queryKey: ['alert-department-summary'],
     queryFn: getAlertDepartmentSummary,
     staleTime: 60_000,
     refetchInterval: 90_000,
   })
+  const departmentSummary = Array.isArray(rawSummary) ? rawSummary : []
 
   const rows = useMemo(() => {
     // ponytail: o snapshot cobre só as 60 viagens mais recentes; paginar ou ampliar a query quando o painel precisar de histórico maior.
