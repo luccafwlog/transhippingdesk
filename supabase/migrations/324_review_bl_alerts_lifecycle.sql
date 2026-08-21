@@ -6,7 +6,10 @@
 -- Rollback: remover os triggers e funções desta migration; os itens/ocorrências
 -- gerados são preservados para auditoria.
 
-CREATE OR REPLACE FUNCTION public.reconcile_bl_review_alerts(p_bl_id TEXT)
+CREATE OR REPLACE FUNCTION public.reconcile_bl_review_alerts(
+  p_bl_id TEXT,
+  p_source TEXT DEFAULT 'bl_review_gate'
+)
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp
@@ -14,6 +17,7 @@ AS $function$
 DECLARE
   v_bl public.bls%ROWTYPE;
   v_reasons TEXT[];
+  v_source TEXT := COALESCE(NULLIF(btrim(p_source), ''), 'bl_review_gate');
 BEGIN
   SELECT * INTO v_bl FROM public.bls WHERE id = p_bl_id;
   IF NOT FOUND THEN
@@ -30,36 +34,36 @@ BEGIN
       PERFORM public.upsert_alert_item(
         'review_customer_unlinked', 'bl', v_bl.id,
         'Cliente não vinculado ao B/L ' || v_bl.id,
-        'bl_review_gate',
+        v_source,
         jsonb_build_object('bl_id', v_bl.id, 'cargo_mode', v_bl.cargo_mode),
         '/revisao'
       );
     ELSE
-      PERFORM public.resolve_alert_item('review_customer_unlinked', 'bl', v_bl.id, 'bl_review_gate', '{}'::jsonb);
+      PERFORM public.resolve_alert_item('review_customer_unlinked', 'bl', v_bl.id, v_source, '{}'::jsonb);
     END IF;
 
     IF 'Cliente sem e-mail cadastrado' = ANY(v_reasons) THEN
       PERFORM public.upsert_alert_item(
         'review_customer_email_missing', 'bl', v_bl.id,
         'Cliente sem e-mail cadastrado para B/L ' || v_bl.id,
-        'bl_review_gate',
+        v_source,
         jsonb_build_object('bl_id', v_bl.id, 'customer_id', v_bl.customer_id),
         '/revisao'
       );
     ELSE
-      PERFORM public.resolve_alert_item('review_customer_email_missing', 'bl', v_bl.id, 'bl_review_gate', '{}'::jsonb);
+      PERFORM public.resolve_alert_item('review_customer_email_missing', 'bl', v_bl.id, v_source, '{}'::jsonb);
     END IF;
 
     IF 'Peso BB ausente' = ANY(v_reasons) THEN
       PERFORM public.upsert_alert_item(
         'review_breakbulk_weight_missing', 'bl', v_bl.id,
         'Peso BB ausente no B/L ' || v_bl.id,
-        'bl_review_gate',
+        v_source,
         jsonb_build_object('bl_id', v_bl.id, 'cargo_mode', v_bl.cargo_mode),
         '/revisao'
       );
     ELSE
-      PERFORM public.resolve_alert_item('review_breakbulk_weight_missing', 'bl', v_bl.id, 'bl_review_gate', '{}'::jsonb);
+      PERFORM public.resolve_alert_item('review_breakbulk_weight_missing', 'bl', v_bl.id, v_source, '{}'::jsonb);
     END IF;
   ELSE
     PERFORM public.resolve_alert_item('review_customer_unlinked', 'bl', v_bl.id, 'bl_review_resolved', '{}'::jsonb);
@@ -69,16 +73,20 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.reconcile_bl_review_alerts(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.reconcile_bl_review_alerts(TEXT) TO service_role;
+REVOKE ALL ON FUNCTION public.reconcile_bl_review_alerts(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_bl_review_alerts(TEXT, TEXT) TO service_role;
 
-CREATE OR REPLACE FUNCTION public.reconcile_granite_bl_review_alerts(p_granite_bl_id BIGINT)
+CREATE OR REPLACE FUNCTION public.reconcile_granite_bl_review_alerts(
+  p_granite_bl_id BIGINT,
+  p_source TEXT DEFAULT 'granite_review_gate'
+)
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
 DECLARE
   v_gbl public.granite_bls%ROWTYPE;
+  v_source TEXT := COALESCE(NULLIF(btrim(p_source), ''), 'granite_review_gate');
 BEGIN
   SELECT * INTO v_gbl FROM public.granite_bls WHERE id = p_granite_bl_id;
   IF NOT FOUND THEN
@@ -90,7 +98,7 @@ BEGIN
     PERFORM public.upsert_alert_item(
       'review_granite_customer_unlinked', 'granite_bl', v_gbl.id::TEXT,
       'Cliente não vinculado ao Granito B/L ' || COALESCE(v_gbl.bl_number, v_gbl.id::TEXT),
-      'granite_review_gate',
+      v_source,
       jsonb_build_object('granite_bl_id', v_gbl.id, 'bl_number', v_gbl.bl_number),
       '/revisao'
     );
@@ -100,8 +108,8 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.reconcile_granite_bl_review_alerts(BIGINT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.reconcile_granite_bl_review_alerts(BIGINT) TO service_role;
+REVOKE ALL ON FUNCTION public.reconcile_granite_bl_review_alerts(BIGINT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_granite_bl_review_alerts(BIGINT, TEXT) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.trg_reconcile_bl_review_alerts()
 RETURNS TRIGGER
@@ -266,13 +274,15 @@ DECLARE
   v_id TEXT;
   v_gid BIGINT;
 BEGIN
+  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
   PERFORM set_config('alerts.foundation_trigger', 'on', true);
   FOR v_id IN SELECT id FROM public.bls WHERE review_status = 'pending_review' LOOP
-    PERFORM public.reconcile_bl_review_alerts(v_id);
+    PERFORM public.reconcile_bl_review_alerts(v_id, 'foundation_backfill');
   END LOOP;
   FOR v_gid IN SELECT id FROM public.granite_bls WHERE client_id IS NULL LOOP
-    PERFORM public.reconcile_granite_bl_review_alerts(v_gid);
+    PERFORM public.reconcile_granite_bl_review_alerts(v_gid, 'foundation_backfill');
   END LOOP;
   PERFORM set_config('alerts.foundation_trigger', 'off', true);
+  PERFORM set_config('request.jwt.claim.role', '', true);
 END;
 $$;

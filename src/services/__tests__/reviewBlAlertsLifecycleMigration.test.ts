@@ -25,8 +25,8 @@ describe('migration 324: ciclo de vida dos alertas de revisão de B/L e Granito'
     expect(sql).toMatch(/resolve_alert_item/i)
     expect(sql).toMatch(/compute_bl_review_pendencies/i)
 
-    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.reconcile_bl_review_alerts\(TEXT\) TO service_role/i)
-    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.reconcile_granite_bl_review_alerts\(BIGINT\) TO service_role/i)
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.reconcile_bl_review_alerts\(TEXT(?:,\s*TEXT)?\) TO service_role/i)
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.reconcile_granite_bl_review_alerts\(BIGINT(?:,\s*TEXT)?\) TO service_role/i)
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.detect_bl_review_pendencies\(\) TO service_role/i)
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.detect_granite_bl_review_pendencies\(\) TO service_role/i)
   })
