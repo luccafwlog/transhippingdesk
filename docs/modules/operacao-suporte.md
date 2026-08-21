@@ -99,6 +99,8 @@ Granite é uma ramificação mais simples: `saveGraniteBlReview` atualiza `grani
 
 `src/pages/Alertas.tsx` mostra abas `all | active | dismissed`, tabela, deep-links por entidade e dispensa temporária por item. `src/services/alerts.ts` consulta a fila canônica; `list_alert_queue` limita a projeção global a 200 linhas, preservando carriers legados ainda não migrados.
 
+Os alertas de revisão de B/L e Granito (`review_customer_unlinked`, `review_customer_email_missing`, `review_breakbulk_weight_missing` e `review_granite_customer_unlinked`) são reconciliados pela migration `324` em agregados por entidade `(bl, id)` e `(granite_bl, id)` com severidade crítica e audiência do departamento de Documentação. Triggers em `public.bls` e `public.granite_bls`, mutações autoritativas (`save_bl_review`, `complete_review_customer_group`) e o cron server-side de 15 minutos (`run_alert_detectors`) mantêm a fila e os sinos sincronizados em tempo real.
+
 Dispensar exige motivo e uma data futura e grava o histórico por ocorrência; a resolução acontece no produtor autoritativo. As mutations invalidam `['alerts']`, `['op-count']` e `['dashboard']`. O realtime de `alerts` usado por `useOperationalCounts` invalida especificamente `['op-count', 'open-alerts']`.
 
 ### `/relatorios`

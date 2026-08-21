@@ -18,6 +18,10 @@ const TYPE_LABELS: Record<string, string> = {
   demurrage: 'Demurrage',
   billing_calculation_blocked: 'Cálculo bloqueado',
   billing_auto_issue_failed: 'Falha de emissão automática',
+  review_customer_unlinked: 'Revisão — cliente pendente',
+  review_customer_email_missing: 'Revisão — e-mail pendente',
+  review_breakbulk_weight_missing: 'Revisão — peso BB ausente',
+  review_granite_customer_unlinked: 'Revisão — Granito cliente pendente',
   portal_pendencia_geral: 'Portal do Cliente — pendência geral',
   portal_excecao_critica_fatura: 'Portal do Cliente — exceção de fatura',
   portal_convite_expirado: 'Portal do Cliente — convite expirado',
@@ -32,6 +36,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   invoice: 'Fatura',
   container: 'Container',
   bl: 'B/L',
+  granite_bl: 'Granito B/L',
   agency_departure_report: 'ADR',
   voyage: 'Viagem',
 }
@@ -191,6 +196,7 @@ function alertEntityLink(alert: { type: string; entity_type: string | null; enti
   if (alert.entity_type === 'invoice') return /^\d+$/.test(alert.entity_id) ? `/taxas-locais?invoice=${encodeURIComponent(alert.entity_id)}` : '/taxas-locais'
   if (alert.entity_type === 'container') return `/demurrage?busca=${encodeURIComponent(alert.entity_id)}`
   if (alert.entity_type === 'bl') return `/manifestos/${encodeURIComponent(alert.entity_id)}`
+  if (alert.entity_type === 'granite_bl') return `/granito`
   if (alert.entity_type === 'agency_departure_report') {
     const [voyageId, port, terminalOrLegacyKey, terminalizedKey] = alert.entity_id.split('::')
     if (!/^\d+$/.test(voyageId)) return null
@@ -206,6 +212,7 @@ function alertEntityLinkLabel(alert: { entity_type: string | null }) {
   if (alert.entity_type === 'invoice') return 'Ver Fatura'
   if (alert.entity_type === 'container') return 'Ver Demurrage'
   if (alert.entity_type === 'bl') return 'Abrir B/L'
+  if (alert.entity_type === 'granite_bl') return 'Abrir Granito'
   if (alert.entity_type === 'agency_departure_report' || alert.entity_type === 'voyage') return 'Abrir Viagem'
   return 'Abrir'
 }

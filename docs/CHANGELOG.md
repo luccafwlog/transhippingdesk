@@ -3,6 +3,19 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Bloco 1 (#520) — B/L, Revisão Manual e Notificações:** sincronização
+  autoritativa server-side dos alertas de revisão de B/L e Granito com a fundação
+  transversal (`324_review_bl_alerts_lifecycle.sql`), conectando triggers em
+  `bls` e `granite_bls` e o detector periódico de 15 min (`run_alert_detectors`)
+  aos tipos canônicos de alerta (`review_customer_unlinked`,
+  `review_customer_email_missing`, `review_breakbulk_weight_missing` e
+  `review_granite_customer_unlinked`) com severidade crítica e audiência em
+  Documentação. A ficha do B/L (`/manifestos/:blId`) ganhou painel contextual
+  persistente (`BlReviewContextPanel.tsx`) no topo, visível em todas as abas com
+  motivos ativos, impacto operacional, departamento responsável e link direto
+  para a Revisão Manual. A tela de `/alertas` foi atualizada com rótulos e deep
+  links para B/L e Granito. *(plano `2026-08-15-implementacao-bloco-520-bl-revisao`;
+  issue #520)*
 - **PR #569 — revisão manual orientada a cliente (#562):** a fila passou a
   separar grupos por identidade documental segura, exibir evidências brutas do
   consignatário/carga e bloquear vínculos quando há CNPJs conflitantes. O novo
