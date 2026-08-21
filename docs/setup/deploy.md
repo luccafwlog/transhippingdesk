@@ -38,8 +38,9 @@ migrations, Edge Functions ou comandos de backend no build da Vercel.
 
 O `ignoreCommand` só ignora um deployment quando o commit não altera arquivos
 que participam do frontend ou do build. Se não houver SHA anterior disponível,
-o comando continua o build por segurança. Alterações em `docs/` isoladamente não
-geram um novo deployment.
+ou se o SHA não estiver presente no clone raso usado pela Vercel, o comando
+continua o build por segurança. Alterações em `docs/` isoladamente não geram um
+novo deployment.
 
 ## Variáveis do frontend
 
