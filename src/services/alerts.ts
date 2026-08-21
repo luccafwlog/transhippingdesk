@@ -198,7 +198,10 @@ export function alertEntityLink(alert: {
 
   if (alert.entity_type === 'pix_transaction') return '/reconciliacao'
   if (effectiveType === 'portal_dispute_opened' && alert.entity_type === 'demurrage_invoice') {
-    return '/demurrage'
+    const disputeId = alert.metadata?.dispute_id
+    return typeof disputeId === 'string' || typeof disputeId === 'number'
+      ? `/demurrage?dispute=${encodeURIComponent(String(disputeId))}`
+      : '/demurrage'
   }
   if (
     (effectiveType === 'portal_excecao_critica_fatura' || effectiveType === 'portal_reprocessamento_falhou')
@@ -335,12 +338,13 @@ export async function createAlert(input: {
   message: string
   metadata?: Record<string, unknown>
 }): Promise<void> {
-  const { error } = await alertsRpc.rpc('upsert_alert_item', {
+  if (input.type !== 'billing_calculation_blocked' && input.type !== 'billing_auto_issue_failed') {
+    throw new Error(`Produtor de alerta não permitido no browser: ${input.type}`)
+  }
+  const { error } = await alertsRpc.rpc('upsert_billing_alert', {
     p_type: input.type,
-    p_entity_type: input.entityType,
-    p_entity_id: input.entityId,
+    p_bl_id: input.entityId,
     p_message: input.message,
-    p_source: 'client_compatibility',
     p_metadata: input.metadata ?? {},
   })
   if (error) reportBestEffortFailure('criar item de alerta', error, { type: input.type })
@@ -353,11 +357,12 @@ export async function resolveAlertItem(input: {
   source?: string
   metadata?: Record<string, unknown>
 }): Promise<void> {
-  const { error } = await alertsRpc.rpc('resolve_alert_item', {
+  if (input.type !== 'billing_calculation_blocked' && input.type !== 'billing_auto_issue_failed') {
+    throw new Error(`Resolvedor de alerta não permitido no browser: ${input.type}`)
+  }
+  const { error } = await alertsRpc.rpc('resolve_billing_alert', {
     p_type: input.type,
-    p_entity_type: input.entityType,
-    p_entity_id: input.entityId,
-    p_source: input.source ?? 'client_compatibility',
+    p_bl_id: input.entityId,
     p_metadata: input.metadata ?? {},
   })
   if (error) reportBestEffortFailure('resolver item de alerta', error, { type: input.type })
@@ -401,10 +406,12 @@ export async function detectAgencyReportPending(): Promise<void> {
   if (error) throw error
 }
 
-export async function listAlerts(statusFilter: AlertStatusFilter = 'all', entityType?: string): Promise<AlertQueueRow[]> {
-  const { data, error } = await alertsRpc.rpc('list_alert_queue', {
+export async function listAlerts(statusFilter: AlertStatusFilter = 'all', entityType?: string, page = 0): Promise<AlertQueueRow[]> {
+  const { data, error } = await alertsRpc.rpc('list_alert_queue_page', {
     p_filter: statusFilter,
     p_entity_type: entityType ?? null,
+    p_offset: page * 100,
+    p_limit: 100,
   })
   if (error) throw error
   return (data as AlertQueueRow[]) ?? []
@@ -420,6 +427,7 @@ export type InternalNotification = {
   id: number
   item_id: number
   type: string
+  item_type?: string | null
   entity_type: string | null
   entity_id: string | null
   title?: string
@@ -428,6 +436,7 @@ export type InternalNotification = {
   destination?: string | null
   read_at: string | null
   created_at: string
+  payload?: Record<string, unknown> | null
 }
 
 export async function listInternalNotifications(includeRead = false): Promise<InternalNotification[]> {
@@ -440,4 +449,3 @@ export async function markInternalNotificationRead(notificationId: number): Prom
   const { error } = await alertsRpc.rpc('mark_internal_notification_read', { p_notification_id: notificationId })
   if (error) throw error
 }
-

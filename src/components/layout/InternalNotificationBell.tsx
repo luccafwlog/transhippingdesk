@@ -2,17 +2,7 @@ import { useState } from 'react'
 import { Bell, ExternalLink } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useInternalNotifications, useMarkInternalNotificationRead } from '../../hooks/useInternalNotifications'
-import type { InternalNotification } from '../../services/alerts'
-
-function destinationFor(entityType: string | null, entityId: string | null, destination: string | null) {
-  if (destination) return destination
-  if (!entityId) return '/alertas'
-  if (entityType === 'customer') return `/clientes/portal?cliente=${encodeURIComponent(entityId)}`
-  if (entityType === 'bl') return `/manifestos/${encodeURIComponent(entityId)}?tab=faturamento`
-  if (entityType === 'invoice') return `/taxas-locais?invoice=${encodeURIComponent(entityId)}`
-  if (entityType === 'demurrage_invoice') return `/demurrage?dispute=${encodeURIComponent(entityId)}`
-  return '/alertas'
-}
+import { alertEntityLink, type InternalNotification } from '../../services/alerts'
 
 export function InternalNotificationBell() {
   const [open, setOpen] = useState(false)
@@ -39,7 +29,12 @@ export function InternalNotificationBell() {
           {!isLoading && !data.length ? <div className="px-3 py-5 text-sm text-[var(--app-muted)]">Nenhuma pendência nova.</div> : null}
           <div className="max-h-96 overflow-auto">
             {data.map((notification: InternalNotification) => {
-              const destination = destinationFor(notification.entity_type, notification.entity_id, notification.destination ?? null)
+              const destination = alertEntityLink({
+                type: notification.item_type ?? notification.type,
+                entity_type: notification.entity_type,
+                entity_id: notification.entity_id,
+                metadata: notification.payload ?? {},
+              }) ?? notification.destination ?? '/alertas'
               return (
                 <button
                   key={notification.id}

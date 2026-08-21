@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { MessageSquare, Send } from 'lucide-react'
 import { usePortalAddDisputeMessage, usePortalRequestDisputeReopen } from '../../hooks/usePortalDisputes'
+import { portalUploadDisputeAttachment } from '../../services/portalBilling'
 import { usePortalScope } from '../../hooks/usePortalScope'
 import type { PortalDispute } from '../../services/portalBilling'
 import { formatDate } from '../../lib/utils'
@@ -24,6 +25,7 @@ export function PortalDisputeConversation({ disputes }: { disputes: PortalDisput
   const requestReopen = usePortalRequestDisputeReopen()
   const [drafts, setDrafts] = useState<Record<number, string>>({})
   const [errors, setErrors] = useState<Record<number, string>>({})
+  const [files, setFiles] = useState<Record<number, File | null>>({})
 
   if (!disputes.length) return null
 
@@ -38,9 +40,12 @@ export function PortalDisputeConversation({ disputes }: { disputes: PortalDisput
       if (dispute.state === 'resolvida') {
         await requestReopen.mutateAsync({ disputeId: dispute.id, body })
       } else {
-        await addMessage.mutateAsync({ demurrageInvoiceId: dispute.demurrage_invoice_id, body })
+        const result = await addMessage.mutateAsync({ demurrageInvoiceId: dispute.demurrage_invoice_id, body })
+        const file = files[dispute.id]
+        if (file && result?.message_id && scope.customerId) await portalUploadDisputeAttachment(result.message_id, dispute.id, scope.customerId, file, scope)
       }
       setDrafts((current) => ({ ...current, [dispute.id]: '' }))
+      setFiles((current) => ({ ...current, [dispute.id]: null }))
     } catch (error) {
       setErrors((current) => ({ ...current, [dispute.id]: portalErrorMessage(error, 'Falha ao enviar a mensagem.') }))
     }
@@ -85,6 +90,7 @@ export function PortalDisputeConversation({ disputes }: { disputes: PortalDisput
                   placeholder={dispute.state === 'resolvida' ? 'Explique por que a disputa deve ser reaberta...' : 'Responda à conversa...'}
                   disabled={scope.mode === 'inspect'}
                 />
+                {dispute.state === 'aberta' ? <input type="file" accept="application/pdf,image/jpeg,image/png,text/plain" onChange={(event) => setFiles((current) => ({ ...current, [dispute.id]: event.target.files?.[0] ?? null }))} disabled={scope.mode === 'inspect'} /> : null}
                 {errors[dispute.id] ? <InlineError message={errors[dispute.id]} /> : null}
                 <div className="flex justify-end">
                   <Button

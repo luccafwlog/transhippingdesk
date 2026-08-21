@@ -162,13 +162,14 @@ operacionais que exigem intervenção humana documental:
 
 - cliente não vinculado;
 - cliente sem e-mail cadastrado/utilizável;
+- Conta de Portal não pronta;
 - peso de carga solta ausente (`bb_weight_ton`).
 
 A prontidão do Portal atua como gate server-side para avanço e emissão do
-faturamento (conforme a ADR 0054) e alerta financeiro/preventivo quando
-aplicável. Ela não reabre pendência humana na fila de revisão documental após a
-conclusão do onboarding de cliente e e-mail pelo operador, evitando reter o
-grupo na fila enquanto o cliente externo não ativar sua conta no Portal.
+faturamento (conforme a ADR 0054) e também produz o item crítico
+`review_portal_not_ready` enquanto o B/L estiver em Revisão Manual. A condição é
+recomputada quando a conta do cliente muda; a ativação resolve somente esse item
+e não altera os demais motivos independentes do mesmo B/L.
 
 Para `granite_bls`, a condição vigente da fila é `client_id IS NULL`; ela é a
 fonte do motivo de revisão do Granito. O vínculo de cliente não resolvido é

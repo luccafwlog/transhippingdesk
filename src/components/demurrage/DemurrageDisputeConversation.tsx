@@ -7,13 +7,14 @@ import { Card, InlineError } from '../ui/Card'
 import { Textarea } from '../ui/Input'
 import { formatDate } from '../../lib/utils'
 import { portalErrorMessage } from '../../lib/portalErrorMessage'
-import { addDemurrageDisputeMessage, listDemurrageDisputes, reopenDemurrageDispute, type DemurrageDispute } from '../../services/demurrage/demurrageDisputes'
+import { addDemurrageDisputeMessage, listDemurrageDisputes, reopenDemurrageDispute, uploadDemurrageDisputeAttachment, type DemurrageDispute } from '../../services/demurrage/demurrageDisputes'
 
 export function DemurrageDisputeConversation() {
   const queryClient = useQueryClient()
   const [drafts, setDrafts] = useState<Record<number, string>>({})
   const [nextResponders, setNextResponders] = useState<Record<number, 'cliente' | 'ninguem'>>({})
   const [errors, setErrors] = useState<Record<number, string>>({})
+  const [attachments, setAttachments] = useState<Record<number, File | null>>({})
   const { data = [], isLoading, error } = useQuery({
     queryKey: ['demurrage-disputes'],
     queryFn: () => listDemurrageDisputes(),
@@ -41,7 +42,9 @@ export function DemurrageDisputeConversation() {
         await reopenMutation.mutateAsync({ id: dispute.id, body })
       } else {
         const nextResponder = nextResponders[dispute.id] ?? 'cliente'
-        await messageMutation.mutateAsync({ id: dispute.id, body, nextResponder })
+        const result = await messageMutation.mutateAsync({ id: dispute.id, body, nextResponder }) as { message_id?: number }
+        const file = attachments[dispute.id]
+        if (file && result.message_id) await uploadDemurrageDisputeAttachment(result.message_id, dispute.id, dispute.customer_id, file)
       }
       setDrafts((current) => ({ ...current, [dispute.id]: '' }))
     } catch (cause) {
@@ -64,6 +67,7 @@ export function DemurrageDisputeConversation() {
             {dispute.state !== 'cancelada' ? (
               <div className="mt-3 grid gap-2">
                 <Textarea rows={2} value={drafts[dispute.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [dispute.id]: event.target.value }))} placeholder={dispute.state === 'resolvida' ? 'Justifique a reabertura...' : 'Responder ao cliente...'} />
+                {dispute.state === 'aberta' ? <input type="file" accept="application/pdf,image/jpeg,image/png,text/plain" onChange={(event) => setAttachments((current) => ({ ...current, [dispute.id]: event.target.files?.[0] ?? null }))} aria-label="Anexo da Dispute" /> : null}
                 {errors[dispute.id] ? <InlineError message={errors[dispute.id]} /> : null}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   {dispute.state === 'aberta' ? (

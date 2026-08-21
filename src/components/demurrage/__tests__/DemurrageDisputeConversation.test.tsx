@@ -52,6 +52,9 @@ describe('DemurrageDisputeConversation', () => {
     expect(screen.getByRole('button', { name: /Enviar resposta/ })).toBeTruthy()
     // ensure fireEvent is used so TS doesn't complain
     fireEvent.change(screen.getByPlaceholderText('Responder ao cliente...'), { target: { value: 'Test' } })
+    expect(screen.getByRole('combobox', { name: 'Próxima ação' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Encerrar pendência (Ninguém)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Enviar resposta/ })).toBeTruthy()
   })
 
   it('renders a reopen form when state is resolvida', () => {

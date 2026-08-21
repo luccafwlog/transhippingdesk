@@ -371,3 +371,10 @@
 - impede cache de uma hora no shell `/` do Firebase Hosting;
 - mantém a investigação de Auth, banco e waterfalls pendente até haver baseline
   autenticado e acesso administrativo ao Supabase.
+# PR #576 — correções pós-revisão da integração de Alertas
+
+- carriers legados de Dispute consolidados em um único agregado;
+- RPCs genéricas e detectores protegidos contra execução pelo browser;
+- ciclo de vida de Dispute, rate limit, notificações do Portal e anexos corrigidos;
+- roteamento compartilhado, paginação e rastreabilidade atualizados;
+- planos/specs concluídos arquivados conforme `docs/CONVENCOES.md`.

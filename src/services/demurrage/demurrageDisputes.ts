@@ -6,6 +6,7 @@ export type DemurrageDisputeMessage = {
   body: string
   next_responder: 'cliente' | 'equipamentos' | 'ninguem'
   created_at: string
+  attachments?: Array<{ id: number; file_name: string; mime_type: string; storage_path: string }>
 }
 
 export type DemurrageDispute = {
@@ -45,4 +46,28 @@ export async function addDemurrageDisputeMessage(disputeId: number, body: string
 export async function reopenDemurrageDispute(disputeId: number, reason: string) {
   const { error } = await disputeRpc.rpc('reopen_demurrage_dispute', { p_dispute_id: disputeId, p_reason: reason })
   if (error) throw error
+}
+
+export async function uploadDemurrageDisputeAttachment(
+  messageId: number,
+  disputeId: number,
+  customerId: number,
+  file: File,
+) {
+  const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png', 'text/plain'])
+  if (!allowed.has(file.type) || file.size <= 0 || file.size > 10 * 1024 * 1024) {
+    throw new Error('Anexo inválido. Use PDF, JPG, PNG ou TXT de até 10 MB.')
+  }
+  const path = `${customerId}/disputes/${disputeId}/${messageId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const { error: uploadError } = await supabase.storage.from('demurrage-disputes').upload(path, file, { upsert: false })
+  if (uploadError) throw uploadError
+  const { data, error } = await disputeRpc.rpc('add_demurrage_dispute_attachment', {
+    p_message_id: messageId,
+    p_storage_path: path,
+    p_file_name: file.name,
+    p_mime_type: file.type,
+    p_size_bytes: file.size,
+  })
+  if (error) throw error
+  return data
 }

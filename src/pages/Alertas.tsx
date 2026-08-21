@@ -41,6 +41,7 @@ const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
 
 export function Alertas() {
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>('all')
+  const [page, setPage] = useState(0)
   const [dismissTarget, setDismissTarget] = useState<AlertQueueRow | null>(null)
   const [dismissReason, setDismissReason] = useState('')
   const [reviewBy, setReviewBy] = useState(() => {
@@ -53,8 +54,8 @@ export function Alertas() {
   const { showToast } = useToast()
 
   const { data, isLoading, isError, error, refetch } = useQuery<AlertQueueRow[]>({
-    queryKey: ['alerts', statusFilter],
-    queryFn: () => listAlerts(statusFilter),
+    queryKey: ['alerts', statusFilter, page],
+    queryFn: () => listAlerts(statusFilter, undefined, page),
   })
 
   const dismissMutation = useMutation({
@@ -110,7 +111,7 @@ export function Alertas() {
             <Button
               key={tab.value}
               variant={statusFilter === tab.value ? 'primary' : 'secondary'}
-              onClick={() => setStatusFilter(tab.value)}
+              onClick={() => { setStatusFilter(tab.value); setPage(0) }}
             >
               {tab.label}
             </Button>
@@ -167,6 +168,14 @@ export function Alertas() {
           </table>
         </div>
       </Card>
+
+      <div className="flex items-center justify-between text-xs text-[var(--app-muted)]">
+        <span>Página {page + 1} · {data?.length ?? 0} itens carregados</span>
+        <div className="flex gap-2">
+          <Button variant="secondary" disabled={page === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}>Anterior</Button>
+          <Button variant="secondary" disabled={!data || data.length < 100} onClick={() => setPage((current) => current + 1)}>Próxima</Button>
+        </div>
+      </div>
 
       {dismissTarget ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

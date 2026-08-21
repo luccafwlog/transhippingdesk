@@ -56,9 +56,9 @@ it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/De
     rowsByEntityType.bl[0],
   ])
   expect(rpcMock).toHaveBeenCalledTimes(3)
-  expect(rpcMock).toHaveBeenNthCalledWith(1, 'list_alert_queue', { p_filter: 'active', p_entity_type: 'bl' })
-  expect(rpcMock).toHaveBeenNthCalledWith(2, 'list_alert_queue', { p_filter: 'active', p_entity_type: 'invoice' })
-  expect(rpcMock).toHaveBeenNthCalledWith(3, 'list_alert_queue', { p_filter: 'active', p_entity_type: 'pix_transaction' })
+  expect(rpcMock).toHaveBeenNthCalledWith(1, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'bl', p_offset: 0, p_limit: 100 })
+  expect(rpcMock).toHaveBeenNthCalledWith(2, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'invoice', p_offset: 0, p_limit: 100 })
+  expect(rpcMock).toHaveBeenNthCalledWith(3, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'pix_transaction', p_offset: 0, p_limit: 100 })
 })
 
 it('combina as entidades financeiras antes de cortar a fila em 200 itens', async () => {
@@ -147,35 +147,31 @@ it('respeita apenas correction_route interno e seguro no bloqueio de cálculo', 
   })).toBe('/taxas-locais')
 })
 
-it('usa o upsert/resolver da fundação, com metadata opcional, para manter idempotência', async () => {
+it('usa RPCs tipadas de faturamento, com metadata opcional, para manter idempotência', async () => {
   rpcMock.mockResolvedValue({ data: { item_id: 9 }, error: null })
 
   await createAlert({
-    type: 'invoice_overdue',
-    entityType: 'invoice',
+    type: 'billing_calculation_blocked',
+    entityType: 'bl',
     entityId: '42',
     message: 'Fatura vencida',
     metadata: { invoice_id: 42 },
   })
   await resolveAlertItem({
-    type: 'invoice_overdue',
-    entityType: 'invoice',
+    type: 'billing_calculation_blocked',
+    entityType: 'bl',
     entityId: '42',
   })
 
-  expect(rpcMock).toHaveBeenNthCalledWith(1, 'upsert_alert_item', {
-    p_type: 'invoice_overdue',
-    p_entity_type: 'invoice',
-    p_entity_id: '42',
+  expect(rpcMock).toHaveBeenNthCalledWith(1, 'upsert_billing_alert', {
+    p_type: 'billing_calculation_blocked',
+    p_bl_id: '42',
     p_message: 'Fatura vencida',
-    p_source: 'client_compatibility',
     p_metadata: { invoice_id: 42 },
   })
-  expect(rpcMock).toHaveBeenNthCalledWith(2, 'resolve_alert_item', {
-    p_type: 'invoice_overdue',
-    p_entity_type: 'invoice',
-    p_entity_id: '42',
-    p_source: 'client_compatibility',
+  expect(rpcMock).toHaveBeenNthCalledWith(2, 'resolve_billing_alert', {
+    p_type: 'billing_calculation_blocked',
+    p_bl_id: '42',
     p_metadata: {},
   })
 })
@@ -187,6 +183,7 @@ it('rotula eventos ativos e preserva o rótulo legado sem tratá-lo como produto
 
 it('resolve destinos pela unidade do evento e pelo identificador canônico da invoice', () => {
   expect(alertEntityLink({ type: 'portal_dispute_opened', entity_type: 'demurrage_invoice', entity_id: '77' })).toBe('/demurrage')
+  expect(alertEntityLink({ type: 'portal_dispute_opened', entity_type: 'demurrage_invoice', entity_id: '77', metadata: { dispute_id: 12 } })).toBe('/demurrage?dispute=12')
   expect(alertEntityLink({ type: 'pix_unreconciled', entity_type: 'pix_transaction', entity_id: 'PIX-77' })).toBe('/reconciliacao')
   expect(alertEntityLink({ type: 'billing_calculation_blocked', entity_type: 'bl', entity_id: 'BL-77' })).toBe('/taxas-locais')
   expect(alertEntityLink({ type: 'billing_calculation_blocked', entity_type: 'bl', entity_id: 'BL-77', metadata: { correction_route: '/taxas-locais/tabelas' } })).toBe('/taxas-locais/tabelas')

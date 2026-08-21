@@ -26,14 +26,11 @@ describe('detector server-side de faturas vencidas do bloco 522', () => {
     expect(migration).not.toContain('INSERT INTO public.alerts')
   })
 
-  it('fecha a RPC do detector para service_role e exige o runner interno', () => {
-    expect(migration).toContain("auth.role() IS DISTINCT FROM 'service_role'")
+  it('fecha a RPC do detector para service_role; o runner final pertence à migration 332', () => {
     expect(migration).toContain("current_setting('alerts.detector_runner', true) IS DISTINCT FROM 'on'")
     expect(migration).toContain('REVOKE ALL ON FUNCTION public.detect_overdue_invoices() FROM PUBLIC, anon, authenticated;')
     expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.detect_overdue_invoices() TO service_role;')
-    expect(migration).toContain("set_config('request.jwt.claim.role', 'service_role', true)")
-    expect(migration).toContain("set_config('alerts.detector_runner', 'on', true)")
-    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.run_alert_detectors() TO service_role;')
+    expect(migration).not.toContain('CREATE OR REPLACE FUNCTION public.run_alert_detectors()')
   })
 
   it('não depende de abrir a tela de Faturamento', () => {

@@ -223,6 +223,17 @@ export async function portalAddDisputeMessage(demurrageInvoiceId: number, body: 
   })
 }
 
+export async function portalUploadDisputeAttachment(messageId: number, disputeId: number, customerId: number, file: File, scope: PortalScope = clientPortalScope) {
+  const allowed = new Set(['application/pdf', 'image/jpeg', 'image/png', 'text/plain'])
+  if (!allowed.has(file.type) || file.size <= 0 || file.size > 10 * 1024 * 1024) throw new Error('Anexo inválido. Use PDF, JPG, PNG ou TXT de até 10 MB.')
+  const path = `${customerId}/disputes/${disputeId}/${messageId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const { error: uploadError } = await supabasePortal.storage.from('demurrage-disputes').upload(path, file, { upsert: false })
+  if (uploadError) throw uploadError
+  return callPortalRpc(scope, 'add_demurrage_dispute_attachment', {
+    p_message_id: messageId, p_storage_path: path, p_file_name: file.name, p_mime_type: file.type, p_size_bytes: file.size,
+  })
+}
+
 export async function portalRequestDisputeReopen(disputeId: number, body: string, scope: PortalScope = clientPortalScope) {
   await callPortalRpc(scope, 'portal_request_dispute_reopen', { p_dispute_id: disputeId, p_body: body })
 }
