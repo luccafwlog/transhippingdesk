@@ -8,6 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   parse: vi.fn(),
   match: vi.fn(),
+  createImportKey: vi.fn(),
+  persist: vi.fn(),
+  listExceptions: vi.fn(),
+  resolveException: vi.fn(),
   confirm: vi.fn(),
   reverseDemurrage: vi.fn(),
   getDemurrageDetail: vi.fn(),
@@ -19,6 +23,10 @@ vi.mock('../../services/demurrage/demurrageKpis', () => ({
 }))
 vi.mock('../../services/reconciliacao', () => ({
   matchUnifiedPixTransactions: mocks.match,
+  createPixImportKey: mocks.createImportKey,
+  persistUnresolvedPixMatches: mocks.persist,
+  listPixReconciliationExceptions: mocks.listExceptions,
+  resolvePixReconciliationException: mocks.resolveException,
   confirmUnifiedPixReconciliation: mocks.confirm,
   reverseDemurragePayment: mocks.reverseDemurrage,
 }))
@@ -106,6 +114,13 @@ describe('Reconciliacao PIX user behaviours', () => {
     vi.clearAllMocks()
     mocks.parse.mockResolvedValue([transaction])
     mocks.match.mockResolvedValue([safeMatch, ambiguousMatch, unmatchedMatch])
+    mocks.createImportKey.mockResolvedValue('sha256:pix-import')
+    mocks.persist.mockResolvedValue([
+      { id: 42, lineNumber: 1, status: 'active' },
+      { id: 43, lineNumber: 2, status: 'active' },
+    ])
+    mocks.listExceptions.mockResolvedValue([])
+    mocks.resolveException.mockResolvedValue({ id: 42, status: 'resolved' })
     mocks.confirm.mockResolvedValue({
       local: 1,
       demurrage: 0,
@@ -126,9 +141,34 @@ describe('Reconciliacao PIX user behaviours', () => {
     await user.upload(input, new File(['xlsx'], 'pix.xlsx', { type: 'application/vnd.ms-excel' }))
 
     expect(await screen.findByText('Sem documento candidato (1)')).toBeTruthy()
+    expect(mocks.persist).toHaveBeenCalledWith('sha256:pix-import', [safeMatch, ambiguousMatch, unmatchedMatch])
     expect(screen.getByText('Correspondencias confirmadas (1)')).toBeTruthy()
     expect(screen.getByText('Ambiguas - ignoradas na confirmacao (1)')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Confirmar 1 pagamento(s)' })).toBeTruthy()
+  })
+
+  it('recarrega pendencias PIX persistidas e oferece nova tentativa segura', async () => {
+    mocks.listExceptions.mockResolvedValueOnce([{
+      id: 42,
+      importKey: 'sha256:pix-import',
+      lineNumber: 8,
+      txid: '',
+      cnpj: '123',
+      paidAt: '2026-06-23',
+      amount: 100,
+      reason: 'unmatched',
+      candidateCount: 0,
+      metadata: {},
+      status: 'active',
+      createdAt: '2026-06-23T10:00:00Z',
+      updatedAt: '2026-06-23T10:00:00Z',
+      resolvedAt: null,
+    }])
+    renderPage()
+
+    expect(await screen.findByText('Pendencias PIX persistidas (1)')).toBeTruthy()
+    expect(screen.getByText(/Linha 8 · TXID ausente/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Tentar conciliar' })).toBeTruthy()
   })
 
   it('confirma somente o match seguro, exibe o resultado e invalida consumidores', async () => {

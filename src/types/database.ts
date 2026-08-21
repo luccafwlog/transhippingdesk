@@ -5953,6 +5953,7 @@ export type PixTransaction = {
   cnpj: string
   date: string
   amount: number
+  lineNumber?: number
 }
 
 export type BLListItem = BL & {

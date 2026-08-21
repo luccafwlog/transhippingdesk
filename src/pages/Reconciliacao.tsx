@@ -11,12 +11,21 @@ import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { formatResultCount, summarizeReconciliation } from '../lib/operationalState'
 import { parsePixExtractFile } from '../services/demurrage/demurrageKpis'
-import { confirmUnifiedPixReconciliation, matchUnifiedPixTransactions, reverseDemurragePayment } from '../services/reconciliacao'
+import {
+  confirmUnifiedPixReconciliation,
+  createPixImportKey,
+  listPixReconciliationExceptions,
+  matchUnifiedPixTransactions,
+  persistUnresolvedPixMatches,
+  resolvePixReconciliationException,
+  reverseDemurragePayment,
+} from '../services/reconciliacao'
 import { getInvoiceDetail as getDemurrageDetail } from '../services/demurrage/demurrageInvoices'
 import { InvoiceDetailModal } from '../components/billing/InvoiceDetailModal'
 import { ReconciliationHistoryTable } from '../components/billing/ReconciliationHistoryTable'
 import { InvoiceDocument as DemurrageInvoiceDoc } from '../components/demurrage/InvoiceDocument'
-import type { UnifiedPixConfirmationResult, UnifiedPixMatch } from '../services/reconciliacao'
+import type { PixReconciliationException, UnifiedPixConfirmationResult, UnifiedPixMatch } from '../services/reconciliacao'
+import { queryKeys } from '../services/queryKeys'
 import type { DemurrageInvoiceDetail } from '../types/database'
 
 function fmtBRL(v: number) {
@@ -46,6 +55,12 @@ export function Reconciliacao() {
   const [selectedDemurrageId, setSelectedDemurrageId] = useState<number | null>(null)
   const [demurrageReason, setDemurrageReason] = useState('')
 
+  const pendingExceptionsQuery = useQuery({
+    queryKey: queryKeys.reconciliation.pixExceptions(),
+    queryFn: () => listPixReconciliationExceptions(),
+    enabled: isAdmin,
+  })
+
   const demurrageDetailQuery = useQuery({
     queryKey: ['demurrage-invoice-detail', 'reconciliacao', selectedDemurrageId],
     queryFn: () => getDemurrageDetail(selectedDemurrageId!),
@@ -56,11 +71,51 @@ export function Reconciliacao() {
     mutationFn: async (file: File) => {
       const transactions = await parsePixExtractFile(file)
       if (!transactions.length) throw new Error('Nenhuma transacao PIX encontrada.')
-      return matchUnifiedPixTransactions(transactions)
+      const [importKey, found] = await Promise.all([
+        createPixImportKey(file),
+        matchUnifiedPixTransactions(transactions),
+      ])
+      const persisted = await persistUnresolvedPixMatches(importKey, found)
+      const idsByLine = new Map(persisted.map((item) => [item.lineNumber, item.id]))
+      return found.map((match) => ({
+        ...match,
+        exceptionId: idsByLine.get(match.transaction.lineNumber ?? -1),
+      }))
     },
     onSuccess: (found) => {
       setMatches(found)
       if (!found.length) showToast('Nenhuma correspondencia encontrada.', 'info')
+    },
+    onError: (e: Error) => showToast(e.message, 'error'),
+  })
+
+  const retryExceptionMutation = useMutation({
+    mutationFn: async (exception: PixReconciliationException) => {
+      const [match] = await matchUnifiedPixTransactions([{
+        txid: exception.txid,
+        cnpj: exception.cnpj,
+        date: exception.paidAt ?? '',
+        amount: exception.amount,
+        lineNumber: exception.lineNumber,
+      }])
+      if (!match || match.ambiguous || match.source === 'unmatched') {
+        throw new Error('A pendencia ainda nao tem uma correspondencia segura.')
+      }
+      const result = await confirmUnifiedPixReconciliation([match])
+      await resolvePixReconciliationException(exception.id, {
+        source: match.source,
+        invoiceId: match.source === 'local' ? match.invoiceId : undefined,
+        demurrageInvoiceId: match.source === 'demurrage' ? match.invoiceId : undefined,
+        txid: match.transaction.txid,
+      })
+      return result
+    },
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reconciliation.pixExceptions() })
+      void queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
+      showToast(`Pendencia conciliada: ${result.local + result.demurrage} pagamento(s).`, 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })
@@ -82,6 +137,7 @@ export function Reconciliacao() {
       void queryClient.invalidateQueries({ queryKey: ['bl-detail'] })
       void queryClient.invalidateQueries({ queryKey: ['customer-detail'] })
       void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reconciliation.pixExceptions() })
       setConfirmationResult(result)
       setMatches(null)
       showToast(`Conciliação concluída: ${local} fatura(s), ${demurrage} demurrage.`, 'success')
@@ -164,6 +220,48 @@ export function Reconciliacao() {
               </div>
             ))}
           </div>
+        </Card>
+      ) : null}
+
+      {isAdmin ? (
+        <Card className="mb-4">
+          <div className="border-b border-[#30363d] p-4">
+            <div className="text-sm font-semibold text-white">
+              Pendencias PIX persistidas ({pendingExceptionsQuery.data?.length ?? 0})
+            </div>
+            <div className="mt-1 text-xs text-slate-400">
+              Linhas sem conciliacao segura ficam salvas por importacao e numero da linha, inclusive sem TXID.
+            </div>
+          </div>
+          {pendingExceptionsQuery.isLoading ? (
+            <div className="p-4 text-sm text-slate-400">Carregando pendencias...</div>
+          ) : pendingExceptionsQuery.isError ? (
+            <div className="p-4 text-sm text-red-300">Nao foi possivel carregar as pendencias PIX.</div>
+          ) : pendingExceptionsQuery.data?.length ? (
+            <div className="divide-y divide-[#30363d]">
+              {pendingExceptionsQuery.data.map((exception) => (
+                <div key={exception.id} className="flex flex-col gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="font-semibold text-white">
+                      Linha {exception.lineNumber} · {exception.txid || 'TXID ausente'}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {exception.reason === 'ambiguous' ? 'Ambigua' : 'Sem documento candidato'} · {fmtBRL(exception.amount)}
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    loading={retryExceptionMutation.isPending && retryExceptionMutation.variables?.id === exception.id}
+                    onClick={() => retryExceptionMutation.mutate(exception)}
+                  >
+                    Tentar conciliar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 text-sm text-slate-500">Nenhuma pendencia PIX persistida.</div>
+          )}
         </Card>
       ) : null}
 

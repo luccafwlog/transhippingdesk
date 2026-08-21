@@ -16,6 +16,51 @@ export type UnifiedPixMatch = {
   ambiguityReason?: string
   candidateCount?: number
   matchType: 'txid' | 'unmatched'
+  exceptionId?: number
+}
+
+export type PixReconciliationException = {
+  id: number
+  importKey: string
+  lineNumber: number
+  txid: string
+  cnpj: string
+  paidAt: string | null
+  amount: number
+  reason: 'unmatched' | 'ambiguous'
+  candidateCount: number
+  metadata: Record<string, unknown>
+  status: 'active' | 'resolved'
+  createdAt: string
+  updatedAt: string
+  resolvedAt: string | null
+}
+
+type PixExceptionRpcRow = {
+  id: number
+  import_key: string
+  line_number: number
+  txid: string
+  cnpj: string
+  paid_at: string | null
+  amount_brl: number | string
+  reason: 'unmatched' | 'ambiguous'
+  candidate_count: number
+  metadata: Record<string, unknown> | null
+  status: 'active' | 'resolved'
+  created_at: string
+  updated_at: string
+  resolved_at: string | null
+}
+
+type PixRpcResult = { data: unknown; error: { message: string } | null }
+const callPixRpc = supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<PixRpcResult>
+
+export type PixExceptionResolution = {
+  source: 'local' | 'demurrage'
+  invoiceId?: number
+  demurrageInvoiceId?: number
+  txid?: string
 }
 
 export type UnifiedPixConfirmationResult = {
@@ -26,6 +71,91 @@ export type UnifiedPixConfirmationResult = {
 
 function normTxid(str: string) {
   return (str ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+}
+
+function normalizePixException(row: PixExceptionRpcRow): PixReconciliationException {
+  return {
+    id: Number(row.id),
+    importKey: row.import_key,
+    lineNumber: Number(row.line_number),
+    txid: row.txid ?? '',
+    cnpj: row.cnpj ?? '',
+    paidAt: row.paid_at ?? null,
+    amount: Number(row.amount_brl ?? 0),
+    reason: row.reason,
+    candidateCount: Number(row.candidate_count ?? 0),
+    metadata: row.metadata ?? {},
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    resolvedAt: row.resolved_at ?? null,
+  }
+}
+
+export async function createPixImportKey(file: File): Promise<string> {
+  const bytes = await file.arrayBuffer()
+  const subtle = globalThis.crypto?.subtle
+  if (!subtle) return `file:${file.name}:${file.size}:${file.lastModified}`
+  const digest = await subtle.digest('SHA-256', bytes)
+  const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `sha256:${hash}`
+}
+
+export async function persistUnresolvedPixMatches(
+  importKey: string,
+  matches: UnifiedPixMatch[],
+): Promise<Array<{ id: number; lineNumber: number; status: 'active' | 'resolved' }>> {
+  const rows = matches
+    .filter((match) => match.source === 'unmatched' || match.ambiguous)
+    .map((match, index) => ({
+      line_number: match.transaction.lineNumber ?? index + 1,
+      txid: match.transaction.txid ?? '',
+      cnpj: match.transaction.cnpj ?? '',
+      paid_at: match.transaction.date || null,
+      amount_brl: match.transaction.amount,
+      reason: match.source === 'unmatched' ? 'unmatched' : 'ambiguous',
+      candidate_count: match.candidateCount ?? 0,
+      metadata: {
+        doc_number: match.docNumber,
+        customer_name: match.customerName,
+        customer_cnpj: match.customerCnpj,
+        ambiguity_reason: match.ambiguityReason ?? null,
+        source: match.source,
+      },
+    }))
+
+  if (!rows.length) return []
+  const { data, error } = await callPixRpc('upsert_pix_reconciliation_exceptions', {
+    p_import_key: importKey,
+    p_rows: rows,
+  })
+  if (error) throw error
+  const items = ((data as { items?: Array<{ id: number; line_number: number; status: 'active' | 'resolved' }> } | null)?.items ?? [])
+  return items.map((item) => ({ id: Number(item.id), lineNumber: Number(item.line_number), status: item.status }))
+}
+
+export async function listPixReconciliationExceptions(
+  status: 'active' | 'resolved' | 'all' = 'active',
+): Promise<PixReconciliationException[]> {
+  const { data, error } = await callPixRpc('list_pix_reconciliation_exceptions', { p_status: status })
+  if (error) throw error
+  return ((data ?? []) as unknown as PixExceptionRpcRow[]).map(normalizePixException)
+}
+
+export async function resolvePixReconciliationException(
+  exceptionId: number,
+  resolution: PixExceptionResolution,
+): Promise<{ id: number; status: 'resolved' }> {
+  const { data, error } = await callPixRpc('resolve_pix_reconciliation_exception', {
+    p_exception_id: exceptionId,
+    p_resolution_source: resolution.source,
+    p_invoice_id: resolution.source === 'local' ? resolution.invoiceId ?? null : null,
+    p_demurrage_invoice_id: resolution.source === 'demurrage' ? resolution.demurrageInvoiceId ?? null : null,
+    p_txid: resolution.txid ?? null,
+  })
+  if (error) throw error
+  const result = data as { id?: number; status?: 'resolved' } | null
+  return { id: Number(result?.id ?? exceptionId), status: result?.status ?? 'resolved' }
 }
 
 export async function matchUnifiedPixTransactions(transactions: PixTransaction[]): Promise<UnifiedPixMatch[]> {
