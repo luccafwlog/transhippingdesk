@@ -101,11 +101,40 @@ export function Reconciliacao() {
 
   const linkCandidateMutation = useMutation({
     mutationFn: async ({ exception, candidate }: { exception: PixReconciliationException; candidate: PixReconciliationCandidate }) => {
-      return linkPixReconciliationCandidate(exception.id, candidate)
+      await linkPixReconciliationCandidate(exception.id, candidate)
+      const match: UnifiedPixMatch = {
+        transaction: {
+          txid: exception.txid,
+          cnpj: exception.cnpj,
+          date: exception.paidAt ?? '',
+          amount: exception.amount,
+          lineNumber: exception.lineNumber,
+        },
+        source: candidate.source,
+        invoiceId: candidate.invoiceId,
+        docNumber: candidate.docNumber,
+        customerName: '',
+        customerCnpj: exception.cnpj,
+        amount: candidate.amount,
+        ambiguous: false,
+        matchType: 'txid',
+        exceptionId: exception.id,
+      }
+      const result = await confirmUnifiedPixReconciliation([match])
+      await resolvePixReconciliationException(exception.id, {
+        source: candidate.source,
+        invoiceId: candidate.source === 'local' ? candidate.invoiceId : undefined,
+        demurrageInvoiceId: candidate.source === 'demurrage' ? candidate.invoiceId : undefined,
+        txid: exception.txid,
+      })
+      return result
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.reconciliation.pixExceptions() })
-      showToast('Vínculo salvo; a pendência continua ativa até confirmação autoritativa.', 'info')
+      void queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['reconciliation-history'] })
+      showToast(`Pendência conciliada: ${result.local + result.demurrage} pagamento(s).`, 'success')
     },
     onError: (e: Error) => showToast(e.message, 'error'),
   })

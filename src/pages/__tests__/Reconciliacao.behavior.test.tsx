@@ -180,7 +180,7 @@ describe('Reconciliacao PIX user behaviours', () => {
     expect(screen.getByRole('button', { name: 'Tentar conciliar' })).toBeTruthy()
   })
 
-  it('permite escolher candidata sem esconder que a confirmação autoritativa ainda é necessária', async () => {
+  it('permite escolher candidata e confirma somente pela autoridade financeira', async () => {
     const user = userEvent.setup()
     mocks.listExceptions.mockResolvedValueOnce([{
       id: 42, importKey: 'sha256:pix-import', lineNumber: 8, txid: 'TX-42', cnpj: '123',
@@ -195,7 +195,9 @@ describe('Reconciliacao PIX user behaviours', () => {
     expect(screen.getByText(/vinculo nao confirma a baixa/i)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Vincular candidata' }))
     await waitFor(() => expect(mocks.linkCandidate).toHaveBeenCalledWith(42, expect.objectContaining({ source: 'local', invoiceId: 10 })))
-    expect(mocks.showToast).toHaveBeenCalledWith(expect.stringMatching(/Vínculo|Vinculo/), 'info')
+    expect(mocks.confirm).toHaveBeenCalledWith([expect.objectContaining({ source: 'local', invoiceId: 10, ambiguous: false })])
+    expect(mocks.resolveException).toHaveBeenCalledWith(42, expect.objectContaining({ source: 'local', invoiceId: 10, txid: 'TX-42' }))
+    expect(mocks.showToast).toHaveBeenCalledWith(expect.stringMatching(/Pendência conciliada/), 'success')
   })
 
   it('confirma somente o match seguro, exibe o resultado e invalida consumidores', async () => {

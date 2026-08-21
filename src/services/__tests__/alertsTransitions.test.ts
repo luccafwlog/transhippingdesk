@@ -189,6 +189,8 @@ it('resolve destinos pela unidade do evento e pelo identificador canônico da in
   expect(alertEntityLink({ type: 'portal_dispute_opened', entity_type: 'demurrage_invoice', entity_id: '77' })).toBe('/demurrage')
   expect(alertEntityLink({ type: 'pix_unreconciled', entity_type: 'pix_transaction', entity_id: 'PIX-77' })).toBe('/reconciliacao')
   expect(alertEntityLink({ type: 'billing_calculation_blocked', entity_type: 'bl', entity_id: 'BL-77' })).toBe('/taxas-locais')
+  expect(alertEntityLink({ type: 'billing_calculation_blocked', entity_type: 'bl', entity_id: 'BL-77', metadata: { correction_route: '/taxas-locais/tabelas' } })).toBe('/taxas-locais/tabelas')
+  expect(alertEntityLink({ type: 'billing_calculation_blocked', entity_type: 'bl', entity_id: 'BL-77', metadata: { correction_route: '/\\evil' } })).toBe('/taxas-locais')
   expect(alertEntityLink({ type: 'billing_auto_issue_failed', entity_type: 'bl', entity_id: 'BL-78' })).toBe('/taxas-locais')
   expect(alertEntityLink({
     type: 'portal_excecao_critica_fatura',

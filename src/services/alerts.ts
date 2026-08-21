@@ -139,6 +139,7 @@ export function alertEntityLink(alert: {
       && typeof correctionRoute === 'string'
       && correctionRoute.startsWith('/')
       && !correctionRoute.startsWith('//')
+      && !correctionRoute.includes('\\')
       && !hasControlCharacter
       && !/^[^/]+:\/\//.test(correctionRoute)
     ) {
