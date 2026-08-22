@@ -75,18 +75,12 @@ export async function fetchRoutingFailures(page = 0): Promise<{ rows: RoutingFai
   const from = page * LOG_PAGE_SIZE
   const to = from + LOG_PAGE_SIZE - 1
 
-  const client = supabase as unknown as {
-    from: (relation: string) => {
-      select: (columns: string, options?: { count?: 'exact' }) => {
-        order: (column: string, options?: { ascending?: boolean }) => {
-          range: (fromIndex: number, toIndex: number) => Promise<{ data: unknown; error: Error | null; count: number | null }>
-        }
-      }
-    }
+  type RoutingFailureQuery = {
+    select: (columns: string, options?: { count: 'exact' }) => RoutingFailureQuery
+    order: (column: string, options: { ascending: boolean }) => RoutingFailureQuery
+    range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown | null; count: number | null }>
   }
-
-  const { data, error, count } = await client
-    .from('alert_notification_failures')
+  const { data, error, count } = await (supabase.from as unknown as (table: string) => RoutingFailureQuery)('alert_notification_failures')
     .select('id, alert_id, alert_item_id, event_id, item_type, department, reason, created_at, alert:alerts(entity_type, entity_id)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to)

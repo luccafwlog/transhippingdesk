@@ -147,4 +147,35 @@ describe('InternalNotificationBell', () => {
     expect(screen.queryByText('Reconhecer')).toBeNull()
     expect(screen.queryByText('Fechar')).toBeNull()
   })
+
+  it('fecha o menu ao pressionar Escape', () => {
+    render(
+      <MemoryRouter>
+        <InternalNotificationBell />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByLabelText('Notificações internas (3 não lidas)'))
+    expect(screen.getByText('Notificações internas')).toBeTruthy()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByText('Notificações internas')).toBeNull()
+  })
+
+  it('fecha o menu ao clicar fora', () => {
+    render(
+      <MemoryRouter>
+        <div>
+          <button type="button">Fora</button>
+          <InternalNotificationBell />
+        </div>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByLabelText('Notificações internas (3 não lidas)'))
+    expect(screen.getByText('Notificações internas')).toBeTruthy()
+
+    fireEvent.mouseDown(screen.getByText('Fora'))
+    expect(screen.queryByText('Notificações internas')).toBeNull()
+  })
 })

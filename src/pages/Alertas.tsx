@@ -10,7 +10,6 @@ import {
   alertEntityLink,
   alertEntityLinkLabel,
   dismissAlertItem,
-  formatAgencyReportAlertEntity,
   formatAlertEntity,
   getAlertTypeLabel,
   getEffectiveAlertType,
@@ -42,6 +41,7 @@ export function Alertas() {
 
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>('all')
   const [page, setPage] = useState(0)
+
   const [prevDept, setPrevDept] = useState(departmentFilter)
 
   if (prevDept !== departmentFilter) {
@@ -302,10 +302,7 @@ function AlertRow({
   const link = alertEntityLink(alert)
   const linkLabel = alertEntityLinkLabel(alert)
 
-  const entityFormatted = alert.entity_type && alert.entity_id
-    ? (formatAlertEntity(alert.entity_type, alert.entity_id) ??
-        (alert.entity_type === 'agency_departure_report' ? formatAgencyReportAlertEntity(alert.entity_id) : null))
-    : null
+  const entityFormatted = formatAlertEntity(alert.entity_type, alert.entity_id)
 
   return (
     <tr>

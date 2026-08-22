@@ -34,7 +34,6 @@ DECLARE
   v_event_id BIGINT;
   v_actor_name TEXT;
   v_author_name TEXT;
-  v_prev_notif RECORD;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
     RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501';
@@ -82,59 +81,51 @@ BEGIN
 
   -- Fan-out do Eco de Tratamento para os destinatários que já receberam notificações
   -- nesta ocorrência, excluindo o autor da dispensa (auth.uid()).
-  FOR v_prev_notif IN
-    SELECT DISTINCT ON (n.recipient_id)
-      n.recipient_id,
-      n.recipient_department,
-      n.is_fallback
-    FROM public.internal_notifications n
-    JOIN public.alert_item_events e ON e.id = n.event_id
-    WHERE n.alert_item_id = v_item.id
-      AND e.occurrence_id = v_item.occurrence_id
-      AND n.recipient_id <> auth.uid()
-    ORDER BY n.recipient_id, n.id DESC
-  LOOP
-    INSERT INTO public.internal_notifications (
-      alert_id,
-      alert_item_id,
-      event_id,
-      recipient_id,
-      recipient_department,
-      is_fallback,
-      item_type,
-      severity,
-      title,
-      message,
-      entity_type,
-      entity_id,
-      destination,
-      payload
+  INSERT INTO public.internal_notifications (
+    alert_id,
+    alert_item_id,
+    event_id,
+    recipient_id,
+    recipient_department,
+    is_fallback,
+    item_type,
+    severity,
+    title,
+    message,
+    entity_type,
+    entity_id,
+    destination,
+    payload
+  )
+  SELECT DISTINCT ON (n.recipient_id)
+    v_alert.id,
+    v_item.id,
+    v_event_id,
+    n.recipient_id,
+    n.recipient_department,
+    n.is_fallback,
+    v_item.item_type,
+    'normal',
+    'Pendência dispensada',
+    'Pendência dispensada por ' || v_author_name || ' até ' || to_char(p_review_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY'),
+    v_alert.entity_type,
+    v_alert.entity_id,
+    NULL,
+    jsonb_build_object(
+      'is_echo', true,
+      'dismissed_by', auth.uid(),
+      'dismissed_by_name', v_author_name,
+      'reason', btrim(p_reason),
+      'review_at', p_review_at,
+      'dismissal_id', v_dismissal.id
     )
-    VALUES (
-      v_alert.id,
-      v_item.id,
-      v_event_id,
-      v_prev_notif.recipient_id,
-      v_prev_notif.recipient_department,
-      v_prev_notif.is_fallback,
-      v_item.item_type,
-      'normal',
-      'Pendência dispensada',
-      'Pendência dispensada por ' || v_author_name || ' até ' || to_char(p_review_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-      v_alert.entity_type,
-      v_alert.entity_id,
-      NULL,
-      jsonb_build_object(
-        'is_echo', true,
-        'dismissed_by', auth.uid(),
-        'dismissed_by_name', v_author_name,
-        'reason', btrim(p_reason),
-        'review_at', p_review_at,
-        'dismissal_id', v_dismissal.id
-      )
-    )
-    ON CONFLICT (event_id, recipient_id) DO NOTHING;
-  END LOOP;
+  FROM public.internal_notifications n
+  JOIN public.alert_item_events e ON e.id = n.event_id
+  WHERE n.alert_item_id = v_item.id
+    AND e.occurrence_id = v_item.occurrence_id
+    AND n.recipient_id <> auth.uid()
+  ORDER BY n.recipient_id, n.id DESC
+  ON CONFLICT (event_id, recipient_id) DO NOTHING;
 
   -- Zero destinatários no Eco é normal (ex.: autor era o único destinatário).
   -- Não grava em alert_notification_failures.
@@ -230,129 +221,7 @@ BEGIN
 END;
 $function$;
 
--- 6. list_alert_queue e list_alert_queue_page atualizados
-DROP FUNCTION IF EXISTS public.list_alert_queue(TEXT, TEXT);
-DROP FUNCTION IF EXISTS public.list_alert_queue(TEXT, TEXT, TEXT);
-
-CREATE OR REPLACE FUNCTION public.list_alert_queue(
-  p_filter TEXT DEFAULT 'active',
-  p_entity_type TEXT DEFAULT NULL,
-  p_department TEXT DEFAULT NULL
-)
-RETURNS SETOF JSONB
-LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $function$
-BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
-    RAISE EXCEPTION 'Sem permissão.' USING ERRCODE = '42501';
-  END IF;
-  IF p_filter NOT IN ('active', 'dismissed', 'all') THEN
-    RAISE EXCEPTION 'Filtro inválido.' USING ERRCODE = '22023';
-  END IF;
-
-  RETURN QUERY
-  WITH queue_rows AS (
-    SELECT jsonb_build_object(
-      'id', a.id,
-      'item_id', i.id,
-      'status', a.status,
-      'item_status', i.status,
-      'type', i.item_type,
-      'severity', i.severity,
-      'department', i.department,
-      'message', i.message,
-      'entity_type', a.entity_type,
-      'entity_id', a.entity_id,
-      'destination', i.destination,
-      'created_at', a.created_at,
-      'updated_at', i.updated_at,
-      'dismissed_until', d.review_at,
-      'dismissal_reason', d.reason,
-      'dismissed_by', d.dismissed_by,
-      'dismissed_by_name', up.full_name,
-      'dismissed_at', d.dismissed_at,
-      'metadata', i.metadata
-    ) AS payload,
-    COALESCE(d.review_at > now(), false) AS is_dismissed,
-    (i.severity = 'critical') AS is_critical,
-    a.created_at,
-    i.id AS item_id
-    FROM public.alerts a
-    JOIN public.alert_items i ON i.alert_id = a.id AND i.status = 'active'
-    LEFT JOIN LATERAL (
-      SELECT ad.review_at, ad.reason, ad.dismissed_by, ad.dismissed_at
-      FROM public.alert_item_dismissals ad
-      WHERE ad.alert_item_id = i.id AND ad.occurrence_id = i.occurrence_id
-      ORDER BY ad.dismissed_at DESC
-      LIMIT 1
-    ) d ON true
-    LEFT JOIN public.user_profiles up ON up.id = d.dismissed_by
-    WHERE a.status <> 'closed'
-      AND (
-        p_filter = 'all'
-        OR (p_filter = 'dismissed' AND d.review_at > now())
-        OR (p_filter = 'active' AND (d.review_at IS NULL OR d.review_at <= now()))
-      )
-      AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
-      AND (
-        p_department IS NULL
-        OR i.department = p_department
-        OR (p_department = 'sem_departamento' AND (i.department IS NULL OR btrim(i.department) = ''))
-      )
-
-    UNION ALL
-
-    SELECT jsonb_build_object(
-      'id', a.id,
-      'item_id', NULL,
-      'status', a.status,
-      'item_status', NULL,
-      'type', a.type,
-      'severity', COALESCE(c.severity, 'normal'),
-      'department', c.responsible_department,
-      'message', a.message,
-      'entity_type', a.entity_type,
-      'entity_id', a.entity_id,
-      'destination', c.default_destination,
-      'created_at', a.created_at,
-      'updated_at', a.created_at,
-      'dismissed_until', NULL,
-      'dismissal_reason', NULL,
-      'dismissed_by', NULL,
-      'dismissed_by_name', NULL,
-      'dismissed_at', NULL,
-      'metadata', '{}'::jsonb
-    ) AS payload,
-    false AS is_dismissed,
-    (COALESCE(c.severity, 'normal') = 'critical') AS is_critical,
-    a.created_at,
-    a.id AS item_id
-    FROM public.alerts a
-    LEFT JOIN public.alert_type_catalog c ON c.type = a.type
-    WHERE p_filter IN ('active', 'all')
-      AND a.status <> 'closed'
-      AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
-      AND (
-        p_department IS NULL
-        OR c.responsible_department = p_department
-        OR (p_department = 'sem_departamento' AND (c.responsible_department IS NULL OR btrim(c.responsible_department) = ''))
-      )
-      AND NOT EXISTS (
-        SELECT 1 FROM public.alert_items i WHERE i.alert_id = a.id
-      )
-  )
-  SELECT payload
-  FROM queue_rows
-  ORDER BY
-    is_dismissed ASC,
-    is_critical DESC,
-    created_at DESC,
-    item_id DESC
-  LIMIT 200;
-END;
-$function$;
-
+-- 6. list_alert_queue_page e list_alert_queue atualizados
 DROP FUNCTION IF EXISTS public.list_alert_queue_page(TEXT, TEXT, INTEGER, INTEGER);
 DROP FUNCTION IF EXISTS public.list_alert_queue_page(TEXT, TEXT, INTEGER, INTEGER, TEXT);
 
@@ -481,6 +350,21 @@ BEGIN
 END;
 $function$;
 
+DROP FUNCTION IF EXISTS public.list_alert_queue(TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.list_alert_queue(TEXT, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.list_alert_queue(
+  p_filter TEXT DEFAULT 'active',
+  p_entity_type TEXT DEFAULT NULL,
+  p_department TEXT DEFAULT NULL
+)
+RETURNS SETOF JSONB
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT public.list_alert_queue_page(p_filter, p_entity_type, 0, 200, p_department);
+$$;
+
 -- 7. summarize_alert_queue_by_department: agregado dedicado para o /painel
 CREATE OR REPLACE FUNCTION public.summarize_alert_queue_by_department()
 RETURNS TABLE (
@@ -529,7 +413,7 @@ BEGIN
     dept AS department,
     COUNT(*) FILTER (WHERE NOT is_dismissed) AS active_count,
     COUNT(*) FILTER (WHERE is_dismissed) AS dismissed_count,
-    bool_or(is_legacy) AS is_legacy
+    bool_or(item_rows.is_legacy) AS is_legacy
   FROM item_rows
   GROUP BY dept
   ORDER BY

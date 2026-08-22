@@ -20,7 +20,6 @@ dist-ssr
 .firebase
 supabase/.temp
 .superpowers/
-.worktrees/
 
 # Editor directories and files
 .vscode/*

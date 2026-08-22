@@ -16,8 +16,8 @@ describe('migration 339 — Eco de Tratamento e superfícies transversais', () =
     expect(migration).toContain("'is_echo', true")
     expect(migration).toContain("'normal',")
     expect(migration).toContain("ON CONFLICT (event_id, recipient_id) DO NOTHING")
-    expect(migration).toContain("v_prev_notif.is_fallback")
-    expect(migration).toContain("v_prev_notif.recipient_department")
+    expect(migration).toContain("n.is_fallback")
+    expect(migration).toContain("n.recipient_department")
   })
 
   it('entrega RPCs de contagem e baixa em massa de Notificações Internas', () => {

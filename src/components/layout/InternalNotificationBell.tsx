@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bell, CheckCheck, ExternalLink, ShieldAlert, Undo2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -7,12 +7,13 @@ import {
   useMarkInternalNotificationRead,
   useUnreadInternalNotificationCount,
 } from '../../hooks/useInternalNotifications'
-import { alertEntityLink, formatAlertEntity, type InternalNotification } from '../../services/alerts'
+import { alertEntityLink, formatAlertEntity, ENTITY_TYPE_LABELS, type InternalNotification } from '../../services/alerts'
 import { formatDate } from '../../lib/utils'
 
 export function InternalNotificationBell() {
   const [open, setOpen] = useState(false)
   const [page, setPage] = useState(0)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   const { data: countData } = useUnreadInternalNotificationCount()
@@ -22,8 +23,28 @@ export function InternalNotificationBell() {
   const markRead = useMarkInternalNotificationRead()
   const markAllRead = useMarkAllInternalNotificationsRead()
 
+  useEffect(() => {
+    if (!open) return
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
   return (
-    <div className="relative">
+    <div ref={wrapperRef} className="relative">
       <button
         type="button"
         className="app-header__icon-button"
@@ -82,9 +103,8 @@ export function InternalNotificationBell() {
                 destination: notification.destination,
               }) ?? '/alertas'
 
-              const entityFormatted = notification.entity_type && notification.entity_id
-                ? formatAlertEntity(notification.entity_type, notification.entity_id)
-                : null
+              const entityFormatted = formatAlertEntity(notification.entity_type, notification.entity_id)
+                ?? (notification.entity_type ? (ENTITY_TYPE_LABELS[notification.entity_type] ?? notification.entity_type) : null)
 
               return (
                 <button
@@ -137,7 +157,7 @@ export function InternalNotificationBell() {
                     <p className="text-xs text-[var(--app-text)]">{notification.message}</p>
 
                     <div className="flex items-center justify-between text-[11px] text-[var(--app-muted)]">
-                      <span>{entityFormatted ?? notification.entity_type ?? 'Geral'}</span>
+                      <span>{entityFormatted ?? 'Geral'}</span>
                       <span>{formatDate(notification.created_at)}</span>
                     </div>
                   </div>

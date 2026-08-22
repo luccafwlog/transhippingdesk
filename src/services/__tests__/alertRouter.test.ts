@@ -93,4 +93,15 @@ describe('alertEntityLink & alertEntityLinkLabel — roteador de destino compart
     expect(formatAlertEntity('voyage_pod_schedule', '50::BRSSZ')).toBe('Viagem 50 · Escala BRSSZ')
     expect(formatAlertEntity('voyage_escala_terminal', '50::BRSSZ::DPW')).toBe('Viagem 50 · BRSSZ · Terminal DPW')
   })
+
+  it('roteia baplie corretamente usando effectiveType mesmo quando type for genérico', () => {
+    const link = alertEntityLink({
+      type: 'generic_alert',
+      item_type: 'voyage_baplie_missing',
+      entity_type: 'voyage',
+      entity_id: '99',
+    })
+    expect(link).toBe('/baplie?voyage=99')
+    expect(alertEntityLinkLabel({ type: 'generic_alert', item_type: 'voyage_baplie_missing', entity_type: 'voyage' })).toBe('Abrir Baplie')
+  })
 })

@@ -140,9 +140,6 @@ export function formatAlertEntity(entityType: string | null, entityId: string | 
   if (entityType === 'agency_departure_report') {
     return formatAgencyReportAlertEntity(entityId)
   }
-  if (entityType === 'voyage') {
-    return `Viagem ${entityId}`
-  }
   if (entityType === 'voyage_pod_schedule') {
     const [voyageId, port] = entityId.split('::')
     return port ? `Viagem ${voyageId} · Escala ${port}` : `Escala ${entityId}`
@@ -151,26 +148,9 @@ export function formatAlertEntity(entityType: string | null, entityId: string | 
     const [voyageId, port, terminalId] = entityId.split('::')
     return terminalId ? `Viagem ${voyageId} · ${port} · Terminal ${terminalId}` : `Terminal ${entityId}`
   }
-  if (entityType === 'customer') {
-    return `Cliente ${entityId}`
-  }
-  if (entityType === 'bl') {
-    return `B/L ${entityId}`
-  }
-  if (entityType === 'container') {
-    return `Container ${entityId}`
-  }
-  if (entityType === 'invoice') {
-    return `Fatura ${entityId}`
-  }
-  if (entityType === 'demurrage_invoice') {
-    return `Invoice Demurrage ${entityId}`
-  }
-  if (entityType === 'pix_transaction') {
-    return `Transação PIX ${entityId}`
-  }
-  if (entityType === 'granite_bl') {
-    return `Granito B/L ${entityId}`
+  const label = ENTITY_TYPE_LABELS[entityType]
+  if (label) {
+    return `${label} ${entityId}`
   }
   return null
 }
@@ -268,7 +248,7 @@ export function alertEntityLink(alert: {
     return agencyReportAlertLink(alert.entity_id, alert.metadata ?? undefined)
   }
   if (alert.entity_type === 'voyage') {
-    if (alert.type.startsWith('voyage_baplie_')) {
+    if (effectiveType.startsWith('voyage_baplie_')) {
       return `/baplie?voyage=${encodeURIComponent(alert.entity_id)}`
     }
     if (/^\d+$/.test(alert.entity_id)) return `/viagens/${encodeURIComponent(alert.entity_id)}`
@@ -298,7 +278,7 @@ export function alertEntityLinkLabel(alert: {
   entity_type: string | null
 }): string {
   const effectiveType = getEffectiveAlertType(alert)
-  if (alert.type.startsWith('voyage_baplie_')) return 'Abrir Baplie'
+  if (effectiveType.startsWith('voyage_baplie_')) return 'Abrir Baplie'
   if (alert.entity_type === 'bl' && (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed')) {
     return 'Taxas Locais'
   }
