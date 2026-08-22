@@ -32,15 +32,22 @@ const DEPARTMENT_OPTIONS = [
   { value: 'documentacao', label: 'Documentação' },
   { value: 'equipamentos', label: 'Equipamentos' },
   { value: 'operacoes', label: 'Operações' },
+  { value: 'sem_departamento', label: 'Sem setor / Legado' },
 ]
 
 export function Alertas() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialDept = searchParams.get('departamento') || searchParams.get('department') || 'all'
+  const rawDept = searchParams.get('departamento') || searchParams.get('department') || 'all'
+  const departmentFilter = DEPARTMENT_OPTIONS.some((opt) => opt.value === rawDept) ? rawDept : 'all'
 
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>('all')
-  const [departmentFilter, setDepartmentFilter] = useState<string>(initialDept)
   const [page, setPage] = useState(0)
+  const [prevDept, setPrevDept] = useState(departmentFilter)
+
+  if (prevDept !== departmentFilter) {
+    setPrevDept(departmentFilter)
+    setPage(0)
+  }
   const [dismissTarget, setDismissTarget] = useState<AlertQueueRow | null>(null)
   const [dismissReason, setDismissReason] = useState('')
   const [reviewBy, setReviewBy] = useState(() => {
@@ -100,7 +107,6 @@ export function Alertas() {
   }
 
   function handleDepartmentChange(newDept: string) {
-    setDepartmentFilter(newDept)
     setPage(0)
     const newParams = new URLSearchParams(searchParams)
     if (newDept === 'all') {

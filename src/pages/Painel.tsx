@@ -167,7 +167,7 @@ export function Painel() {
 
           {legacyActiveCount > 0 || legacyDismissedCount > 0 ? (
             <Link
-              to="/alertas"
+              to="/alertas?departamento=sem_departamento"
               className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
             >
               <div className="flex items-center justify-between">

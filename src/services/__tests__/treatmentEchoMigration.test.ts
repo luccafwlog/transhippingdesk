@@ -42,10 +42,13 @@ describe('migration 339 — Eco de Tratamento e superfícies transversais', () =
     expect(migration).toContain("'dismissed_by', d.dismissed_by")
     expect(migration).toContain("'dismissed_by_name', up.full_name")
     expect(migration).toContain("'dismissed_at', d.dismissed_at")
-    expect(migration).toContain('(p_department IS NULL OR i.department = p_department)')
+    expect(migration).toContain('COALESCE(d.review_at > now(), false) AS is_dismissed')
+    expect(migration).toContain("p_department = 'sem_departamento' AND (i.department IS NULL OR btrim(i.department) = '')")
+    expect(migration).toContain("p_department = 'sem_departamento' AND (c.responsible_department IS NULL OR btrim(c.responsible_department) = '')")
   })
 
   it('ordena a fila com não dispensados antes de dispensados e críticos antes de normais', () => {
+    expect(migration).toContain('COALESCE(d.review_at > now(), false) AS is_dismissed')
     expect(migration).toContain('is_dismissed ASC')
     expect(migration).toContain('is_critical DESC')
     expect(migration).toContain('created_at DESC')
@@ -54,6 +57,7 @@ describe('migration 339 — Eco de Tratamento e superfícies transversais', () =
 
   it('entrega agregação dedicada de alertas por departamento para o /painel', () => {
     expect(migration).toContain('CREATE OR REPLACE FUNCTION public.summarize_alert_queue_by_department()')
+    expect(migration).toContain('COALESCE(d.review_at > now(), false) AS is_dismissed')
     expect(migration).toContain('active_count BIGINT')
     expect(migration).toContain('dismissed_count BIGINT')
     expect(migration).toContain('is_legacy BOOLEAN')

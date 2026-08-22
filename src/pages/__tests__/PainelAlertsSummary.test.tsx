@@ -74,6 +74,9 @@ describe('Painel — Resumo de Pendências por Setor', () => {
     const opsLink = screen.getByText('Operações').closest('a')
     expect(opsLink?.getAttribute('href')).toBe('/alertas?departamento=operacoes')
 
+    const legacyLink = screen.getByText('Sem setor / Legado').closest('a')
+    expect(legacyLink?.getAttribute('href')).toBe('/alertas?departamento=sem_departamento')
+
     const fullQueueLink = screen.getByText('Fila completa de alertas').closest('a')
     expect(fullQueueLink?.getAttribute('href')).toBe('/alertas')
   })

@@ -8,7 +8,7 @@ const migration325 = readFileSync(resolve(process.cwd(), 'supabase/migrations/32
 
 describe('Contrato do catálogo de alertas e tipos de entidade', () => {
   it('todo tipo ativo do alert_type_catalog possui rótulo definido em TYPE_LABELS', () => {
-    const typeRegex = /^\s*\('([a-z0-9_]+)',\s*'(?:critical|normal)'/gm
+    const typeRegex = /^\s*(?:VALUES\s+)?\('([a-z0-9_]+)',\s*'(?:critical|normal)'/gm
     const foundTypes: string[] = []
 
     let match: RegExpExecArray | null
@@ -19,7 +19,7 @@ describe('Contrato do catálogo de alertas e tipos de entidade', () => {
       foundTypes.push(match[1])
     }
 
-    expect(foundTypes.length).toBe(27)
+    expect(foundTypes.length).toBe(28)
 
     for (const catalogType of foundTypes) {
       expect(TYPE_LABELS[catalogType], `Tipo catalogado ${catalogType} não possui rótulo em TYPE_LABELS`).toBeDefined()

@@ -274,7 +274,7 @@ BEGIN
       'dismissed_at', d.dismissed_at,
       'metadata', i.metadata
     ) AS payload,
-    (d.review_at > now()) AS is_dismissed,
+    COALESCE(d.review_at > now(), false) AS is_dismissed,
     (i.severity = 'critical') AS is_critical,
     a.created_at,
     i.id AS item_id
@@ -295,7 +295,11 @@ BEGIN
         OR (p_filter = 'active' AND (d.review_at IS NULL OR d.review_at <= now()))
       )
       AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
-      AND (p_department IS NULL OR i.department = p_department)
+      AND (
+        p_department IS NULL
+        OR i.department = p_department
+        OR (p_department = 'sem_departamento' AND (i.department IS NULL OR btrim(i.department) = ''))
+      )
 
     UNION ALL
 
@@ -332,7 +336,7 @@ BEGIN
       AND (
         p_department IS NULL
         OR c.responsible_department = p_department
-        OR (p_department = 'sem_departamento' AND c.responsible_department IS NULL)
+        OR (p_department = 'sem_departamento' AND (c.responsible_department IS NULL OR btrim(c.responsible_department) = ''))
       )
       AND NOT EXISTS (
         SELECT 1 FROM public.alert_items i WHERE i.alert_id = a.id
@@ -397,7 +401,7 @@ BEGIN
       'dismissed_at', d.dismissed_at,
       'metadata', i.metadata
     ) AS payload,
-    (d.review_at > now()) AS is_dismissed,
+    COALESCE(d.review_at > now(), false) AS is_dismissed,
     (i.severity = 'critical') AS is_critical,
     a.created_at,
     i.id AS item_id
@@ -418,7 +422,11 @@ BEGIN
         OR (p_filter = 'active' AND (d.review_at IS NULL OR d.review_at <= now()))
       )
       AND (p_entity_type IS NULL OR a.entity_type = p_entity_type)
-      AND (p_department IS NULL OR i.department = p_department)
+      AND (
+        p_department IS NULL
+        OR i.department = p_department
+        OR (p_department = 'sem_departamento' AND (i.department IS NULL OR btrim(i.department) = ''))
+      )
 
     UNION ALL
 
@@ -455,7 +463,7 @@ BEGIN
       AND (
         p_department IS NULL
         OR c.responsible_department = p_department
-        OR (p_department = 'sem_departamento' AND c.responsible_department IS NULL)
+        OR (p_department = 'sem_departamento' AND (c.responsible_department IS NULL OR btrim(c.responsible_department) = ''))
       )
       AND NOT EXISTS (
         SELECT 1 FROM public.alert_items i WHERE i.alert_id = a.id
@@ -493,7 +501,7 @@ BEGIN
   WITH item_rows AS (
     SELECT
       COALESCE(NULLIF(btrim(i.department), ''), 'sem_departamento') AS dept,
-      (d.review_at > now()) AS is_dismissed,
+      COALESCE(d.review_at > now(), false) AS is_dismissed,
       false AS is_legacy
     FROM public.alerts a
     JOIN public.alert_items i ON i.alert_id = a.id AND i.status = 'active'
