@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge } from '../components/ui/Badge'
@@ -19,14 +21,21 @@ import {
   updateUserProfile,
   type AdminUserRow,
 } from '../services/adminUsers'
-import { LOG_PAGE_SIZE, fetchAuditLogs, fetchSystemMetrics, type LogFilters } from '../services/adminObservability'
+import {
+  LOG_PAGE_SIZE,
+  fetchAuditLogs,
+  fetchRoutingFailures,
+  fetchSystemMetrics,
+  type LogFilters,
+} from '../services/adminObservability'
+import { alertEntityLink, alertEntityLinkLabel, getAlertTypeLabel } from '../services/alerts'
 import { useAgencyReportSla } from '../hooks/useAgencyReport'
 import { summarizeAgencyReportSlaByDepartment, type AgencyReportSlaDateRange } from '../services/agencyReportSla'
 import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
 import { formatDate } from '../lib/utils'
 import type { UserProfileRole } from '../types/database'
 
-type AdminTab = 'usuários' | 'logs' | 'métricas' | 'prazo-adr'
+type AdminTab = 'usuários' | 'falhas' | 'logs' | 'métricas' | 'prazo-adr'
 
 const VERSION = '2.0.0'
 const COMMIT_SHA = String(import.meta.env.VITE_APP_COMMIT_SHA ?? 'unknown')
@@ -43,12 +52,23 @@ export function AdminUsuarios() {
   const [logFilters, setLogFilters] = useState<LogFilters>({
     entityType: '', changedBy: '', dateFrom: '', dateTo: '', page: 0,
   })
+  const [failurePage, setFailurePage] = useState(0)
   const [slaFilters, setSlaFilters] = useState<{ from: string; to: string }>({ from: '', to: '' })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-users'],
     queryFn: listAllUserProfiles,
   })
+
+  const { data: failuresResult, isLoading: failuresLoading, error: failuresError } = useQuery({
+    queryKey: ['admin-routing-failures', failurePage],
+    queryFn: () => fetchRoutingFailures(failurePage),
+    enabled: tab === 'falhas',
+    staleTime: 30_000,
+  })
+  const failures = failuresResult?.rows ?? []
+  const failuresTotal = failuresResult?.count ?? 0
+  const failuresTotalPages = Math.max(1, Math.ceil(failuresTotal / LOG_PAGE_SIZE))
 
   const { data: auditLogsResult, isLoading: logsLoading, error: logsError } = useQuery({
     queryKey: ['admin-audit-logs', logFilters],
@@ -160,18 +180,26 @@ export function AdminUsuarios() {
     <>
       <PageHeader
         title="Administração"
-        description="Painel administrativo: usuários, logs de ações e métricas operacionais."
+        description="Painel administrativo: usuários, falhas de roteamento, logs de ações e métricas operacionais."
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {(['usuários', 'logs', 'métricas', 'prazo-adr'] as AdminTab[]).map((t) => (
+        {(['usuários', 'falhas', 'logs', 'métricas', 'prazo-adr'] as AdminTab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`app-tab capitalize ${tab === t ? 'app-tab--active' : ''}`}
           >
-            {t === 'usuários' ? 'Usuários' : t === 'logs' ? 'Log de Ações' : t === 'métricas' ? 'Métricas' : 'Relatório SLA ADR'}
+            {t === 'usuários'
+              ? 'Usuários'
+              : t === 'falhas'
+                ? 'Falhas de Roteamento'
+                : t === 'logs'
+                  ? 'Log de Ações'
+                  : t === 'métricas'
+                    ? 'Métricas'
+                    : 'Relatório SLA ADR'}
           </button>
         ))}
       </div>
@@ -280,15 +308,32 @@ export function AdminUsuarios() {
             </Card>
           )}
 
-          <div className="mt-6 app-panel app-panel--padded text-sm">
-            <div className="mb-3 app-panel__title">Descrição dos perfis de acesso</div>
-            <div className="grid gap-2 text-[var(--app-muted)]">
-              {MANAGED_PROFILES.map((profile) => (
-                <div key={profile}>
-                  <span className="font-semibold text-[var(--app-text-strong)]">{PROFILE_LABELS[profile]}:</span>{' '}
-                  {PROFILE_SCOPES[profile]}
-                </div>
-              ))}
+          <div className="mt-6 app-panel app-panel--padded text-sm space-y-4">
+            <div>
+              <div className="mb-2 app-panel__title">Descrição dos perfis de acesso</div>
+              <div className="grid gap-2 text-[var(--app-muted)]">
+                {MANAGED_PROFILES.map((profile) => (
+                  <div key={profile}>
+                    <span className="font-semibold text-[var(--app-text-strong)]">{PROFILE_LABELS[profile]}:</span>{' '}
+                    {PROFILE_SCOPES[profile]}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-[var(--app-border)] pt-3 text-xs text-[var(--app-muted)] space-y-1">
+              <div className="font-semibold text-[var(--app-text-strong)]">Audiência de Alertas e Notificações</div>
+              <p>
+                Os papéis que recebem Notificações Internas diretamente das regras ativas do catálogo são{' '}
+                <strong className="text-[var(--app-text-strong)]">Documentação</strong>,{' '}
+                <strong className="text-[var(--app-text-strong)]">Equipamentos</strong> e{' '}
+                <strong className="text-[var(--app-text-strong)]">Operações</strong>.
+              </p>
+              <p>
+                Os papéis <strong className="text-[var(--app-text-strong)]">Administrativo</strong> e{' '}
+                <strong className="text-[var(--app-text-strong)]">Administrador</strong> recebem notificações
+                exclusivamente por <em className="text-amber-400">fallback</em> quando um alerta crítico não encontra nenhum usuário ativo no setor responsável. Usuários inativos ou fora dessas audiências não recebem entregas e não têm pendências atribuídas individualmente.
+              </p>
             </div>
           </div>
 
@@ -310,6 +355,112 @@ export function AdminUsuarios() {
               submitting={credentialsMutation.isPending}
             />
           ) : null}
+        </>
+      ) : null}
+
+      {tab === 'falhas' ? (
+        <>
+          <p className="mb-3 text-sm text-[var(--app-muted)]">
+            Registro de ocorrências em que uma notificação não pôde ser entregue devido à ausência de usuários ativos
+            na audiência configurada no catálogo (incluindo esgotamento do fallback de Administrativo). A correção é
+            operacional: ativar um usuário ou atribuir o setor correspondente na aba Usuários.
+          </p>
+
+          {failuresError ? <InlineError message="Erro ao carregar falhas de roteamento." /> : null}
+
+          <Card className="overflow-hidden p-0">
+            {failuresLoading ? (
+              <div className="py-12 text-center text-[var(--app-muted)]">Carregando falhas...</div>
+            ) : (
+              <div className="app-table-scroll">
+                <table className="app-table app-table--compact min-w-[800px] text-left text-sm">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="px-4 py-3">Data/Hora</th>
+                      <th scope="col" className="px-4 py-3">Tipo do Alerta</th>
+                      <th scope="col" className="px-4 py-3">Setor Esperado</th>
+                      <th scope="col" className="px-4 py-3">Motivo da Falha</th>
+                      <th scope="col" className="px-4 py-3 text-right">Alerta de Origem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!failures.length ? (
+                      <tr>
+                        <td colSpan={5} className="p-0">
+                          <EmptyState title="Nenhuma falha de roteamento registrada." />
+                        </td>
+                      </tr>
+                    ) : null}
+                    {failures.map((f) => {
+                      const link = alertEntityLink({
+                        type: f.item_type,
+                        entity_type: f.entity_type ?? null,
+                        entity_id: f.entity_id ?? null,
+                      })
+                      const linkLabel = alertEntityLinkLabel({
+                        type: f.item_type,
+                        entity_type: f.entity_type ?? null,
+                      })
+
+                      return (
+                        <tr key={f.id}>
+                          <td className="px-4 py-2 tabular-nums text-[var(--app-muted)] whitespace-nowrap">
+                            {formatDateTime(f.created_at)}
+                          </td>
+                          <td className="px-4 py-2 font-medium text-[var(--app-text-strong)]">
+                            {getAlertTypeLabel(f.item_type)}
+                          </td>
+                          <td className="px-4 py-2 text-[var(--app-muted)]">
+                            {AGENCY_REPORT_DEPARTMENT_LABELS[f.department] ?? f.department}
+                          </td>
+                          <td className="px-4 py-2 text-rose-400 text-xs">
+                            {f.reason}
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            {link ? (
+                              <Link
+                                to={link}
+                                className="inline-flex items-center gap-1 text-xs text-[var(--app-primary)] hover:underline"
+                              >
+                                <span>{linkLabel}</span>
+                                <ExternalLink size={12} />
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-[var(--app-muted)]">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {failuresTotalPages > 1 && (
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <button
+                type="button"
+                disabled={failurePage === 0}
+                onClick={() => setFailurePage((p) => p - 1)}
+                className="app-btn app-btn--secondary disabled:opacity-30"
+              >
+                ← Anterior
+              </button>
+              <span className="text-[var(--app-muted)]">
+                Pág. {failurePage + 1} de {failuresTotalPages}
+              </span>
+              <button
+                type="button"
+                disabled={failurePage >= failuresTotalPages - 1}
+                onClick={() => setFailurePage((p) => p + 1)}
+                className="app-btn app-btn--secondary disabled:opacity-30"
+              >
+                Próximo →
+              </button>
+            </div>
+          )}
         </>
       ) : null}
 
@@ -574,7 +725,6 @@ export function AdminUsuarios() {
     </>
   )
 }
-
 
 function formatDateTime(iso: string) {
   return new Intl.DateTimeFormat('pt-BR', {

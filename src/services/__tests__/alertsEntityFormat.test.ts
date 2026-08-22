@@ -50,6 +50,6 @@ describe('formatAlertEntity', () => {
 
   it('retorna null para tipos ou ids nulos/desconhecidos', () => {
     expect(formatAlertEntity(null, null)).toBeNull()
-    expect(formatAlertEntity('invoice', '123')).toBeNull()
+    expect(formatAlertEntity('desconhecido', '123')).toBeNull()
   })
 })

@@ -58,6 +58,64 @@ export async function fetchAuditLogs(filters: LogFilters): Promise<{ rows: Audit
   }
 }
 
+export type RoutingFailureRow = {
+  id: number
+  alert_id: number | null
+  alert_item_id: number | null
+  event_id: number | null
+  item_type: string
+  department: string
+  reason: string
+  created_at: string
+  entity_type?: string | null
+  entity_id?: string | null
+}
+
+export async function fetchRoutingFailures(page = 0): Promise<{ rows: RoutingFailureRow[]; count: number }> {
+  const from = page * LOG_PAGE_SIZE
+  const to = from + LOG_PAGE_SIZE - 1
+
+  type RoutingFailureQuery = {
+    select: (columns: string, options?: { count: 'exact' }) => RoutingFailureQuery
+    order: (column: string, options: { ascending: boolean }) => RoutingFailureQuery
+    range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown | null; count: number | null }>
+  }
+  const { data, error, count } = await (supabase.from as unknown as (table: string) => RoutingFailureQuery)('alert_notification_failures')
+    .select('id, alert_id, alert_item_id, event_id, item_type, department, reason, created_at, alert:alerts(entity_type, entity_id)', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (error) throw error
+
+  const rows = ((data ?? []) as unknown as Array<{
+    id: number
+    alert_id: number | null
+    alert_item_id: number | null
+    event_id: number | null
+    item_type: string
+    department: string
+    reason: string
+    created_at: string
+    alert?: { entity_type: string | null; entity_id: string | null } | null
+  }>).map((r) => ({
+    id: r.id,
+    alert_id: r.alert_id,
+    alert_item_id: r.alert_item_id,
+    event_id: r.event_id,
+    item_type: r.item_type,
+    department: r.department,
+    reason: r.reason,
+    created_at: r.created_at,
+    entity_type: r.alert?.entity_type ?? null,
+    entity_id: r.alert?.entity_id ?? null,
+  }))
+
+  return {
+    rows,
+    count: count ?? 0,
+  }
+}
+
 export async function fetchSystemMetrics() {
   const [voyageRes, reconRes, invoiceRes] = await Promise.all([
     supabase.from('voyages').select('created_at').order('created_at', { ascending: false }).limit(1),

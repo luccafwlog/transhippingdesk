@@ -4,9 +4,11 @@
     "@dietrichgebert/ponytail",
     "github:cesumilo/opencode-skills-as-commands"
   ],
-  "skills": [
-    "./skills"
-  ],
+  "skills": {
+    "paths": [
+      "./skills"
+    ]
+  },
   "command": {
     "ask-matt": {
       "description": "Ask which skill or flow fits your situation. A router over the skills in this repo.",

@@ -31,9 +31,9 @@ vi.mock('../../services/alerts', async (importOriginal) => {
 
 import { Alertas } from '../Alertas'
 
-function renderAlertas() {
+function renderAlertas(initialEntries: string[] = ['/alertas']) {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <Alertas />
     </MemoryRouter>,
   )
@@ -73,4 +73,45 @@ it('distingue o formato ADR legado do formato terminalizado ao abrir a viagem', 
 
   expect(screen.getAllByRole('link', { name: /Abrir Viagem/ })[0].getAttribute('href')).toBe('/viagens/10?tab=adr&escala=BRVIX')
   expect(screen.getAllByRole('link', { name: /Abrir Viagem/ })[1].getAttribute('href')).toBe('/viagens/10?tab=adr&escala=BRVIX&terminal=TVV')
+})
+
+it('sincroniza o filtro de departamento a partir da URL e faz fallback para valores desconhecidos', () => {
+  // Test valid department param
+  const { unmount } = render(
+    <MemoryRouter initialEntries={['/alertas?departamento=documentacao']}>
+      <Alertas />
+    </MemoryRouter>,
+  )
+  const select = screen.getByRole('combobox', { name: 'Filtrar por setor' }) as HTMLSelectElement
+  expect(select.value).toBe('documentacao')
+  unmount()
+
+  // Test sem_departamento
+  const { unmount: unmountLegacy } = render(
+    <MemoryRouter initialEntries={['/alertas?departamento=sem_departamento']}>
+      <Alertas />
+    </MemoryRouter>,
+  )
+  const selectLegacy = screen.getByRole('combobox', { name: 'Filtrar por setor' }) as HTMLSelectElement
+  expect(selectLegacy.value).toBe('sem_departamento')
+  unmountLegacy()
+
+  // Test unknown fallback -> all ("Todos os setores")
+  render(
+    <MemoryRouter initialEntries={['/alertas?departamento=setor_inexistente']}>
+      <Alertas />
+    </MemoryRouter>,
+  )
+  const selectUnknown = screen.getByRole('combobox', { name: 'Filtrar por setor' }) as HTMLSelectElement
+  expect(selectUnknown.value).toBe('all')
+})
+
+it('permite trocar o filtro de departamento pelo select', () => {
+  renderAlertas()
+
+  const select = screen.getByRole('combobox', { name: 'Filtrar por setor' }) as HTMLSelectElement
+  expect(select.value).toBe('all')
+
+  fireEvent.change(select, { target: { value: 'operacoes' } })
+  expect(select.value).toBe('operacoes')
 })
