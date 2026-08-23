@@ -40,7 +40,7 @@ export function Painel() {
     refetchInterval: 90_000,
   })
 
-  const { data: departmentSummary } = useQuery<AlertDepartmentSummary[]>({
+  const { data: departmentSummary, error: departmentSummaryError } = useQuery<AlertDepartmentSummary[]>({
     queryKey: ['alert-department-summary'],
     queryFn: getAlertDepartmentSummary,
     staleTime: 60_000,
@@ -139,50 +139,54 @@ export function Painel() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {mainDeptCards.map((card) => (
-            <Link
-              key={card.department}
-              to={`/alertas?departamento=${encodeURIComponent(card.department)}`}
-              className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-[var(--app-muted)]">{card.label}</span>
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                    card.activeCount > 0
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'bg-slate-500/10 text-[var(--app-muted)]'
-                  }`}
-                >
-                  {card.activeCount} {card.activeCount === 1 ? 'pendência' : 'pendências'}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
-                <span>{card.dismissedCount > 0 ? `+ ${card.dismissedCount} dispensada(s)` : 'Nenhuma dispensa'}</span>
-                <span className="text-[var(--app-primary)]">Ver fila →</span>
-              </div>
-            </Link>
-          ))}
+        {departmentSummaryError ? (
+          <InlineError message="Erro ao carregar pendências por setor." />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {mainDeptCards.map((card) => (
+              <Link
+                key={card.department}
+                to={`/alertas?departamento=${encodeURIComponent(card.department)}`}
+                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[var(--app-muted)]">{card.label}</span>
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                      card.activeCount > 0
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-slate-500/10 text-[var(--app-muted)]'
+                    }`}
+                  >
+                    {card.activeCount} {card.activeCount === 1 ? 'pendência' : 'pendências'}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
+                  <span>{card.dismissedCount > 0 ? `+ ${card.dismissedCount} dispensada(s)` : 'Nenhuma dispensa'}</span>
+                  <span className="text-[var(--app-primary)]">Ver fila →</span>
+                </div>
+              </Link>
+            ))}
 
-          {legacyActiveCount > 0 || legacyDismissedCount > 0 ? (
-            <Link
-              to="/alertas?departamento=sem_departamento"
-              className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-[var(--app-muted)]">Sem setor / Legado</span>
-                <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-400 border border-amber-500/20">
-                  {legacyActiveCount}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
-                <span>{legacyDismissedCount > 0 ? `+ ${legacyDismissedCount} dispensado(s)` : 'Linhas históricas'}</span>
-                <span className="text-[var(--app-primary)]">Ver fila →</span>
-              </div>
-            </Link>
-          ) : null}
-        </div>
+            {legacyActiveCount > 0 || legacyDismissedCount > 0 ? (
+              <Link
+                to="/alertas?departamento=sem_departamento"
+                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[var(--app-muted)]">Sem setor / Legado</span>
+                  <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-400 border border-amber-500/20">
+                    {legacyActiveCount}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
+                  <span>{legacyDismissedCount > 0 ? `+ ${legacyDismissedCount} dispensado(s)` : 'Linhas históricas'}</span>
+                  <span className="text-[var(--app-primary)]">Ver fila →</span>
+                </div>
+              </Link>
+            ) : null}
+          </div>
+        )}
       </div>
 
       <LineUpFilters

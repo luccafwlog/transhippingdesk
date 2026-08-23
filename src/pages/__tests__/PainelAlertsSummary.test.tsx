@@ -4,6 +4,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const { summaryState } = vi.hoisted(() => ({ summaryState: { error: null as Error | null } }))
+
 const mockSummary = [
   { department: 'documentacao', active_count: 5, dismissed_count: 2, is_legacy: false },
   { department: 'equipamentos', active_count: 3, dismissed_count: 0, is_legacy: false },
@@ -18,7 +20,7 @@ vi.mock('@tanstack/react-query', () => ({
       return { data: { rows: [] }, isLoading: false, error: null, refetch: vi.fn(), isFetching: false }
     }
     if (key === 'alert-department-summary') {
-      return { data: mockSummary, isLoading: false, error: null }
+      return { data: summaryState.error ? undefined : mockSummary, isLoading: false, error: summaryState.error }
     }
     return { data: null, isLoading: false, error: null }
   },
@@ -32,7 +34,10 @@ vi.mock('../../lib/telemetry', () => ({ markStartupStage: vi.fn() }))
 import { Painel } from '../Painel'
 
 afterEach(cleanup)
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  summaryState.error = null
+})
 
 describe('Painel — Resumo de Pendências por Setor', () => {
   it('renderiza os cartões de cada setor com pendências ativas e dispensadas', () => {
@@ -79,5 +84,18 @@ describe('Painel — Resumo de Pendências por Setor', () => {
 
     const fullQueueLink = screen.getByText('Fila completa de alertas').closest('a')
     expect(fullQueueLink?.getAttribute('href')).toBe('/alertas')
+  })
+
+  it('expõe falha do resumo sem transformar erro em cartões zerados', () => {
+    summaryState.error = new Error('RPC indisponível')
+
+    render(
+      <MemoryRouter>
+        <Painel />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Erro ao carregar pendências por setor.')).toBeTruthy()
+    expect(screen.queryByText('5 pendências')).toBeNull()
   })
 })

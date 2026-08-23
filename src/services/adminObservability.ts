@@ -80,7 +80,9 @@ export async function fetchRoutingFailures(page = 0): Promise<{ rows: RoutingFai
     order: (column: string, options: { ascending: boolean }) => RoutingFailureQuery
     range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown | null; count: number | null }>
   }
-  const { data, error, count } = await (supabase.from as unknown as (table: string) => RoutingFailureQuery)('alert_notification_failures')
+  const boundFrom = supabase.from.bind(supabase) as unknown as (table: string) => RoutingFailureQuery
+  const query = boundFrom('alert_notification_failures')
+  const { data, error, count } = await query
     .select('id, alert_id, alert_item_id, event_id, item_type, department, reason, created_at, alert:alerts(entity_type, entity_id)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to)

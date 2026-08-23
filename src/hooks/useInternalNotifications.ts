@@ -5,14 +5,15 @@ import {
   markAllInternalNotificationsRead,
   markInternalNotificationRead,
 } from '../services/alerts'
+import type { InternalNotificationCursor } from '../services/alerts'
 
 export const INTERNAL_NOTIFICATIONS_QUERY_KEY = ['internal-notifications'] as const
 export const INTERNAL_NOTIFICATIONS_COUNT_QUERY_KEY = ['internal-notifications-unread-count'] as const
 
-export function useInternalNotifications(enabled = true, page = 0) {
+export function useInternalNotifications(enabled = true, before: InternalNotificationCursor | null = null) {
   return useQuery({
-    queryKey: [...INTERNAL_NOTIFICATIONS_QUERY_KEY, page],
-    queryFn: () => listInternalNotifications({ includeRead: false, limit: 20, offset: page * 20 }),
+    queryKey: [...INTERNAL_NOTIFICATIONS_QUERY_KEY, before?.createdAt ?? null, before?.id ?? null],
+    queryFn: () => listInternalNotifications({ includeRead: false, limit: 20, before }),
     enabled,
     refetchInterval: 60_000,
   })

@@ -495,16 +495,25 @@ export type InternalNotification = {
   payload?: Record<string, unknown> | null
 }
 
+export type InternalNotificationCursor = {
+  createdAt: string
+  id: number
+}
+
 export async function listInternalNotifications(options: {
   includeRead?: boolean
   limit?: number
-  offset?: number
+  before?: InternalNotificationCursor | null
 } = {}): Promise<InternalNotification[]> {
-  const { data, error } = await alertsRpc.rpc('list_internal_notifications', {
+  const params: Record<string, unknown> = {
     p_include_read: options.includeRead ?? false,
     p_limit: options.limit ?? 20,
-    p_offset: options.offset ?? 0,
-  })
+  }
+  if (options.before) {
+    params.p_before_created_at = options.before.createdAt
+    params.p_before_id = options.before.id
+  }
+  const { data, error } = await alertsRpc.rpc('list_internal_notifications', params)
   if (error) throw error
   return (Array.isArray(data) ? data : []) as InternalNotification[]
 }

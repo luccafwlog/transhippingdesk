@@ -40,13 +40,17 @@ export function Alertas() {
   const departmentFilter = DEPARTMENT_OPTIONS.some((opt) => opt.value === rawDept) ? rawDept : 'all'
 
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>('all')
-  const [page, setPage] = useState(0)
+  const [pagination, setPagination] = useState({ department: departmentFilter, page: 0 })
+  const page = pagination.department === departmentFilter ? pagination.page : 0
 
-  const [prevDept, setPrevDept] = useState(departmentFilter)
-
-  if (prevDept !== departmentFilter) {
-    setPrevDept(departmentFilter)
-    setPage(0)
+  function setPage(nextPage: number | ((currentPage: number) => number)) {
+    setPagination((current) => {
+      const currentPage = current.department === departmentFilter ? current.page : 0
+      return {
+        department: departmentFilter,
+        page: typeof nextPage === 'function' ? nextPage(currentPage) : nextPage,
+      }
+    })
   }
   const [dismissTarget, setDismissTarget] = useState<AlertQueueRow | null>(null)
   const [dismissReason, setDismissReason] = useState('')

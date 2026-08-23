@@ -8,18 +8,21 @@ import {
   useUnreadInternalNotificationCount,
 } from '../../hooks/useInternalNotifications'
 import { alertEntityLink, formatAlertEntity, ENTITY_TYPE_LABELS, type InternalNotification } from '../../services/alerts'
+import type { InternalNotificationCursor } from '../../services/alerts'
 import { formatDate } from '../../lib/utils'
 
 export function InternalNotificationBell() {
   const [open, setOpen] = useState(false)
   const [page, setPage] = useState(0)
+  const [cursorByPage, setCursorByPage] = useState<Array<InternalNotificationCursor | null>>([null])
   const wrapperRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   const { data: countData } = useUnreadInternalNotificationCount()
   const unreadCount = Number(countData ?? 0)
 
-  const { data = [], isLoading } = useInternalNotifications(open, page)
+  const cursor = cursorByPage[page] ?? null
+  const { data = [], isLoading } = useInternalNotifications(open, cursor)
   const markRead = useMarkInternalNotificationRead()
   const markAllRead = useMarkAllInternalNotificationsRead()
 
@@ -53,6 +56,7 @@ export function InternalNotificationBell() {
         onClick={() => {
           setOpen((current) => !current)
           setPage(0)
+          setCursorByPage([null])
         }}
       >
         <Bell size={16} />
@@ -183,7 +187,16 @@ export function InternalNotificationBell() {
                 type="button"
                 className="text-[var(--app-primary)] hover:underline disabled:opacity-40"
                 disabled={data.length < 20}
-                onClick={() => setPage((current) => current + 1)}
+                onClick={() => {
+                  const last = data[data.length - 1]
+                  if (!last) return
+                  setCursorByPage((current) => {
+                    const next = current.slice(0, page + 1)
+                    next[page + 1] = { createdAt: last.created_at, id: last.id }
+                    return next
+                  })
+                  setPage((current) => current + 1)
+                }}
               >
                 Próxima
               </button>
