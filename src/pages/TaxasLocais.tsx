@@ -21,6 +21,7 @@ import { resolveLegacyFaturamentoRedirect, toRouteTarget } from '../lib/routeRed
 import { isConsolidatedInvoice, listInvoicesForExport } from '../services/billing'
 import { exportInvoicesWorkbook } from '../services/exports'
 import { listFinancialAlerts } from '../services/alerts'
+import { queryKeys } from '../services/queryKeys'
 import { describeActiveFilters, describeEmptyState } from '../lib/operationalState'
 import { formatBRL } from '../lib/utils'
 
@@ -96,7 +97,7 @@ export function TaxasLocais() {
   const { data, isLoading, error } = useInvoices(filters)
 
   const financialAlertsQuery = useQuery({
-    queryKey: ['financial-alerts'],
+    queryKey: queryKeys.alerts.financial(),
     queryFn: listFinancialAlerts,
     staleTime: 60_000,
   })

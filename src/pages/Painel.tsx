@@ -19,6 +19,7 @@ import { fetchLineUpSnapshot } from '../services/lineup'
 import { exportLineUpWorkbook } from '../services/exports'
 import { markStartupStage } from '../lib/telemetry'
 import { getAlertDepartmentSummary, type AlertDepartmentSummary } from '../services/alerts'
+import { queryKeys } from '../services/queryKeys'
 import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
 
 const KNOWN_DEPARTMENTS = ['documentacao', 'equipamentos', 'operacoes'] as const
@@ -41,7 +42,7 @@ export function Painel() {
   })
 
   const { data: departmentSummary, error: departmentSummaryError } = useQuery<AlertDepartmentSummary[]>({
-    queryKey: ['alert-department-summary'],
+    queryKey: queryKeys.alerts.departmentSummary(),
     queryFn: getAlertDepartmentSummary,
     staleTime: 60_000,
     refetchInterval: 90_000,

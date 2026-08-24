@@ -116,5 +116,20 @@ export const queryKeys = {
     rates: () => ['demurrage-rates'] as const,
     invoices: (filters?: unknown) => (filters === undefined ? (['demurrage-invoices'] as const) : (['demurrage-invoices', filters] as const)),
   },
+  alerts: {
+    all: () => ['alerts'] as const,
+    list: (filter?: string, page?: number, department?: string) =>
+      filter === undefined && page === undefined && department === undefined
+        ? (['alerts'] as const)
+        : (['alerts', filter ?? 'all', page ?? 0, department ?? 'all'] as const),
+    departmentSummary: () => ['alert-department-summary'] as const,
+    financial: () => ['financial-alerts'] as const,
+    operationalCount: () => ['op-count', 'open-alerts'] as const,
+    internalNotifications: (cursor?: unknown) =>
+      cursor === undefined
+        ? (['internal-notifications'] as const)
+        : (['internal-notifications', cursor] as const),
+    internalNotificationsUnreadCount: () => ['internal-notifications-unread-count'] as const,
+  },
   dashboard: () => ['dashboard'] as const,
 }

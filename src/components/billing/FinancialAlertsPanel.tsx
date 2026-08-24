@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { getAlertTypeLabel, getEffectiveAlertType, type AlertQueueRow } from '../../services/alerts'
@@ -49,9 +50,9 @@ export function FinancialAlertsPanel({
         {alerts.length > 5 ? (
           <div className="text-xs text-amber-300/70">
             + {alerts.length - 5} alerta{alerts.length - 5 !== 1 ? 's' : ''}. Veja todos em{' '}
-            <a href="/alertas" className="underline hover:text-amber-200">
+            <Link to="/alertas" className="underline hover:text-amber-200">
               /alertas
-            </a>.
+            </Link>.
           </div>
         ) : null}
       </div>
