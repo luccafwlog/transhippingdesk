@@ -1,5 +1,10 @@
 -- 344_escala_terminal_trigger_after_columns.sql
--- Reinstala o trigger com ETB/ETD somente depois que 341 criar essas colunas.
+-- Repara bases em que a migration 341 foi pulada por causa do prefixo duplicado
+-- e reinstala o trigger somente depois que ETB/ETD existirem.
+
+ALTER TABLE public.voyage_escala_terminal_state
+  ADD COLUMN IF NOT EXISTS terminal_etb TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS terminal_etd TIMESTAMPTZ;
 
 DROP TRIGGER IF EXISTS reconcile_voyage_operation_alerts_on_terminal_change
   ON public.voyage_escala_terminal_state;

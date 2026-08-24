@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/341_atracacao_datas_por_terminal.sql'), 'utf8')
 const alertsSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/342_atracacao_alertas.sql'), 'utf8')
+const triggerRepairSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/344_escala_terminal_trigger_after_columns.sql'), 'utf8')
+const skippedMigrationRepairSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/345_restore_atracacao_terminal_schema.sql'), 'utf8')
 
 describe('contratos SQL de Atracação', () => {
   it('não faz a migration histórica 338 depender das colunas futuras de Atracação', () => {
@@ -19,6 +21,20 @@ describe('contratos SQL de Atracação', () => {
     const duplicatedPrefixes = prefixes.filter((prefix, index) => prefixes.indexOf(prefix) !== index)
 
     expect(duplicatedPrefixes).toEqual([])
+  })
+
+  it('repara as colunas antes de criar o trigger quando a migration 341 foi pulada', () => {
+    expect(triggerRepairSql).toMatch(/ADD COLUMN IF NOT EXISTS terminal_etb TIMESTAMPTZ/i)
+    expect(triggerRepairSql).toMatch(/ADD COLUMN IF NOT EXISTS terminal_etd TIMESTAMPTZ/i)
+    expect(triggerRepairSql.indexOf('ADD COLUMN IF NOT EXISTS terminal_etb')).toBeLessThan(
+      triggerRepairSql.indexOf('CREATE TRIGGER reconcile_voyage_operation_alerts_on_terminal_change'),
+    )
+  })
+
+  it('restaura a RPC de escrita quando a migration 341 nao foi registrada no remoto', () => {
+    expect(skippedMigrationRepairSql).toMatch(/CREATE OR REPLACE FUNCTION public\.save_voyage_escala_terminal_state_v2/i)
+    expect(skippedMigrationRepairSql).toMatch(/ADD COLUMN IF NOT EXISTS terminal_etb TIMESTAMPTZ/i)
+    expect(skippedMigrationRepairSql).toMatch(/ADD COLUMN IF NOT EXISTS terminal_etd TIMESTAMPTZ/i)
   })
 
   it('adiciona datas previstas, TBC único e checks de ordem', () => {
