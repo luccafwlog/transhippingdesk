@@ -271,7 +271,6 @@ export function projectVoyageEscalaSchedules({
     const current = terminalStatesByKey.get(key) ?? []
     current.push(state)
     terminalStatesByKey.set(key, current)
-    ensureEscala(escalasByKey, state.voyageId, normalizeBrazilianPortCode(state.port) ?? state.port)
   }
 
   // Coleta primeiro para que a ordem dos audit logs nao determine se um
@@ -353,7 +352,9 @@ export function projectVoyageEscalaSchedules({
       rtw: state.terminalRtw,
     })))
     escala.atd = escala.atracacoes.length > 0 && escala.atracacoes.every((atracacao) => atracacao.atd)
-      ? escala.atracacoes[escala.atracacoes.length - 1].atd ?? null
+      ? escala.atracacoes.reduce<string | null>((latest, atracacao) => (
+        latest === null || (atracacao.atd ?? '') > latest ? atracacao.atd ?? latest : latest
+      ), null)
       : null
   }
 

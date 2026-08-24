@@ -64,6 +64,7 @@ function collectClearedLanes(lanes: ScheduleLaneInput[]) {
 async function podHasOperationalAnchor(
   voyageId: number,
   podCode: string,
+  current: { ata: string | null; atd: string | null; linked: boolean | null },
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from('voyage_escala_revision_state')
@@ -72,7 +73,16 @@ async function podHasOperationalAnchor(
     .eq('port', podCode)
     .maybeSingle()
   if (error) throw error
-  return Number((data as { revision?: number } | null)?.revision ?? 0) > 0
+  if (Number((data as { revision?: number } | null)?.revision ?? 0) > 0) return true
+  if (Boolean(current.ata || current.atd || current.linked)) return true
+
+  const { count, error: blError } = await supabase
+    .from('bls')
+    .select('id', { count: 'exact', head: true })
+    .eq('voyage_id', voyageId)
+    .eq('pod', podCode)
+  if (blError) throw blError
+  return (count ?? 0) > 0
 }
 
 async function cancelClearedLanes(
@@ -95,7 +105,7 @@ async function cancelClearedLanes(
   await Promise.all(cleared.pods.map(async (code) => {
     const current = currentPods.get(buildVoyagePodEntityId(voyageId, code))
     if (!current) return
-    const anchored = await podHasOperationalAnchor(voyageId, code)
+    const anchored = await podHasOperationalAnchor(voyageId, code, current)
     if (anchored) {
       if (current.eta === null) return
       await saveVoyagePodSchedule({

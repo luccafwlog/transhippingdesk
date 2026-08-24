@@ -175,10 +175,13 @@ export function projectLineUpTerminalDates({
   const state = first?.terminalId
     ? terminalStates.find((candidate) => candidate.terminalId === first.terminalId)
     : undefined
+  const restow = terminalStates
+    .filter((candidate) => candidate.terminalId && assignedIds.has(candidate.terminalId))
+    .reduce((total, candidate) => total + (candidate.terminalRtw ?? 0), 0)
   return {
     etb: state?.terminalEtb ?? null,
     atb: state?.terminalAtb ?? null,
-    rtw: state?.terminalRtw ?? null,
+    rtw: restow > 0 ? restow : null,
   }
 }
 
@@ -449,7 +452,6 @@ function hasActiveEscalaScheduleData(schedule: {
 }) {
   if (schedule.temExportacao) return true
   if (schedule.eta || schedule.etb || schedule.ata || schedule.atb || schedule.etd || schedule.atd) return true
-  if (schedule.rtw !== null) return true
   if (schedule.linked === true) return true
   if (schedule.ceStatus && schedule.ceStatus !== 'waiting' && schedule.ceStatus !== 'missing') return true
   return false

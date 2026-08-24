@@ -91,7 +91,7 @@ BEGIN
       WHERE voyage_id = p_voyage_id AND port = v_port_norm
     LOOP
       IF v_term_rec.terminal_id IS NULL THEN CONTINUE; END IF;
-      v_term_entity_id := p_voyage_id || '::' || v_port_norm || '::' || upper(btrim(v_term_rec.terminal_id::text));
+      v_term_entity_id := p_voyage_id || '::' || v_port_norm || '::' || public.voyage_terminal_code(v_term_rec.terminal_id);
       PERFORM public.resolve_alert_item('voyage_terminal_date_pending', 'voyage_escala_terminal', v_term_entity_id, p_source, '{}'::jsonb);
       PERFORM public.resolve_alert_item('voyage_export_after_atd', 'voyage_escala_terminal', v_term_entity_id, p_source, '{}'::jsonb);
     END LOOP;
@@ -125,34 +125,33 @@ BEGIN
 
   -- Predicado da Atracação: cada terminal recebe apenas a sua própria cadeia.
   FOR v_term_rec IN
-    SELECT terminal_id, terminal_code, terminal_etb::date AS terminal_etb,
+    SELECT terminal_id, terminal_etb::date AS terminal_etb,
       terminal_atb::date AS terminal_atb, terminal_etd::date AS terminal_etd,
       terminal_atd::date AS terminal_atd
     FROM public.voyage_escala_terminal_state s
-    LEFT JOIN public.depots d ON d.id = s.terminal_id
     WHERE s.voyage_id = p_voyage_id AND s.port = v_port_norm AND s.terminal_id IS NOT NULL
   LOOP
-    v_term_entity_id := p_voyage_id || '::' || v_port_norm || '::' || upper(btrim(v_term_rec.terminal_id::text));
+    v_term_entity_id := p_voyage_id || '::' || v_port_norm || '::' || public.voyage_terminal_code(v_term_rec.terminal_id);
     IF v_term_rec.terminal_etb IS NOT NULL AND v_term_rec.terminal_etb <= v_today AND v_term_rec.terminal_atb IS NULL THEN
       PERFORM public.upsert_alert_item(
         'voyage_terminal_date_pending', 'voyage_escala_terminal', v_term_entity_id,
         'ATB pendente no terminal para a escala ' || v_port_norm || ' (ETB ' || to_char(v_term_rec.terminal_etb, 'DD/MM/YYYY') || ' atingido)',
-        p_source, jsonb_build_object('voyage_id', p_voyage_id, 'port', v_port_norm, 'terminal', v_term_rec.terminal_id, 'milestone', 'atb', 'etb', v_term_rec.terminal_etb),
-        '/viagens/' || p_voyage_id || '?escala=' || v_port_norm || '&terminal=' || v_term_rec.terminal_id
+        p_source, jsonb_build_object('voyage_id', p_voyage_id, 'port', v_port_norm, 'terminal', public.voyage_terminal_code(v_term_rec.terminal_id), 'milestone', 'atb', 'etb', v_term_rec.terminal_etb),
+        '/viagens/' || p_voyage_id || '?escala=' || v_port_norm || '&terminal=' || public.voyage_terminal_code(v_term_rec.terminal_id)
       );
     ELSIF v_term_rec.terminal_atb IS NOT NULL AND v_term_rec.terminal_etd IS NULL THEN
       PERFORM public.upsert_alert_item(
         'voyage_terminal_date_pending', 'voyage_escala_terminal', v_term_entity_id,
         'ETD pendente no terminal para a escala ' || v_port_norm || ' (ATB informada)',
-        p_source, jsonb_build_object('voyage_id', p_voyage_id, 'port', v_port_norm, 'terminal', v_term_rec.terminal_id, 'milestone', 'etd'),
-        '/viagens/' || p_voyage_id || '?escala=' || v_port_norm || '&terminal=' || v_term_rec.terminal_id
+        p_source, jsonb_build_object('voyage_id', p_voyage_id, 'port', v_port_norm, 'terminal', public.voyage_terminal_code(v_term_rec.terminal_id), 'milestone', 'etd'),
+        '/viagens/' || p_voyage_id || '?escala=' || v_port_norm || '&terminal=' || public.voyage_terminal_code(v_term_rec.terminal_id)
       );
     ELSIF v_term_rec.terminal_etd IS NOT NULL AND v_term_rec.terminal_etd <= v_today AND v_term_rec.terminal_atd IS NULL THEN
       PERFORM public.upsert_alert_item(
         'voyage_terminal_date_pending', 'voyage_escala_terminal', v_term_entity_id,
         'ATD pendente no terminal para a escala ' || v_port_norm || ' (ETD ' || to_char(v_term_rec.terminal_etd, 'DD/MM/YYYY') || ' atingido)',
-        p_source, jsonb_build_object('voyage_id', p_voyage_id, 'port', v_port_norm, 'terminal', v_term_rec.terminal_id, 'milestone', 'atd', 'etd', v_term_rec.terminal_etd),
-        '/viagens/' || p_voyage_id || '?escala=' || v_port_norm || '&terminal=' || v_term_rec.terminal_id
+        p_source, jsonb_build_object('voyage_id', p_voyage_id, 'port', v_port_norm, 'terminal', public.voyage_terminal_code(v_term_rec.terminal_id), 'milestone', 'atd', 'etd', v_term_rec.terminal_etd),
+        '/viagens/' || p_voyage_id || '?escala=' || v_port_norm || '&terminal=' || public.voyage_terminal_code(v_term_rec.terminal_id)
       );
     ELSE
       PERFORM public.resolve_alert_item('voyage_terminal_date_pending', 'voyage_escala_terminal', v_term_entity_id, p_source, '{}'::jsonb);
@@ -161,8 +160,8 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.reconcile_voyage_schedule_date_alerts(BIGINT, TEXT, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.reconcile_voyage_schedule_date_alerts(BIGINT, TEXT, TEXT) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.reconcile_voyage_schedule_date_alerts(BIGINT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_voyage_schedule_date_alerts(BIGINT, TEXT, TEXT) TO service_role;
 
 -- Itens abertos no grão antigo não têm mais uma Atracação correspondente.
 -- Fechamento explícito preserva o evento e o motivo na trilha da fundação.

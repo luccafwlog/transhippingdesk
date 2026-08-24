@@ -204,9 +204,11 @@ export function VoyageCard({
       etb: schedule?.atracacoes[0]?.etb ?? null,
       ata: schedule?.ata ?? null,
       atb: schedule?.atracacoes[0]?.atb ?? null,
-      etd: schedule?.atracacoes[0]?.etd ?? null,
+      etd: schedule?.atracacoes.reduce<string | null>((latest, atracacao) => (
+        latest === null || (atracacao.etd ?? '') > latest ? atracacao.etd ?? latest : latest
+      ), null) ?? null,
       atd: schedule?.atd ?? null,
-      rtw: schedule?.atracacoes[0]?.rtw ?? null,
+      rtw: schedule?.atracacoes.reduce((total, atracacao) => total + (atracacao.rtw ?? 0), 0) || null,
       ceStatus: schedule?.ceStatus ?? autoCeStatus,
       linked: schedule?.linked ?? false,
       escalaNumber: schedule?.escalaNumber ?? null,

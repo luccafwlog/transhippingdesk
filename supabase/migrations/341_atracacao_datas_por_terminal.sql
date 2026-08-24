@@ -29,6 +29,25 @@ COMMENT ON COLUMN public.voyage_escala_terminal_state.terminal_etd IS
 COMMENT ON INDEX public.uq_voyage_escala_terminal_state_tbc IS
   'Uma unica Atracacao TBC por escala; UNIQUE comum nao restringe NULL.';
 
+-- O RPC legado usa NOT EXISTS com igualdade simples. O patch mantém a linha
+-- TBC (terminal_id NULL) fora do conjunto de remoção e das validações de
+-- alteração de terminal.
+DO $patch_legacy_tbc$
+DECLARE
+  v_definition TEXT;
+BEGIN
+  SELECT pg_get_functiondef('public.save_voyage_escala_terminal_state(bigint,text,integer,jsonb,jsonb,jsonb,text)'::regprocedure)
+    INTO v_definition;
+  v_definition := regexp_replace(v_definition,
+    '(FROM public\.voyage_escala_terminal_state AS old_t\s+WHERE old_t\.voyage_id = p_voyage_id AND old_t\.port = v_port\s+)AND NOT EXISTS',
+    '\1AND old_t.terminal_id IS NOT NULL AND NOT EXISTS', 'g');
+  v_definition := regexp_replace(v_definition,
+    '(FROM public\.voyage_escala_terminal_state AS s\s+WHERE s\.voyage_id = p_voyage_id AND s\.port = v_port\s+)AND NOT EXISTS',
+    '\1AND s.terminal_id IS NOT NULL AND NOT EXISTS', 'g');
+  EXECUTE v_definition;
+END;
+$patch_legacy_tbc$;
+
 -- A RPC de 306 continua sendo preservada para clientes antigos. O fluxo novo
 -- delega a ela as regras de frente, exportacao, revisao e ADR fechado, e
 -- completa no mesmo contexto transacional as colunas da Atracacao e o TBC.
@@ -79,6 +98,10 @@ BEGIN
   FROM jsonb_array_elements(p_terminals) AS entries(item)
   WHERE NULLIF(entries.item->>'terminal_id', '') IS NOT NULL;
 
+  -- O RPC legado não pode interpretar NULL com igualdade simples: uma linha
+  -- TBC não deve ser considerada removida nem bloquear uma edição que só
+  -- altera a expectativa de exportação. O patch abaixo mantém essa regra no
+  -- corpo legado, sem duplicar sua implementação nesta migration.
   v_legacy := public.save_voyage_escala_terminal_state(
     p_voyage_id,
     v_port,

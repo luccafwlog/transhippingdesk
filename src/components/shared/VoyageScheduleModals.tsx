@@ -237,6 +237,7 @@ function orderTerminalIds(
   terminalById: Map<string, TerminalOption>,
 ) {
   const ids = new Set(scale.terminals.flatMap((terminal) => terminal.terminalId ? [terminal.terminalId] : []))
+  if (scale.terminals.some((terminal) => terminal.terminalId === null) || Object.values(fronts).some((terminalId) => !terminalId)) ids.add('__tbc__')
   for (const terminalId of Object.values(fronts)) if (terminalId) ids.add(terminalId)
   return sortAtracacoes([...ids].map((terminalId) => ({
     terminalId,
@@ -451,9 +452,9 @@ function TerminalFrontEditor({
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Datas por terminal</h4>
         {terminalIds.length === 0 ? <p className="text-xs text-[var(--app-muted)]">Nenhuma Atracação com terminal atribuída. A chegada ETA/ATA permanece na Escala.</p> : null}
         {terminalIds.map((terminalId) => {
-          const option = terminalById.get(terminalId)
+          const option = terminalId === '__tbc__' ? undefined : terminalById.get(terminalId)
           const draft = terminalDates[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
-          const code = option?.code ?? terminalId
+          const code = terminalId === '__tbc__' ? 'TBC' : option?.code ?? terminalId
           return (
             <div key={terminalId} className="grid gap-3 rounded-md border border-[var(--app-border)] p-2 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_8rem] md:items-end">
               <div className="text-sm font-medium text-[var(--app-text-strong)]">
@@ -584,7 +585,7 @@ export function EscalaModal({
       (state?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
     ))
     setTerminalDates(Object.fromEntries(
-      (state?.terminals ?? []).filter((terminal) => terminal.terminalId).map((terminal) => [terminal.terminalId as string, {
+      (state?.terminals ?? []).map((terminal) => [terminal.terminalId ?? '__tbc__', {
         etb: dateInputValue(terminal.etb),
         atb: dateInputValue(terminal.atb),
         etd: dateInputValue(terminal.etd),
@@ -603,17 +604,17 @@ export function EscalaModal({
       }
       const hydratedDates = { ...terminalDates }
       for (const terminal of terminalScale.terminals) {
-        if (!terminal.terminalId) continue
-        const current = hydratedDates[terminal.terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
+        const terminalKey = terminal.terminalId ?? '__tbc__'
+        const current = hydratedDates[terminalKey] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
         const next = { ...current }
         for (const field of ['etb', 'atb', 'etd', 'atd', 'restow'] as const) {
-          if (!touchedTerminalDates.has(`${terminal.terminalId}:${field}`)) {
+          if (!touchedTerminalDates.has(`${terminalKey}:${field}`)) {
             next[field] = field === 'restow'
               ? (terminal.restow == null ? '' : String(terminal.restow))
               : dateInputValue(terminal[field])
           }
         }
-        hydratedDates[terminal.terminalId] = next
+        hydratedDates[terminalKey] = next
       }
       setTerminalFronts(hydratedFronts)
       setTerminalDates(hydratedDates)
@@ -633,7 +634,7 @@ export function EscalaModal({
     (terminalScale?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
   )
   const initialTerminalDates = Object.fromEntries(
-    (terminalScale?.terminals ?? []).filter((terminal) => terminal.terminalId).map((terminal) => [terminal.terminalId as string, {
+    (terminalScale?.terminals ?? []).map((terminal) => [terminal.terminalId ?? '__tbc__', {
       etb: dateInputValue(terminal.etb),
       atb: dateInputValue(terminal.atb),
       etd: dateInputValue(terminal.etd),
