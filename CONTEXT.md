@@ -172,9 +172,13 @@ demais documentos de carga referenciam esses mesmos portos.
 
 **Atracação**
 Passagem de uma Escala por um terminal, com o ciclo próprio de berço: ETB e ATB
-para a atracação, ETD e ATD para a desatracação. É dona dessas quatro datas — a
-Escala é dona apenas de ETA e ATA, a chegada ao porto. Uma Escala é uma
-sequência ordenada de Atracações; o mesmo terminal ocorre uma vez por Escala.
+para a atracação, ETD e ATD para a desatracação. É dona dessas quatro datas e do
+Restow — a Escala é dona apenas de ETA e ATA, a chegada ao porto. Uma Escala é
+uma sequência ordenada de Atracações; o mesmo terminal ocorre uma vez por
+Escala. A ordem é derivada de `COALESCE(ATB, ETB)`, com empate desfeito pelo
+código do terminal: não é campo digitado. Nasce da atribuição de um terminal a
+uma Frente Operacional; sem frente não há Atracação, e uma frente sem terminal
+escolhido é uma Atracação **TBC**.
 _Evitar_: berço, janela, escala no terminal.
 
 **ATB (Actual Time of Berthing)**
@@ -486,8 +490,10 @@ Classificação do container vazio descarregado: **cama** (base de estiva para
 cargas OOG) ou **cover plate** (tampas para porões do navio).
 
 **Restow**
-Container descarregado e reembarcado por reestiva na mesma escala. A contagem
-é registrada na edição da Escala (campo RTW).
+Container descarregado e reembarcado por reestiva. A reestiva acontece no berço,
+com o equipamento daquele terminal: a contagem é da **Atracação**, não da
+Escala, e é o ADR daquele terminal que a declara. Uma Escala com duas Atracações
+tem duas contagens independentes.
 
 **Local de Desova**
 Local onde um container com veículo foi desovado. Atributo do container,
