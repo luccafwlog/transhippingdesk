@@ -10,8 +10,7 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
-| `2026-08-15`–`2026-08-17` — Blocos 1, 2, 3, 4 e 5 | Implementações concluídas e arquivadas após a integração da PR #576 | DONE — ver `docs/archive/plans/` |
-| [`2026-08-20-implementacao-bloco-525-transversal-portal.md`](./2026-08-20-implementacao-bloco-525-transversal-portal.md) | Implementação das superfícies transversais: sino interno, fila `/alertas`, resumo do `/painel`, falha de roteamento e Eco de Tratamento — Bloco #525 | BLOCKED — depende da integração dos produtores dos Blocos 1–5 (#519, §2, passo 11) |
+| `2026-08-15`–`2026-08-20` — Blocos 1, 2, 3, 4, 5 e 6 | Implementações concluídas e arquivadas após a consolidação do Épico #519 | DONE — ver `docs/archive/plans/` |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
@@ -23,7 +22,7 @@ cinco specs de bloco. Passou a ter um item **E4 — dispensa temporária** no Bl
 0, o catálogo completo de gravidade por evento no E1 e o mapa entre as letras do
 catálogo (A–D) e as issues #520–#525.
 
-> **Nota de sincronização de migrations (PRs #568, #569, #570, #571, #573, #574).**
+> **Nota de sincronização de migrations (PRs #568, #569, #570, #571, #573, #574, #576).**
 > A fundação transversal E1–E4 foi totalmente implementada e mergeada em `main`
 > pela PR #568 (migrations `317`–`321`). Na sequência:
 > - PR #569 entregou o onboarding em lote de grupos de clientes (migration `322`).
@@ -32,7 +31,7 @@ catálogo (A–D) e as issues #520–#525.
 > - PR #573 implementou o Bloco 3 (#522 — Financeiro e Reconciliação PIX).
 > - PR #574 implementou o Bloco 1 (#520 — B/L e Revisão Manual) via migration `324_review_bl_alerts_lifecycle.sql`.
 > - A PR #576 integrou o **Bloco 4 (#523 — Operação e Viagem)** e os demais produtores dos Blocos 1–5.
-> - O Bloco 6 (#525) consome as superfícies transversais após a integração dos produtores.
+> - O **Bloco 6 (#525 — Transversal e Portal do Cliente)** entregou o sino interno, a fila `/alertas` completa, o resumo do `/painel`, a observabilidade de falhas e o Eco de Tratamento (migration `339`).
 
 ### Nota editorial sobre o registro de decisões de #519
 

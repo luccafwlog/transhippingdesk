@@ -16,8 +16,7 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
-| Blocos 1–5 | Specs concluídas e arquivadas em `docs/archive/specs/` após a integração da PR #576 |
-| [`2026-08-20-bloco-525-transversal-portal-design.md`](./2026-08-20-bloco-525-transversal-portal-design.md) | Superfícies transversais de Alertas e Notificações — sino, `/alertas`, `/painel`, `/admin/usuarios` e fronteira do Portal do Cliente — Bloco #525 |
+| Blocos 1–6 | Specs concluídas e arquivadas em `docs/archive/specs/` após o encerramento do Épico #519 |
 
 A spec funcional permanece nesta tabela enquanto seu plano não for concluído e
 é movida para o [arquivo histórico](../archive/specs/) junto com ele.

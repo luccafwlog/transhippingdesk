@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
+  AlertTriangle,
+  ArrowRight,
   Download,
   Monitor,
   RefreshCw,
@@ -16,6 +18,10 @@ import { countActiveLineUpFilters, emptyLineUpFilters, filterLineUpRows, type Li
 import { fetchLineUpSnapshot } from '../services/lineup'
 import { exportLineUpWorkbook } from '../services/exports'
 import { markStartupStage } from '../lib/telemetry'
+import { getAlertDepartmentSummary, type AlertDepartmentSummary } from '../services/alerts'
+import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
+
+const KNOWN_DEPARTMENTS = ['documentacao', 'equipamentos', 'operacoes'] as const
 
 export function Painel() {
   const { showToast } = useToast()
@@ -30,6 +36,13 @@ export function Painel() {
   } = useQuery({
     queryKey: ['lineup-tv-v3'],
     queryFn: fetchLineUpSnapshot,
+    staleTime: 60_000,
+    refetchInterval: 90_000,
+  })
+
+  const { data: departmentSummary, error: departmentSummaryError } = useQuery<AlertDepartmentSummary[]>({
+    queryKey: ['alert-department-summary'],
+    queryFn: getAlertDepartmentSummary,
     staleTime: 60_000,
     refetchInterval: 90_000,
   })
@@ -54,6 +67,31 @@ export function Painel() {
       setIsExporting(false)
     }
   }
+
+  // Mapear departamentos garantindo presença dos 3 setores principais
+  const summaryByDept = useMemo(() => {
+    const map = new Map<string, AlertDepartmentSummary>()
+    if (Array.isArray(departmentSummary)) {
+      for (const item of departmentSummary) {
+        map.set(item.department, item)
+      }
+    }
+    return map
+  }, [departmentSummary])
+
+  const mainDeptCards = KNOWN_DEPARTMENTS.map((dept) => {
+    const item = summaryByDept.get(dept)
+    return {
+      department: dept,
+      label: AGENCY_REPORT_DEPARTMENT_LABELS[dept] ?? dept,
+      activeCount: Number(item?.active_count ?? 0),
+      dismissedCount: Number(item?.dismissed_count ?? 0),
+    }
+  })
+
+  const legacyItem = summaryByDept.get('sem_departamento')
+  const legacyActiveCount = Number(legacyItem?.active_count ?? 0)
+  const legacyDismissedCount = Number(legacyItem?.dismissed_count ?? 0)
 
   return (
     <>
@@ -87,6 +125,70 @@ export function Painel() {
         }
       />
 
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} className="text-amber-400" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+              Pendências por Setor Responsável
+            </h2>
+          </div>
+          <Link to="/alertas" className="inline-flex items-center gap-1 text-xs text-[var(--app-primary)] hover:underline">
+            <span>Fila completa de alertas</span>
+            <ArrowRight size={12} />
+          </Link>
+        </div>
+
+        {departmentSummaryError ? (
+          <InlineError message="Erro ao carregar pendências por setor." />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {mainDeptCards.map((card) => (
+              <Link
+                key={card.department}
+                to={`/alertas?departamento=${encodeURIComponent(card.department)}`}
+                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[var(--app-muted)]">{card.label}</span>
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                      card.activeCount > 0
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-slate-500/10 text-[var(--app-muted)]'
+                    }`}
+                  >
+                    {card.activeCount} {card.activeCount === 1 ? 'pendência' : 'pendências'}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
+                  <span>{card.dismissedCount > 0 ? `+ ${card.dismissedCount} dispensada(s)` : 'Nenhuma dispensa'}</span>
+                  <span className="text-[var(--app-primary)]">Ver fila →</span>
+                </div>
+              </Link>
+            ))}
+
+            {legacyActiveCount > 0 || legacyDismissedCount > 0 ? (
+              <Link
+                to="/alertas?departamento=sem_departamento"
+                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[var(--app-muted)]">Sem setor / Legado</span>
+                  <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-400 border border-amber-500/20">
+                    {legacyActiveCount}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
+                  <span>{legacyDismissedCount > 0 ? `+ ${legacyDismissedCount} dispensado(s)` : 'Linhas históricas'}</span>
+                  <span className="text-[var(--app-primary)]">Ver fila →</span>
+                </div>
+              </Link>
+            ) : null}
+          </div>
+        )}
+      </div>
+
       <LineUpFilters
         filters={filters}
         onChange={setFilters}
@@ -116,7 +218,6 @@ export function Painel() {
           </p>
         </Card>
       )}
-
     </>
   )
 }

@@ -1,8 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { fetchAuditLogs, fetchSystemMetrics } from '../adminObservability'
 
-const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
-vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
+const { fromMock, supabaseMock } = vi.hoisted(() => {
+  const supabaseMock = { from: vi.fn() }
+  return { fromMock: supabaseMock.from, supabaseMock }
+})
+vi.mock('../supabase', () => ({ supabase: supabaseMock }))
 
 function builder(result: { data: unknown; error: unknown; count?: number | null }) {
   const value = {
@@ -65,4 +68,35 @@ it('propaga falha ao resolver nomes dos autores do log', async () => {
     dateTo: '',
     page: 0,
   })).rejects.toThrow('profiles unavailable')
+})
+
+it('mantém o cliente Supabase ligado ao builder de falhas de roteamento', async () => {
+  const result = builder({
+    data: [{
+      id: 7,
+      alert_id: 11,
+      alert_item_id: 12,
+      event_id: 13,
+      item_type: 'invoice_overdue',
+      department: 'documentacao',
+      reason: 'sem destinatário',
+      created_at: '2026-08-22T10:00:00Z',
+      alert: { entity_type: 'invoice', entity_id: 'INV-7' },
+    }],
+    error: null,
+    count: 1,
+  })
+
+  fromMock.mockImplementation(function (this: unknown, table: string) {
+    expect(this).toBe(supabaseMock)
+    expect(table).toBe('alert_notification_failures')
+    return result
+  })
+
+  const response = await (await import('../adminObservability')).fetchRoutingFailures()
+
+  expect(response).toEqual({
+    count: 1,
+    rows: [expect.objectContaining({ id: 7, entity_type: 'invoice', entity_id: 'INV-7' })],
+  })
 })

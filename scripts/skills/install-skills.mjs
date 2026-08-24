@@ -4,6 +4,7 @@
 // in every environment:
 //   - Claude Code: ~/.claude/skills/   (called from .claude/hooks/session-start.sh)
 //   - Codex:       ~/.codex/skills/    (called from the Codex worktree setup script)
+//   - Antigravity: ~/.gemini/config/skills/
 //
 // skills/ is the single source of truth. Node (already required for npm install)
 // runs identically on Windows/macOS/Linux, avoiding a bash-vs-PowerShell split.
@@ -23,6 +24,7 @@ const source = path.join(root, 'skills')
 const targets = [
   path.join(os.homedir(), '.claude', 'skills'),
   path.join(os.homedir(), '.codex', 'skills'),
+  path.join(os.homedir(), '.gemini', 'config', 'skills'),
 ]
 
 const skills = fs
