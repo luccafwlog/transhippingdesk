@@ -27,9 +27,10 @@ e não dispensa a igualdade do número da viagem.
 **Escala portuária**
 Passagem de uma viagem por um porto brasileiro, identificada por
 `(Viagem, porto)`, com datas operacionais, identificadores e vínculos
-documentais próprios. Um porto, uma escala: a mesma escala pode descarregar
-importação, embarcar exportação ou as duas coisas, e o sentido da operação não
-a divide em registros diferentes. Portos estrangeiros da rota não são escalas —
+documentais próprios. É dona da chegada ao porto — ETA e ATA —, enquanto as
+datas de berço pertencem às suas Atracações. Um porto, uma escala: a mesma
+escala pode descarregar importação, embarcar exportação ou as duas coisas, e o
+sentido da operação não a divide em registros diferentes. Portos estrangeiros da rota não são escalas —
 permanecem como papel documental do B/L.
 
 - **Distinto de:** POL e POD, que são papéis do conhecimento de embarque e da
@@ -162,18 +163,27 @@ transbordo/COD, carga, cliente, Portal e financeiro, com os trilhos operacional
 e financeiro e a proxima acao.
 
 **Rota da Viagem**
-Sequência de portos de uma viagem. Cada escala pode registrar o ciclo completo:
-ETA/ATA para chegada, ETB/ATB para atracação e ETD/ATD para saída. É o dado que o sistema
-operacional consome — B/Ls e demais documentos de carga referenciam esses
-mesmos portos.
+Sequência de portos de uma viagem. Cada escala registra a chegada ao porto
+(ETA/ATA) e as Atracações que a compõem, cada uma com o seu próprio ciclo de
+berço (ETB/ATB/ETD/ATD). É o dado que o sistema operacional consome — B/Ls e
+demais documentos de carga referenciam esses mesmos portos.
+
+**Atracação**
+Passagem de uma Escala por um terminal, com o ciclo próprio de berço: ETB e ATB
+para a atracação, ETD e ATD para a desatracação. É dona dessas quatro datas — a
+Escala é dona apenas de ETA e ATA, a chegada ao porto. Uma Escala é uma
+sequência ordenada de Atracações; o mesmo terminal ocorre uma vez por Escala.
+_Evitar_: berço, janela, escala no terminal.
 
 **ATB (Actual Time of Berthing)**
-Data e hora efetivas em que a embarcação atracou na escala. É distinta de ATA,
-que registra a chegada, e de ETB, que registra a previsão de atracação.
+Data e hora efetivas em que a embarcação atracou no terminal da Atracação. É
+distinta de ATA, que registra a chegada ao porto e pertence à Escala, e de ETB,
+que registra a previsão de atracação naquele terminal.
 
 **ATD (Actual Time of Departure)**
-Data efetiva em que a embarcação saiu da escala, registrada sem hora. É distinta
-de ETD, que permanece a previsão de saída. Marca o início da contagem do Prazo
+Data efetiva em que a embarcação desatracou do terminal da Atracação,
+registrada sem hora. É distinta de ETD, que permanece a previsão de
+desatracação daquele terminal. Marca o início da contagem do Prazo
 de Conclusão do ADR.
 
 **Estado da Escala**
