@@ -7,6 +7,18 @@ import { chunkArray } from '../lib/utils'
 const POL_ENTITY_TYPE = 'voyage_pol_schedule'
 const POD_ENTITY_TYPE = 'voyage_pod_schedule'
 
+function isMissingTerminalScheduleColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+
+  const value = error as { code?: unknown; message?: unknown }
+  const code = typeof value.code === 'string' ? value.code : ''
+  const message = typeof value.message === 'string' ? value.message : ''
+
+  return code === '42703'
+    || code === 'PGRST204'
+    || /column .*terminal_(?:etb|etd).*does not exist/i.test(message)
+}
+
 export const POD_CE_STATUS_OPTIONS = [
   { value: 'waiting', label: 'Aguardando' },
   { value: 'received', label: 'Recebido' },
@@ -192,7 +204,10 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
     listScheduleAuditRowsByVoyageIds(POD_ENTITY_TYPE, voyageIds),
     listScheduleAuditRowsByVoyageIds(POL_ENTITY_TYPE, voyageIds),
     fetchExportSchedulesByVoyageIds(voyageIds),
-    listVoyageTerminalScaleStatesByVoyageIds(voyageIds),
+    listVoyageTerminalScaleStatesByVoyageIds(voyageIds).catch((error: unknown) => {
+      if (isMissingTerminalScheduleColumnError(error)) return new Map<number, VoyageTerminalScaleState[]>()
+      throw error
+    }),
   ])
 
   const podsByVoyage = groupSchedulesByVoyage(hydratePodSchedules(podRows, { includeDeleted: true }))

@@ -1,4 +1,4 @@
--- 341_alerts_rls_hardening.sql
+-- 343_alerts_rls_hardening.sql
 -- Hardening de segurança e RLS na tabela base public.alerts.
 --
 -- Contexto:

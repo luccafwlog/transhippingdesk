@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -6,6 +6,21 @@ const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/341_atracac
 const alertsSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/342_atracacao_alertas.sql'), 'utf8')
 
 describe('contratos SQL de Atracação', () => {
+  it('não faz a migration histórica 338 depender das colunas futuras de Atracação', () => {
+    const legacyAlertsSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/338_alerts_review_hardening.sql'), 'utf8')
+
+    expect(legacyAlertsSql).not.toMatch(/terminal_etb|terminal_etd/i)
+  })
+
+  it('mantem os prefixos numericos de migration unicos', () => {
+    const migrationNames = readdirSync(resolve(process.cwd(), 'supabase/migrations'))
+      .filter((name) => /^\d+_.*\.sql$/.test(name))
+    const prefixes = migrationNames.map((name) => name.match(/^(\d+)_/)?.[1]).filter(Boolean)
+    const duplicatedPrefixes = prefixes.filter((prefix, index) => prefixes.indexOf(prefix) !== index)
+
+    expect(duplicatedPrefixes).toEqual([])
+  })
+
   it('adiciona datas previstas, TBC único e checks de ordem', () => {
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS terminal_etb TIMESTAMPTZ/i)
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS terminal_etd TIMESTAMPTZ/i)

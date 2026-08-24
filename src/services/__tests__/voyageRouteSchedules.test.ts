@@ -410,6 +410,47 @@ describe('projectVoyageEscalaSchedules', () => {
   })
 })
 
+it('mantem a linha da escala quando as colunas novas de Atracacao ainda nao existem', async () => {
+  const auditQuery = {
+    entityType: null as string | null,
+    select: vi.fn(() => auditQuery),
+    eq: vi.fn((column: string, value: string) => {
+      if (column === 'entity_type') auditQuery.entityType = value
+      return auditQuery
+    }),
+    or: vi.fn(() => auditQuery),
+    order: vi.fn(() => auditQuery),
+    range: vi.fn(async () => ({
+      data: auditQuery.entityType === 'voyage_pod_schedule'
+        ? [{ entity_id: '12::BRVIX', field_name: 'eta', new_value: '2026-08-01', changed_at: '2026-07-01T00:00:00Z' }]
+        : [],
+      error: null,
+    })),
+  }
+  const exportQuery = {
+    select: vi.fn(() => exportQuery),
+    in: vi.fn(async () => ({ data: [], error: null })),
+  }
+  const terminalQuery = {
+    select: vi.fn(() => terminalQuery),
+    in: vi.fn(async () => ({
+      data: null,
+      error: { code: '42703', message: 'column terminal_etb does not exist' },
+    })),
+  }
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'audit_logs') return auditQuery
+    if (table === 'voyage_export_schedules') return exportQuery
+    if (table === 'voyage_escala_terminal_state') return terminalQuery
+    throw new Error(`Tabela inesperada: ${table}`)
+  })
+
+  const { listVoyageEscalaSchedulesByVoyageIds } = await import('../voyageRouteSchedules')
+  const result = await listVoyageEscalaSchedulesByVoyageIds([12])
+
+  expect(result.get(12)).toEqual([expect.objectContaining({ port: 'BRVIX', eta: '2026-08-01' })])
+})
+
 it('nao reverte uma viagem cancelada quando o ATD muda', async () => {
   let auditSelects = 0
   const auditLogs = {
