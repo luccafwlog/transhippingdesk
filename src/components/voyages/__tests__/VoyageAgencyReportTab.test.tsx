@@ -408,12 +408,17 @@ it('fecha o ADR apenas quando os 3 departamentos assinaram e envia o snapshot ex
 // precisam sair congelados no snapshot de fechamento — Task 5 (relatório de
 // SLA) depende deles para não reconsultar audit_logs.
 it('congela o ATD unificado, o prazo calculado e as reaberturas departamentais no snapshot de fechamento', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: { agencyReports: [{ reportId: 'report-tvv', voyageId: 7, port: 'BRVIX', terminalId: 'tvv', terminalCode: 'TVV', terminal: 'TVV', status: 'open', sections: ALL_SECTIONS.map((section) => ({ section, state: 'operated', fronts: [], frontKeys: ['importacao:vazio'] })) }] },
+    isLoading: false,
+    error: null,
+  })
   useAgencyReportDerivedMock.mockReturnValue({
     data: {
       containers: [], vehicles: [], vaziosImp: [], granite: [], vaziosExp: [],
       storage: { containers: 0, days: 0 }, operation: {},
-      schedule: { atb: '2026-07-19', atd: '2026-07-20' },
-      unifiedAtd: { atd: '2026-07-20', atdSource: 'pod', atdRegisteredAt: '2026-07-20T18:00:00Z' },
+      escala: { ata: null },
+      terminalSchedules: [{ terminalId: 'tvv', terminalCode: 'TVV', atb: '2026-07-19', atd: '2026-07-20', rtw: 2 }],
     },
     isLoading: false,
     error: null,
@@ -440,8 +445,8 @@ it('congela o ATD unificado, o prazo calculado e as reaberturas departamentais n
     snapshot: expect.objectContaining({
       header: expect.objectContaining({
         unifiedAtd: '2026-07-20',
-        atdSource: 'pod',
-        atdRegisteredAt: '2026-07-20T18:00:00Z',
+        atdSource: 'terminal',
+        atdRegisteredAt: null,
         deadlineDate: expect.any(String),
       }),
       departmentSignoffs: expect.arrayContaining([
@@ -623,9 +628,15 @@ it('Exportação reúne Granito e Embarque de vazios, com pátio como subseção
 })
 
 it('congela locais de desova, depots e embarques diretos no snapshot', () => {
+  useAgencyReportTerminalStateMock.mockReturnValue({
+    data: { agencyReports: [{ reportId: 'report-tvv', voyageId: 7, port: 'BRVIX', terminalId: 'tvv', terminalCode: 'TVV', terminal: 'TVV', status: 'open', sections: ALL_SECTIONS.map((section) => ({ section, state: 'operated', fronts: [], frontKeys: ['importacao:vazio'] })) }] },
+    isLoading: false,
+    error: null,
+  })
   useAgencyReportDerivedMock.mockReturnValue({
     data: {
-      schedule: { ata: '2026-07-19', atb: '2026-07-19', atd: '2026-07-20', rtw: 2 },
+      escala: { ata: '2026-07-19' },
+      terminalSchedules: [{ terminalId: 'tvv', terminalCode: 'TVV', atb: '2026-07-19', atd: '2026-07-20', rtw: 2 }],
       cargaSolta: { bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 },
       containers: [], vaziosImp: [], granite: [], storage: { containers: 1, days: 2 },
       vehicles: [{ brand: 'BYD', bl_id: 'bl-1', chassis: 'vin-1', container: { unpacking_location: 'Pátio Alfa' } }],

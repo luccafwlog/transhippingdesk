@@ -4185,9 +4185,11 @@ export type Database = {
           port: string
           port_id: number
           revision: number
+          terminal_etb: string | null
           terminal_atb: string | null
+          terminal_etd: string | null
           terminal_atd: string | null
-          terminal_id: string
+          terminal_id: string | null
           terminal_rtw: number | null
           updated_at: string
           voyage_id: number
@@ -4198,9 +4200,11 @@ export type Database = {
           port: string
           port_id: number
           revision?: number
+          terminal_etb?: string | null
           terminal_atb?: string | null
+          terminal_etd?: string | null
           terminal_atd?: string | null
-          terminal_id: string
+          terminal_id?: string | null
           terminal_rtw?: number | null
           updated_at?: string
           voyage_id: number
@@ -4211,9 +4215,11 @@ export type Database = {
           port?: string
           port_id?: number
           revision?: number
+          terminal_etb?: string | null
           terminal_atb?: string | null
+          terminal_etd?: string | null
           terminal_atd?: string | null
-          terminal_id?: string
+          terminal_id?: string | null
           terminal_rtw?: number | null
           updated_at?: string
           voyage_id?: number
@@ -5336,6 +5342,18 @@ export type Database = {
         Returns: undefined
       }
       save_voyage_escala_terminal_state: {
+        Args: {
+          p_expected_revision: number
+          p_export_expectation: Json
+          p_fronts: Json
+          p_justification: string
+          p_port: string
+          p_terminals: Json
+          p_voyage_id: number
+        }
+        Returns: Json
+      }
+      save_voyage_escala_terminal_state_v2: {
         Args: {
           p_expected_revision: number
           p_export_expectation: Json

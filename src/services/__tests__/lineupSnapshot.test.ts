@@ -85,10 +85,15 @@ describe('fetchLineUpSnapshot', () => {
         ce_status: 'received',
         linked: true,
       }],
+      voyage_escala_terminal_state: [{
+        voyage_id: 24, port: 'BRVIX', terminal_id: 't1', terminal_etb: '2026-08-02', terminal_atb: null,
+        terminal_etd: null, terminal_atd: '2026-08-05', terminal_rtw: null, revision: 1,
+      }],
+      voyage_escala_operation_fronts: [{ voyage_id: 24, port: 'BRVIX', sentido: 'exportacao', terminal_id: 't1' }],
+      depots: [{ id: 't1', code: 'TVV' }],
       audit_logs: [
-        // As datas moram na escala (portador voyage_pod_schedule), não na linha de exportação.
+        // ETA/ATA continuam na escala; as datas de berço vêm da Atracação.
         { entity_type: 'voyage_pod_schedule', entity_id: '24::BRVIX', field_name: 'eta', new_value: '2026-08-01', changed_at: '2026-07-27T00:00:00Z' },
-        { entity_type: 'voyage_pod_schedule', entity_id: '24::BRVIX', field_name: 'etb', new_value: '2026-08-02', changed_at: '2026-07-27T00:00:00Z' },
         { entity_type: 'voyage_pol_schedule', entity_id: '24::BRVIX', field_name: 'atd', new_value: '2026-08-05', changed_at: '2026-07-27T00:00:00Z' },
       ],
     }))

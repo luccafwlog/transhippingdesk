@@ -2,6 +2,55 @@
 
 Status: aceito — 2026-08-06
 
+> **Nota editorial — 2026-08-24.** Esta decisão fixou o T0 como "o ATD da escala
+> unificada — a saída do navio do porto brasileiro". A nota de 2026-08-24 da ADR
+> 0035 passou as datas de berço para a **Atracação** (a passagem da Escala por um
+> terminal), e o ADR já é por terminal desde a ADR 0027, com fechamento
+> independente. **O relógio passa a partir do ATD da Atracação daquele
+> terminal**, não do ATD da Escala.
+>
+> O princípio não muda — "o relógio começa na data real do ATD", nunca no
+> instante do registro. Muda a identificação de *qual* ATD é o relevante para
+> aquele relatório: um prazo cujo T0 é a saída de outro terminal não é
+> gerenciável por quem responde por ele, e um navio que fica mais duas semanas
+> no porto congelaria o ADR de um terminal que terminou. Com dois terminais em
+> Vitória — TVV desatracando em 29/08 e Portmac em 02/09 — o ADR do TVV conta de
+> 29/08 e o da Portmac de 02/09.
+>
+> Consequências: `getVoyageUnifiedAtd` (a precedência POD-canônico/POL-fallback,
+> escrita para este relógio) perde o seu consumidor; e os alertas pós-ATD da
+> migration 326, que já iteram por terminal mas comparam contra as datas da
+> *escala* **nos dois ramos** — o ETB na linha 518 e o ETD na 528 —, passam a
+> comparar contra as datas da própria Atracação. O verbete **ATD** de
+> `CONTEXT.md` já foi ajustado para "desatracou do terminal da Atracação".
+>
+> **O fallback do POL sai da medição.** `reconcile_agency_report_alerts` calcula
+> hoje `COALESCE(v_pod_atd, v_pol_atd)` e deriva o prazo daí. O ATD do POL é
+> registro documental do conhecimento, sem vínculo com Escala nem Atracação
+> (ponto 3 da nota de 2026-08-24 da ADR 0035) — e um prazo de relatório
+> operacional é precisamente um vínculo com a operação. O fallback também só
+> agiria quando falta o dado bom, isto é, quando menos se sabe o que houve no
+> cais, e por ser por porto devolveria aos dois ADRs de um mesmo porto o prazo
+> comum que esta nota veio eliminar. A regra "Sem ATD não há prazo", já escrita
+> nesta decisão, cobre a ausência. A linha `voyage_pol_schedule_atd` de
+> `agency_report_pending_baselines` permanece na tabela e deixa de ser lida:
+> vigência que existiu não se apaga. O instante de vigência da pendência segue
+> em 2026-07-19.
+>
+> **Um produtor só, sem perder o relógio de parede.** O alerta
+> `agency_report_deadline_missed` tem dois produtores vivos em grãos diferentes:
+> `detect_agency_report_deadline_missed()` (migration 271, anterior à 306) varre
+> por `(viagem, porto, departamento)` e insere direto em `alerts`; a fundação da
+> 323 reconcilia por `(viagem, porto, terminal)`. `detect_agency_report_pending()`
+> tem o mesmo defeito. Com prazos por terminal, os dois passam a **discordar**, e
+> não apenas a duplicar. As funções legadas deixam de inserir alertas e passam a
+> apenas iterar os ADRs abertos chamando o reconciliador da fundação. A varredura
+> não pode simplesmente sair: **o prazo vence pela passagem do tempo, não por
+> evento de auditoria** — um T0 lançado na terça, com vencimento na sexta, não
+> gera evento algum na sexta para uma trigger reagir. É a mesma limitação que
+> esta ADR já registra nas Consequências, e removê-la agravaria. Os alertas
+> legados abertos são fechados explicitamente, com motivo registrado.
+
 ## Contexto
 
 O ADR já registra tudo o que é preciso para saber **quando** cada departamento

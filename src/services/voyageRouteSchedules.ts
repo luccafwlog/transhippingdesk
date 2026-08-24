@@ -50,7 +50,7 @@ export type VoyagePodSchedule = {
 }
 
 export type VoyageEscalaDivergence = {
-  field: 'eta' | 'etb' | 'etd' | 'atd' | 'ceStatus' | 'linked' | 'escalaNumber'
+  field: 'eta' | 'ceStatus' | 'linked' | 'escalaNumber'
   podValue: string | boolean | null
   source: 'pol' | 'export'
   sourceValue: string | boolean | null
@@ -61,12 +61,9 @@ export type VoyageEscalaSchedule = {
   voyageId: number
   port: string
   eta: string | null
-  etb: string | null
   ata: string | null
-  atb: string | null
-  etd: string | null
   atd: string | null
-  rtw: number | null
+  atracacoes: VoyageAtracacao[]
   ceStatus: VoyagePodCeStatus | VoyageExportSchedule['ceStatus'] | null
   podCeStatus: VoyagePodCeStatus | null
   exportCeStatus: VoyageExportSchedule['ceStatus'] | null
@@ -89,17 +86,31 @@ export type VoyageEscalaSchedule = {
 export type VoyageTerminalScaleState = {
   voyageId: number
   port: string
-  terminalId: string
+  terminalId: string | null
+  terminalCode?: string | null
+  terminalEtb: string | null
   terminalAtb: string | null
+  terminalEtd: string | null
   terminalAtd: string | null
   terminalRtw: number | null
   revision: number
+}
+
+export type VoyageAtracacao = {
+  terminalId: string | null
+  terminalCode?: string | null
+  etb?: string | null
+  atb?: string | null
+  etd?: string | null
+  atd?: string | null
+  rtw?: number | null
 }
 
 type ProjectVoyageEscalaInput = {
   podSchedules?: Iterable<VoyagePodSchedule>
   polSchedules?: Iterable<VoyagePolSchedule>
   exportSchedulesByPort?: VoyageExportSchedulesByPort
+  terminalStates?: Iterable<VoyageTerminalScaleState>
 }
 
 type VoyageEscalaMergeField = VoyageEscalaDivergence['field']
@@ -166,66 +177,6 @@ export async function listVoyagePodSchedules(entityIds: string[]) {
   return hydratePodSchedules(data ?? [])
 }
 
-export type VoyageUnifiedAtd = {
-  /** ATD da escala unificada (YYYY-MM-DD), pela precedência POD-canônico/POL-fallback. */
-  atd: string | null
-  /** Portador cujo valor venceu a precedência — null quando nenhum dos dois tem ATD. */
-  atdSource: 'pod' | 'pol' | null
-  /** changed_at do audit_log do campo atd do portador vencedor: o instante do registro, não o valor. */
-  atdRegisteredAt: string | null
-}
-
-// ADR 0039: T0 do Prazo de Conclusão do ADR é o ATD da escala unificada, com a
-// mesma precedência POD-canônico/POL-fallback que projectVoyageEscalaSchedules
-// já usa (mergeEscalaField) — reaproveitada aqui como regra ("POD vence, salvo
-// vazio"), não a lógica inteira de merge/divergência, que serve a um propósito
-// diferente (a projeção de várias colunas de uma vez). Consulta focada, por
-// voyage+port, ao contrário de listVoyagePodSchedules/listVoyagePolSchedules
-// (que trazem todos os campos de todas as entidades de uma leva).
-// ponytail: ao contrário de hydratePodSchedules/projectVoyageEscalaSchedules,
-// não checa o soft-delete `deleted` do POD — um POD removido do planejamento
-// ainda pode vencer aqui. Upgrade: filtrar como as demais leituras fazem, se
-// isso se mostrar um problema real (POD deletado raramente carrega ATD útil).
-export async function getVoyageUnifiedAtd(voyageId: number, port: string): Promise<VoyageUnifiedAtd> {
-  const podEntityId = buildVoyagePodEntityId(voyageId, port)
-  const polEntityId = buildVoyagePolEntityId(voyageId, port)
-
-  const [podRes, polRes] = await Promise.all([
-    supabase
-      .from('audit_logs')
-      .select('new_value, changed_at')
-      .eq('entity_type', POD_ENTITY_TYPE)
-      .eq('entity_id', podEntityId)
-      .eq('field_name', 'atd')
-      .order('changed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('audit_logs')
-      .select('new_value, changed_at')
-      .eq('entity_type', POL_ENTITY_TYPE)
-      .eq('entity_id', polEntityId)
-      .eq('field_name', 'atd')
-      .order('changed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ])
-
-  if (podRes.error) throw podRes.error
-  if (polRes.error) throw polRes.error
-
-  const podAtd = normalizeDateValue(podRes.data?.new_value ?? null)
-  const polAtd = normalizeDateValue(polRes.data?.new_value ?? null)
-
-  if (podAtd) {
-    return { atd: podAtd, atdSource: 'pod', atdRegisteredAt: podRes.data?.changed_at ?? null }
-  }
-  if (polAtd) {
-    return { atd: polAtd, atdSource: 'pol', atdRegisteredAt: polRes.data?.changed_at ?? null }
-  }
-  return { atd: null, atdSource: null, atdRegisteredAt: null }
-}
-
 export async function listVoyagePodSchedulesByVoyageIds(voyageIds: number[]) {
   if (!voyageIds.length) return new Map<string, VoyagePodSchedule>()
 
@@ -237,10 +188,11 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
   const result = new Map<number, VoyageEscalaSchedule[]>()
   if (!voyageIds.length) return result
 
-  const [podRows, polRows, exportSchedulesByVoyage] = await Promise.all([
+  const [podRows, polRows, exportSchedulesByVoyage, terminalStatesByVoyage] = await Promise.all([
     listScheduleAuditRowsByVoyageIds(POD_ENTITY_TYPE, voyageIds),
     listScheduleAuditRowsByVoyageIds(POL_ENTITY_TYPE, voyageIds),
     fetchExportSchedulesByVoyageIds(voyageIds),
+    listVoyageTerminalScaleStatesByVoyageIds(voyageIds),
   ])
 
   const podsByVoyage = groupSchedulesByVoyage(hydratePodSchedules(podRows, { includeDeleted: true }))
@@ -251,6 +203,7 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
       podSchedules: podsByVoyage.get(voyageId),
       polSchedules: polsByVoyage.get(voyageId),
       exportSchedulesByPort: exportSchedulesByVoyage.get(voyageId),
+      terminalStates: terminalStatesByVoyage.get(voyageId),
     }))
   }
 
@@ -269,18 +222,21 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
   }
   for (const voyageChunk of chunkArray(voyageIds, 25)) {
     const { data, error } = await (supabase.from as unknown as (table: string) => TerminalStateQuery)('voyage_escala_terminal_state')
-      .select('voyage_id, port, terminal_id, terminal_atb, terminal_atd, terminal_rtw, revision')
+      .select('voyage_id, port, terminal_id, terminal_etb, terminal_atb, terminal_etd, terminal_atd, terminal_rtw, revision')
       .in('voyage_id', voyageChunk)
     if (error) throw error
 
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
-      if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string' || typeof row.terminal_id !== 'string') continue
+      if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string') continue
       const states = result.get(row.voyage_id) ?? []
       states.push({
         voyageId: row.voyage_id,
         port: row.port,
-        terminalId: row.terminal_id,
+        terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
+        terminalCode: null,
+        terminalEtb: typeof row.terminal_etb === 'string' ? row.terminal_etb : null,
         terminalAtb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
+        terminalEtd: typeof row.terminal_etd === 'string' ? row.terminal_etd : null,
         terminalAtd: typeof row.terminal_atd === 'string' ? row.terminal_atd : null,
         terminalRtw: row.terminal_rtw == null ? null : Number(row.terminal_rtw),
         revision: typeof row.revision === 'number' ? row.revision : 0,
@@ -289,14 +245,10 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
     }
   }
   for (const states of result.values()) {
-    states.sort((left, right) => {
-      if (left.terminalAtb !== right.terminalAtb) {
-        if (left.terminalAtb == null) return 1
-        if (right.terminalAtb == null) return -1
-        return left.terminalAtb.localeCompare(right.terminalAtb)
-      }
-      return left.terminalId.localeCompare(right.terminalId)
-    })
+    states.sort((left, right) => compareAtracacoes(
+      { terminalId: left.terminalId, terminalCode: left.terminalCode, etb: left.terminalEtb, atb: left.terminalAtb },
+      { terminalId: right.terminalId, terminalCode: right.terminalCode, etb: right.terminalEtb, atb: right.terminalAtb },
+    ))
   }
   return result
 }
@@ -305,13 +257,21 @@ export function projectVoyageEscalaSchedules({
   podSchedules = [],
   polSchedules = [],
   exportSchedulesByPort,
+  terminalStates = [],
 }: ProjectVoyageEscalaInput) {
   const escalasByKey = new Map<string, VoyageEscalaSchedule>()
   const deletedEscalaKeys = new Set<string>()
   const podValuesByKey = new Map<string, Partial<Pick<
     VoyageEscalaSchedule,
-    'eta' | 'etb' | 'etd' | 'atd' | 'ceStatus' | 'linked' | 'escalaNumber'
+    'eta' | 'ceStatus' | 'linked' | 'escalaNumber'
   >>>()
+  const terminalStatesByKey = new Map<string, VoyageTerminalScaleState[]>()
+  for (const state of terminalStates) {
+    const key = buildEscalaKey(state.voyageId, normalizeBrazilianPortCode(state.port) ?? state.port)
+    const current = terminalStatesByKey.get(key) ?? []
+    current.push(state)
+    terminalStatesByKey.set(key, current)
+  }
 
   // Coleta primeiro para que a ordem dos audit logs nao determine se um
   // alias deletado apaga ou preserva a parte de importacao da escala.
@@ -329,12 +289,7 @@ export function projectVoyageEscalaSchedules({
 
     const escala = ensureEscala(escalasByKey, pod.voyageId, port)
     escala.eta = pod.eta
-    escala.etb = pod.etb
     escala.ata = pod.ata
-    escala.atb = pod.atb
-    escala.etd = pod.etd
-    escala.atd = pod.atd
-    escala.rtw = pod.rtw
     escala.ceStatus = pod.ceStatus
     escala.podCeStatus = pod.ceStatus
     escala.exportCeStatus = null
@@ -347,9 +302,6 @@ export function projectVoyageEscalaSchedules({
     escala.temImportacao = pod.temImportacao !== false
     podValuesByKey.set(key, {
       eta: pod.eta,
-      etb: pod.etb,
-      etd: pod.etd,
-      atd: pod.atd,
       ceStatus: pod.ceStatus,
       linked: pod.linked,
       escalaNumber: pod.escalaNumber,
@@ -365,8 +317,6 @@ export function projectVoyageEscalaSchedules({
     const podValues = podValuesByKey.get(key)
     // A linha de POL é registro documental (ADR 0025) e cria a escala, mas não
     // declara exportação: quem declara é o toggle da própria escala.
-    mergeEscalaField(escala, 'etd', pol.etd, 'pol', podValues?.etd ?? null)
-    mergeEscalaField(escala, 'atd', pol.atd, 'pol', podValues?.atd ?? null)
     mergeEscalaField(escala, 'escalaNumber', pol.escalaNumber, 'pol', podValues?.escalaNumber ?? null)
   }
 
@@ -388,6 +338,24 @@ export function projectVoyageEscalaSchedules({
     escala.movementsQty = exportSchedule.movementsQty
     mergeEscalaField(escala, 'ceStatus', exportSchedule.ceStatus, 'export', podValues?.ceStatus ?? null)
     mergeEscalaField(escala, 'linked', exportSchedule.linked, 'export', podValues?.linked ?? null)
+  }
+
+  for (const escala of escalasByKey.values()) {
+    const atracacoes = terminalStatesByKey.get(buildEscalaKey(escala.voyageId, escala.port)) ?? []
+    escala.atracacoes = sortAtracacoes(atracacoes.map((state) => ({
+      terminalId: state.terminalId,
+      terminalCode: state.terminalCode,
+      etb: state.terminalEtb,
+      atb: state.terminalAtb,
+      etd: state.terminalEtd,
+      atd: state.terminalAtd,
+      rtw: state.terminalRtw,
+    })))
+    escala.atd = escala.atracacoes.length > 0 && escala.atracacoes.every((atracacao) => atracacao.atd)
+      ? escala.atracacoes.reduce<string | null>((latest, atracacao) => (
+        latest === null || (atracacao.atd ?? '') > latest ? atracacao.atd ?? latest : latest
+      ), null)
+      : null
   }
 
   return Array.from(escalasByKey.values())
@@ -450,37 +418,33 @@ export async function saveVoyagePodSchedule({
   voyageId: number
   pod: string
   eta: string | null
-  etb: string | null
+  etb?: string | null
   ata: string | null
   atb?: string | null
   etd?: string | null
-  atd: string | null
-  rtw: number | null
+  atd?: string | null
+  rtw?: number | null
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber?: string | null
   temImportacao?: boolean
   changedBy: string | null
 }) {
-  if (temImportacao === false && (eta || ata || etb || atb)) {
-    throw new Error('Uma escala marcada como somente exportação não pode ter POD ou datas de importação.')
-  }
-
   const entityId = buildVoyagePodEntityId(voyageId, pod)
   const current = (await listVoyagePodSchedules([entityId])).get(entityId) ?? makeEmptyPodSchedule(entityId)
 
   const changes = [
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'eta', current.eta, eta, changedBy, 'Atualizacao manual de ETA por POD'),
-    makeAuditRow(POD_ENTITY_TYPE, entityId, 'etb', current.etb, etb, changedBy, 'Atualizacao manual de ETB por POD'),
+    etb === undefined ? null : makeAuditRow(POD_ENTITY_TYPE, entityId, 'etb', current.etb, etb ?? null, changedBy, 'Atualizacao manual de ETB por POD'),
     makeAuditRow(POD_ENTITY_TYPE, entityId, 'ata', current.ata, ata, changedBy, 'Atualizacao manual de ATA por POD'),
     atb === undefined
       ? null
-      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'atb', current.atb, atb, changedBy, 'Atualizacao manual de ATB por POD'),
+      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'atb', current.atb, atb ?? null, changedBy, 'Atualizacao manual de ATB por POD'),
     etd === undefined
       ? null
-      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'etd', current.etd, etd, changedBy, 'Atualizacao manual de ETD por POD'),
-    makeAuditRow(POD_ENTITY_TYPE, entityId, 'atd', current.atd, atd, changedBy, 'Atualizacao manual de ATD por POD'),
-    makeAuditRow(
+      : makeAuditRow(POD_ENTITY_TYPE, entityId, 'etd', current.etd, etd ?? null, changedBy, 'Atualizacao manual de ETD por POD'),
+    atd === undefined ? null : makeAuditRow(POD_ENTITY_TYPE, entityId, 'atd', current.atd, atd ?? null, changedBy, 'Atualizacao manual de ATD por POD'),
+    rtw === undefined ? null : makeAuditRow(
       POD_ENTITY_TYPE,
       entityId,
       'rtw',
@@ -540,7 +504,7 @@ export async function saveVoyagePodSchedule({
   if (error) throw error
 
   if (atd !== undefined) {
-    await syncVoyageStatusAfterAtdChange(voyageId, pod, atd)
+    await syncVoyageStatusAfterAtdChange(voyageId)
   }
 }
 
@@ -548,12 +512,7 @@ export async function saveVoyageEscalaSchedule({
   voyageId,
   port,
   eta,
-  etb,
   ata,
-  atb,
-  etd,
-  atd,
-  rtw,
   ceStatus,
   linked,
   escalaNumber,
@@ -563,12 +522,7 @@ export async function saveVoyageEscalaSchedule({
   voyageId: number
   port: string
   eta: string | null
-  etb: string | null
   ata: string | null
-  atb: string | null
-  etd: string | null
-  atd: string | null
-  rtw: number | null
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber?: string | null
@@ -581,12 +535,7 @@ export async function saveVoyageEscalaSchedule({
     voyageId,
     pod: normalizePortValue(port),
     eta,
-    etb,
     ata,
-    atb,
-    etd,
-    atd,
-    rtw,
     ceStatus,
     linked,
     escalaNumber,
@@ -692,16 +641,10 @@ export function computeVoyageStatusFromPods(
   return relevant.every((pod) => pod.atd) ? 'completed' : 'active'
 }
 
-async function syncVoyageStatusAfterAtdChange(voyageId: number, changedPod: string, newAtd: string | null) {
-  const allPodSchedules = await listVoyagePodSchedulesByVoyageIds([voyageId])
-
-  const podEntries: Array<{ atd: string | null; omitted?: boolean }> = []
-  for (const [entityId, schedule] of allPodSchedules) {
-    if (schedule.voyageId !== voyageId) continue
-    const pod = entityId.split('::')[1] ?? '-'
-    const atd = pod === changedPod ? newAtd : schedule.atd
-    podEntries.push({ atd, omitted: schedule.omitted })
-  }
+async function syncVoyageStatusAfterAtdChange(voyageId: number) {
+  const escalaSchedules = await listVoyageEscalaSchedulesByVoyageIds([voyageId])
+  const podEntries: Array<{ atd: string | null; omitted?: boolean }> = (escalaSchedules.get(voyageId) ?? [])
+    .map((schedule) => ({ atd: schedule.atd, omitted: schedule.omitted }))
 
   if (podEntries.length === 0) return
 
@@ -733,12 +676,9 @@ function ensureEscala(escalasByKey: Map<string, VoyageEscalaSchedule>, voyageId:
     voyageId,
     port,
     eta: null,
-    etb: null,
     ata: null,
-    atb: null,
-    etd: null,
     atd: null,
-    rtw: null,
+    atracacoes: [],
     ceStatus: null,
     podCeStatus: null,
     exportCeStatus: null,
@@ -780,6 +720,27 @@ function mergeEscalaField<K extends VoyageEscalaMergeField>(
   if (isEmptyEscalaValue(escala[field])) {
     escala[field] = sourceValue
   }
+}
+
+export function sortAtracacoes<T extends Pick<VoyageAtracacao, 'terminalId' | 'terminalCode' | 'etb' | 'atb'>>(
+  atracacoes: readonly T[],
+) {
+  return [...atracacoes].sort(compareAtracacoes)
+}
+
+export function compareAtracacoes(
+  left: Pick<VoyageAtracacao, 'terminalId' | 'terminalCode' | 'etb' | 'atb'>,
+  right: Pick<VoyageAtracacao, 'terminalId' | 'terminalCode' | 'etb' | 'atb'>,
+) {
+  const leftOrder = left.atb ?? left.etb
+  const rightOrder = right.atb ?? right.etb
+  if (leftOrder !== rightOrder) {
+    if (leftOrder == null) return 1
+    if (rightOrder == null) return -1
+    const comparison = leftOrder.localeCompare(rightOrder)
+    if (comparison !== 0) return comparison
+  }
+  return (left.terminalCode ?? left.terminalId ?? 'TBC').localeCompare(right.terminalCode ?? right.terminalId ?? 'TBC', 'pt-BR')
 }
 
 function isEmptyEscalaValue(value: string | number | boolean | null | undefined) {

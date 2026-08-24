@@ -1,11 +1,5 @@
 import { supabase } from './supabase'
 import type { VoyageFormValues } from './voyageForm'
-import {
-  buildVoyagePodEntityId,
-  saveVoyagePolSchedule,
-  listVoyagePodSchedules,
-  saveVoyagePodSchedule,
-} from './voyageRouteSchedules'
 
 export async function createVoyage(form: VoyageFormValues, changedBy: string | null) {
   const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
@@ -30,8 +24,6 @@ export async function createVoyage(form: VoyageFormValues, changedBy: string | n
     makeVoyageAuditRow(created.id, 'indicated_first_brazilian_port', null, form.indicatedFirstBrazilianPort ?? null, changedBy),
     makeVoyageAuditRow(created.id, 'indicated_first_brazilian_eta', null, form.indicatedFirstBrazilianEta ?? null, changedBy),
   ])
-  await syncLoadPortEtds(created.id, form, changedBy)
-  await syncDischargePortEtas(created.id, form, changedBy)
 
   return created
 }
@@ -69,8 +61,6 @@ export async function updateVoyage(voyageId: number, form: VoyageFormValues, cha
     makeVoyageAuditRow(voyageId, 'indicated_first_brazilian_port', currentIndicated?.port ?? null, form.indicatedFirstBrazilianPort ?? null, changedBy),
     makeVoyageAuditRow(voyageId, 'indicated_first_brazilian_eta', currentIndicated?.eta ?? null, form.indicatedFirstBrazilianEta ?? null, changedBy),
   ])
-  await syncLoadPortEtds(voyageId, form, changedBy)
-  await syncDischargePortEtas(voyageId, form, changedBy)
 
   return updated
 }
@@ -159,46 +149,6 @@ async function getOrCreateCarrier(name: string, scac: string) {
 
   if (createError || !created) throw createError
   return created.id
-}
-
-async function syncDischargePortEtas(voyageId: number, form: VoyageFormValues, changedBy: string | null) {
-  if (!form.dischargePortEtas.length) return
-
-  const entityIds = form.dischargePortEtas.map((row) => buildVoyagePodEntityId(voyageId, row.pod))
-  const currentSchedules = await listVoyagePodSchedules(entityIds)
-
-  await Promise.all(
-    form.dischargePortEtas.map(async (row) => {
-      const entityId = buildVoyagePodEntityId(voyageId, row.pod)
-      const currentSchedule = currentSchedules.get(entityId)
-
-      await saveVoyagePodSchedule({
-        voyageId,
-        pod: row.pod,
-        eta: row.eta,
-        etb: currentSchedule?.etb ?? null,
-        ata: currentSchedule?.ata ?? null,
-        atd: currentSchedule?.atd ?? null,
-        rtw: currentSchedule?.rtw ?? null,
-        ceStatus: currentSchedule?.ceStatus ?? null,
-        linked: currentSchedule?.linked ?? false,
-        changedBy,
-      })
-    }),
-  )
-}
-
-async function syncLoadPortEtds(voyageId: number, form: VoyageFormValues, changedBy: string | null) {
-  if (!form.loadPortEtds.length) return
-
-  await Promise.all(
-    form.loadPortEtds.map((row) => saveVoyagePolSchedule({
-      voyageId,
-      pol: row.pol,
-      etd: row.etd,
-      changedBy,
-    })),
-  )
 }
 
 async function getOrCreateVessel(name: string, imo: string, carrierId: number) {

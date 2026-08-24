@@ -2,7 +2,17 @@
 
 export type EscalaState = 'atracada' | 'concluida'
 
-export function deriveEscalaState(input: { atb: string | null; atd: string | null }): EscalaState | null {
+export function deriveEscalaState(input: {
+  atb?: string | null
+  atd?: string | null
+  atracacoes?: Array<{ atb: string | null; atd: string | null }>
+}): EscalaState | null {
+  if (input.atracacoes) {
+    if (input.atracacoes.length === 0) return null
+    if (input.atracacoes.every((atracacao) => atracacao.atd)) return 'concluida'
+    if (input.atracacoes.some((atracacao) => atracacao.atb)) return 'atracada'
+    return null
+  }
   if (input.atd) return 'concluida'
   if (input.atb) return 'atracada'
   return null

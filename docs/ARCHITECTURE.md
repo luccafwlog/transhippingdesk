@@ -306,24 +306,25 @@ sessão do Portal eram código morto e foram removidos na mesma mudança.
 
 A escala operacional é projetada por `src/services/voyageRouteSchedules.ts` a
 partir de três portadores existentes: `voyage_pod_schedule` (audit logs com o
-ciclo operacional completo), `voyage_pol_schedule` (audit logs do registro
-documental do POL, incluindo ETD/ATD do Laden on Board) e
-`voyage_export_schedules` (linha de exportação por `(voyage_id, pol)`). A
-projeção normaliza os portos por `normalizePortCode`, restringe a lista a
-portos brasileiros (`BR*`) e entrega uma linha por `(viagem, porto)`, com
-marcadores de importação, exportação, granito, containers e movimentos. A
-migration `306_escala_multiplos_terminais.sql` acrescenta o registro
-terminalizado em `voyage_escala_terminal_state` e
-`voyage_escala_operation_fronts`; `src/services/escalaTerminalAllocation.ts`
-é o único domínio de leitura/mutação, usando a RPC transacional e a revisão da
-escala.
+ciclo de chegada da escala), `voyage_pol_schedule` (registro documental do POL,
+incluindo ETD/ATD do Laden on Board) e `voyage_export_schedules` (linha de
+exportação por `(voyage_id, pol)`). A projeção normaliza os portos por
+`normalizePortCode`, restringe a lista a portos brasileiros (`BR*`) e entrega
+uma linha por `(viagem, porto)`, com marcadores de importação, exportação,
+granito, containers e movimentos. ETA/ATA são próprias da Escala; ETB, ATB,
+ETD, ATD e Restow pertencem às Atracações de
+`voyage_escala_terminal_state`. O ATD da Escala é somente uma projeção derivada,
+preenchida quando todas as Atracações têm ATD. A ordenação compartilhada usa
+`COALESCE(ATB, ETB)` e o código do terminal.
 
-`voyage_pod_schedule` continua sendo o portador físico das datas operacionais
-da escala, inclusive quando a escala nasceu apenas de POL/EXP; `voyage_pol_schedule`
-permanece como registro documental do POL. Quando a mesma escala aparece em
-mais de um portador, a linha POD é canônica e POL/EXP só preenchem campos
-vazios; divergências ficam expostas para a interface em vez de serem resolvidas
-silenciosamente.
+A migration `306_escala_multiplos_terminais.sql`, estendida pela `341`, mantém
+o registro terminalizado e `voyage_escala_operation_fronts`; a
+`342_atracacao_alertas.sql` atualiza status, alertas de datas e o relógio do ADR.
+`src/services/escalaTerminalAllocation.ts` é o domínio de leitura/mutação,
+usando a RPC transacional e a revisão da escala. `voyage_pod_schedule` continua
+como portador histórico/auditável da Escala, enquanto
+`voyage_pol_schedule` permanece documental do POL; ETD/ATD do POL não são
+fundidos de volta à Escala.
 
 O ADR segue o mesmo contrato transversal desde a migration `323`: cada
 combinação `(agency_departure_report, voyage::port[::terminal])` tem dois itens
@@ -352,11 +353,11 @@ Consumidores principais:
 - ADR e alertas: a aba ADR segue ancorada em `(voyage_id, port)` para legado,
   enquanto ADRs novos usam `(voyage_id, port, terminal_id)`; a fila usa um
   agregado por ADR terminalizado, dois itens independentes por departamento,
-  `terminal_atd` como ATD autoritativo e reconciliação imediata mais cron de
-  15 minutos.
-- A RPC transacional também recebe o snapshot dos campos do POD quando o modal
-  terminalizado salva a escala; os audit rows de datas, CE, vínculo e número de
-  escala entram na mesma transação das frentes. A expectativa de vazios faz
+  o `terminal_atd` da Atracação como ATD autoritativo e reconciliação imediata
+  mais cron de 15 minutos.
+- A RPC transacional `save_voyage_escala_terminal_state_v2` recebe a Escala, as
+  frentes e as Atracações no mesmo save; os audit rows de ETA/ATA, CE, vínculo e
+  número de escala entram na mesma transação. A expectativa de vazios faz
   backfill somente pela heurística legada de quantidades e depois permanece
   explícita.
 - `depots.port_id` é obrigatório para novos terminais portuários. A trigger

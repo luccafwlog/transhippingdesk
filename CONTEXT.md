@@ -27,9 +27,12 @@ e não dispensa a igualdade do número da viagem.
 **Escala portuária**
 Passagem de uma viagem por um porto brasileiro, identificada por
 `(Viagem, porto)`, com datas operacionais, identificadores e vínculos
-documentais próprios. Um porto, uma escala: a mesma escala pode descarregar
-importação, embarcar exportação ou as duas coisas, e o sentido da operação não
-a divide em registros diferentes. Portos estrangeiros da rota não são escalas —
+documentais próprios. É dona da chegada ao porto — ETA e ATA —, enquanto as
+datas de berço pertencem às suas Atracações. Um porto, uma escala: a mesma
+escala pode descarregar importação, embarcar exportação ou as duas coisas, e o
+sentido da operação não a divide em registros diferentes. A sua saída do porto
+é derivada: o ATD da última Atracação, existindo apenas quando todas as
+Atracações têm ATD. Portos estrangeiros da rota não são escalas —
 permanecem como papel documental do B/L.
 
 - **Distinto de:** POL e POD, que são papéis do conhecimento de embarque e da
@@ -162,42 +165,58 @@ transbordo/COD, carga, cliente, Portal e financeiro, com os trilhos operacional
 e financeiro e a proxima acao.
 
 **Rota da Viagem**
-Sequência de portos de uma viagem. Cada escala pode registrar o ciclo completo:
-ETA/ATA para chegada, ETB/ATB para atracação e ETD/ATD para saída. É o dado que o sistema
-operacional consome — B/Ls e demais documentos de carga referenciam esses
-mesmos portos.
+Sequência de portos de uma viagem. Cada escala registra a chegada ao porto
+(ETA/ATA) e as Atracações que a compõem, cada uma com o seu próprio ciclo de
+berço (ETB/ATB/ETD/ATD). É o dado que o sistema operacional consome — B/Ls e
+demais documentos de carga referenciam esses mesmos portos.
+
+**Atracação**
+Passagem de uma Escala por um terminal, com o ciclo próprio de berço: ETB e ATB
+para a atracação, ETD e ATD para a desatracação. É dona dessas quatro datas e do
+Restow — a Escala é dona apenas de ETA e ATA, a chegada ao porto. Uma Escala é
+uma sequência ordenada de Atracações; o mesmo terminal ocorre uma vez por
+Escala. A ordem é derivada de `COALESCE(ATB, ETB)`, com empate desfeito pelo
+código do terminal: não é campo digitado. Nasce da atribuição de um terminal a
+uma Frente Operacional; sem frente não há Atracação, e uma frente sem terminal
+escolhido é uma Atracação **TBC**.
+_Evitar_: berço, janela, escala no terminal.
 
 **ATB (Actual Time of Berthing)**
-Data e hora efetivas em que a embarcação atracou na escala. É distinta de ATA,
-que registra a chegada, e de ETB, que registra a previsão de atracação.
+Data e hora efetivas em que a embarcação atracou no terminal da Atracação. É
+distinta de ATA, que registra a chegada ao porto e pertence à Escala, e de ETB,
+que registra a previsão de atracação naquele terminal.
 
 **ATD (Actual Time of Departure)**
-Data efetiva em que a embarcação saiu da escala, registrada sem hora. É distinta
-de ETD, que permanece a previsão de saída. Marca o início da contagem do Prazo
+Data efetiva em que a embarcação desatracou do terminal da Atracação,
+registrada sem hora. É distinta de ETD, que permanece a previsão de
+desatracação daquele terminal. Marca o início da contagem do Prazo
 de Conclusão do ADR.
 
 **Estado da Escala**
-Estado operacional derivado das datas reais, não um status manual independente.
-Com ATB e sem ATD, a escala está `Atracada`; ao receber ATD, passa
-automaticamente a `Concluída`. Vale para qualquer escala, inclusive a que só
+Estado operacional derivado das datas reais das suas Atracações, não um status
+manual independente. Com alguma Atracação atracada — ATB sem ATD — a escala
+está `Atracada`; quando todas as Atracações têm ATD, passa automaticamente a
+`Concluída`. Entre duas Atracações, o navio está no porto sem berço e a escala
+não tem estado. Vale para qualquer escala, inclusive a que só
 embarca. A conclusão de uma escala não implica, sozinha, a conclusão da Viagem.
 
 **ETD do POL**
 Data estimada de saída da viagem no porto de carregamento. Permanece como a
 previsão da rota mesmo quando uma saída efetiva é posteriormente conhecida. É
-registro documental da rota, distinto do ETD da Escala, que é o dado
-operacional editado pelo operador.
+registro documental da rota, sem vínculo com a Escala nem com a Atracação: não
+descreve a operação do navio no porto brasileiro.
 
 **ATD do POL**
 Data efetiva de saída da viagem no porto de carregamento. Para carga de
 container, a data `Laden on Board` informada pelo B/L é sua fonte documental.
 Quando B/Ls da mesma Viagem e POL informam datas diferentes, a data mais antiga
 é o ATD canônico do POL.
-Não sobrescreve o ATD da Escala: são registros de naturezas diferentes — o
-documental do conhecimento e o operacional da escala — e podem divergir sem que
-o sistema arbitre.
-Em superfícies sem coluna própria de ATD, substitui visualmente o ETD e é
-destacada em verde, sem transformar conceitualmente ATD em ETD.
+Não tem vínculo com a Escala nem com a Atracação: é registro documental do
+conhecimento, não da operação do navio, e nunca preenche nem substitui as datas
+delas. Vive em dois lugares — a coluna ATD POL de Escalas & Manifestos e o
+quadro de Chegadas e Saídas — além do próprio B/L.
+Em Chegadas e Saídas, onde não há coluna própria de ATD, ocupa visualmente a
+célula de ETD com destaque verde, sem transformar conceitualmente ATD em ETD.
 
 **Programação de Navios (Chegadas e Saídas)**
 Quadro de line-up exibido ao cliente no Portal, com a previsão de datas por porto
@@ -471,8 +490,10 @@ Classificação do container vazio descarregado: **cama** (base de estiva para
 cargas OOG) ou **cover plate** (tampas para porões do navio).
 
 **Restow**
-Container descarregado e reembarcado por reestiva na mesma escala. A contagem
-é registrada na edição da Escala (campo RTW).
+Container descarregado e reembarcado por reestiva. A reestiva acontece no berço,
+com o equipamento daquele terminal: a contagem é da **Atracação**, não da
+Escala, e é o ADR daquele terminal que a declara. Uma Escala com duas Atracações
+tem duas contagens independentes.
 
 **Local de Desova**
 Local onde um container com veículo foi desovado. Atributo do container,

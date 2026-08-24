@@ -13,7 +13,6 @@ import {
   listVoyagePolSchedules,
   saveVoyagePodSchedule,
   saveVoyagePolSchedule,
-  type VoyagePodSchedule,
 } from './voyageRouteSchedules'
 
 export type ScheduleLaneInput = {
@@ -65,17 +64,25 @@ function collectClearedLanes(lanes: ScheduleLaneInput[]) {
 async function podHasOperationalAnchor(
   voyageId: number,
   podCode: string,
-  current: VoyagePodSchedule | undefined,
+  current: { ata: string | null; atd: string | null; linked: boolean | null },
 ): Promise<boolean> {
-  if (current?.linked || current?.ata || current?.atd) return true
   const { data, error } = await supabase
+    .from('voyage_escala_revision_state')
+    .select('revision')
+    .eq('voyage_id', voyageId)
+    .eq('port', podCode)
+    .maybeSingle()
+  if (error) throw error
+  if (Number((data as { revision?: number } | null)?.revision ?? 0) > 0) return true
+  if (current.ata || current.atd || current.linked) return true
+
+  const { count, error: blError } = await supabase
     .from('bls')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('voyage_id', voyageId)
     .eq('pod', podCode)
-    .limit(1)
-  if (error) throw error
-  return (data ?? []).length > 0
+  if (blError) throw blError
+  return (count ?? 0) > 0
 }
 
 async function cancelClearedLanes(
@@ -105,10 +112,7 @@ async function cancelClearedLanes(
         voyageId,
         pod: code,
         eta: null,
-        etb: current.etb ?? null,
         ata: current.ata ?? null,
-        atd: current.atd ?? null,
-        rtw: current.rtw ?? null,
         ceStatus: current.ceStatus ?? null,
         linked: current.linked ?? false,
         changedBy,
@@ -135,8 +139,6 @@ export async function createOrAttachVoyageFromSchedule(
     vesselImo: input.vesselImo,
     voyageNumber: input.voyageNumber,
     status: 'active',
-    loadPortEtds: [],
-    dischargePortEtas: [],
   }, changedBy)).id
 
   await setVoyageShowOnPortal(voyageId, true)
@@ -157,10 +159,7 @@ export async function createOrAttachVoyageFromSchedule(
       voyageId,
       pod: pod.pod,
       eta: pod.eta,
-      etb: current?.etb ?? null,
       ata: current?.ata ?? null,
-      atd: current?.atd ?? null,
-      rtw: current?.rtw ?? null,
       ceStatus: current?.ceStatus ?? null,
       linked: current?.linked ?? false,
       changedBy,

@@ -35,6 +35,28 @@ migration 306 e a aplicação da migration em Postgres local descartável.
 
 ## Índice por rota e ação
 
+### Entrega PR 579 — Escala e Atracação por terminal (2026-08-24)
+
+Esta entrega separa os donos das datas sem criar uma tabela `port_calls`:
+
+- `/viagens` e `/viagens/:voyageId`: `VoyageScheduleModals.tsx`,
+  `VoyageVisaoTab.tsx`, `VoyageCreateModal.tsx`, `Viagens.tsx`,
+  `voyageRouteSchedules.ts`, `escalaTerminalAllocation.ts`, `voyageForm.ts` e
+  `voyageFromSchedule.ts` projetam e gravam ETA/ATA na Escala e ETB/ATB/ETD/
+  ATD/Restow nas Atracações, inclusive a linha TBC.
+- `/painel` e `/line-up-tv/display`: `lineup.ts` e `escalaState.ts` consomem a
+  mesma ordenação `COALESCE(ATB, ETB)` por terminal e derivam as datas do
+  primeiro terminal de cada sentido.
+- `/viagens/:voyageId?tab=adr&escala=...`: `agencyDepartureReport.ts`,
+  `VoyageAgencyReportTab.tsx`, `AgencyReportDocument.tsx` e
+  `AgencyReportTimeline.tsx` usam ATB/ATD/Restow da Atracação escolhida, com
+  ATA da Escala; os alertas passam a usar esse ATD como T0.
+- Banco: `341_atracacao_datas_por_terminal.sql` adiciona as colunas,
+  unicidade TBC e a RPC v2; `342_atracacao_alertas.sql` atualiza status,
+  alertas de datas, alertas do ADR e encerra produtores legados. Evidência:
+  `atracacaoMigration.test.ts`, testes focados de projeção/modal/formulário e
+  typecheck; runtime Supabase não foi executado nesta sessão.
+
 Este índice é o ponto de entrada curto. A explicação completa, as invariantes e
 as divergências permanecem no documento vivo do módulo indicado.
 

@@ -2,7 +2,8 @@ import {
   deriveAutomaticVoyagePodCeStatus,
   listVoyageEscalaSchedulesByVoyageIds,
   listVoyageTerminalScaleStatesByVoyageIds,
-  type VoyageTerminalScaleState,
+  compareAtracacoes,
+  sortAtracacoes,
   type VoyagePodCeStatus,
 } from './voyageRouteSchedules'
 import type { ExportCeStatus } from './voyageExportSchedules'
@@ -107,15 +108,23 @@ export function projectLineUpTerminals({
   direction,
 }: {
   fronts: Array<Pick<LineUpTerminalFront, 'sentido' | 'terminalId'>>
-  terminalStates: Array<Pick<VoyageTerminalScaleState, 'terminalId' | 'terminalAtb'>>
+  terminalStates: Array<{
+    terminalId: string | null
+    terminalCode?: string | null
+    terminalEtb?: string | null
+    terminalAtb?: string | null
+    terminalEtd?: string | null
+    terminalAtd?: string | null
+    terminalRtw?: number | null
+  }>
   terminalCodes: ReadonlyMap<string, string>
   direction: LineUpTerminalFront['sentido']
 }) {
   const directionFronts = fronts.filter((front) => front.sentido === direction)
   if (!directionFronts.length) return 'TBC'
 
-  const stateByTerminal = new Map(terminalStates.map((state) => [state.terminalId, state]))
-  const assigned = new Map<string, { code: string; atb: string | null }>()
+  const stateByTerminal = new Map(terminalStates.filter((state) => state.terminalId).map((state) => [state.terminalId, state]))
+  const assigned = new Map<string, { id: string; code: string; atb: string | null; etb: string | null }>()
   let hasTbc = false
 
   for (const front of directionFronts) {
@@ -125,31 +134,55 @@ export function projectLineUpTerminals({
     }
     if (assigned.has(front.terminalId)) continue
     assigned.set(front.terminalId, {
+      id: front.terminalId,
       code: terminalCodes.get(front.terminalId) ?? front.terminalId,
+      etb: stateByTerminal.get(front.terminalId)?.terminalEtb ?? null,
       atb: stateByTerminal.get(front.terminalId)?.terminalAtb ?? null,
     })
   }
 
   const labels = [...assigned.entries()]
-    .sort(([leftId, left], [rightId, right]) => compareLineUpTerminalOrder(left, right, leftId, rightId))
+    .sort(([, left], [, right]) => compareAtracacoes(
+      { terminalId: left.id, terminalCode: left.code, etb: left.etb, atb: left.atb },
+      { terminalId: right.id, terminalCode: right.code, etb: right.etb, atb: right.atb },
+    ))
     .map(([, terminal]) => terminal.code)
   if (hasTbc) labels.push('TBC')
   return labels.length ? labels.join(' / ') : 'TBC'
 }
 
-function compareLineUpTerminalOrder(
-  left: { code: string; atb: string | null },
-  right: { code: string; atb: string | null },
-  leftId: string,
-  rightId: string,
-) {
-  if (left.atb !== right.atb) {
-    if (left.atb == null) return 1
-    if (right.atb == null) return -1
-    const atbComparison = left.atb.localeCompare(right.atb)
-    if (atbComparison !== 0) return atbComparison
+export function projectLineUpTerminalDates({
+  fronts,
+  terminalStates,
+  direction,
+}: {
+  fronts: Array<Pick<LineUpTerminalFront, 'sentido' | 'terminalId'>>
+  terminalStates: Array<{
+    terminalId: string | null
+    terminalEtb?: string | null
+    terminalAtb?: string | null
+    terminalEtd?: string | null
+    terminalAtd?: string | null
+    terminalRtw?: number | null
+  }>
+  direction: LineUpTerminalFront['sentido']
+}) {
+  const assignedIds = new Set(fronts.filter((front) => front.sentido === direction && front.terminalId).map((front) => front.terminalId as string))
+  const first = sortAtracacoes(terminalStates
+    .filter((state) => state.terminalId && assignedIds.has(state.terminalId))
+    .map((state) => ({ terminalId: state.terminalId, etb: state.terminalEtb ?? null, atb: state.terminalAtb ?? null })))
+    .at(0)
+  const state = first?.terminalId
+    ? terminalStates.find((candidate) => candidate.terminalId === first.terminalId)
+    : undefined
+  const restow = terminalStates
+    .filter((candidate) => candidate.terminalId && assignedIds.has(candidate.terminalId))
+    .reduce((total, candidate) => total + (candidate.terminalRtw ?? 0), 0)
+  return {
+    etb: state?.terminalEtb ?? null,
+    atb: state?.terminalAtb ?? null,
+    rtw: restow > 0 ? restow : null,
   }
-  return left.code.localeCompare(right.code, 'pt-BR') || leftId.localeCompare(rightId)
 }
 
 export function lineUpScheduleDates(schedule: { ata?: string | null; atb?: string | null; atd?: string | null } | undefined) {
@@ -237,6 +270,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
         terminalCodes,
         direction: 'exportacao',
       })
+      const importDates = projectLineUpTerminalDates({ fronts: terminalFronts, terminalStates, direction: 'importacao' })
+      const exportDates = projectLineUpTerminalDates({ fronts: terminalFronts, terminalStates, direction: 'exportacao' })
       const hasExportSchedule = Boolean(schedule?.temExportacao)
       const isExportOnly = !routeBls.length && hasExportSchedule && !schedule?.temImportacao
 
@@ -281,8 +316,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           vesselName: voyage.vessel?.name ?? '-',
           pod,
           eta: schedule?.eta ?? null,
-          etb: schedule?.etb ?? null,
-          ...lineUpScheduleDates(schedule),
+          etb: importDates.etb,
+          ...lineUpScheduleDates({ ata: schedule?.ata, atb: importDates.atb, atd: schedule?.atd }),
           rowType: 'import',
           omitted: schedule?.omitted ?? false,
           importTerminal,
@@ -292,7 +327,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           cg: Math.max(totalContainers - carContainers, 0),
           total: totalContainers,
           mty: 0,
-          rtw: schedule?.rtw ?? null,
+          rtw: importDates.rtw,
           bbMachines,
           bbPackages,
           bbTotal: bbMachines + bbPackages,
@@ -315,8 +350,8 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           vesselName: voyage.vessel?.name ?? '-',
           pod,
           eta: schedule?.eta ?? null,
-          etb: schedule?.etb ?? null,
-          ...lineUpScheduleDates(schedule),
+          etb: exportDates.etb,
+          ...lineUpScheduleDates({ ata: schedule?.ata, atb: exportDates.atb, atd: schedule?.atd }),
           rowType: 'export',
           omitted: schedule?.omitted ?? false,
           importTerminal: 'TBC',
@@ -417,7 +452,6 @@ function hasActiveEscalaScheduleData(schedule: {
 }) {
   if (schedule.temExportacao) return true
   if (schedule.eta || schedule.etb || schedule.ata || schedule.atb || schedule.etd || schedule.atd) return true
-  if (schedule.rtw !== null) return true
   if (schedule.linked === true) return true
   if (schedule.ceStatus && schedule.ceStatus !== 'waiting' && schedule.ceStatus !== 'missing') return true
   return false

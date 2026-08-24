@@ -9,7 +9,6 @@ vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
 
 import {
   deriveAutomaticVoyagePodCeStatus,
-  getVoyageUnifiedAtd,
   listVoyagePodSchedules,
   listVoyagePolSchedules,
   projectVoyageEscalaSchedules,
@@ -60,12 +59,9 @@ describe('projectVoyageEscalaSchedules', () => {
       voyageId: 12,
       port: 'BRSSZ',
       eta: '2026-08-01',
-      etb: '2026-08-02',
       ata: '2026-08-03',
-      atb: '2026-08-04',
-      etd: '2026-08-05',
-      atd: '2026-08-06',
-      rtw: 7,
+      atd: null,
+      atracacoes: [],
       ceStatus: 'received',
       linked: true,
       escalaNumber: '001',
@@ -96,11 +92,8 @@ describe('projectVoyageEscalaSchedules', () => {
       voyageId: 12,
       port: 'BRVIX',
       eta: null,
-      etb: null,
       ata: null,
-      atb: null,
-      etd: '2026-08-05',
-      atd: '2026-08-06',
+      atd: null,
       escalaNumber: '002',
       temImportacao: false,
       // Linha de POL é registro documental (ADR 0025): não declara exportação.
@@ -109,7 +102,7 @@ describe('projectVoyageEscalaSchedules', () => {
     })])
   })
 
-  it('mantem POD canonico e reporta divergencia quando POL colide em ETD', () => {
+  it('mantem a Escala sem fundir o ETD documental do POL', () => {
     const escalas = projectVoyageEscalaSchedules({
       podSchedules: [{
         entityId: '12::BRVIX',
@@ -119,7 +112,7 @@ describe('projectVoyageEscalaSchedules', () => {
         etb: null,
         ata: null,
         atb: null,
-        etd: '2026-08-05',
+        etd: null,
         atd: null,
         rtw: null,
         ceStatus: null,
@@ -140,15 +133,10 @@ describe('projectVoyageEscalaSchedules', () => {
 
     expect(escalas).toEqual([expect.objectContaining({
       port: 'BRVIX',
-      etd: '2026-08-05',
+      atd: null,
       temImportacao: true,
       temExportacao: false,
-      divergences: [{
-        field: 'etd',
-        podValue: '2026-08-05',
-        source: 'pol',
-        sourceValue: '2026-08-07',
-      }],
+      divergences: [],
     })])
   })
 
@@ -260,9 +248,9 @@ describe('projectVoyageEscalaSchedules', () => {
     expect(escalas).toEqual([expect.objectContaining({
       port: 'BRVIX',
       eta: '2026-08-01',
-      etb: '2026-08-02',
       ata: '2026-08-03',
-      atb: '2026-08-04',
+      atd: null,
+      atracacoes: [],
       temImportacao: false,
           temExportacao: true,
       containersQty: 4,
@@ -394,71 +382,31 @@ describe('projectVoyageEscalaSchedules', () => {
 
     expect(escalas).toMatchObject([{ port: 'BRSSZ', temImportacao: false, temExportacao: false }])
   })
-})
 
-// ADR 0039 (T0 do Prazo de Conclusao do ADR): mesma precedencia POD-canonico/
-// POL-fallback de mergeEscalaField, mas numa consulta focada por voyage+port
-// (Task 2 do plano da linha do tempo). O mock casa o entity_type do primeiro
-// .eq() ao valor POD/POL passado em cada resposta.
-function mockUnifiedAtdAuditLogs(responses: {
-  pod?: { new_value: string | null; changed_at: string | null } | null
-  pol?: { new_value: string | null; changed_at: string | null } | null
-}) {
-  return {
-    select: vi.fn(() => ({
-      eq: vi.fn((_field: string, entityType: string) => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            order: vi.fn(() => ({
-              limit: vi.fn(() => ({
-                maybeSingle: vi.fn(async () => ({
-                  data: entityType === 'voyage_pod_schedule' ? responses.pod ?? null : responses.pol ?? null,
-                  error: null,
-                })),
-              })),
-            })),
-          })),
-        })),
-      })),
-    })),
-  }
-}
+  it('GREEN CHASE deriva o ATD da última Atracação somente com completude', () => {
+    const base = {
+      podSchedules: [{
+        entityId: '12::BRVIX', voyageId: 12, pod: 'BRVIX', eta: '2026-08-25',
+        etb: null, ata: '2026-08-26', atb: null, etd: null, atd: null, rtw: null,
+        ceStatus: null, linked: null, escalaNumber: null, deleted: false, omitted: false,
+      }],
+      terminalStates: [
+        { voyageId: 12, port: 'BRVIX', terminalId: 'tvv', terminalCode: 'TVV', terminalEtb: '2026-08-26', terminalAtb: '2026-08-26', terminalEtd: '2026-08-28', terminalAtd: '2026-08-29', terminalRtw: 1, revision: 1 },
+        { voyageId: 12, port: 'BRVIX', terminalId: 'portmac', terminalCode: 'PORTMAC', terminalEtb: '2026-08-28', terminalAtb: '2026-08-29', terminalEtd: '2026-09-01', terminalAtd: '2026-09-02', terminalRtw: 2, revision: 1 },
+      ],
+    }
 
-describe('getVoyageUnifiedAtd', () => {
-  it('POD com atd: POD vence, com o changed_at do proprio POD', async () => {
-    fromMock.mockReturnValue(mockUnifiedAtdAuditLogs({
-      pod: { new_value: '2026-08-06', changed_at: '2026-08-06T18:00:00Z' },
-      pol: { new_value: '2026-08-05', changed_at: '2026-08-05T09:00:00Z' },
-    }))
-
-    expect(await getVoyageUnifiedAtd(12, 'BRSSZ')).toEqual({
-      atd: '2026-08-06',
-      atdSource: 'pod',
-      atdRegisteredAt: '2026-08-06T18:00:00Z',
+    expect(projectVoyageEscalaSchedules(base)[0]).toMatchObject({
+      atd: '2026-09-02',
+      atracacoes: [
+        expect.objectContaining({ terminalId: 'tvv', atd: '2026-08-29' }),
+        expect.objectContaining({ terminalId: 'portmac', atd: '2026-09-02' }),
+      ],
     })
-  })
-
-  it('POD sem atd e POL com atd: POL vence por fallback', async () => {
-    fromMock.mockReturnValue(mockUnifiedAtdAuditLogs({
-      pod: { new_value: null, changed_at: null },
-      pol: { new_value: '2026-08-05', changed_at: '2026-08-05T09:00:00Z' },
-    }))
-
-    expect(await getVoyageUnifiedAtd(12, 'BRSSZ')).toEqual({
-      atd: '2026-08-05',
-      atdSource: 'pol',
-      atdRegisteredAt: '2026-08-05T09:00:00Z',
-    })
-  })
-
-  it('nem POD nem POL tem atd: sem ATD, sem fonte', async () => {
-    fromMock.mockReturnValue(mockUnifiedAtdAuditLogs({ pod: null, pol: null }))
-
-    expect(await getVoyageUnifiedAtd(12, 'BRSSZ')).toEqual({
-      atd: null,
-      atdSource: null,
-      atdRegisteredAt: null,
-    })
+    expect(projectVoyageEscalaSchedules({
+      ...base,
+      terminalStates: base.terminalStates.map((state) => state.terminalId === 'tvv' ? { ...state, terminalAtd: null } : state),
+    })[0]).toMatchObject({ atd: null })
   })
 })
 
@@ -494,7 +442,13 @@ it('nao reverte uma viagem cancelada quando o ATD muda', async () => {
     update: updateMock.mockReturnValue({ eq: vi.fn(async () => ({ error: null })) }),
   }
 
-  fromMock.mockImplementation((table: string) => (table === 'audit_logs' ? auditLogs : voyages))
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'audit_logs') return auditLogs
+    if (table === 'voyage_export_schedules' || table === 'voyage_escala_terminal_state') {
+      return { select: vi.fn(() => ({ in: vi.fn(async () => ({ data: [], error: null })) })) }
+    }
+    return voyages
+  })
 
   await saveVoyagePodSchedule({
     voyageId: 12,
@@ -609,7 +563,12 @@ it('preserva a alteração de schedule quando o caller não informa changedBy', 
     })),
     insert: insertMock,
   }
-  fromMock.mockReturnValue(auditLogs)
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'voyage_export_schedules' || table === 'voyage_escala_terminal_state') {
+      return { select: vi.fn(() => ({ in: vi.fn(async () => ({ data: [], error: null })) })) }
+    }
+    return auditLogs
+  })
 
   await saveVoyagePolSchedule({
     voyageId: 12,
@@ -675,7 +634,12 @@ it('grava audit rows de ATB e ETD por POD', async () => {
     }),
     insert: insertMock,
   }
-  fromMock.mockReturnValue(auditLogs)
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'voyage_export_schedules' || table === 'voyage_escala_terminal_state') {
+      return { select: vi.fn(() => ({ in: vi.fn(async () => ({ data: [], error: null })) })) }
+    }
+    return auditLogs
+  })
 
   await saveVoyagePodSchedule({
     voyageId: 12,

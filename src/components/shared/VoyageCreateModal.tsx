@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Field, Input, Select } from '../ui/Input'
 import { Modal } from '../ui/Modal'
@@ -9,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth'
 import {
   initialVoyageFormValues,
   normalizeVoyageFormValues,
+  validateIndicatedFirstBrazilianPort,
   voyageFormSchema,
   type VoyageFormErrors,
   type VoyageFormValues,
@@ -53,8 +53,6 @@ export function VoyageCreateModal({
         ...initialValues,
         indicatedFirstBrazilianPort: indicatedPort,
         indicatedFirstBrazilianEta: indicatedEta,
-        loadPortEtds: initialValues?.loadPortEtds ?? initialVoyageFormValues.loadPortEtds,
-        dischargePortEtas: initialValues?.dischargePortEtas ?? initialVoyageFormValues.dischargePortEtas,
       })
       setHasIndicatedFirstPort(Boolean(indicatedPort || indicatedEta))
       setErrors({})
@@ -73,6 +71,12 @@ export function VoyageCreateModal({
         if (!fieldErrors[field]) fieldErrors[field] = issue.message
       }
       setErrors(fieldErrors)
+      return
+    }
+
+    const indicatedPortError = await validateIndicatedFirstBrazilianPort(normalizedForm, voyageId)
+    if (indicatedPortError) {
+      setErrors({ indicatedFirstBrazilianPort: indicatedPortError })
       return
     }
 
@@ -110,58 +114,12 @@ export function VoyageCreateModal({
     }
   }
 
-  function updateDischargePort(index: number, field: 'pod' | 'eta', value: string) {
-    setForm((current) => ({
-      ...current,
-      dischargePortEtas: current.dischargePortEtas.map((row, rowIndex) =>
-        rowIndex === index ? { ...row, [field]: field === 'pod' ? value.toUpperCase() : value } : row,
-      ),
-    }))
-  }
-
-  function updateLoadPort(index: number, field: 'pol' | 'etd', value: string) {
-    setForm((current) => ({
-      ...current,
-      loadPortEtds: current.loadPortEtds.map((row, rowIndex) =>
-        rowIndex === index ? { ...row, [field]: field === 'pol' ? value.toUpperCase() : value } : row,
-      ),
-    }))
-  }
-
-  function addLoadPort() {
-    setForm((current) => ({
-      ...current,
-      loadPortEtds: [...current.loadPortEtds, { pol: '', etd: '' }],
-    }))
-  }
-
-  function removeLoadPort(index: number) {
-    setForm((current) => ({
-      ...current,
-      loadPortEtds: current.loadPortEtds.filter((_, rowIndex) => rowIndex !== index),
-    }))
-  }
-
-  function addDischargePort() {
-    setForm((current) => ({
-      ...current,
-      dischargePortEtas: [...current.dischargePortEtas, { pod: '', eta: '' }],
-    }))
-  }
-
-  function removeDischargePort(index: number) {
-    setForm((current) => ({
-      ...current,
-      dischargePortEtas: current.dischargePortEtas.filter((_, rowIndex) => rowIndex !== index),
-    }))
-  }
-
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <form className="grid gap-4" onSubmit={handleSubmit}>
         <div className="app-panel app-panel--padded text-sm">
           {note ??
-            'Cadastre a viagem e, se desejar antecipar a exibição no Line-Up, informe os portos de descarga com seus ETAs antes da chegada dos manifestos.'}
+            'Cadastre a viagem. As escalas, chegadas e atracações são planejadas no modal da própria viagem.'}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -221,6 +179,7 @@ export function VoyageCreateModal({
               <input
                 type="checkbox"
                 checked={hasIndicatedFirstPort}
+                disabled={!voyageId}
                 onChange={(event) => {
                   const checked = event.target.checked
                   setHasIndicatedFirstPort(checked)
@@ -236,6 +195,7 @@ export function VoyageCreateModal({
               />
               Indicar outro 1º porto brasileiro
             </label>
+            {!voyageId ? <div className="text-xs text-[var(--app-muted)]">Disponível depois que a viagem tiver ao menos uma escala.</div> : null}
           </div>
 
           {hasIndicatedFirstPort ? (
@@ -266,114 +226,6 @@ export function VoyageCreateModal({
               </Field>
             </div>
           ) : null}
-        </div>
-
-        <div className="app-panel app-panel--padded grid gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="app-panel__title">Portos de carregamento (POL)</div>
-              <div className="app-panel__meta">
-                Informe ETDs para rotas que devem nascer manualmente antes dos manifestos.
-              </div>
-            </div>
-            <Button variant="secondary" type="button" onClick={addLoadPort}>
-              <Plus size={15} />
-              Adicionar porto
-            </Button>
-          </div>
-
-          {errors.loadPortEtds ? (
-            <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {errors.loadPortEtds}
-            </div>
-          ) : null}
-
-          {form.loadPortEtds.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--app-border-strong)] px-3 py-4 text-sm text-[var(--app-muted)]">
-              Nenhum porto de carregamento planejado. Adicione linhas se precisar informar ETD manualmente.
-            </div>
-          ) : null}
-
-          <div className="grid gap-3">
-            {form.loadPortEtds.map((row, index) => (
-              <div key={`load-port-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
-                <Field label={`Porto de carregamento ${index + 1}`}>
-                  <Input
-                    value={row.pol}
-                    placeholder="Ex.: CNTAO"
-                    onChange={(event) => updateLoadPort(index, 'pol', event.target.value)}
-                  />
-                </Field>
-                <Field label="ETD">
-                  <Input
-                    type="date"
-                    value={row.etd}
-                    onChange={(event) => updateLoadPort(index, 'etd', event.target.value)}
-                  />
-                </Field>
-                <div className="flex items-end">
-                  <Button variant="danger" type="button" onClick={() => removeLoadPort(index)}>
-                    <Trash2 size={15} />
-                    Remover
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="app-panel app-panel--padded grid gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="app-panel__title">Portos de descarga para o Line-Up</div>
-              <div className="app-panel__meta">
-                Informe um ETA para cada POD que precisa aparecer no quadro antes da importação dos manifestos.
-              </div>
-            </div>
-            <Button variant="secondary" type="button" onClick={addDischargePort}>
-              <Plus size={15} />
-              Adicionar porto
-            </Button>
-          </div>
-
-          {errors.dischargePortEtas ? (
-            <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {errors.dischargePortEtas}
-            </div>
-          ) : null}
-
-          {form.dischargePortEtas.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--app-border-strong)] px-3 py-4 text-sm text-[var(--app-muted)]">
-              Nenhum porto de descarga planejado. Adicione linhas se a viagem precisar entrar no Line-Up antes dos manifestos.
-            </div>
-          ) : null}
-
-          <div className="grid gap-3">
-            {form.dischargePortEtas.map((row, index) => (
-              <div key={`discharge-port-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_auto]">
-                <Field label={`Porto de descarga ${index + 1}`}>
-                  <Input
-                    value={row.pod}
-                    placeholder="Ex.: SANTOS"
-                    onChange={(event) => updateDischargePort(index, 'pod', event.target.value)}
-                  />
-                </Field>
-                <Field label="ETA">
-                  <Input
-                    type="date"
-                    value={row.eta}
-                    onChange={(event) => updateDischargePort(index, 'eta', event.target.value)}
-                  />
-                </Field>
-                <div className="flex items-end">
-                  <Button variant="danger" type="button" onClick={() => removeDischargePort(index)}>
-                    <Trash2 size={15} />
-                    Remover
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="app-modal__actions">

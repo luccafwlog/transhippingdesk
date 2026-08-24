@@ -108,12 +108,7 @@ const escalaBase: EscalaModalData = {
   port: 'BRSSZ',
   temImportacao: true,
   eta: '2026-03-01',
-  etb: null,
   ata: null,
-  atb: '2026-03-02',
-  etd: '2026-03-03',
-  atd: null,
-  rtw: 3,
   ceStatus: 'waiting',
   linked: true,
   escalaNumber: null,
@@ -182,7 +177,7 @@ describe('EscalaModal', () => {
     expect(screen.getByText('Escala: BRSSZ')).toBeTruthy()
     expect(screen.queryByLabelText('Porto da escala')).toBeNull()
     expect((screen.getByLabelText('ETA') as HTMLInputElement).value).toBe('2026-03-01')
-    expect((screen.getByLabelText('RESTOW') as HTMLInputElement).value).toBe('3')
+    expect(screen.queryByLabelText('RESTOW')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
     expect(onSaved).toHaveBeenCalledWith(
@@ -190,9 +185,7 @@ describe('EscalaModal', () => {
         voyageId: 9,
         port: 'BRSSZ',
         eta: '2026-03-01',
-        etb: null,
-        atb: '2026-03-02',
-        rtw: 3,
+        ata: null,
         linked: true,
         exportacao: { temExportacao: false, hasGranite: false, hasEmpty: false, containersQty: null, movementsQty: null, dischargePorts: [] },
       }),
@@ -368,7 +361,7 @@ describe('EscalaModal', () => {
     expect(graniteToggle.checked).toBe(false)
   })
 
-  it('bloqueia salvamento de escala somente exportação se houver dados de POD/importação', async () => {
+  it('permite escala somente de exportação com ETA e atracação', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala({
       ...escalaBase,
@@ -381,8 +374,7 @@ describe('EscalaModal', () => {
     await user.click(screen.getByLabelText('Esta escala terá importação (descarregamento)'))
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
 
-    expect(onSaved).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert').textContent).toContain('somente exportação não pode ter POD')
+    expect(onSaved).toHaveBeenCalled()
   })
 
   it('não rebasa campos digitados quando o estado terminal chega depois', () => {
@@ -514,7 +506,7 @@ describe('EscalaModal', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
 
     const payload = onSaved.mock.calls[0][0]
-    expect(payload.terminalState.terminals.map((terminal: { terminalId: string }) => terminal.terminalId)).toEqual(['t-norte'])
+    expect(payload.terminalState.terminals.map((terminal: { terminalId: string | null }) => terminal.terminalId)).toEqual(['t-norte', null])
   })
 
   it('filtra terminal por porto e mostra inativo somente como histórico associado', async () => {

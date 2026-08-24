@@ -116,7 +116,7 @@ describe('isEscalaOmitted', () => {
       entityId: '1::BRVIX',
       voyageId: 1,
       port: 'BRVIX',
-      eta: null, etb: null, ata: null, atb: null, etd: null, atd: null, rtw: null,
+      eta: null, ata: null, atd: null, atracacoes: [],
       ceStatus: null, podCeStatus: null, exportCeStatus: null, linked: null, escalaNumber: null,
       omitted: false, deleted: false, temImportacao: true, temExportacao: false, temGranito: false,
       containersQty: null, movementsQty: null, dischargePorts: [], divergences: [],

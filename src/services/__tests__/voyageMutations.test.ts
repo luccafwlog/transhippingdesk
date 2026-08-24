@@ -149,8 +149,6 @@ it('salva IMO quando a viagem usa um navio ja existente sem IMO', async () => {
       vesselImo: '9846495',
       voyageNumber: '39',
       status: 'active',
-      loadPortEtds: [],
-      dischargePortEtas: [],
     },
     'user-1',
   )

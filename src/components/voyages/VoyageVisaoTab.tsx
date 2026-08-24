@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ChevronDown, ChevronUp, Clock, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
@@ -10,7 +10,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useVoyageTimeline } from '../../hooks/useVoyageTimeline'
 import { formatDate } from '../../lib/utils'
 import { classifyDbError } from '../../lib/errors'
-import { formatMetric, normalizePortName } from '../../lib/voyageFormat'
+import { normalizePortName } from '../../lib/voyageFormat'
 import { normalizePortCode } from '../../services/portCode'
 import {
   buildVoyageTimeline,
@@ -132,12 +132,7 @@ export function VoyageVisaoTab({
       port: row?.port ?? null,
       temImportacao: row?.temImportacao ?? false,
       eta: row?.eta ?? null,
-      etb: row?.etb ?? null,
       ata: row?.ata ?? null,
-      atb: row?.atb ?? null,
-      etd: row?.etd ?? null,
-      atd: row?.atd ?? null,
-      rtw: row?.rtw ?? null,
       ceStatus: (row?.podCeStatus ?? row?.ceStatus ?? null) as EscalaModalData['ceStatus'],
       linked: row?.linked ?? null,
       escalaNumber: row?.escalaNumber ?? null,
@@ -161,7 +156,7 @@ export function VoyageVisaoTab({
   async function handleDeleteEscala(row: VoyageEscalaSchedule) {
     const exportSchedule = exportScheduleByPort.get(normalizePortCode(row.port) ?? normalizePortName(row.port)) ?? null
     const routeBls = (voyage.bls ?? []).filter((bl) => (normalizePortCode(bl.pod) ?? normalizePortName(bl.pod)) === (normalizePortCode(row.port) ?? normalizePortName(row.port)))
-    const hasScheduleData = Boolean(row.eta || row.etb || row.ata || row.atb || row.etd || row.atd || row.rtw !== null)
+    const hasScheduleData = Boolean(row.eta || row.ata || row.atd || (row.atracacoes ?? []).some((atracacao) => atracacao.etb || atracacao.atb || atracacao.etd || atracacao.atd || atracacao.rtw !== null))
     if (routeBls.length > 0) {
       showToast('Não é possível excluir esta escala: existem B/Ls vinculados.', 'error')
       return
@@ -216,14 +211,10 @@ export function VoyageVisaoTab({
               <col className="min-w-[90px]" />
               <col className="min-w-[150px]" />
               <col className="min-w-[80px]" />
-              <col className="min-w-[80px]" />
-              <col className="min-w-[80px]" />
-              <col className="min-w-[80px]" />
-              <col className="min-w-[80px]" />
-              <col className="min-w-[80px]" />
-              <col className="min-w-[70px]" />
               <col className="min-w-[90px]" />
               <col className="min-w-[100px]" />
+              <col className="min-w-[90px]" />
+              <col className="min-w-[90px]" />
               <col className="min-w-[90px]" />
               <col className="w-[1%] whitespace-nowrap" />
             </colgroup>
@@ -232,12 +223,8 @@ export function VoyageVisaoTab({
                 <th scope="col" className="px-3 py-2">Escala</th>
                 <th scope="col" className="px-3 py-2">Opera</th>
                 <th scope="col" className="px-3 py-2">ETA</th>
-                <th scope="col" className="px-3 py-2">ETB</th>
                 <th scope="col" className="px-3 py-2">ATA</th>
-                <th scope="col" className="px-3 py-2">ATB</th>
-                <th scope="col" className="px-3 py-2">ETD</th>
-                <th scope="col" className="px-3 py-2">ATD</th>
-                <th scope="col" className="px-3 py-2">RESTOW</th>
+                <th scope="col" className="px-3 py-2">ATD derivado</th>
                 <th scope="col" className="px-3 py-2">BLs e CEs</th>
                 <th scope="col" className="px-3 py-2">Nº Escala</th>
                 <th scope="col" className="px-3 py-2">VINCULADA</th>
@@ -247,7 +234,9 @@ export function VoyageVisaoTab({
             <tbody>
               {escalaRows.length ? (
                 escalaRows.map((row) => {
+                  const atracacoes = row.atracacoes ?? []
                   return (
+                    <Fragment key={`${voyage.id}-scale-${row.port}`}>
                     <tr key={`${voyage.id}-lineup-${row.port}`}>
                       <td className="px-3 py-2 align-top">
                         <div className="font-semibold text-[var(--app-text-strong)]">{row.port}</div>
@@ -257,12 +246,8 @@ export function VoyageVisaoTab({
                         <EscalaOperationMarkers row={row} />
                       </td>
                       <td className="px-3 py-2">{formatDate(row.eta)}</td>
-                      <td className="px-3 py-2">{formatDate(row.etb)}</td>
                       <td className="px-3 py-2">{formatDate(row.ata)}</td>
-                      <td className="px-3 py-2">{formatDate(row.atb)}</td>
-                      <td className="px-3 py-2">{formatDate(row.etd)}</td>
                       <td className="px-3 py-2">{formatDate(row.atd)}</td>
-                      <td className="px-3 py-2">{row.rtw === null ? '-' : formatMetric(row.rtw)}</td>
                       <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
                       <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
                       <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
@@ -305,11 +290,31 @@ export function VoyageVisaoTab({
                         </div>
                       </td>
                     </tr>
+                    {atracacoes.length ? (
+                      <tr key={`${voyage.id}-atracacoes-${row.port}`}>
+                        <td colSpan={9} className="px-3 pb-3 pt-0">
+                          <div className="ml-4 grid gap-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2 text-xs">
+                            <div className="font-semibold uppercase tracking-wide text-[var(--app-muted)]">Atracações</div>
+                            {atracacoes.map((atracacao, index) => (
+                              <div key={`${atracacao.terminalId ?? 'tbc'}-${index}`} className="grid gap-1 md:grid-cols-[1.2fr_repeat(5,1fr)]">
+                                <span className="font-medium text-[var(--app-text-strong)]">{atracacao.terminalCode ?? 'TBC'}</span>
+                                <span>ETB {formatDate(atracacao.etb)}</span>
+                                <span>ATB {formatDate(atracacao.atb)}</span>
+                                <span>ETD {formatDate(atracacao.etd)}</span>
+                                <span>ATD {formatDate(atracacao.atd)}</span>
+                                <span>Restow {atracacao.rtw ?? 0}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   )
                 })
               ) : (
                 <tr>
-                  <td colSpan={13} className="px-3 py-3 text-[var(--app-muted)]">
+                  <td colSpan={9} className="px-3 py-3 text-[var(--app-muted)]">
                     Nenhuma escala planejada para esta viagem.
                   </td>
                 </tr>
