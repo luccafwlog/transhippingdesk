@@ -11,6 +11,7 @@ Quando um plano é totalmente executado, ele é movido para
 | Plano | Tema | Status |
 |---|---|---|
 | `2026-08-15`–`2026-08-20` — Blocos 1, 2, 3, 4, 5 e 6 | Implementações concluídas e arquivadas após a consolidação do Épico #519 | DONE — ver `docs/archive/plans/` |
+| [`2026-08-24-escala-atracacao-datas-por-terminal`](./2026-08-24-escala-atracacao-datas-por-terminal.md) | Escala dona de ETA/ATA, Atracação dona das datas de berço por terminal | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

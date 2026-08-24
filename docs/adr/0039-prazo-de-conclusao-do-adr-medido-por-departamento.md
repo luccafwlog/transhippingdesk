@@ -2,6 +2,28 @@
 
 Status: aceito — 2026-08-06
 
+> **Nota editorial — 2026-08-24.** Esta decisão fixou o T0 como "o ATD da escala
+> unificada — a saída do navio do porto brasileiro". A nota de 2026-08-24 da ADR
+> 0035 passou as datas de berço para a **Atracação** (a passagem da Escala por um
+> terminal), e o ADR já é por terminal desde a ADR 0027, com fechamento
+> independente. **O relógio passa a partir do ATD da Atracação daquele
+> terminal**, não do ATD da Escala.
+>
+> O princípio não muda — "o relógio começa na data real do ATD", nunca no
+> instante do registro. Muda a identificação de *qual* ATD é o relevante para
+> aquele relatório: um prazo cujo T0 é a saída de outro terminal não é
+> gerenciável por quem responde por ele, e um navio que fica mais duas semanas
+> no porto congelaria o ADR de um terminal que terminou. Com dois terminais em
+> Vitória — TVV desatracando em 29/08 e Portmac em 02/09 — o ADR do TVV conta de
+> 29/08 e o da Portmac de 02/09.
+>
+> Consequências: `getVoyageUnifiedAtd` (a precedência POD-canônico/POL-fallback,
+> escrita para este relógio) perde o seu consumidor; e os alertas pós-ATD da
+> migration 326, que já iteram por terminal mas comparam contra o ETD da
+> *escala*, passam a comparar contra o ETD da própria Atracação. O verbete
+> **ATD** de `CONTEXT.md` já foi ajustado para "desatracou do terminal da
+> Atracação".
+
 ## Contexto
 
 O ADR já registra tudo o que é preciso para saber **quando** cada departamento

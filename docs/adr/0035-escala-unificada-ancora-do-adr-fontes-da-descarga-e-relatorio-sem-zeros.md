@@ -64,6 +64,52 @@ Status: aceito — 2026-07-31 (notas editoriais em 2026-08-03 e 2026-08-04)
 >    exportação — continua como checkbox do cadastro e como módulo próprio, mas
 >    não é uma terceira operação da escala.
 
+> **Nota editorial — 2026-08-24.** Uma revisão do modal de edição da Viagem e do
+> modal de Escala expôs que as datas da escala tinham dois donos e nenhuma regra:
+> o ETD documental do POL preenchia a coluna de ETD da escala quando esta estava
+> vazia, e reaparecia ao ser apagado. A operação foi consultada e o modelo de
+> datas fica assim:
+>
+> 1. **A Escala é dona de ETA e ATA; a Atracação é dona de ETB, ATB, ETD e ATD.**
+>    Entra a **Atracação** — a passagem de uma Escala por um terminal, com o ciclo
+>    próprio de berço. Uma Escala é uma sequência ordenada de Atracações; o mesmo
+>    terminal ocorre uma vez por Escala, e a ordem é explícita, não inferida do
+>    ATB. Uma Atracação pode existir **sem terminal** (TBC) — no máximo uma por
+>    Escala —, guardando a previsão de berço desde o planejamento. O **ATD da
+>    Escala** passa a ser derivado: o da última Atracação, existindo apenas
+>    quando todas as Atracações têm ATD, e é ele que conclui a Viagem.
+>
+> 2. **A segregação por sentido do ponto 2 da nota de 2026-08-03 permanece
+>    integralmente** — uma linha por escala e sentido no Line-Up, no Painel e na
+>    TV. O que muda é a frase "a linha de exportação perde ETA/ETB próprios":
+>    ela valia porque o ETB pertencia à Escala e não havia outro que a linha
+>    pudesse mostrar. Com a Atracação, **cada linha passa a ter ETB/ATB
+>    próprios — os da primeira Atracação que hospeda uma frente daquele
+>    sentido**. ETA e ATA seguem compartilhados, porque a chegada ao porto é uma
+>    só. Sem isso a linha de exportação exibiria o ETB de um terminal que não é
+>    o dela.
+>
+> 3. **Cai a precedência POD/POL para `etd` e `atd`, e o aviso de divergência
+>    desses dois campos.** As datas do POL são registro documental do
+>    conhecimento e **não têm vínculo com Escala nem com Atracação**; vivem na
+>    coluna ATD POL de Escalas & Manifestos e em Chegadas e Saídas, e em nenhuma
+>    outra superfície. A divergência de Nº de Escala permanece, porque ali as
+>    duas origens descrevem o mesmo fato. Isto conclui o que a nota de
+>    2026-08-03 já havia declarado no ponto 3 e o código não seguiu.
+>
+> 4. **O modal da Viagem deixa de editar datas.** Saem as seções "Portos de
+>    carregamento (POL)" e "Portos de descarga para o Line-Up": criar escala
+>    passa a ser exclusividade do Planejamento por escala e de Chegadas & Saídas
+>    (ADR 0021), e o ETD do POL é digitado onde ele mora. A âncora do 1º Porto
+>    Brasileiro (D−7/D−5) permanece no modal, mas validada contra as Escalas
+>    persistidas da viagem — e desabilitada na criação, quando ainda não há
+>    escala para ancorar.
+>
+> A base de produção não tinha datas de berço em 24/08/2026 (zero eventos de
+> ETB, ATB, ATA e ATD; um único ETD), então não há backfill: as colunas nascem
+> no formato novo, como o ponto 3 da nota de 2026-08-03 já havia estabelecido
+> para a unificação.
+
 ## Contexto
 
 Uma revisão completa do fluxo do Agency Departure Report em 31 jul 2026
