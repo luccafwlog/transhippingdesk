@@ -74,7 +74,7 @@ async function podHasOperationalAnchor(
     .maybeSingle()
   if (error) throw error
   if (Number((data as { revision?: number } | null)?.revision ?? 0) > 0) return true
-  if (Boolean(current.ata || current.atd || current.linked)) return true
+  if (current.ata || current.atd || current.linked) return true
 
   const { count, error: blError } = await supabase
     .from('bls')
