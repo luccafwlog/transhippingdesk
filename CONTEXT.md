@@ -30,7 +30,9 @@ Passagem de uma viagem por um porto brasileiro, identificada por
 documentais próprios. É dona da chegada ao porto — ETA e ATA —, enquanto as
 datas de berço pertencem às suas Atracações. Um porto, uma escala: a mesma
 escala pode descarregar importação, embarcar exportação ou as duas coisas, e o
-sentido da operação não a divide em registros diferentes. Portos estrangeiros da rota não são escalas —
+sentido da operação não a divide em registros diferentes. A sua saída do porto
+é derivada: o ATD da última Atracação, existindo apenas quando todas as
+Atracações têm ATD. Portos estrangeiros da rota não são escalas —
 permanecem como papel documental do B/L.
 
 - **Distinto de:** POL e POD, que são papéis do conhecimento de embarque e da
@@ -187,9 +189,11 @@ desatracação daquele terminal. Marca o início da contagem do Prazo
 de Conclusão do ADR.
 
 **Estado da Escala**
-Estado operacional derivado das datas reais, não um status manual independente.
-Com ATB e sem ATD, a escala está `Atracada`; ao receber ATD, passa
-automaticamente a `Concluída`. Vale para qualquer escala, inclusive a que só
+Estado operacional derivado das datas reais das suas Atracações, não um status
+manual independente. Com alguma Atracação atracada — ATB sem ATD — a escala
+está `Atracada`; quando todas as Atracações têm ATD, passa automaticamente a
+`Concluída`. Entre duas Atracações, o navio está no porto sem berço e a escala
+não tem estado. Vale para qualquer escala, inclusive a que só
 embarca. A conclusão de uma escala não implica, sozinha, a conclusão da Viagem.
 
 **ETD do POL**
