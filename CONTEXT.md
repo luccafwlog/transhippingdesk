@@ -199,19 +199,20 @@ embarca. A conclusão de uma escala não implica, sozinha, a conclusão da Viage
 **ETD do POL**
 Data estimada de saída da viagem no porto de carregamento. Permanece como a
 previsão da rota mesmo quando uma saída efetiva é posteriormente conhecida. É
-registro documental da rota, distinto do ETD da Escala, que é o dado
-operacional editado pelo operador.
+registro documental da rota, sem vínculo com a Escala nem com a Atracação: não
+descreve a operação do navio no porto brasileiro.
 
 **ATD do POL**
 Data efetiva de saída da viagem no porto de carregamento. Para carga de
 container, a data `Laden on Board` informada pelo B/L é sua fonte documental.
 Quando B/Ls da mesma Viagem e POL informam datas diferentes, a data mais antiga
 é o ATD canônico do POL.
-Não sobrescreve o ATD da Escala: são registros de naturezas diferentes — o
-documental do conhecimento e o operacional da escala — e podem divergir sem que
-o sistema arbitre.
-Em superfícies sem coluna própria de ATD, substitui visualmente o ETD e é
-destacada em verde, sem transformar conceitualmente ATD em ETD.
+Não tem vínculo com a Escala nem com a Atracação: é registro documental do
+conhecimento, não da operação do navio, e nunca preenche nem substitui as datas
+delas. Vive em dois lugares — a coluna ATD POL de Escalas & Manifestos e o
+quadro de Chegadas e Saídas — além do próprio B/L.
+Em Chegadas e Saídas, onde não há coluna própria de ATD, ocupa visualmente a
+célula de ETD com destaque verde, sem transformar conceitualmente ATD em ETD.
 
 **Programação de Navios (Chegadas e Saídas)**
 Quadro de line-up exibido ao cliente no Portal, com a previsão de datas por porto
