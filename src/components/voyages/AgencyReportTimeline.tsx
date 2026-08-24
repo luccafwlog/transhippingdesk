@@ -114,9 +114,10 @@ function Milestone({ title, badge, children }: { title: string; badge?: ReactNod
   )
 }
 
-const ATD_SOURCE_LABELS: Record<'pod' | 'pol', string> = {
+const ATD_SOURCE_LABELS: Record<'pod' | 'pol' | 'terminal', string> = {
   pod: 'POD',
   pol: 'POL',
+  terminal: 'Atracação',
 }
 
 export function AgencyReportTimeline({
@@ -133,7 +134,7 @@ export function AgencyReportTimeline({
   closedByName,
 }: {
   atd: string | null
-  atdSource: 'pod' | 'pol' | null
+  atdSource: 'pod' | 'pol' | 'terminal' | null
   atdRegisteredAt: string | null
   /** Data do prazo (YYYY-MM-DD), já calculada pela chamadora com calculateAgencyReportDeadlineDate. */
   deadline: string | null

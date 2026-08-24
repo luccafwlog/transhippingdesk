@@ -17,6 +17,7 @@ vi.mock('../supabase', () => ({ supabase: { from: fromMock, rpc: rpcMock } }))
 vi.mock('../voyageRouteSchedules', () => ({
   buildVoyagePodEntityId: (voyageId: number, port: string) => `${voyageId}::${port}`,
   listVoyagePodSchedules: vi.fn(),
+  listVoyageEscalaSchedulesByVoyageIds: vi.fn().mockResolvedValue(new Map()),
   getVoyageUnifiedAtd: vi.fn().mockResolvedValue({ atd: null, atdSource: null, atdRegisteredAt: null }),
 }))
 vi.mock('../vaziosExportOperations', () => ({ computeStorageTotals: vi.fn(() => ({ containers: 0, days: 0 })) }))

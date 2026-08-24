@@ -178,7 +178,7 @@ describe('escalaTerminalAllocation', () => {
       exportExpectation: { tem_exportacao: false, granito: false, has_empty: false },
     })).rejects.toMatchObject({ code: 'ADR_CLOSED_BLOCKED' })
 
-    expect(rpcMock).toHaveBeenCalledWith('save_voyage_escala_terminal_state', expect.objectContaining({
+    expect(rpcMock).toHaveBeenCalledWith('save_voyage_escala_terminal_state_v2', expect.objectContaining({
       p_voyage_id: 9,
       p_port: 'BRVIX',
       p_expected_revision: 3,

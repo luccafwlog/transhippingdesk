@@ -13,7 +13,6 @@ import {
   listVoyagePolSchedules,
   saveVoyagePodSchedule,
   saveVoyagePolSchedule,
-  type VoyagePodSchedule,
 } from './voyageRouteSchedules'
 
 export type ScheduleLaneInput = {
@@ -65,17 +64,15 @@ function collectClearedLanes(lanes: ScheduleLaneInput[]) {
 async function podHasOperationalAnchor(
   voyageId: number,
   podCode: string,
-  current: VoyagePodSchedule | undefined,
 ): Promise<boolean> {
-  if (current?.linked || current?.ata || current?.atd) return true
   const { data, error } = await supabase
-    .from('bls')
-    .select('id')
+    .from('voyage_escala_revision_state')
+    .select('revision')
     .eq('voyage_id', voyageId)
-    .eq('pod', podCode)
-    .limit(1)
+    .eq('port', podCode)
+    .maybeSingle()
   if (error) throw error
-  return (data ?? []).length > 0
+  return Number((data as { revision?: number } | null)?.revision ?? 0) > 0
 }
 
 async function cancelClearedLanes(
@@ -98,17 +95,14 @@ async function cancelClearedLanes(
   await Promise.all(cleared.pods.map(async (code) => {
     const current = currentPods.get(buildVoyagePodEntityId(voyageId, code))
     if (!current) return
-    const anchored = await podHasOperationalAnchor(voyageId, code, current)
+    const anchored = await podHasOperationalAnchor(voyageId, code)
     if (anchored) {
       if (current.eta === null) return
       await saveVoyagePodSchedule({
         voyageId,
         pod: code,
         eta: null,
-        etb: current.etb ?? null,
         ata: current.ata ?? null,
-        atd: current.atd ?? null,
-        rtw: current.rtw ?? null,
         ceStatus: current.ceStatus ?? null,
         linked: current.linked ?? false,
         changedBy,
@@ -135,8 +129,6 @@ export async function createOrAttachVoyageFromSchedule(
     vesselImo: input.vesselImo,
     voyageNumber: input.voyageNumber,
     status: 'active',
-    loadPortEtds: [],
-    dischargePortEtas: [],
   }, changedBy)).id
 
   await setVoyageShowOnPortal(voyageId, true)
@@ -157,10 +149,7 @@ export async function createOrAttachVoyageFromSchedule(
       voyageId,
       pod: pod.pod,
       eta: pod.eta,
-      etb: current?.etb ?? null,
       ata: current?.ata ?? null,
-      atd: current?.atd ?? null,
-      rtw: current?.rtw ?? null,
       ceStatus: current?.ceStatus ?? null,
       linked: current?.linked ?? false,
       changedBy,

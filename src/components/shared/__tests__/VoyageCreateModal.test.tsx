@@ -56,20 +56,16 @@ describe('VoyageCreateModal', () => {
     expect(screen.queryByLabelText('ETA indicado')).toBeNull()
   })
 
-  it('exibe campos de porto e ETA quando o toggle de 1º porto brasileiro indicado é ativado', async () => {
-    const user = userEvent.setup()
+  it('mantém o toggle de 1º porto desabilitado na criação', () => {
     renderModal()
-
-    const checkbox = screen.getByLabelText('Indicar outro 1º porto brasileiro')
-    await user.click(checkbox)
-
-    expect(screen.getByLabelText('Porto indicado')).toBeTruthy()
-    expect(screen.getByLabelText('ETA indicado')).toBeTruthy()
+    expect((screen.getByLabelText('Indicar outro 1º porto brasileiro') as HTMLInputElement).disabled).toBe(true)
+    expect(screen.getByText('Disponível depois que a viagem tiver ao menos uma escala.')).toBeTruthy()
   })
 
   it('limpa os campos indicados ao desativar o toggle', async () => {
     const user = userEvent.setup()
     renderModal({
+      voyageId: 101,
       initialValues: {
         indicatedFirstBrazilianPort: 'BRSSZ',
         indicatedFirstBrazilianEta: '2026-07-01',
@@ -93,26 +89,12 @@ describe('VoyageCreateModal', () => {
     await user.type(screen.getByLabelText('Navio'), 'COSCO SHIPPING PLAN')
     await user.type(screen.getByLabelText('Numero da viagem'), '045E')
 
-    // Adiciona POD
-    const addButtons = screen.getAllByRole('button', { name: 'Adicionar porto' })
-    await user.click(addButtons[1]) // discharge port
-    await user.type(screen.getByPlaceholderText('Ex.: SANTOS'), 'BRSSZ')
-    await user.type(screen.getAllByLabelText('ETA')[0], '2026-08-01')
-
-    // Ativa indicação
-    await user.click(screen.getByLabelText('Indicar outro 1º porto brasileiro'))
-    await user.type(screen.getByLabelText('Porto indicado'), 'BRRIO')
-    await user.type(screen.getByLabelText('ETA indicado'), '2026-07-20')
-
     await user.click(screen.getByRole('button', { name: 'Cadastrar viagem' }))
 
     expect(createVoyageMock).toHaveBeenCalledWith(
       expect.objectContaining({
         vesselName: 'COSCO SHIPPING PLAN',
         voyageNumber: '045E',
-        indicatedFirstBrazilianPort: 'BRRIO',
-        indicatedFirstBrazilianEta: '2026-07-20',
-        dischargePortEtas: [expect.objectContaining({ pod: 'BRSSZ', eta: '2026-08-01' })],
       }),
       'user-1',
     )

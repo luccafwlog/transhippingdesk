@@ -6,6 +6,7 @@ import { useConfirm } from '../ui/ConfirmDialog'
 import {
   getEditableVoyagePodCeStatus,
   POD_CE_STATUS_OPTIONS,
+  sortAtracacoes,
   type EditableVoyagePodCeStatus,
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
@@ -41,12 +42,7 @@ export type EscalaModalPayload = {
   port: string
   temImportacao: boolean
   eta: string | null
-  etb: string | null
   ata: string | null
-  atb: string | null
-  etd: string | null
-  atd: string | null
-  rtw: number | null
   ceStatus: EditableVoyagePodCeStatus
   linked: boolean
   escalaNumber: string | null
@@ -61,8 +57,10 @@ export type EscalaModalPayload = {
       source: OperationFront['source']
     }>
     terminals: Array<{
-      terminalId: string
+      terminalId: string | null
+      etb: string | null
       atb: string | null
+      etd: string | null
       atd: string | null
       restow: number | null
     }>
@@ -83,12 +81,7 @@ export type EscalaModalData = {
   port: string | null
   temImportacao: boolean
   eta: string | null
-  etb: string | null
   ata: string | null
-  atb: string | null
-  etd: string | null
-  atd: string | null
-  rtw: number | null
   ceStatus: VoyagePodCeStatus | null
   linked: boolean | null
   escalaNumber: string | null
@@ -171,8 +164,8 @@ export function PolScheduleModal({
   return (
     <Modal open={open} onClose={onClose} title="Editar ETD + ATD e CE Master">
       {polSchedule ? (
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="app-panel app-panel--padded text-sm">
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <div className="app-panel app-panel--padded text-sm order-1">
             <div className="font-semibold text-[var(--app-text-strong)]">{polSchedule.voyageLabel}</div>
             <div className="mt-1">Rota: {polSchedule.pol} -&gt; {polSchedule.pod}</div>
           </div>
@@ -224,6 +217,10 @@ function dateInputValue(value: string | null | undefined) {
   return value ? value.slice(0, 10) : ''
 }
 
+function sameDateValue(left: string | null | undefined, right: string | null | undefined) {
+  return dateInputValue(left) === dateInputValue(right)
+}
+
 function mergeTerminalOptions(active: TerminalOption[], historical: TerminalOption[]) {
   const options = new Map<string, TerminalOption>()
   for (const option of [...active, ...historical]) {
@@ -236,19 +233,17 @@ function mergeTerminalOptions(active: TerminalOption[], historical: TerminalOpti
 function orderTerminalIds(
   scale: TerminalScaleState,
   fronts: Record<string, string>,
-  dates: Record<string, { atb: string; atd: string; restow: string }>,
+  dates: Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>,
   terminalById: Map<string, TerminalOption>,
 ) {
-  const ids = new Set(scale.terminals.map((terminal) => terminal.terminalId))
+  const ids = new Set(scale.terminals.flatMap((terminal) => terminal.terminalId ? [terminal.terminalId] : []))
   for (const terminalId of Object.values(fronts)) if (terminalId) ids.add(terminalId)
-  return [...ids].sort((leftId, rightId) => {
-    const leftAtb = dates[leftId]?.atb || ''
-    const rightAtb = dates[rightId]?.atb || ''
-    if (leftAtb && rightAtb && leftAtb !== rightAtb) return leftAtb.localeCompare(rightAtb)
-    if (leftAtb && !rightAtb) return -1
-    if (!leftAtb && rightAtb) return 1
-    return (terminalById.get(leftId)?.code ?? leftId).localeCompare(terminalById.get(rightId)?.code ?? rightId)
-  })
+  return sortAtracacoes([...ids].map((terminalId) => ({
+    terminalId,
+    terminalCode: terminalById.get(terminalId)?.code ?? terminalId,
+    etb: dates[terminalId]?.etb || null,
+    atb: dates[terminalId]?.atb || null,
+  }))).map((terminal) => terminal.terminalId as string)
 }
 
 function sameDraft(left: Record<string, unknown>, right: Record<string, unknown>) {
@@ -291,7 +286,7 @@ function buildTerminalPayload({
 }: {
   terminalScale: EscalaModalTerminalScale | null
   terminalFronts: Record<string, string>
-  terminalDates: Record<string, { atb: string; atd: string; restow: string }>
+  terminalDates: Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>
   terminalStateChanged: boolean
   justification: string
   exportExpectation: Record<string, unknown>
@@ -325,7 +320,7 @@ function buildTerminalPayload({
   )
   const terminals: NonNullable<EscalaModalPayload['terminalState']>['terminals'] = []
   for (const terminalId of terminalIds) {
-    const draft = terminalDates[terminalId] ?? { atb: '', atd: '', restow: '' }
+    const draft = terminalDates[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
     if (draft.atd && (!draft.atb || draft.atd < draft.atb)) {
       const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
       return { error: `Informe o ATB antes do ATD do terminal ${code}; o ATD não pode ser anterior ao ATB.` }
@@ -334,7 +329,15 @@ function buildTerminalPayload({
     if (restow !== null && (!Number.isInteger(restow) || restow < 0)) {
       return { error: `Restow inválido para o terminal ${terminalId}.` }
     }
-    terminals.push({ terminalId, atb: draft.atb || null, atd: draft.atd || null, restow })
+    if (draft.etd && (!draft.etb || draft.etd < draft.etb)) {
+      const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
+      return { error: `Informe o ETB antes do ETD do terminal ${code}; o ETD não pode ser anterior ao ETB.` }
+    }
+    terminals.push({ terminalId, etb: draft.etb || null, atb: draft.atb || null, etd: draft.etd || null, atd: draft.atd || null, restow })
+  }
+  if (fronts.some((front) => !front.terminalId)) {
+    const draft = terminalDates.__tbc__ ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
+    terminals.push({ terminalId: null, etb: draft.etb || null, atb: draft.atb || null, etd: draft.etd || null, atd: draft.atd || null, restow: draft.restow.trim() ? Number(draft.restow) : null })
   }
 
   const submittedFronts = fronts
@@ -343,17 +346,15 @@ function buildTerminalPayload({
   const persistedFronts = terminalScale.fronts
     .map((front) => `${front.sentido}:${front.modalidade}:${front.terminalId ?? ''}:${front.source}`)
     .sort()
-  const submittedTerminals = terminals
-    .map((terminal) => `${terminal.terminalId}:${terminal.atb ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`)
-    .sort()
-  const persistedTerminals = terminalScale.terminals
-    .map((terminal) => `${terminal.terminalId}:${dateInputValue(terminal.atb)}:${dateInputValue(terminal.atd)}:${terminal.restow ?? ''}`)
-    .sort()
+  const realizedDateChanged = terminals.some((terminal) => {
+    const previous = terminalScale.terminals.find((candidate) => candidate.terminalId === terminal.terminalId)
+    return (previous?.atb != null && !sameDateValue(previous.atb, terminal.atb))
+      || (previous?.atd != null && !sameDateValue(previous.atd, terminal.atd))
+  })
   const terminalizedStateChanged = terminalStateChanged
     || JSON.stringify(submittedFronts) !== JSON.stringify(persistedFronts)
-    || JSON.stringify(submittedTerminals) !== JSON.stringify(persistedTerminals)
   const exportExpectationChanged = !sameExportExpectation(exportExpectation, initialExportExpectation)
-  if (terminalScale.revision > 0 && (terminalizedStateChanged || exportExpectationChanged) && !justification.trim()) {
+  if (terminalScale.revision > 0 && (terminalizedStateChanged || exportExpectationChanged || realizedDateChanged) && !justification.trim()) {
     return { error: 'Informe a justificativa para alterar o estado terminalizado existente da escala.' }
   }
 
@@ -386,12 +387,12 @@ function TerminalFrontEditor({
 }: {
   scale: EscalaModalTerminalScale
   terminalFronts: Record<string, string>
-  terminalDates: Record<string, { atb: string; atd: string; restow: string }>
+  terminalDates: Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>
   terminalOptions: TerminalOption[]
   terminalById: Map<string, TerminalOption>
   terminalIds: string[]
   onTerminalChange: (front: OperationFront, terminalId: string) => void
-  onDateChange: (terminalId: string, field: 'atb' | 'atd' | 'restow', value: string) => void
+  onDateChange: (terminalId: string, field: 'etb' | 'atb' | 'etd' | 'atd' | 'restow', value: string) => void
   justification: string
   onJustificationChange: (value: string) => void
   showJustification: boolean
@@ -448,18 +449,20 @@ function TerminalFrontEditor({
 
       <div className="grid gap-2">
         <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Datas por terminal</h4>
-        {terminalIds.length === 0 ? <p className="text-xs text-[var(--app-muted)]">Nenhum terminal atribuído. As datas globais ATA/ATD permanecem acima.</p> : null}
+        {terminalIds.length === 0 ? <p className="text-xs text-[var(--app-muted)]">Nenhuma Atracação com terminal atribuída. A chegada ETA/ATA permanece na Escala.</p> : null}
         {terminalIds.map((terminalId) => {
           const option = terminalById.get(terminalId)
-          const draft = terminalDates[terminalId] ?? { atb: '', atd: '', restow: '' }
+          const draft = terminalDates[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
           const code = option?.code ?? terminalId
           return (
-            <div key={terminalId} className="grid gap-3 rounded-md border border-[var(--app-border)] p-2 md:grid-cols-[1fr_1fr_1fr_8rem] md:items-end">
+            <div key={terminalId} className="grid gap-3 rounded-md border border-[var(--app-border)] p-2 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_8rem] md:items-end">
               <div className="text-sm font-medium text-[var(--app-text-strong)]">
                 {code}
                 {option?.active === false ? <div className="text-xs text-amber-200">Terminal inativo · histórico</div> : null}
               </div>
+              <Field label={`ETB ${code}`}><Input type="date" value={draft.etb} onChange={(event) => onDateChange(terminalId, 'etb', event.target.value)} /></Field>
               <Field label={`ATB ${code}`}><Input type="date" value={draft.atb} onChange={(event) => onDateChange(terminalId, 'atb', event.target.value)} /></Field>
+              <Field label={`ETD ${code}`}><Input type="date" value={draft.etd} onChange={(event) => onDateChange(terminalId, 'etd', event.target.value)} /></Field>
               <Field label={`ATD ${code}`}><Input type="date" value={draft.atd} onChange={(event) => onDateChange(terminalId, 'atd', event.target.value)} /></Field>
               <Field label={`Restow ${code}`}><Input type="number" min="0" step="1" value={draft.restow} onChange={(event) => onDateChange(terminalId, 'restow', event.target.value)} /></Field>
             </div>
@@ -506,12 +509,7 @@ export function EscalaModal({
 }) {
   const [port, setPort] = useState('')
   const [eta, setEta] = useState('')
-  const [etb, setEtb] = useState('')
   const [ata, setAta] = useState('')
-  const [atb, setAtb] = useState('')
-  const [etd, setEtd] = useState('')
-  const [atd, setAtd] = useState('')
-  const [rtw, setRtw] = useState('')
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [escalaNumber, setEscalaNumber] = useState('')
@@ -525,7 +523,7 @@ export function EscalaModal({
   const [portError, setPortError] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [terminalFronts, setTerminalFronts] = useState<Record<string, string>>({})
-  const [terminalDates, setTerminalDates] = useState<Record<string, { atb: string; atd: string; restow: string }>>({})
+  const [terminalDates, setTerminalDates] = useState<Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>>({})
   const [justification, setJustification] = useState('')
   const [terminalError, setTerminalError] = useState<string | null>(null)
   const [closedBlockers, setClosedBlockers] = useState<ClosedAdrBlocker[]>([])
@@ -535,13 +533,19 @@ export function EscalaModal({
   const [touchedTerminalDates, setTouchedTerminalDates] = useState<Set<string>>(() => new Set())
 
   const terminalScale = escala?.terminalScale ?? null
+  const derivedTerminalAtd = terminalScale && terminalScale.terminals.length > 0 && terminalScale.terminals.every((terminal) => terminal.atd)
+    ? terminalScale.terminals
+      .filter((terminal) => terminal.atd)
+      .sort((left, right) => (left.atd ?? '').localeCompare(right.atd ?? ''))
+      .at(-1)?.atd ?? null
+    : null
   const terminalScaleSourceKey = terminalScale
     ? [
         terminalScale.loading ? 'loading' : 'ready',
         terminalScale.error ?? '',
         terminalScale.revision,
         terminalScale.fronts.map((front) => `${frontKey(front)}:${front.terminalId ?? ''}`).join(','),
-        terminalScale.terminals.map((terminal) => `${terminal.terminalId}:${terminal.atb ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`).join(','),
+        terminalScale.terminals.map((terminal) => `${terminal.terminalId}:${terminal.etb ?? ''}:${terminal.atb ?? ''}:${terminal.etd ?? ''}:${terminal.atd ?? ''}:${terminal.restow ?? ''}`).join(','),
       ].join('|')
     : 'none'
 
@@ -559,12 +563,7 @@ export function EscalaModal({
     setTouchedTerminalDates(new Set())
     setPort(escala.port ?? '')
     setEta(escala.eta ?? '')
-    setEtb(escala.etb ?? '')
     setAta(escala.ata ?? '')
-    setAtb(escala.atb ?? '')
-    setEtd(escala.etd ?? '')
-    setAtd(escala.atd ?? '')
-    setRtw(escala.rtw === null ? '' : String(escala.rtw))
     setCeStatus(getEditableVoyagePodCeStatus(escala.ceStatus))
     setLinked(escala.linked ? 'true' : 'false')
     setEscalaNumber(escala.escalaNumber ?? '')
@@ -585,8 +584,10 @@ export function EscalaModal({
       (state?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
     ))
     setTerminalDates(Object.fromEntries(
-      (state?.terminals ?? []).map((terminal) => [terminal.terminalId, {
+      (state?.terminals ?? []).filter((terminal) => terminal.terminalId).map((terminal) => [terminal.terminalId as string, {
+        etb: dateInputValue(terminal.etb),
         atb: dateInputValue(terminal.atb),
+        etd: dateInputValue(terminal.etd),
         atd: dateInputValue(terminal.atd),
         restow: terminal.restow == null ? '' : String(terminal.restow),
       }]),
@@ -602,9 +603,10 @@ export function EscalaModal({
       }
       const hydratedDates = { ...terminalDates }
       for (const terminal of terminalScale.terminals) {
-        const current = hydratedDates[terminal.terminalId] ?? { atb: '', atd: '', restow: '' }
+        if (!terminal.terminalId) continue
+        const current = hydratedDates[terminal.terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
         const next = { ...current }
-        for (const field of ['atb', 'atd', 'restow'] as const) {
+        for (const field of ['etb', 'atb', 'etd', 'atd', 'restow'] as const) {
           if (!touchedTerminalDates.has(`${terminal.terminalId}:${field}`)) {
             next[field] = field === 'restow'
               ? (terminal.restow == null ? '' : String(terminal.restow))
@@ -631,8 +633,10 @@ export function EscalaModal({
     (terminalScale?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
   )
   const initialTerminalDates = Object.fromEntries(
-    (terminalScale?.terminals ?? []).map((terminal) => [terminal.terminalId, {
+    (terminalScale?.terminals ?? []).filter((terminal) => terminal.terminalId).map((terminal) => [terminal.terminalId as string, {
+      etb: dateInputValue(terminal.etb),
       atb: dateInputValue(terminal.atb),
+      etd: dateInputValue(terminal.etd),
       atd: dateInputValue(terminal.atd),
       restow: terminal.restow == null ? '' : String(terminal.restow),
     }]),
@@ -697,18 +701,18 @@ export function EscalaModal({
     if (nextTerminalId) {
       setTerminalDates((current) => current[nextTerminalId] ? current : {
         ...current,
-        [nextTerminalId]: { atb: '', atd: '', restow: '' },
+        [nextTerminalId]: { etb: '', atb: '', etd: '', atd: '', restow: '' },
       })
     }
     setTerminalError(null)
     setClosedBlockers([])
   }
 
-  function handleTerminalDateChange(terminalId: string, field: 'atb' | 'atd' | 'restow', value: string) {
+  function handleTerminalDateChange(terminalId: string, field: 'etb' | 'atb' | 'etd' | 'atd' | 'restow', value: string) {
     setTouchedTerminalDates((current) => new Set(current).add(`${terminalId}:${field}`))
     setTerminalDates((current) => ({
       ...current,
-      [terminalId]: { ...(current[terminalId] ?? { atb: '', atd: '', restow: '' }), [field]: value },
+      [terminalId]: { ...(current[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }), [field]: value },
     }))
     setTerminalError(null)
     setClosedBlockers([])
@@ -735,13 +739,6 @@ export function EscalaModal({
       setExportError('Uma nova declaração de exportação exige granito ou vazios.')
       return
     }
-    if (!temImportacao && temExportacao) {
-      if (eta.trim() || ata.trim() || etb.trim() || atb.trim()) {
-        setExportError('Uma escala marcada como somente exportação não pode ter POD ou datas de importação.')
-        return
-      }
-    }
-
     const terminalPayload = buildTerminalPayload({
       terminalScale,
       terminalFronts,
@@ -783,12 +780,7 @@ export function EscalaModal({
         port: normalizedPort,
         temImportacao,
         eta: eta || null,
-        etb: etb || null,
         ata: ata || null,
-        atb: atb || null,
-        etd: etd || null,
-        atd: atd || null,
-        rtw: rtw.trim() ? Number(rtw) : null,
         ceStatus,
         linked: linked === 'true',
         escalaNumber: escalaNumber.trim() || null,
@@ -822,8 +814,8 @@ export function EscalaModal({
   return (
     <Modal open={open} onClose={onClose} title={isNew ? 'Adicionar escala' : 'Editar escala'}>
       {escala ? (
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="app-panel app-panel--padded text-sm">
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <div className="app-panel app-panel--padded text-sm order-1">
             <div className="font-semibold text-[var(--app-text-strong)]">{escala.voyageLabel}</div>
             <div className="app-panel__meta mt-1">
               {isNew
@@ -833,7 +825,7 @@ export function EscalaModal({
           </div>
 
           {isNew ? (
-            <Field label="Porto da escala" error={portError ?? undefined}>
+            <div className="order-1"><Field label="Porto da escala" error={portError ?? undefined}>
               <Input
                 list="escala-port-suggestions"
                 value={port}
@@ -845,62 +837,24 @@ export function EscalaModal({
                   <option key={value} value={value} />
                 ))}
               </datalist>
-            </Field>
+            </Field></div>
           ) : null}
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <section aria-label="Escala" className="order-2 grid gap-4 rounded-lg border border-[var(--app-border)] p-3">
+            <h3 className="text-sm font-semibold text-[var(--app-text-strong)]">Chegada ao porto</h3>
+            <div className="grid gap-4 md:grid-cols-3">
             <Field label="ETA">
               <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
             </Field>
             <Field label="ATA">
               <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
             </Field>
-            <Field label="ETB">
-              <Input type="date" value={etb} onChange={(event) => setEtb(event.target.value)} />
+            <Field label="ATD derivado">
+              <Input value={derivedTerminalAtd ?? 'Aguardando o ATD de todas as Atracações'} readOnly aria-readonly="true" />
             </Field>
-            <Field label="ATB">
-              <Input type="date" value={atb} onChange={(event) => setAtb(event.target.value)} />
-            </Field>
-            <Field label="ETD">
-              <Input type="date" value={etd} onChange={(event) => setEtd(event.target.value)} />
-            </Field>
-            <Field label="ATD">
-              <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
-            </Field>
-          </div>
-
-          {terminalScale?.loading ? (
-            <div className="rounded-lg border border-[var(--app-border)] p-3 text-sm text-[var(--app-muted)]">Carregando frentes e terminais da escala…</div>
-          ) : terminalScale ? (
-            <TerminalFrontEditor
-              scale={terminalScale}
-              terminalFronts={terminalFronts}
-              terminalDates={terminalDates}
-              terminalOptions={terminalOptions}
-              terminalById={terminalById}
-              terminalIds={terminalIds}
-              onTerminalChange={handleTerminalChange}
-              onDateChange={handleTerminalDateChange}
-              justification={justification}
-              onJustificationChange={setJustification}
-              showJustification={hasPriorTerminalAssignment || terminalScale.revision > 0}
-              error={terminalError ?? terminalScale.error ?? null}
-              blockers={closedBlockers}
-              onReopenAdr={onReopenAdr}
-            />
-          ) : null}
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Field label="RESTOW">
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                value={rtw}
-                onChange={(event) => setRtw(event.target.value)}
-                placeholder="Quantidade de restow"
-              />
-            </Field>
+            </div>
+          </section>
+          <div className="order-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="BLs e CEs">
               <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as EditableVoyagePodCeStatus)}>
                 {POD_CE_STATUS_OPTIONS.map((option) => (
@@ -921,7 +875,7 @@ export function EscalaModal({
             </Field>
           </div>
 
-          <div className="grid gap-3 rounded-lg border border-[var(--app-border)] p-3">
+          <div className="order-3 grid gap-3 rounded-lg border border-[var(--app-border)] p-3">
             <div className="text-sm font-semibold text-[var(--app-text-strong)]">Tipo de operação da escala</div>
 
             <label className="flex cursor-pointer items-center gap-3">
@@ -1042,7 +996,30 @@ export function EscalaModal({
             ) : null}
           </div>
 
-          <div className="app-modal__actions">
+          <div className="order-5">
+            {terminalScale?.loading ? (
+              <div className="rounded-lg border border-[var(--app-border)] p-3 text-sm text-[var(--app-muted)]">Carregando frentes e terminais da escala…</div>
+            ) : terminalScale ? (
+              <TerminalFrontEditor
+                scale={terminalScale}
+                terminalFronts={terminalFronts}
+                terminalDates={terminalDates}
+                terminalOptions={terminalOptions}
+                terminalById={terminalById}
+                terminalIds={terminalIds}
+                onTerminalChange={handleTerminalChange}
+                onDateChange={handleTerminalDateChange}
+                justification={justification}
+                onJustificationChange={setJustification}
+                showJustification={hasPriorTerminalAssignment || terminalScale.revision > 0}
+                error={terminalError ?? terminalScale.error ?? null}
+                blockers={closedBlockers}
+                onReopenAdr={onReopenAdr}
+              />
+            ) : null}
+          </div>
+
+          <div className="app-modal__actions order-6">
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>

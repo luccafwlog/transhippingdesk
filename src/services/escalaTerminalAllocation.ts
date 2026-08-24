@@ -27,9 +27,11 @@ export type OperationFront = {
 }
 
 export type TerminalDateState = {
-  terminalId: string
+  terminalId: string | null
   terminalCode?: string | null
+  etb?: string | null
   atb: string | null
+  etd?: string | null
   atd: string | null
   restow: number | null
   reportId?: string | null
@@ -85,8 +87,10 @@ export type SaveEscalaTerminalStatePayload = {
     source?: OperationFront['source']
   }>
   terminals: Array<{
-    terminalId: string
+    terminalId: string | null
+    etb?: string | null
     atb: string | null
+    etd?: string | null
     atd: string | null
     restow: number | null
   }>
@@ -231,11 +235,12 @@ function parseFront(row: JsonRecord): OperationFront | null {
 }
 
 function parseTerminal(row: JsonRecord): TerminalDateState | null {
-  if (typeof row.terminal_id !== 'string') return null
   return {
-    terminalId: row.terminal_id,
+    terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
     terminalCode: typeof row.code === 'string' ? row.code : null,
+    etb: typeof row.terminal_etb === 'string' ? row.terminal_etb : null,
     atb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
+    etd: typeof row.terminal_etd === 'string' ? row.terminal_etd : null,
     atd: typeof row.terminal_atd === 'string' ? row.terminal_atd : null,
     restow: typeof row.terminal_rtw === 'number' ? row.terminal_rtw : row.terminal_rtw == null ? null : Number(row.terminal_rtw),
     reportId: typeof row.report_id === 'string' ? row.report_id : null,
@@ -326,7 +331,7 @@ function compareAgencyReports(left: AgencyReportByTerminal, right: AgencyReportB
 function compareTerminalStates(left: TerminalDateState, right: TerminalDateState) {
   return compareNullableAtb(left.atb, right.atb)
     || (left.terminalCode ?? '').localeCompare(right.terminalCode ?? '', 'pt-BR')
-    || left.terminalId.localeCompare(right.terminalId)
+    || (left.terminalId ?? '').localeCompare(right.terminalId ?? '')
 }
 
 function compareTerminalOptions(left: TerminalOption, right: TerminalOption) {
@@ -337,7 +342,7 @@ export async function fetchEscalaTerminalState(voyageId: number, port: string): 
   const normalizedPort = normalizePort(port)
   const [frontsResult, terminalsResult, revisionResult, portResult, depots, exportsByVoyage, schedules, reports] = await Promise.all([
     table('voyage_escala_operation_fronts').select('id, sentido, modalidade, terminal_id, source').eq('voyage_id', voyageId).eq('port', normalizedPort),
-    table('voyage_escala_terminal_state').select('terminal_id, terminal_atb, terminal_atd, terminal_rtw').eq('voyage_id', voyageId).eq('port', normalizedPort),
+    table('voyage_escala_terminal_state').select('terminal_id, terminal_etb, terminal_atb, terminal_etd, terminal_atd, terminal_rtw').eq('voyage_id', voyageId).eq('port', normalizedPort),
     table('voyage_escala_revision_state').select('revision, port_id').eq('voyage_id', voyageId).eq('port', normalizedPort).maybeSingle(),
     table('ports').select('id, locode'),
     listDepots(),
@@ -457,12 +462,12 @@ export async function saveEscalaTerminalState(payload: SaveEscalaTerminalStatePa
   if (!payload.exportExpectation || typeof payload.exportExpectation !== 'object' || Array.isArray(payload.exportExpectation)) {
     throw new Error('A expectativa de exportação da escala é obrigatória.')
   }
-  const { data, error } = await supabase.rpc('save_voyage_escala_terminal_state', {
+  const { data, error } = await supabase.rpc('save_voyage_escala_terminal_state_v2', {
     p_voyage_id: payload.voyageId,
     p_port: normalizedPort,
     p_expected_revision: payload.expectedRevision,
     p_fronts: payload.fronts.map((front) => ({ sentido: front.sentido, modalidade: front.modalidade, terminal_id: front.terminalId, source: front.source ?? (front.sentido === 'exportacao' ? 'export_declaration' : 'operational_data') })),
-    p_terminals: payload.terminals.map((terminal) => ({ terminal_id: terminal.terminalId, terminal_atb: terminal.atb, terminal_atd: terminal.atd, terminal_rtw: terminal.restow })),
+    p_terminals: payload.terminals.map((terminal) => ({ terminal_id: terminal.terminalId, terminal_etb: terminal.etb, terminal_atb: terminal.atb, terminal_etd: terminal.etd, terminal_atd: terminal.atd, terminal_rtw: terminal.restow })),
     p_export_expectation: payload.exportExpectation as Json,
     p_justification: payload.justification ?? '',
   })

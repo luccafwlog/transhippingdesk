@@ -16,7 +16,7 @@ import { extractErrorText } from '../lib/errors'
 import { computeStorageTotals, type VaziosExportServiceLineWithObservation } from './vaziosExportOperations'
 import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
-import { buildVoyagePodEntityId, getVoyageUnifiedAtd, listVoyagePodSchedules } from './voyageRouteSchedules'
+import { buildVoyagePodEntityId, listVoyageEscalaSchedulesByVoyageIds, listVoyagePodSchedules } from './voyageRouteSchedules'
 import { normalizePortCode, portCodeVariants } from './portCode'
 import type { AgencyReportByTerminal, OperationFront, OperationFrontKind } from './escalaTerminalAllocation'
 
@@ -832,7 +832,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
 
   const [
     schedules,
-    unifiedAtd,
+    escalaSchedules,
     escalaPorts,
     vehiclesRes,
     vaziosImpRes,
@@ -847,10 +847,9 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     transshipmentVehiclesRes,
   ] = await Promise.all([
     listVoyagePodSchedules([entityId]),
-    // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback) para
-    // a Escala e a Linha do Tempo do ADR — `schedules`/`schedule.atd` acima
-    // continua POD-only (ATA/ATB/RTW não têm fallback POL).
-    getVoyageUnifiedAtd(voyageId, port),
+    // A escala é a fonte operacional de ETA/ATA e da lista de Atracações. O
+    // ATD do ADR será selecionado pela aba conforme o terminal do relatório.
+    listVoyageEscalaSchedulesByVoyageIds([voyageId]),
     // Task 10 (ADR 2026-07-31): conjunto de escalas BR válidas da viagem, para
     // distinguir "dado órfão" (porto que não é escala nenhuma) de "dado da
     // escala vizinha" (porto válido, só que não é este).
@@ -1172,12 +1171,12 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   })
   const costs = { total: totalEmbarque({ unidades: units, linhas: serviceLines, depots: allDepots }), serviceLines }
 
+  const escala = (escalaSchedules.get(voyageId) ?? []).find((entry) => normalizePortCode(entry.port) === portCode) ?? null
+
   return {
     schedule: schedules.get(entityId) ?? null,
-    // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback), com
-    // o momento do seu registro — consumido pela Escala e pela Linha do Tempo
-    // do ADR. Distinto de `schedule.atd`, que fica POD-only.
-    unifiedAtd,
+    escala,
+    terminalSchedules: escala?.atracacoes ?? [],
     vehicles,
     vaziosExp,
     vaziosImp,

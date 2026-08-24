@@ -3,6 +3,12 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **PR #579 — datas de Escala e Atracação por terminal:** a projeção passou a
+  manter ETA/ATA na Escala e ETB/ATB/ETD/ATD/Restow por Atracação, com ATD da
+  Escala derivado apenas quando todas as Atracações concluíram. O modal, Visão
+  Geral, Line-Up/Painel/TV, Chegadas e Saídas e ADR foram alinhados ao novo
+  grão; as migrations `341` e `342` adicionam a RPC transacional, constraints,
+  status e reconciliação de alertas terminalizados.
 - **Bloco 6 — Transversal e Portal do Cliente (#525 / Épico #519):**
   Entrega das superfícies transversais de consumo de Alertas e Notificações Internas (`339_treatment_echo_and_transversal_surfaces.sql`):
   - **Eco de Tratamento:** evento `dismissed` em `alert_item_events` e fan-out de Notificação Interna com severidade normal entregue aos demais destinatários da ocorrência corrente (excluindo o autor da dispensa), sem falhas de roteamento espúrias e com idempotência garantida.

@@ -56,7 +56,7 @@ type Snapshot = {
      */
     unifiedAtd?: string | null;
     atdRegisteredAt?: string | null;
-    atdSource?: "pod" | "pol" | null;
+    atdSource?: "pod" | "pol" | "terminal" | null;
     deadlineDate?: string | null;
   };
   sections?: Record<string, unknown>;

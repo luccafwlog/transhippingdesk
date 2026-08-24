@@ -34,12 +34,13 @@ vi.mock('../supabase', () => ({
 
 import { createOrAttachVoyageFromSchedule } from '../voyageFromSchedule'
 
-function blQuery(rows: Array<{ id: string }>) {
+function blQuery(rows: Array<{ id: string }>, revision: number | null = null) {
   const result = Promise.resolve({ data: rows, error: null })
   const builder = {
     select: () => builder,
     eq: () => builder,
     limit: () => result,
+    maybeSingle: () => Promise.resolve({ data: revision == null ? null : { revision }, error: null }),
   }
   return builder
 }
@@ -74,8 +75,6 @@ describe('createOrAttachVoyageFromSchedule', () => {
       pod: 'BRSSA',
       eta: '2026-01-22',
       ata: null,
-      atd: null,
-      rtw: null,
       linked: false,
     }))
   })
@@ -131,6 +130,7 @@ describe('createOrAttachVoyageFromSchedule - modo form (cancelar escala)', () =>
   })
 
   it('POD com ancora (linked) so zera o ETA publicado, sem soft-delete', async () => {
+    calls.blSelect.mockImplementation((table: string) => table === 'voyage_escala_revision_state' ? blQuery([], 1) : blQuery([]))
     calls.listPod.mockResolvedValue(new Map([
       ['42::BRSSA', { entityId: '42::BRSSA', voyageId: 42, pod: 'BRSSA', eta: '2026-01-22', etb: null, ata: null, atd: null, rtw: null, ceStatus: null, linked: true }],
     ]))

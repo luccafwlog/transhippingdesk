@@ -457,11 +457,16 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   }
   const signedDepartmentsCount = DEPARTMENTS.filter(isDepartmentSigned).length
 
-  // ADR 0039: ATD da escala unificada (POD canônico, POL como fallback) —
-  // distinto de data?.schedule?.atd (POD-only), usado pela Linha do Tempo do
-  // ADR e, abaixo, pela própria seção Escala.
-  const unifiedAtd = data?.unifiedAtd?.atd ?? null
-  const deadlineDate = unifiedAtd ? calculateAgencyReportDeadlineDate(unifiedAtd) : null
+  // O relógio do ADR é da Atracação do terminal selecionado. ATA continua
+  // sendo uma data própria da Escala; não há fallback para o ATD documental
+  // do POL nem para a Atracação de outro terminal.
+  const selectedAtracacao = selectedTerminalReport?.terminalId
+    ? data?.terminalSchedules?.find((entry) => entry.terminalId === selectedTerminalReport.terminalId) ?? null
+    : null
+  const terminalAtd = selectedAtracacao?.atd ?? null
+  const terminalAtb = selectedAtracacao?.atb ?? null
+  const terminalRtw = selectedAtracacao?.rtw ?? null
+  const deadlineDate = terminalAtd ? calculateAgencyReportDeadlineDate(terminalAtd) : null
 
   // Reaberturas por departamento (com justificativa) — o predicado de
   // "o que é reabertura" vem de filterDepartmentReopeningEvents
@@ -488,14 +493,19 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       terminal: resolvedTerminalName ?? ownData?.terminal ?? null,
       terminalCode: resolvedTerminalCode,
       reportId: resolvedReportId,
-      schedule: data?.schedule ?? null,
+      schedule: {
+        ata: data?.escala?.ata ?? data?.schedule?.ata ?? null,
+        atb: terminalAtb,
+        atd: terminalAtd,
+        rtw: terminalRtw,
+      },
       // ADR 0039: marcos do Prazo de Conclusão congelados no fechamento —
       // usados por Task 5 (relatório agregado de SLA) para recalcular
       // cumprimento/atraso históricos sem reconsultar audit_logs. Não são
       // impressos (AgencyReportDocument.tsx mostra só datas de assinatura).
-      unifiedAtd,
-      atdRegisteredAt: data?.unifiedAtd?.atdRegisteredAt ?? null,
-      atdSource: data?.unifiedAtd?.atdSource ?? null,
+      unifiedAtd: terminalAtd,
+      atdRegisteredAt: null,
+      atdSource: terminalAtd ? ('terminal' as const) : null,
       deadlineDate,
     },
     sections: {
@@ -601,9 +611,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
         {isClosed ? <>
           <div className="app-panel app-panel--padded flex flex-wrap items-center justify-between gap-3" role="status"><span>Fechado em {formatDate(ownData?.closed_at)} por {ownData?.closed_by_name ?? ownData?.closed_by ?? '—'}</span><div className="flex gap-2"><Button variant="secondary" onClick={() => setPrintOpen(true)}>Imprimir</Button>{isAdmin ? <Button variant="primary" onClick={() => setReopenOpen(true)}>Reabrir</Button> : null}</div></div>
           <AgencyReportTimeline
-            atd={closedSnapshot.header?.unifiedAtd ?? unifiedAtd}
-            atdSource={data?.unifiedAtd?.atdSource ?? null}
-            atdRegisteredAt={data?.unifiedAtd?.atdRegisteredAt ?? null}
+            atd={closedSnapshot.header?.unifiedAtd ?? terminalAtd}
+            atdSource={closedSnapshot.header?.atdSource ?? (terminalAtd ? ('terminal' as const) : null)}
+            atdRegisteredAt={closedSnapshot.header?.atdRegisteredAt ?? null}
             deadline={closedSnapshot.header?.deadlineDate ?? deadlineDate}
             omitted={isOmittedEscala}
             now={new Date()}
@@ -640,9 +650,9 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
 
         <div className="order-last">
         <AgencyReportTimeline
-          atd={unifiedAtd}
-          atdSource={data?.unifiedAtd?.atdSource ?? null}
-          atdRegisteredAt={data?.unifiedAtd?.atdRegisteredAt ?? null}
+          atd={terminalAtd}
+          atdSource={terminalAtd ? ('terminal' as const) : null}
+          atdRegisteredAt={null}
           deadline={deadlineDate}
           omitted={isOmittedEscala}
           now={new Date()}
@@ -704,10 +714,10 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               ) : (
                 <Info label="Terminal" value={ownData?.terminal ?? '—'} />
               )}
-              <Info label="ATA" value={formatDate(data?.schedule?.ata)} />
-              <Info label="ATB" value={formatDate(data?.schedule?.atb)} />
-              <Info label="ATD" value={formatDate(unifiedAtd)} />
-              <Info label="Restow" value={String(data?.schedule?.rtw ?? 0)} />
+              <Info label="ATA" value={formatDate(data?.escala?.ata ?? data?.schedule?.ata)} />
+              <Info label="ATB" value={formatDate(terminalAtb)} />
+              <Info label="ATD" value={formatDate(terminalAtd)} />
+              <Info label="Restow" value={String(terminalRtw ?? 0)} />
             </div>
         </ReportSection>
 

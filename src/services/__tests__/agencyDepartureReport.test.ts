@@ -24,6 +24,7 @@ vi.mock('../supabase', () => ({ supabase: { from: fromMock, rpc: rpcMock } }))
 vi.mock('../voyageRouteSchedules', () => ({
   buildVoyagePodEntityId: (voyageId: number, port: string) => `${voyageId}::${port}`,
   listVoyagePodSchedules: schedulesMock,
+  listVoyageEscalaSchedulesByVoyageIds: schedulesMock,
   getVoyageUnifiedAtd: vi.fn().mockResolvedValue({ atd: null, atdSource: null, atdRegisteredAt: null }),
 }))
 

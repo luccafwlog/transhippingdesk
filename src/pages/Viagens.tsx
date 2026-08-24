@@ -152,7 +152,7 @@ export function Viagens() {
   const voyageIds = useMemo(() => voyages.map((voyage) => voyage.id), [voyages])
   const { data: vehicleStatsData } = useVoyageVehicleStats(voyageIds)
   const { data: vaziosImpStatsData } = useVaziosImportacaoStats(voyageIds)
-  const { voyagesWithUnpaidBls, polSchedules, podSchedulesByVoyage, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters, indicatedFirstPorts } =
+  const { voyagesWithUnpaidBls, polSchedules, escalaSchedulesByVoyage: escalaSchedulesByVoyageData, exportSchedulesData, routeCeMasters, indicatedFirstPorts } =
     useViagemSchedulesAndStats(voyageIds, polEntityIds)
   const escalaSchedulesByVoyage = useMemo(() => escalaSchedulesByVoyageData ?? new Map(), [escalaSchedulesByVoyageData])
   const vehicleStatsByVoyage = useMemo(() => vehicleStatsData?.byVoyageId ?? {}, [vehicleStatsData])
@@ -293,7 +293,9 @@ export function Viagens() {
             onCancelVoyage={setCancellingVoyageId}
             onEditEscala={(payload) => {
               setEditingEscala(payload)
-              setEditingTerminalScale(payload.port ? makeTerminalScaleLoadingState(payload.voyageId, payload.port) : null)
+              setEditingTerminalScale(payload.port
+                ? makeTerminalScaleLoadingState(payload.voyageId, payload.port)
+                : { ...makeTerminalScaleLoadingState(payload.voyageId, ''), loading: false })
             }}
             onEditPol={setEditingPol}
             initialTab={initialTab}
@@ -323,18 +325,6 @@ export function Viagens() {
         title="Editar Viagem"
         initialValues={makeVoyageInitialValues(
           voyages.find((voyage) => voyage.id === editingVoyageId),
-          Array.from((polSchedules ?? new Map()).values())
-            .filter((schedule) => schedule.voyageId === editingVoyageId && Boolean(schedule.etd))
-            .map((schedule) => ({
-              pol: schedule.pol,
-              etd: schedule.etd ?? '',
-            })),
-          (podSchedulesByVoyage.get(editingVoyageId ?? -1) ?? [])
-            .filter((schedule) => Boolean(schedule.eta))
-            .map((schedule) => ({
-              pod: schedule.pod,
-              eta: schedule.eta ?? '',
-            })),
           indicatedFirstPorts?.get(editingVoyageId ?? -1),
         )}
         onSaved={() => setEditingVoyageId(null)}
@@ -431,12 +421,7 @@ export function Viagens() {
                   // transação: a RPC registra estes campos junto das frentes.
                   schedule: {
                     eta: payload.eta,
-                    etb: payload.etb,
                     ata: payload.ata,
-                    atb: payload.atb,
-                    etd: payload.etd,
-                    atd: payload.atd,
-                    rtw: payload.rtw,
                     // O leitor do snapshot/auditoria usa o nome canônico `ces`.
                     ces: payload.ceStatus,
                     linked: payload.linked,
@@ -474,12 +459,7 @@ export function Viagens() {
               voyageId: payload.voyageId,
               port: payload.port,
               eta: payload.eta,
-              etb: payload.etb,
               ata: payload.ata,
-              atb: payload.atb,
-              etd: payload.etd,
-              atd: payload.atd,
-              rtw: payload.rtw,
               ceStatus: payload.ceStatus,
               linked: payload.linked,
               escalaNumber: payload.escalaNumber,
@@ -566,8 +546,6 @@ function makeVoyageInitialValues(
         } | null
       }
     | undefined,
-  loadPortEtds: Array<{ pol: string; etd: string }> = [],
-  dischargePortEtas: Array<{ pod: string; eta: string }> = [],
   indicatedFirstPort?: { port: string | null; eta: string | null },
 ) {
   if (!voyage) return undefined
@@ -581,7 +559,5 @@ function makeVoyageInitialValues(
     status: normalizeVoyageStatus(voyage.status),
     indicatedFirstBrazilianPort: indicatedFirstPort?.port ?? null,
     indicatedFirstBrazilianEta: indicatedFirstPort?.eta ?? null,
-    loadPortEtds,
-    dischargePortEtas,
   }
 }
