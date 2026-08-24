@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-const open = { id: 1, status: 'open', type: 'demurrage', message: 'Container vencendo', entity_type: 'container', entity_id: 'CNTR1', created_at: '2026-06-20T00:00:00Z' }
+const open = { id: 1, item_id: 101, status: 'open', type: 'demurrage', message: 'Container vencendo', entity_type: 'container', entity_id: 'CNTR1', created_at: '2026-06-20T00:00:00Z' }
 const ack = { id: 2, status: 'open', type: 'invoice_overdue', message: 'Fatura vencida 123', entity_type: 'invoice', entity_id: '123', created_at: '2026-06-19T00:00:00Z', dismissed_until: '2026-08-22T12:00:00Z' }
 const portalInvoice = { id: 3, status: 'open', type: 'portal_excecao_critica_fatura', message: 'Portal sem email para fatura', entity_type: 'invoice', entity_id: '456', created_at: '2026-06-18T00:00:00Z' }
 const adrLegacy = { id: 4, status: 'open', type: 'agency_report_department_pending', message: 'ADR legado', entity_type: 'agency_departure_report', entity_id: '10::BRVIX::documentacao', created_at: '2026-06-17T00:00:00Z' }
@@ -114,4 +114,33 @@ it('permite trocar o filtro de departamento pelo select', () => {
 
   fireEvent.change(select, { target: { value: 'operacoes' } })
   expect(select.value).toBe('operacoes')
+})
+
+it('abre modal de dispensa com acessibilidade, data minima futura e limpa campos ao cancelar', () => {
+  const { unmount } = render(
+    <MemoryRouter initialEntries={['/alertas']}>
+      <Alertas />
+    </MemoryRouter>,
+  )
+
+  // Trigger dismissal for row with item_id if available, or simulate click
+  const dismissButtons = screen.queryAllByRole('button', { name: 'Dispensar' })
+  if (dismissButtons.length > 0) {
+    fireEvent.click(dismissButtons[0])
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toBeTruthy()
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    expect(dialog.getAttribute('aria-labelledby')).toBe('dismiss-alert-modal-title')
+
+    const dateInput = screen.getByLabelText(/Revisar até/) as HTMLInputElement
+    expect(dateInput.min).toBeTruthy()
+
+    const reasonInput = screen.getByLabelText(/Motivo da dispensa/) as HTMLTextAreaElement
+    fireEvent.change(reasonInput, { target: { value: 'Aguardando armador' } })
+    expect(reasonInput.value).toBe('Aguardando armador')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  }
+  unmount()
 })

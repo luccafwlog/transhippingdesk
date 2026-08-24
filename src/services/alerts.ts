@@ -1,6 +1,8 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import type { Alert } from '../types/database'
 import { reportBestEffortFailure } from '../lib/telemetry'
+import { queryKeys } from './queryKeys'
 
 // Catálogo vivo de alertas suportados pela aplicação.
 export type ActiveAlertType =
@@ -358,9 +360,15 @@ export async function dismissAlertItem(
   if (error) throw error
 }
 
-export async function closeAlert(_id: number): Promise<void> {
-  void _id
-  throw new Error('Fechamento direto de alertas foi descontinuado na migração 318. Resolva a pendência na tela de origem ou use dismiss.')
+export async function invalidateAllAlertQueries(queryClient: QueryClient): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.alerts.all() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.alerts.departmentSummary() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.alerts.financial() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.alerts.operationalCount() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.alerts.internalNotifications() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.alerts.internalNotificationsUnreadCount() }),
+  ])
 }
 
 export async function createAlert(input: {
@@ -405,7 +413,7 @@ export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
   const financialTypes = new Set<string>(FINANCIAL_ALERT_TYPES)
   const alertsByEntityType = await Promise.all(financialEntityTypes.map(async (entityType) => {
     const rows: AlertQueueRow[] = []
-    for (let page = 0; ; page += 1) {
+    for (let page = 0; page < 2; page += 1) {
       const batch = await listAlerts('active', entityType, page)
       rows.push(...batch)
       if (batch.length < 100) break
@@ -437,11 +445,6 @@ export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
       return Number(right.id) - Number(left.id) || Number(right.item_id ?? 0) - Number(left.item_id ?? 0)
     })
     .slice(0, 200)
-}
-
-export async function detectAgencyReportPending(): Promise<void> {
-  const { error } = await supabase.rpc('detect_agency_report_pending')
-  if (error) throw error
 }
 
 export async function listAlerts(

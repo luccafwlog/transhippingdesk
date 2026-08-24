@@ -13,12 +13,26 @@ import {
   formatAlertEntity,
   getAlertTypeLabel,
   getEffectiveAlertType,
+  invalidateAllAlertQueries,
   listAlerts,
   ENTITY_TYPE_LABELS,
   type AlertQueueRow,
   type AlertStatusFilter,
 } from '../services/alerts'
+import { queryKeys } from '../services/queryKeys'
 import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
+
+function getTomorrowDateString(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+function getDefaultReviewDateString(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 7)
+  return d.toISOString().slice(0, 10)
+}
 
 const FILTER_TABS: { value: AlertStatusFilter; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -54,11 +68,7 @@ export function Alertas() {
   }
   const [dismissTarget, setDismissTarget] = useState<AlertQueueRow | null>(null)
   const [dismissReason, setDismissReason] = useState('')
-  const [reviewBy, setReviewBy] = useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 7)
-    return d.toISOString().slice(0, 10)
-  })
+  const [reviewBy, setReviewBy] = useState(() => getDefaultReviewDateString())
 
   const queryClient = useQueryClient()
   const { showToast } = useToast()
@@ -66,32 +76,41 @@ export function Alertas() {
   const activeDepartment = departmentFilter === 'all' ? undefined : departmentFilter
 
   const { data, isLoading, isError, error, refetch } = useQuery<AlertQueueRow[]>({
-    queryKey: ['alerts', statusFilter, page, departmentFilter],
+    queryKey: queryKeys.alerts.list(statusFilter, page, departmentFilter),
     queryFn: () => listAlerts(statusFilter, undefined, page, activeDepartment),
   })
+
+  function closeDismissModal() {
+    setDismissTarget(null)
+    setDismissReason('')
+  }
 
   const dismissMutation = useMutation({
     mutationFn: async () => {
       if (!dismissTarget?.item_id) {
         throw new Error('Alerta legado sem item não suporta dispensa estruturada.')
       }
-      if (!dismissReason.trim()) {
+      const trimmedReason = dismissReason.trim()
+      if (!trimmedReason) {
         throw new Error('Informe o motivo da dispensa.')
       }
       if (!reviewBy) {
         throw new Error('Informe a data de revisão futura.')
       }
+      const targetDate = new Date(`${reviewBy}T23:59:59Z`)
+      if (Number.isNaN(targetDate.getTime()) || targetDate <= new Date()) {
+        throw new Error('A data de revisão deve ser uma data futura.')
+      }
       await dismissAlertItem(
         dismissTarget.item_id,
-        dismissReason.trim(),
-        new Date(`${reviewBy}T23:59:59Z`).toISOString(),
+        trimmedReason,
+        targetDate.toISOString(),
       )
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       showToast('Alerta dispensado temporariamente', 'success')
-      setDismissTarget(null)
-      setDismissReason('')
-      void queryClient.invalidateQueries({ queryKey: ['alerts'] })
+      closeDismissModal()
+      await invalidateAllAlertQueries(queryClient)
     },
     onError: (err: unknown) => {
       const message = err instanceof Error ? err.message : 'Falha ao dispensar alerta.'
@@ -107,6 +126,8 @@ export function Alertas() {
       )
       return
     }
+    setDismissReason('')
+    setReviewBy(getDefaultReviewDateString())
     setDismissTarget(alert)
   }
 
@@ -236,17 +257,25 @@ export function Alertas() {
       </div>
 
       {dismissTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dismiss-alert-modal-title"
+        >
           <Card className="w-full max-w-md p-6">
-            <h2 className="text-base font-semibold text-[var(--app-text)]">Dispensar alerta temporariamente</h2>
+            <h2 id="dismiss-alert-modal-title" className="text-base font-semibold text-[var(--app-text)]">
+              Dispensar alerta temporariamente
+            </h2>
             <p className="mt-1 text-xs text-[var(--app-muted)]">{dismissTarget.message}</p>
 
             <div className="mt-4 space-y-3">
               <div>
-                <label className="block text-xs font-medium text-[var(--app-muted)]">
+                <label htmlFor="dismiss-reason-input" className="block text-xs font-medium text-[var(--app-muted)]">
                   Motivo da dispensa (obrigatório para auditoria)
                 </label>
                 <textarea
+                  id="dismiss-reason-input"
                   className="mt-1 w-full rounded border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-xs text-[var(--app-text)]"
                   rows={3}
                   value={dismissReason}
@@ -256,11 +285,13 @@ export function Alertas() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[var(--app-muted)]">
+                <label htmlFor="dismiss-review-by-input" className="block text-xs font-medium text-[var(--app-muted)]">
                   Revisar até (o alerta reaparece após esta data)
                 </label>
                 <input
+                  id="dismiss-review-by-input"
                   type="date"
+                  min={getTomorrowDateString()}
                   className="mt-1 w-full rounded border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-xs text-[var(--app-text)]"
                   value={reviewBy}
                   onChange={(e) => setReviewBy(e.target.value)}
@@ -271,7 +302,7 @@ export function Alertas() {
             <div className="mt-6 flex justify-end gap-2">
               <Button
                 variant="secondary"
-                onClick={() => setDismissTarget(null)}
+                onClick={closeDismissModal}
                 disabled={dismissMutation.isPending}
               >
                 Cancelar
