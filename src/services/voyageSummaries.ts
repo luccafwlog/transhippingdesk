@@ -849,13 +849,20 @@ function timelineOperationLabel(parsed: Record<string, unknown>): string | null 
   return `${frontLabel} de ${direction}`
 }
 
+function capitalizeTimelineLabel(value: string): string {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value
+}
+
 function timelineTerminalLabel(parsed: Record<string, unknown>): string {
-  if (typeof parsed.terminal_code === 'string' && parsed.terminal_code.trim()) return parsed.terminal_code.trim()
+  if (typeof parsed.terminal_code === 'string' && parsed.terminal_code.trim()) {
+    const code = parsed.terminal_code.trim()
+    return code.toUpperCase() === 'TBC' ? 'TBC (pendente de atribuição)' : code
+  }
   return parsed.terminal_id ? 'terminal atribuído' : 'TBC (pendente de atribuição)'
 }
 
 function timelineExportExpectationLabel(parsed: Record<string, unknown>): string {
-  if (parsed.tem_exportacao === false) return 'Exportação não declarada'
+  if (parsed.tem_exportacao === false) return 'Não declarada'
 
   const cargo: string[] = []
   if (parsed.granito === true || parsed.has_granite === true) cargo.push('granito')
@@ -868,7 +875,7 @@ function timelineExportExpectationLabel(parsed: Record<string, unknown>): string
   const destinations = Array.isArray(parsed.discharge_ports)
     ? parsed.discharge_ports.filter((port): port is string => typeof port === 'string' && Boolean(port.trim())).join(', ')
     : ''
-  return `Cargas: ${cargo.join(' e ')}${destinations ? ` · destino: ${destinations}` : ''}`
+  return `${cargo.map(capitalizeTimelineLabel).join(' · ')}${destinations ? ` · destino: ${destinations}` : ''}`
 }
 
 function timelineTerminalDatesLabel(parsed: Record<string, unknown>): string {
@@ -911,12 +918,12 @@ function buildScheduleTimeline(
 
       if (row.field_name === 'front_created') {
         const terminal = timelineTerminalLabel(parsed)
-        const hasTerminal = Boolean(parsed.terminal_code || parsed.terminal_id)
-        title = hasTerminal && operation ? `Terminal definido para ${operation}` : `Operação ${operation ?? 'operacional'} registrada`
-        detail = operation ? `${operation} · Terminal: ${terminal}` : `Terminal: ${terminal}`
+        const hasTerminal = Boolean(parsed.terminal_id || (parsed.terminal_code && String(parsed.terminal_code).toUpperCase() !== 'TBC'))
+        title = hasTerminal && operation ? `Terminal definido para ${operation}` : `${capitalizeTimelineLabel(operation ?? 'Operação operacional')} registrada`
+        detail = `Terminal: ${terminal}`
       } else if (row.field_name === 'front_removed') {
-        title = `Operação ${operation ?? 'operacional'} removida`
-        detail = operation ? `${operation} · frente removida do planejamento` : 'Frente removida do planejamento'
+        title = `${capitalizeTimelineLabel(operation ?? 'Operação operacional')} removida`
+        detail = 'Frente removida do planejamento'
       } else if (row.field_name === 'terminal_assignment') {
         title = 'Terminal da operação alterado'
         detail = `Anterior: ${timelineTerminalLabel(previous)} · atual: ${timelineTerminalLabel(parsed)}`
@@ -929,7 +936,7 @@ function buildScheduleTimeline(
         title = `Datas do terminal${terminal} alteradas`
         detail = timelineTerminalDatesLabel(parsed)
       } else if (row.field_name === 'export_expectation') {
-        title = 'Declaração de exportação atualizada'
+        title = 'Exportação atualizada'
         detail = timelineExportExpectationLabel(parsed)
       } else if (row.field_name === 'adr_created' || row.field_name === 'adr_removed' || row.field_name === 'adr_preserved') {
         title = row.field_name === 'adr_created'
@@ -948,7 +955,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'escala-terminal',
         at,
-        title: `${title} em ${port}`,
+        title: `${title} · ${port}`,
         detail: appendActor(detail, row),
       })
       continue
@@ -961,7 +968,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'escala-date',
         at,
-        title: `${TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]} de ${port} ${changed ? 'alterado' : 'registrado'}`,
+        title: `${TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]} ${changed ? 'alterado' : 'registrado'} · ${port}`,
         detail: appendActor(changed ? `${formatDate(oldValue)} -> ${formatDate(value)}` : formatDate(value), row),
       })
     } else if (row.field_name === 'escala_number' && value) {
@@ -969,7 +976,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'escala-number',
         at,
-        title: `Escala de ${port} criada no Mercante`,
+        title: `Escala criada no Mercante · ${port}`,
         detail: appendActor(`Nº ${value}`, row),
       })
     } else if (row.field_name === 'linked' && value === 'true') {
@@ -977,7 +984,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'manifestos-linked',
         at,
-        title: `Manifestos vinculados à escala de ${port}`,
+        title: `Manifestos vinculados · ${port}`,
         detail: appendActor('ESCALA = SIM', row),
       })
     } else if (row.field_name === 'ces' && value) {
@@ -985,15 +992,15 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'ce-status',
         at,
-        title: `Status de CE de ${port} alterado`,
-        detail: appendActor(oldValue ? `${formatTimelineCeStatus(oldValue)} -> ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row),
+        title: `CE atualizado · ${port}`,
+        detail: appendActor(oldValue ? `${formatTimelineCeStatus(oldValue)} → ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row),
       })
     } else if (row.field_name === 'rtw' && value) {
       events.push({
         id: `sched-${index}`,
         kind: 'restow',
         at,
-        title: `Restow de ${port} registrado`,
+        title: `Restow registrado · ${port}`,
         detail: appendActor(`RTW ${value}`, row),
       })
     } else if (row.field_name === 'deleted' && value === 'false') {
@@ -1001,7 +1008,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'pod-added',
         at,
-        title: `Escala de ${port} adicionada ao planejamento`,
+        title: `Escala adicionada ao planejamento · ${port}`,
         detail: appendActor('POD ativo', row),
       })
     } else if (row.field_name === 'deleted' && value === 'true') {
@@ -1009,7 +1016,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'pod-removed',
         at,
-        title: `Escala de ${port} removida do planejamento`,
+        title: `Escala removida do planejamento · ${port}`,
         detail: appendActor('Planejamento removido', row),
       })
     }
@@ -1023,7 +1030,7 @@ function buildVoyageCompletionTimeline(
 ): VoyageTimelineEvent[] {
   if (voyageStatus !== 'completed') return []
   const latestAtd = events
-    .filter((event) => event.kind === 'escala-date' && event.title.startsWith('ATD de '))
+    .filter((event) => event.kind === 'escala-date' && event.title.startsWith('ATD '))
     .map((event) => event.at)
     .sort((left, right) => (left < right ? 1 : left > right ? -1 : 0))[0]
   if (!latestAtd) return []

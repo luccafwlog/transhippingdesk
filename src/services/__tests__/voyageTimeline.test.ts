@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { buildVoyageTimeline } from '../voyageSummaries'
 
 describe('timeline operacional de transbordo', () => {
+  it('usa o mesmo formato objetivo para registros de escala', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRVIX',
+        field_name: 'eta',
+        old_value: null,
+        new_value: '2026-08-26',
+        changed_at: '2026-08-24T20:41:00Z',
+      }],
+    })
+
+    expect(events[0].title).toBe('ETA registrado · BRVIX')
+    expect(events[0].detail).toBe('26/08/2026')
+  })
+
   it('humaniza alterações de operações e datas terminalizadas', () => {
     const events = buildVoyageTimeline({
       scheduleEvents: [
@@ -10,8 +26,8 @@ describe('timeline operacional de transbordo', () => {
       ],
     })
     expect(events.map((event) => event.kind)).toEqual(['escala-terminal', 'escala-terminal'])
-    expect(events.find((event) => event.title.includes('granito'))?.title).toBe('Terminal definido para granito de exportação em BRVIX')
-    expect(events.find((event) => event.title.includes('Datas do terminal'))?.title).toContain('Datas do terminal alteradas')
+    expect(events.find((event) => event.title.includes('granito'))?.title).toBe('Terminal definido para granito de exportação · BRVIX')
+    expect(events.find((event) => event.title.includes('Datas do terminal'))?.title).toBe('Datas do terminal alteradas · BRVIX')
     expect(events.find((event) => event.title.includes('granito'))?.detail).not.toContain('terminal-1')
   })
 
@@ -27,8 +43,8 @@ describe('timeline operacional de transbordo', () => {
       }],
     })
 
-    expect(events[0].title).toBe('Terminal definido para carga cheia de importação em BRSSA')
-    expect(events[0].detail).toContain('TBC')
+    expect(events[0].title).toBe('Carga cheia de importação registrada · BRSSA')
+    expect(events[0].detail).toBe('Terminal: TBC (pendente de atribuição)')
     expect(events[0].detail).not.toContain('carga_cheia')
   })
 
@@ -89,10 +105,26 @@ describe('timeline operacional de transbordo', () => {
       }],
     })
 
-    expect(events[0].title).toBe('Declaração de exportação atualizada em BRSSA')
-    expect(events[0].detail).toContain('granito')
-    expect(events[0].detail).toContain('vazios (12)')
+    expect(events[0].title).toBe('Exportação atualizada · BRSSA')
+    expect(events[0].detail).toContain('Granito')
+    expect(events[0].detail).toContain('Vazios (12)')
     expect(events[0].detail).not.toContain('terminal')
+  })
+
+  it('resume a mudança de CE sem repetir o contexto no título e no detalhe', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRSSA',
+        field_name: 'ces',
+        old_value: 'waiting',
+        new_value: 'received',
+        changed_at: '2026-08-24T21:41:00Z',
+      }],
+    })
+
+    expect(events[0].title).toBe('CE atualizado · BRSSA')
+    expect(events[0].detail).toBe('Aguardando → Recebido')
   })
 
   it('explica a troca da origem da operação em linguagem de negócio', () => {
