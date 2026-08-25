@@ -40,3 +40,6 @@ artifacts/qa-display-production/operational-fixture.json
 .playwright-mcp/
 .agent/
 .agents/
+
+# Canvas semeado do design de /viagens (~2 MB, embute o editor; regerado por seed-canvas.mjs)
+artifacts/design-viagens/viagens-tres-direcoes.html

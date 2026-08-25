@@ -1,0 +1,76 @@
+{
+  "artboards": [
+    {
+      "file": "DirecaoA.dc.html",
+      "title": "Direção A · Rail refinado",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1360
+    },
+    {
+      "file": "Main.dc.html",
+      "title": "Direção B · Mestre + detalhe (candidata líder)",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 1480
+    },
+    {
+      "file": "DirecaoC.dc.html",
+      "title": "Direção C · Programação em tabela",
+      "x": 0,
+      "y": 1780,
+      "w": 1440,
+      "h": 960
+    },
+    {
+      "file": "DirecaoCDetalhe.dc.html",
+      "title": "Direção C · /viagens/:id (detalhe roteado)",
+      "x": 1560,
+      "y": 1780,
+      "w": 1440,
+      "h": 1400
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": -620,
+      "y": 0,
+      "w": 520,
+      "text": "/viagens — três direções para escolher\n\nTodas usam os tokens reais do app (src/index.css, tema current): creme #f4f1ea com trama de pontos, navy #152238, dourado #d4882e, Syne no display e DM Sans no corpo, raio 8px, bordas 1.5px, thead navy.\n\nO que as três resolvem, vindo do código de hoje:\n\n1. Antes de ver qualquer viagem, a página gasta ~425px de altura (cabeçalho + painel de filtros + rail).\n2. Os quatro DirectionKpiTile empilham até oito pares label/valor a 12px, sem nenhum número dominante.\n3. As abas do VoyageCard usam sublinhado próprio em vez do .app-tab (navy + risco dourado) do resto do app.\n\nDados de amostra — nomes, datas e números são plausíveis, não reais."
+    },
+    {
+      "id": "nota-a",
+      "x": 0,
+      "y": -210,
+      "w": 700,
+      "text": "DIREÇÃO A · Rail refinado — evolução, risco baixo\n\nMantém a estrutura atual (rail horizontal + card de detalhe). Muda só o que dói: o painel de filtros vira uma barra de comando de uma linha com chips removíveis, o card do rail ganha rodapé com B/L · CNTR · CE, os KPIs ganham um número dominante e as abas passam a usar o .app-tab do design system.\n\nA favor: menor migração — nenhuma rota nova, VoyageRail e VoyageCard seguem no lugar. A equipe não reaprende a página.\n\nContra: continua uma viagem por vez e continua rolando na horizontal. Com 12+ viagens, comparar duas exige rolar o rail para frente e para trás; não há como ordenar ou varrer a frota."
+    },
+    {
+      "id": "nota-b",
+      "x": 1560,
+      "y": -210,
+      "w": 700,
+      "text": "DIREÇÃO B · Mestre + detalhe — candidata líder\n\nA lista de viagens vira uma coluna vertical fixa de 316px, com busca no topo e filtros pesados em popover. Nove viagens ficam visíveis de uma vez, sem rolagem horizontal, e o detalhe ocupa o resto da largura.\n\nA favor: trocar de viagem sem perder o contexto do detalhe; a lista vertical escala para 30 viagens do jeito que o rail nunca escala; a busca deixa de estar escondida atrás de um painel colapsável.\n\nContra: sobram 1.048px para o detalhe, não os 1.384px de hoje. A tabela de Planejamento tem 12 colunas — aqui ela cabe, mas sem folga; se novas colunas entrarem, será preciso um botão de recolher a lista.\n\nObs.: a linha do tempo aparece em 4 colunas para caber na largura menor."
+    },
+    {
+      "id": "nota-c",
+      "x": 0,
+      "y": 1560,
+      "w": 700,
+      "text": "DIREÇÃO C · Programação em tabela — densidade primeiro\n\n/viagens deixa de ser \"selecione uma viagem\" e passa a ser a programação da frota: uma linha por viagem, uma coluna por porto brasileiro, ETA na célula. Usa a convenção que já existe no domínio — OMIT para escala omitida, X para data não informada (CONTEXT.md, ADR 0052) — a mesma linguagem de Chegadas e Saídas e do Portal.\n\nA favor: 9 viagens varridas de uma vez, comparáveis por coluna; a página tem valor sem nenhuma seleção; conciliação e cobertura de CE viram colunas ordenáveis.\n\nContra: o detalhe sai da página (ver artboard ao lado). São dois passos para chegar ao planejamento de uma escala, e alternar entre duas viagens custa duas navegações."
+    },
+    {
+      "id": "nota-c-detalhe",
+      "x": 1560,
+      "y": 1560,
+      "w": 700,
+      "text": "DIREÇÃO C · o detalhe roteado que a tabela abre\n\nÉ o outro lado da moeda da Direção C, não uma quinta opção: /viagens/:id como página inteira, com trilha de volta e navegação anterior/próxima entre as viagens do filtro atual.\n\nA favor: os 1.384px inteiros para o detalhe. A tabela de Planejamento respira, os cards de módulo e a linha do tempo ganham largura, e sobra espaço para as abas Importação, Exportação, Escalas & Manifestos e ADR crescerem.\n\nContra: a navegação anterior/próxima precisa carregar o filtro da tela anterior, senão o operador perde o conjunto que estava olhando."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
