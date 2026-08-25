@@ -1,30 +1,34 @@
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, rmSync } from 'node:fs'
 import { T, artboard, icon } from './kit.mjs'
 import { ESTADO, VOYAGES } from './data.mjs'
 import {
-  estadoDot, kpiBand, moduleCards, novaViagemBtn, pageHeader, planTable,
-  tabsRow, timeline, toolbar, voyageHero,
+  estadoDot, kpiBand, novaViagemBtn, pageHeader, planTable,
+  tabsRow, timeline, toolbar, transbordoCard, voyageHero,
 } from './blocks.mjs'
+import { abaAdr, abaEscalas, abaExportacao, abaImportacao, metricPanel } from './tabs.mjs'
+import { planejamentoAntes, planejamentoDepois } from './visaogeral.mjs'
 
-const out = (name, html) => {
+export const HEIGHTS = {}
+const out = (name, html, height) => {
   writeFileSync(new URL(`./${name}`, import.meta.url), html)
-  console.log(`${name}  ${(html.length / 1024).toFixed(1)} KB`)
+  HEIGHTS[name] = height
+  console.log(`${name.padEnd(24)} ${String(height).padStart(5)}px  ${(html.length / 1024).toFixed(1)} KB`)
 }
 
 const modIcons = (mods) => mods.length
   ? `<span style="display: inline-flex; align-items: center; gap: 5px; color: ${T.mutedSoft}">${mods.map((m) => icon(m, 13)).join('')}</span>`
   : ''
 
-/* ------------------------------------------------------------------ *
- * Direção A — Rail refinado                                           *
- * ------------------------------------------------------------------ */
-function railCard(v, selected) {
+/** Card do rail refinado: rodapé fixo na base com B/L · CNTR · CE. */
+function railCard(v, { selected = false, hover = false } = {}) {
   const e = ESTADO[v.estado]
-  return `<div style="position: relative; display: flex; flex-direction: column; gap: 9px; flex: none; width: 268px; padding: 12px 14px; border: 1px solid ${selected ? T.blueBtn : T.border}; border-radius: 12px; background: ${selected ? T.bgElevated : T.surface}${selected ? `; box-shadow: inset 0 -3px 0 ${T.blueBtn}` : ''}">
-    <div style="display: flex; align-items: center; gap: 7px; min-width: 0">
+  return `<div style="position: relative; display: flex; flex-direction: column; gap: 9px; flex: none; width: 268px; min-height: 134px; padding: 12px 14px; border: 1px solid ${selected ? T.blueBtn : T.border}; border-radius: 12px; background: ${selected ? T.bgElevated : hover ? T.surfaceMuted : T.surface}${selected ? `; box-shadow: inset 0 -3px 0 ${T.blueBtn}` : ''}">
+    <div style="display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 26px">
       ${estadoDot(v.estado)}
       <span class="eyebrow" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${v.carrier}</span>
-      <span style="margin-left: auto; font-size: 10px; font-weight: 700; color: ${e.color}">${e.label}</span>
+      ${hover
+        ? `<span style="margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid ${T.border}; border-radius: 6px; background: ${T.surface}; color: ${T.muted}">${icon('pencil', 13)}</span>`
+        : `<span style="margin-left: auto; font-size: 10px; font-weight: 700; color: ${e.color}">${e.label}</span>`}
     </div>
     <div style="font-size: 13px; font-weight: 700; line-height: 1.25; color: ${T.textStrong}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${v.vessel} / ${v.voy}</div>
     <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap">
@@ -43,109 +47,188 @@ function railCard(v, selected) {
   </div>`
 }
 
-const direcaoA = artboard({
-  height: 1360,
-  body: `<div class="main">
-    ${pageHeader(novaViagemBtn)}
-    ${toolbar()}
-
-    <div style="display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px">
-      <div style="display: flex; align-items: center; justify-content: space-between; padding-inline: 2px">
-        <span style="font-size: 11px; color: ${T.mutedSoft}">Ordenado por pr&oacute;xima escala</span>
-        <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: ${T.mutedSoft}">
-          12 viagens
-          <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid ${T.border}; border-radius: 999px; background: ${T.surface}; color: ${T.muted}">${icon('chevronLeft', 14)}</span>
-          <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid ${T.border}; border-radius: 999px; background: ${T.surface}; color: ${T.muted}">${icon('chevronRight', 14)}</span>
-        </span>
-      </div>
-      <div style="display: flex; gap: 12px; overflow: hidden">
-        ${VOYAGES.slice(0, 5).map((v, i) => railCard(v, i === 0)).join('')}
-      </div>
+function railStrip() {
+  return `<div style="display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding-inline: 2px">
+      <span style="font-size: 11px; color: ${T.mutedSoft}">Ordenado por pr&oacute;xima escala</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: ${T.mutedSoft}">
+        12 viagens
+        ${['chevronLeft', 'chevronRight'].map((c) => `<span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid ${T.border}; border-radius: 999px; background: ${T.surface}; color: ${T.muted}">${icon(c, 14)}</span>`).join('')}
+      </span>
     </div>
-
-    <div class="surface surface--padded" style="display: flex; flex-direction: column; gap: 18px">
-      ${voyageHero()}
-      ${kpiBand()}
-      ${tabsRow()}
-      ${planTable()}
-    </div>
-  </div>`,
-})
-
-/* ------------------------------------------------------------------ *
- * Direção B — Mestre + detalhe  (Main.dc.html, candidata líder)        *
- * ------------------------------------------------------------------ */
-function listRow(v, selected) {
-  const e = ESTADO[v.estado]
-  return `<div style="display: flex; flex-direction: column; gap: 6px; padding: 11px 14px 11px 12px; border-left: 3px solid ${selected ? T.blueBtn : 'transparent'}; background: ${selected ? T.bgElevated : 'transparent'}; border-bottom: 1px solid ${T.border}">
-    <div style="display: flex; align-items: center; gap: 7px; min-width: 0">
-      ${estadoDot(v.estado, 7)}
-      <span class="eyebrow" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${v.carrier}</span>
-      <span style="margin-left: auto; font-family: ${T.mono}; font-size: 10px; font-weight: 600; color: ${e.color}">CE ${v.ce}</span>
-    </div>
-    <div style="font-size: 13px; font-weight: 700; line-height: 1.25; color: ${T.textStrong}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${v.vessel} / ${v.voy}</div>
-    <div style="display: flex; align-items: center; gap: 7px; min-width: 0">
-      ${v.escalas.length
-        ? `<span class="pill">${v.escalas[0].port} · ${v.escalas[0].eta}</span>${v.escalas.length > 1 ? `<span style="font-size: 11px; color: ${T.mutedSoft}">+${v.escalas.length - 1}</span>` : ''}`
-        : `<span style="font-size: 11px; color: ${T.mutedSoft}">Sem escala prevista</span>`}
-      ${modIcons(v.mods)}
-      <span style="margin-left: auto; font-family: ${T.mono}; font-size: 11px; color: ${T.muted}">${v.bls} B/L</span>
+    <div style="display: flex; gap: 12px; overflow: hidden">
+      ${VOYAGES.slice(0, 5).map((v, i) => railCard(v, { selected: i === 0 })).join('')}
     </div>
   </div>`
 }
 
-const main = artboard({
-  height: 1480,
+/* ================================================================== *
+ * Main — Direção A, a escolhida: rail refinado + card de detalhe      *
+ * ================================================================== */
+const MAIN_H = 1800
+out('Main.dc.html', artboard({
+  height: MAIN_H,
   body: `<div class="main">
     ${pageHeader(novaViagemBtn)}
-    <div style="display: flex; align-items: flex-start; gap: 20px">
-
-      <div style="flex: none; width: 316px; display: flex; flex-direction: column; gap: 12px">
-        <div style="display: flex; gap: 8px">
-          <span class="input" style="flex: 1 1 auto; min-width: 0">${icon('search', 16, T.mutedSoft)}<span class="input__placeholder">Buscar viagem</span></span>
-          <span class="btn btn--secondary btn--icon" style="position: relative">${icon('sliders', 16)}<span style="position: absolute; top: 5px; right: 5px; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 999px; background: ${T.blueBtn}; color: #fff; font-size: 10px; font-weight: 700">2</span></span>
-        </div>
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-inline: 2px">
-          <span style="font-size: 11px; color: ${T.mutedSoft}">9 de 12 &middot; por pr&oacute;xima escala</span>
-          <span style="font-size: 11px; font-weight: 600; color: ${T.blueBtn}">Limpar</span>
-        </div>
-        <div class="surface" style="display: flex; flex-direction: column; overflow: hidden">
-          ${VOYAGES.map((v, i) => listRow(v, i === 0)).join('')}
-          <div style="padding: 10px 14px; background: ${T.surfaceMuted}; font-size: 11px; color: ${T.mutedSoft}; text-align: center">3 viagens abaixo &middot; role a lista</div>
-        </div>
-      </div>
-
-      <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 18px">
-        <div class="surface surface--padded" style="display: flex; flex-direction: column; gap: 18px">
-          ${voyageHero()}
-          ${kpiBand()}
-        </div>
-        ${tabsRow()}
-        ${planTable()}
-        ${moduleCards({ columns: 4 })}
-        ${timeline({ columns: 4 })}
-      </div>
+    ${toolbar()}
+    ${railStrip()}
+    <div class="surface surface--padded" style="display: flex; flex-direction: column; gap: 18px">
+      ${voyageHero()}
+      ${kpiBand()}
+      ${tabsRow()}
+      ${transbordoCard()}
+      ${planTable()}
+      ${timeline()}
     </div>
   </div>`,
-})
+}), MAIN_H)
 
-/* ------------------------------------------------------------------ *
- * Direção C — Programação em tabela                                   *
- * ------------------------------------------------------------------ */
+/* ================================================================== *
+ * Abas — o corpo de cada aba, sem o cromo, na largura que ocupa       *
+ * ================================================================== */
+function tabBoard({ height, active, note, body }) {
+  return artboard({
+    height,
+    chrome: false,
+    body: `<div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
+      <div>
+        <div style="font-family: ${T.display}; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: ${T.textStrong}">Aba &middot; ${active}</div>
+        <div style="margin-top: 6px; max-width: 900px; font-size: 13px; line-height: 1.6; color: ${T.muted}">${note}</div>
+      </div>
+      <div class="surface surface--padded" style="display: flex; flex-direction: column; gap: 18px">
+        ${tabsRow(active)}
+        ${body}
+      </div>
+    </div>`,
+  })
+}
+
+const IMP_H = 1020
+out('AbaImportacao.dc.html', tabBoard({
+  height: IMP_H, active: 'Importa&ccedil;&atilde;o',
+  note: 'Hoje é uma pilha de MetricPanels por POD, todos com o mesmo peso visual. Aqui cada painel ganha um número dominante e os tipos de container viram tokens, como o <code>Info</code> tokenizado já faz. Um bloco por escala, e a importação rápida fecha a aba.',
+  body: abaImportacao(),
+}), IMP_H)
+
+const EXP_H = 640
+out('AbaExportacao.dc.html', tabBoard({
+  height: EXP_H, active: 'Exporta&ccedil;&atilde;o',
+  note: 'Dois painéis apenas — Vazios e Granito. A mesma gramática de número dominante da faixa de KPIs, para a aba não parecer de outro produto.',
+  body: abaExportacao(),
+}), EXP_H)
+
+const ESC_H = 730
+out('AbaEscalas.dc.html', tabBoard({
+  height: ESC_H, active: 'Escalas &amp; Manifestos',
+  note: 'A faixa de conciliação vira barra de status, e a cobertura de CE ganha um medidor em vez de só <code>8/8</code>. A rota com omissão mantém o POD riscado e a marca OMISSÃO, como no componente atual.',
+  body: abaEscalas(),
+}), ESC_H)
+
+const ADR_H = 1340
+out('AbaAdr.dc.html', tabBoard({
+  height: ADR_H, active: 'ADR',
+  note: 'A aba mais densa. Escala e terminal viram seletores em pílula; os 3 departamentos ganham uma barra de progresso explícita, já que sem os três assinados o ADR não fecha; e cada bloco carrega seu estado de assinatura no cabeçalho.',
+  body: abaAdr(),
+}), ADR_H)
+
+/* ================================================================== *
+ * Cards — anatomia e estados                                          *
+ * ================================================================== */
+function cardsGroup(title, note, body) {
+  return `<section style="display: flex; flex-direction: column; gap: 12px">
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">${title}</div>
+      <div style="margin-top: 4px; font-size: 13px; line-height: 1.55; color: ${T.mutedSoft}">${note}</div>
+    </div>
+    ${body}
+  </section>`
+}
+
+const label = (t) => `<div style="margin-bottom: 8px; font-size: 11px; font-weight: 600; color: ${T.mutedSoft}">${t}</div>`
+
+const CARDS_H = 1540
+out('Cards.dc.html', artboard({
+  height: CARDS_H,
+  chrome: false,
+  body: `<div style="padding: 28px; display: flex; flex-direction: column; gap: 28px">
+    <div>
+      <div style="font-family: ${T.display}; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: ${T.textStrong}">Cards &middot; anatomia e estados</div>
+      <div style="margin-top: 6px; max-width: 900px; font-size: 13px; line-height: 1.6; color: ${T.muted}">Cada peça que se repete na página, com os estados que ela precisa cobrir. Serve de referência para a implementação e para conferir que nenhum estado ficou sem desenho.</div>
+    </div>
+
+    ${cardsGroup('Card do rail', 'Rodapé ancorado na base para os números alinharem entre cards com uma ou duas escalas. O estado de conciliação aparece duas vezes — ponto e rótulo — porque cor sozinha não basta.', `
+      <div style="display: flex; gap: 12px; flex-wrap: wrap">
+        <div>${label('Selecionado')}${railCard(VOYAGES[0], { selected: true })}</div>
+        <div>${label('Hover &mdash; a&ccedil;&atilde;o de editar')}${railCard(VOYAGES[1], { hover: true })}</div>
+        <div>${label('Pendente')}${railCard(VOYAGES[2])}</div>
+        <div>${label('Divergente')}${railCard(VOYAGES[4])}</div>
+        <div>${label('Sem escala prevista')}${railCard(VOYAGES[8])}</div>
+      </div>`)}
+
+    ${cardsGroup('Tile de KPI', 'Um número dominante em Syne e no máximo três linhas de apoio. É a mudança que resolve os oito pares label/valor a 12px do DirectionKpiTile atual.', kpiBand())}
+
+    ${cardsGroup('MetricPanel', 'A peça que carrega as abas de Importação e Exportação. Valores simples alinham à direita; listas de tipo viram tokens em pílula.', `
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+        ${metricPanel({ title: 'Containers', lead: '11', leadUnit: 'distintos', tone: 'blue', rows: [['Containers IMO', '0'], ['Containers OOG', '1'], ['Tipos de container', ['20GP', '40HC', '40OT']]] })}
+        ${metricPanel({ title: 'Granito', lead: '213', leadUnit: 'ton', tone: 'gold', rows: [['Manifestos', '1'], ['B/Ls', '2'], ['Faturados', '0']] })}
+        ${metricPanel({ title: 'Vazios', lead: '0', leadUnit: 'bookings', tone: 'slate', rows: [['Containers distintos', '0'], ['Tipos', '&mdash;']] })}
+      </div>`)}
+
+    ${cardsGroup('Linha da timeline', 'A barra de 4px à esquerda é o único portador do tipo do evento — verde para conciliação, azul para carga, dourado para escala.', timeline())}
+  </div>`,
+}), CARDS_H)
+
+/* ================================================================== *
+ * Visão geral — Planejamento por escala: antes e depois               *
+ * ================================================================== */
+function compareBoard({ height, chip, chipTone, title, note, body }) {
+  const tint = chipTone === 'hoje' ? { bg: T.panel, border: T.borderStrong, fg: T.muted } : { bg: T.blueSoft, border: '#bfdbfe', fg: T.blueBtn }
+  return artboard({
+    height,
+    chrome: false,
+    body: `<div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
+      <div>
+        <span style="display: inline-flex; align-items: center; border: 1px solid ${tint.border}; border-radius: 999px; background: ${tint.bg}; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${tint.fg}">${chip}</span>
+        <div style="margin-top: 10px; font-family: ${T.display}; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: ${T.textStrong}">${title}</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: ${T.muted}">${note}</div>
+      </div>
+      ${body}
+    </div>`,
+  })
+}
+
+const ANTES_H = 560
+out('PlanejamentoAntes.dc.html', compareBoard({
+  height: ANTES_H, chip: 'Hoje', chipTone: 'hoje',
+  title: 'Planejamento por escala &mdash; como est&aacute; hoje',
+  note: 'Transcrição fiel de <code>VoyageVisaoTab.tsx</code> com os estilos resolvidos de <code>index.css</code>: 9 colunas, cabeçalhos sem versalete, datas por extenso com ano, e as atracações num bloco solto com <code>ml-4</code> que não conversa com as colunas de cima.',
+  body: planejamentoAntes(),
+}), ANTES_H)
+
+const DEPOIS_H = 620
+out('PlanejamentoDepois.dc.html', compareBoard({
+  height: DEPOIS_H, chip: 'Proposta', chipTone: 'proposta',
+  title: 'Planejamento por escala &mdash; proposta',
+  note: 'Seis mudanças, todas dentro da Direção A: cabeçalho em dois níveis separando previsto de realizado; a coluna passa a mostrar o B/L que o nome promete; VINCULADA vira badge; a divergência sai do <code>amber-400</code> para os tokens dourados; e cada atracação vira linha-filha da mesma tabela, alinhada às colunas da escala.',
+  body: planejamentoDepois(),
+}), DEPOIS_H)
+
+/* ================================================================== *
+ * Não escolhidas — registro das direções descartadas                  *
+ * ================================================================== */
 const PORT_COLS = ['BRSSZ', 'BRVIX', 'BRPNG', 'BRRIG']
-
 function portCell(value) {
   if (value === 'OMIT') return `<span class="badge badge--red" style="padding: 2px 8px; font-size: 10px; font-weight: 700">OMIT</span>`
   if (value === 'X') return `<span class="dash num">X</span>`
   return `<span class="num" style="font-weight: 600; color: ${T.textStrong}">${value}</span>`
 }
 
-const direcaoC = artboard({
-  height: 960,
+const C_H = 960
+out('DirecaoC.dc.html', artboard({
+  height: C_H,
   body: `<div class="main">
     ${pageHeader(novaViagemBtn)}
     ${toolbar()}
-
     <div class="surface" style="overflow: hidden">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid ${T.border}; background: ${T.surfaceMuted}">
         <span class="section-label">Programa&ccedil;&atilde;o &middot; pr&oacute;ximos 30 dias</span>
@@ -159,30 +242,18 @@ const direcaoC = artboard({
         </span>
       </div>
       <table class="table table--dense">
-        <thead>
-          <tr>
-            <th style="width: 26px"></th>
-            <th>Navio / Viagem</th>
-            <th>Armador</th>
-            <th>Rota</th>
-            ${PORT_COLS.map((p) => `<th style="text-align: center">${p}</th>`).join('')}
-            <th style="text-align: center">+</th>
-            <th style="text-align: right">B/L</th>
-            <th style="text-align: right">CNTR</th>
-            <th style="text-align: center">CE</th>
-            <th></th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th style="width: 26px"></th><th>Navio / Viagem</th><th>Armador</th><th>Rota</th>
+          ${PORT_COLS.map((p) => `<th style="text-align: center">${p}</th>`).join('')}
+          <th style="text-align: center">+</th><th style="text-align: right">B/L</th>
+          <th style="text-align: right">CNTR</th><th style="text-align: center">CE</th><th></th>
+        </tr></thead>
         <tbody>
           ${VOYAGES.map((v, i) => `<tr${i === 0 ? ` style="background: ${T.blueSoft}"` : ''}>
             <td>${estadoDot(v.estado, 8)}</td>
             <td style="font-weight: 700; color: ${T.textStrong}">${v.vessel} <span style="color: ${T.muted}">/ ${v.voy}</span></td>
             <td style="font-size: 12px; color: ${T.muted}">${v.carrier}</td>
-            <td>
-              <span style="display: inline-flex; align-items: center; gap: 6px; font-family: ${T.mono}; font-size: 11px; color: ${T.muted}">
-                ${v.pol} ${icon('arrowRight', 12, T.mutedSoft)} <b style="color: ${T.text}">${v.pod}</b>
-              </span>
-            </td>
+            <td><span style="display: inline-flex; align-items: center; gap: 6px; font-family: ${T.mono}; font-size: 11px; color: ${T.muted}">${v.pol} ${icon('arrowRight', 12, T.mutedSoft)} <b style="color: ${T.text}">${v.pod}</b></span></td>
             ${PORT_COLS.map((p) => `<td style="text-align: center">${portCell(v.ports[p])}</td>`).join('')}
             <td style="text-align: center; font-size: 11px; color: ${T.mutedSoft}">${v.pod.includes('BRITJ') ? '+1' : '—'}</td>
             <td style="text-align: right" class="num">${v.bls}</td>
@@ -203,13 +274,11 @@ const direcaoC = artboard({
       </div>
     </div>
   </div>`,
-})
+}), C_H)
 
-/* ------------------------------------------------------------------ *
- * Direção C — página de detalhe (/viagens/:id)                        *
- * ------------------------------------------------------------------ */
-const direcaoCDetalhe = artboard({
-  height: 1400,
+const CD_H = 1500
+out('DirecaoCDetalhe.dc.html', artboard({
+  height: CD_H,
   body: `<div class="main">
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 12px; color: ${T.muted}">
       <span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: ${T.blueBtn}">${icon('chevronLeft', 14)} Viagens</span>
@@ -221,22 +290,18 @@ const direcaoCDetalhe = artboard({
         <span class="btn btn--secondary btn--sm" style="width: 34px; padding: 0">${icon('chevronRight', 15)}</span>
       </span>
     </div>
-
     <div class="surface surface--padded" style="display: flex; flex-direction: column; gap: 18px; margin-bottom: 18px">
       ${voyageHero({ compact: true })}
       ${kpiBand()}
     </div>
-
     <div style="display: flex; flex-direction: column; gap: 18px">
       ${tabsRow()}
+      ${transbordoCard()}
       ${planTable()}
-      ${moduleCards({ columns: 4 })}
-      ${timeline({ columns: 4 })}
+      ${timeline()}
     </div>
   </div>`,
-})
+}), CD_H)
 
-out('DirecaoA.dc.html', direcaoA)
-out('Main.dc.html', main)
-out('DirecaoC.dc.html', direcaoC)
-out('DirecaoCDetalhe.dc.html', direcaoCDetalhe)
+try { rmSync(new URL('./DirecaoA.dc.html', import.meta.url)) } catch { /* já removido */ }
+writeFileSync(new URL('./heights.json', import.meta.url), JSON.stringify(HEIGHTS, null, 2) + '\n')

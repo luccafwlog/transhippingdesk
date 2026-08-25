@@ -82,32 +82,29 @@ export const ESTADO = {
   divergente: { label: 'Divergente', color: '#c0393f', tone: 'red' },
 }
 
-/** Linhas do Planejamento por POD/POL da viagem selecionada (ARIES / 088E). */
+/**
+ * Linhas do "Planejamento por escala" da viagem selecionada (ARIES / 088E).
+ * Colunas conforme VoyageVisaoTab.tsx: Escala | Opera | ETA | ATA |
+ * ATD derivado | BLs e CEs | Nº Escala | VINCULADA | Ações.
+ */
 export const PLAN_ROWS = [
   {
-    port: 'BRSSZ', kind: 'pod', eta: '28/08', etb: '28/08', ata: '—', atb: '—',
-    etd: '30/08', atd: '—', rtw: '—', ce: '8 B/L · CE 8/8', escala: '25.0143', linked: 'SIM',
+    port: 'BRSSZ', opera: ['Importa&ccedil;&atilde;o', 'Exporta&ccedil;&atilde;o'],
+    eta: '28/08', ata: '—', atdDerivado: '—',
+    ce: '8 B/L · CE 8/8', escala: '25.0143', linked: 'SIM',
+    atracacao: [{ terminal: 'BTP', etb: '28/08', atb: '—', etd: '30/08', rtw: 26 }],
   },
   {
-    port: 'BRVIX', kind: 'pod', eta: '01/09', etb: '01/09', ata: '—', atb: '—',
-    etd: '02/09', atd: '—', rtw: '—', ce: '2 B/L · CE 2/2', escala: '25.0177', linked: 'SIM',
+    port: 'BRVIX', opera: ['Importa&ccedil;&atilde;o'],
+    eta: '01/09', ata: '—', atdDerivado: '—',
+    ce: '2 B/L · CE 2/2', escala: '25.0177', linked: 'SIM',
+    atracacao: null,
   },
-  {
-    port: 'CNSHA', kind: 'pol', eta: '15/07', etb: '16/07', ata: '15/07', atb: '16/07',
-    etd: '18/07', atd: '18/07', rtw: '26 MOVES', ce: 'Lançando', escala: '—', linked: '—',
-  },
-]
-
-export const MODULES = [
-  { icon: 'box', title: 'Manifestos CNTR', rows: ['2 manifestos', '8 B/Ls', '13 containers distintos'], empty: false },
-  { icon: 'file', title: 'Manifestos BB', rows: ['2 manifestos', '2 B/Ls', '213 ton'], empty: false },
-  { icon: 'mountain', title: 'Granito', rows: ['0 manifestos', '0 ton', '0 B/Ls'], empty: true },
-  { icon: 'boxOpen', title: 'Vazios', rows: ['0 bookings', '0 containers', 'Sem destinos'], empty: true },
 ]
 
 export const TIMELINE = [
-  { at: '22/08/2026, 09:14', title: 'Cobertura de CE Mercante completa', note: '10/10 B/Ls com CE' },
-  { at: '21/08/2026, 17:02', title: '7 B/Ls importados · CNSHA → BRSSZ', note: 'CNTR' },
-  { at: '21/08/2026, 17:02', title: '2 B/Ls importados · CNNGB → BRSSZ', note: 'CNTR' },
-  { at: '21/08/2026, 16:48', title: '1 B/L importado · CNSHA → BRVIX', note: 'CNTR' },
+  { at: '22/08/2026, 09:14', title: 'Cobertura de CE Mercante completa', note: '10/10 B/Ls com CE', color: '#1a8c50' },
+  { at: '21/08/2026, 17:02', title: '7 B/Ls importados', note: 'CNSHA → BRSSZ · CNTR', color: '#2563a8' },
+  { at: '21/08/2026, 17:02', title: '2 B/Ls importados', note: 'CNNGB → BRSSZ · CNTR', color: '#2563a8' },
+  { at: '21/08/2026, 16:48', title: 'Escala BRVIX omitida', note: 'Descarga transferida para BRSSZ', color: '#d4882e' },
 ]

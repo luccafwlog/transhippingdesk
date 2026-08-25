@@ -1,5 +1,5 @@
 import { T, icon } from './kit.mjs'
-import { ESTADO, MODULES, PLAN_ROWS, TIMELINE } from './data.mjs'
+import { ESTADO, PLAN_ROWS, TIMELINE } from './data.mjs'
 
 export function pageHeader(action) {
   return `<div class="page-header">
@@ -106,75 +106,88 @@ export function tabsRow(active = 'Vis&atilde;o geral') {
   </div>`
 }
 
-export function planTable({ compactColumns = false } = {}) {
-  const cols = ['POD/POL', 'ETA', 'ETB', 'ATA', 'ATB', 'ETD', 'ATD', 'RESTOW', 'B/LS E CE', 'N&ordm; ESCALA', 'VINC.', 'A&Ccedil;&Otilde;ES']
+export function planTable() {
+  const cols = ['Escala', 'Opera', 'ETA', 'ATA', 'ATD derivado', 'BLs e CEs', 'N&ordm; Escala', 'VINCULADA', 'A&ccedil;&otilde;es']
   const cell = (v) => (v === '—' ? `<span class="dash">&mdash;</span>` : `<span class="num">${v}</span>`)
-  return `<div class="surface">
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-bottom: 1px solid ${T.border}; background: ${T.surfaceMuted}">
-      <span class="section-label">Planejamento por POD / POL</span>
-      <span style="display: flex; gap: 8px">
-        <span class="btn btn--secondary btn--sm">${icon('plus', 14)} Adicionar POD</span>
-        <span class="btn btn--secondary btn--sm">${icon('plus', 14)} Adicionar POL</span>
-      </span>
+  const iconBtn = (name, color) => `<span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid ${T.border}; border-radius: 6px; background: ${T.surface}; color: ${color}">${icon(name, 14)}</span>`
+  return `<section style="display: grid; gap: 4px; border: 1px solid ${T.border}; border-radius: 12px; background: ${T.surfaceMuted}; padding: 12px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+      <span style="font-size: 14px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: ${T.muted}">Planejamento por escala</span>
+      <span class="btn btn--secondary btn--sm">${icon('plus', 15)} Adicionar escala</span>
     </div>
-    <table class="table${compactColumns ? ' table--dense' : ''}">
-      <thead><tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead>
-      <tbody>
-        ${PLAN_ROWS.map((r) => `<tr>
-          <td>
-            <span style="display: inline-flex; align-items: center; gap: 7px">
-              <span style="font-weight: 700; color: ${r.kind === 'pol' ? T.gold : T.textStrong}">${r.port}</span>
-              ${r.kind === 'pol' ? `<span class="badge badge--yellow" style="padding: 2px 7px; font-size: 10px">EXP</span>` : ''}
-            </span>
-          </td>
-          <td>${cell(r.eta)}</td><td>${cell(r.etb)}</td><td>${cell(r.ata)}</td><td>${cell(r.atb)}</td>
-          <td>${cell(r.etd)}</td><td>${cell(r.atd)}</td><td>${cell(r.rtw)}</td>
-          <td style="font-size: 12px; color: ${T.muted}">${r.ce}</td>
-          <td>${cell(r.escala)}</td>
-          <td style="font-size: 12px; font-weight: 600; color: ${r.linked === 'SIM' ? T.green : T.mutedSoft}">${r.linked}</td>
-          <td>
-            <span style="display: inline-flex; gap: 6px">
-              <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid ${T.border}; border-radius: 6px; color: ${T.muted}">${icon('pencil', 14)}</span>
-              ${r.kind === 'pod' ? `<span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid ${T.border}; border-radius: 6px; color: ${T.gold}">${icon('warning', 14)}</span>` : ''}
-              <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid ${T.border}; border-radius: 6px; color: ${T.red}">${icon('trash', 14)}</span>
-            </span>
-          </td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-  </div>`
+    <div class="surface" style="margin-top: 8px">
+      <table class="table table--dense">
+        <thead><tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${PLAN_ROWS.map((r) => `<tr>
+            <td style="font-weight: 700; color: ${T.textStrong}">${r.port}</td>
+            <td><span style="display: inline-flex; gap: 5px">${r.opera.map((o) => `<span class="badge badge--${o === 'Importa&ccedil;&atilde;o' ? 'blue' : 'yellow'}" style="padding: 3px 8px; font-size: 10px">${o}</span>`).join('')}</span></td>
+            <td>${cell(r.eta)}</td>
+            <td>${cell(r.ata)}</td>
+            <td>${cell(r.atdDerivado)}</td>
+            <td style="font-size: 12px; color: ${T.muted}">${r.ce}</td>
+            <td>${cell(r.escala)}</td>
+            <td style="font-size: 12px; font-weight: 600; color: ${r.linked === 'SIM' ? T.green : T.mutedSoft}">${r.linked}</td>
+            <td><span style="display: inline-flex; gap: 6px">${iconBtn('pencil', T.muted)}${iconBtn('warning', T.gold)}${iconBtn('trash', T.red)}</span></td>
+          </tr>
+          ${r.atracacao ? `<tr><td colspan="9" style="padding: 0 10px 12px">
+            <div style="display: flex; align-items: center; gap: 14px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 9px 12px">
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: ${T.muted}">Atraca&ccedil;&otilde;es</span>
+              ${r.atracacao.map((a) => `<span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: ${T.muted}">
+                <span class="pill">${a.terminal}</span>
+                <span class="num">ETB ${a.etb}</span><span style="color: ${T.border}">|</span>
+                <span class="num">ATB ${a.atb}</span><span style="color: ${T.border}">|</span>
+                <span class="num">ETD ${a.etd}</span>
+                ${a.rtw ? `<span class="badge badge--slate" style="padding: 2px 8px; font-size: 10px">RTW ${a.rtw}</span>` : ''}
+              </span>`).join('')}
+            </div>
+          </td></tr>` : ''}`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </section>`
 }
 
-export function moduleCards({ columns = 4 } = {}) {
-  return `<div style="display: grid; grid-template-columns: repeat(${columns}, minmax(0, 1fr)); gap: 12px">
-    ${MODULES.map((m) => `<div class="surface" style="padding: 16px; display: flex; flex-direction: column; gap: 10px">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px">
-        <span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; color: ${m.empty ? T.mutedSoft : T.blueBtn}">${icon(m.icon, 17)}</span>
-        ${m.empty ? `<span class="badge badge--yellow">Sem dados</span>` : ''}
-      </div>
-      <div style="font-size: 14px; font-weight: 700; color: ${T.textStrong}">${m.title}</div>
-      <div style="display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: ${m.empty ? T.mutedSoft : T.muted}">
-        ${m.rows.map((r) => `<span>${r}</span>`).join('')}
-      </div>
-      <span style="display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12px; font-weight: 600; color: ${T.blueBtn}">Ver ${icon('arrowRight', 13)}</span>
-    </div>`).join('')}
-  </div>`
-}
-
-export function timeline({ columns = 3 } = {}) {
-  return `<div class="surface" style="padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+export function timeline() {
+  return `<section style="display: grid; gap: 4px; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surfaceMuted}; padding: 16px">
     <div style="display: flex; align-items: center; justify-content: space-between">
-      <span class="section-label" style="display: inline-flex; align-items: center; gap: 8px">${icon('clock', 14, T.muted)} Linha do tempo</span>
-      <span style="color: ${T.mutedSoft}">${icon('chevronDown', 16)}</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: ${T.muted}">${icon('clock', 16, T.muted)} Linha do tempo</span>
+      <span style="color: ${T.muted}">${icon('chevronDown', 18)}</span>
     </div>
-    <div style="display: grid; grid-template-columns: repeat(${columns}, minmax(0, 1fr)); gap: 10px">
-      ${TIMELINE.map((e) => `<div style="border: 1px solid ${T.border}; border-left: 3px solid ${T.gold}; border-radius: 6px; background: ${T.surfaceMuted}; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px">
-        <span style="font-family: ${T.mono}; font-size: 11px; color: ${T.mutedSoft}">${e.at}</span>
-        <span style="font-size: 13px; font-weight: 700; color: ${T.textStrong}">${e.title}</span>
-        <span style="font-size: 12px; color: ${T.muted}">${e.note}</span>
-      </div>`).join('')}
+    <ol style="display: flex; flex-direction: column; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none">
+      ${TIMELINE.map((e) => `<li style="position: relative; display: flex; align-items: baseline; gap: 12px; overflow: hidden; border: 1px solid ${T.border}; border-radius: 12px; background: ${T.surface}; padding: 12px 12px 12px 16px">
+        <span style="position: absolute; left: 0; top: 0; height: 100%; width: 4px; background: ${e.color}"></span>
+        <span style="flex: none; width: 144px; font-family: ${T.mono}; font-size: 12px; color: ${T.mutedSoft}">${e.at}</span>
+        <span style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px">
+          <span style="font-size: 14px; font-weight: 600; color: ${T.text}">${e.title}</span>
+          <span style="font-size: 14px; line-height: 1.4; color: ${T.muted}">${e.note}</span>
+        </span>
+      </li>`).join('')}
+    </ol>
+    <span style="margin-top: 12px; font-size: 14px; font-weight: 500; color: ${T.blue}">Mostrar todos os 11 eventos</span>
+  </section>`
+}
+
+/** Só aparece quando a viagem tem omissão de escala (TransshipmentInfoCard). */
+export function transbordoCard() {
+  const info = (label, value) => `<div><dt style="font-size: 12px; color: ${T.muted}; margin: 0">${label}</dt><dd style="margin: 4px 0 0; font-weight: 500; color: ${T.textStrong}">${value}</dd></div>`
+  return `<section style="display: grid; gap: 12px; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surfaceMuted}; padding: 16px">
+    <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: ${T.textStrong}">Informa&ccedil;&otilde;es de Transbordo</h3>
+    <div style="display: grid; gap: 12px; border: 1px solid ${T.border}; border-radius: 12px; background: ${T.surface}; padding: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="font-size: 14px; font-weight: 600; color: ${T.textStrong}">BRVIX &middot; Porto de Transbordo &mdash; BRSSZ</span>
+        <span style="display: flex; gap: 8px">
+          <span class="btn btn--secondary btn--sm">Complementar</span>
+          <span class="btn btn--danger btn--sm">Reverter omiss&atilde;o</span>
+        </span>
+      </div>
+      <dl style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; font-size: 14px">
+        ${info('Navio de transbordo', 'CSCL SPRING / 209W')}
+        ${info('ETA no destino final', '12/09/2026')}
+        ${info('B/Ls afetados', '3')}
+      </dl>
     </div>
-  </div>`
+  </section>`
 }
 
 export function estadoDot(estado, size = 8) {

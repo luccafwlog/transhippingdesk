@@ -30,6 +30,7 @@ export const T = {
   greenSoft: '#e6f7ee',
   red: '#c0393f',
   redSoft: '#fceaea',
+  shadow: '0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)',
   display: '"Syne", "DM Sans", sans-serif',
   body: '"DM Sans", "Segoe UI", sans-serif',
   mono: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
@@ -232,6 +233,7 @@ export const BASE_CSS = `
     font-size: 11px; font-weight: 600; color: ${T.muted}; white-space: nowrap;
   }
 
+  code { font-family: ${T.mono}; font-size: 0.92em; border: 1px solid ${T.border}; border-radius: 4px; background: ${T.surfaceMuted}; padding: 1px 5px; }
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; flex: none; }
   .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.mutedSoft}; }
   .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}; }
@@ -279,7 +281,7 @@ export function navBar() {
 }
 
 /** Envelope de um artboard Design Component. */
-export function artboard({ css = '', height, body }) {
+export function artboard({ css = '', height, body, chrome = true }) {
   return `<!doctype html>
 <html>
 <head>
@@ -292,9 +294,7 @@ export function artboard({ css = '', height, body }) {
   <style>${BASE_CSS}${css}</style>
 </helmet>
 <div class="shell" style="min-height: ${height}px">
-  ${stripBar()}
-  ${header()}
-  ${navBar()}
+  ${chrome ? stripBar() + header() + navBar() : ''}
   ${body}
 </div>
 </x-dc>
