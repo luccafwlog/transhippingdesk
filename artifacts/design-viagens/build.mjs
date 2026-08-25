@@ -215,11 +215,11 @@ out('ImportacaoAntes.dc.html', compareBoard({
   body: importacaoAntes(),
 }), IMPA_H)
 
-const IMPD_H = 1060
+const IMPD_H = 1160
 out('ImportacaoDepois.dc.html', compareBoard({
   height: IMPD_H, chip: 'Proposta', chipTone: 'proposta',
   title: 'Aba Importa&ccedil;&atilde;o &mdash; proposta',
-  note: 'Total da viagem no topo; os três painéis sempre presentes por escala, com estado vazio explícito; painéis chapados como o resto da página; Containers com carga geral, veículos, IMO, OOG e contagem por tipo; e a importação rápida numa fila só — sem agrupar por manifesto — com B/L de container e de carga solta separados e o CE Mercante servindo os dois.',
+  note: 'Tudo por escala: Containers e Carga solta como painéis, Veículos e Vazios IMP como faixas — os dois têm POD na origem (<code>vazios_importacao_containers.pod</code> e <code>vehicles → container → bl → bls.pod</code>). Containers ganha carga geral, veículos, IMO, OOG e contagem por tipo; Veículos traz marca e tipo de container. A importação rápida vira uma fila só, com B/L de container e de carga solta separados e o CE Mercante servindo os dois.',
   body: importacaoDepois(),
 }), IMPD_H)
 

@@ -11,22 +11,22 @@ const PODS = [
     pod: 'BRSSZ', nome: 'Santos',
     resumo: '11 CNTRs · 2 B/Ls carga solta',
     containers: { distinct: 11, imo: 0, oog: 1, geral: 11, comVeiculos: 0, types: [['20GP', 4], ['40HC', 6], ['40OT', 1]] },
-    veiculos: null,
     cargaSolta: { bls: 2, maquinas: 4, packages: 61, ton: '213', cbm: '388,4' },
+    veiculos: null,
+    vaziosImp: { containers: 4, manifestos: 1, tipos: [['20GP', 2], ['40HC', 2]] },
   },
   {
     pod: 'BRVIX', nome: 'Vitória',
     resumo: '2 CNTRs · 1 CNTR c/ veículos',
     containers: { distinct: 2, imo: 0, oog: 0, geral: 1, comVeiculos: 1, types: [['40HC', 2]] },
-    veiculos: { containers: 1, cargaGeral: 1 },
     cargaSolta: null,
+    veiculos: { unidades: 4, containers: 1, marcas: [['TOYOTA', 3], ['HONDA', 1]], tipos: [['40HC', 1]] },
+    vaziosImp: { containers: 2, manifestos: 1, tipos: [['40HC', 2]] },
   },
 ]
 
-/** Estatística de veículo é agregada por viagem (useVehicles), não por escala. */
-const VEICULOS = { unidades: 4, containers: 1, marcas: [['TOYOTA', 3], ['HONDA', 1]], tipos: [['40HC', 1]] }
-
-const VAZIOS_IMP = { manifestos: 1, containers: 6, tipos: ['20GP', '40HC'], destinos: 'Santos, Vitória' }
+/** Só o "hoje" ainda agrega Vazios IMP por viagem — é o que o componente faz. */
+const VAZIOS_IMP_HOJE = { manifestos: 2, containers: 6, tipos: ['20GP', '40HC'], destinos: 'Santos, Vitória' }
 
 const TOTAIS = [
   ['B/Ls', '10'], ['CNTRs distintos', '13'], ['IMO', '0'], ['OOG', '1'],
@@ -67,7 +67,7 @@ export function importacaoAntes() {
       ].join('')),
       p.veiculos ? metricPanelAntes('Ve&iacute;culos', [
         infoAntes('Containers com veiculos', String(p.veiculos.containers)),
-        infoAntes('Carga geral (CNTRs)', String(p.veiculos.cargaGeral)),
+        infoAntes('Carga geral (CNTRs)', String(p.containers.geral)),
       ].join('')) : null,
       p.cargaSolta ? metricPanelAntes('Carga solta', [
         infoAntes('B/Ls carga solta', String(p.cargaSolta.bls)),
@@ -89,10 +89,10 @@ export function importacaoAntes() {
   return `<div style="display: flex; flex-direction: column; gap: 16px">
     <div style="display: grid; gap: 16px">${podBlocks}</div>
     ${metricPanelAntes('Vazios Importacao', [
-      infoAntes('Manifestos', String(VAZIOS_IMP.manifestos)),
-      infoAntes('Containers distintos', String(VAZIOS_IMP.containers)),
-      infoAntes('Tipos', VAZIOS_IMP.tipos.join(', ')),
-      infoAntes('Destinos', VAZIOS_IMP.destinos),
+      infoAntes('Manifestos', String(VAZIOS_IMP_HOJE.manifestos)),
+      infoAntes('Containers distintos', String(VAZIOS_IMP_HOJE.containers)),
+      infoAntes('Tipos', VAZIOS_IMP_HOJE.tipos.join(', ')),
+      infoAntes('Destinos', VAZIOS_IMP_HOJE.destinos),
     ].join(''))}
     <section style="display: grid; gap: 16px; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surfaceMuted}; padding: 16px">
       <div>
@@ -165,6 +165,12 @@ export function importacaoDepois() {
     </span>`).join('')}
   </div>`
 
+  /** Estado vazio da faixa: mantém a altura do bloco comparável entre escalas. */
+  const faixaVazia = (titulo, icone, texto) => `<div style="display: flex; align-items: center; gap: 12px; border: 1px dashed ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 13px 16px">
+    <span style="display: inline-flex; align-items: center; gap: 8px; flex: none; font-size: 13px; font-weight: 700; color: ${T.mutedSoft}">${icon(icone, 15, T.mutedSoft)} ${titulo}</span>
+    <span style="font-size: 12px; color: ${T.mutedSoft}">${texto}</span>
+  </div>`
+
   const podBlocks = PODS.map((p) => `<div style="display: grid; gap: 12px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 14px 16px">
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
       <span style="display: inline-flex; align-items: baseline; gap: 10px">
@@ -173,7 +179,7 @@ export function importacaoDepois() {
       </span>
       <span style="font-size: 12px; color: ${T.muted}">${p.resumo}</span>
     </div>
-    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch">
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch">
       ${painel({
         title: 'Containers', icone: 'box', lead: String(p.containers.distinct), leadUnit: 'distintos',
         stats: [
@@ -184,13 +190,23 @@ export function importacaoDepois() {
         ],
         tokensHtml: contagem(p.containers.types),
       })}
-      ${p.veiculos
-        ? painel({ title: 'Ve&iacute;culos', icone: 'car', lead: String(p.veiculos.containers), leadUnit: 'CNTRs', stats: [['Carga geral (CNTRs)', String(p.veiculos.cargaGeral)]] })
-        : painel({ title: 'Ve&iacute;culos', icone: 'car', vazio: 'Sem ve&iacute;culos nesta escala' })}
       ${p.cargaSolta
         ? painel({ title: 'Carga solta', icone: 'file', lead: p.cargaSolta.ton, leadUnit: 'ton', stats: [['B/Ls', String(p.cargaSolta.bls)], ['M&aacute;quinas', String(p.cargaSolta.maquinas)], ['Packages', String(p.cargaSolta.packages)], ['CBM', p.cargaSolta.cbm]] })
         : painel({ title: 'Carga solta', icone: 'file', vazio: 'Sem carga solta nesta escala' })}
     </div>
+    ${p.veiculos
+      ? faixa('Ve&iacute;culos', 'car', String(p.veiculos.unidades), 'unidades', [
+          { label: 'CNTRs', value: String(p.veiculos.containers), mono: true },
+          { label: 'Marcas', value: contagem(p.veiculos.marcas) },
+          { label: 'Tipo de container', value: contagem(p.veiculos.tipos), grow: true },
+        ])
+      : faixaVazia('Ve&iacute;culos', 'car', 'Sem ve&iacute;culos descarregados nesta escala')}
+    ${p.vaziosImp
+      ? faixa('Vazios IMP', 'boxOpen', String(p.vaziosImp.containers), 'containers', [
+          { label: 'Manifestos', value: String(p.vaziosImp.manifestos), mono: true },
+          { label: 'Tipos', value: contagem(p.vaziosImp.tipos), grow: true },
+        ])
+      : faixaVazia('Vazios IMP', 'boxOpen', 'Sem vazios de importa&ccedil;&atilde;o nesta escala')}
   </div>`).join('')
 
   const botao = (label, ic, { destaque = false } = {}) =>
@@ -200,20 +216,6 @@ export function importacaoDepois() {
     ${totalStrip}
     ${secao('Carga por escala')}
     <div style="display: grid; gap: 12px">${podBlocks}</div>
-
-    ${secao('Ve&iacute;culos', 'agregado da viagem &mdash; a origem n&atilde;o traz o POD')}
-    ${faixa('Ve&iacute;culos', 'car', String(VEICULOS.unidades), 'unidades', [
-      { label: 'CNTRs', value: String(VEICULOS.containers), mono: true },
-      { label: 'Marcas', value: contagem(VEICULOS.marcas) },
-      { label: 'Tipo de container', value: contagem(VEICULOS.tipos), grow: true },
-    ])}
-
-    ${secao('Vazios de importa&ccedil;&atilde;o', 'agregado da viagem &mdash; a origem n&atilde;o traz o POD')}
-    ${faixa('Vazios IMP', 'boxOpen', String(VAZIOS_IMP.containers), 'containers', [
-      { label: 'Manifestos', value: String(VAZIOS_IMP.manifestos), mono: true },
-      { label: 'Tipos', value: contagem(VAZIOS_IMP.tipos.map((t) => [t, ''])) },
-      { label: 'Destinos', value: `<span style="font-size: 14px; color: ${T.text}">${VAZIOS_IMP.destinos}</span>`, grow: true },
-    ])}
 
     <section style="display: grid; gap: 12px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 16px; margin-top: 4px">
       <div>
