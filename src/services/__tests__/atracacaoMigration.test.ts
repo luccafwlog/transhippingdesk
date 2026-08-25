@@ -6,6 +6,7 @@ const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/341_atracac
 const alertsSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/342_atracacao_alertas.sql'), 'utf8')
 const triggerRepairSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/344_escala_terminal_trigger_after_columns.sql'), 'utf8')
 const skippedMigrationRepairSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/345_restore_atracacao_terminal_schema.sql'), 'utf8')
+const implicitWaitingAuditSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/346_ignore_implicit_waiting_ce_audit.sql'), 'utf8')
 
 describe('contratos SQL de Atracação', () => {
   it('não faz a migration histórica 338 depender das colunas futuras de Atracação', () => {
@@ -55,5 +56,12 @@ describe('contratos SQL de Atracação', () => {
     expect(alertsSql).toMatch(/legacy_scale_berth_milestone_retired/i)
     expect(alertsSql).toMatch(/reconcile_agency_report_alerts\([\s\S]+terminal_atd/i)
     expect(alertsSql).toMatch(/detect_agency_report_deadline_missed\(\)[\s\S]+reconcile_agency_report_alerts/i)
+  })
+
+  it('não audita a inicialização implícita de CE em aguardando', () => {
+    expect(implicitWaitingAuditSql).toMatch(/v_schedule_field\s*=\s*'ces'/i)
+    expect(implicitWaitingAuditSql).toMatch(/v_schedule_old_value\s+IS\s+NULL/i)
+    expect(implicitWaitingAuditSql).toMatch(/v_schedule_new_value\s+IN\s*\(\s*'waiting'\s*,\s*'missing'\s*\)/i)
+    expect(implicitWaitingAuditSql).toMatch(/CONTINUE\s*;/i)
   })
 })

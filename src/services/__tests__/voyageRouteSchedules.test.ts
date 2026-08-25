@@ -76,6 +76,51 @@ describe('projectVoyageEscalaSchedules', () => {
     })])
   })
 
+  it('mantem aguardando no POD quando a exportacao tem status proprio', () => {
+    const [escala] = projectVoyageEscalaSchedules({
+      podSchedules: [{
+        entityId: '12::BRVIX',
+        voyageId: 12,
+        pod: 'BRVIX',
+        eta: '2026-08-26',
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: null,
+        atd: null,
+        rtw: null,
+        ceStatus: null,
+        linked: null,
+        escalaNumber: null,
+        temImportacao: true,
+        deleted: false,
+        omitted: false,
+      }],
+      exportSchedulesByPort: new Map([
+        ['BRVIX', {
+          id: 'export-1',
+          voyageId: 12,
+          pol: 'BRVIX',
+          temExportacao: true,
+          hasGranite: false,
+          hasEmpty: true,
+          containersQty: 12,
+          movementsQty: 12,
+          ceStatus: 'received',
+          linked: false,
+        }],
+      ]),
+    })
+
+    expect(escala).toMatchObject({
+      ceStatus: null,
+      podCeStatus: null,
+      exportCeStatus: 'received',
+      temImportacao: true,
+      temExportacao: true,
+    })
+  })
+
   it('projeta escala brasileira com somente linha POL', () => {
     const escalas = projectVoyageEscalaSchedules({
       polSchedules: [{

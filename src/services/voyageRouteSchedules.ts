@@ -351,7 +351,12 @@ export function projectVoyageEscalaSchedules({
     escala.dischargePorts = exportSchedule.dischargePorts ?? []
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty
-    mergeEscalaField(escala, 'ceStatus', exportSchedule.ceStatus, 'export', podValues?.ceStatus ?? null)
+    // A escala com importação tem o status de BLs/CEs do POD. O status da
+    // exportação continua separado para consumidores da operação de embarque;
+    // não pode preencher a coluna comum da escala e parecer um CE recebido.
+    if (exportSchedule.temExportacao && !escala.temImportacao) {
+      mergeEscalaField(escala, 'ceStatus', exportSchedule.ceStatus, 'export', podValues?.ceStatus ?? null)
+    }
     mergeEscalaField(escala, 'linked', exportSchedule.linked, 'export', podValues?.linked ?? null)
   }
 

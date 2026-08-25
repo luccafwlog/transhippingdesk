@@ -53,3 +53,44 @@ it('mostra apenas os 3 eventos mais recentes da linha do tempo, com opção de e
   expect(screen.getAllByText('Manifesto importado')).toHaveLength(5)
   expect(screen.getByRole('button', { name: 'Mostrar menos' })).toBeTruthy()
 })
+
+it('não mostra atracação TBC completamente vazia no planejamento', () => {
+  render(
+    <VoyageVisaoTab
+      voyage={{ id: 7, status: 'planning', bls: [], granite_manifests: [], vazios_manifests: [] } as never}
+      voyageLabel="NAVIO / 01N"
+      escalaRows={[{
+        voyageId: 7,
+        port: 'BRVIX',
+        eta: '2026-08-26',
+        ata: null,
+        atd: null,
+        atracacoes: [{ terminalId: null, terminalCode: 'TBC', etb: null, atb: null, etd: null, atd: null, rtw: null }],
+        ceStatus: null,
+        podCeStatus: null,
+        exportCeStatus: null,
+        linked: null,
+        escalaNumber: null,
+        omitted: false,
+        deleted: false,
+        temImportacao: true,
+        temExportacao: false,
+        temGranito: false,
+        temVazios: false,
+        containersQty: null,
+        movementsQty: null,
+        dischargePorts: [],
+        divergences: [],
+      } as never]}
+      importBatches={[]}
+      exportSchedules={[]}
+      isAdmin={false}
+      divergenceCount={0}
+      ceCoverage={{ filled: 0, total: 0 }}
+      onEditEscala={vi.fn()}
+      onOmitPod={vi.fn()}
+    />,
+  )
+
+  expect(screen.queryByText('Atracações')).toBeNull()
+})

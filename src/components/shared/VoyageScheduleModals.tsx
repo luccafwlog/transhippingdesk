@@ -209,6 +209,8 @@ const DIRECTION_LABELS: Record<OperationFrontDirection, string> = {
   exportacao: 'Exportação',
 }
 
+type EscalaOperationMode = 'import' | 'both' | 'export'
+
 function frontKey(front: Pick<OperationFront, 'sentido' | 'modalidade'>) {
   return `${front.sentido}:${front.modalidade}`
 }
@@ -237,7 +239,11 @@ function orderTerminalIds(
   terminalById: Map<string, TerminalOption>,
 ) {
   const ids = new Set(scale.terminals.flatMap((terminal) => terminal.terminalId ? [terminal.terminalId] : []))
-  if (scale.terminals.some((terminal) => terminal.terminalId === null) || Object.values(fronts).some((terminalId) => !terminalId)) ids.add('__tbc__')
+  const tbcDates = dates.__tbc__
+  const hasTbcData = Boolean(tbcDates?.etb || tbcDates?.atb || tbcDates?.etd || tbcDates?.atd || tbcDates?.restow)
+  if (scale.terminals.some((terminal) => terminal.terminalId === null && (
+    terminal.etb || terminal.atb || terminal.etd || terminal.atd || terminal.restow !== null
+  )) || hasTbcData) ids.add('__tbc__')
   for (const terminalId of Object.values(fronts)) if (terminalId) ids.add(terminalId)
   return sortAtracacoes([...ids].map((terminalId) => ({
     terminalId,
@@ -407,26 +413,28 @@ function TerminalFrontEditor({
   })).filter((group) => group.fronts.length > 0)
 
   return (
-    <section aria-label="Frentes operacionais" className="grid gap-4 rounded-lg border border-[var(--app-border)] p-3">
+    <section aria-label="Terminais por operação" className="app-escala-section app-escala-terminals">
       <div>
-        <h3 className="text-sm font-semibold text-[var(--app-text-strong)]">Frentes operacionais</h3>
-        <p className="mt-1 text-xs text-[var(--app-muted)]">Terminais disponíveis somente para o porto {scale.port}. Sem terminal, a frente fica em TBC e não cria placeholder.</p>
+        <h3 className="app-escala-section__title">Terminais por operação</h3>
+        <p className="app-escala-section__description">Cada operação ativa recebe seu próprio terminal. Sem atribuição, ela permanece em TBC e não cria uma atracação no planejamento.</p>
       </div>
       {grouped.map((group) => (
-        <div key={group.sentido} className="grid gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">{DIRECTION_LABELS[group.sentido]}</h4>
+        <div key={group.sentido} className="app-escala-operation-group">
+          <h4 className="app-escala-operation-group__title">{DIRECTION_LABELS[group.sentido]}</h4>
           {group.fronts.map((front) => {
             const selected = terminalFronts[frontKey(front)] ?? ''
             return (
-              <div key={frontKey(front)} className="grid gap-2 rounded-md border border-[var(--app-border)] p-2 md:grid-cols-[1fr_15rem] md:items-center">
+              <div key={frontKey(front)} className="app-escala-operation-row">
                 <div>
-                  <div className="text-sm text-[var(--app-text-strong)]">{FRONT_LABELS[front.modalidade]}</div>
-                  {selected ? null : <div className="text-xs text-amber-200">TBC — pendente de atribuição de terminal</div>}
+                  <div className="app-escala-operation-row__title">{DIRECTION_LABELS[front.sentido]} · {FRONT_LABELS[front.modalidade]}</div>
+                  <div className={selected ? 'app-escala-operation-row__meta' : 'app-escala-operation-row__meta app-escala-operation-row__meta--pending'}>
+                    {selected ? 'Terminal atribuído para esta operação' : 'TBC — pendente de atribuição de terminal'}
+                  </div>
                 </div>
-                <label className="text-xs text-[var(--app-muted)]">
+                <label className="app-escala-field app-escala-field--compact">
                   Terminal
                   <select
-                    aria-label={`Terminal ${group.sentido} ${FRONT_LABELS[front.modalidade]}`}
+                    aria-label={`Terminal da operação ${DIRECTION_LABELS[front.sentido]} ${FRONT_LABELS[front.modalidade]}`}
                     className="app-input mt-1"
                     value={selected}
                     onChange={(event) => onTerminalChange(front, event.target.value)}
@@ -448,18 +456,18 @@ function TerminalFrontEditor({
         </div>
       ))}
 
-      <div className="grid gap-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">Datas por terminal</h4>
-        {terminalIds.length === 0 ? <p className="text-xs text-[var(--app-muted)]">Nenhuma Atracação com terminal atribuída. A chegada ETA/ATA permanece na Escala.</p> : null}
+      <div className="app-escala-terminal-dates">
+        <h4 className="app-escala-operation-group__title">Datas por terminal</h4>
+        {terminalIds.length === 0 ? <p className="app-escala-section__description">Nenhum terminal atribuído ainda. A chegada ETA/ATA permanece na escala.</p> : null}
         {terminalIds.map((terminalId) => {
           const option = terminalId === '__tbc__' ? undefined : terminalById.get(terminalId)
           const draft = terminalDates[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
           const code = terminalId === '__tbc__' ? 'TBC' : option?.code ?? terminalId
           return (
-            <div key={terminalId} className="grid gap-3 rounded-md border border-[var(--app-border)] p-2 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_8rem] md:items-end">
-              <div className="text-sm font-medium text-[var(--app-text-strong)]">
+            <div key={terminalId} className="app-escala-terminal-date-row">
+              <div className="app-escala-terminal-date-row__name">
                 {code}
-                {option?.active === false ? <div className="text-xs text-amber-200">Terminal inativo · histórico</div> : null}
+                {option?.active === false ? <div className="app-escala-operation-row__meta app-escala-operation-row__meta--pending">Terminal inativo · histórico</div> : null}
               </div>
               <Field label={`ETB ${code}`}><Input type="date" value={draft.etb} onChange={(event) => onDateChange(terminalId, 'etb', event.target.value)} /></Field>
               <Field label={`ATB ${code}`}><Input type="date" value={draft.atb} onChange={(event) => onDateChange(terminalId, 'atb', event.target.value)} /></Field>
@@ -648,9 +656,17 @@ export function EscalaModal({
   const hasPriorTerminalAssignment = Boolean(
     terminalScale?.fronts.some((front) => front.terminalId !== null) || terminalScale?.terminals.length,
   )
-  async function handleToggleExportacao(next: boolean) {
-    if (!next && escala?.exportLocked) return
-    if (!next) {
+  const operationMode: EscalaOperationMode = temImportacao && temExportacao
+    ? 'both'
+    : temExportacao
+      ? 'export'
+      : 'import'
+
+  async function handleOperationModeChange(nextMode: EscalaOperationMode) {
+    const nextTemImportacao = nextMode !== 'export'
+    const nextTemExportacao = nextMode !== 'import'
+    if (!nextTemExportacao && temExportacao) {
+      if (escala?.exportLocked) return
       const confirmed = await confirm({
         title: 'Retirar a exportação desta escala',
         message: 'As frentes de exportação e o planejamento digitado (containers, movimentos e portos de descarga) serão removidos ao salvar. Continuar?',
@@ -658,15 +674,14 @@ export function EscalaModal({
         tone: 'danger',
       })
       if (!confirmed) return
-    }
-    setTemExportacao(next)
-    if (!next) {
       setHasGranite(false)
       setHasEmpty(false)
       setContainersQty('')
       setMovementsQty('')
       setDischargePorts('')
     }
+    setTemImportacao(nextTemImportacao)
+    setTemExportacao(nextTemExportacao)
     setExportError(null)
   }
 
@@ -813,20 +828,29 @@ export function EscalaModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isNew ? 'Adicionar escala' : 'Editar escala'}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={isNew ? 'Adicionar escala' : 'Editar escala'}
+      className="app-modal--escala"
+      bodyClassName="app-modal__body--escala"
+    >
       {escala ? (
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="app-panel app-panel--padded text-sm order-1">
-            <div className="font-semibold text-[var(--app-text-strong)]">{escala.voyageLabel}</div>
-            <div className="app-panel__meta mt-1">
+        <form className="app-escala-form" onSubmit={handleSubmit}>
+          <div className="app-escala-summary">
+            <div>
+              <div className="app-escala-summary__voyage">{escala.voyageLabel}</div>
+              <div className="app-escala-summary__meta">
               {isNew
                 ? 'Uma escala pode descarregar importação, embarcar exportação ou as duas.'
                 : `Escala: ${escala.port}`}
+              </div>
             </div>
+            <div className="app-escala-summary__status">{operationMode === 'both' ? 'Importação + exportação' : operationMode === 'import' ? 'Importação' : 'Exportação'}</div>
           </div>
 
           {isNew ? (
-            <div className="order-1"><Field label="Porto da escala" error={portError ?? undefined}>
+            <div className="app-escala-section"><Field label="Porto da escala" error={portError ?? undefined}>
               <Input
                 list="escala-port-suggestions"
                 value={port}
@@ -841,165 +865,153 @@ export function EscalaModal({
             </Field></div>
           ) : null}
 
-          <section aria-label="Escala" className="order-2 grid gap-4 rounded-lg border border-[var(--app-border)] p-3">
-            <h3 className="text-sm font-semibold text-[var(--app-text-strong)]">Chegada ao porto</h3>
-            <div className="grid gap-4 md:grid-cols-3">
-            <Field label="ETA">
+          <section aria-label="Chegada ao porto" className="app-escala-section">
+            <div className="app-escala-section__heading">
+              <div>
+                <h3 className="app-escala-section__title">Chegada ao porto</h3>
+                <p className="app-escala-section__description">Datas gerais da escala.</p>
+              </div>
+            </div>
+            <div className="app-escala-field-grid app-escala-field-grid--three">
+              <Field label="ETA">
               <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
-            </Field>
-            <Field label="ATA">
+              </Field>
+              <Field label="ATA">
               <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
-            </Field>
-            <Field label="ATD derivado">
+              </Field>
+              <Field label="ATD derivado">
               <Input value={derivedTerminalAtd ?? 'Aguardando o ATD de todas as Atracações'} readOnly aria-readonly="true" />
-            </Field>
+              </Field>
             </div>
           </section>
-          <div className="order-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="BLs e CEs">
-              <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as EditableVoyagePodCeStatus)}>
-                {POD_CE_STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="VINCULADA">
-              <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
-                <option value="true">SIM</option>
-                <option value="false">NÃO</option>
-              </select>
-            </Field>
-            <Field label="Nº Escala (Mercante)">
-              <Input value={escalaNumber} onChange={(event) => setEscalaNumber(event.target.value)} placeholder="Ex.: 25BR00481" />
-            </Field>
-          </div>
 
-          <div className="order-3 grid gap-3 rounded-lg border border-[var(--app-border)] p-3">
-            <div className="text-sm font-semibold text-[var(--app-text-strong)]">Tipo de operação da escala</div>
-
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={temImportacao}
-                onChange={(event) => {
-                  const checked = event.target.checked
-                  if (!checked && !temExportacao) {
-                    setTemExportacao(true)
-                    setHasGranite(true)
-                  }
-                  setTemImportacao(checked)
-                  setExportError(null)
-                }}
-                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
-              />
-              <span className="text-sm text-[var(--app-text)]">Esta escala terá importação (descarregamento)</span>
-            </label>
-
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={temExportacao}
-                disabled={escala.exportLocked && temExportacao}
-                onChange={(event) => { void handleToggleExportacao(event.target.checked) }}
-                className="h-4 w-4 rounded border-slate-500 accent-amber-500"
-              />
-              <span className="text-sm text-[var(--app-text)]">Esta escala terá exportação</span>
-            </label>
+          <section aria-label="Operação da escala" className="app-escala-section">
+            <div className="app-escala-section__heading">
+              <div>
+                <h3 className="app-escala-section__title">Operação da escala</h3>
+                <p className="app-escala-section__description">Escolha o que será operado nesta escala. Isso define as operações e os terminais que precisam ser planejados.</p>
+              </div>
+            </div>
+            <div className="app-escala-operation-modes" role="group" aria-label="Modo de operação">
+              {([
+                ['import', 'Somente importação', 'Descarregamento no porto da escala'],
+                ['both', 'Importação + exportação', 'Descarregamento e embarque na mesma escala'],
+                ['export', 'Somente exportação', 'Embarque de carga nesta escala'],
+              ] as const).map(([mode, title, description]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`app-escala-operation-mode${operationMode === mode ? ' app-escala-operation-mode--active' : ''}`}
+                  aria-label={title}
+                  aria-pressed={operationMode === mode}
+                  onClick={() => { void handleOperationModeChange(mode) }}
+                >
+                  <span className="app-escala-operation-mode__title">{title}</span>
+                  <span className="app-escala-operation-mode__description">{description}</span>
+                </button>
+              ))}
+            </div>
 
             {temExportacao ? (
-              <div className="grid gap-2 pl-6 pt-1 border-t border-[var(--app-border)]">
-                <div className="text-xs font-semibold text-[var(--app-muted)]">Expectativa de exportação:</div>
-                <div className="flex flex-wrap gap-4">
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={hasGranite}
-                      disabled={Boolean((escala.graniteLocked ?? escala.exportLocked) && hasGranite)}
-                      onChange={(event) => { void handleDeclarationChange('granito', event.target.checked) }}
-                      className="h-4 w-4 rounded border-slate-500 accent-amber-500"
-                    />
-                    <span className="text-sm text-[var(--app-text)]">Terá embarque de granito</span>
-                  </label>
-
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={hasEmpty}
-                      disabled={Boolean((escala.emptyLocked ?? escala.exportLocked) && hasEmpty)}
-                      onChange={(event) => { void handleDeclarationChange('vazios', event.target.checked) }}
-                      className="h-4 w-4 rounded border-slate-500 accent-amber-500"
-                    />
-                    <span className="text-sm text-[var(--app-text)]">Terá embarque de vazios</span>
-                  </label>
+              <div className="app-escala-export-block">
+                <div className="app-escala-subsection-title">Carga de exportação</div>
+                <div className="app-escala-cargo-options">
+                  <button
+                    type="button"
+                    className={`app-escala-cargo-option${hasGranite ? ' app-escala-cargo-option--active' : ''}`}
+                    aria-pressed={hasGranite}
+                    disabled={Boolean((escala.graniteLocked ?? escala.exportLocked) && hasGranite)}
+                    onClick={() => { void handleDeclarationChange('granito', !hasGranite) }}
+                  >
+                    Granito
+                  </button>
+                  <button
+                    type="button"
+                    className={`app-escala-cargo-option${hasEmpty ? ' app-escala-cargo-option--active' : ''}`}
+                    aria-pressed={hasEmpty}
+                    disabled={Boolean((escala.emptyLocked ?? escala.exportLocked) && hasEmpty)}
+                    onClick={() => { void handleDeclarationChange('vazios', !hasEmpty) }}
+                  >
+                    Embarque de vazios
+                  </button>
                 </div>
-                <div className="text-xs text-[var(--app-muted)]">
-                  {hasGranite && hasEmpty
-                    ? 'Modalidade ativa: Ambos (granito e vazios)'
-                    : hasGranite
-                    ? 'Modalidade ativa: Somente granito'
-                    : hasEmpty
-                    ? 'Modalidade ativa: Somente vazios'
-                    : 'Nenhuma modalidade selecionada'}
-                </div>
-              </div>
-            ) : null}
-
-            {exportError ? <p role="alert" className="text-xs text-red-300">{exportError}</p> : null}
-
-            {escala.exportLocked && (hasGranite || hasEmpty) ? (
-              <p className="text-xs text-[var(--app-muted)]">
-                Há carga de exportação vinculada a esta escala (granito ou embarque de vazios); a
-                declaração só pode ser retirada depois que a carga deixar de existir.
-              </p>
-            ) : null}
-
-            {hasGranite || hasEmpty ? (
-              <>
                 {hasEmpty ? (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="CNTR (Vazios Exp.)">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={containersQty}
-                        onChange={(event) => setContainersQty(event.target.value)}
-                        placeholder="Opcional; quantidade operada"
-                      />
-                    </Field>
-                    <Field label="Movimentos">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={movementsQty}
-                        onChange={(event) => setMovementsQty(event.target.value)}
-                        placeholder="Opcional; quantidade operada"
-                      />
-                    </Field>
+                  <div className="app-escala-empty-planning">
+                    <div className="app-escala-subsection-title">Planejamento do embarque de vazios</div>
+                    <div className="app-escala-field-grid app-escala-field-grid--two">
+                      <Field label="Quantidade de CNTR vazios">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={containersQty}
+                          onChange={(event) => setContainersQty(event.target.value)}
+                          placeholder="Opcional; quantidade operada"
+                        />
+                      </Field>
+                      <Field label="Movimentos">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={movementsQty}
+                          onChange={(event) => setMovementsQty(event.target.value)}
+                          placeholder="Opcional; quantidade operada"
+                        />
+                      </Field>
+                    </div>
                   </div>
                 ) : null}
-
-                <Field label="Portos de descarga">
-                  <Input
-                    value={dischargePorts}
-                    onChange={(event) => setDischargePorts(event.target.value.toUpperCase())}
-                    placeholder="Ex.: ITGOA, NLRTM"
-                  />
-                </Field>
-                <p className="text-xs text-[var(--app-muted)]">
-                  Destino da carga embarcada nesta escala. Separe por vírgula; é o que forma a
-                  perna de exportação na rota da viagem. A declaração não exige quantidades.
-                </p>
-              </>
+                {(hasGranite || hasEmpty) ? (
+                  <div className="app-escala-export-destination">
+                    <Field label="Portos de descarga">
+                      <Input
+                        value={dischargePorts}
+                        onChange={(event) => setDischargePorts(event.target.value.toUpperCase())}
+                        placeholder="Ex.: ITGOA, NLRTM"
+                      />
+                    </Field>
+                    <p className="app-escala-section__description">Destino da carga embarcada nesta escala. Separe por vírgula; isso forma a perna de exportação da rota.</p>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
-          </div>
+            {exportError ? <p role="alert" className="app-escala-error">{exportError}</p> : null}
+            {escala.exportLocked && (hasGranite || hasEmpty) ? (
+              <p className="app-escala-section__description">Há carga de exportação vinculada a esta escala; a declaração só pode ser retirada depois que a carga deixar de existir.</p>
+            ) : null}
+          </section>
 
-          <div className="order-5">
+          <section aria-label="BLs e CEs" className="app-escala-section">
+            <div className="app-escala-section__heading">
+              <div>
+                <h3 className="app-escala-section__title">BLs e CEs</h3>
+                <p className="app-escala-section__description">Status documental da importação e vínculo da escala.</p>
+              </div>
+            </div>
+            <div className="app-escala-field-grid app-escala-field-grid--three">
+              <Field label="BLs e CEs">
+                <select className="app-input" value={ceStatus} onChange={(event) => setCeStatus(event.target.value as EditableVoyagePodCeStatus)}>
+                  {POD_CE_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Vinculada">
+                <select className="app-input" value={linked} onChange={(event) => setLinked(event.target.value as 'true' | 'false')}>
+                  <option value="true">SIM</option>
+                  <option value="false">NÃO</option>
+                </select>
+              </Field>
+              <Field label="Nº escala (Mercante)">
+                <Input value={escalaNumber} onChange={(event) => setEscalaNumber(event.target.value)} placeholder="Ex.: 25BR00481" />
+              </Field>
+            </div>
+          </section>
+
+          <div className="app-escala-terminal-container">
             {terminalScale?.loading ? (
-              <div className="rounded-lg border border-[var(--app-border)] p-3 text-sm text-[var(--app-muted)]">Carregando frentes e terminais da escala…</div>
+              <div className="app-escala-section app-escala-loading">Carregando operações e terminais da escala…</div>
             ) : terminalScale ? (
               <TerminalFrontEditor
                 scale={terminalScale}
@@ -1020,7 +1032,7 @@ export function EscalaModal({
             ) : null}
           </div>
 
-          <div className="app-modal__actions order-6">
+          <div className="app-modal__actions app-escala-actions">
             <Button variant="secondary" type="button" onClick={onClose}>
               Cancelar
             </Button>

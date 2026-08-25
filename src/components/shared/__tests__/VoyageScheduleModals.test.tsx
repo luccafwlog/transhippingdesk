@@ -170,6 +170,35 @@ function renderEscala(escala: EscalaModalData, onSaved = vi.fn().mockResolvedVal
 }
 
 describe('EscalaModal', () => {
+  it('usa modos de operação e mostra o planejamento de vazios sem checkbox solto', async () => {
+    const user = userEvent.setup()
+    renderEscala({ ...escalaBase, port: null })
+
+    expect(screen.getByRole('button', { name: 'Somente importação' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Importação + exportação' })).toBeTruthy()
+    expect(screen.queryByLabelText('Esta escala terá exportação')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Importação + exportação' }))
+    await user.click(screen.getByRole('button', { name: 'Embarque de vazios' }))
+
+    expect(screen.getByLabelText('Quantidade de CNTR vazios')).toBeTruthy()
+    expect(screen.getByLabelText('Movimentos')).toBeTruthy()
+  })
+
+  it('não cria a grade de datas para TBC sem data preenchida', () => {
+    renderEscala({
+      ...escalaBase,
+      terminalScale: {
+        ...terminalScaleBase,
+        fronts: [terminalScaleBase.fronts[1]],
+        terminals: [{ terminalId: null, atb: null, atd: null, restow: null }],
+      },
+    })
+
+    expect(screen.queryByLabelText('ETB TBC')).toBeNull()
+    expect(screen.getByText(/permanece em TBC/i)).toBeTruthy()
+  })
+
   it('edita a escala existente sem oferecer troca de porto', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala(escalaBase)
@@ -205,7 +234,7 @@ describe('EscalaModal', () => {
     const onSaved = renderEscala({ ...escalaBase, port: null })
 
     await user.type(screen.getByLabelText('Porto da escala'), 'BRVIX')
-    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByRole('button', { name: 'Somente exportação' }))
     await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
 
     expect(onSaved).not.toHaveBeenCalled()
@@ -252,12 +281,12 @@ describe('EscalaModal', () => {
     const user = userEvent.setup()
     const onSaved = renderEscala({ ...escalaBase, port: null })
 
-    expect(screen.queryByLabelText('CNTR (Vazios Exp.)')).toBeNull()
+    expect(screen.queryByLabelText('Quantidade de CNTR vazios')).toBeNull()
 
     await user.type(screen.getByLabelText('Porto da escala'), 'brvix')
-    await user.click(screen.getByLabelText('Esta escala terá exportação'))
-    await user.click(screen.getByLabelText('Terá embarque de vazios'))
-    await user.type(screen.getByLabelText('CNTR (Vazios Exp.)'), '10')
+    await user.click(screen.getByRole('button', { name: 'Somente exportação' }))
+    await user.click(screen.getByRole('button', { name: 'Embarque de vazios' }))
+    await user.type(screen.getByLabelText('Quantidade de CNTR vazios'), '10')
     await user.type(screen.getByLabelText('Portos de descarga'), 'itgoa, nlrtm brssz')
     await user.click(screen.getByRole('button', { name: 'Adicionar escala' }))
 
@@ -288,18 +317,18 @@ describe('EscalaModal', () => {
       dischargePorts: ['ITGOA'],
     })
 
-    const toggle = screen.getByLabelText('Esta escala terá exportação') as HTMLInputElement
+    const toggle = screen.getByRole('button', { name: 'Somente importação' })
     await user.click(toggle)
 
     const confirmation = screen.getByRole('dialog', { name: 'Retirar a exportação desta escala' })
-    expect(toggle.checked).toBe(true)
-    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('4')
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect((screen.getByLabelText('Quantidade de CNTR vazios') as HTMLInputElement).value).toBe('4')
     expect((screen.getByLabelText('Portos de descarga') as HTMLInputElement).value).toBe('ITGOA')
 
     await user.click(within(confirmation).getByRole('button', { name: 'Cancelar' }))
 
-    expect(toggle.checked).toBe(true)
-    expect((screen.getByLabelText('CNTR (Vazios Exp.)') as HTMLInputElement).value).toBe('4')
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect((screen.getByLabelText('Quantidade de CNTR vazios') as HTMLInputElement).value).toBe('4')
     expect((screen.getByLabelText('Portos de descarga') as HTMLInputElement).value).toBe('ITGOA')
 
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
@@ -326,7 +355,7 @@ describe('EscalaModal', () => {
       dischargePorts: ['ITGOA'],
     })
 
-    await user.click(screen.getByLabelText('Esta escala terá exportação'))
+    await user.click(screen.getByRole('button', { name: 'Somente importação' }))
     const confirmation = screen.getByRole('dialog', { name: 'Retirar a exportação desta escala' })
     await user.click(within(confirmation).getByRole('button', { name: 'Retirar' }))
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
@@ -346,8 +375,8 @@ describe('EscalaModal', () => {
   it('trava a retirada da exportacao quando ha carga vinculada', () => {
     renderEscala({ ...escalaBase, temExportacao: true, hasEmpty: true, exportLocked: true, containersQty: 4 })
 
-    const toggle = screen.getByLabelText('Terá embarque de vazios') as HTMLInputElement
-    expect(toggle.checked).toBe(true)
+    const toggle = screen.getByRole('button', { name: 'Embarque de vazios' }) as HTMLButtonElement
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
     expect(toggle.disabled).toBe(true)
     expect(screen.getByText(/carga de exportação vinculada/i)).toBeTruthy()
   })
@@ -355,10 +384,10 @@ describe('EscalaModal', () => {
   it('não trava granito por vazios vinculados à mesma escala', async () => {
     renderEscala({ ...escalaBase, temExportacao: true, hasGranite: true, hasEmpty: true, exportLocked: true, graniteLocked: false, emptyLocked: true })
 
-    const graniteToggle = screen.getByLabelText('Terá embarque de granito') as HTMLInputElement
+    const graniteToggle = screen.getByRole('button', { name: 'Granito' }) as HTMLButtonElement
     expect(graniteToggle.disabled).toBe(false)
     fireEvent.click(graniteToggle)
-    expect(graniteToggle.checked).toBe(false)
+    expect(graniteToggle.getAttribute('aria-pressed')).toBe('false')
   })
 
   it('permite escala somente de exportação com ETA e atracação', async () => {
@@ -371,7 +400,7 @@ describe('EscalaModal', () => {
       eta: '2026-08-10',
     })
 
-    await user.click(screen.getByLabelText('Esta escala terá importação (descarregamento)'))
+    await user.click(screen.getByRole('button', { name: 'Somente exportação' }))
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
 
     expect(onSaved).toHaveBeenCalled()
@@ -389,7 +418,7 @@ describe('EscalaModal', () => {
         <EscalaModal open escala={{ ...escalaBase, terminalScale: loadingTerminalScale }} onClose={vi.fn()} onSaved={vi.fn(async () => undefined)} />
       </ConfirmDialogProvider>,
     )
-    const numberInput = screen.getByLabelText('Nº Escala (Mercante)') as HTMLInputElement
+    const numberInput = screen.getByLabelText('Nº escala (Mercante)') as HTMLInputElement
     fireEvent.change(numberInput, { target: { value: 'DIGITADO' } })
 
     rendered.rerender(
@@ -404,7 +433,7 @@ describe('EscalaModal', () => {
     )
 
     expect(numberInput.value).toBe('DIGITADO')
-    expect((screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement).value).toBe('t-norte')
+    expect((screen.getByLabelText('Terminal da operação Importação Carga cheia') as HTMLSelectElement).value).toBe('t-norte')
     expect((screen.getByLabelText('ATB T-NORTE') as HTMLInputElement).value).toBe('2026-03-02')
   })
 
@@ -428,8 +457,8 @@ describe('EscalaModal', () => {
       },
     })
 
-    await user.click(screen.getByLabelText('Esta escala terá exportação'))
-    await user.click(screen.getByLabelText('Terá embarque de granito'))
+    await user.click(screen.getByRole('button', { name: 'Somente exportação' }))
+    await user.click(screen.getByRole('button', { name: 'Granito' }))
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
 
     expect(onSaved).not.toHaveBeenCalled()
@@ -464,10 +493,10 @@ describe('EscalaModal', () => {
     const user = userEvent.setup()
     const onSaved = renderEscala(terminalEscala())
 
-    expect(screen.getByRole('region', { name: 'Frentes operacionais' })).toBeTruthy()
-    const cargaCheia = screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement
-    const vazioImport = screen.getByLabelText('Terminal importacao Vazios') as HTMLSelectElement
-    const granito = screen.getByLabelText('Terminal exportacao Granito') as HTMLSelectElement
+    expect(screen.getByRole('region', { name: 'Terminais por operação' })).toBeTruthy()
+    const cargaCheia = screen.getByLabelText('Terminal da operação Importação Carga cheia') as HTMLSelectElement
+    const vazioImport = screen.getByLabelText('Terminal da operação Importação Vazios') as HTMLSelectElement
+    const granito = screen.getByLabelText('Terminal da operação Exportação Granito') as HTMLSelectElement
     expect(cargaCheia.value).toBe('t-norte')
     expect(vazioImport.value).toBe('')
     expect(granito.value).toBe('t-sul')
@@ -475,7 +504,7 @@ describe('EscalaModal', () => {
     expect(screen.getAllByText(/TBC — pendente/i).length).toBeGreaterThan(0)
 
     await user.selectOptions(vazioImport, 't-norte')
-    await user.selectOptions(screen.getByLabelText('Terminal exportacao Vazios'), 't-sul')
+    await user.selectOptions(screen.getByLabelText('Terminal da operação Exportação Vazios'), 't-sul')
     await user.type(screen.getByLabelText('ATD T-NORTE'), '2026-03-03')
     await user.type(screen.getByLabelText('Justificativa da alteração'), 'distribuição operacional')
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
@@ -501,7 +530,7 @@ describe('EscalaModal', () => {
     const user = userEvent.setup()
     const onSaved = renderEscala(terminalEscala())
 
-    await user.selectOptions(screen.getByLabelText('Terminal exportacao Granito'), 't-norte')
+    await user.selectOptions(screen.getByLabelText('Terminal da operação Exportação Granito'), 't-norte')
     await user.type(screen.getByLabelText('Justificativa da alteração'), 'migração de operação')
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
 
@@ -519,7 +548,7 @@ describe('EscalaModal', () => {
     })
     renderEscala(escala)
 
-    const select = screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement
+    const select = screen.getByLabelText('Terminal da operação Importação Carga cheia') as HTMLSelectElement
     expect(within(select).getByRole('option', { name: /T-OLD.*inativo/ })).toBeTruthy()
     expect(within(select).queryByRole('option', { name: 'T-OUTRO' })).toBeNull()
     await user.selectOptions(select, '')
@@ -555,7 +584,7 @@ describe('EscalaModal', () => {
     const user = userEvent.setup()
     const onSaved = vi.fn().mockRejectedValueOnce(Object.assign(new Error('REVISAO_OBSOLETA'), { code: 'P0001' }))
     renderEscala(terminalEscala({ terminalScale: { ...terminalScaleBase, revision: 1 } }), onSaved)
-    const select = screen.getByLabelText('Terminal importacao Carga cheia') as HTMLSelectElement
+    const select = screen.getByLabelText('Terminal da operação Importação Carga cheia') as HTMLSelectElement
     await user.selectOptions(select, 't-sul')
     await user.type(screen.getByLabelText('Justificativa da alteração'), 'ajuste operacional')
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
@@ -568,7 +597,7 @@ describe('EscalaModal', () => {
     }))
     cleanup()
     renderEscala(terminalEscala(), blocked)
-    await user.selectOptions(screen.getByLabelText('Terminal importacao Carga cheia'), 't-sul')
+    await user.selectOptions(screen.getByLabelText('Terminal da operação Importação Carga cheia'), 't-sul')
     await user.type(screen.getByLabelText('Justificativa da alteração'), 'ajuste com ADR fechado')
     await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
     expect(screen.getByRole('alert').textContent).toContain('ADR fechado')

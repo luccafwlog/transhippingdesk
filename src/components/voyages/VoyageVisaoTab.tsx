@@ -234,7 +234,14 @@ export function VoyageVisaoTab({
             <tbody>
               {escalaRows.length ? (
                 escalaRows.map((row) => {
-                  const atracacoes = row.atracacoes ?? []
+                  const atracacoes = (row.atracacoes ?? []).filter((atracacao) => Boolean(
+                    atracacao.terminalId
+                    || atracacao.etb
+                    || atracacao.atb
+                    || atracacao.etd
+                    || atracacao.atd
+                    || atracacao.rtw !== null && atracacao.rtw !== undefined,
+                  ))
                   return (
                     <Fragment key={`${voyage.id}-scale-${row.port}`}>
                     <tr key={`${voyage.id}-lineup-${row.port}`}>
