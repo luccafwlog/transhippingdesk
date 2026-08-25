@@ -130,7 +130,10 @@ export function VoyageVisaoTab({
       voyageId: voyage.id,
       voyageLabel,
       port: row?.port ?? null,
-      temImportacao: row?.temImportacao ?? false,
+      // Escala nova nasce importadora: o modo de operacao exibido ja e
+      // Importacao, e sem isto o salvamento gravaria tem_importacao = false
+      // contra o que a tela mostra.
+      temImportacao: row?.temImportacao ?? true,
       eta: row?.eta ?? null,
       ata: row?.ata ?? null,
       // Em uma escala com importação, o campo editável é exclusivamente o

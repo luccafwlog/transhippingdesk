@@ -248,7 +248,7 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
         voyageId: row.voyage_id,
         port: row.port,
         terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
-        terminalCode: null,
+        terminalCode: null, // preenchido por hydrateTerminalCodes abaixo.
         terminalEtb: typeof row.terminal_etb === 'string' ? row.terminal_etb : null,
         terminalAtb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
         terminalEtd: typeof row.terminal_etd === 'string' ? row.terminal_etd : null,
@@ -259,6 +259,11 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
       result.set(row.voyage_id, states)
     }
   }
+  // O codigo do terminal e o rotulo da Atracacao (planejamento, ADR) e o
+  // criterio de desempate da ordem derivada; sem ele toda Atracacao com
+  // terminal atribuido se apresentaria como TBC e a ordem cairia no UUID.
+  await hydrateTerminalCodes(result)
+
   for (const states of result.values()) {
     states.sort((left, right) => compareAtracacoes(
       { terminalId: left.terminalId, terminalCode: left.terminalCode, etb: left.terminalEtb, atb: left.terminalAtb },
@@ -266,6 +271,38 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
     ))
   }
   return result
+}
+
+/** Resolve `terminal_id` -> codigo do terminal em uma unica leitura de depots. */
+async function hydrateTerminalCodes(statesByVoyage: Map<number, VoyageTerminalScaleState[]>) {
+  const terminalIds = [...new Set(
+    [...statesByVoyage.values()].flatMap((states) => states.flatMap((state) => state.terminalId ? [state.terminalId] : [])),
+  )]
+  if (!terminalIds.length) return
+
+  type DepotCodeQuery = {
+    select: (columns: string) => DepotCodeQuery
+    in: (column: string, values: string[]) => DepotCodeQuery
+    then: Promise<{ data: unknown; error: unknown | null }>['then']
+  }
+  const codeById = new Map<string, string>()
+  for (const chunk of chunkArray(terminalIds, 100)) {
+    const { data, error } = await (supabase.from as unknown as (table: string) => DepotCodeQuery)('depots')
+      .select('id, code')
+      .in('id', chunk)
+    if (error) throw error
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const id = row.id == null ? '' : String(row.id)
+      const code = typeof row.code === 'string' ? row.code.trim() : ''
+      if (id && code) codeById.set(id, code)
+    }
+  }
+
+  for (const states of statesByVoyage.values()) {
+    for (const state of states) {
+      if (state.terminalId) state.terminalCode = codeById.get(state.terminalId) ?? null
+    }
+  }
 }
 
 export function projectVoyageEscalaSchedules({
