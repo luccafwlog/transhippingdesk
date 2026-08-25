@@ -83,7 +83,11 @@ export function buildAgencyReportPrintFilename(snapshot: Snapshot): string {
     header.port,
     header.terminalCode ?? header.terminal,
   ].map((value) => String(value ?? '').trim()).filter(Boolean);
-  return `${parts.join(' - ') || 'ADR'}.pdf`;
+  // O rotulo da viagem e "NAVIO / 088E": a barra e separador de caminho e o
+  // navegador nao salva o PDF com ela. Vale para qualquer caractere proibido
+  // em nome de arquivo — troca por hifen em vez de deixar o sistema decidir.
+  const name = parts.join(' - ').replace(/[/\\:*?"<>|]+/g, '-').replace(/\s{2,}/g, ' ').trim();
+  return `${name || 'ADR'}.pdf`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -344,6 +348,13 @@ function Section({
   actorNames?: Record<string, string>;
   children?: React.ReactNode;
 }) {
+  // Um bloco sem dado e sem linha de resolucao (o segundo bloco de uma mesma
+  // seção, ex.: "Matriz de descarga" depois de "Carga solta") nao tem o que
+  // dizer: imprimir so a faixa deixa um titulo solto no documento. No ADR por
+  // terminal isso deixou de ser raro — cada terminal responde por parte das
+  // frentes, entao varias seções chegam vazias no impresso do outro.
+  if (!hasData && !(section && showResolution)) return null;
+
   return (
     <section className="agency-report-document__section" style={{ breakInside: "avoid" }}>
       <h2 style={groupBar}>{title}</h2>
@@ -574,7 +585,7 @@ export function AgencyReportDocument({
             [["Armador", header.carrierName ?? "—"], ["Navio / viagem", header.voyageLabel ?? "—"]],
             [["Porto", header.port ?? "—"], ["Terminal", header.terminalCode ? `${header.terminalCode}${header.terminal && header.terminal !== header.terminalCode ? ` — ${header.terminal}` : ''}` : (header.terminal ?? "—")]],
             [["ATA", formatDate(schedule.ata)], ["ATB", formatDate(schedule.atb)]],
-            [["ATD", formatDate(schedule.atd)], ["Restow", count(schedule.rtw)]],
+            [["ATD", formatDate(schedule.atd)], ["Restow", schedule.rtw == null ? "—" : count(schedule.rtw)]],
           ] as Array<Array<[string, string]>>).map((pairs) => (
             <tr key={pairs[0][0]}>
               {pairs.map(([name, value], index) => (

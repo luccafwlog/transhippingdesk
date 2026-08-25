@@ -86,6 +86,95 @@ some do seletor ou é recusado pela FK composta `(terminal_id, port_id)`.
 Correção sugerida: índice único sobre `upper(btrim(locode))`, em migration
 própria com deduplicação prévia.
 
+## Auditoria focalizada — ADR por terminal: aba, estrutura e impressão (2026-08-25)
+
+- **Commit base:** `7662c15`
+- **Método:** app real bootada contra o stack local (Postgres 16 + `bootstrap.sql`
+  + migrations + `validation_seed.sql` + `seed_audit.sql` + `sb-shim.cjs`),
+  navegada via Playwright em 1440×900. Login `auditor@local.test` (admin).
+- **Escopo:** a aba ADR de `/viagens/:id`, a estrutura de dados do ADR
+  terminalizado e o documento impresso — conformidade com a confecção por
+  terminal.
+- **Cenário exercitado:** escala BRVIX da viagem 10 com **duas Atracações** — TVV
+  (ATB 20/08, ATD 23/08) e PORTMAC (ATB 23/08, sem ATD) — e um ADR por terminal.
+  O ADR do TVV foi assinado nas 6 seções, nos 3 departamentos, fechado e impresso
+  pela própria interface; o do PORTMAC permaneceu aberto.
+
+### O que está correto na confecção por terminal
+
+Verificado em runtime, não só no código:
+
+- **Identidade e seleção.** A aba lista "ADR por terminal" e resolve o relatório
+  por `report_id`; alternar TVV ↔ PORTMAC troca ATB/ATD/Restow, frentes atribuídas
+  e sign-offs.
+- **Relógio por Atracação.** T0 do prazo é o ATD **daquela** Atracação, sem
+  fallback para outro terminal nem para o ATD documental do POL.
+- **Fechamento independente.** Fechar o ADR do TVV deixou o do PORTMAC aberto
+  (`status` por linha em `agency_departure_reports`).
+- **A partição das frentes é garantida pelo banco.** O índice
+  `uq_voyage_escala_operation_front UNIQUE (voyage_id, port, sentido, modalidade)`
+  faz cada frente pertencer a exatamente um terminal da escala — dois ADRs da
+  mesma escala **não conseguem** imprimir a mesma carga. Confirmado tentando
+  inserir `importacao/carga_cheia` no PORTMAC com a frente já no TVV: rejeitado.
+- **Impresso terminalizado.** Número do documento `ADR · BRVIX · TVV`, linha
+  "Terminal" no bloco de metadados, ATA/ATB/ATD/Restow da Atracação e nome de
+  arquivo com o código do terminal.
+  Evidência: [`assets/adr-impresso-terminal-tvv.png`](assets/adr-impresso-terminal-tvv.png).
+
+### Corrigido nesta auditoria
+
+| # | Achado | Evidência | Correção |
+|---|--------|-----------|----------|
+| 1 | **Toda escrita do ADR terminalizado era inerte.** `callReportIdAwareRpc` guardava `supabase.rpc` numa variável antes de chamar, o que desliga a função do cliente; o supabase-js lê `this.rest` e estourava `TypeError: Cannot read properties of undefined (reading 'rest')` **antes de sair na rede**. O erro morria no `mutationFn` do react-query sem toast. Assinar seção, assinar departamento, observar, fechar e reabrir um ADR por terminal não faziam nada — a interface só voltava ao estado anterior. | Console do navegador na aba ADR; nenhum POST `set_agency_report_*_by_report_id` no log de rede; a mesma RPC chamada direto por `fetch` respondeu 200 e gravou. | Chamada pelo objeto (`(supabase.rpc as …)(nome, args)`), como já fazia `resolveActorNames` no mesmo arquivo. Regressão coberta por `agencyReportTerminalizedRpc.test.ts`, com dublê que também depende de `this` — o dublê antigo, uma função solta, não conseguia flagrar isto. |
+| 2 | **O Prazo de Conclusão do ADR nunca era calculado.** `terminal_atd` é `TIMESTAMPTZ` (migration 306) e chega como `2026-08-23T00:00:00+00:00`; `calculateAgencyReportDeadlineDate` só aceitava `YYYY-MM-DD` e devolvia `null`. A aba exibia o ATD e, logo abaixo, "Aguardando a saída do navio", com os 3 departamentos em "Sem prazo". O agregado de SLA (ADR 0039) lia o mesmo valor. | Linha do tempo do ADR do TVV com ATD 23/08/2026 e prazo "aguardando". | Normalização ISO no ponto compartilhado de `agencyReportDeadline.ts`, usada pelas três funções exportadas. Passa a mostrar "Vence em 26/08/2026 (3 dias úteis após o ATD)" e os departamentos em "No prazo". Formato ambíguo (`08/03/2026`) continua recusado de propósito. |
+| 3 | **`Restow 0` para restow ausente**, na aba e no impresso — o mesmo defeito já corrigido no Planejamento por escala, nestes dois call sites. Zero restows é uma afirmação; a ausência do dado não é. | PORTMAC, `terminal_rtw` nulo, exibia `0`. | `—` quando nulo, nos dois lugares. |
+| 4 | **Faixa de seção vazia no impresso.** Um bloco sem dado cuja resolução já saiu num bloco anterior da mesma seção imprimia só o título ("MATRIZ DE DESCARGA" solto). No ADR por terminal isso deixou de ser raro: cada terminal responde por parte das frentes. | Impresso do TVV antes da correção. | `Section` não renderiza quando não há dado nem linha de resolução. |
+| 5 | **Barra no nome do arquivo impresso.** O rótulo da viagem é `NAVIO / 088E`, então o nome saía `ADR - COSCO SHIPPING ARIES / 088E - BRVIX - TVV.pdf`; `/` é separador de caminho e o navegador não salva com ele. | `data-print-filename` no documento. | Caracteres proibidos viram hífen no `buildAgencyReportPrintFilename`. |
+
+### Achado estrutural — decisão do produto, não corrigido
+
+**O impresso não distingue "nada operado neste terminal" de "esta frente não é
+deste terminal".** Na tela, uma seção sem frente atribuída diz "Não há frente
+atribuída a este terminal."; no papel, a mesma seção sai como
+"Nada a declarar — <assinante>". No cenário auditado o ADR do TVV declara
+"Nada a declarar" em *Embarque de vazios*, uma frente que é do PORTMAC e que
+**teve** operação. Quem lê o ADR do TVV isolado conclui que não houve embarque de
+vazios em Vitória.
+
+Duas saídas possíveis, e a escolha é do negócio: (a) não oferecer sign-off para
+seção sem frente no terminal e omiti-la do impresso, ou (b) imprimir um estado
+próprio, distinto de "Nada a declarar". Não apliquei nenhuma das duas porque
+muda o que o documento assinado afirma.
+
+### Mesmo defeito do #1 em outros três módulos — recomendação
+
+A chamada destacada de `supabase.rpc` aparece em mais três lugares, todos
+quebrados pelo mesmo `TypeError`, todos invisíveis para os testes atuais (que
+dublam `supabase` como objeto simples):
+
+| Arquivo | RPC | Efeito |
+|---------|-----|--------|
+| `src/services/reconciliacao.ts:58` | todas as RPCs de PIX (destaque em nível de módulo) | conciliação PIX |
+| `src/services/billingLedger.ts:214` | `settle_cod_adjustment` | baixa de ajuste COD |
+| `src/services/transshipments.ts:110` | `revert_voyage_omission` | reverter omissão de escala |
+
+Não corrigi: os dois primeiros mexem em dinheiro e o terceiro em semântica de
+dado — fora do que esta auditoria pode tocar. A correção é a mesma do #1 (chamar
+pelo objeto, ou `supabase.rpc.bind(supabase)`), e vale confirmar em produção
+antes, porque hoje esses caminhos **sempre** lançam: corrigi-los passa a
+executar RPCs que nunca executaram.
+
+### Sem achado
+
+- **Partição de carga entre terminais**: investigada a hipótese de dois ADRs da
+  mesma escala imprimirem a mesma carga. O índice único de frentes impede.
+  Vale registrar o teto: a partição é por `(sentido, modalidade)`, então uma
+  única modalidade fisicamente dividida entre dois terminais não é
+  representável — ela pertence a um terminal e o ADR dele carrega tudo.
+- **Marcadores de vazio divergentes** (`-` do `formatDate` × `—` do resto da
+  interface): convenção de repositório com centenas de call sites, não defeito
+  do ADR.
+
 ## Auditoria focalizada — revisão manual orientada a cliente (2026-08-20)
 
 - **Evidência inicial:** captura fornecida pelo usuário a partir de uma preview

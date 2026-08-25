@@ -716,7 +716,10 @@ it('no estado fechado renderiza o documento e oculta controles/seções editáve
   const printButton = screen.getByRole('button', { name: 'Imprimir' })
   expect(printButton).toBeTruthy()
   fireEvent.click(printButton)
-  expect(screen.getByRole('heading', { name: 'Matriz de descarga' })).toBeTruthy()
+  // A matriz deste snapshot esta vazia e a resolucao da seção ja saiu em
+  // "Carga solta": a faixa "Matriz de descarga" nao e impressa. O que prova
+  // que o documento abriu e o proprio documento.
+  expect(screen.getByRole('article', { name: 'Agency Departure Report fechado' })).toBeTruthy()
 })
 
 it('exibe Reabrir do ADR somente para administradores e exige justificativa não vazia', () => {

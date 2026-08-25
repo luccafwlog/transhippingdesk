@@ -717,7 +717,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               <Info label="ATA" value={formatDate(data?.escala?.ata ?? data?.schedule?.ata)} />
               <Info label="ATB" value={formatDate(terminalAtb)} />
               <Info label="ATD" value={formatDate(terminalAtd)} />
-              <Info label="Restow" value={String(terminalRtw ?? 0)} />
+              <Info label="Restow" value={terminalRtw === null ? '—' : String(terminalRtw)} />
             </div>
         </ReportSection>
 
