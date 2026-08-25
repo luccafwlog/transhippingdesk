@@ -10,18 +10,21 @@ const PODS = [
   {
     pod: 'BRSSZ', nome: 'Santos',
     resumo: '11 CNTRs · 2 B/Ls carga solta',
-    containers: { distinct: 11, imo: 0, oog: 1, types: ['20GP', '40HC', '40OT'] },
+    containers: { distinct: 11, imo: 0, oog: 1, geral: 11, comVeiculos: 0, types: [['20GP', 4], ['40HC', 6], ['40OT', 1]] },
     veiculos: null,
     cargaSolta: { bls: 2, maquinas: 4, packages: 61, ton: '213', cbm: '388,4' },
   },
   {
     pod: 'BRVIX', nome: 'Vitória',
     resumo: '2 CNTRs · 1 CNTR c/ veículos',
-    containers: { distinct: 2, imo: 0, oog: 0, types: ['40HC'] },
-    veiculos: { containers: 1, cargaGeral: 1, unidades: 4 },
+    containers: { distinct: 2, imo: 0, oog: 0, geral: 1, comVeiculos: 1, types: [['40HC', 2]] },
+    veiculos: { containers: 1, cargaGeral: 1 },
     cargaSolta: null,
   },
 ]
+
+/** Estatística de veículo é agregada por viagem (useVehicles), não por escala. */
+const VEICULOS = { unidades: 4, containers: 1, marcas: [['TOYOTA', 3], ['HONDA', 1]], tipos: [['40HC', 1]] }
 
 const VAZIOS_IMP = { manifestos: 1, containers: 6, tipos: ['20GP', '40HC'], destinos: 'Santos, Vitória' }
 
@@ -60,7 +63,7 @@ export function importacaoAntes() {
         infoAntes('CNTRS distintos', String(p.containers.distinct)),
         infoAntes('Containers IMO', String(p.containers.imo)),
         infoAntes('Containers OOG', String(p.containers.oog)),
-        infoAntes('Tipos de container', '', { tokens: p.containers.types }),
+        infoAntes('Tipos de container', '', { tokens: p.containers.types.map(([t, n]) => `${t}: ${n}`) }),
       ].join('')),
       p.veiculos ? metricPanelAntes('Ve&iacute;culos', [
         infoAntes('Containers com veiculos', String(p.veiculos.containers)),
@@ -106,7 +109,7 @@ export function importacaoAntes() {
 
 /* ================================ DEPOIS =============================== */
 /** Chapado, sem gradiente nem sombra — o vocabulário do resto da página. */
-function painel({ title, icone, lead, leadUnit, stats = [], tokens = null, vazio = null }) {
+function painel({ title, icone, lead, leadUnit, stats = [], tokens = null, tokensHtml = null, vazio = null }) {
   return `<div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 14px 16px">
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
       <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: ${vazio ? T.mutedSoft : T.textStrong}">${icon(icone, 15, vazio ? T.mutedSoft : T.muted)} ${title}</span>
@@ -124,7 +127,7 @@ function painel({ title, icone, lead, leadUnit, stats = [], tokens = null, vazio
               <span style="font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: ${T.mutedSoft}">${st[0]}</span>
             </div>`).join('')}
           </div>
-          ${tokens ? `<div style="display: flex; flex-wrap: wrap; gap: 6px; border-top: 1px solid ${T.border}; padding-top: 10px">${tokens.map((t) => `<span class="pill" style="background: ${T.surfaceMuted}">${t}</span>`).join('')}</div>` : ''}
+          ${tokensHtml || tokens ? `<div style="display: flex; flex-wrap: wrap; gap: 6px; border-top: 1px solid ${T.border}; padding-top: 10px">${tokensHtml ?? tokens.map((t) => `<span class="pill" style="background: ${T.surfaceMuted}">${t}</span>`).join('')}</div>` : ''}
         </div>`}
   </div>`
 }
@@ -135,6 +138,30 @@ export function importacaoDepois() {
     ${TOTAIS.map(([label, value], i) => `<span style="display: flex; align-items: baseline; gap: 6px; padding: 0 16px${i > 0 ? `; border-left: 1px solid ${T.border}` : ''}">
       <span style="font-family: ${T.mono}; font-size: 15px; font-weight: 600; color: ${T.textStrong}">${value}</span>
       <span style="font-size: 11px; color: ${T.mutedSoft}">${label}</span>
+    </span>`).join('')}
+  </div>`
+
+  /** Token com contagem: o dado já vem contado por summarizeContainerTypes. */
+  const contagem = (pares) => pares.map(([label, n]) => `<span class="pill" style="background: ${T.surfaceMuted}; gap: 5px; padding: 3px 9px">
+    <span style="color: ${T.text}; font-weight: 700">${label}</span>
+    <span style="font-family: ${T.mono}; color: ${T.mutedSoft}">${n}</span>
+  </span>`).join('')
+
+  const secao = (nome, nota = '') => `<div style="display: flex; align-items: center; gap: 12px">
+    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">${nome}</span>
+    <span style="flex: 1; height: 1px; background: ${T.border}"></span>
+    ${nota ? `<span style="font-size: 11px; color: ${T.mutedSoft}">${nota}</span>` : ''}
+  </div>`
+
+  const faixa = (titulo, icone, lead, leadUnit, blocos) => `<div style="display: flex; align-items: center; gap: 20px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 14px 16px">
+    <span style="display: inline-flex; align-items: center; gap: 8px; flex: none; font-size: 13px; font-weight: 700; color: ${T.textStrong}">${icon(icone, 15, T.muted)} ${titulo}</span>
+    <span style="display: flex; align-items: baseline; gap: 6px; flex: none">
+      <span style="font-family: ${T.display}; font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: ${T.textStrong}">${lead}</span>
+      <span style="font-size: 11px; font-weight: 600; color: ${T.mutedSoft}">${leadUnit}</span>
+    </span>
+    ${blocos.map((b) => `<span style="display: flex; flex-direction: column; gap: 3px; ${b.grow ? 'min-width: 0' : 'flex: none'}; border-left: 2px solid ${T.border}; padding-left: 12px">
+      <span style="${b.mono ? `font-family: ${T.mono}; font-size: 14px; font-weight: 600; color: ${T.textStrong}` : 'display: flex; flex-wrap: wrap; gap: 6px'}">${b.value}</span>
+      <span style="font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: ${T.mutedSoft}">${b.label}</span>
     </span>`).join('')}
   </div>`
 
@@ -149,11 +176,16 @@ export function importacaoDepois() {
     <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch">
       ${painel({
         title: 'Containers', icone: 'box', lead: String(p.containers.distinct), leadUnit: 'distintos',
-        stats: [['IMO', String(p.containers.imo)], ['OOG', String(p.containers.oog), p.containers.oog ? T.gold : T.textStrong]],
-        tokens: p.containers.types,
+        stats: [
+          ['Carga geral', String(p.containers.geral)],
+          ['C/ ve&iacute;culos', String(p.containers.comVeiculos)],
+          ['IMO', String(p.containers.imo)],
+          ['OOG', String(p.containers.oog), p.containers.oog ? T.gold : T.textStrong],
+        ],
+        tokensHtml: contagem(p.containers.types),
       })}
       ${p.veiculos
-        ? painel({ title: 'Ve&iacute;culos', icone: 'car', lead: String(p.veiculos.unidades), leadUnit: 'unidades', stats: [['CNTRs c/ ve&iacute;culos', String(p.veiculos.containers)], ['Carga geral', String(p.veiculos.cargaGeral)]] })
+        ? painel({ title: 'Ve&iacute;culos', icone: 'car', lead: String(p.veiculos.containers), leadUnit: 'CNTRs', stats: [['Carga geral (CNTRs)', String(p.veiculos.cargaGeral)]] })
         : painel({ title: 'Ve&iacute;culos', icone: 'car', vazio: 'Sem ve&iacute;culos nesta escala' })}
       ${p.cargaSolta
         ? painel({ title: 'Carga solta', icone: 'file', lead: p.cargaSolta.ton, leadUnit: 'ton', stats: [['B/Ls', String(p.cargaSolta.bls)], ['M&aacute;quinas', String(p.cargaSolta.maquinas)], ['Packages', String(p.cargaSolta.packages)], ['CBM', p.cargaSolta.cbm]] })
@@ -161,55 +193,46 @@ export function importacaoDepois() {
     </div>
   </div>`).join('')
 
-  const grupo = (nome, itens) => `<div style="display: flex; flex-direction: column; gap: 8px">
-    <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.mutedSoft}">${nome}</span>
-    <div style="display: flex; flex-wrap: wrap; gap: 8px">
-      ${itens.map(([label, ic]) => `<span class="btn btn--secondary btn--sm" style="min-height: 38px">${icon(ic, 15)} ${label}</span>`).join('')}
-    </div>
-  </div>`
+  const botao = (label, ic, { destaque = false } = {}) =>
+    `<span class="btn btn--secondary btn--sm" style="min-height: 40px${destaque ? `; border-color: ${T.blueBtn}; color: ${T.blueBtn}` : ''}">${icon(ic, 15)} ${label}</span>`
 
   return `<div style="display: flex; flex-direction: column; gap: 16px">
     ${totalStrip}
-    <div style="display: flex; align-items: center; gap: 12px">
-      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">Carga por escala</span>
-      <span style="flex: 1; height: 1px; background: ${T.border}"></span>
-    </div>
+    ${secao('Carga por escala')}
     <div style="display: grid; gap: 12px">${podBlocks}</div>
 
-    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px">
-      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">Vazios de importa&ccedil;&atilde;o</span>
-      <span style="flex: 1; height: 1px; background: ${T.border}"></span>
-      <span style="font-size: 11px; color: ${T.mutedSoft}">agregado da viagem &mdash; a origem n&atilde;o traz o POD</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 20px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 14px 16px">
-      <span style="display: inline-flex; align-items: center; gap: 8px; flex: none; font-size: 13px; font-weight: 700; color: ${T.textStrong}">${icon('boxOpen', 15, T.muted)} Vazios IMP</span>
-      <span style="display: flex; align-items: baseline; gap: 6px; flex: none">
-        <span style="font-family: ${T.display}; font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: ${T.textStrong}">${VAZIOS_IMP.containers}</span>
-        <span style="font-size: 11px; font-weight: 600; color: ${T.mutedSoft}">containers</span>
-      </span>
-      <span style="display: flex; flex-direction: column; gap: 2px; flex: none; border-left: 2px solid ${T.border}; padding-left: 12px">
-        <span style="font-family: ${T.mono}; font-size: 14px; font-weight: 600; color: ${T.textStrong}">${VAZIOS_IMP.manifestos}</span>
-        <span style="font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: ${T.mutedSoft}">Manifestos</span>
-      </span>
-      <span style="display: flex; flex-direction: column; gap: 3px; flex: none; border-left: 2px solid ${T.border}; padding-left: 12px">
-        <span style="display: flex; gap: 6px">${VAZIOS_IMP.tipos.map((t) => `<span class="pill" style="background: ${T.surfaceMuted}">${t}</span>`).join('')}</span>
-        <span style="font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: ${T.mutedSoft}">Tipos</span>
-      </span>
-      <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; border-left: 2px solid ${T.border}; padding-left: 12px">
-        <span style="font-size: 14px; color: ${T.text}">${VAZIOS_IMP.destinos}</span>
-        <span style="font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: ${T.mutedSoft}">Destinos</span>
-      </span>
-    </div>
+    ${secao('Ve&iacute;culos', 'agregado da viagem &mdash; a origem n&atilde;o traz o POD')}
+    ${faixa('Ve&iacute;culos', 'car', String(VEICULOS.unidades), 'unidades', [
+      { label: 'CNTRs', value: String(VEICULOS.containers), mono: true },
+      { label: 'Marcas', value: contagem(VEICULOS.marcas) },
+      { label: 'Tipo de container', value: contagem(VEICULOS.tipos), grow: true },
+    ])}
 
-    <section style="display: grid; gap: 14px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 16px; margin-top: 4px">
+    ${secao('Vazios de importa&ccedil;&atilde;o', 'agregado da viagem &mdash; a origem n&atilde;o traz o POD')}
+    ${faixa('Vazios IMP', 'boxOpen', String(VAZIOS_IMP.containers), 'containers', [
+      { label: 'Manifestos', value: String(VAZIOS_IMP.manifestos), mono: true },
+      { label: 'Tipos', value: contagem(VAZIOS_IMP.tipos.map((t) => [t, ''])) },
+      { label: 'Destinos', value: `<span style="font-size: 14px; color: ${T.text}">${VAZIOS_IMP.destinos}</span>`, grow: true },
+    ])}
+
+    <section style="display: grid; gap: 12px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 16px; margin-top: 4px">
       <div>
         <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">Importa&ccedil;&atilde;o r&aacute;pida</div>
-        <div style="margin-top: 4px; font-size: 13px; color: ${T.muted}">Importe manifestos e planilhas diretamente nesta viagem sem sair da tela.</div>
+        <div style="margin-top: 4px; font-size: 13px; color: ${T.muted}">Importe arquivos diretamente nesta viagem sem sair da tela.</div>
       </div>
-      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
-        ${grupo('Manifestos', [['Baplie EDI', 'package'], ['Manifesto BB', 'file']])}
-        ${grupo('Complementos do B/L', [['B/L', 'file'], ['CE Mercante', 'shield']])}
-        ${grupo('Unidades', [['Ve&iacute;culos', 'car'], ['Vazios IMP', 'boxOpen']])}
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+        ${botao('Baplie EDI', 'package')}
+        <span style="width: 1px; height: 24px; background: ${T.border}; margin: 0 4px"></span>
+        ${botao('B/L container', 'box', { destaque: true })}
+        ${botao('B/L carga solta', 'file', { destaque: true })}
+        ${botao('CE Mercante', 'shield')}
+        <span style="width: 1px; height: 24px; background: ${T.border}; margin: 0 4px"></span>
+        ${botao('Ve&iacute;culos', 'car')}
+        ${botao('Vazios IMP', 'boxOpen')}
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 7px; font-size: 11px; line-height: 1.5; color: ${T.mutedSoft}">
+        ${icon('shield', 13, T.mutedSoft)}
+        <span><b style="color: ${T.muted}">CE Mercante serve os dois modos.</b> O import casa por n&uacute;mero de B/L contra a tabela <code>bls</code>, que guarda container e carga solta no mesmo lugar (<code>cargo_mode</code>) &mdash; um bot&atilde;o s&oacute;. Granito &eacute; o &uacute;nico alvo separado, e vive na aba Exporta&ccedil;&atilde;o.</span>
       </div>
     </section>
   </div>`
