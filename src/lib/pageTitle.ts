@@ -27,6 +27,7 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/clientes/, 'Clientes'],
   [/^\/taxas-locais\/tabelas/, 'Tabelas de Taxas Locais'],
   [/^\/taxas-locais/, 'Taxas Locais'],
+  [/^\/alertas\/regras/, 'Regras de Alertas'],
   [/^\/alertas/, 'Alertas'],
   [/^\/relatorios/, 'Relatórios'],
   [/^\/demurrage\/taxas/, 'Tarifas de Demurrage'],

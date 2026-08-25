@@ -547,7 +547,8 @@ commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 | `/demurrage` | Operação e invoices de demurrage |
 | `/demurrage/taxas` | Tarifas de demurrage |
 | `/reconciliacao` | Conciliação PIX |
-| `/alertas` | Alertas internos |
+| `/alertas` | Fila de alertas internos |
+| `/alertas/regras` | Manual somente leitura das regras ativas de alertas, com filtros e links para as telas de resolução |
 | `/relatorios` | Relatórios e exportações |
 | `/line-up-tv` | Administração do Line Up |
 | `/line-up-tv/display` | Display protegido para TV |

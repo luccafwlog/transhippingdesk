@@ -1,6 +1,6 @@
 # Operação e Suporte
 
-> **Status:** ativo · **Cartografia verificada:** 2026-06-20 · **Rotas:** `/painel`, `/revisao`, `/alertas`, `/relatorios`, `/line-up-tv`, `/line-up-tv/display`, `/admin/usuarios`
+> **Status:** ativo · **Cartografia verificada:** 2026-08-25 · **Rotas:** `/painel`, `/revisao`, `/alertas`, `/alertas/regras`, `/relatorios`, `/line-up-tv`, `/line-up-tv/display`, `/admin/usuarios`
 
 ## Propósito e escopo
 
@@ -10,7 +10,8 @@ Escopo por rota:
 
 - `/painel`: KPIs operacionais, snapshot do Line-Up, exportação e atalhos;
 - `/revisao`: fila agrupada, correção individual ou por cliente, gate canônico e tentativa de faturamento automático;
-- `/alertas`: filtro, reconhecimento e fechamento de alertas internos;
+- `/alertas`: fila, filtros e dispensa temporária de alertas internos;
+- `/alertas/regras`: manual somente leitura das 28 regras ativas, com filtros e links para tratamento;
 - `/relatorios`: abas operacional, financeira, por cliente e demurrage, com exportação XLSX onde implementada;
 - `/line-up-tv`: compatibilidade por redirecionamento para `/painel`;
 - `/line-up-tv/display`: quadro protegido, sem o shell do `AppLayout`, para monitor/TV;
@@ -106,6 +107,10 @@ Os dois produtores do ADR (`agency_report_department_pending` e `agency_report_d
 Detectores server-side de operação e viagem (migrations `326` e `338`) reconciliam B/L esperado, Baplie ausente/cobertura, CE Mercante, datas de escala/terminal e exportação pós-ATD. A audiência usa a união declarada no catálogo; terminais usam `depots.code` na chave/deep-link; e audit logs/estado terminalizado acionam reconciliação imediata, com o cron como rede de segurança. Como os manifests de Granito/Vazios ainda só têm `voyage_id`, a pendência de exportação pós-ATD é agregada por escala, não por terminal.
 
 Dispensar exige motivo e uma data futura e grava o histórico por ocorrência; a resolução acontece no produtor autoritativo. As mutations invalidam `['alerts']`, `['op-count']` e `['dashboard']`. O realtime de `alerts` usado por `useOperationalCounts` invalida especificamente `['op-count', 'open-alerts']`.
+
+### `/alertas/regras`
+
+`src/pages/AlertasRegras.tsx` apresenta o catálogo educativo das 28 regras ativas de `alert_type_catalog`, alimentado por `src/services/alertRulesCatalog.ts`. A lista pode ser filtrada por busca, setor, domínio e gravidade; o painel detalha entidade, gatilho, prazo, resolução, dispensa e destino. A seleção e os filtros ficam na query string para permitir retorno e compartilhamento. A tela é somente leitura: não executa detectores, não resolve itens e não altera configurações.
 
 ### `/relatorios`
 
