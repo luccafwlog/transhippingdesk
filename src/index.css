@@ -2387,7 +2387,7 @@ textarea {
 
 .app-escala-operation-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
   align-items: center;
   gap: 16px;
   padding: 12px;
@@ -2397,8 +2397,19 @@ textarea {
 
 .app-escala-operation-row__title { color: var(--app-text-strong); font-size: 13px; font-weight: 700; }
 .app-escala-operation-row__meta--pending { color: var(--app-warning, #a65b15); }
-.app-escala-field--compact { gap: 5px; color: var(--app-muted); font-size: 12px; }
-.app-escala-field--compact .app-input { margin-top: 0; }
+.app-escala-field--compact {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+.app-escala-field--compact .app-input {
+  width: 100%;
+  margin-top: 0;
+}
+.app-escala-terminal-date-row .app-field { min-width: 0; }
+.app-escala-terminal-date-row .app-input { width: 100%; }
 .app-escala-terminal-dates { display: grid; gap: 10px; padding-top: 4px; }
 
 .app-escala-terminal-date-row {
