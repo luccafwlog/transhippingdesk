@@ -523,7 +523,7 @@ describe('buildVoyageTimeline', () => {
     })
     expect(events).toHaveLength(1)
     expect(events[0].kind).toBe('pod-removed')
-    expect(events[0].title).toBe('Escala de BRSSA removida do planejamento')
+    expect(events[0].title).toBe('Escala removida do planejamento · BRSSA')
   })
 
   it('exibe ETD do POL, mudanças de datas com autor, CE status, RTW e POD reincluído', () => {
@@ -552,10 +552,10 @@ describe('buildVoyageTimeline', () => {
     })
 
     expect(events.map((event) => event.kind)).toEqual(['pod-added', 'restow', 'ce-status', 'escala-date', 'escala-date'])
-    expect(events.find((event) => event.title.includes('ETD'))?.title).toBe('ETD de CNSHA registrado')
-    expect(events.find((event) => event.title.includes('ATA'))?.title).toBe('ATA de BRVIX alterado')
+    expect(events.find((event) => event.title.includes('ETD'))?.title).toBe('ETD registrado · CNSHA')
+    expect(events.find((event) => event.title.includes('ATA'))?.title).toBe('ATA alterado · BRVIX')
     expect(events.find((event) => event.title.includes('ATA'))?.detail).toBe('11/06/2026 -> 12/06/2026 · por user-2')
-    expect(events.find((event) => event.kind === 'ce-status')?.detail).toBe('Recebido -> Aprovado')
+    expect(events.find((event) => event.kind === 'ce-status')?.detail).toBe('Recebido → Aprovado')
     expect(events.find((event) => event.kind === 'restow')?.detail).toBe('RTW 3')
   })
 

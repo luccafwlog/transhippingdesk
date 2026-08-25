@@ -604,6 +604,17 @@ const TIMELINE_CE_STATUS_LABELS: Record<string, string> = {
   partial: 'Lançando',
   missing: 'Aguardando',
 }
+const TIMELINE_OPERATION_DIRECTION_LABELS: Record<string, string> = {
+  importacao: 'importação',
+  exportacao: 'exportação',
+}
+const TIMELINE_OPERATION_KIND_LABELS: Record<string, string> = {
+  carga_cheia: 'carga cheia',
+  carga_solta: 'carga solta',
+  veiculo: 'veículos',
+  vazio: 'vazios',
+  granito: 'granito',
+}
 const TIMELINE_VOYAGE_FIELD_LABELS: Record<string, string> = {
   created: 'Viagem',
   voyage_number: 'Nº da viagem',
@@ -785,6 +796,102 @@ function buildBaplieTimeline(
   return events
 }
 
+const TIMELINE_SPECIAL_SCHEDULE_FIELDS = [
+  'front_created',
+  'front_removed',
+  'terminal_assignment',
+  'front_source',
+  'terminal_dates',
+  'export_expectation',
+  'adr_created',
+  'adr_removed',
+  'adr_preserved',
+]
+
+function parseTimelineObject(value: string): Record<string, unknown> {
+  try {
+    const candidate = JSON.parse(value)
+    return candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+      ? candidate as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function stableTimelineValue(value: string): string {
+  try {
+    const sortValue = (candidate: unknown): unknown => {
+      if (Array.isArray(candidate)) return candidate.map(sortValue)
+      if (candidate && typeof candidate === 'object') {
+        return Object.fromEntries(
+          Object.entries(candidate as Record<string, unknown>)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([key, nested]) => [key, sortValue(nested)]),
+        )
+      }
+      return candidate
+    }
+    return JSON.stringify(sortValue(JSON.parse(value)))
+  } catch {
+    return value
+  }
+}
+
+function timelineOperationLabel(parsed: Record<string, unknown>): string | null {
+  const front = typeof parsed.modalidade === 'string' ? parsed.modalidade : null
+  if (!front) return null
+
+  const direction = typeof parsed.sentido === 'string'
+    ? TIMELINE_OPERATION_DIRECTION_LABELS[parsed.sentido] ?? parsed.sentido
+    : parsed.source === 'export_declaration' || front === 'granito' ? 'exportação' : 'importação'
+  const frontLabel = TIMELINE_OPERATION_KIND_LABELS[front] ?? front.replaceAll('_', ' ')
+  return `${frontLabel} de ${direction}`
+}
+
+function capitalizeTimelineLabel(value: string): string {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value
+}
+
+function timelineTerminalLabel(parsed: Record<string, unknown>): string {
+  if (typeof parsed.terminal_code === 'string' && parsed.terminal_code.trim()) {
+    const code = parsed.terminal_code.trim()
+    return code.toUpperCase() === 'TBC' ? 'TBC (pendente de atribuição)' : code
+  }
+  return parsed.terminal_id ? 'terminal atribuído' : 'TBC (pendente de atribuição)'
+}
+
+function timelineExportExpectationLabel(parsed: Record<string, unknown>): string {
+  if (parsed.tem_exportacao === false) return 'Não declarada'
+
+  const cargo: string[] = []
+  if (parsed.granito === true || parsed.has_granite === true) cargo.push('granito')
+  if (parsed.has_empty === true || parsed.vazios === true) {
+    const quantity = Number(parsed.containers_qty ?? parsed.vazios_qty ?? 0)
+    cargo.push(quantity > 0 ? `vazios (${formatMetric(quantity)})` : 'vazios')
+  }
+  if (!cargo.length) cargo.push('carga não especificada')
+
+  const destinations = Array.isArray(parsed.discharge_ports)
+    ? parsed.discharge_ports.filter((port): port is string => typeof port === 'string' && Boolean(port.trim())).join(', ')
+    : ''
+  return `${cargo.map(capitalizeTimelineLabel).join(' · ')}${destinations ? ` · destino: ${destinations}` : ''}`
+}
+
+function timelineTerminalDatesLabel(parsed: Record<string, unknown>): string {
+  const dates = [
+    ['ETB', parsed.terminal_etb],
+    ['ATB', parsed.terminal_atb],
+    ['ETD', parsed.terminal_etd],
+    ['ATD', parsed.terminal_atd],
+    ['Restow', parsed.terminal_rtw],
+  ]
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim())
+    .map(([label, value]) => `${label}: ${label === 'Restow' ? value : formatDate(String(value))}`)
+
+  return dates.length ? dates.join(' · ') : 'Datas operacionais atualizadas'
+}
+
 function buildScheduleTimeline(
   scheduleEvents: TimelineAuditEvent[] | null | undefined,
   appendActor: (detail: string, row: TimelineAuditEvent) => string,
@@ -797,40 +904,59 @@ function buildScheduleTimeline(
     const value = (row.new_value ?? '').trim()
     const oldValue = (row.old_value ?? '').trim()
 
-    if (['front_created', 'front_removed', 'terminal_assignment', 'front_source', 'terminal_dates', 'export_expectation', 'adr_created', 'adr_removed', 'adr_preserved'].includes(row.field_name)) {
-      let parsed: Record<string, unknown> = {}
-      try {
-        const candidate = JSON.parse(value || oldValue)
-        if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) parsed = candidate as Record<string, unknown>
-      } catch {
-        // Audit logs anteriores podem conter texto simples; o evento continua legível.
+    // Auditoria histórica pode conter linhas repetidas ou a inicialização
+    // implícita do editor (`NULL -> waiting`). Nenhuma delas representa uma
+    // ação do operador na linha do tempo.
+    if (stableTimelineValue(oldValue) === stableTimelineValue(value) || (row.field_name === 'ces' && !oldValue && value === 'waiting')) continue
+
+    if (TIMELINE_SPECIAL_SCHEDULE_FIELDS.includes(row.field_name)) {
+      const parsed = parseTimelineObject(value || oldValue)
+      const previous = parseTimelineObject(oldValue)
+      const operation = timelineOperationLabel(parsed) ?? timelineOperationLabel(previous)
+      let title: string
+      let detail: string
+
+      if (row.field_name === 'front_created') {
+        const terminal = timelineTerminalLabel(parsed)
+        const hasTerminal = Boolean(parsed.terminal_id || (parsed.terminal_code && String(parsed.terminal_code).toUpperCase() !== 'TBC'))
+        title = hasTerminal && operation ? `Terminal definido para ${operation}` : `${capitalizeTimelineLabel(operation ?? 'Operação operacional')} registrada`
+        detail = `Terminal: ${terminal}`
+      } else if (row.field_name === 'front_removed') {
+        title = `${capitalizeTimelineLabel(operation ?? 'Operação operacional')} removida`
+        detail = 'Frente removida do planejamento'
+      } else if (row.field_name === 'terminal_assignment') {
+        title = 'Terminal da operação alterado'
+        detail = `Anterior: ${timelineTerminalLabel(previous)} · atual: ${timelineTerminalLabel(parsed)}`
+      } else if (row.field_name === 'front_source') {
+        const sourceLabel = (source: string) => source === 'export_declaration' ? 'declaração de exportação' : source === 'operational_data' ? 'dados operacionais' : source || 'não informado'
+        title = 'Origem da operação alterada'
+        detail = `De ${sourceLabel(oldValue)} para ${sourceLabel(value)}`
+      } else if (row.field_name === 'terminal_dates') {
+        const terminal = parsed.terminal_code ? ` ${parsed.terminal_code}` : ''
+        title = `Datas do terminal${terminal} alteradas`
+        detail = timelineTerminalDatesLabel(parsed)
+      } else if (row.field_name === 'export_expectation') {
+        title = 'Exportação atualizada'
+        detail = timelineExportExpectationLabel(parsed)
+      } else if (row.field_name === 'adr_created' || row.field_name === 'adr_removed' || row.field_name === 'adr_preserved') {
+        title = row.field_name === 'adr_created'
+          ? 'ADR terminalizado criado'
+          : row.field_name === 'adr_removed' ? 'ADR terminalizado removido' : 'ADR terminalizado preservado'
+        const terminal = typeof parsed.terminal_code === 'string' ? parsed.terminal_code : 'terminal não identificado'
+        detail = row.field_name === 'adr_preserved'
+          ? `Terminal: ${terminal} · dependentes ou histórico preservados`
+          : `Terminal: ${terminal}`
+      } else {
+        title = 'Alteração operacional registrada'
+        detail = 'Dados da operação atualizados'
       }
-      const front = typeof parsed.modalidade === 'string' ? parsed.modalidade : null
-      const terminal = typeof parsed.terminal_code === 'string' ? parsed.terminal_code : null
-      const label = terminal ? `terminal ${terminal}` : 'terminal registrado'
-      const title = row.field_name === 'front_created'
-        ? `Frente ${front ?? 'operacional'} atribuída`
-        : row.field_name === 'front_removed'
-          ? `Frente ${front ?? 'operacional'} removida`
-          : row.field_name === 'terminal_assignment'
-            ? `Terminal da frente alterado`
-            : row.field_name === 'terminal_dates'
-              ? 'Datas do terminal alteradas'
-              : row.field_name === 'export_expectation'
-                ? 'Expectativa de exportação alterada'
-                : row.field_name === 'adr_created'
-                  ? 'ADR terminalizado criado'
-                  : row.field_name === 'adr_removed'
-                    ? 'ADR terminalizado removido'
-                    : row.field_name === 'adr_preserved'
-                      ? 'ADR terminalizado preservado'
-                      : 'Origem da frente alterada'
+
       events.push({
         id: `sched-${index}`,
         kind: 'escala-terminal',
         at,
-        title: `${title} em ${port}`,
-        detail: appendActor(front ? `${front} · ${label}` : label, row),
+        title: `${title} · ${port}`,
+        detail: appendActor(detail, row),
       })
       continue
     }
@@ -842,7 +968,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'escala-date',
         at,
-        title: `${TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]} de ${port} ${changed ? 'alterado' : 'registrado'}`,
+        title: `${TIMELINE_SCHEDULE_DATE_LABELS[row.field_name]} ${changed ? 'alterado' : 'registrado'} · ${port}`,
         detail: appendActor(changed ? `${formatDate(oldValue)} -> ${formatDate(value)}` : formatDate(value), row),
       })
     } else if (row.field_name === 'escala_number' && value) {
@@ -850,7 +976,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'escala-number',
         at,
-        title: `Escala de ${port} criada no Mercante`,
+        title: `Escala criada no Mercante · ${port}`,
         detail: appendActor(`Nº ${value}`, row),
       })
     } else if (row.field_name === 'linked' && value === 'true') {
@@ -858,7 +984,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'manifestos-linked',
         at,
-        title: `Manifestos vinculados à escala de ${port}`,
+        title: `Manifestos vinculados · ${port}`,
         detail: appendActor('ESCALA = SIM', row),
       })
     } else if (row.field_name === 'ces' && value) {
@@ -866,15 +992,15 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'ce-status',
         at,
-        title: `Status de CE de ${port} alterado`,
-        detail: appendActor(oldValue ? `${formatTimelineCeStatus(oldValue)} -> ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row),
+        title: `CE atualizado · ${port}`,
+        detail: appendActor(oldValue ? `${formatTimelineCeStatus(oldValue)} → ${formatTimelineCeStatus(value)}` : formatTimelineCeStatus(value), row),
       })
     } else if (row.field_name === 'rtw' && value) {
       events.push({
         id: `sched-${index}`,
         kind: 'restow',
         at,
-        title: `Restow de ${port} registrado`,
+        title: `Restow registrado · ${port}`,
         detail: appendActor(`RTW ${value}`, row),
       })
     } else if (row.field_name === 'deleted' && value === 'false') {
@@ -882,7 +1008,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'pod-added',
         at,
-        title: `Escala de ${port} adicionada ao planejamento`,
+        title: `Escala adicionada ao planejamento · ${port}`,
         detail: appendActor('POD ativo', row),
       })
     } else if (row.field_name === 'deleted' && value === 'true') {
@@ -890,7 +1016,7 @@ function buildScheduleTimeline(
         id: `sched-${index}`,
         kind: 'pod-removed',
         at,
-        title: `Escala de ${port} removida do planejamento`,
+        title: `Escala removida do planejamento · ${port}`,
         detail: appendActor('Planejamento removido', row),
       })
     }
@@ -904,7 +1030,7 @@ function buildVoyageCompletionTimeline(
 ): VoyageTimelineEvent[] {
   if (voyageStatus !== 'completed') return []
   const latestAtd = events
-    .filter((event) => event.kind === 'escala-date' && event.title.startsWith('ATD de '))
+    .filter((event) => event.kind === 'escala-date' && event.title.startsWith('ATD '))
     .map((event) => event.at)
     .sort((left, right) => (left < right ? 1 : left > right ? -1 : 0))[0]
   if (!latestAtd) return []

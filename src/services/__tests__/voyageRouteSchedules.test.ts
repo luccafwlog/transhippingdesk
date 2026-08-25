@@ -76,6 +76,51 @@ describe('projectVoyageEscalaSchedules', () => {
     })])
   })
 
+  it('mantem aguardando no POD quando a exportacao tem status proprio', () => {
+    const [escala] = projectVoyageEscalaSchedules({
+      podSchedules: [{
+        entityId: '12::BRVIX',
+        voyageId: 12,
+        pod: 'BRVIX',
+        eta: '2026-08-26',
+        etb: null,
+        ata: null,
+        atb: null,
+        etd: null,
+        atd: null,
+        rtw: null,
+        ceStatus: null,
+        linked: null,
+        escalaNumber: null,
+        temImportacao: true,
+        deleted: false,
+        omitted: false,
+      }],
+      exportSchedulesByPort: new Map([
+        ['BRVIX', {
+          id: 'export-1',
+          voyageId: 12,
+          pol: 'BRVIX',
+          temExportacao: true,
+          hasGranite: false,
+          hasEmpty: true,
+          containersQty: 12,
+          movementsQty: 12,
+          ceStatus: 'received',
+          linked: false,
+        }],
+      ]),
+    })
+
+    expect(escala).toMatchObject({
+      ceStatus: null,
+      podCeStatus: null,
+      exportCeStatus: 'received',
+      temImportacao: true,
+      temExportacao: true,
+    })
+  })
+
   it('projeta escala brasileira com somente linha POL', () => {
     const escalas = projectVoyageEscalaSchedules({
       polSchedules: [{
@@ -709,4 +754,36 @@ it('grava audit rows de ATB e ETD por POD', async () => {
       justification: 'Atualizacao manual de ETD por POD',
     }),
   ]))
+})
+
+it('não grava CE aguardando ao salvar uma escala sem status de CE anterior', async () => {
+  const insertMock = vi.fn(async () => ({ error: null }))
+  const auditLogs = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        in: vi.fn(() => ({
+          order: vi.fn(() => ({ range: vi.fn(async () => ({ data: [], error: null })) })),
+        })),
+      })),
+    })),
+    insert: insertMock,
+  }
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'voyage_export_schedules' || table === 'voyage_escala_terminal_state') {
+      return { select: vi.fn(() => ({ in: vi.fn(async () => ({ data: [], error: null })) })) }
+    }
+    return auditLogs
+  })
+
+  await saveVoyagePodSchedule({
+    voyageId: 12,
+    pod: 'BRSSZ',
+    eta: null,
+    ata: null,
+    ceStatus: 'waiting',
+    linked: null,
+    changedBy: 'user-1',
+  })
+
+  expect(insertMock).not.toHaveBeenCalled()
 })

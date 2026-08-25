@@ -351,7 +351,12 @@ export function projectVoyageEscalaSchedules({
     escala.dischargePorts = exportSchedule.dischargePorts ?? []
     escala.containersQty = exportSchedule.containersQty
     escala.movementsQty = exportSchedule.movementsQty
-    mergeEscalaField(escala, 'ceStatus', exportSchedule.ceStatus, 'export', podValues?.ceStatus ?? null)
+    // A escala com importação tem o status de BLs/CEs do POD. O status da
+    // exportação continua separado para consumidores da operação de embarque;
+    // não pode preencher a coluna comum da escala e parecer um CE recebido.
+    if (exportSchedule.temExportacao && !escala.temImportacao) {
+      mergeEscalaField(escala, 'ceStatus', exportSchedule.ceStatus, 'export', podValues?.ceStatus ?? null)
+    }
     mergeEscalaField(escala, 'linked', exportSchedule.linked, 'export', podValues?.linked ?? null)
   }
 
@@ -944,6 +949,10 @@ function makeAuditRow(
   const normalizedNewValue = normalizeDateValue(newValue)
 
   if (normalizedOldValue === normalizedNewValue) return null
+  // "Aguardando" é o estado inicial do editor, não uma alteração feita pelo
+  // operador. Não polua a linha do tempo quando uma escala ainda sem CE for
+  // apenas aberta e salva.
+  if (fieldName === 'ces' && normalizedOldValue === null && normalizedNewValue === 'waiting') return null
 
   return {
     entity_type: entityType,

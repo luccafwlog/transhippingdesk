@@ -133,7 +133,10 @@ export function VoyageVisaoTab({
       temImportacao: row?.temImportacao ?? false,
       eta: row?.eta ?? null,
       ata: row?.ata ?? null,
-      ceStatus: (row?.podCeStatus ?? row?.ceStatus ?? null) as EscalaModalData['ceStatus'],
+      // Em uma escala com importação, o campo editável é exclusivamente o
+      // status do POD. `row.ceStatus` pode carregar o status da exportação em
+      // payloads legados e não pode reabrir o modal como se fosse um CE recebido.
+      ceStatus: (row?.temImportacao ? row.podCeStatus : row?.ceStatus ?? null) as EscalaModalData['ceStatus'],
       linked: row?.linked ?? null,
       escalaNumber: row?.escalaNumber ?? null,
       exportExistingId: exportSchedule?.id ?? null,
@@ -234,7 +237,14 @@ export function VoyageVisaoTab({
             <tbody>
               {escalaRows.length ? (
                 escalaRows.map((row) => {
-                  const atracacoes = row.atracacoes ?? []
+                  const atracacoes = (row.atracacoes ?? []).filter((atracacao) => Boolean(
+                    atracacao.terminalId
+                    || atracacao.etb
+                    || atracacao.atb
+                    || atracacao.etd
+                    || atracacao.atd
+                    || atracacao.rtw !== null && atracacao.rtw !== undefined,
+                  ))
                   return (
                     <Fragment key={`${voyage.id}-scale-${row.port}`}>
                     <tr key={`${voyage.id}-lineup-${row.port}`}>
