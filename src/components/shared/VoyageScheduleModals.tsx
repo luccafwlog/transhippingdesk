@@ -10,6 +10,7 @@ import {
   type EditableVoyagePodCeStatus,
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
+import { formatDate } from '../../lib/utils'
 import { normalizePortCode } from '../../services/portCode'
 import { normalizeDischargePorts } from '../../services/voyageExportSchedules'
 import type {
@@ -542,12 +543,29 @@ export function EscalaModal({
   const [touchedTerminalDates, setTouchedTerminalDates] = useState<Set<string>>(() => new Set())
 
   const terminalScale = escala?.terminalScale ?? null
-  const derivedTerminalAtd = terminalScale && terminalScale.terminals.length > 0 && terminalScale.terminals.every((terminal) => terminal.atd)
-    ? terminalScale.terminals
-      .filter((terminal) => terminal.atd)
-      .sort((left, right) => (left.atd ?? '').localeCompare(right.atd ?? ''))
-      .at(-1)?.atd ?? null
+  // O ATD da Escala e derivado: existe so quando toda Atracacao desatracou, e
+  // e o mais recente entre elas. Sem dizer de onde veio (ou o que falta), o
+  // operador procura um campo ATD da Escala que nao existe mais.
+  const atracacoesDoModal = terminalScale?.terminals ?? []
+  const atracacaoLabel = (terminal: { terminalId: string | null; terminalCode?: string | null }) =>
+    terminal.terminalCode ?? terminal.terminalId ?? 'TBC'
+  const atracacoesSemAtd = atracacoesDoModal.filter((terminal) => !terminal.atd)
+  const ultimaAtracacaoComAtd = atracacoesDoModal.length > 0 && atracacoesSemAtd.length === 0
+    ? [...atracacoesDoModal].sort((left, right) => (left.atd ?? '').localeCompare(right.atd ?? '')).at(-1) ?? null
     : null
+  const derivedTerminalAtd = ultimaAtracacaoComAtd?.atd ?? null
+  // A lista de Atracacoes chega vazia enquanto carrega e quando a leitura
+  // falha; afirmar "nenhuma registrada" nesses estados mente sobre uma escala
+  // que pode ter Atracacoes.
+  const derivedTerminalAtdHint = terminalScale?.loading
+    ? 'Carregando as Atracações desta escala…'
+    : terminalScale?.error
+      ? 'Não foi possível ler as Atracações desta escala.'
+      : ultimaAtracacaoComAtd
+        ? `Derivado da última Atracação — ${atracacaoLabel(ultimaAtracacaoComAtd)}.`
+        : atracacoesDoModal.length === 0
+          ? 'Nasce das Atracações: nenhuma registrada nesta escala ainda.'
+          : `Aguardando o ATD de ${atracacoesSemAtd.map(atracacaoLabel).join(', ')}.`
   const terminalScaleSourceKey = terminalScale
     ? [
         terminalScale.loading ? 'loading' : 'ready',
@@ -879,8 +897,8 @@ export function EscalaModal({
               <Field label="ATA">
               <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
               </Field>
-              <Field label="ATD derivado">
-              <Input value={derivedTerminalAtd ?? 'Aguardando o ATD de todas as Atracações'} readOnly aria-readonly="true" />
+              <Field label="ATD derivado" hint={derivedTerminalAtdHint}>
+              <Input value={derivedTerminalAtd ? formatDate(derivedTerminalAtd) : '—'} readOnly aria-readonly="true" aria-label="ATD derivado" />
               </Field>
             </div>
           </section>

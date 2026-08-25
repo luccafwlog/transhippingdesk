@@ -168,19 +168,29 @@ export function projectLineUpTerminalDates({
   direction: LineUpTerminalFront['sentido']
 }) {
   const assignedIds = new Set(fronts.filter((front) => front.sentido === direction && front.terminalId).map((front) => front.terminalId as string))
-  const first = sortAtracacoes(terminalStates
-    .filter((state) => state.terminalId && assignedIds.has(state.terminalId))
+  const assignedStates = terminalStates.filter((state) => state.terminalId && assignedIds.has(state.terminalId))
+  const first = sortAtracacoes(assignedStates
     .map((state) => ({ terminalId: state.terminalId, etb: state.terminalEtb ?? null, atb: state.terminalAtb ?? null })))
     .at(0)
   const state = first?.terminalId
     ? terminalStates.find((candidate) => candidate.terminalId === first.terminalId)
     : undefined
-  const restow = terminalStates
-    .filter((candidate) => candidate.terminalId && assignedIds.has(candidate.terminalId))
+  const restow = assignedStates
     .reduce((total, candidate) => total + (candidate.terminalRtw ?? 0), 0)
+  // A linha e do grao (escala, sentido): a sua saida e a da ultima Atracacao
+  // que hospeda uma frente deste sentido, e so existe quando todas elas
+  // desatracaram. Sem terminal atribuido nao ha o que derivar aqui e o
+  // chamador recai no ATD derivado da Escala.
+  const atd = assignedStates.length > 0 && assignedStates.every((candidate) => candidate.terminalAtd)
+    ? assignedStates.reduce<string | null>((latest, candidate) => (
+      latest === null || (candidate.terminalAtd ?? '') > latest ? candidate.terminalAtd ?? latest : latest
+    ), null)
+    : null
   return {
     etb: state?.terminalEtb ?? null,
     atb: state?.terminalAtb ?? null,
+    atd,
+    hasAssignedTerminal: assignedStates.length > 0,
     rtw: restow > 0 ? restow : null,
   }
 }
@@ -198,14 +208,18 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const voyageIds = voyages.map((voyage) => voyage.id)
   if (!voyageIds.length) return { rows: [], lastChangedAt: null }
 
+  // Uma unica leitura de `depots` alimenta o mapa de codigos daqui e a
+  // resolucao de codigo dentro das duas projecoes de Atracacao; sem
+  // compartilhar a promise seriam tres leituras por atualizacao do Line-Up.
+  const depotsPromise = listDepots()
   const [bls, vehicles, vaziosImportacaoMtyByVoyage, escalaSchedulesByVoyage, terminalStatesByVoyage, terminalFrontsByVoyage, depots] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
     fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
-    listVoyageEscalaSchedulesByVoyageIds(voyageIds),
-    listVoyageTerminalScaleStatesByVoyageIds(voyageIds),
+    listVoyageEscalaSchedulesByVoyageIds(voyageIds, depotsPromise),
+    listVoyageTerminalScaleStatesByVoyageIds(voyageIds, depotsPromise),
     fetchTerminalFrontsByVoyageIds(voyageIds),
-    listDepots(),
+    depotsPromise,
   ])
 
   const terminalCodes = new Map(
@@ -317,7 +331,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           pod,
           eta: schedule?.eta ?? null,
           etb: importDates.etb,
-          ...lineUpScheduleDates({ ata: schedule?.ata, atb: importDates.atb, atd: schedule?.atd }),
+          ...lineUpScheduleDates({ ata: schedule?.ata, atb: importDates.atb, atd: importDates.hasAssignedTerminal ? importDates.atd : schedule?.atd }),
           rowType: 'import',
           omitted: schedule?.omitted ?? false,
           importTerminal,
@@ -351,7 +365,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
           pod,
           eta: schedule?.eta ?? null,
           etb: exportDates.etb,
-          ...lineUpScheduleDates({ ata: schedule?.ata, atb: exportDates.atb, atd: schedule?.atd }),
+          ...lineUpScheduleDates({ ata: schedule?.ata, atb: exportDates.atb, atd: exportDates.hasAssignedTerminal ? exportDates.atd : schedule?.atd }),
           rowType: 'export',
           omitted: schedule?.omitted ?? false,
           importTerminal: 'TBC',

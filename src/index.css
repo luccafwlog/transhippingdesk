@@ -2423,6 +2423,15 @@ textarea {
 }
 
 .app-escala-terminal-date-row__name { align-self: center; color: var(--app-text-strong); font-size: 13px; font-weight: 700; }
+/* Campo derivado nao e campo editavel: sem a distincao, o operador clica no
+   ATD derivado esperando digitar. */
+.app-escala-section .app-input[readonly] {
+  background: var(--app-surface-muted);
+  border-style: dashed;
+  color: var(--app-muted);
+  cursor: default;
+}
+
 .app-escala-terminal-container { display: grid; }
 .app-escala-loading { color: var(--app-muted); font-size: 13px; }
 .app-escala-actions { margin: 0 -28px; }
@@ -3945,7 +3954,7 @@ textarea {
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  --lineup-display-columns: 20fr 5fr 7fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr;
+  --lineup-display-columns: 16fr 5fr 7fr 10fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr;
   --lineup-display-row-height: 78px;
 }
 
@@ -4050,6 +4059,15 @@ textarea {
 .app-lineup-display-board__cell--accent {
   color: #214b2f;
   font-weight: 900;
+}
+
+/* Codigo de terminal cortado no meio vira outro codigo: 'PORTMAC' lido como
+   'ORTMA'. Quebrar e sempre preferivel a truncar silenciosamente. */
+.app-lineup-display-board__cell--terminal {
+  white-space: normal;
+  overflow-wrap: break-word;
+  text-overflow: clip;
+  line-height: 1.05;
 }
 
 .app-lineup-display-board__cell--total {
@@ -5099,13 +5117,30 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+/* "Atracada" e um estado operacional lido de longe (parede de TV) e por quem
+   nao distingue verde. A cor sozinha nao basta — e ela ja significa outra
+   coisa na mesma linha (data real). A barra a esquerda e o sinal de forma. */
 .app-lineup-row--berthed > td:not(:nth-last-child(-n + 2)) {
   color: #16a34a;
+}
+
+.app-lineup-row--berthed > td:first-child {
+  box-shadow: inset 4px 0 0 #16a34a;
 }
 
 .app-lineup-display-board__row--berthed .app-lineup-display-board__cell:not(.app-lineup-display-board__cell--status),
 .app-lineup-card--berthed {
   color: #16a34a;
+}
+
+.app-lineup-display-board__row--berthed {
+  box-shadow: inset 6px 0 0 #16a34a;
+}
+
+/* Soma a barra a elevacao do cartao: sobrescrever box-shadow apagaria a
+   sombra base de .app-lineup-card e o cartao atracado ficaria plano. */
+.app-lineup-card--berthed {
+  box-shadow: inset 4px 0 0 #16a34a, 0 2px 10px rgba(21, 44, 82, 0.08);
 }
 
 .app-lineup-display-board__row--cycle-start {

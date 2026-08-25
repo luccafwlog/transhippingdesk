@@ -3,6 +3,16 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Revisão de Atracações e Terminais — correções:** a projeção de Atracações
+  passou a resolver o código do terminal (`depots.code`), que era sempre nulo:
+  o Planejamento por escala rotulava como `TBC` toda Atracação já atribuída e o
+  desempate da ordem derivada caía no UUID em vez do código. No Line-Up, Painel
+  e TV, a linha de cada sentido passou a usar o ATD das Atracações daquele
+  sentido — antes cruzava o ATB do terminal com o ATD derivado da Escala e
+  mantinha "atracada" um terminal que já havia desatracado. Escala nova nasce
+  com `tem_importacao = true`, coerente com o modo "Importação" que o modal já
+  exibia (antes gravava `false`). O campo ATD derivado passou a mostrar a data
+  formatada e a nomear a Atracação de origem ou o terminal que falta.
 - **PR #579 — datas de Escala e Atracação por terminal:** a projeção passou a
   manter ETA/ATA na Escala e ETB/ATB/ETD/ATD/Restow por Atracação, com ATD da
   Escala derivado apenas quando todas as Atracações concluíram. O modal, Visão

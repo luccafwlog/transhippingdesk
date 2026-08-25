@@ -9,7 +9,9 @@ import { isCycleStartRow } from '../lib/lineupCycle'
 const DISPLAY_VISIBLE_ROWS = 8
 const DISPLAY_MIN_ROW_HEIGHT = 74
 const DISPLAY_ROW_TRAVEL_MS = 3000
-const DISPLAY_GRID_TEMPLATE = '20fr 5fr 7fr 6fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr'
+// A coluna Terminal passou a carregar codigo de terminal (PORTMAC) e ate dois
+// codigos separados por ' / '. Com 6fr ela cortava 'PORTMAC' para 'ORTMA'.
+const DISPLAY_GRID_TEMPLATE = '16fr 5fr 7fr 10fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr'
 const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'Terminal', 'ETA', 'ETB', 'VIN', 'VIN CNTR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
 const isTouchDevice = () => {
@@ -255,7 +257,7 @@ export function LineUpTVDisplay() {
                           {row.omitted ? <OmittedChip /> : null}
                         </div>
                       </div>
-                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent">{row.rowType === 'export' ? row.exportTerminal : row.importTerminal}</div>
+                      <div className="app-lineup-display-board__cell app-lineup-display-board__cell--accent app-lineup-display-board__cell--terminal">{row.rowType === 'export' ? row.exportTerminal : row.importTerminal}</div>
                       <div className={`app-lineup-display-board__cell ${arrival.isActual ? 'text-green-600' : ''}`}>{formatShortDate(arrival.value)}</div>
                       <div className="app-lineup-display-board__cell">{formatShortDate(row.etb)}</div>
                       {row.rowType === 'export' ? (

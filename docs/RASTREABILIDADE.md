@@ -44,9 +44,14 @@ Esta entrega separa os donos das datas sem criar uma tabela `port_calls`:
   `voyageRouteSchedules.ts`, `escalaTerminalAllocation.ts`, `voyageForm.ts` e
   `voyageFromSchedule.ts` projetam e gravam ETA/ATA na Escala e ETB/ATB/ETD/
   ATD/Restow nas Atracações, inclusive a linha TBC.
+  `listVoyageTerminalScaleStatesByVoyageIds` resolve `terminal_id` em
+  `depots.code`: o código é o rótulo da Atracação no planejamento e o critério
+  de desempate da ordem derivada.
 - `/painel` e `/line-up-tv/display`: `lineup.ts` e `escalaState.ts` consomem a
   mesma ordenação `COALESCE(ATB, ETB)` por terminal e derivam as datas do
-  primeiro terminal de cada sentido.
+  primeiro terminal de cada sentido. O ATD da linha é o das Atracações daquele
+  sentido — só existe quando todas desatracaram — e recai no ATD derivado da
+  Escala quando o sentido não tem terminal atribuído.
 - `/viagens/:voyageId?tab=adr&escala=...`: `agencyDepartureReport.ts`,
   `VoyageAgencyReportTab.tsx`, `AgencyReportDocument.tsx` e
   `AgencyReportTimeline.tsx` usam ATB/ATD/Restow da Atracação escolhida, com

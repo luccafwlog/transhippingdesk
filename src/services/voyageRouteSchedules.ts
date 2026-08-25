@@ -196,7 +196,10 @@ export async function listVoyagePodSchedulesByVoyageIds(voyageIds: number[]) {
   return hydratePodSchedules(data)
 }
 
-export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) {
+export async function listVoyageEscalaSchedulesByVoyageIds(
+  voyageIds: number[],
+  terminalCodeSource?: TerminalCodeSource,
+) {
   const result = new Map<number, VoyageEscalaSchedule[]>()
   if (!voyageIds.length) return result
 
@@ -204,7 +207,7 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
     listScheduleAuditRowsByVoyageIds(POD_ENTITY_TYPE, voyageIds),
     listScheduleAuditRowsByVoyageIds(POL_ENTITY_TYPE, voyageIds),
     fetchExportSchedulesByVoyageIds(voyageIds),
-    listVoyageTerminalScaleStatesByVoyageIds(voyageIds).catch((error: unknown) => {
+    listVoyageTerminalScaleStatesByVoyageIds(voyageIds, terminalCodeSource).catch((error: unknown) => {
       if (isMissingTerminalScheduleColumnError(error)) return new Map<number, VoyageTerminalScaleState[]>()
       throw error
     }),
@@ -225,8 +228,19 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
   return result
 }
 
+/**
+ * Depots que o chamador ja esta lendo por outro motivo. Passar essa fonte evita
+ * uma releitura de `depots` so para resolver o codigo do terminal.
+ */
+export type TerminalCodeSource =
+  | ReadonlyArray<{ id: string; code: string | null }>
+  | Promise<ReadonlyArray<{ id: string; code: string | null }>>
+
 /** Leitura compartilhada para timeline e superfícies operacionais futuras. */
-export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number[]) {
+export async function listVoyageTerminalScaleStatesByVoyageIds(
+  voyageIds: number[],
+  terminalCodeSource?: TerminalCodeSource,
+) {
   const result = new Map<number, VoyageTerminalScaleState[]>()
   if (!voyageIds.length) return result
 
@@ -248,7 +262,7 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
         voyageId: row.voyage_id,
         port: row.port,
         terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
-        terminalCode: null,
+        terminalCode: null, // preenchido por hydrateTerminalCodes abaixo.
         terminalEtb: typeof row.terminal_etb === 'string' ? row.terminal_etb : null,
         terminalAtb: typeof row.terminal_atb === 'string' ? row.terminal_atb : null,
         terminalEtd: typeof row.terminal_etd === 'string' ? row.terminal_etd : null,
@@ -259,6 +273,11 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
       result.set(row.voyage_id, states)
     }
   }
+  // O codigo do terminal e o rotulo da Atracacao (planejamento, ADR) e o
+  // criterio de desempate da ordem derivada; sem ele toda Atracacao com
+  // terminal atribuido se apresentaria como TBC e a ordem cairia no UUID.
+  await hydrateTerminalCodes(result, terminalCodeSource)
+
   for (const states of result.values()) {
     states.sort((left, right) => compareAtracacoes(
       { terminalId: left.terminalId, terminalCode: left.terminalCode, etb: left.terminalEtb, atb: left.terminalAtb },
@@ -266,6 +285,56 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
     ))
   }
   return result
+}
+
+/** Resolve `terminal_id` -> codigo do terminal em uma unica leitura de depots. */
+async function hydrateTerminalCodes(
+  statesByVoyage: Map<number, VoyageTerminalScaleState[]>,
+  terminalCodeSource?: TerminalCodeSource,
+) {
+  const terminalIds = [...new Set(
+    [...statesByVoyage.values()].flatMap((states) => states.flatMap((state) => state.terminalId ? [state.terminalId] : [])),
+  )]
+  if (!terminalIds.length) return
+
+  if (terminalCodeSource) {
+    const depots = await terminalCodeSource
+    applyTerminalCodes(statesByVoyage, new Map(
+      depots.flatMap((depot) => (depot.id && depot.code ? [[String(depot.id), depot.code.trim()]] as const : [])),
+    ))
+    return
+  }
+
+  type DepotCodeQuery = {
+    select: (columns: string) => DepotCodeQuery
+    in: (column: string, values: string[]) => DepotCodeQuery
+    then: Promise<{ data: unknown; error: unknown | null }>['then']
+  }
+  const codeById = new Map<string, string>()
+  for (const chunk of chunkArray(terminalIds, 100)) {
+    const { data, error } = await (supabase.from as unknown as (table: string) => DepotCodeQuery)('depots')
+      .select('id, code')
+      .in('id', chunk)
+    if (error) throw error
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const id = row.id == null ? '' : String(row.id)
+      const code = typeof row.code === 'string' ? row.code.trim() : ''
+      if (id && code) codeById.set(id, code)
+    }
+  }
+
+  applyTerminalCodes(statesByVoyage, codeById)
+}
+
+function applyTerminalCodes(
+  statesByVoyage: Map<number, VoyageTerminalScaleState[]>,
+  codeById: Map<string, string>,
+) {
+  for (const states of statesByVoyage.values()) {
+    for (const state of states) {
+      if (state.terminalId) state.terminalCode = codeById.get(state.terminalId) ?? null
+    }
+  }
 }
 
 export function projectVoyageEscalaSchedules({
