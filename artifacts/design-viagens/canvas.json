@@ -39,7 +39,7 @@
       "x": -620,
       "y": 0,
       "w": 520,
-      "text": "/viagens — três direções para escolher\n\nTodas usam os tokens reais do app (src/index.css, tema current): creme #f4f1ea com trama de pontos, navy #152238, dourado #d4882e, Syne no display e DM Sans no corpo, raio 8px, bordas 1.5px, thead navy.\n\nO que as três resolvem, vindo do código de hoje:\n\n1. Antes de ver qualquer viagem, a página gasta ~425px de altura (cabeçalho + painel de filtros + rail).\n2. Os quatro DirectionKpiTile empilham até oito pares label/valor a 12px, sem nenhum número dominante.\n3. As abas do VoyageCard usam sublinhado próprio em vez do .app-tab (navy + risco dourado) do resto do app.\n\nDados de amostra — nomes, datas e números são plausíveis, não reais."
+      "text": "/viagens — três direções para escolher\n\nTodas usam os tokens reais do app (src/index.css, tema current): creme #f4f1ea com trama de pontos, navy #152238, dourado #d4882e, Syne no display e DM Sans no corpo, raio 8px, bordas 1.5px, thead navy.\n\nO que as três resolvem, vindo do código de hoje:\n\n1. Antes de ver qualquer viagem, a página gasta ~445px de altura: 115px de cabeçalho, 165px do painel de filtros e 165px do rail — somados a partir do CSS real (.page-header, .app-filter-bar, min-h-[134px] do card do rail).\n2. Os quatro DirectionKpiTile empilham até oito pares label/valor a 12px, sem nenhum número dominante.\n3. As abas do VoyageCard usam sublinhado próprio em vez do .app-tab (navy + risco dourado) do resto do app.\n\nDados de amostra — nomes, datas e números são plausíveis, não reais."
     },
     {
       "id": "nota-a",
