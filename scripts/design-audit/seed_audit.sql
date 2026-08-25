@@ -26,8 +26,8 @@ on conflict do nothing;
 select setval('vessels_id_seq', 20);
 
 insert into public.voyages (id, vessel_id, voyage_number, pol_id, pod_id, etd, eta, status) values
-  (10, 10, '088E', (select id from ports where locode='CNSHA'), (select id from ports where locode='BRSSZ'), now() - interval '32 days', now() - interval '2 days', 'active'),
-  (11, 11, '012S', 10, (select id from ports where locode='BRSSZ'), now() - interval '75 days', now() - interval '41 days', 'completed');
+  (10, 10, '088E', (select id from ports where locode='CNSHA' order by id limit 1), (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '32 days', now() - interval '2 days', 'active'),
+  (11, 11, '012S', 10, (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '75 days', now() - interval '41 days', 'completed');
 select setval('voyages_id_seq', 20);
 
 insert into public.customers (id, cnpj_cpf, name, trade_name, city, state) values
@@ -155,9 +155,59 @@ insert into public.alerts (type, entity_type, entity_id, message, status) values
   ('billing','invoice','FAT-2026-0016','Fatura FAT-2026-0016 vencida há 4 dias sem pagamento registrado.','open'),
   ('review','bl','COSU6401234505','B/L COSU6401234505 sem cliente vinculado após importação do manifesto.','acknowledged');
 
-insert into public.voyage_export_schedules (voyage_id, has_granite, containers_qty, movements_qty, eta, etb, ce_status, linked, pol) values
-  (10, false, 13, 26, current_date - 2, current_date - 1, 'launching', true, 'CNSHA'),
-  (11, false, 3, 6, current_date - 41, current_date - 40, 'approved', true, 'CNNGB'),
-  (1, false, 0, 0, current_date + 5, current_date + 6, 'waiting', true, 'CNSHA');
+-- ETA/ETB sairam de voyage_export_schedules quando a Escala passou a ser dona
+-- da chegada ao porto e a Atracacao das datas de berco.
+insert into public.voyage_export_schedules (voyage_id, has_granite, containers_qty, movements_qty, tem_exportacao, ce_status, linked, pol) values
+  (10, false, 13, 26, true, 'launching', true, 'BRVIX'),
+  (11, false, 3, 6, true, 'approved', true, 'CNNGB'),
+  (1, false, 0, 0, false, 'waiting', true, 'CNSHA');
+
+-- ---------------------------------------------------------------------------
+-- Escala BRVIX da viagem 10 com DUAS Atracacoes (TVV e PORTMAC).
+-- Reproduz o cenario que a revisao de Atracacoes usa: o TVV ja desatracou,
+-- a Portmac nao — entao o ATD derivado da Escala ainda nao existe.
+-- ---------------------------------------------------------------------------
+
+insert into public.depots (id, code, name, tipo, port_id, active, free_time_vazio_days, free_time_material_days) values
+  ('d0000000-0000-4000-8000-000000000001','TVV','Terminal de Vila Velha','terminal_portuario', 10, true, 0, 0),
+  ('d0000000-0000-4000-8000-000000000002','PORTMAC','Porto de Praia Mole','terminal_portuario', 10, true, 0, 0),
+  ('d0000000-0000-4000-8000-000000000003','FLUMAR','Depot Flumar','depot', null, true, 7, 5)
+on conflict do nothing;
+
+-- A Escala e dona de ETA e ATA, gravadas na trilha de auditoria.
+insert into public.audit_logs (entity_type, entity_id, field_name, old_value, new_value, changed_by, changed_at) values
+  ('voyage_pod_schedule','10::BRVIX','eta',  null, to_char(current_date - 6, 'YYYY-MM-DD'), 'a0000000-0000-4000-8000-000000000001', now() - interval '9 days'),
+  ('voyage_pod_schedule','10::BRVIX','ata',  null, to_char(current_date - 6, 'YYYY-MM-DD'), 'a0000000-0000-4000-8000-000000000001', now() - interval '6 days'),
+  ('voyage_pod_schedule','10::BRVIX','ces',  null, 'launching', 'a0000000-0000-4000-8000-000000000001', now() - interval '6 days'),
+  ('voyage_pod_schedule','10::BRVIX','linked', null, 'true', 'a0000000-0000-4000-8000-000000000001', now() - interval '6 days'),
+  ('voyage_pod_schedule','10::BRVIX','escala_number', null, '2026/000481', 'a0000000-0000-4000-8000-000000000001', now() - interval '6 days'),
+  ('voyage_pod_schedule','10::BRVIX','tem_importacao', null, 'true', 'a0000000-0000-4000-8000-000000000001', now() - interval '9 days');
+
+insert into public.voyage_escala_revision_state (voyage_id, port, port_id, revision)
+values (10, 'BRVIX', 10, 3)
+on conflict do nothing;
+
+-- Atracacoes: uma por terminal. A ordem nunca e digitada — deriva de
+-- COALESCE(ATB, ETB), com empate desfeito pelo codigo do terminal.
+insert into public.voyage_escala_terminal_state
+  (voyage_id, port, port_id, terminal_id, terminal_etb, terminal_atb, terminal_etd, terminal_atd, terminal_rtw, revision) values
+  (10, 'BRVIX', 10, 'd0000000-0000-4000-8000-000000000001', current_date - 5, current_date - 5, current_date - 3, current_date - 2, 4, 3),
+  (10, 'BRVIX', 10, 'd0000000-0000-4000-8000-000000000002', current_date - 3, current_date - 2, current_date + 1, null, null, 3)
+on conflict do nothing;
+
+-- Frentes: varias frentes no mesmo terminal dividem um ADR.
+insert into public.voyage_escala_operation_fronts
+  (voyage_id, port, port_id, sentido, modalidade, terminal_id, source, revision) values
+  (10, 'BRVIX', 10, 'importacao', 'carga_cheia', 'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', 10, 'importacao', 'vazio',       'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', 10, 'importacao', 'veiculo',     'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', 10, 'exportacao', 'vazio',       'd0000000-0000-4000-8000-000000000002', 'export_declaration', 3)
+on conflict do nothing;
+
+-- Um ADR por terminal, com fechamento independente.
+insert into public.agency_departure_reports (voyage_id, port, terminal, terminal_id, terminal_port_id, status) values
+  (10, 'BRVIX', 'Terminal de Vila Velha', 'd0000000-0000-4000-8000-000000000001', 10, 'open'),
+  (10, 'BRVIX', 'Porto de Praia Mole',    'd0000000-0000-4000-8000-000000000002', 10, 'open')
+on conflict do nothing;
 
 commit;

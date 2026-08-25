@@ -891,7 +891,7 @@ export function EscalaModal({
               <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
               </Field>
               <Field label="ATD derivado" hint={derivedTerminalAtdHint}>
-              <Input value={derivedTerminalAtd ? formatDate(derivedTerminalAtd) : 'Aguardando o ATD de todas as Atracações'} readOnly aria-readonly="true" aria-label="ATD derivado" />
+              <Input value={derivedTerminalAtd ? formatDate(derivedTerminalAtd) : '—'} readOnly aria-readonly="true" aria-label="ATD derivado" />
               </Field>
             </div>
           </section>

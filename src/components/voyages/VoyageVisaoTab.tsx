@@ -315,7 +315,7 @@ export function VoyageVisaoTab({
                                 <span>ATB {formatDate(atracacao.atb)}</span>
                                 <span>ETD {formatDate(atracacao.etd)}</span>
                                 <span>ATD {formatDate(atracacao.atd)}</span>
-                                <span>Restow {atracacao.rtw ?? 0}</span>
+                                <span>Restow {atracacao.rtw ?? '—'}</span>
                               </div>
                             ))}
                           </div>

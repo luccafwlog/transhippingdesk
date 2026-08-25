@@ -10,6 +10,82 @@ do BCB bloqueados pelo proxy de egress, websockets realtime falham contra o
 shim. Consoles limpos em todas as rotas visitadas (apenas PTAX bloqueado);
 nenhuma falha silenciosa de query no log do shim. **Runtime**.
 
+## Auditoria focalizada — Atracações e Terminais (2026-08-25)
+
+- **Commit base:** `9733a71`
+- **Método:** app real bootada contra o stack local (Postgres 16 + `bootstrap.sql` +
+  **345 migrations aplicadas limpas** + `validation_seed.sql` + `seed_audit.sql` +
+  `sb-shim.cjs`), navegada via Playwright em 1440×900 e 390×844. Login
+  `auditor@local.test` (admin).
+- **Escopo:** as superfícies tocadas pela fragmentação Escala → Atracação →
+  Terminal: `/painel`, `/line-up-tv/display`, `/viagens/:id` (Planejamento por
+  escala e modal de escala), `/alertas`, mais varredura das demais rotas em busca
+  de erro de console e falha silenciosa de query.
+- **Cenário exercitado:** escala BRVIX da viagem 10 com **duas Atracações** — TVV
+  (ATB 20/08, ATD 23/08, já desatracou) e PORTMAC (ATB 23/08, sem ATD). É o
+  cenário em que Escala e Atracação divergem, e onde os defeitos aparecem.
+
+### Preparação do stack (tooling, não produto)
+
+O seed da auditoria não exercitava terminais e estava defasado do schema:
+
+| Item | Correção |
+|---|---|
+| `seed_audit.sql` inseria `voyage_export_schedules.eta`/`etb`, colunas removidas quando a Escala passou a ser dona da chegada e a Atracação das datas de berço | Insert atualizado para o schema vigente (`tem_exportacao`) |
+| Subselects `(select id from ports where locode='BRSSZ')` quebravam com LOCODE duplicado | `order by id limit 1`, mesmo desempate que a RPC usa |
+| Nenhum terminal, Atracação, frente ou ADR no seed — a área nunca foi auditada | Bloco novo: depots TVV/PORTMAC, escala BRVIX, duas Atracações, quatro frentes e dois ADRs |
+| `sb-shim.cjs` devolvia `SETOF jsonb` embrulhado (`[{ list_alert_queue_page: {...} }]`) em vez de desembrulhar como o PostgREST real — `/alertas` quebrava na error boundary | Shim desembrulha retorno escalar em conjunto |
+
+**A quebra de `/alertas` era artefato do shim, não bug do produto**: `alerts.type` e
+`alert_items.item_type` são `NOT NULL`, então a linha malformada que derrubava
+`alertEntityLinkLabel` não existe com dado real. Nenhuma correção de produto foi
+feita por causa dela — registrado aqui para quem reencontrar o sintoma.
+
+### Corrigido nesta auditoria
+
+| # | Problema | Eixo | Fix | Evidência |
+|---|---|---|---|---|
+| 1 | **Código de terminal cortado na TV vira outro código.** A coluna Terminal do painel de TV tinha 6fr (~80px) e `PORTMAC` precisa de 117px. Com `overflow: hidden` + `text-align: center`, o Chromium corta simétrico e **sem reticências**: a parede exibia `ORTMA`, que não é terminal nenhum. Dois terminais no mesmo sentido (`TVV / PORTMAC`, 186px) cortariam bem pior. | Confiança | Coluna Terminal 6fr → 10fr (134px, cabe um código com folga) e quebra no separador em vez de corte silencioso (`--terminal`). O fallback CSS de `--lineup-display-columns`, parado em 14 valores para 15 colunas, foi alinhado. | [antes](assets/atracacao-tv-terminal-clipped.png) · [depois](assets/atracacao-tv-terminal-fixed.png) |
+| 2 | **"Atracada" só existia como cor, e a cor já significava outra coisa.** O estado vinha de `color: #16a34a` em `td:not(...)`, que perde para células com cor própria — numa linha atracada só *algumas* células ficavam verdes. Pior: verde já marca "esta data é a real" (ATA) na coluna ao lado. Sem pista não-cromática, falha o WCAG 1.4.1 e não se lê de longe na parede. | Entendimento | Barra verde à esquerda da linha (`box-shadow: inset`) nas três superfícies — tabela, painel de TV e card. Legenda do `/painel` passou a nomear o estado. | [`atracacao-tv-terminal-fixed.png`](assets/atracacao-tv-terminal-fixed.png) |
+| 3 | **`Restow 0` para restow ausente.** A linha de Atracações do Planejamento renderizava `{atracacao.rtw ?? 0}`: um terminal sem restow informado declarava zero restow. É exatamente o anti-padrão que o domínio nomeia — ausência de dado não é conclusão. | Confiança | `?? '—'`. | [`atracacao-planejamento.png`](assets/atracacao-planejamento.png) |
+| 4 | **Campo derivado com cara de campo editável.** O "ATD derivado" tinha borda e fundo idênticos aos inputs de ETA/ATA ao lado, convidando o operador a clicar e digitar num campo que o sistema calcula. | Entendimento | Fundo esmaecido e borda tracejada para `readonly` dentro do editor de escala; valor passa a ser `—` e a explicação vive na dica, sem duplicar a frase. | [`atracacao-escala-modal-fixed.png`](assets/atracacao-escala-modal-fixed.png) |
+
+### Verificado em runtime (correções da PR #586)
+
+As quatro correções da revisão de código foram confirmadas no app real, não só em teste:
+
+- **Código do terminal na projeção:** o Planejamento por escala lista `TVV` e
+  `PORTMAC` (antes, toda Atracação atribuída se apresentava como `TBC`).
+- **ATD por sentido:** com o TVV já desatracado e a PORTMAC não, a linha de
+  importação **não** é mais marcada como atracada e **sai do painel de TV**;
+  a de exportação permanece atracada. Confirmado por `className` no DOM:
+  a linha do TVV sem `--berthed`, a da PORTMAC com.
+- **ATD derivado:** o modal mostra `—` com a dica "Aguardando o ATD de PORTMAC."
+- **Escala nova:** cobertura de teste em `VoyageVisaoTab.atracacoes.test.tsx`.
+
+### Sem achado
+
+- **Rodapé fixo do modal de escala:** medido em 390×844 — o conteúdo rola por
+  baixo do rodapé `sticky` e o último bloco fica integralmente alcançável
+  (sobreposição de 2px, arredondamento de borda). Comportamento conforme a spec.
+- **Console e shim:** nenhum erro de produto e nenhuma falha silenciosa de query
+  em todas as rotas visitadas.
+- **Grade responsiva do modal:** colapsa para uma coluna em 390px sem overflow
+  horizontal do body.
+
+### Recomendação (não aplicada — fora do que a auditoria pode tocar)
+
+**`public.ports` não tem unicidade de LOCODE** — só PK em `id`. O stack local
+terminou com Santos em dois `id` (2 e 22), e foi isso que quebrou o seed. A RPC
+`save_voyage_escala_terminal_state` já se defende com `ORDER BY p.id LIMIT 1` e
+um advisory lock, mas isso protege apenas o caminho dela; nada impede a duplicata
+de entrar por seed, admin ou importação. O risco concreto para terminais: `depots`
+aponta para um `ports.id` específico, e o modal só oferece terminais cujo
+`port_id` bate com o da escala — com LOCODE duplicado, um terminal legítimo
+some do seletor ou é recusado pela FK composta `(terminal_id, port_id)`.
+Correção sugerida: índice único sobre `upper(btrim(locode))`, em migration
+própria com deduplicação prévia.
+
 ## Auditoria focalizada — revisão manual orientada a cliente (2026-08-20)
 
 - **Evidência inicial:** captura fornecida pelo usuário a partir de uma preview

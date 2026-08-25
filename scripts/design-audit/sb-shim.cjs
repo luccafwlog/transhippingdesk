@@ -354,7 +354,15 @@ async function handleRest(req, res, urlObj, claims) {
     if (typname === 'void') out = null
     else if (typtype === 'c' || proretset || r.fields.length > 1) {
       const rows = r.rows
-      out = proretset ? rows : (rows[0] ?? null)
+      // PostgREST desembrulha funcao que devolve escalar em conjunto
+      // (SETOF jsonb, SETOF text): o corpo e o proprio valor, nao um objeto
+      // com o nome da funcao como chave. Sem isto, list_alert_queue_page
+      // chega ao cliente como [{ list_alert_queue_page: {...} }] e a tela de
+      // alertas quebra ao ler `type` de um objeto que nao o tem.
+      const scalarSet = proretset && typtype !== 'c' && r.fields.length === 1
+      out = scalarSet
+        ? rows.map(row => row[r.fields[0].name])
+        : (proretset ? rows : (rows[0] ?? null))
     } else {
       out = r.rows.length ? r.rows[0][r.fields[0].name] : null
     }

@@ -100,7 +100,7 @@ describe('EscalaModal — ATD derivado', () => {
       { terminalId: 't-tvv', terminalCode: 'TVV', atd: '2026-08-29' },
       { terminalId: 't-portmac', terminalCode: 'PORTMAC', atd: null },
     ])
-    expect((screen.getByLabelText('ATD derivado') as HTMLInputElement).value).toBe('Aguardando o ATD de todas as Atracações')
+    expect((screen.getByLabelText('ATD derivado') as HTMLInputElement).value).toBe('—')
     expect(screen.getByText('Aguardando o ATD de PORTMAC.')).toBeTruthy()
   })
 })
