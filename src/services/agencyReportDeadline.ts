@@ -20,6 +20,19 @@ export type AgencyReportDeadlineInput = {
 }
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
+// O ATD do ADR passou a nascer da Atracacao, cuja coluna e TIMESTAMPTZ
+// (migration 306): chega como '2026-08-23T00:00:00+00:00', nao mais como a
+// string 'YYYY-MM-DD' da trilha de auditoria da Escala. Aceitar o sufixo de
+// hora e o que mantem o Prazo de Conclusao vivo; formatos ambiguos como
+// '08/03/2026' continuam recusados de proposito, porque em pt-BR eles nao
+// significam o mesmo que em en-US.
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/
+
+/** Reduz uma data ISO (com ou sem hora) ao seu 'YYYY-MM-DD'; null se nao for ISO. */
+function toIsoDateOnly(value: string): string | null {
+  const match = value.match(ISO_DATE_PATTERN)
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null
+}
 
 /**
  * Avanca `cursor` (mutado in-place) em UM dia de calendario e informa se o
@@ -43,10 +56,10 @@ function stepOneCalendarDayIsBusinessDay(cursor: Date): boolean {
  * Retorna null se `atd` nao estiver no formato YYYY-MM-DD.
  */
 export function calculateAgencyReportDeadlineDate(atd: string): string | null {
-  const match = atd.match(DATE_ONLY_PATTERN)
-  if (!match) return null
+  const dateOnly = toIsoDateOnly(atd)
+  if (!dateOnly) return null
 
-  const [, yearStr, monthStr, dayStr] = match
+  const [yearStr, monthStr, dayStr] = dateOnly.split('-')
   const year = Number(yearStr)
   const month = Number(monthStr)
   const day = Number(dayStr)
@@ -91,15 +104,15 @@ export function toDateOnly(value: string): string | null {
  * YYYY-MM-DD.
  */
 export function countBusinessDaysBetween(fromDateOnly: string, toDateOnlyValue: string): number | null {
-  const fromMatch = fromDateOnly.match(DATE_ONLY_PATTERN)
-  const toMatch = toDateOnlyValue.match(DATE_ONLY_PATTERN)
-  if (!fromMatch || !toMatch) return null
+  const fromIso = toIsoDateOnly(fromDateOnly)
+  const toIso = toIsoDateOnly(toDateOnlyValue)
+  if (!fromIso || !toIso) return null
 
-  const [, fromYear, fromMonth, fromDay] = fromMatch
+  const [fromYear, fromMonth, fromDay] = fromIso.split('-')
   const cursor = new Date(Date.UTC(Number(fromYear), Number(fromMonth) - 1, Number(fromDay)))
   if (Number.isNaN(cursor.getTime())) return null
 
-  const [, toYear, toMonth, toDay] = toMatch
+  const [toYear, toMonth, toDay] = toIso.split('-')
   const target = new Date(Date.UTC(Number(toYear), Number(toMonth) - 1, Number(toDay)))
   if (Number.isNaN(target.getTime())) return null
 

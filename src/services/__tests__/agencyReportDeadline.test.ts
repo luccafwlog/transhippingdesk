@@ -130,3 +130,42 @@ describe('countBusinessDaysBetween', () => {
     expect(countBusinessDaysBetween('2026-08-03', 'not-a-date')).toBeNull()
   })
 })
+
+// O ATD do ADR terminalizado nasce da Atracacao (TIMESTAMPTZ, migration 306) e
+// chega com sufixo de hora. Antes disto o prazo simplesmente nao existia: a
+// aba mostrava o ATD e, logo abaixo, "Aguardando a saída do navio."
+describe('ATD com componente de hora (Atracação, TIMESTAMPTZ)', () => {
+  it('calcula o prazo a partir de um ATD ISO com hora', () => {
+    expect(calculateAgencyReportDeadlineDate('2026-08-03T00:00:00+00:00')).toBe('2026-08-06')
+    expect(calculateAgencyReportDeadlineDate('2026-08-03T15:42:00Z')).toBe('2026-08-06')
+    expect(calculateAgencyReportDeadlineDate('2026-08-03 00:00:00+00')).toBe('2026-08-06')
+  })
+
+  it('deriva o estado de prazo com ATD ISO com hora', () => {
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03T00:00:00+00:00',
+        omitted: false,
+        signedAt: '2026-08-05T10:00:00Z',
+        now: '2026-08-05T10:00:00Z',
+      }),
+    ).toBe('on-time')
+    expect(
+      deriveAgencyReportDeadlineState({
+        atd: '2026-08-03T00:00:00+00:00',
+        omitted: false,
+        signedAt: '2026-08-10T10:00:00Z',
+        now: '2026-08-10T10:00:00Z',
+      }),
+    ).toBe('overdue')
+  })
+
+  it('conta dias úteis a partir de um ATD ISO com hora', () => {
+    expect(countBusinessDaysBetween('2026-08-03T00:00:00+00:00', '2026-08-06')).toBe(3)
+  })
+
+  it('continua recusando data ambígua em formato não-ISO', () => {
+    expect(calculateAgencyReportDeadlineDate('08/03/2026')).toBeNull()
+    expect(countBusinessDaysBetween('03/08/2026', '2026-08-06')).toBeNull()
+  })
+})
