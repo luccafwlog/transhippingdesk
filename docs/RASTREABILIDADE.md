@@ -33,6 +33,15 @@ exigem `depots.port_id`, enquanto o legado sem mapeamento permanece preservado.
 As evidências desta revisão são os testes de comportamento, o contrato SQL da
 migration 306 e a aplicação da migration em Postgres local descartável.
 
+No ADR terminalizado, as escritas por `report_id` usam as RPCs
+`set_agency_report_signoff_by_report_id`,
+`set_agency_report_department_signoff_by_report_id`,
+`set_agency_report_section_observation_by_report_id`,
+`close_agency_departure_report_by_report_id` e
+`reopen_agency_departure_report_by_report_id`. O snapshot fechado também
+congela `header.terminalScope`, distinguindo uma seção sem frente atribuída ao
+terminal de uma seção atribuída que recebeu a resolução “Nada a declarar”.
+
 ## Índice por rota e ação
 
 ### Entrega PR 579 — Escala e Atracação por terminal (2026-08-24)

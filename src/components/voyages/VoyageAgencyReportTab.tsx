@@ -493,6 +493,12 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       terminal: resolvedTerminalName ?? ownData?.terminal ?? null,
       terminalCode: resolvedTerminalCode,
       reportId: resolvedReportId,
+      terminalScope: resolvedReportId
+        ? Object.fromEntries(AGENCY_REPORT_SECTION_ORDER.map((section) => [
+            section,
+            { assigned: section === 'datas' || selectedSectionFronts(section).length > 0 },
+          ]))
+        : null,
       schedule: {
         ata: data?.escala?.ata ?? data?.schedule?.ata ?? null,
         atb: terminalAtb,

@@ -587,6 +587,30 @@ it("nao imprime faixa de seção sem dado e sem resolução", () => {
   expect(screen.queryByRole("heading", { name: "Matriz de descarga" })).toBeNull();
 });
 
+it("distingue seção fora do escopo do terminal de nada a declarar", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: {
+          carrierName: "Armador teste",
+          voyageLabel: "NAVIO TESTE / 01E",
+          port: "BRVIX",
+          terminalCode: "TVV",
+          terminalScope: { vazios_embarcados: { assigned: false } },
+          schedule: { ata: "2026-07-19", atb: "2026-07-19", atd: "2026-07-20", rtw: null },
+        },
+        sections: {},
+        signoffs: [{ section: "vazios_embarcados", state: "nothing_to_declare", signed_by: "u1", signed_at: "2026-07-21T10:00:00Z" }],
+      }}
+      actorNames={{ u1: "Ana Ribeiro" }}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Embarque de vazios" })).toBeTruthy();
+  expect(screen.getByText("Sem frente atribuída a este terminal")).toBeTruthy();
+  expect(screen.queryByText("Nada a declarar — Ana Ribeiro em 21/07/2026")).toBeNull();
+});
+
 it("imprime Restow vazio como travessao, nao como zero", () => {
   render(
     <AgencyReportDocument

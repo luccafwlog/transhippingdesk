@@ -30,7 +30,7 @@ select setval('vessels_id_seq', 20);
 
 insert into public.voyages (id, vessel_id, voyage_number, pol_id, pod_id, etd, eta, status) values
   (10, 10, '088E', (select id from ports where locode='CNSHA' order by id limit 1), (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '32 days', now() - interval '2 days', 'active'),
-  (11, 11, '012S', 10, (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '75 days', now() - interval '41 days', 'completed');
+  (11, 11, '012S', (select id from ports where locode='CNNGB' order by id limit 1), (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '75 days', now() - interval '41 days', 'completed');
 select setval('voyages_id_seq', 20);
 
 insert into public.customers (id, cnpj_cpf, name, trade_name, city, state) values

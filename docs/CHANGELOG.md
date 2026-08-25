@@ -16,6 +16,9 @@
   agregado de SLA. No impresso, faixa de seção sem dado e sem resolução deixou de
   sair como título solto e a barra do rótulo da viagem deixou de ir para o nome do
   arquivo. Restow ausente virou `—` na aba e no impresso.
+  O impresso agora distingue seção sem frente atribuída ao terminal de seção
+  atribuída com resolução "Nada a declarar"; o seed da auditoria resolve o POL
+  por LOCODE e os testes de RPC não compartilham estado entre casos.
 - **Revisão de Atracações e Terminais — correções:** a projeção de Atracações
   passou a resolver o código do terminal (`depots.code`), que era sempre nulo:
   o Planejamento por escala rotulava como `TBC` toda Atracação já atribuída e o

@@ -42,6 +42,7 @@ type Snapshot = {
     terminal?: string | null;
     terminalCode?: string | null;
     reportId?: string | null;
+    terminalScope?: Record<string, { assigned?: boolean }> | null;
     schedule?: {
       ata?: string | null;
       atb?: string | null;
@@ -324,6 +325,17 @@ function ResolutionLine({
   );
 }
 
+function TerminalScopeLine() {
+  return (
+    <p
+      className="agency-report-document__resolution"
+      style={{ fontSize: "11px", color: DOC_MUTED, margin: "6px 0 0" }}
+    >
+      <strong>Sem frente atribuída a este terminal</strong>
+    </p>
+  );
+}
+
 // Bloco sem dado não é impresso (hasData === false omite `children`); a
 // seção em si é sempre impressa, com a resolução (estado, autor, data) da
 // Task 5 do ADR 2026-07-31.
@@ -332,6 +344,7 @@ function Section({
   section,
   hasData = true,
   showResolution = true,
+  terminalScope,
   signoffs,
   actorNames,
   children,
@@ -344,6 +357,7 @@ function Section({
   // mesma resolução (estado + assinante + data) se repetiria em cada uma.
   // false = a resolução já apareceu num bloco anterior com a mesma `section`.
   showResolution?: boolean;
+  terminalScope?: { assigned?: boolean };
   signoffs?: SignoffRow[];
   actorNames?: Record<string, string>;
   children?: React.ReactNode;
@@ -353,13 +367,15 @@ function Section({
   // dizer: imprimir so a faixa deixa um titulo solto no documento. No ADR por
   // terminal isso deixou de ser raro — cada terminal responde por parte das
   // frentes, entao varias seções chegam vazias no impresso do outro.
-  if (!hasData && !(section && showResolution)) return null;
+  const outsideTerminalScope = terminalScope?.assigned === false;
+  if (!hasData && !(section && showResolution) && !outsideTerminalScope) return null;
 
   return (
     <section className="agency-report-document__section" style={{ breakInside: "avoid" }}>
       <h2 style={groupBar}>{title}</h2>
       {hasData ? children : null}
-      {section && showResolution ? (
+      {outsideTerminalScope && showResolution ? <TerminalScopeLine /> : null}
+      {section && showResolution && !outsideTerminalScope ? (
         <ResolutionLine
           section={section}
           signoffs={signoffs ?? []}
@@ -555,10 +571,11 @@ export function AgencyReportDocument({
   // 'vazios_embarcados' aparece em cinco blocos) — a resolução só é impressa
   // uma vez, no primeiro bloco daquela seção (ver Section, showResolution).
   const printedResolutions = new Set<AgencyReportSection>();
+  const terminalScope = header.terminalScope ?? null;
   const section = (key: AgencyReportSection) => {
     const showResolution = !printedResolutions.has(key);
     printedResolutions.add(key);
-    return { section: key, signoffs, actorNames, showResolution };
+    return { section: key, signoffs, actorNames, showResolution, terminalScope: terminalScope?.[key] };
   };
 
   return (

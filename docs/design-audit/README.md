@@ -131,7 +131,7 @@ Verificado em runtime, não só no código:
 | 4 | **Faixa de seção vazia no impresso.** Um bloco sem dado cuja resolução já saiu num bloco anterior da mesma seção imprimia só o título ("MATRIZ DE DESCARGA" solto). No ADR por terminal isso deixou de ser raro: cada terminal responde por parte das frentes. | Impresso do TVV antes da correção. | `Section` não renderiza quando não há dado nem linha de resolução. |
 | 5 | **Barra no nome do arquivo impresso.** O rótulo da viagem é `NAVIO / 088E`, então o nome saía `ADR - COSCO SHIPPING ARIES / 088E - BRVIX - TVV.pdf`; `/` é separador de caminho e o navegador não salva com ele. | `data-print-filename` no documento. | Caracteres proibidos viram hífen no `buildAgencyReportPrintFilename`. |
 
-### Achado estrutural — decisão do produto, não corrigido
+### Achado estrutural — correção aplicada
 
 **O impresso não distingue "nada operado neste terminal" de "esta frente não é
 deste terminal".** Na tela, uma seção sem frente atribuída diz "Não há frente
@@ -141,10 +141,12 @@ atribuída a este terminal."; no papel, a mesma seção sai como
 **teve** operação. Quem lê o ADR do TVV isolado conclui que não houve embarque de
 vazios em Vitória.
 
-Duas saídas possíveis, e a escolha é do negócio: (a) não oferecer sign-off para
-seção sem frente no terminal e omiti-la do impresso, ou (b) imprimir um estado
-próprio, distinto de "Nada a declarar". Não apliquei nenhuma das duas porque
-muda o que o documento assinado afirma.
+A opção (b) foi aplicada: o snapshot fechado congela `header.terminalScope`.
+Quando uma seção não tem frente atribuída ao terminal, o impresso mostra
+"Sem frente atribuída a este terminal" e não repete a resolução "Nada a
+declarar". Uma seção atribuída continua imprimindo sua resolução própria,
+inclusive "Nada a declarar". A regressão está coberta por
+`AgencyReportDocument.test.tsx`.
 
 ### Mesmo defeito do #1 em outros três módulos — recomendação
 
