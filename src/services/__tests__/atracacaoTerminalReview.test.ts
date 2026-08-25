@@ -62,6 +62,28 @@ describe('listVoyageTerminalScaleStatesByVoyageIds', () => {
     expect(states).toHaveLength(1)
     expect(states[0].terminalCode).toBeNull()
   })
+
+  it('usa os depots ja lidos pelo chamador em vez de reler a tabela', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'voyage_escala_terminal_state') {
+        return {
+          select: () => ({
+            in: () => Promise.resolve({
+              data: [{ voyage_id: 3, port: 'BRVIX', terminal_id: 'uuid-a', terminal_etb: '2026-08-26', terminal_atb: null, terminal_etd: null, terminal_atd: null, terminal_rtw: null, revision: 1 }],
+              error: null,
+            }),
+          }),
+        }
+      }
+      throw new Error(`tabela inesperada: ${table}`)
+    })
+
+    const states = (await listVoyageTerminalScaleStatesByVoyageIds(
+      [3],
+      Promise.resolve([{ id: 'uuid-a', code: ' TVV ' }]),
+    )).get(3) ?? []
+    expect(states[0].terminalCode).toBe('TVV')
+  })
 })
 
 describe('projectLineUpTerminalDates', () => {

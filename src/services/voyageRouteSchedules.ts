@@ -196,7 +196,10 @@ export async function listVoyagePodSchedulesByVoyageIds(voyageIds: number[]) {
   return hydratePodSchedules(data)
 }
 
-export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) {
+export async function listVoyageEscalaSchedulesByVoyageIds(
+  voyageIds: number[],
+  terminalCodeSource?: TerminalCodeSource,
+) {
   const result = new Map<number, VoyageEscalaSchedule[]>()
   if (!voyageIds.length) return result
 
@@ -204,7 +207,7 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
     listScheduleAuditRowsByVoyageIds(POD_ENTITY_TYPE, voyageIds),
     listScheduleAuditRowsByVoyageIds(POL_ENTITY_TYPE, voyageIds),
     fetchExportSchedulesByVoyageIds(voyageIds),
-    listVoyageTerminalScaleStatesByVoyageIds(voyageIds).catch((error: unknown) => {
+    listVoyageTerminalScaleStatesByVoyageIds(voyageIds, terminalCodeSource).catch((error: unknown) => {
       if (isMissingTerminalScheduleColumnError(error)) return new Map<number, VoyageTerminalScaleState[]>()
       throw error
     }),
@@ -225,8 +228,19 @@ export async function listVoyageEscalaSchedulesByVoyageIds(voyageIds: number[]) 
   return result
 }
 
+/**
+ * Depots que o chamador ja esta lendo por outro motivo. Passar essa fonte evita
+ * uma releitura de `depots` so para resolver o codigo do terminal.
+ */
+export type TerminalCodeSource =
+  | ReadonlyArray<{ id: string; code: string | null }>
+  | Promise<ReadonlyArray<{ id: string; code: string | null }>>
+
 /** Leitura compartilhada para timeline e superfícies operacionais futuras. */
-export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number[]) {
+export async function listVoyageTerminalScaleStatesByVoyageIds(
+  voyageIds: number[],
+  terminalCodeSource?: TerminalCodeSource,
+) {
   const result = new Map<number, VoyageTerminalScaleState[]>()
   if (!voyageIds.length) return result
 
@@ -262,7 +276,7 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
   // O codigo do terminal e o rotulo da Atracacao (planejamento, ADR) e o
   // criterio de desempate da ordem derivada; sem ele toda Atracacao com
   // terminal atribuido se apresentaria como TBC e a ordem cairia no UUID.
-  await hydrateTerminalCodes(result)
+  await hydrateTerminalCodes(result, terminalCodeSource)
 
   for (const states of result.values()) {
     states.sort((left, right) => compareAtracacoes(
@@ -274,11 +288,22 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(voyageIds: number
 }
 
 /** Resolve `terminal_id` -> codigo do terminal em uma unica leitura de depots. */
-async function hydrateTerminalCodes(statesByVoyage: Map<number, VoyageTerminalScaleState[]>) {
+async function hydrateTerminalCodes(
+  statesByVoyage: Map<number, VoyageTerminalScaleState[]>,
+  terminalCodeSource?: TerminalCodeSource,
+) {
   const terminalIds = [...new Set(
     [...statesByVoyage.values()].flatMap((states) => states.flatMap((state) => state.terminalId ? [state.terminalId] : [])),
   )]
   if (!terminalIds.length) return
+
+  if (terminalCodeSource) {
+    const depots = await terminalCodeSource
+    applyTerminalCodes(statesByVoyage, new Map(
+      depots.flatMap((depot) => (depot.id && depot.code ? [[String(depot.id), depot.code.trim()]] as const : [])),
+    ))
+    return
+  }
 
   type DepotCodeQuery = {
     select: (columns: string) => DepotCodeQuery
@@ -298,6 +323,13 @@ async function hydrateTerminalCodes(statesByVoyage: Map<number, VoyageTerminalSc
     }
   }
 
+  applyTerminalCodes(statesByVoyage, codeById)
+}
+
+function applyTerminalCodes(
+  statesByVoyage: Map<number, VoyageTerminalScaleState[]>,
+  codeById: Map<string, string>,
+) {
   for (const states of statesByVoyage.values()) {
     for (const state of states) {
       if (state.terminalId) state.terminalCode = codeById.get(state.terminalId) ?? null

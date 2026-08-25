@@ -208,14 +208,18 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   const voyageIds = voyages.map((voyage) => voyage.id)
   if (!voyageIds.length) return { rows: [], lastChangedAt: null }
 
+  // Uma unica leitura de `depots` alimenta o mapa de codigos daqui e a
+  // resolucao de codigo dentro das duas projecoes de Atracacao; sem
+  // compartilhar a promise seriam tres leituras por atualizacao do Line-Up.
+  const depotsPromise = listDepots()
   const [bls, vehicles, vaziosImportacaoMtyByVoyage, escalaSchedulesByVoyage, terminalStatesByVoyage, terminalFrontsByVoyage, depots] = await Promise.all([
     fetchBlsByVoyageIds(voyageIds),
     fetchVehiclesByVoyageIds(voyageIds),
     fetchVaziosImportacaoMtyByVoyageIds(voyageIds),
-    listVoyageEscalaSchedulesByVoyageIds(voyageIds),
-    listVoyageTerminalScaleStatesByVoyageIds(voyageIds),
+    listVoyageEscalaSchedulesByVoyageIds(voyageIds, depotsPromise),
+    listVoyageTerminalScaleStatesByVoyageIds(voyageIds, depotsPromise),
     fetchTerminalFrontsByVoyageIds(voyageIds),
-    listDepots(),
+    depotsPromise,
   ])
 
   const terminalCodes = new Map(

@@ -51,7 +51,10 @@ describe('EscalaModal — escala nova', () => {
 })
 
 describe('EscalaModal — ATD derivado', () => {
-  function renderComAtracacoes(terminals: Array<{ terminalId: string | null; terminalCode: string | null; atd: string | null }>) {
+  function renderComAtracacoes(
+    terminals: Array<{ terminalId: string | null; terminalCode: string | null; atd: string | null }>,
+    estado: { loading?: boolean; error?: string | null } = {},
+  ) {
     const escala: EscalaModalData = {
       ...novaEscala,
       port: 'BRVIX',
@@ -60,8 +63,8 @@ describe('EscalaModal — ATD derivado', () => {
         port: 'BRVIX',
         portId: 99,
         revision: 1,
-        loading: false,
-        error: null,
+        loading: estado.loading ?? false,
+        error: estado.error ?? null,
         fronts: [],
         tbcFronts: [],
         terminals: terminals.map((terminal) => ({
@@ -102,5 +105,15 @@ describe('EscalaModal — ATD derivado', () => {
     ])
     expect((screen.getByLabelText('ATD derivado') as HTMLInputElement).value).toBe('—')
     expect(screen.getByText('Aguardando o ATD de PORTMAC.')).toBeTruthy()
+  })
+
+  it('nao afirma que a escala esta sem Atracacoes enquanto carrega', () => {
+    renderComAtracacoes([], { loading: true })
+    expect(screen.getByText('Carregando as Atracações desta escala…')).toBeTruthy()
+  })
+
+  it('nao afirma que a escala esta sem Atracacoes quando a leitura falha', () => {
+    renderComAtracacoes([], { error: 'falha de rede' })
+    expect(screen.getByText('Não foi possível ler as Atracações desta escala.')).toBeTruthy()
   })
 })

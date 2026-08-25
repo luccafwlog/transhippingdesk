@@ -169,8 +169,8 @@ insert into public.voyage_export_schedules (voyage_id, has_granite, containers_q
 -- ---------------------------------------------------------------------------
 
 insert into public.depots (id, code, name, tipo, port_id, active, free_time_vazio_days, free_time_material_days) values
-  ('d0000000-0000-4000-8000-000000000001','TVV','Terminal de Vila Velha','terminal_portuario', 10, true, 0, 0),
-  ('d0000000-0000-4000-8000-000000000002','PORTMAC','Porto de Praia Mole','terminal_portuario', 10, true, 0, 0),
+  ('d0000000-0000-4000-8000-000000000001','TVV','Terminal de Vila Velha','terminal_portuario', 11, true, 0, 0),
+  ('d0000000-0000-4000-8000-000000000002','PORTMAC','Porto de Praia Mole','terminal_portuario', 11, true, 0, 0),
   ('d0000000-0000-4000-8000-000000000003','FLUMAR','Depot Flumar','depot', null, true, 7, 5)
 on conflict do nothing;
 
@@ -184,30 +184,30 @@ insert into public.audit_logs (entity_type, entity_id, field_name, old_value, ne
   ('voyage_pod_schedule','10::BRVIX','tem_importacao', null, 'true', 'a0000000-0000-4000-8000-000000000001', now() - interval '9 days');
 
 insert into public.voyage_escala_revision_state (voyage_id, port, port_id, revision)
-values (10, 'BRVIX', 10, 3)
+values (10, 'BRVIX', 11, 3)
 on conflict do nothing;
 
 -- Atracacoes: uma por terminal. A ordem nunca e digitada — deriva de
 -- COALESCE(ATB, ETB), com empate desfeito pelo codigo do terminal.
 insert into public.voyage_escala_terminal_state
   (voyage_id, port, port_id, terminal_id, terminal_etb, terminal_atb, terminal_etd, terminal_atd, terminal_rtw, revision) values
-  (10, 'BRVIX', 10, 'd0000000-0000-4000-8000-000000000001', current_date - 5, current_date - 5, current_date - 3, current_date - 2, 4, 3),
-  (10, 'BRVIX', 10, 'd0000000-0000-4000-8000-000000000002', current_date - 3, current_date - 2, current_date + 1, null, null, 3)
+  (10, 'BRVIX', 11, 'd0000000-0000-4000-8000-000000000001', current_date - 5, current_date - 5, current_date - 3, current_date - 2, 4, 3),
+  (10, 'BRVIX', 11, 'd0000000-0000-4000-8000-000000000002', current_date - 3, current_date - 2, current_date + 1, null, null, 3)
 on conflict do nothing;
 
 -- Frentes: varias frentes no mesmo terminal dividem um ADR.
 insert into public.voyage_escala_operation_fronts
   (voyage_id, port, port_id, sentido, modalidade, terminal_id, source, revision) values
-  (10, 'BRVIX', 10, 'importacao', 'carga_cheia', 'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
-  (10, 'BRVIX', 10, 'importacao', 'vazio',       'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
-  (10, 'BRVIX', 10, 'importacao', 'veiculo',     'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
-  (10, 'BRVIX', 10, 'exportacao', 'vazio',       'd0000000-0000-4000-8000-000000000002', 'export_declaration', 3)
+  (10, 'BRVIX', 11, 'importacao', 'carga_cheia', 'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', 11, 'importacao', 'vazio',       'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', 11, 'importacao', 'veiculo',     'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', 11, 'exportacao', 'vazio',       'd0000000-0000-4000-8000-000000000002', 'export_declaration', 3)
 on conflict do nothing;
 
 -- Um ADR por terminal, com fechamento independente.
 insert into public.agency_departure_reports (voyage_id, port, terminal, terminal_id, terminal_port_id, status) values
-  (10, 'BRVIX', 'Terminal de Vila Velha', 'd0000000-0000-4000-8000-000000000001', 10, 'open'),
-  (10, 'BRVIX', 'Porto de Praia Mole',    'd0000000-0000-4000-8000-000000000002', 10, 'open')
+  (10, 'BRVIX', 'Terminal de Vila Velha', 'd0000000-0000-4000-8000-000000000001', 11, 'open'),
+  (10, 'BRVIX', 'Porto de Praia Mole',    'd0000000-0000-4000-8000-000000000002', 11, 'open')
 on conflict do nothing;
 
 commit;

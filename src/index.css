@@ -5137,8 +5137,10 @@ textarea {
   box-shadow: inset 6px 0 0 #16a34a;
 }
 
+/* Soma a barra a elevacao do cartao: sobrescrever box-shadow apagaria a
+   sombra base de .app-lineup-card e o cartao atracado ficaria plano. */
 .app-lineup-card--berthed {
-  box-shadow: inset 4px 0 0 #16a34a;
+  box-shadow: inset 4px 0 0 #16a34a, 0 2px 10px rgba(21, 44, 82, 0.08);
 }
 
 .app-lineup-display-board__row--cycle-start {

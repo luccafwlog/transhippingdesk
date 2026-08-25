@@ -554,11 +554,18 @@ export function EscalaModal({
     ? [...atracacoesDoModal].sort((left, right) => (left.atd ?? '').localeCompare(right.atd ?? '')).at(-1) ?? null
     : null
   const derivedTerminalAtd = ultimaAtracacaoComAtd?.atd ?? null
-  const derivedTerminalAtdHint = ultimaAtracacaoComAtd
-    ? `Derivado da última Atracação — ${atracacaoLabel(ultimaAtracacaoComAtd)}.`
-    : atracacoesDoModal.length === 0
-      ? 'Nasce das Atracações: nenhuma registrada nesta escala ainda.'
-      : `Aguardando o ATD de ${atracacoesSemAtd.map(atracacaoLabel).join(', ')}.`
+  // A lista de Atracacoes chega vazia enquanto carrega e quando a leitura
+  // falha; afirmar "nenhuma registrada" nesses estados mente sobre uma escala
+  // que pode ter Atracacoes.
+  const derivedTerminalAtdHint = terminalScale?.loading
+    ? 'Carregando as Atracações desta escala…'
+    : terminalScale?.error
+      ? 'Não foi possível ler as Atracações desta escala.'
+      : ultimaAtracacaoComAtd
+        ? `Derivado da última Atracação — ${atracacaoLabel(ultimaAtracacaoComAtd)}.`
+        : atracacoesDoModal.length === 0
+          ? 'Nasce das Atracações: nenhuma registrada nesta escala ainda.'
+          : `Aguardando o ATD de ${atracacoesSemAtd.map(atracacaoLabel).join(', ')}.`
   const terminalScaleSourceKey = terminalScale
     ? [
         terminalScale.loading ? 'loading' : 'ready',
