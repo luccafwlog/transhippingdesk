@@ -3,6 +3,22 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **ADR por terminal — aba, estrutura e impressão:** toda escrita do ADR
+  terminalizado estava inerte. `callReportIdAwareRpc` guardava `supabase.rpc`
+  numa variável antes de chamar, o que desliga a função do cliente; o supabase-js
+  lê `this.rest` e lançava `TypeError` antes de a requisição sair, com o erro
+  morrendo no react-query sem toast — assinar seção, assinar departamento,
+  observar, fechar e reabrir não faziam nada. O Prazo de Conclusão do ADR também
+  nunca era calculado: o ATD agora nasce da Atracação (`TIMESTAMPTZ`) e a regra de
+  prazo só aceitava `YYYY-MM-DD`, então a aba mostrava o ATD e, abaixo, "Aguardando
+  a saída do navio", com os departamentos em "Sem prazo"; a normalização ISO passou
+  para o ponto compartilhado de `agencyReportDeadline.ts`, que também alimenta o
+  agregado de SLA. No impresso, faixa de seção sem dado e sem resolução deixou de
+  sair como título solto e a barra do rótulo da viagem deixou de ir para o nome do
+  arquivo. Restow ausente virou `—` na aba e no impresso.
+  O impresso agora distingue seção sem frente atribuída ao terminal de seção
+  atribuída com resolução "Nada a declarar"; o seed da auditoria resolve o POL
+  por LOCODE e os testes de RPC não compartilham estado entre casos.
 - **Revisão de Atracações e Terminais — correções:** a projeção de Atracações
   passou a resolver o código do terminal (`depots.code`), que era sempre nulo:
   o Planejamento por escala rotulava como `TBC` toda Atracação já atribuída e o

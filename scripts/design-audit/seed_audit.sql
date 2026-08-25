@@ -14,10 +14,13 @@ insert into public.user_profiles (id, full_name, role, active) values
 insert into public.carriers (id, name, scac) values (50,'COSCO Shipping','COSU') on conflict do nothing;
 select setval('carriers_id_seq', 60);
 
-insert into public.ports (id, name, locode, country) values
-  (10,'Ningbo','CNNGB','China'), (11,'Vitória','BRVIX','Brasil'), (12,'Rio Grande','BRRIG','Brasil')
-on conflict do nothing;
-select setval('ports_id_seq', 20);
+-- A migration 307 e dona do catalogo de portos brasileiros: BRVIX, BRRIG e os
+-- demais ja existem com ids proprios quando este seed roda. Fixar id aqui e
+-- ilusorio (o ON CONFLICT engole a linha) e mentiroso — por isso nenhum port_id
+-- deste arquivo e numero literal; todos saem de um subselect por LOCODE.
+insert into public.ports (name, locode, country)
+select 'Ningbo', 'CNNGB', 'China'
+where not exists (select 1 from public.ports where locode = 'CNNGB');
 
 insert into public.vessels (id, name, imo, carrier_id) values
   (10,'COSCO SHIPPING ARIES','9783615',50),
@@ -27,7 +30,7 @@ select setval('vessels_id_seq', 20);
 
 insert into public.voyages (id, vessel_id, voyage_number, pol_id, pod_id, etd, eta, status) values
   (10, 10, '088E', (select id from ports where locode='CNSHA' order by id limit 1), (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '32 days', now() - interval '2 days', 'active'),
-  (11, 11, '012S', 10, (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '75 days', now() - interval '41 days', 'completed');
+  (11, 11, '012S', (select id from ports where locode='CNNGB' order by id limit 1), (select id from ports where locode='BRSSZ' order by id limit 1), now() - interval '75 days', now() - interval '41 days', 'completed');
 select setval('voyages_id_seq', 20);
 
 insert into public.customers (id, cnpj_cpf, name, trade_name, city, state) values
@@ -169,8 +172,8 @@ insert into public.voyage_export_schedules (voyage_id, has_granite, containers_q
 -- ---------------------------------------------------------------------------
 
 insert into public.depots (id, code, name, tipo, port_id, active, free_time_vazio_days, free_time_material_days) values
-  ('d0000000-0000-4000-8000-000000000001','TVV','Terminal de Vila Velha','terminal_portuario', 11, true, 0, 0),
-  ('d0000000-0000-4000-8000-000000000002','PORTMAC','Porto de Praia Mole','terminal_portuario', 11, true, 0, 0),
+  ('d0000000-0000-4000-8000-000000000001','TVV','Terminal de Vila Velha','terminal_portuario', (select id from public.ports where locode = 'BRVIX' order by id limit 1), true, 0, 0),
+  ('d0000000-0000-4000-8000-000000000002','PORTMAC','Porto de Praia Mole','terminal_portuario', (select id from public.ports where locode = 'BRVIX' order by id limit 1), true, 0, 0),
   ('d0000000-0000-4000-8000-000000000003','FLUMAR','Depot Flumar','depot', null, true, 7, 5)
 on conflict do nothing;
 
@@ -184,30 +187,30 @@ insert into public.audit_logs (entity_type, entity_id, field_name, old_value, ne
   ('voyage_pod_schedule','10::BRVIX','tem_importacao', null, 'true', 'a0000000-0000-4000-8000-000000000001', now() - interval '9 days');
 
 insert into public.voyage_escala_revision_state (voyage_id, port, port_id, revision)
-values (10, 'BRVIX', 11, 3)
+values (10, 'BRVIX', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 3)
 on conflict do nothing;
 
 -- Atracacoes: uma por terminal. A ordem nunca e digitada — deriva de
 -- COALESCE(ATB, ETB), com empate desfeito pelo codigo do terminal.
 insert into public.voyage_escala_terminal_state
   (voyage_id, port, port_id, terminal_id, terminal_etb, terminal_atb, terminal_etd, terminal_atd, terminal_rtw, revision) values
-  (10, 'BRVIX', 11, 'd0000000-0000-4000-8000-000000000001', current_date - 5, current_date - 5, current_date - 3, current_date - 2, 4, 3),
-  (10, 'BRVIX', 11, 'd0000000-0000-4000-8000-000000000002', current_date - 3, current_date - 2, current_date + 1, null, null, 3)
+  (10, 'BRVIX', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'd0000000-0000-4000-8000-000000000001', current_date - 5, current_date - 5, current_date - 3, current_date - 2, 4, 3),
+  (10, 'BRVIX', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'd0000000-0000-4000-8000-000000000002', current_date - 3, current_date - 2, current_date + 1, null, null, 3)
 on conflict do nothing;
 
 -- Frentes: varias frentes no mesmo terminal dividem um ADR.
 insert into public.voyage_escala_operation_fronts
   (voyage_id, port, port_id, sentido, modalidade, terminal_id, source, revision) values
-  (10, 'BRVIX', 11, 'importacao', 'carga_cheia', 'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
-  (10, 'BRVIX', 11, 'importacao', 'vazio',       'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
-  (10, 'BRVIX', 11, 'importacao', 'veiculo',     'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
-  (10, 'BRVIX', 11, 'exportacao', 'vazio',       'd0000000-0000-4000-8000-000000000002', 'export_declaration', 3)
+  (10, 'BRVIX', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'importacao', 'carga_cheia', 'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'importacao', 'vazio',       'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'importacao', 'veiculo',     'd0000000-0000-4000-8000-000000000001', 'operational_data', 3),
+  (10, 'BRVIX', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'exportacao', 'vazio',       'd0000000-0000-4000-8000-000000000002', 'export_declaration', 3)
 on conflict do nothing;
 
 -- Um ADR por terminal, com fechamento independente.
 insert into public.agency_departure_reports (voyage_id, port, terminal, terminal_id, terminal_port_id, status) values
-  (10, 'BRVIX', 'Terminal de Vila Velha', 'd0000000-0000-4000-8000-000000000001', 11, 'open'),
-  (10, 'BRVIX', 'Porto de Praia Mole',    'd0000000-0000-4000-8000-000000000002', 11, 'open')
+  (10, 'BRVIX', 'Terminal de Vila Velha', 'd0000000-0000-4000-8000-000000000001', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'open'),
+  (10, 'BRVIX', 'Porto de Praia Mole',    'd0000000-0000-4000-8000-000000000002', (select id from public.ports where locode = 'BRVIX' order by id limit 1), 'open')
 on conflict do nothing;
 
 commit;

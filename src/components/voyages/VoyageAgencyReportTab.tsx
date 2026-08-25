@@ -493,6 +493,12 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       terminal: resolvedTerminalName ?? ownData?.terminal ?? null,
       terminalCode: resolvedTerminalCode,
       reportId: resolvedReportId,
+      terminalScope: resolvedReportId
+        ? Object.fromEntries(AGENCY_REPORT_SECTION_ORDER.map((section) => [
+            section,
+            { assigned: section === 'datas' || selectedSectionFronts(section).length > 0 },
+          ]))
+        : null,
       schedule: {
         ata: data?.escala?.ata ?? data?.schedule?.ata ?? null,
         atb: terminalAtb,
@@ -717,7 +723,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
               <Info label="ATA" value={formatDate(data?.escala?.ata ?? data?.schedule?.ata)} />
               <Info label="ATB" value={formatDate(terminalAtb)} />
               <Info label="ATD" value={formatDate(terminalAtd)} />
-              <Info label="Restow" value={String(terminalRtw ?? 0)} />
+              <Info label="Restow" value={terminalRtw === null ? '—' : String(terminalRtw)} />
             </div>
         </ReportSection>
 

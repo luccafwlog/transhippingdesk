@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import { AgencyReportDocument } from "../AgencyReportDocument";
+import { AgencyReportDocument, buildAgencyReportPrintFilename } from "../AgencyReportDocument";
 import { formatBRL } from "../../../lib/utils";
 import { DOC_ACCENT, DOC_NAVY, DOC_ZEBRA } from "../../shared/invoiceFormat";
 
@@ -559,3 +559,84 @@ it("imprime as tabelas no padrão visual da fatura (cabeçalho navy, zebra e bar
   // 3 + 1 = 4 unidades operadas, somadas na barra do topo.
   expect(totalRow.textContent).toContain("4");
 });
+
+// ADR por terminal: cada terminal responde por parte das frentes, entao o
+// impresso do outro chega com varias seções vazias.
+it("nao imprime faixa de seção sem dado e sem resolução", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: {
+          carrierName: "Armador teste",
+          voyageLabel: "NAVIO TESTE / 01E",
+          port: "BRVIX",
+          terminalCode: "TVV",
+          terminal: "Terminal de Vila Velha",
+          schedule: { ata: "2026-07-19", atb: "2026-07-19", atd: "2026-07-20", rtw: null },
+        },
+        sections: { cargaSolta: { bls: 1, machines: 0, packages: 0, weightTon: 125, cbm: 80 } },
+        signoffs: [{ section: "carga_descarregada", state: "nothing_to_declare", signed_by: "u1", signed_at: "2026-07-21T10:00:00Z" }],
+      }}
+      actorNames={{ u1: "Ana Ribeiro" }}
+    />,
+  );
+
+  // "Carga solta" carrega a resolução da seção; "Matriz de descarga" e o
+  // segundo bloco da mesma seção e, sem combos, nao tem nada a imprimir.
+  expect(screen.getByRole("heading", { name: "Carga solta" })).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "Matriz de descarga" })).toBeNull();
+});
+
+it("distingue seção fora do escopo do terminal de nada a declarar", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: {
+          carrierName: "Armador teste",
+          voyageLabel: "NAVIO TESTE / 01E",
+          port: "BRVIX",
+          terminalCode: "TVV",
+          terminalScope: { vazios_embarcados: { assigned: false } },
+          schedule: { ata: "2026-07-19", atb: "2026-07-19", atd: "2026-07-20", rtw: null },
+        },
+        sections: {},
+        signoffs: [{ section: "vazios_embarcados", state: "nothing_to_declare", signed_by: "u1", signed_at: "2026-07-21T10:00:00Z" }],
+      }}
+      actorNames={{ u1: "Ana Ribeiro" }}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { name: "Embarque de vazios" })).toBeTruthy();
+  expect(screen.getByText("Sem frente atribuída a este terminal")).toBeTruthy();
+  expect(screen.queryByText("Nada a declarar — Ana Ribeiro em 21/07/2026")).toBeNull();
+});
+
+it("imprime Restow vazio como travessao, nao como zero", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: {
+          carrierName: "Armador teste",
+          voyageLabel: "NAVIO TESTE / 01E",
+          port: "BRVIX",
+          terminalCode: "PORTMAC",
+          schedule: { ata: "2026-07-19", atb: "2026-07-23", atd: null, rtw: null },
+        },
+        sections: {},
+      }}
+      actorNames={{}}
+    />,
+  );
+  const escala = screen.getByRole("table", { name: "Escala" });
+  const restowRow = [...escala.querySelectorAll("tr")].find((row) => row.textContent?.includes("Restow"))!;
+  expect(restowRow.textContent).toContain("—");
+  expect(restowRow.textContent).not.toContain("0");
+});
+
+it("troca a barra do rotulo da viagem no nome do arquivo impresso", () => {
+  expect(
+    buildAgencyReportPrintFilename({
+      header: { voyageLabel: "COSCO SHIPPING ARIES / 088E", port: "BRVIX", terminalCode: "TVV" },
+    }),
+  ).toBe("ADR - COSCO SHIPPING ARIES - 088E - BRVIX - TVV.pdf");
+})

@@ -294,8 +294,16 @@ function isMissingReportIdRpc(error: { code?: string; message?: string } | null)
 }
 
 async function callReportIdAwareRpc(rpcName: string, args: Record<string, unknown>) {
-  const rpc = supabase.rpc as unknown as (name: string, parameters: Record<string, unknown>) => Promise<ReportIdRpcResult>
-  const { error } = await rpc(rpcName, args)
+  // `supabase.rpc` depende do receptor (le `this.rest`). Guardar a funcao numa
+  // variavel a desliga do cliente e TODA escrita terminalizada do ADR estoura
+  // "Cannot read properties of undefined (reading 'rest')" antes de sair na
+  // rede — assinar seção, assinar departamento, observar, fechar e reabrir
+  // ficavam silenciosamente inertes. Chamar pelo objeto preserva o receptor,
+  // como ja faz resolveActorNames acima.
+  const { error } = await (supabase.rpc as unknown as (
+    name: string,
+    parameters: Record<string, unknown>,
+  ) => Promise<ReportIdRpcResult>)(rpcName, args)
   if (!error) return
   if (isMissingReportIdRpc(error)) throw new TerminalizedAgencyReportRpcUnavailableError(rpcName)
   throw error
