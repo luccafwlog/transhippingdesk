@@ -10,15 +10,6 @@
       "h": 2160
     },
     {
-      "file": "AbaImportacao.dc.html",
-      "title": "Aba · Importação",
-      "x": 0,
-      "y": 2600,
-      "page": "page-2",
-      "w": 1440,
-      "h": 1020
-    },
-    {
       "file": "AbaExportacao.dc.html",
       "title": "Aba · Exportação",
       "x": 1560,
@@ -73,6 +64,24 @@
       "h": 700
     },
     {
+      "file": "ImportacaoAntes.dc.html",
+      "title": "Aba Importação · hoje",
+      "x": 0,
+      "y": 11400,
+      "page": "page-6",
+      "w": 1440,
+      "h": 1020
+    },
+    {
+      "file": "ImportacaoDepois.dc.html",
+      "title": "Aba Importação · proposta",
+      "x": 0,
+      "y": 12540,
+      "page": "page-6",
+      "w": 1440,
+      "h": 1000
+    },
+    {
       "file": "DirecaoC.dc.html",
       "title": "Direção C · programação em tabela",
       "x": 0,
@@ -125,6 +134,14 @@
       "text": "VISÃO GERAL · PLANEJAMENTO POR ESCALA — hoje e a proposta, com os mesmos dados.\nBRSSZ já atracou (ATA, ATB, ATD preenchidos); BRVIX ainda não chegou.\n\nSeis mudanças:\n\n1. Cabeçalho em dois níveis: Chegada com ETA (previsto) e ATA (real). O previsto fica em cinza e o realizado em escuro — a linha passa a ser lida por onde o navio está.\n2. A coluna \"BLs e CEs\" só mostrava o rótulo do status do CE. Passa a mostrar o B/L que o nome promete, a cobertura como medidor, e o status como legenda.\n3. VINCULADA era texto puro SIM/NÃO. Vira badge.\n4. A divergência sai do text-amber-400 (#fbbf24, fora dos tokens e ilegível a 11px) para os tokens dourados, nomeando o campo; o texto completo fica no title.\n5. As atracações saem da grade da escala e viram painel recolhível, recuado, com tabela e cabeçalho próprios (Terminal · ETB · ATB · ETD · ATD · Restow) em tom claro — nada de herdar as colunas de cima. A escala ganha chevron e contador.\n6. O ATD da escala ganha a marca \"deriv.\" — o cabeçalho diz \"ATD derivado\" mas nada explicava de onde deriva."
     },
     {
+      "id": "nota-importacao",
+      "page": "page-6",
+      "x": 0,
+      "y": 11000,
+      "w": 1000,
+      "text": "ABA IMPORTAÇÃO — hoje e a proposta, mesmos dados da viagem usada na Visão geral.\n\n1. Total da viagem numa faixa no topo. Hoje a aba lista POD a POD e o total só existe na faixa de KPIs, fora da aba.\n2. Os três painéis passam a existir sempre por escala, com estado vazio explícito. Hoje Veículos e Carga solta somem quando não há dado, e as escalas ficam com alturas diferentes, impossíveis de comparar.\n3. Painéis chapados, sem o gradiente e a sombra do .app-voyage-metric-panel — o vocabulário do resto da página. O paredão de pares label/valor vira um número dominante mais mini-stats.\n4. Vazios IMP deixa de ser um painel solto no fim e ganha seção própria. Continua agregado da viagem porque a origem não traz o POD — está dito na própria seção.\n5. Importação rápida agrupada por natureza (Manifestos, Complementos do B/L, Unidades), com ícone por tipo. Hoje são seis botões idênticos com o mesmo ícone de upload.\n\nFora do escopo escolhido: os acentos faltando em \"Vazios Importacao\" e \"Containers com veiculos\" (VoyageImportacaoTab.tsx:45,68)."
+    },
+    {
       "id": "nota-descartadas",
       "page": "page-4",
       "x": 0,
@@ -151,12 +168,16 @@
       "name": "Visão geral · Planejamento"
     },
     {
+      "id": "page-6",
+      "name": "Aba Importação"
+    },
+    {
       "id": "page-4",
       "name": "Não escolhidas"
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "page-5"
+    "page": "page-6"
   }
 }

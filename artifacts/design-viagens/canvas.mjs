@@ -5,7 +5,6 @@ const W = 1440, COL2 = 1560
 const artboards = [
   { file: 'Main.dc.html', title: 'Direção A · a página inteira', x: 0, y: 0, page: 'page-1' },
 
-  { file: 'AbaImportacao.dc.html', title: 'Aba · Importação', x: 0, y: 2600, page: 'page-2' },
   { file: 'AbaExportacao.dc.html', title: 'Aba · Exportação', x: COL2, y: 2600, page: 'page-2' },
   { file: 'AbaEscalas.dc.html', title: 'Aba · Escalas & Manifestos', x: 0, y: 3820, page: 'page-2' },
   { file: 'AbaAdr.dc.html', title: 'Aba · ADR', x: COL2, y: 3820, page: 'page-2' },
@@ -14,6 +13,9 @@ const artboards = [
 
   { file: 'PlanejamentoAntes.dc.html', title: 'Planejamento por escala · hoje', x: 0, y: 9300, page: 'page-5' },
   { file: 'PlanejamentoEscala.dc.html', title: 'Planejamento por escala · proposta', x: 0, y: 10100, page: 'page-5' },
+
+  { file: 'ImportacaoAntes.dc.html', title: 'Aba Importação · hoje', x: 0, y: 11400, page: 'page-6' },
+  { file: 'ImportacaoDepois.dc.html', title: 'Aba Importação · proposta', x: 0, y: 12540, page: 'page-6' },
 
   { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7400, page: 'page-4' },
   { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7400, page: 'page-4' },
@@ -62,6 +64,20 @@ const annotations = [
     ].join('\n'),
   },
   {
+    id: 'nota-importacao', page: 'page-6', x: 0, y: 11000, w: 1000,
+    text: [
+      'ABA IMPORTAÇÃO — hoje e a proposta, mesmos dados da viagem usada na Visão geral.',
+      '',
+      '1. Total da viagem numa faixa no topo. Hoje a aba lista POD a POD e o total só existe na faixa de KPIs, fora da aba.',
+      '2. Os três painéis passam a existir sempre por escala, com estado vazio explícito. Hoje Veículos e Carga solta somem quando não há dado, e as escalas ficam com alturas diferentes, impossíveis de comparar.',
+      '3. Painéis chapados, sem o gradiente e a sombra do .app-voyage-metric-panel — o vocabulário do resto da página. O paredão de pares label/valor vira um número dominante mais mini-stats.',
+      '4. Vazios IMP deixa de ser um painel solto no fim e ganha seção própria. Continua agregado da viagem porque a origem não traz o POD — está dito na própria seção.',
+      '5. Importação rápida agrupada por natureza (Manifestos, Complementos do B/L, Unidades), com ícone por tipo. Hoje são seis botões idênticos com o mesmo ícone de upload.',
+      '',
+      'Fora do escopo escolhido: os acentos faltando em "Vazios Importacao" e "Containers com veiculos" (VoyageImportacaoTab.tsx:45,68).',
+    ].join('\n'),
+  },
+  {
     id: 'nota-descartadas', page: 'page-4', x: 0, y: 7200, w: 900,
     text: 'NÃO ESCOLHIDAS — registro da Direção C, mantida só como histórico da decisão.\n\n/viagens como programação em tabela (uma linha por viagem, uma coluna por porto, marcas OMIT e X do domínio) com o detalhe roteado em /viagens/:id. Perdeu para a A por trocar a página inteira e mandar o detalhe para outra navegação.',
   },
@@ -75,9 +91,10 @@ const canvas = {
     { id: 'page-2', name: 'Abas' },
     { id: 'page-3', name: 'Cards' },
     { id: 'page-5', name: 'Visão geral · Planejamento' },
+    { id: 'page-6', name: 'Aba Importação' },
     { id: 'page-4', name: 'Não escolhidas' },
   ],
-  launch: { view: 'canvas', page: 'page-5' },
+  launch: { view: 'canvas', page: 'page-6' },
 }
 
 writeFileSync(new URL('./canvas.json', import.meta.url), JSON.stringify(canvas, null, 2) + '\n')

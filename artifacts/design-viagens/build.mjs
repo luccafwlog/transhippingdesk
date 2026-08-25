@@ -5,8 +5,9 @@ import {
   estadoDot, kpiBand, novaViagemBtn, pageHeader,
   tabsRow, timeline, toolbar, transbordoCard, voyageHero,
 } from './blocks.mjs'
-import { abaAdr, abaEscalas, abaExportacao, abaImportacao, metricPanel } from './tabs.mjs'
+import { abaAdr, abaEscalas, abaExportacao, metricPanel } from './tabs.mjs'
 import { planejamentoAntes, planejamentoEscala } from './visaogeral.mjs'
+import { importacaoAntes, importacaoDepois } from './importacao.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -102,13 +103,6 @@ function tabBoard({ height, active, note, body }) {
     </div>`,
   })
 }
-
-const IMP_H = 1020
-out('AbaImportacao.dc.html', tabBoard({
-  height: IMP_H, active: 'Importa&ccedil;&atilde;o',
-  note: 'Hoje é uma pilha de MetricPanels por POD, todos com o mesmo peso visual. Aqui cada painel ganha um número dominante e os tipos de container viram tokens, como o <code>Info</code> tokenizado já faz. Um bloco por escala, e a importação rápida fecha a aba.',
-  body: abaImportacao(),
-}), IMP_H)
 
 const EXP_H = 640
 out('AbaExportacao.dc.html', tabBoard({
@@ -212,6 +206,22 @@ out('PlanejamentoEscala.dc.html', compareBoard({
   note: 'Seis mudanças. A escala mantém as suas colunas de data; a atracação sai da grade e vira painel recolhível, recuado, com cabeçalho próprio em tom claro para não competir com o navy de cima.',
   body: planejamentoEscala(),
 }), PLAN_H)
+
+const IMPA_H = 1020
+out('ImportacaoAntes.dc.html', compareBoard({
+  height: IMPA_H, chip: 'Hoje', chipTone: 'hoje',
+  title: 'Aba Importa&ccedil;&atilde;o &mdash; como est&aacute; hoje',
+  note: 'Transcrição fiel de <code>VoyageImportacaoTab.tsx</code>: um painel por POD com MetricPanels em gradiente, número de painéis variando conforme a escala tenha veículos ou carga solta, "Vazios Importacao" solto no fim, e seis botões idênticos de importação.',
+  body: importacaoAntes(),
+}), IMPA_H)
+
+const IMPD_H = 1000
+out('ImportacaoDepois.dc.html', compareBoard({
+  height: IMPD_H, chip: 'Proposta', chipTone: 'proposta',
+  title: 'Aba Importa&ccedil;&atilde;o &mdash; proposta',
+  note: 'Total da viagem numa faixa no topo; os três painéis sempre presentes por escala, com estado vazio explícito, para as escalas ficarem comparáveis; painéis chapados como o resto da página; e a importação rápida agrupada por natureza, com ícone por tipo de arquivo.',
+  body: importacaoDepois(),
+}), IMPD_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *
