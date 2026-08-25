@@ -106,7 +106,7 @@ const divergChip = (campo, full) => `<span title="${full}" style="margin-top: 6p
 /** Campo manual do usuário: mantém os mesmos rótulos de status de hoje. */
 const blsCell = (e) => e.ceStatus
 
-const acoes = `<div style="display: flex; align-items: center; gap: 8px">${iconBtn('pencil')}${iconBtn('warning')}${iconBtn('trash', { danger: true })}</div>`
+const acoes = `<div style="display: flex; align-items: center; justify-content: center; gap: 8px">${iconBtn('pencil')}${iconBtn('warning')}${iconBtn('trash', { danger: true })}</div>`
 
 const legenda = (extra) => `<div style="margin-top: 10px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: ${T.mutedSoft}">
   <span>Data em cinza &eacute; previsto; em escuro, realizado.</span>
@@ -124,22 +124,22 @@ export function planejamentoEscala() {
       : `<span style="display: inline-block; width: 20px"></span>`
     return `
     <tr style="background: ${zebra}${i > 0 ? `; border-top: 1px solid ${T.border}` : ''}">
-      <td style="padding: 10px 10px; vertical-align: top">
-        <div style="display: flex; align-items: center; gap: 6px">
+      <td style="padding: 10px 10px; vertical-align: top; text-align: center">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 6px">
           ${chevron}
           <span style="font-weight: 700; color: ${T.textStrong}">${e.port}</span>
           ${e.atracacoes.length ? `<span class="badge badge--slate" style="padding: 2px 8px; font-size: 10px">${e.atracacoes.length} atraca&ccedil;&otilde;es</span>` : ''}
         </div>
-        ${e.divergencia ? `<div style="margin-left: 26px">${divergChip(e.divergenciaCampo, e.divergencia)}</div>` : ''}
+        ${e.divergencia ? divergChip(e.divergenciaCampo, e.divergencia) : ''}
       </td>
-      <td style="padding: 10px 10px; vertical-align: top"><div style="display: flex; flex-wrap: wrap; gap: 6px">${e.opera.map((o) => `<span class="badge badge--${OPERA[o][0]}">${OPERA[o][1]}</span>`).join('')}</div></td>
-      <td style="padding: 10px 10px">${date(e.eta)}</td>
-      <td style="padding: 10px 10px">${date(e.ata, { real: true })}</td>
-      <td style="padding: 10px 10px">${date(e.atd, { real: true })}</td>
-      <td style="padding: 10px 10px">${blsCell(e)}</td>
-      <td style="padding: 10px 10px">${e.escalaNumber ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.textStrong}">${e.escalaNumber}</span>` : dash}</td>
-      <td style="padding: 10px 10px"><span class="badge badge--${e.linked ? 'green' : 'slate'}">${e.linked ? 'Sim' : 'N&atilde;o'}</span></td>
-      <td style="padding: 10px 10px">${acoes}</td>
+      <td style="padding: 10px 10px; vertical-align: top; text-align: center"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 6px">${e.opera.map((o) => `<span class="badge badge--${OPERA[o][0]}">${OPERA[o][1]}</span>`).join('')}</div></td>
+      <td style="padding: 10px 10px; text-align: center">${date(e.eta)}</td>
+      <td style="padding: 10px 10px; text-align: center">${date(e.ata, { real: true })}</td>
+      <td style="padding: 10px 10px; text-align: center">${date(e.atd, { real: true })}</td>
+      <td style="padding: 10px 10px; text-align: center">${blsCell(e)}</td>
+      <td style="padding: 10px 10px; text-align: center">${e.escalaNumber ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.textStrong}">${e.escalaNumber}</span>` : dash}</td>
+      <td style="padding: 10px 10px; text-align: center"><span class="badge badge--${e.linked ? 'green' : 'slate'}">${e.linked ? 'Sim' : 'N&atilde;o'}</span></td>
+      <td style="padding: 10px 10px; text-align: center">${acoes}</td>
     </tr>
     ${e.atracacoes.length ? `<tr style="background: ${T.panel}"><td colspan="9" style="padding: 0 14px 14px 46px">
       <div style="overflow: hidden; border: 1px solid ${T.borderStrong}; border-radius: 10px; background: ${T.surface}">
@@ -151,13 +151,13 @@ export function planejamentoEscala() {
           <thead><tr>${['Terminal', 'ETB', 'ATB', 'ETD', 'ATD', 'Restow', ''].map((c) => `<th style="background: ${T.panelStrong}; color: ${T.muted}; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: center">${c}</th>`).join('')}</tr></thead>
           <tbody>
             ${e.atracacoes.map((a, j) => `<tr${j > 0 ? ` style="border-top: 1px solid ${T.border}"` : ''}>
-              <td style="padding: 8px 10px"><span class="pill" style="background: ${T.surfaceMuted}">${a.terminal}</span></td>
-              <td style="padding: 8px 10px">${date(a.etb)}</td>
-              <td style="padding: 8px 10px">${date(a.atb, { real: true })}</td>
-              <td style="padding: 8px 10px">${date(a.etd)}</td>
-              <td style="padding: 8px 10px">${date(a.atd, { real: true })}</td>
-              <td style="padding: 8px 10px">${a.rtw ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.text}">${a.rtw}</span>` : dash}</td>
-              <td style="padding: 8px 10px; text-align: right"><span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid ${T.border}; border-radius: 6px; color: ${T.muted}">${icon('pencil', 13)}</span></td>
+              <td style="padding: 8px 10px; text-align: center"><span class="pill" style="background: ${T.surfaceMuted}">${a.terminal}</span></td>
+              <td style="padding: 8px 10px; text-align: center">${date(a.etb)}</td>
+              <td style="padding: 8px 10px; text-align: center">${date(a.atb, { real: true })}</td>
+              <td style="padding: 8px 10px; text-align: center">${date(a.etd)}</td>
+              <td style="padding: 8px 10px; text-align: center">${date(a.atd, { real: true })}</td>
+              <td style="padding: 8px 10px; text-align: center">${a.rtw ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.text}">${a.rtw}</span>` : dash}</td>
+              <td style="padding: 8px 10px; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid ${T.border}; border-radius: 6px; color: ${T.muted}">${icon('pencil', 13)}</span></td>
             </tr>`).join('')}
           </tbody>
         </table>
