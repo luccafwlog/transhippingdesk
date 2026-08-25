@@ -1,13 +1,12 @@
 {
-  "Main.dc.html": 1800,
+  "Main.dc.html": 2160,
   "AbaImportacao.dc.html": 1020,
   "AbaExportacao.dc.html": 640,
   "AbaEscalas.dc.html": 730,
   "AbaAdr.dc.html": 1340,
   "Cards.dc.html": 1540,
   "PlanejamentoAntes.dc.html": 560,
-  "PlanejamentoOpcao1.dc.html": 700,
-  "PlanejamentoOpcao2.dc.html": 620,
+  "PlanejamentoEscala.dc.html": 700,
   "DirecaoC.dc.html": 960,
   "DirecaoCDetalhe.dc.html": 1500
 }

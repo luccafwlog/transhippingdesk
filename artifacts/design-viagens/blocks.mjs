@@ -1,5 +1,5 @@
 import { T, icon } from './kit.mjs'
-import { ESTADO, PLAN_ROWS, TIMELINE } from './data.mjs'
+import { ESTADO, TIMELINE } from './data.mjs'
 
 export function pageHeader(action) {
   return `<div class="page-header">
@@ -104,48 +104,6 @@ export function tabsRow(active = 'Vis&atilde;o geral') {
   return `<div style="display: flex; gap: 8px; flex-wrap: wrap">
     ${tabs.map((t) => `<span class="tab${t === active ? ' tab--active' : ''}">${t}</span>`).join('')}
   </div>`
-}
-
-export function planTable() {
-  const cols = ['Escala', 'Opera', 'ETA', 'ATA', 'ATD derivado', 'BLs e CEs', 'N&ordm; Escala', 'VINCULADA', 'A&ccedil;&otilde;es']
-  const cell = (v) => (v === '—' ? `<span class="dash">&mdash;</span>` : `<span class="num">${v}</span>`)
-  const iconBtn = (name, color) => `<span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid ${T.border}; border-radius: 6px; background: ${T.surface}; color: ${color}">${icon(name, 14)}</span>`
-  return `<section style="display: grid; gap: 4px; border: 1px solid ${T.border}; border-radius: 12px; background: ${T.surfaceMuted}; padding: 12px">
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
-      <span style="font-size: 14px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: ${T.muted}">Planejamento por escala</span>
-      <span class="btn btn--secondary btn--sm">${icon('plus', 15)} Adicionar escala</span>
-    </div>
-    <div class="surface" style="margin-top: 8px">
-      <table class="table table--dense">
-        <thead><tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead>
-        <tbody>
-          ${PLAN_ROWS.map((r) => `<tr>
-            <td style="font-weight: 700; color: ${T.textStrong}">${r.port}</td>
-            <td><span style="display: inline-flex; gap: 5px">${r.opera.map((o) => `<span class="badge badge--${o === 'Importa&ccedil;&atilde;o' ? 'blue' : 'yellow'}" style="padding: 3px 8px; font-size: 10px">${o}</span>`).join('')}</span></td>
-            <td>${cell(r.eta)}</td>
-            <td>${cell(r.ata)}</td>
-            <td>${cell(r.atdDerivado)}</td>
-            <td style="font-size: 12px; color: ${T.muted}">${r.ce}</td>
-            <td>${cell(r.escala)}</td>
-            <td style="font-size: 12px; font-weight: 600; color: ${r.linked === 'SIM' ? T.green : T.mutedSoft}">${r.linked}</td>
-            <td><span style="display: inline-flex; gap: 6px">${iconBtn('pencil', T.muted)}${iconBtn('warning', T.gold)}${iconBtn('trash', T.red)}</span></td>
-          </tr>
-          ${r.atracacao ? `<tr><td colspan="9" style="padding: 0 10px 12px">
-            <div style="display: flex; align-items: center; gap: 14px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 9px 12px">
-              <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: ${T.muted}">Atraca&ccedil;&otilde;es</span>
-              ${r.atracacao.map((a) => `<span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: ${T.muted}">
-                <span class="pill">${a.terminal}</span>
-                <span class="num">ETB ${a.etb}</span><span style="color: ${T.border}">|</span>
-                <span class="num">ATB ${a.atb}</span><span style="color: ${T.border}">|</span>
-                <span class="num">ETD ${a.etd}</span>
-                ${a.rtw ? `<span class="badge badge--slate" style="padding: 2px 8px; font-size: 10px">RTW ${a.rtw}</span>` : ''}
-              </span>`).join('')}
-            </div>
-          </td></tr>` : ''}`).join('')}
-        </tbody>
-      </table>
-    </div>
-  </section>`
 }
 
 export function timeline() {

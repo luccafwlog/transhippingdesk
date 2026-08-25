@@ -2,11 +2,11 @@ import { writeFileSync, rmSync } from 'node:fs'
 import { T, artboard, icon } from './kit.mjs'
 import { ESTADO, VOYAGES } from './data.mjs'
 import {
-  estadoDot, kpiBand, novaViagemBtn, pageHeader, planTable,
+  estadoDot, kpiBand, novaViagemBtn, pageHeader,
   tabsRow, timeline, toolbar, transbordoCard, voyageHero,
 } from './blocks.mjs'
 import { abaAdr, abaEscalas, abaExportacao, abaImportacao, metricPanel } from './tabs.mjs'
-import { planejamentoAntes, planejamentoOpcao1, planejamentoOpcao2 } from './visaogeral.mjs'
+import { planejamentoAntes, planejamentoEscala } from './visaogeral.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -65,7 +65,7 @@ function railStrip() {
 /* ================================================================== *
  * Main — Direção A, a escolhida: rail refinado + card de detalhe      *
  * ================================================================== */
-const MAIN_H = 1800
+const MAIN_H = 2160
 out('Main.dc.html', artboard({
   height: MAIN_H,
   body: `<div class="main">
@@ -77,7 +77,7 @@ out('Main.dc.html', artboard({
       ${kpiBand()}
       ${tabsRow()}
       ${transbordoCard()}
-      ${planTable()}
+      ${planejamentoEscala()}
       ${timeline()}
     </div>
   </div>`,
@@ -205,21 +205,13 @@ out('PlanejamentoAntes.dc.html', compareBoard({
   body: planejamentoAntes(),
 }), ANTES_H)
 
-const OP1_H = 700
-out('PlanejamentoOpcao1.dc.html', compareBoard({
-  height: OP1_H, chip: 'Opção 1', chipTone: 'proposta',
-  title: 'Atraca&ccedil;&otilde;es num painel pr&oacute;prio',
-  note: 'A sub-linha não herda mais nada: vira um painel recolhível, recuado, com cabeçalho próprio (Terminal · ETB · ATB · ETD · ATD · Restow) em tom claro, para não competir com o cabeçalho navy da escala. A escala ganha chevron e contador.',
-  body: planejamentoOpcao1(),
-}), OP1_H)
-
-const OP2_H = 620
-out('PlanejamentoOpcao2.dc.html', compareBoard({
-  height: OP2_H, chip: 'Opção 2', chipTone: 'proposta',
-  title: 'Uma linha por escala, ber&ccedil;o como coluna',
-  note: 'Sem sub-linha nenhuma. Os grupos passam a ser Porto (ETA/ATA/ATD) e Berço; a coluna Berço resume cada atracação como terminal + janela atracação → saída. As datas completas ficam no modal da escala.',
-  body: planejamentoOpcao2(),
-}), OP2_H)
+const PLAN_H = 700
+out('PlanejamentoEscala.dc.html', compareBoard({
+  height: PLAN_H, chip: 'Proposta', chipTone: 'proposta',
+  title: 'Planejamento por escala &mdash; proposta',
+  note: 'Seis mudanças. A escala mantém as suas colunas de data; a atracação sai da grade e vira painel recolhível, recuado, com cabeçalho próprio em tom claro para não competir com o navy de cima.',
+  body: planejamentoEscala(),
+}), PLAN_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *
@@ -305,7 +297,7 @@ out('DirecaoCDetalhe.dc.html', artboard({
     <div style="display: flex; flex-direction: column; gap: 18px">
       ${tabsRow()}
       ${transbordoCard()}
-      ${planTable()}
+      ${planejamentoEscala()}
       ${timeline()}
     </div>
   </div>`,

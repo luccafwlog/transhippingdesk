@@ -131,8 +131,8 @@ const legenda = (extra) => `<div style="margin-top: 10px; display: flex; align-i
 
 const frame = (inner) => `<div style="margin-top: 8px; overflow: hidden; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surface}; box-shadow: ${T.shadow}">${inner}</div>`
 
-/* ===== OPÇÃO 1 — atracações num painel próprio, com cabeçalho próprio ===== */
-export function planejamentoOpcao1() {
+/* ===== Planejamento por escala: atracações num painel próprio ===== */
+export function planejamentoEscala() {
   const rows = ESCALAS.map((e, i) => {
     const zebra = i % 2 === 1 ? 'rgba(19, 32, 51, 0.018)' : T.surface
     const chevron = e.atracacoes.length
@@ -192,52 +192,5 @@ export function planejamentoOpcao1() {
       <tr>${th('ETA &middot; previsto', { sub: true })}${th('ATA &middot; real', { sub: true })}</tr></thead>
       <tbody>${rows}</tbody>
     </table>`) + legenda('A escala tem 3 colunas de data; a atraca&ccedil;&atilde;o tem as suas, num painel recolh&iacute;vel com cabe&ccedil;alho pr&oacute;prio.'),
-  })
-}
-
-/* ===== OPÇÃO 2 — uma linha por escala; atracação vira coluna resumida ===== */
-export function planejamentoOpcao2() {
-  const rows = ESCALAS.map((e, i) => {
-    const zebra = i % 2 === 1 ? 'rgba(19, 32, 51, 0.018)' : T.surface
-    const berco = e.atracacoes.length
-      ? `<div style="display: flex; flex-direction: column; gap: 5px">
-          ${e.atracacoes.map((a) => `<span style="display: inline-flex; align-items: center; gap: 7px">
-            <span class="pill" style="background: ${T.surfaceMuted}">${a.terminal}</span>
-            <span style="font-family: ${T.mono}; font-size: 11px; color: ${a.atb !== '-' ? T.textStrong : T.muted}; font-weight: ${a.atb !== '-' ? 600 : 400}">${a.atb !== '-' ? a.atb.slice(0, 5) : a.etb.slice(0, 5)}</span>
-            <span style="font-size: 10px; color: ${T.mutedSoft}">&rarr;</span>
-            <span style="font-family: ${T.mono}; font-size: 11px; color: ${a.atd !== '-' ? T.textStrong : T.muted}; font-weight: ${a.atd !== '-' ? 600 : 400}">${a.atd !== '-' ? a.atd.slice(0, 5) : a.etd.slice(0, 5)}</span>
-            ${a.rtw ? `<span class="badge badge--slate" style="padding: 1px 6px; font-size: 9px">RTW ${a.rtw}</span>` : ''}
-          </span>`).join('')}
-        </div>`
-      : `<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: ${T.mutedSoft}">${dash} <span style="font-size: 11px">a definir</span></span>`
-    return `
-    <tr style="background: ${zebra}${i > 0 ? `; border-top: 1px solid ${T.border}` : ''}">
-      <td style="padding: 12px 10px; vertical-align: top">
-        <div style="font-weight: 700; color: ${T.textStrong}">${e.port}</div>
-        ${e.divergencia ? divergChip(e.divergenciaCampo, e.divergencia) : ''}
-      </td>
-      <td style="padding: 12px 10px; vertical-align: top"><div style="display: flex; flex-wrap: wrap; gap: 6px">${e.opera.map((o) => `<span class="badge badge--${OPERA[o][0]}">${OPERA[o][1]}</span>`).join('')}</div></td>
-      <td style="padding: 12px 10px; vertical-align: top">${date(e.eta)}</td>
-      <td style="padding: 12px 10px; vertical-align: top">${date(e.ata, { real: true })}</td>
-      <td style="padding: 12px 10px; vertical-align: top">${date(e.atd, { real: true, suffix: derivChip })}</td>
-      <td style="padding: 12px 10px; vertical-align: top">${berco}</td>
-      <td style="padding: 12px 10px; vertical-align: top">${blsCell(e)}</td>
-      <td style="padding: 12px 10px; vertical-align: top">${e.escalaNumber ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.textStrong}">${e.escalaNumber}</span>` : dash}</td>
-      <td style="padding: 12px 10px; vertical-align: top"><span class="badge badge--${e.linked ? 'green' : 'slate'}">${e.linked ? 'Sim' : 'N&atilde;o'}</span></td>
-      <td style="padding: 12px 10px; vertical-align: top">${acoes}</td>
-    </tr>`
-  }).join('')
-
-  return sectionShell({
-    children: frame(`<table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
-      <thead><tr>
-        ${th('Escala', { rows: 2, first: true })}${th('Opera', { rows: 2 })}
-        ${th('Porto', { span: 3 })}${th('Ber&ccedil;o', { rows: 2 })}
-        ${th('B/Ls e CE', { rows: 2 })}${th('N&ordm; Escala', { rows: 2 })}
-        ${th('Vinculada', { rows: 2 })}${th('A&ccedil;&otilde;es', { rows: 2, last: true })}
-      </tr>
-      <tr>${th('ETA', { sub: true })}${th('ATA', { sub: true })}${th('ATD', { sub: true })}</tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`) + legenda('Uma linha por escala. O ber&ccedil;o mostra terminal e a janela atraca&ccedil;&atilde;o &rarr; sa&iacute;da; as datas completas ficam no modal da escala.'),
   })
 }
