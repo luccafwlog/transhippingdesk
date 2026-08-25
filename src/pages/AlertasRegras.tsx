@@ -163,7 +163,7 @@ export function AlertasRegras() {
           </div>
 
           {filteredRules.length ? (
-            <div className="max-h-[min(66vh,720px)] overflow-y-auto p-2" role="listbox" aria-label="Regras de alertas">
+            <div className="max-h-[min(66vh,720px)] overflow-y-auto p-2" role="list" aria-label="Regras de alertas">
               {filteredRules.map((rule) => (
                 <RuleListItem
                   key={rule.type}
@@ -221,8 +221,7 @@ function RuleListItem({
   return (
     <button
       type="button"
-      role="option"
-      aria-selected={selected}
+      aria-current={selected ? 'true' : undefined}
       aria-controls={`regra-${rule.type}`}
       className={`group flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${selected
         ? 'border-[var(--app-primary)] bg-[var(--app-primary)]/10'
@@ -271,6 +270,7 @@ function RuleDetail({ rule }: { rule: AlertRule }) {
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--app-muted)]">Onde resolver</p>
           <p className="mt-2 text-sm text-[var(--app-text)]">{rule.destinationLabel}</p>
           <p className="mt-1 font-mono text-[11px] text-[var(--app-muted)]">{rule.destination}</p>
+          {rule.destinationNote ? <p className="mt-2 text-xs leading-5 text-[var(--app-muted)]">{rule.destinationNote}</p> : null}
           <Link
             to={rule.destination}
             className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--app-primary)] hover:underline"

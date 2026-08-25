@@ -17,6 +17,7 @@ export type AlertRule = {
   resolution: string
   destination: string
   destinationLabel: string
+  destinationNote?: string
   afterResolution: string
   dismissal: string
 }
@@ -294,6 +295,7 @@ const ALERT_RULES_BASE = [
     resolution: 'Abra o B/L na aba Financeiro, regularize o gate do Portal e trate a fatura.',
     destination: '/manifestos',
     destinationLabel: 'Abrir B/Ls CNTR',
+    destinationNote: 'Quando o B/L estiver identificado, o alerta abre diretamente `/manifestos/{id}?tab=faturamento`; este link leva à lista para localizar o B/L afetado.',
     afterResolution: derivedResolution,
     dismissal: temporaryDismissal,
   },
@@ -309,6 +311,7 @@ const ALERT_RULES_BASE = [
     resolution: 'Abra o B/L na aba Financeiro, analise o erro e faça a correção financeira necessária.',
     destination: '/manifestos',
     destinationLabel: 'Abrir B/Ls CNTR',
+    destinationNote: 'Quando o B/L estiver identificado, o alerta abre diretamente `/manifestos/{id}?tab=faturamento`; este link leva à lista para localizar o B/L afetado.',
     afterResolution: derivedResolution,
     dismissal: temporaryDismissal,
   },
@@ -378,10 +381,10 @@ const ALERT_RULES_BASE = [
     department: 'operacoes',
     entityType: 'voyage_pod_schedule',
     severity: 'normal',
-    summary: 'Uma escala ainda não tem todas as datas compartilhadas necessárias.',
-    trigger: 'A escala elegível está sem ATA, ETB ou ETD conforme o ciclo da operação.',
-    timing: 'É recalculado quando a rota ou as datas da escala mudam.',
-    resolution: 'Abra a viagem e complete as datas que pertencem à escala.',
+    summary: 'Uma escala ainda não tem todas as datas compartilhadas necessárias para avançar no ciclo operacional.',
+    trigger: 'A escala elegível está sem ATA, ETB ou ETD. ETD é a previsão compartilhada da escala; as datas próprias de cada terminal ficam na regra de datas do terminal.',
+    timing: 'É recalculado quando a rota ou as datas compartilhadas da escala mudam.',
+    resolution: 'Abra a viagem e complete ATA, ETB ou ETD na escala. Para ATB e ATD, consulte a regra de datas do terminal.',
     destination: '/viagens',
     destinationLabel: 'Abrir Viagens',
     afterResolution: derivedResolution,
@@ -406,10 +409,10 @@ const ALERT_RULES_BASE = [
     type: 'voyage_export_after_atd',
     domain: 'Operação',
     department: 'operacoes',
-    entityType: 'voyage_escala_terminal',
+    entityType: 'voyage_pod_schedule',
     severity: 'normal',
-    summary: 'A escala já tem ATD, mas ainda existe planejamento de exportação pendente.',
-    trigger: 'Após o ATD do terminal, permanecem dados obrigatórios de exportação sem conclusão.',
+    summary: 'A escala já passou pelo ATD de um terminal, mas ainda existe planejamento de exportação pendente.',
+    trigger: 'Após o ATD de um terminal, permanecem vínculos obrigatórios de exportação sem conclusão para a escala.',
     timing: 'Começa após o ATD e permanece até o planejamento ser concluído ou corrigido.',
     resolution: 'Abra a viagem e conclua ou corrija o planejamento de exportação da escala.',
     destination: '/viagens',
