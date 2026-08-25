@@ -13,7 +13,8 @@ const artboards = [
   { file: 'Cards.dc.html', title: 'Cards · anatomia e estados', x: 0, y: 5160, page: 'page-3' },
 
   { file: 'PlanejamentoAntes.dc.html', title: 'Planejamento por escala · hoje', x: 0, y: 9000, page: 'page-5' },
-  { file: 'PlanejamentoDepois.dc.html', title: 'Planejamento por escala · proposta', x: 0, y: 9800, page: 'page-5' },
+  { file: 'PlanejamentoOpcao1.dc.html', title: 'Opção 1 · atracações em painel próprio', x: 0, y: 9800, page: 'page-5' },
+  { file: 'PlanejamentoOpcao2.dc.html', title: 'Opção 2 · berço como coluna', x: 0, y: 10700, page: 'page-5' },
 
   { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7100, page: 'page-4' },
   { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7100, page: 'page-4' },
@@ -48,20 +49,16 @@ const annotations = [
   {
     id: 'nota-planejamento', page: 'page-5', x: 0, y: 8760, w: 1000,
     text: [
-      'VISÃO GERAL · PLANEJAMENTO POR ESCALA — antes e depois, com os mesmos dados.',
+      'VISÃO GERAL · PLANEJAMENTO POR ESCALA — mesmos dados nos três artboards.',
+      'BRSSZ já atracou (ATA, ATB, ATD preenchidos); BRVIX ainda não chegou.',
       '',
-      'BRSSZ é uma escala que já atracou (ATA, ATB e ATD preenchidos); BRVIX ainda não chegou. O "hoje" é transcrição fiel de VoyageVisaoTab.tsx com os estilos resolvidos de index.css — não é uma versão piorada de propósito.',
+      'Cinco mudanças ficaram de pé nas duas opções: cabeçalho em dois níveis separando previsto de realizado; a coluna "BLs e CEs" passa a mostrar o B/L que o nome promete; VINCULADA vira badge; a divergência sai do text-amber-400 para os tokens dourados; e o ATD ganha a marca "deriv.".',
       '',
-      'Seis mudanças na proposta:',
+      'Em aberto: onde a atracação vive. A sub-linha herdando os cabeçalhos da escala foi descartada — confundia as colunas da escala com as da atracação.',
       '',
-      '1. Cabeçalho em dois níveis: Chegada e Saída, cada uma com Previsto e Real. Hoje ETA, ATA e ATD derivado são três colunas de mesmo peso, e nada diz qual já aconteceu. Agora o previsto fica em cinza e o realizado em escuro — a linha passa a ser lida por onde o navio está.',
-      '2. A coluna "BLs e CEs" só mostrava o rótulo do status do CE ("Em aprovação"). Passa a mostrar o B/L que o nome promete, mais a cobertura como medidor, com o status como legenda.',
-      '3. VINCULADA era texto puro SIM/NÃO. Vira badge, como o resto do app.',
-      '4. A divergência usava text-amber-400 (#fbbf24), cor fora dos tokens e ilegível a 11px sobre superfície clara. Vira chip nos tokens dourados, nomeando o campo divergente; o texto completo fica no title.',
-      '5. Atracações deixam de ser um bloco solto com ml-4 e viram linhas-filhas da mesma tabela, nas mesmas colunas. Os rótulos ETB/ATB/ETD/ATD saem de dentro de cada célula.',
-      '6. O ATD da escala ganha a marca "deriv." — hoje o cabeçalho diz "ATD derivado" mas nada explica de onde deriva.',
+      'OPÇÃO 1 — painel próprio, recolhível. A escala mantém suas 3 colunas de data; a atracação tem as suas, com cabeçalho claro que não compete com o navy da escala. Cabe tudo (ETB, ATB, ETD, ATD, Restow) e dá para editar por atracação. Custo: a linha cresce quando aberta.',
       '',
-      'A decidir: ETB e ATB são chegada ao BERÇO, não ao porto. A proposta os alinha sob Chegada e resolve com a legenda de rodapé. Se preferir, dá para trazer de volta o rótulo curto dentro de cada célula da atracação.',
+      'OPÇÃO 2 — sem sub-linha. Uma linha por escala; os grupos passam a ser Porto e Berço, e a coluna Berço resume cada atracação como terminal + janela atracação → saída. Tabela sempre da mesma altura. Custo: ETB e ETD previstos saem da tabela e ficam só no modal da escala.',
     ].join('\n'),
   },
   {

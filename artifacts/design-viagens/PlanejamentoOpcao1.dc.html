@@ -173,131 +173,115 @@
   .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
 </style>
 </helmet>
-<div class="shell" style="min-height: 620px">
+<div class="shell" style="min-height: 700px">
   
   <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
       <div>
-        <span style="display: inline-flex; align-items: center; border: 1px solid #bfdbfe; border-radius: 999px; background: #e8f0fb; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4d88">Proposta</span>
-        <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Planejamento por escala &mdash; proposta</div>
-        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Seis mudanças, todas dentro da Direção A: cabeçalho em dois níveis separando previsto de realizado; a coluna passa a mostrar o B/L que o nome promete; VINCULADA vira badge; a divergência sai do <code>amber-400</code> para os tokens dourados; e cada atracação vira linha-filha da mesma tabela, alinhada às colunas da escala.</div>
+        <span style="display: inline-flex; align-items: center; border: 1px solid #bfdbfe; border-radius: 999px; background: #e8f0fb; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4d88">Opção 1</span>
+        <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Atraca&ccedil;&otilde;es num painel pr&oacute;prio</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">A sub-linha não herda mais nada: vira um painel recolhível, recuado, com cabeçalho próprio (Terminal · ETB · ATB · ETD · ATD · Restow) em tom claro, para não competir com o cabeçalho navy da escala. A escala ganha chevron e contador.</div>
       </div>
       <section style="display: grid; gap: 4px; border: 1px solid #cdc8bc; border-radius: 16px; background: #f8f6f1; padding: 12px">
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
       <span style="font-size: 14px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #5a5549">Planejamento por escala</span>
       <span class="btn btn--secondary btn--sm"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Adicionar escala</span>
     </div>
-    <div style="margin-top: 8px; overflow: hidden; border: 1px solid #cdc8bc; border-radius: 16px; background: #ffffff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
-      <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
-        <thead>
-          <tr>
-            <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; border-top-left-radius: 16px">Escala</th>
-            <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">Opera</th>
-            <th colspan="2"  style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(255,255,255,0.14)">Chegada</th>
-            <th colspan="2"  style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(255,255,255,0.14)">Sa&iacute;da</th>
-            <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">B/Ls e CE</th>
-            <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">N&ordm; Escala</th>
-            <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">Vinculada</th>
-            <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; border-top-right-radius: 16px">A&ccedil;&otilde;es</th>
-          </tr>
-          <tr>
-            <th   style="background: #152238; color: rgba(255,255,255,0.66); padding: 5px 10px 9px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; white-space: nowrap">Previsto</th><th   style="background: #152238; color: rgba(255,255,255,0.66); padding: 5px 10px 9px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; white-space: nowrap">Real</th>
-            <th   style="background: #152238; color: rgba(255,255,255,0.66); padding: 5px 10px 9px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; white-space: nowrap">Previsto</th><th   style="background: #152238; color: rgba(255,255,255,0.66); padding: 5px 10px 9px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; white-space: nowrap">Real</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div style="margin-top: 8px; overflow: hidden; border: 1px solid #cdc8bc; border-radius: 16px; background: #ffffff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
+      <thead><tr>
+        <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; border-top-left-radius: 16px">Escala</th><th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">Opera</th>
+        <th colspan="2"  style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(255,255,255,0.14)">Chegada</th><th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">Sa&iacute;da</th>
+        <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">B/Ls e CE</th><th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">N&ordm; Escala</th>
+        <th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap">Vinculada</th><th  rowspan="2" style="background: #152238; color: #fff; padding: 10px 10px; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap; border-top-right-radius: 16px">A&ccedil;&otilde;es</th>
+      </tr>
+      <tr><th   style="background: #152238; color: rgba(255,255,255,0.66); padding: 5px 10px 9px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; white-space: nowrap">ETA &middot; previsto</th><th   style="background: #152238; color: rgba(255,255,255,0.66); padding: 5px 10px 9px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; white-space: nowrap">ATA &middot; real</th></tr></thead>
+      <tbody>
     <tr style="background: #ffffff">
       <td style="padding: 10px 10px; vertical-align: top">
-        <div style="font-weight: 700; color: #0e0c0a">BRSSZ</div>
-        <span title="Divergência CEs: POD Aprovado / EXP Lançando" style="margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #fde68a; border-radius: 999px; background: #fdf0dc; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 600; color: #8f4d08"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8f4d08" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> CEs divergente</span>
+        <div style="display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; color: #5a5549"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="m6 9 6 6 6-6"/></svg></span>
+          <span style="font-weight: 700; color: #0e0c0a">BRSSZ</span>
+          <span class="badge badge--slate" style="padding: 2px 8px; font-size: 10px">2 atraca&ccedil;&otilde;es</span>
+        </div>
+        <div style="margin-left: 26px"><span title="Divergência CEs: POD Aprovado / EXP Lançando" style="margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #fde68a; border-radius: 999px; background: #fdf0dc; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 600; color: #8f4d08"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8f4d08" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> CEs divergente</span></div>
       </td>
-      <td style="padding: 10px 10px; vertical-align: top">
-        <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="badge badge--blue">Importa&ccedil;&atilde;o</span><span class="badge badge--yellow">Exporta&ccedil;&atilde;o</span></div>
-      </td>
+      <td style="padding: 10px 10px; vertical-align: top"><div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="badge badge--blue">Importa&ccedil;&atilde;o</span><span class="badge badge--yellow">Exporta&ccedil;&atilde;o</span></div></td>
       <td style="padding: 10px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">28/08/2026</span></span></td>
       <td style="padding: 10px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">28/08/2026</span></span></td>
-      <td style="padding: 10px 10px"><span style="color: #8a8579">&mdash;</span></td>
       <td style="padding: 10px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">31/08/2026</span><span style="border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 1px 5px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">deriv.</span></span></td>
-      <td style="padding: 10px 10px">
-        <div style="display: flex; flex-direction: column; gap: 3px">
-          <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #0e0c0a">8 B/L</span>
-          <span style="display: inline-flex; align-items: center; gap: 7px">
-      <span style="width: 40px; height: 5px; border-radius: 999px; background: #e2ddd2; overflow: hidden">
-        <span style="display: block; width: 100%; height: 100%; background: #1a8c50"></span>
-      </span>
-      <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1a8c50">8/8</span>
-    </span>
-          <span style="font-size: 11px; color: #8a8579">Em aprovação</span>
-        </div>
-      </td>
+      <td style="padding: 10px 10px"><div style="display: flex; flex-direction: column; gap: 3px">
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #0e0c0a">8 B/L</span>
+  <span style="display: inline-flex; align-items: center; gap: 7px">
+    <span style="width: 40px; height: 5px; border-radius: 999px; background: #e2ddd2; overflow: hidden"><span style="display: block; width: 100%; height: 100%; background: #1a8c50"></span></span>
+    <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1a8c50">8/8</span>
+  </span>
+  <span style="font-size: 11px; color: #8a8579">Em aprovação</span>
+</div></td>
       <td style="padding: 10px 10px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #0e0c0a">25.0143</span></td>
       <td style="padding: 10px 10px"><span class="badge badge--green">Sim</span></td>
       <td style="padding: 10px 10px"><div style="display: flex; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border-radius: 12px; border: 1px solid #cdc8bc; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border-radius: 12px; border: 1px solid #cdc8bc; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border-radius: 12px; border: 1px solid #f2b3bb; background: linear-gradient(180deg, #fff7f8, #fff0f2); color: #c0393f; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></div></td>
     </tr>
-    <tr style="background: #f8f6f1">
-      <td style="padding: 8px 10px">
-        <span style="display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 12px; border-left: 2px solid #b8b2a5">
-          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8a8579">Atraca&ccedil;&atilde;o</span>
-          <span class="pill" style="background: #ffffff">BTP</span>
-        </span>
-      </td>
-      <td style="padding: 8px 10px"><span class="badge badge--slate" style="padding: 2px 8px; font-size: 10px">Restow 26</span></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">28/08/2026</span></span></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">28/08/2026</span></span></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">30/08/2026</span></span></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">30/08/2026</span></span></td>
-      <td colspan="4" style="padding: 8px 10px"></td>
-    </tr><tr style="background: #f8f6f1">
-      <td style="padding: 8px 10px">
-        <span style="display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 12px; border-left: 2px solid #b8b2a5">
-          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #8a8579">Atraca&ccedil;&atilde;o</span>
-          <span class="pill" style="background: #ffffff">DPW</span>
-        </span>
-      </td>
-      <td style="padding: 8px 10px"></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">30/08/2026</span></span></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">30/08/2026</span></span></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">31/08/2026</span></span></td>
-      <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">31/08/2026</span></span></td>
-      <td colspan="4" style="padding: 8px 10px"></td>
-    </tr>
+    <tr style="background: #ede9df"><td colspan="9" style="padding: 0 14px 14px 46px">
+      <div style="overflow: hidden; border: 1px solid #b8b2a5; border-radius: 10px; background: #ffffff">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #cdc8bc; background: #f8f6f1">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Atraca&ccedil;&otilde;es de BRSSZ</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 30px; font-size: 11px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Adicionar atraca&ccedil;&atilde;o</span>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left">
+          <thead><tr><th style="background: #e2ddd2; color: #5a5549; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">Terminal</th><th style="background: #e2ddd2; color: #5a5549; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">ETB</th><th style="background: #e2ddd2; color: #5a5549; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">ATB</th><th style="background: #e2ddd2; color: #5a5549; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">ETD</th><th style="background: #e2ddd2; color: #5a5549; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">ATD</th><th style="background: #e2ddd2; color: #5a5549; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">Restow</th><th style="background: #e2ddd2; color: #5a5549; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left"></th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="padding: 8px 10px"><span class="pill" style="background: #f8f6f1">BTP</span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">28/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">28/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">30/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">30/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #1c1915">26</span></td>
+              <td style="padding: 8px 10px; text-align: right"><span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #cdc8bc; border-radius: 6px; color: #5a5549"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span></td>
+            </tr><tr style="border-top: 1px solid #cdc8bc">
+              <td style="padding: 8px 10px"><span class="pill" style="background: #f8f6f1">DPW</span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">30/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">30/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">31/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 600; color: #0e0c0a">31/08/2026</span></span></td>
+              <td style="padding: 8px 10px"><span style="color: #8a8579">&mdash;</span></td>
+              <td style="padding: 8px 10px; text-align: right"><span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #cdc8bc; border-radius: 6px; color: #5a5549"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </td></tr>
     <tr style="background: rgba(19, 32, 51, 0.018); border-top: 1px solid #cdc8bc">
       <td style="padding: 10px 10px; vertical-align: top">
-        <div style="font-weight: 700; color: #0e0c0a">BRVIX</div>
+        <div style="display: flex; align-items: center; gap: 6px">
+          <span style="display: inline-block; width: 20px"></span>
+          <span style="font-weight: 700; color: #0e0c0a">BRVIX</span>
+          
+        </div>
         
       </td>
-      <td style="padding: 10px 10px; vertical-align: top">
-        <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="badge badge--blue">Importa&ccedil;&atilde;o</span></div>
-      </td>
+      <td style="padding: 10px 10px; vertical-align: top"><div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="badge badge--blue">Importa&ccedil;&atilde;o</span></div></td>
       <td style="padding: 10px 10px"><span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; color: #5a5549">01/09/2026</span></span></td>
       <td style="padding: 10px 10px"><span style="color: #8a8579">&mdash;</span></td>
       <td style="padding: 10px 10px"><span style="color: #8a8579">&mdash;</span></td>
-      <td style="padding: 10px 10px"><span style="color: #8a8579">&mdash;</span></td>
-      <td style="padding: 10px 10px">
-        <div style="display: flex; flex-direction: column; gap: 3px">
-          <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #0e0c0a">2 B/L</span>
-          <span style="display: inline-flex; align-items: center; gap: 7px">
-      <span style="width: 40px; height: 5px; border-radius: 999px; background: #e2ddd2; overflow: hidden">
-        <span style="display: block; width: 0%; height: 100%; background: #c0393f"></span>
-      </span>
-      <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #c0393f">0/2</span>
-    </span>
-          <span style="font-size: 11px; color: #8a8579">Aguardando</span>
-        </div>
-      </td>
+      <td style="padding: 10px 10px"><div style="display: flex; flex-direction: column; gap: 3px">
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #0e0c0a">2 B/L</span>
+  <span style="display: inline-flex; align-items: center; gap: 7px">
+    <span style="width: 40px; height: 5px; border-radius: 999px; background: #e2ddd2; overflow: hidden"><span style="display: block; width: 0%; height: 100%; background: #c0393f"></span></span>
+    <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #c0393f">0/2</span>
+  </span>
+  <span style="font-size: 11px; color: #8a8579">Aguardando</span>
+</div></td>
       <td style="padding: 10px 10px"><span style="color: #8a8579">&mdash;</span></td>
       <td style="padding: 10px 10px"><span class="badge badge--slate">N&atilde;o</span></td>
       <td style="padding: 10px 10px"><div style="display: flex; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border-radius: 12px; border: 1px solid #cdc8bc; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border-radius: 12px; border: 1px solid #cdc8bc; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border-radius: 12px; border: 1px solid #f2b3bb; background: linear-gradient(180deg, #fff7f8, #fff0f2); color: #c0393f; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></div></td>
     </tr>
     </tbody>
-      </table>
-    </div>
-    <div style="margin-top: 10px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: #8a8579">
-      <span>Data em cinza &eacute; previsto; em escuro, realizado.</span>
-      <span style="width: 1px; height: 12px; background: #cdc8bc"></span>
-      <span>Na linha da escala as datas s&atilde;o do porto (ETA / ATA / ATD); na linha da atraca&ccedil;&atilde;o, do berço (ETB / ATB / ETD / ATD).</span>
-      <span style="width: 1px; height: 12px; background: #cdc8bc"></span>
-      <span><b style="color: #5a5549">deriv.</b> ATD calculado a partir da &uacute;ltima atraca&ccedil;&atilde;o.</span>
-    </div>
+    </table></div><div style="margin-top: 10px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: #8a8579">
+  <span>Data em cinza &eacute; previsto; em escuro, realizado.</span>
+  <span style="width: 1px; height: 12px; background: #cdc8bc"></span>
+  <span><b style="color: #5a5549">deriv.</b> ATD calculado a partir da &uacute;ltima atraca&ccedil;&atilde;o.</span>
+  <span style="width: 1px; height: 12px; background: #cdc8bc"></span><span>A escala tem 3 colunas de data; a atraca&ccedil;&atilde;o tem as suas, num painel recolh&iacute;vel com cabe&ccedil;alho pr&oacute;prio.</span>
+</div>
   </section>
     </div>
 </div>

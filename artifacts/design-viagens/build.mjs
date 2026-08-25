@@ -6,7 +6,7 @@ import {
   tabsRow, timeline, toolbar, transbordoCard, voyageHero,
 } from './blocks.mjs'
 import { abaAdr, abaEscalas, abaExportacao, abaImportacao, metricPanel } from './tabs.mjs'
-import { planejamentoAntes, planejamentoDepois } from './visaogeral.mjs'
+import { planejamentoAntes, planejamentoOpcao1, planejamentoOpcao2 } from './visaogeral.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -205,13 +205,21 @@ out('PlanejamentoAntes.dc.html', compareBoard({
   body: planejamentoAntes(),
 }), ANTES_H)
 
-const DEPOIS_H = 620
-out('PlanejamentoDepois.dc.html', compareBoard({
-  height: DEPOIS_H, chip: 'Proposta', chipTone: 'proposta',
-  title: 'Planejamento por escala &mdash; proposta',
-  note: 'Seis mudanças, todas dentro da Direção A: cabeçalho em dois níveis separando previsto de realizado; a coluna passa a mostrar o B/L que o nome promete; VINCULADA vira badge; a divergência sai do <code>amber-400</code> para os tokens dourados; e cada atracação vira linha-filha da mesma tabela, alinhada às colunas da escala.',
-  body: planejamentoDepois(),
-}), DEPOIS_H)
+const OP1_H = 700
+out('PlanejamentoOpcao1.dc.html', compareBoard({
+  height: OP1_H, chip: 'Opção 1', chipTone: 'proposta',
+  title: 'Atraca&ccedil;&otilde;es num painel pr&oacute;prio',
+  note: 'A sub-linha não herda mais nada: vira um painel recolhível, recuado, com cabeçalho próprio (Terminal · ETB · ATB · ETD · ATD · Restow) em tom claro, para não competir com o cabeçalho navy da escala. A escala ganha chevron e contador.',
+  body: planejamentoOpcao1(),
+}), OP1_H)
+
+const OP2_H = 620
+out('PlanejamentoOpcao2.dc.html', compareBoard({
+  height: OP2_H, chip: 'Opção 2', chipTone: 'proposta',
+  title: 'Uma linha por escala, ber&ccedil;o como coluna',
+  note: 'Sem sub-linha nenhuma. Os grupos passam a ser Porto (ETA/ATA/ATD) e Berço; a coluna Berço resume cada atracação como terminal + janela atracação → saída. As datas completas ficam no modal da escala.',
+  body: planejamentoOpcao2(),
+}), OP2_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *

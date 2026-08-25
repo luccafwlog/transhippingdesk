@@ -91,100 +91,153 @@ export function planejamentoAntes() {
   })
 }
 
-/* ============================== DEPOIS ============================= */
-export function planejamentoDepois() {
-  const dash = `<span style="color: ${T.mutedSoft}">&mdash;</span>`
-  const th = (label, { span = 1, rows = 1, sub = false, first = false, last = false } = {}) =>
-    `<th ${span > 1 ? `colspan="${span}"` : ''} ${rows > 1 ? `rowspan="${rows}"` : ''} style="background: ${T.navy}; color: ${sub ? 'rgba(255,255,255,0.66)' : '#fff'}; padding: ${sub ? '5px 10px 9px' : '10px 10px'}; font-size: ${sub ? '10px' : '13px'}; font-weight: ${sub ? 600 : 700}; letter-spacing: ${sub ? '0.08em' : '0'}; text-transform: ${sub ? 'uppercase' : 'none'}; text-align: left; white-space: nowrap${span > 1 ? '; border-bottom: 1px solid rgba(255,255,255,0.14)' : ''}${first ? '; border-top-left-radius: 16px' : ''}${last ? '; border-top-right-radius: 16px' : ''}">${label}</th>`
+/* ---- peças comuns às duas opções (as 5 mudanças que ficaram de pé) ---- */
+const dash = `<span style="color: ${T.mutedSoft}">&mdash;</span>`
 
-  /** Previsto em tom fraco, realizado em tom forte: a linha passa a ser lida por "o que já aconteceu". */
-  const date = (value, { real = false, suffix = '' } = {}) => value === '-' || !value
-    ? dash
-    : `<span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: ${T.mono}; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: ${real ? 600 : 400}; color: ${real ? T.textStrong : T.muted}">${value}</span>${suffix}</span>`
+const th = (label, { span = 1, rows = 1, sub = false, first = false, last = false } = {}) =>
+  `<th ${span > 1 ? `colspan="${span}"` : ''} ${rows > 1 ? `rowspan="${rows}"` : ''} style="background: ${T.navy}; color: ${sub ? 'rgba(255,255,255,0.66)' : '#fff'}; padding: ${sub ? '5px 10px 9px' : '10px 10px'}; font-size: ${sub ? '10px' : '13px'}; font-weight: ${sub ? 600 : 700}; letter-spacing: ${sub ? '0.08em' : '0'}; text-transform: ${sub ? 'uppercase' : 'none'}; text-align: left; white-space: nowrap${span > 1 ? '; border-bottom: 1px solid rgba(255,255,255,0.14)' : ''}${first ? '; border-top-left-radius: 16px' : ''}${last ? '; border-top-right-radius: 16px' : ''}">${label}</th>`
 
-  const ceMeter = (filled, total) => {
-    const pct = total ? Math.round((filled / total) * 100) : 0
-    const color = total > 0 && filled >= total ? T.green : filled > 0 ? T.gold : T.red
-    return `<span style="display: inline-flex; align-items: center; gap: 7px">
-      <span style="width: 40px; height: 5px; border-radius: 999px; background: ${T.panelStrong}; overflow: hidden">
-        <span style="display: block; width: ${pct}%; height: 100%; background: ${color}"></span>
-      </span>
-      <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${color}">${filled}/${total}</span>
-    </span>`
-  }
+const date = (value, { real = false, suffix = '' } = {}) => value === '-' || !value
+  ? dash
+  : `<span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: ${T.mono}; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: ${real ? 600 : 400}; color: ${real ? T.textStrong : T.muted}">${value}</span>${suffix}</span>`
 
-  const derivado = `<span style="border: 1px solid ${T.border}; border-radius: 4px; background: ${T.surfaceMuted}; padding: 1px 5px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: ${T.mutedSoft}">deriv.</span>`
+const ceMeter = (filled, total) => {
+  const pct = total ? Math.round((filled / total) * 100) : 0
+  const color = total > 0 && filled >= total ? T.green : filled > 0 ? T.gold : T.red
+  return `<span style="display: inline-flex; align-items: center; gap: 7px">
+    <span style="width: 40px; height: 5px; border-radius: 999px; background: ${T.panelStrong}; overflow: hidden"><span style="display: block; width: ${pct}%; height: 100%; background: ${color}"></span></span>
+    <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${color}">${filled}/${total}</span>
+  </span>`
+}
 
+const derivChip = `<span style="border: 1px solid ${T.border}; border-radius: 4px; background: ${T.surfaceMuted}; padding: 1px 5px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: ${T.mutedSoft}">deriv.</span>`
+
+const divergChip = (campo, full) => `<span title="${full}" style="margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #fde68a; border-radius: 999px; background: ${T.goldSoft}; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 600; color: ${T.goldStrong}">${icon('warning', 12, T.goldStrong)} ${campo} divergente</span>`
+
+const blsCell = (e) => `<div style="display: flex; flex-direction: column; gap: 3px">
+  <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${T.textStrong}">${e.bls} B/L</span>
+  ${ceMeter(e.ceFilled, e.ceTotal)}
+  <span style="font-size: 11px; color: ${T.mutedSoft}">${e.ceStatus}</span>
+</div>`
+
+const acoes = `<div style="display: flex; align-items: center; gap: 8px">${iconBtn('pencil')}${iconBtn('warning')}${iconBtn('trash', { danger: true })}</div>`
+
+const legenda = (extra) => `<div style="margin-top: 10px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: ${T.mutedSoft}">
+  <span>Data em cinza &eacute; previsto; em escuro, realizado.</span>
+  <span style="width: 1px; height: 12px; background: ${T.border}"></span>
+  <span><b style="color: ${T.muted}">deriv.</b> ATD calculado a partir da &uacute;ltima atraca&ccedil;&atilde;o.</span>
+  ${extra ? `<span style="width: 1px; height: 12px; background: ${T.border}"></span><span>${extra}</span>` : ''}
+</div>`
+
+const frame = (inner) => `<div style="margin-top: 8px; overflow: hidden; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surface}; box-shadow: ${T.shadow}">${inner}</div>`
+
+/* ===== OPÇÃO 1 — atracações num painel próprio, com cabeçalho próprio ===== */
+export function planejamentoOpcao1() {
   const rows = ESCALAS.map((e, i) => {
     const zebra = i % 2 === 1 ? 'rgba(19, 32, 51, 0.018)' : T.surface
+    const chevron = e.atracacoes.length
+      ? `<span style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; color: ${T.muted}">${icon('chevronDown', 15)}</span>`
+      : `<span style="display: inline-block; width: 20px"></span>`
     return `
     <tr style="background: ${zebra}${i > 0 ? `; border-top: 1px solid ${T.border}` : ''}">
       <td style="padding: 10px 10px; vertical-align: top">
-        <div style="font-weight: 700; color: ${T.textStrong}">${e.port}</div>
-        ${e.divergencia ? `<span title="${e.divergencia}" style="margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #fde68a; border-radius: 999px; background: ${T.goldSoft}; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 600; color: ${T.goldStrong}">${icon('warning', 12, T.goldStrong)} ${e.divergenciaCampo} divergente</span>` : ''}
+        <div style="display: flex; align-items: center; gap: 6px">
+          ${chevron}
+          <span style="font-weight: 700; color: ${T.textStrong}">${e.port}</span>
+          ${e.atracacoes.length ? `<span class="badge badge--slate" style="padding: 2px 8px; font-size: 10px">${e.atracacoes.length} atraca&ccedil;&otilde;es</span>` : ''}
+        </div>
+        ${e.divergencia ? `<div style="margin-left: 26px">${divergChip(e.divergenciaCampo, e.divergencia)}</div>` : ''}
       </td>
-      <td style="padding: 10px 10px; vertical-align: top">
-        <div style="display: flex; flex-wrap: wrap; gap: 6px">${e.opera.map((o) => `<span class="badge badge--${OPERA[o][0]}">${OPERA[o][1]}</span>`).join('')}</div>
-      </td>
+      <td style="padding: 10px 10px; vertical-align: top"><div style="display: flex; flex-wrap: wrap; gap: 6px">${e.opera.map((o) => `<span class="badge badge--${OPERA[o][0]}">${OPERA[o][1]}</span>`).join('')}</div></td>
       <td style="padding: 10px 10px">${date(e.eta)}</td>
       <td style="padding: 10px 10px">${date(e.ata, { real: true })}</td>
-      <td style="padding: 10px 10px">${dash}</td>
-      <td style="padding: 10px 10px">${date(e.atd, { real: true, suffix: derivado })}</td>
-      <td style="padding: 10px 10px">
-        <div style="display: flex; flex-direction: column; gap: 3px">
-          <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${T.textStrong}">${e.bls} B/L</span>
-          ${ceMeter(e.ceFilled, e.ceTotal)}
-          <span style="font-size: 11px; color: ${T.mutedSoft}">${e.ceStatus}</span>
-        </div>
-      </td>
+      <td style="padding: 10px 10px">${date(e.atd, { real: true, suffix: derivChip })}</td>
+      <td style="padding: 10px 10px">${blsCell(e)}</td>
       <td style="padding: 10px 10px">${e.escalaNumber ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.textStrong}">${e.escalaNumber}</span>` : dash}</td>
       <td style="padding: 10px 10px"><span class="badge badge--${e.linked ? 'green' : 'slate'}">${e.linked ? 'Sim' : 'N&atilde;o'}</span></td>
-      <td style="padding: 10px 10px"><div style="display: flex; align-items: center; gap: 8px">${iconBtn('pencil')}${iconBtn('warning')}${iconBtn('trash', { danger: true })}</div></td>
+      <td style="padding: 10px 10px">${acoes}</td>
     </tr>
-    ${e.atracacoes.map((a) => `<tr style="background: ${T.surfaceMuted}">
-      <td style="padding: 8px 10px">
-        <span style="display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 12px; border-left: 2px solid ${T.borderStrong}">
-          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: ${T.mutedSoft}">Atraca&ccedil;&atilde;o</span>
-          <span class="pill" style="background: ${T.surface}">${a.terminal}</span>
-        </span>
-      </td>
-      <td style="padding: 8px 10px">${a.rtw ? `<span class="badge badge--slate" style="padding: 2px 8px; font-size: 10px">Restow ${a.rtw}</span>` : ''}</td>
-      <td style="padding: 8px 10px">${date(a.etb)}</td>
-      <td style="padding: 8px 10px">${date(a.atb, { real: true })}</td>
-      <td style="padding: 8px 10px">${date(a.etd)}</td>
-      <td style="padding: 8px 10px">${date(a.atd, { real: true })}</td>
-      <td colspan="4" style="padding: 8px 10px"></td>
-    </tr>`).join('')}`
+    ${e.atracacoes.length ? `<tr style="background: ${T.panel}"><td colspan="9" style="padding: 0 14px 14px 46px">
+      <div style="overflow: hidden; border: 1px solid ${T.borderStrong}; border-radius: 10px; background: ${T.surface}">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid ${T.border}; background: ${T.surfaceMuted}">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.muted}">Atraca&ccedil;&otilde;es de ${e.port}</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 30px; font-size: 11px">${icon('plus', 13)} Adicionar atraca&ccedil;&atilde;o</span>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left">
+          <thead><tr>${['Terminal', 'ETB', 'ATB', 'ETD', 'ATD', 'Restow', ''].map((c) => `<th style="background: ${T.panelStrong}; color: ${T.muted}; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">${c}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${e.atracacoes.map((a, j) => `<tr${j > 0 ? ` style="border-top: 1px solid ${T.border}"` : ''}>
+              <td style="padding: 8px 10px"><span class="pill" style="background: ${T.surfaceMuted}">${a.terminal}</span></td>
+              <td style="padding: 8px 10px">${date(a.etb)}</td>
+              <td style="padding: 8px 10px">${date(a.atb, { real: true })}</td>
+              <td style="padding: 8px 10px">${date(a.etd)}</td>
+              <td style="padding: 8px 10px">${date(a.atd, { real: true })}</td>
+              <td style="padding: 8px 10px">${a.rtw ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.text}">${a.rtw}</span>` : dash}</td>
+              <td style="padding: 8px 10px; text-align: right"><span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid ${T.border}; border-radius: 6px; color: ${T.muted}">${icon('pencil', 13)}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </td></tr>` : ''}`
   }).join('')
 
   return sectionShell({
-    children: `<div style="margin-top: 8px; overflow: hidden; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surface}; box-shadow: ${T.shadow}">
-      <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
-        <thead>
-          <tr>
-            ${th('Escala', { rows: 2, first: true })}
-            ${th('Opera', { rows: 2 })}
-            ${th('Chegada', { span: 2 })}
-            ${th('Sa&iacute;da', { span: 2 })}
-            ${th('B/Ls e CE', { rows: 2 })}
-            ${th('N&ordm; Escala', { rows: 2 })}
-            ${th('Vinculada', { rows: 2 })}
-            ${th('A&ccedil;&otilde;es', { rows: 2, last: true })}
-          </tr>
-          <tr>
-            ${th('Previsto', { sub: true })}${th('Real', { sub: true })}
-            ${th('Previsto', { sub: true })}${th('Real', { sub: true })}
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    <div style="margin-top: 10px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: ${T.mutedSoft}">
-      <span>Data em cinza &eacute; previsto; em escuro, realizado.</span>
-      <span style="width: 1px; height: 12px; background: ${T.border}"></span>
-      <span>Na linha da escala as datas s&atilde;o do porto (ETA / ATA / ATD); na linha da atraca&ccedil;&atilde;o, do berço (ETB / ATB / ETD / ATD).</span>
-      <span style="width: 1px; height: 12px; background: ${T.border}"></span>
-      <span><b style="color: ${T.muted}">deriv.</b> ATD calculado a partir da &uacute;ltima atraca&ccedil;&atilde;o.</span>
-    </div>`,
+    children: frame(`<table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
+      <thead><tr>
+        ${th('Escala', { rows: 2, first: true })}${th('Opera', { rows: 2 })}
+        ${th('Chegada', { span: 2 })}${th('Sa&iacute;da', { rows: 2 })}
+        ${th('B/Ls e CE', { rows: 2 })}${th('N&ordm; Escala', { rows: 2 })}
+        ${th('Vinculada', { rows: 2 })}${th('A&ccedil;&otilde;es', { rows: 2, last: true })}
+      </tr>
+      <tr>${th('ETA &middot; previsto', { sub: true })}${th('ATA &middot; real', { sub: true })}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`) + legenda('A escala tem 3 colunas de data; a atraca&ccedil;&atilde;o tem as suas, num painel recolh&iacute;vel com cabe&ccedil;alho pr&oacute;prio.'),
+  })
+}
+
+/* ===== OPÇÃO 2 — uma linha por escala; atracação vira coluna resumida ===== */
+export function planejamentoOpcao2() {
+  const rows = ESCALAS.map((e, i) => {
+    const zebra = i % 2 === 1 ? 'rgba(19, 32, 51, 0.018)' : T.surface
+    const berco = e.atracacoes.length
+      ? `<div style="display: flex; flex-direction: column; gap: 5px">
+          ${e.atracacoes.map((a) => `<span style="display: inline-flex; align-items: center; gap: 7px">
+            <span class="pill" style="background: ${T.surfaceMuted}">${a.terminal}</span>
+            <span style="font-family: ${T.mono}; font-size: 11px; color: ${a.atb !== '-' ? T.textStrong : T.muted}; font-weight: ${a.atb !== '-' ? 600 : 400}">${a.atb !== '-' ? a.atb.slice(0, 5) : a.etb.slice(0, 5)}</span>
+            <span style="font-size: 10px; color: ${T.mutedSoft}">&rarr;</span>
+            <span style="font-family: ${T.mono}; font-size: 11px; color: ${a.atd !== '-' ? T.textStrong : T.muted}; font-weight: ${a.atd !== '-' ? 600 : 400}">${a.atd !== '-' ? a.atd.slice(0, 5) : a.etd.slice(0, 5)}</span>
+            ${a.rtw ? `<span class="badge badge--slate" style="padding: 1px 6px; font-size: 9px">RTW ${a.rtw}</span>` : ''}
+          </span>`).join('')}
+        </div>`
+      : `<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: ${T.mutedSoft}">${dash} <span style="font-size: 11px">a definir</span></span>`
+    return `
+    <tr style="background: ${zebra}${i > 0 ? `; border-top: 1px solid ${T.border}` : ''}">
+      <td style="padding: 12px 10px; vertical-align: top">
+        <div style="font-weight: 700; color: ${T.textStrong}">${e.port}</div>
+        ${e.divergencia ? divergChip(e.divergenciaCampo, e.divergencia) : ''}
+      </td>
+      <td style="padding: 12px 10px; vertical-align: top"><div style="display: flex; flex-wrap: wrap; gap: 6px">${e.opera.map((o) => `<span class="badge badge--${OPERA[o][0]}">${OPERA[o][1]}</span>`).join('')}</div></td>
+      <td style="padding: 12px 10px; vertical-align: top">${date(e.eta)}</td>
+      <td style="padding: 12px 10px; vertical-align: top">${date(e.ata, { real: true })}</td>
+      <td style="padding: 12px 10px; vertical-align: top">${date(e.atd, { real: true, suffix: derivChip })}</td>
+      <td style="padding: 12px 10px; vertical-align: top">${berco}</td>
+      <td style="padding: 12px 10px; vertical-align: top">${blsCell(e)}</td>
+      <td style="padding: 12px 10px; vertical-align: top">${e.escalaNumber ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.textStrong}">${e.escalaNumber}</span>` : dash}</td>
+      <td style="padding: 12px 10px; vertical-align: top"><span class="badge badge--${e.linked ? 'green' : 'slate'}">${e.linked ? 'Sim' : 'N&atilde;o'}</span></td>
+      <td style="padding: 12px 10px; vertical-align: top">${acoes}</td>
+    </tr>`
+  }).join('')
+
+  return sectionShell({
+    children: frame(`<table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
+      <thead><tr>
+        ${th('Escala', { rows: 2, first: true })}${th('Opera', { rows: 2 })}
+        ${th('Porto', { span: 3 })}${th('Ber&ccedil;o', { rows: 2 })}
+        ${th('B/Ls e CE', { rows: 2 })}${th('N&ordm; Escala', { rows: 2 })}
+        ${th('Vinculada', { rows: 2 })}${th('A&ccedil;&otilde;es', { rows: 2, last: true })}
+      </tr>
+      <tr>${th('ETA', { sub: true })}${th('ATA', { sub: true })}${th('ATD', { sub: true })}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`) + legenda('Uma linha por escala. O ber&ccedil;o mostra terminal e a janela atraca&ccedil;&atilde;o &rarr; sa&iacute;da; as datas completas ficam no modal da escala.'),
   })
 }

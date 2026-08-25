@@ -17,7 +17,7 @@ recorte da tabela de Planejamento por escala e do bloco de Atracações.
 | Página | [`Main.dc.html`](./Main.dc.html) — a Direção A inteira |
 | Abas | [`AbaImportacao`](./AbaImportacao.dc.html), [`AbaExportacao`](./AbaExportacao.dc.html), [`AbaEscalas`](./AbaEscalas.dc.html), [`AbaAdr`](./AbaAdr.dc.html) — rascunhos, ainda não revisados |
 | Cards | [`Cards.dc.html`](./Cards.dc.html) — anatomia e estados |
-| Visão geral · Planejamento | [`PlanejamentoAntes`](./PlanejamentoAntes.dc.html) e [`PlanejamentoDepois`](./PlanejamentoDepois.dc.html) |
+| Visão geral · Planejamento | [`PlanejamentoAntes`](./PlanejamentoAntes.dc.html), [`PlanejamentoOpcao1`](./PlanejamentoOpcao1.dc.html), [`PlanejamentoOpcao2`](./PlanejamentoOpcao2.dc.html) |
 | Não escolhidas | [`DirecaoC`](./DirecaoC.dc.html), [`DirecaoCDetalhe`](./DirecaoCDetalhe.dc.html) |
 
 [`canvas.json`](./canvas.json) — gerado por [`canvas.mjs`](./canvas.mjs) — define
@@ -45,9 +45,10 @@ posicionar as molduras sem sobreposição. Os módulos de apoio:
 - [`blocks.mjs`](./blocks.mjs) — blocos da página: cabeçalho, barra de comando,
   herói da viagem, faixa de KPIs, abas, planejamento, transbordo e linha do tempo.
 - [`tabs.mjs`](./tabs.mjs) — corpo de cada aba do `VoyageCard`.
-- [`visaogeral.mjs`](./visaogeral.mjs) — o antes/depois da tabela de
-  Planejamento por escala. O "antes" é transcrição fiel de
-  `src/components/voyages/VoyageVisaoTab.tsx`.
+- [`visaogeral.mjs`](./visaogeral.mjs) — a tabela de Planejamento por escala:
+  o "hoje", transcrição fiel de `src/components/voyages/VoyageVisaoTab.tsx`, e
+  duas opções em aberto para onde a atracação vive (painel recolhível próprio
+  ou coluna Berço resumida).
 
 ## Publicação
 
