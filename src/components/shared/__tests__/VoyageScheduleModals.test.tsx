@@ -221,6 +221,15 @@ describe('EscalaModal', () => {
     )
   })
 
+  it('preserva o status de BLs e CEs ao salvar sem alterar o campo', async () => {
+    const user = userEvent.setup()
+    const onSaved = renderEscala(terminalEscala({ ceStatus: 'received' }))
+
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ ceStatus: 'received' }))
+  })
+
   it('normaliza o porto por extenso antes de enviar', async () => {
     const user = userEvent.setup()
     const onSaved = renderEscala({ ...escalaBase, port: 'Vitoria', temImportacao: false })

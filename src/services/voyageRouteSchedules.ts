@@ -949,6 +949,10 @@ function makeAuditRow(
   const normalizedNewValue = normalizeDateValue(newValue)
 
   if (normalizedOldValue === normalizedNewValue) return null
+  // "Aguardando" é o estado inicial do editor, não uma alteração feita pelo
+  // operador. Não polua a linha do tempo quando uma escala ainda sem CE for
+  // apenas aberta e salva.
+  if (fieldName === 'ces' && normalizedOldValue === null && normalizedNewValue === 'waiting') return null
 
   return {
     entity_type: entityType,

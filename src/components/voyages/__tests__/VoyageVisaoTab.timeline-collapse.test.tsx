@@ -94,3 +94,49 @@ it('não mostra atracação TBC completamente vazia no planejamento', () => {
 
   expect(screen.queryByText('Atracações')).toBeNull()
 })
+
+it('não usa status de exportação ao reabrir uma escala que também tem importação', async () => {
+  const user = userEvent.setup()
+  const onEditEscala = vi.fn()
+
+  render(
+    <VoyageVisaoTab
+      voyage={{ id: 7, status: 'planning', bls: [], granite_manifests: [], vazios_manifests: [] } as never}
+      voyageLabel="NAVIO / 01N"
+      escalaRows={[{
+        voyageId: 7,
+        port: 'BRSSA',
+        eta: null,
+        ata: null,
+        atd: null,
+        atracacoes: [],
+        ceStatus: 'received',
+        podCeStatus: null,
+        exportCeStatus: 'received',
+        linked: null,
+        escalaNumber: null,
+        omitted: false,
+        deleted: false,
+        temImportacao: true,
+        temExportacao: true,
+        temGranito: true,
+        temVazios: false,
+        containersQty: null,
+        movementsQty: null,
+        dischargePorts: [],
+        divergences: [],
+      } as never]}
+      importBatches={[]}
+      exportSchedules={[]}
+      isAdmin={false}
+      divergenceCount={0}
+      ceCoverage={{ filled: 0, total: 0 }}
+      onEditEscala={onEditEscala}
+      onOmitPod={vi.fn()}
+    />,
+  )
+
+  await user.click(screen.getByRole('button', { name: 'Editar planejamento da escala BRSSA' }))
+
+  expect(onEditEscala).toHaveBeenCalledWith(expect.objectContaining({ ceStatus: null }))
+})

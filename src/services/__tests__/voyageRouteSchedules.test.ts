@@ -755,3 +755,35 @@ it('grava audit rows de ATB e ETD por POD', async () => {
     }),
   ]))
 })
+
+it('não grava CE aguardando ao salvar uma escala sem status de CE anterior', async () => {
+  const insertMock = vi.fn(async () => ({ error: null }))
+  const auditLogs = {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        in: vi.fn(() => ({
+          order: vi.fn(() => ({ range: vi.fn(async () => ({ data: [], error: null })) })),
+        })),
+      })),
+    })),
+    insert: insertMock,
+  }
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'voyage_export_schedules' || table === 'voyage_escala_terminal_state') {
+      return { select: vi.fn(() => ({ in: vi.fn(async () => ({ data: [], error: null })) })) }
+    }
+    return auditLogs
+  })
+
+  await saveVoyagePodSchedule({
+    voyageId: 12,
+    pod: 'BRSSZ',
+    eta: null,
+    ata: null,
+    ceStatus: 'waiting',
+    linked: null,
+    changedBy: 'user-1',
+  })
+
+  expect(insertMock).not.toHaveBeenCalled()
+})

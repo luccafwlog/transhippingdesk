@@ -2,17 +2,113 @@ import { describe, expect, it } from 'vitest'
 import { buildVoyageTimeline } from '../voyageSummaries'
 
 describe('timeline operacional de transbordo', () => {
-  it('humaniza alterações de frentes e datas terminalizadas', () => {
+  it('humaniza alterações de operações e datas terminalizadas', () => {
     const events = buildVoyageTimeline({
       scheduleEvents: [
-        { entity_type: 'voyage_pod_schedule', entity_id: '9::BRVIX', field_name: 'front_created', old_value: null, new_value: JSON.stringify({ modalidade: 'granito', terminal_id: 'terminal-1' }), changed_at: '2026-08-18T10:00:00Z' },
+        { entity_type: 'voyage_pod_schedule', entity_id: '9::BRVIX', field_name: 'front_created', old_value: null, new_value: JSON.stringify({ sentido: 'exportacao', modalidade: 'granito', terminal_id: 'terminal-1' }), changed_at: '2026-08-18T10:00:00Z' },
         { entity_type: 'voyage_pod_schedule', entity_id: '9::BRVIX', field_name: 'terminal_dates', old_value: null, new_value: JSON.stringify({ terminal_atb: '2026-08-20' }), changed_at: '2026-08-18T11:00:00Z' },
       ],
     })
     expect(events.map((event) => event.kind)).toEqual(['escala-terminal', 'escala-terminal'])
-    expect(events.find((event) => event.title.includes('Frente granito'))?.title).toContain('Frente granito atribuída')
+    expect(events.find((event) => event.title.includes('granito'))?.title).toBe('Terminal definido para granito de exportação em BRVIX')
     expect(events.find((event) => event.title.includes('Datas do terminal'))?.title).toContain('Datas do terminal alteradas')
-    expect(events.find((event) => event.title.includes('Frente granito'))?.detail).not.toContain('terminal-1')
+    expect(events.find((event) => event.title.includes('granito'))?.detail).not.toContain('terminal-1')
+  })
+
+  it('traduz carga cheia para uma descrição de negócio compreensível', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRSSA',
+        field_name: 'front_created',
+        old_value: null,
+        new_value: JSON.stringify({ sentido: 'importacao', modalidade: 'carga_cheia', terminal_code: 'TBC' }),
+        changed_at: '2026-08-24T21:41:00Z',
+      }],
+    })
+
+    expect(events[0].title).toBe('Terminal definido para carga cheia de importação em BRSSA')
+    expect(events[0].detail).toContain('TBC')
+    expect(events[0].detail).not.toContain('carga_cheia')
+  })
+
+  it('não exibe alteração de CE quando o valor novo é igual ao anterior', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRSSA',
+        field_name: 'ces',
+        old_value: 'received',
+        new_value: 'received',
+        changed_at: '2026-08-24T21:41:00Z',
+      }],
+    })
+
+    expect(events.filter((event) => event.kind === 'ce-status')).toHaveLength(0)
+  })
+
+  it('não exibe a inicialização implícita de CE como evento operacional', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRSSA',
+        field_name: 'ces',
+        old_value: null,
+        new_value: 'waiting',
+        changed_at: '2026-08-24T21:41:00Z',
+      }],
+    })
+
+    expect(events).toHaveLength(0)
+  })
+
+  it('não exibe alteração quando o JSON da auditoria só mudou de ordem', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRSSA',
+        field_name: 'export_expectation',
+        old_value: JSON.stringify({ granito: true, has_empty: false }),
+        new_value: '{"has_empty":false,"granito":true}',
+        changed_at: '2026-08-24T21:41:00Z',
+      }],
+    })
+
+    expect(events).toHaveLength(0)
+  })
+
+  it('descreve a declaração de exportação sem atribuí-la a um terminal', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRSSA',
+        field_name: 'export_expectation',
+        old_value: null,
+        new_value: JSON.stringify({ tem_exportacao: true, granito: true, has_empty: true, containers_qty: 12, discharge_ports: ['ITGOA'] }),
+        changed_at: '2026-08-24T21:41:00Z',
+      }],
+    })
+
+    expect(events[0].title).toBe('Declaração de exportação atualizada em BRSSA')
+    expect(events[0].detail).toContain('granito')
+    expect(events[0].detail).toContain('vazios (12)')
+    expect(events[0].detail).not.toContain('terminal')
+  })
+
+  it('explica a troca da origem da operação em linguagem de negócio', () => {
+    const events = buildVoyageTimeline({
+      scheduleEvents: [{
+        entity_type: 'voyage_pod_schedule',
+        entity_id: '9::BRSSA',
+        field_name: 'front_source',
+        old_value: 'operational_data',
+        new_value: 'export_declaration',
+        changed_at: '2026-08-24T21:41:00Z',
+      }],
+    })
+
+    expect(events[0].detail).toContain('dados operacionais para declaração de exportação')
+    expect(events[0].detail).not.toContain('operational_data')
   })
 
   it('consolida importações de B/L por lote e rota', () => {
