@@ -95,37 +95,21 @@ export function planejamentoAntes() {
 const dash = `<span style="color: ${T.mutedSoft}">&mdash;</span>`
 
 const th = (label, { span = 1, rows = 1, sub = false, first = false, last = false } = {}) =>
-  `<th ${span > 1 ? `colspan="${span}"` : ''} ${rows > 1 ? `rowspan="${rows}"` : ''} style="background: ${T.navy}; color: ${sub ? 'rgba(255,255,255,0.66)' : '#fff'}; padding: ${sub ? '5px 10px 9px' : '10px 10px'}; font-size: ${sub ? '10px' : '13px'}; font-weight: ${sub ? 600 : 700}; letter-spacing: ${sub ? '0.08em' : '0'}; text-transform: ${sub ? 'uppercase' : 'none'}; text-align: left; white-space: nowrap${span > 1 ? '; border-bottom: 1px solid rgba(255,255,255,0.14)' : ''}${first ? '; border-top-left-radius: 16px' : ''}${last ? '; border-top-right-radius: 16px' : ''}">${label}</th>`
+  `<th ${span > 1 ? `colspan="${span}"` : ''} ${rows > 1 ? `rowspan="${rows}"` : ''} style="background: ${T.navy}; color: ${sub ? 'rgba(255,255,255,0.66)' : '#fff'}; padding: ${sub ? '5px 10px 9px' : '10px 10px'}; font-size: ${sub ? '10px' : '13px'}; font-weight: ${sub ? 600 : 700}; letter-spacing: ${sub ? '0.08em' : '0'}; text-transform: ${sub ? 'uppercase' : 'none'}; text-align: center; white-space: nowrap${span > 1 ? '; border-bottom: 1px solid rgba(255,255,255,0.14)' : ''}${first ? '; border-top-left-radius: 16px' : ''}${last ? '; border-top-right-radius: 16px' : ''}">${label}</th>`
 
 const date = (value, { real = false, suffix = '' } = {}) => value === '-' || !value
   ? dash
   : `<span style="display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: ${T.mono}; font-size: 12px; font-variant-numeric: tabular-nums; font-weight: ${real ? 600 : 400}; color: ${real ? T.textStrong : T.muted}">${value}</span>${suffix}</span>`
 
-const ceMeter = (filled, total) => {
-  const pct = total ? Math.round((filled / total) * 100) : 0
-  const color = total > 0 && filled >= total ? T.green : filled > 0 ? T.gold : T.red
-  return `<span style="display: inline-flex; align-items: center; gap: 7px">
-    <span style="width: 40px; height: 5px; border-radius: 999px; background: ${T.panelStrong}; overflow: hidden"><span style="display: block; width: ${pct}%; height: 100%; background: ${color}"></span></span>
-    <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${color}">${filled}/${total}</span>
-  </span>`
-}
-
-const derivChip = `<span style="border: 1px solid ${T.border}; border-radius: 4px; background: ${T.surfaceMuted}; padding: 1px 5px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: ${T.mutedSoft}">deriv.</span>`
-
 const divergChip = (campo, full) => `<span title="${full}" style="margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #fde68a; border-radius: 999px; background: ${T.goldSoft}; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 600; color: ${T.goldStrong}">${icon('warning', 12, T.goldStrong)} ${campo} divergente</span>`
 
-const blsCell = (e) => `<div style="display: flex; flex-direction: column; gap: 3px">
-  <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${T.textStrong}">${e.bls} B/L</span>
-  ${ceMeter(e.ceFilled, e.ceTotal)}
-  <span style="font-size: 11px; color: ${T.mutedSoft}">${e.ceStatus}</span>
-</div>`
+/** Campo manual do usuário: mantém os mesmos rótulos de status de hoje. */
+const blsCell = (e) => e.ceStatus
 
 const acoes = `<div style="display: flex; align-items: center; gap: 8px">${iconBtn('pencil')}${iconBtn('warning')}${iconBtn('trash', { danger: true })}</div>`
 
 const legenda = (extra) => `<div style="margin-top: 10px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: ${T.mutedSoft}">
   <span>Data em cinza &eacute; previsto; em escuro, realizado.</span>
-  <span style="width: 1px; height: 12px; background: ${T.border}"></span>
-  <span><b style="color: ${T.muted}">deriv.</b> ATD calculado a partir da &uacute;ltima atraca&ccedil;&atilde;o.</span>
   ${extra ? `<span style="width: 1px; height: 12px; background: ${T.border}"></span><span>${extra}</span>` : ''}
 </div>`
 
@@ -151,7 +135,7 @@ export function planejamentoEscala() {
       <td style="padding: 10px 10px; vertical-align: top"><div style="display: flex; flex-wrap: wrap; gap: 6px">${e.opera.map((o) => `<span class="badge badge--${OPERA[o][0]}">${OPERA[o][1]}</span>`).join('')}</div></td>
       <td style="padding: 10px 10px">${date(e.eta)}</td>
       <td style="padding: 10px 10px">${date(e.ata, { real: true })}</td>
-      <td style="padding: 10px 10px">${date(e.atd, { real: true, suffix: derivChip })}</td>
+      <td style="padding: 10px 10px">${date(e.atd, { real: true })}</td>
       <td style="padding: 10px 10px">${blsCell(e)}</td>
       <td style="padding: 10px 10px">${e.escalaNumber ? `<span style="font-family: ${T.mono}; font-size: 12px; color: ${T.textStrong}">${e.escalaNumber}</span>` : dash}</td>
       <td style="padding: 10px 10px"><span class="badge badge--${e.linked ? 'green' : 'slate'}">${e.linked ? 'Sim' : 'N&atilde;o'}</span></td>
@@ -164,7 +148,7 @@ export function planejamentoEscala() {
           <span class="btn btn--secondary btn--sm" style="min-height: 30px; font-size: 11px">${icon('plus', 13)} Adicionar atraca&ccedil;&atilde;o</span>
         </div>
         <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left">
-          <thead><tr>${['Terminal', 'ETB', 'ATB', 'ETD', 'ATD', 'Restow', ''].map((c) => `<th style="background: ${T.panelStrong}; color: ${T.muted}; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: left">${c}</th>`).join('')}</tr></thead>
+          <thead><tr>${['Terminal', 'ETB', 'ATB', 'ETD', 'ATD', 'Restow', ''].map((c) => `<th style="background: ${T.panelStrong}; color: ${T.muted}; padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: center">${c}</th>`).join('')}</tr></thead>
           <tbody>
             ${e.atracacoes.map((a, j) => `<tr${j > 0 ? ` style="border-top: 1px solid ${T.border}"` : ''}>
               <td style="padding: 8px 10px"><span class="pill" style="background: ${T.surfaceMuted}">${a.terminal}</span></td>
@@ -185,8 +169,8 @@ export function planejamentoEscala() {
     children: frame(`<table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
       <thead><tr>
         ${th('Escala', { rows: 2, first: true })}${th('Opera', { rows: 2 })}
-        ${th('Chegada', { span: 2 })}${th('Sa&iacute;da', { rows: 2 })}
-        ${th('B/Ls e CE', { rows: 2 })}${th('N&ordm; Escala', { rows: 2 })}
+        ${th('Chegada', { span: 2 })}${th('ATD', { rows: 2 })}
+        ${th('BLs e CEs', { rows: 2 })}${th('N&ordm; Escala', { rows: 2 })}
         ${th('Vinculada', { rows: 2 })}${th('A&ccedil;&otilde;es', { rows: 2, last: true })}
       </tr>
       <tr>${th('ETA &middot; previsto', { sub: true })}${th('ATA &middot; real', { sub: true })}</tr></thead>
