@@ -60,14 +60,20 @@ function DirectionKpiTile({
 }: {
   direction: string
   tone: 'blue' | 'green' | 'yellow' | 'red' | 'slate'
-  primary: { value: string; unit?: string; color?: string }
+  primary: { value: string; unit?: string; color?: string; variant?: 'number' | 'text' }
   metrics: Array<{ label: string; value: string }>
 }) {
   return (
     <div className="app-voyage-kpi-tile">
       <Badge tone={tone}>{direction}</Badge>
       <div className="app-voyage-kpi-tile__primary">
-        <span className="app-voyage-kpi-tile__value" style={{ color: primary.color }}>{primary.value}</span>
+        <span
+          className={`app-voyage-kpi-tile__value${primary.variant === 'text' ? ' app-voyage-kpi-tile__value--text' : ''}`}
+          style={{ color: primary.color }}
+          title={primary.value}
+        >
+          {primary.value}
+        </span>
         {primary.unit ? <span className="app-voyage-kpi-tile__unit">{primary.unit}</span> : null}
       </div>
       <div className="app-voyage-kpi-tile__support">
@@ -165,6 +171,7 @@ export function VoyageCard({
     (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
     0,
   )
+  const totalVaziosManifests = (voyage.vazios_manifests ?? []).length
   const totalGraniteBls = exportSummary.reduce((sum, embarkPort) => sum + embarkPort.granite.bls, 0)
   const totalGraniteWeightTon = exportSummary.reduce((sum, embarkPort) => sum + embarkPort.granite.weightTon, 0)
   const destinationPorts = collectVoyagePorts(
@@ -385,17 +392,21 @@ export function VoyageCard({
         <DirectionKpiTile
           direction="Exportação"
           tone="green"
-          primary={{ value: String(totalExportContainers), unit: 'movimentos' }}
+          primary={{ value: String(totalExportContainers), unit: 'vazios embarcados' }}
           metrics={[
             { label: 'Granito · B/Ls', value: String(totalGraniteBls) },
             { label: 'Granito · ton', value: formatMetric(totalGraniteWeightTon) },
-            { label: 'CNTRs embarcados', value: String(totalExportContainers) },
+            { label: 'Embarques de vazios', value: String(totalVaziosManifests) },
           ]}
         />
         <DirectionKpiTile
-          direction="ESCALA"
+          direction="PRÓXIMA ESCALA"
           tone="blue"
-          primary={{ value: proximaEscala?.pod ?? '—', unit: proximaEscala ? `ETA ${formatDate(proximaEscala.eta)}` : undefined }}
+          primary={{
+            value: proximaEscala?.pod ?? '—',
+            unit: proximaEscala ? `ETA ${formatDate(proximaEscala.eta)}` : undefined,
+            variant: 'text',
+          }}
           metrics={[
             { label: 'Planejadas', value: String(plannedPodCount) },
             { label: 'Atracação', value: proximaEscala?.etb ? `ETB ${formatDate(proximaEscala.etb)}` : 'TBC' },
@@ -405,7 +416,7 @@ export function VoyageCard({
         <DirectionKpiTile
           direction="CONCILIAÇÃO MERCANTE"
           tone={reconciliationMeta.badgeTone}
-          primary={{ value: reconciliationMeta.label, color: reconciliationMeta.color }}
+          primary={{ value: reconciliationMeta.label, color: reconciliationMeta.color, variant: 'text' }}
           metrics={[
             { label: 'CE Mercante', value: `${ceCoverage.filled}/${ceCoverage.total}` },
             { label: 'CE Master', value: `${ceMasterCount}/${ceMasterTotal}` },
