@@ -3,7 +3,7 @@ import {
   getVoyagePodCeStatusLabel,
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
-import { formatPortDisplayName, stripFileExtension } from '../../lib/voyageFormat'
+import { formatPortDisplayName } from '../../lib/voyageFormat'
 import { collectVoyagePorts, type VoyageBl } from '../../services/voyageSummaries'
 
 export function renderEscalaNumber(value: string | null) {
@@ -25,10 +25,14 @@ export function renderLinkedLabel(linked: boolean | null) {
 
 export function renderCeCoverage(filled: number, total: number) {
   if (total === 0) return <span className="text-[var(--app-muted-soft)]">-</span>
-  const color = filled >= total ? '#1f7a4d' : filled > 0 ? '#b8860b' : '#cf4b3f'
+  const color = filled >= total ? 'var(--app-green)' : filled > 0 ? 'var(--app-gold-strong)' : 'var(--app-red)'
+  const percentage = Math.min(100, Math.round((filled / total) * 100))
   return (
-    <span className="font-semibold" style={{ color }}>
-      {filled}/{total}
+    <span className="inline-flex items-center justify-center gap-1.5" aria-label={`Cobertura CE Mercante: ${filled} de ${total}`}>
+      <span aria-hidden="true" className="h-[5px] w-9 overflow-hidden rounded-full bg-[var(--app-panel-strong)]">
+        <span className="block h-full" style={{ width: `${percentage}%`, backgroundColor: color }} />
+      </span>
+      <span className="font-mono text-xs font-semibold" style={{ color }}>{filled}/{total}</span>
     </span>
   )
 }
@@ -95,7 +99,6 @@ export function collectVoyageManifestBatchRows({
     pod: string
     routeLabel: string
     batchIds: number[]
-    filenames: string[]
     modes: Set<'container' | 'carga_solta'>
     etd: string | null
     atd: string | null
@@ -128,7 +131,6 @@ export function collectVoyageManifestBatchRows({
       pod,
       routeLabel: `${formatPortDisplayName(pol)} -> ${formatPortDisplayName(pod)}`,
       batchIds: [],
-      filenames: [],
       modes: new Set(),
       etd: polEntity?.etd ?? null,
       atd: polEntity?.atd ?? null,
@@ -147,10 +149,6 @@ export function collectVoyageManifestBatchRows({
   function attachBatchMetadata(group: ManifestGroup, batch: VoyageImportBatch) {
     if (!group.batchIds.includes(batch.id)) {
       group.batchIds.push(batch.id)
-    }
-    const filename = stripFileExtension(batch.filename || `manifesto-${batch.id}`)
-    if (!group.filenames.includes(filename)) {
-      group.filenames.push(filename)
     }
     if (batch.cargo_mode) group.modes.add(batch.cargo_mode)
     if (!group.ceMaster && batch.ce_master) group.ceMaster = batch.ce_master
@@ -215,7 +213,6 @@ export function collectVoyageManifestBatchRows({
           : group.modes.has('carga_solta')
             ? 'BB'
             : 'CNTR',
-      filenames: group.filenames.length ? group.filenames : ['Rota derivada dos B/Ls'],
       batchIds: group.batchIds,
       etd: group.etd,
       atd: group.atd,

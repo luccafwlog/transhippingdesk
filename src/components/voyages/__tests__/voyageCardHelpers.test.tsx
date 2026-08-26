@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
 import { MemoryRouter } from 'react-router-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { useVoyageTransshipments } from '../../../hooks/useTransshipments'
 import type { VoyageBl } from '../../../services/voyageSummaries'
@@ -54,7 +56,6 @@ describe('collectVoyageManifestBatchRows', () => {
       pod: 'BRVIX',
       routeLabel: 'TAICANG -> BRVIX',
       modeLabel: 'CNTR',
-      filenames: ['Rota derivada dos B/Ls'],
       batchIds: [],
       etd: '2026-07-15',
       blCount: 2,
@@ -73,6 +74,7 @@ describe('collectVoyageManifestBatchRows', () => {
     })
 
     expect(rows).toHaveLength(1)
+    expect(rows[0]).not.toHaveProperty('filenames')
     expect(rows[0]).toMatchObject({ routeKey: 'CNTAC__BRVIX', batchIds: [], ceMaster: '25BR09999' })
   })
 
@@ -128,7 +130,6 @@ describe('collectVoyageManifestBatchRows', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       routeKey: 'CNTAC__BRVIX',
-      filenames: ['manifesto-cntac-brvix'],
       batchIds: [10],
       blCount: 2,
       ceFilled: 1,
@@ -168,18 +169,22 @@ describe('VoyageManifestosTab', () => {
             [buildVoyagePolEntityId(14, 'CNTAC'), { entityId: '14::CNTAC', voyageId: 14, pol: 'CNTAC', etd: '2026-07-15', atd: '2026-07-16', escalaNumber: null }],
           ])}
           routeCeMasters={undefined}
-          divergenceCount={0}
           ceCoverage={{ filled: 1, total: 1 }}
-          estadoMeta={{ color: '#1f7a4d', bg: '#eef8f1', label: 'OK' }}
           onEditPol={vi.fn()}
         />
       </MemoryRouter>,
     )
 
-    expect(html).toContain('<th scope="col" class="px-3 py-2">ATD POL</th>')
+    expect(html).toContain('>Rota</th>')
+    expect(html).toContain('>CE Mercante · cobertura</th>')
+    expect(html).toContain('>Nº de manifesto Mercante</th>')
+    expect(html).toContain('Total da viagem')
+    expect(html).toContain('B/Ls vinculados')
+    expect(html).toContain('Nº de manifesto a informar')
+    expect(html).not.toContain('Conciliação:')
     expect(html).not.toContain('15/07/2026')
     expect(html).toContain('16/07/2026')
-    expect(html).toContain('style="color:#1f7a4d"')
+    expect(html).toContain('style="color:var(--app-green)"')
     expect(html).toContain('font-medium')
     expect(html).toContain('href="/manifestos?voyage=14&amp;pol=CNTAC&amp;pod=BRVIX"')
     expect(html).not.toContain('Rota derivada dos B/Ls')
@@ -209,19 +214,59 @@ describe('VoyageManifestosTab', () => {
           importBatches={[]}
           polSchedules={undefined}
           routeCeMasters={undefined}
-          divergenceCount={0}
           ceCoverage={{ filled: 1, total: 1 }}
-          estadoMeta={{ color: '#1f7a4d', bg: '#eef8f1', label: 'OK' }}
           onEditPol={vi.fn()}
         />
       </MemoryRouter>,
     )
 
     expect(html).toContain('TAICANG →')
-    expect(html).toContain('class="line-through"')
-    expect(html).toContain('OMISSÃO')
-    expect(html).toContain('manifesto não informado')
-    expect(html).toContain('Informe o CE Master pelo lápis desta linha')
+    expect(html).toContain('class="line-through text-[var(--app-muted-soft)]"')
+    expect(html).toContain('Omissão')
+    expect(html).toContain('Informar')
+    expect(html).not.toContain('manifesto não informado')
+    expect(html).not.toContain('Informe o CE Master pelo lápis desta linha')
+  })
+
+  it('dispara onEditPol ao clicar no chip Informar de um manifesto pendente', () => {
+    const onEditPol = vi.fn()
+    const voyage = {
+      id: 14,
+      voyage_number: '001',
+      vessel: { name: 'ALPHA' },
+      bls: [makeBl({ id: 'BL-001', ce_mercante: 'CE-001', pol: 'CNTAC', pod: 'BRVIX' })],
+    } as Voyage
+
+    render(
+      <MemoryRouter>
+        <VoyageManifestosTab
+          voyage={voyage}
+          voyageLabel="ALPHA / 001"
+          importBatches={[]}
+          polSchedules={new Map([
+            [buildVoyagePolEntityId(14, 'CNTAC'), { entityId: '14::CNTAC', voyageId: 14, pol: 'CNTAC', etd: '2026-07-15', atd: '2026-07-16', escalaNumber: null }],
+          ])}
+          routeCeMasters={undefined}
+          ceCoverage={{ filled: 1, total: 1 }}
+          onEditPol={onEditPol}
+        />
+      </MemoryRouter>,
+    )
+
+    const button = screen.getByRole('button', { name: 'Informar CE Master de TAICANG -> BRVIX' })
+    fireEvent.click(button)
+
+    expect(onEditPol).toHaveBeenCalledTimes(1)
+    expect(onEditPol).toHaveBeenCalledWith({
+      voyageId: 14,
+      voyageLabel: 'ALPHA / 001',
+      pol: 'CNTAC',
+      pod: 'BRVIX',
+      etd: '2026-07-15',
+      atd: '2026-07-16',
+      ceMaster: null,
+      batchIds: [],
+    })
   })
 })
 
