@@ -13,6 +13,8 @@ export type SqlAlertCatalogEntry = {
   active: boolean
 }
 
+// Lista de migrations que semeiam o catálogo de alertas. Se novas migrations
+// adicionarem tipos de alertas no futuro, registre o arquivo aqui.
 const CATALOG_MIGRATIONS = [
   '317_alerts_foundation_catalog.sql',
   '325_clientes_portal_disputes_alerts.sql',

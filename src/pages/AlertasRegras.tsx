@@ -5,6 +5,7 @@ import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import {
   ALERT_CRITICAL_FALLBACK_NOTE,
   ALERT_RULES,
+  ALERT_RULE_DEPARTMENTS,
   ALERT_RULE_DEPARTMENT_LABELS,
   ALERT_RULE_DOMAINS,
   ALERT_RULE_SEVERITY_LABELS,
@@ -17,8 +18,11 @@ import {
 } from '../services/alertRulesCatalog'
 import { ENTITY_TYPE_LABELS } from '../services/alerts'
 
-const DEPARTMENTS: Array<{ value: 'all' | AlertRuleDepartment; label: string }> = [
-  { value: 'all', label: 'Todos os setores' },
+export type AlertRuleDepartmentFilter = 'all' | 'todos' | AlertRuleDepartment
+
+const DEPARTMENTS: Array<{ value: AlertRuleDepartmentFilter; label: string }> = [
+  { value: 'all', label: 'Qualquer setor' },
+  { value: 'todos', label: 'Aplicável a todos os setores' },
   { value: 'documentacao', label: 'Documentação' },
   { value: 'equipamentos', label: 'Equipamentos' },
   { value: 'operacoes', label: 'Operações' },
@@ -42,7 +46,7 @@ const DEFAULT_STATUS_FILTER: 'all' | AlertRuleStatus = 'ativa'
 export function AlertasRegras() {
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
-  const department = isDepartment(searchParams.get('setor')) ? searchParams.get('setor') as AlertRuleDepartment : ALL_FILTER_VALUE
+  const department = isDepartmentFilter(searchParams.get('setor')) ? searchParams.get('setor') as 'todos' | AlertRuleDepartment : ALL_FILTER_VALUE
   const domain = isDomain(searchParams.get('dominio')) ? searchParams.get('dominio') as AlertRuleDomain : ALL_FILTER_VALUE
   const severity = isSeverity(searchParams.get('gravidade')) ? searchParams.get('gravidade') as AlertRuleSeverity : ALL_FILTER_VALUE
   const selectedParam = searchParams.get('regra')
@@ -59,8 +63,14 @@ export function AlertasRegras() {
     return ALERT_RULES.filter((rule) => {
       if (status !== ALL_FILTER_VALUE && rule.status !== status) return false
       // O setor filtra por quem é notificado, não só por quem responde: um
-      // mesmo alerta pode chegar a mais de um setor.
-      if (department !== ALL_FILTER_VALUE && !rule.notifiedDepartments.includes(department)) return false
+      // mesmo alerta pode chegar a mais de um setor. O valor especial 'todos'
+      // filtra somente regras aplicáveis a todos os setores operacionais.
+      if (department === 'todos') {
+        const appliesToAll = ALERT_RULE_DEPARTMENTS.every((dep) => rule.notifiedDepartments.includes(dep))
+        if (!appliesToAll) return false
+      } else if (department !== ALL_FILTER_VALUE && !rule.notifiedDepartments.includes(department)) {
+        return false
+      }
       if (domain !== ALL_FILTER_VALUE && rule.domain !== domain) return false
       if (severity !== ALL_FILTER_VALUE && rule.severity !== severity) return false
       if (!normalizedQuery) return true
@@ -400,8 +410,8 @@ function SeverityBadge({ severity }: { severity: AlertRuleSeverity }) {
   )
 }
 
-function isDepartment(value: string | null): value is AlertRuleDepartment {
-  return value === 'documentacao' || value === 'equipamentos' || value === 'operacoes'
+function isDepartmentFilter(value: string | null): value is 'todos' | AlertRuleDepartment {
+  return value === 'todos' || Boolean(value && value in ALERT_RULE_DEPARTMENT_LABELS)
 }
 
 function isDomain(value: string | null): value is AlertRuleDomain {

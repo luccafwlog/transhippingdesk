@@ -102,6 +102,18 @@ describe('Regras de Alertas', () => {
     expect(screen.getByRole('button', { name: /ADR — prazo vencido/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /PIX sem conciliação segura/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Disputa de invoice Demurrage/ })).toBeTruthy()
+
+    // Filtro específico para regras aplicáveis a todos os setores simultaneamente
+    fireEvent.change(screen.getByRole('combobox', { name: 'Setor notificado' }), { target: { value: 'todos' } })
+    expect(screen.getByText('2 regras encontradas')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /ADR — departamento pendente/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /ADR — prazo vencido/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /PIX sem conciliação segura/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Disputa de invoice Demurrage/ })).toBeNull()
+
+    // Retorna para qualquer setor (sem filtro de setor)
+    fireEvent.change(screen.getByRole('combobox', { name: 'Setor notificado' }), { target: { value: 'all' } })
+    expect(screen.getByText('26 regras encontradas')).toBeTruthy()
   })
 
   it('esconde as regras aposentadas por padrão e as mostra pelo filtro de situação', () => {

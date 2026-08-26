@@ -56,7 +56,8 @@ type AlertRuleDraft = Omit<AlertRule, 'label' | 'notifiedDepartments' | 'respons
   responsible: AlertRuleDepartment
 }
 
-const DEPARTMENT_ORDER: AlertRuleDepartment[] = ['documentacao', 'equipamentos', 'operacoes']
+export const ALERT_RULE_DEPARTMENTS: AlertRuleDepartment[] = ['documentacao', 'equipamentos', 'operacoes']
+const DEPARTMENT_ORDER: AlertRuleDepartment[] = ALERT_RULE_DEPARTMENTS
 
 export const ALERT_RULE_DEPARTMENT_LABELS: Record<AlertRuleDepartment, string> = {
   documentacao: 'Documentação',
