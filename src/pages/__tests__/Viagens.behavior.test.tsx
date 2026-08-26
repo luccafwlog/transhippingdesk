@@ -130,6 +130,15 @@ it('mantém a busca visível e permite remover um filtro aplicado pelo chip', ()
   expect(screen.getByText('Navio ativo / ACTIVE-41')).toBeTruthy()
 })
 
+it('não exibe badge no botão Filtros quando apenas busca textual está ativa', () => {
+  renderAt('/viagens')
+
+  fireEvent.change(screen.getByLabelText('Busca'), { target: { value: 'ACTIVE' } })
+  const filtrosBtn = screen.getByRole('button', { name: /^Filtros/ })
+  expect(filtrosBtn.textContent).toBe('Filtros')
+  expect(screen.getByRole('button', { name: 'Limpar' })).toBeTruthy()
+})
+
 it('US-213: sem selecao mostra "Selecione uma viagem"', () => {
   renderAt('/viagens')
   expect(screen.getByText('Selecione uma viagem')).toBeTruthy()

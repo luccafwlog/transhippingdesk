@@ -1623,13 +1623,12 @@ textarea {
   color: var(--app-muted);
 }
 
-.group:hover .voyage-rail-card__state-label,
-.group:focus-within .voyage-rail-card__state-label {
+.group:has(.voyage-rail-card__edit):hover .voyage-rail-card__state-label,
+.group:has(.voyage-rail-card__edit:focus-visible) .voyage-rail-card__state-label {
   display: none;
 }
 
 .group:hover .voyage-rail-card__edit,
-.group:focus-within .voyage-rail-card__edit,
 .voyage-rail-card__edit:focus-visible {
   display: inline-flex;
 }

@@ -14,6 +14,7 @@ import {
   collectVoyagePorts,
   computeAdrEscalaPods,
   countPlannedPodRows,
+  deriveEstadoConciliacao,
   getProximaEscala,
   isEtaOverdue,
   summarizeExportByEmbarkPort,
@@ -271,11 +272,11 @@ export function VoyageCard({
     (voyage.bls ?? []).map((bl) => `${String(bl.pol ?? '').trim().toUpperCase()}__${String(bl.pod ?? '').trim().toUpperCase()}`),
   ).size
   const proximaEscala = getProximaEscala(podRows)
-  const reconciliationState = divergenceCount > 0
-    ? 'divergente'
-    : ceCoverage.total > 0 && ceCoverage.filled < ceCoverage.total
-      ? 'incompleto'
-      : 'conciliado'
+  const reconciliationState = deriveEstadoConciliacao({
+    hasOpenDivergences: divergenceCount > 0,
+    ceFilled: ceCoverage.filled,
+    ceTotal: ceCoverage.total,
+  })
   const reconciliationMeta = ESTADO_CONCILIACAO_META[reconciliationState]
 
   const tabs: Array<{ key: VoyageTabKey; label: string }> = [

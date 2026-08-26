@@ -86,7 +86,7 @@ export function VoyageFilters({
         <button type="button" className="app-btn app-btn--secondary app-btn--sm app-voyage-command-bar__filters" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}>
           <SlidersHorizontal size={15} />
           Filtros
-          {activeCount > 0 ? <span className="app-filter-bar__count">{activeCount}</span> : null}
+          {chips.length > 0 ? <span className="app-filter-bar__count">{chips.length}</span> : null}
         </button>
 
         {activeCount > 0 ? (
