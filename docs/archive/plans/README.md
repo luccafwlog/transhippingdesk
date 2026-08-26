@@ -99,6 +99,13 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
 - [`2026-08-20-implementacao-bloco-525-transversal-portal.md`](2026-08-20-implementacao-bloco-525-transversal-portal.md)
   — entrega das superfícies transversais de Alertas e Notificações (sino interno, fila `/alertas` completa,
   resumo do `/painel`, falha de roteamento em `/admin/usuarios`, contratos negativos e Eco de Tratamento) do Bloco 6 (#525). Migration `339_treatment_echo_and_transversal_surfaces.sql`.
+- [`2026-08-26-redesenho-da-pagina-viagens.md`](2026-08-26-redesenho-da-pagina-viagens.md)
+  — redesenho estrutural e visual da página `/viagens` aba por aba, com base nos artboards do PR #588
+  (Bloco 0: fundação e `is_oog`/`oog` no ADR; Bloco 1: Visão geral e planejamento por escala com atracações editáveis;
+  Bloco 2: Importação organizada por escala/POD e nova barra de ações; Bloco 3: Exportação com agregação por terminal de
+  embarque e suporte a multi-depot; Bloco 4: Rotas e Manifestos com grupo Mercante e ação de preenchimento; Bloco 5: ADR
+  organizado por departamentos com acompanhamento de prazos; Bloco 6: barra de comando de filtros, cards em Syne e rail aprimorado).
+  PRs #588, #591–#599.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

@@ -1,6 +1,6 @@
 # Redesenho da página `/viagens`
 
-**Status:** TODO
+**Status:** DONE (PRs #588, #591–#599)
 **Origem:** sessão de design de 2026-08-25/26 — PR #588, que entrega apenas as
 fontes do canvas (`artifacts/design-viagens/`) e nenhuma linha de `src/`.
 **Canvas:** os artboards versionados em `artifacts/design-viagens/*.dc.html` são

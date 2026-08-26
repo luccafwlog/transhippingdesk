@@ -3,6 +3,29 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Redesenho da página `/viagens` (PRs #588, #591–#599):**
+  reestruturação visual e operacional da página de Viagens e seus componentes,
+  fatiada e entregue em 7 blocos a partir dos artboards do canvas:
+  - **Bloco 0 — Fundação:** inclusão de `is_oog` na seleção do ADR (`AgencyReportDischargeContainer`),
+    suporte a `oog` em `MatrixCategory` com prioridade declarada (`transbordo > veiculos > oog > imo > carga_geral`),
+    preservação da compatibilidade com snapshots históricos e harmonização de tokens nos modais e avisos de divergência.
+  - **Bloco 1 — Visão geral e planejamento por escala:** cabeçalho de dois níveis na chegada (`ETA` e `ATA`),
+    painel recolhível de atracações com suporte a adicionar nova atracação e editar atracações existentes diretamente
+    na visão geral (`VoyageScheduleModals`), centralização e limpeza de rótulos (`ATD derivado` → `ATD`).
+  - **Bloco 2 — Aba Importação:** reorganização da estrutura por escala/POD com painéis lado a lado (`Containers` e `Carga solta`),
+    faixas de `Veículos` e `Vazios IMP`, e nova barra de ações com separadores e agrupamento unificado (`VoyageImportActions`).
+  - **Bloco 3 — Aba Exportação:** correção do eixo de agregação de vazios para agrupar por terminal de embarque
+    (`summarizeExportByEmbarkPort` em `voyageSummaries.ts`), suporte a múltiplos depots por terminal,
+    painéis de `Granito` e `Vazios EXP` por escala/terminal e fluxo orientado ao Embarque de Vazios.
+  - **Bloco 4 — Aba Rotas e Manifestos:** renomeação da aba ("Escalas & Manifestos" → "Rotas e Manifestos"),
+    grupo de cabeçalho `Mercante` com cobertura de CE Mercante e Nº de manifesto Mercante, chip de ação rápida para
+    informar manifesto não preenchido e remoção da sub-linha de arquivos/avisos sintéticos.
+  - **Bloco 5 — Aba ADR:** seções organizadas por departamento responsável com acompanhamento de prazos de conclusão
+    (ADR 0039), totais independentes por modo de carga (container e carga solta), desduplicação de containers vazios entre
+    carga descarregada e divergência de vazios, e callouts padronizados para divergências, dados órfãos e observações.
+  - **Bloco 6 — Página e Cards:** barra de comando em linha única para busca e filtros com chips removíveis,
+    números dominantes em Syne nos cartões de direção (`DirectionKpiTile`), adoção do padrão `.app-tab`, rodapé ancorado
+    no rail (`B/L · CNTR · CE`) e refinamentos de conciliação e hover.
 - **Chaves surrogate fora da interface — sino, Demurrage, Reconciliação e
   Embarque de Vazios:** varredura do mesmo defeito corrigido em `/alertas`. O
   sino de notificações internas chamava `formatAlertEntity` sem o mapa de
