@@ -1123,10 +1123,12 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   }
   const containers: AgencyReportDischargeContainer[] = [...dischargeByContainerNumber.values()]
 
-  // Task 3 do ADR 2026-07-31 (CAR-1): o B/L é a única fonte documental dos
-  // cheios (ADR 0025); o Baplie só complementa a listagem com os vazios que o
-  // B/L nunca teria. Um container 'full' do Baplie sem B/L correspondente vira
-  // divergência de existência (mesmo conceito de reconcileBaplieWithManifest /
+  // ADR 0035 + Block 5.5: o B/L é a única fonte documental dos cheios (ADR
+  // 0025). O Baplie só alimenta a contagem de vazios descarregados e sua
+  // divergência com o módulo de Vazios de Importação; vazio sem B/L não é uma
+  // linha de Carga descarregada, para não contar a mesma unidade duas vezes.
+  // Um container 'full' do Baplie sem B/L correspondente vira divergência de
+  // existência (mesmo conceito de reconcileBaplieWithManifest /
   // computeExistenceDivergences, kind 'missing_in_manifest'), não um item da
   // matriz — evita inflar carga_geral/imo sem lastro documental.
   let orphanFullContainers = 0
@@ -1136,17 +1138,8 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
       orphanFullContainers += 1
       continue
     }
-    if (container.status === 'empty') {
-      // pod já filtrado na consulta (linha ~388: .eq('pod', port)); a regra do
-      // "sem B/L" não vale para vazio — é esperado que ele não tenha B/L.
-      containers.push({
-        container_number: container.container_number,
-        size_type: container.size_type,
-        is_imo: Boolean(container.is_imo),
-        is_oog: Boolean(container.is_oog),
-        category: 'vazio',
-      })
-    }
+    // Vazios do Baplie ficam somente em baplieEmptyCount abaixo. O módulo de
+    // Vazios de Importação é a fonte da listagem por natureza.
     // status fora de 'full'/'empty' (não deveria ocorrer — ver baplieParser.ts):
     // fica de fora da matriz e da divergência, sem lastro para decidir.
   }

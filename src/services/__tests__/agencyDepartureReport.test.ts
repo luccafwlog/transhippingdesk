@@ -340,8 +340,8 @@ describe('getAgencyReportDerivedData', () => {
     })
   })
 
-  describe('B/L conta os cheios; Baplie conta os vazios (ADR 2026-07-31, Task 3)', () => {
-    it('exclui cheio órfão do Baplie da matriz e o reporta só na divergência; vazio do Baplie vira categoria vazio', async () => {
+  describe('B/L conta os cheios; Baplie compara os vazios (ADR 0035, Bloco 5.5)', () => {
+    it('exclui cheio órfão do Baplie da matriz e mantém vazio fora da Carga descarregada', async () => {
       fromMock.mockImplementation((table: string) => {
         if (table === 'bl_containers') {
           return queryBuilder([
@@ -367,13 +367,17 @@ describe('getAgencyReportDerivedData', () => {
 
       const result = await getAgencyReportDerivedData(179, 'BRVIX')
 
-      expect(result.containers).toHaveLength(5)
+      expect(result.containers).toHaveLength(3)
       const fullFromBl = result.containers.filter((c) => c.category === 'carga_geral')
-      const vazios = result.containers.filter((c) => c.category === 'vazio')
       expect(fullFromBl.map((c) => c.container_number).sort()).toEqual(['FULL0000001', 'FULL0000002', 'FULL0000003'])
-      expect(vazios.map((c) => c.container_number).sort()).toEqual(['EMTY0000001', 'EMTY0000002'])
       expect(result.containers.some((c) => c.container_number === 'ORPH0000009')).toBe(false)
       expect(result.dischargeDivergence).toEqual({ orphanFullContainers: 1 })
+      expect(result.vaziosDivergence).toEqual({
+        baplieCount: 2,
+        moduleCount: 0,
+        unclassifiedCount: 0,
+        diverges: true,
+      })
     })
 
     it('reporta divergência entre a contagem de vazios do Baplie e a do módulo de vazios, com quantas estão sem natureza', async () => {
