@@ -3,6 +3,7 @@ import { Bell, CheckCheck, ExternalLink, ShieldAlert, Undo2 } from 'lucide-react
 import { useNavigate } from 'react-router-dom'
 import {
   useInternalNotifications,
+  useInternalNotificationEntityLabels,
   useMarkAllInternalNotificationsRead,
   useMarkInternalNotificationRead,
   useUnreadInternalNotificationCount,
@@ -23,6 +24,7 @@ export function InternalNotificationBell() {
 
   const cursor = cursorByPage[page] ?? null
   const { data = [], isLoading } = useInternalNotifications(open, cursor)
+  const { data: entityLabels } = useInternalNotificationEntityLabels(data, cursor)
   const markRead = useMarkInternalNotificationRead()
   const markAllRead = useMarkAllInternalNotificationsRead()
 
@@ -107,7 +109,7 @@ export function InternalNotificationBell() {
                 destination: notification.destination,
               }) ?? '/alertas'
 
-              const entityFormatted = formatAlertEntity(notification.entity_type, notification.entity_id)
+              const entityFormatted = formatAlertEntity(notification.entity_type, notification.entity_id, entityLabels)
                 ?? (notification.entity_type ? (ENTITY_TYPE_LABELS[notification.entity_type] ?? notification.entity_type) : null)
 
               return (

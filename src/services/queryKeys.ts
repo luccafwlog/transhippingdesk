@@ -131,6 +131,10 @@ export const queryKeys = {
       cursor === undefined
         ? (['internal-notifications'] as const)
         : (['internal-notifications', cursor] as const),
+    // Sob o prefixo 'internal-notifications' de proposito: invalidar a lista do
+    // sino ja derruba os rotulos que a acompanham.
+    internalNotificationEntityLabels: (page?: unknown) =>
+      ['internal-notifications', 'entity-labels', page ?? null] as const,
     internalNotificationsUnreadCount: () => ['internal-notifications-unread-count'] as const,
   },
   dashboard: () => ['dashboard'] as const,
