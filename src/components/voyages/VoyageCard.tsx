@@ -14,10 +14,10 @@ import {
   collectVoyagePorts,
   computeAdrEscalaPods,
   countPlannedPodRows,
+  deriveEstadoConciliacao,
   getProximaEscala,
   isEtaOverdue,
   summarizeExportByEmbarkPort,
-  summarizeImportByPod,
   splitVoyageBls,
   voyageCeCoverage,
 } from '../../services/voyageSummaries'
@@ -29,7 +29,8 @@ import {
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
 import type { VoyageExportSchedule } from '../../services/voyageExportSchedules'
-import { statusLabel, VOYAGE_STATUS_BADGE_TONE, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
+import { ESTADO_CONCILIACAO_META, statusLabel, VOYAGE_STATUS_BADGE_TONE, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
+import { TabButton } from '../ui/TabButton'
 import { buildVoyageRouteLegs, collectVoyageManifestBatchRows, type VoyageImportBatch } from './voyageCardHelpers'
 import { VoyageVisaoTab } from './VoyageVisaoTab'
 import { VoyageImportacaoTab } from './VoyageImportacaoTab'
@@ -54,20 +55,28 @@ export type VoyageTabKey = 'visao' | 'importacao' | 'exportacao' | 'manifestos' 
 function DirectionKpiTile({
   direction,
   tone,
+  primary,
   metrics,
 }: {
   direction: string
-  tone: 'blue' | 'green' | 'yellow'
+  tone: 'blue' | 'green' | 'yellow' | 'red' | 'slate'
+  primary: { value: string; unit?: string; color?: string }
   metrics: Array<{ label: string; value: string }>
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+    <div className="app-voyage-kpi-tile">
       <Badge tone={tone}>{direction}</Badge>
-      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] text-[var(--app-muted-soft)]">
-        {metrics.map((metric) => (
-          <div key={`${direction}-${metric.label}`} className="flex justify-between gap-2">
-            <span className="font-semibold uppercase tracking-wide">{metric.label}</span>
-            <span className="font-semibold text-[var(--app-muted)]">{metric.value}</span>
+      <div className="app-voyage-kpi-tile__primary">
+        <span className="app-voyage-kpi-tile__value" style={{ color: primary.color }}>{primary.value}</span>
+        {primary.unit ? <span className="app-voyage-kpi-tile__unit">{primary.unit}</span> : null}
+      </div>
+      <div className="app-voyage-kpi-tile__support">
+        {/* ponytail: teto visual de três apoios por tile; upgrade: tornar o
+            conjunto expansível quando surgirem métricas que precisem de detalhe. */}
+        {metrics.slice(0, 3).map((metric) => (
+          <div key={`${direction}-${metric.label}`} className="app-voyage-kpi-tile__metric">
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
           </div>
         ))}
       </div>
@@ -150,11 +159,7 @@ export function VoyageCard({
   const totalContainers = countDistinctContainerNumbers(flatContainers)
   const totalImoContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_imo))
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
-  const importSummary = summarizeImportByPod(voyage.bls, vehicleStats.containerNumbers)
   const totalImportVehicles = vehicleStats.totalVehicles
-  const totalVehicleContainers = vehicleStats.distinctContainerCount
-  const totalBreakbulkMachines = importSummary.reduce((sum, pod) => sum + pod.breakbulk.machines, 0)
-  const totalBreakbulkPackages = importSummary.reduce((sum, pod) => sum + pod.breakbulk.packages, 0)
   const exportSummary = summarizeExportByEmbarkPort(voyage.granite_manifests, voyage.vazios_manifests)
   const totalExportContainers = (voyage.vazios_manifests ?? []).reduce(
     (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
@@ -267,6 +272,12 @@ export function VoyageCard({
     (voyage.bls ?? []).map((bl) => `${String(bl.pol ?? '').trim().toUpperCase()}__${String(bl.pod ?? '').trim().toUpperCase()}`),
   ).size
   const proximaEscala = getProximaEscala(podRows)
+  const reconciliationState = deriveEstadoConciliacao({
+    hasOpenDivergences: divergenceCount > 0,
+    ceFilled: ceCoverage.filled,
+    ceTotal: ceCoverage.total,
+  })
+  const reconciliationMeta = ESTADO_CONCILIACAO_META[reconciliationState]
 
   const tabs: Array<{ key: VoyageTabKey; label: string }> = [
     { key: 'visao', label: 'Visão geral' },
@@ -364,62 +375,54 @@ export function VoyageCard({
         <DirectionKpiTile
           direction="Importação"
           tone="blue"
+          primary={{ value: String(totalBls), unit: 'B/Ls' }}
           metrics={[
-            { label: 'B/Ls', value: String(totalBls) },
             { label: 'CNTRs distintos', value: String(totalContainers) },
-            { label: 'CNTRs IMO', value: String(totalImoContainers) },
-            { label: 'CNTRs OOG', value: String(totalOogContainers) },
+            { label: 'IMO / OOG', value: `${totalImoContainers} / ${totalOogContainers}` },
             { label: 'Veículos', value: String(totalImportVehicles) },
-            { label: 'CNTRs de veículos', value: String(totalVehicleContainers) },
-            { label: 'Máquinas', value: formatMetric(totalBreakbulkMachines) },
-            { label: 'Packages', value: formatMetric(totalBreakbulkPackages) },
           ]}
         />
         <DirectionKpiTile
           direction="Exportação"
           tone="green"
+          primary={{ value: String(totalExportContainers), unit: 'movimentos' }}
           metrics={[
+            { label: 'Granito · B/Ls', value: String(totalGraniteBls) },
+            { label: 'Granito · ton', value: formatMetric(totalGraniteWeightTon) },
             { label: 'CNTRs embarcados', value: String(totalExportContainers) },
-            { label: 'Granito (B/Ls)', value: String(totalGraniteBls) },
-            { label: 'Granito (ton)', value: formatMetric(totalGraniteWeightTon) },
           ]}
         />
         <DirectionKpiTile
           direction="ESCALA"
           tone="blue"
+          primary={{ value: proximaEscala?.pod ?? '—', unit: proximaEscala ? `ETA ${formatDate(proximaEscala.eta)}` : undefined }}
           metrics={[
-            { label: 'Próxima', value: proximaEscala?.pod ?? '—' },
-            { label: 'ETA', value: proximaEscala ? formatDate(proximaEscala.eta) : '—' },
             { label: 'Planejadas', value: String(plannedPodCount) },
+            { label: 'Atracação', value: proximaEscala?.etb ? `ETB ${formatDate(proximaEscala.etb)}` : 'TBC' },
             { label: 'Status', value: proximaEscala && isEtaOverdue(proximaEscala.eta) ? 'ETA vencido' : 'Pendente' },
           ]}
         />
         <DirectionKpiTile
           direction="CONCILIAÇÃO MERCANTE"
-          tone="yellow"
+          tone={reconciliationMeta.badgeTone}
+          primary={{ value: reconciliationMeta.label, color: reconciliationMeta.color }}
           metrics={[
             { label: 'CE Mercante', value: `${ceCoverage.filled}/${ceCoverage.total}` },
             { label: 'CE Master', value: `${ceMasterCount}/${ceMasterTotal}` },
+            { label: 'Divergências', value: String(divergenceCount) },
           ]}
         />
       </section>
 
       <section className="grid gap-4">
-        <div className="flex flex-wrap gap-1 border-b border-[var(--app-border)]">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Seções da viagem">
           {tabs.map((tab) => (
-            <button
+            <TabButton
               key={tab.key}
-              type="button"
+              label={tab.label}
+              active={activeTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
-              aria-current={activeTab === tab.key}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
-                activeTab === tab.key
-                  ? 'border-[var(--app-blue-btn)] text-[var(--app-blue-btn)]'
-                  : 'border-transparent text-[var(--app-muted)] hover:text-[var(--app-text)]'
-              }`}
-            >
-              {tab.label}
-            </button>
+            />
           ))}
         </div>
 

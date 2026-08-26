@@ -149,38 +149,40 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
                   : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-muted)]'
               }`}
             >
-              {onEdit ? (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  className="absolute right-2 top-2 hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-1 text-[var(--app-muted)] opacity-0 transition-opacity hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-text)] focus-visible:opacity-100 group-hover:block group-hover:opacity-100 group-focus-within:block group-focus-within:opacity-100"
-                  title="Editar viagem"
-                  aria-label={`Editar ${item.vesselName} / ${item.voyageNumber}`}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onEdit(item.id)
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      onEdit(item.id)
-                    }
-                  }}
-                >
-                  <Pencil size={13} />
-                </span>
-              ) : null}
-
               <div className="flex items-center gap-2">
                 <span
                   className="h-2 w-2 flex-none rounded-full"
                   style={{ backgroundColor: estado.color }}
                   title={`Conciliação: ${estado.label}`}
                 />
-                <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">
+                <span className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">
                   {item.carrierName || 'Armador não informado'}
                 </span>
+                <span className="voyage-rail-card__state-label" style={{ color: estado.color }}>
+                  {estado.label}
+                </span>
+                {onEdit ? (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="voyage-rail-card__edit"
+                    title="Editar viagem"
+                    aria-label={`Editar ${item.vesselName} / ${item.voyageNumber}`}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onEdit(item.id)
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        onEdit(item.id)
+                      }
+                    }}
+                  >
+                    <Pencil size={13} />
+                  </span>
+                ) : null}
               </div>
               <div className="mt-0.5 truncate text-sm font-bold text-[var(--app-text-strong)]">
                 {item.vesselName} / {item.voyageNumber}
@@ -199,6 +201,13 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
                 ) : (
                   <span className="text-xs text-[var(--app-muted-soft)]">Sem escala brasileira prevista</span>
                 )}
+              </div>
+              <div className="voyage-rail-card__footer">
+                <span><strong>{item.blCount ?? 0}</strong> B/L</span>
+                <span aria-hidden="true">·</span>
+                <span><strong>{item.containerCount ?? 0}</strong> CNTR</span>
+                <span aria-hidden="true">·</span>
+                <span>CE {item.ceCoverage?.filled ?? 0}/{item.ceCoverage?.total ?? 0}</span>
               </div>
             </button>
           )

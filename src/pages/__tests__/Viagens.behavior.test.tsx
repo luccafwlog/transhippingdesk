@@ -109,10 +109,34 @@ afterEach(cleanup)
 it('filtra o rail por viagens canceladas', () => {
   renderAt('/viagens')
 
+  fireEvent.click(screen.getByRole('button', { name: /Filtros/ }))
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } })
 
   expect(screen.getByText('Navio cancelado / CANCEL-42')).toBeTruthy()
   expect(screen.queryByText('Navio ativo / ACTIVE-41')).toBeNull()
+})
+
+it('mantém a busca visível e permite remover um filtro aplicado pelo chip', () => {
+  renderAt('/viagens')
+
+  expect(screen.getByLabelText('Busca')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: /Filtros/ }))
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } })
+
+  expect(screen.getByLabelText('Filtros aplicados').textContent).toContain('Status: Canceladas')
+  fireEvent.click(screen.getByRole('button', { name: 'Remover filtro Status' }))
+
+  expect(screen.queryByLabelText('Filtros aplicados')).toBeNull()
+  expect(screen.getByText('Navio ativo / ACTIVE-41')).toBeTruthy()
+})
+
+it('não exibe badge no botão Filtros quando apenas busca textual está ativa', () => {
+  renderAt('/viagens')
+
+  fireEvent.change(screen.getByLabelText('Busca'), { target: { value: 'ACTIVE' } })
+  const filtrosBtn = screen.getByRole('button', { name: /^Filtros/ })
+  expect(filtrosBtn.textContent).toBe('Filtros')
+  expect(screen.getByRole('button', { name: 'Limpar' })).toBeTruthy()
 })
 
 it('US-213: sem selecao mostra "Selecione uma viagem"', () => {
