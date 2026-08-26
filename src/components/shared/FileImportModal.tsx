@@ -100,9 +100,9 @@ export function FileImportModal<T>({
         {parsing ? <div className="app-panel__meta">Processando...</div> : null}
         {entries.length > 0 && renderBatchSummary ? renderBatchSummary(entries) : null}
         {activeEntry && entries.length > 1 ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm">
-            <span className="text-slate-300">
-              Prévia {activeIndex + 1} de {entries.length}: <span className="font-semibold text-white">{activeEntry.file.name}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm">
+            <span className="text-[var(--app-muted)]">
+              Prévia {activeIndex + 1} de {entries.length}: <span className="font-semibold text-[var(--app-text-strong)]">{activeEntry.file.name}</span>
             </span>
             <div className="flex gap-2">
               <Button variant="secondary" disabled={activeIndex <= 0} onClick={() => setActiveIndex((index) => index - 1)}>

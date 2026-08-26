@@ -1,6 +1,6 @@
 # 0035 — Escala unificada (POL+POD) como âncora do ADR, B/L como fonte da descarga e relatório que lista só o operado
 
-Status: aceito — 2026-07-31 (notas editoriais em 2026-08-03 e 2026-08-04)
+Status: aceito — 2026-07-31 (notas editoriais em 2026-08-03, 2026-08-04 e 2026-08-26)
 
 > **Nota editorial — 2026-08-03.** O bloco 1 desta decisão foi revisitado com a
 > operação antes da execução. O modelo não muda; três pontos que a decisão
@@ -131,6 +131,13 @@ Status: aceito — 2026-07-31 (notas editoriais em 2026-08-03 e 2026-08-04)
 > ETB, ATB, ATA e ATD; um único ETD), então não há backfill: as colunas nascem
 > no formato novo, como o ponto 3 da nota de 2026-08-03 já havia estabelecido
 > para a unificação.
+
+> **Nota editorial — 2026-08-26.** A matriz de descarga passa a distinguir a
+> natureza **OOG** (`is_oog`) além de carga geral e IMO. O flag é lido do Baplie
+> quando há correspondência, com fallback para o B/L; ao consolidar duplicatas
+> pelo número do container, os flags IMO e OOG são preservados e OOG vence IMO
+> na categoria exibida. A extensão mantém a regra da seção 4 de listar apenas o
+> que foi operado e não altera snapshots fechados.
 
 ## Contexto
 

@@ -269,6 +269,39 @@ describe('getAgencyReportDerivedData', () => {
     })
   })
 
+  it('faz OOG vencer IMO, respeita a precedência do Baplie e preserva o merge', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bl_containers') {
+        return queryBuilder([
+          { id: 20, container_number: 'OOGIMO00001', type: '40HC', is_imo: true, is_oog: false, bl: { transshipments: [] } },
+          { id: 21, container_number: 'OOGIMO00001', type: null, is_imo: false, is_oog: true, bl: { transshipments: [] } },
+          { id: 22, container_number: 'IMOONLY00001', type: '20GP', is_imo: true, is_oog: false, bl: { transshipments: [] } },
+          { id: 23, container_number: 'BAPOOG00001', type: '20GP', is_imo: false, is_oog: false, bl: { transshipments: [] } },
+          { id: 24, container_number: 'BAPNOOOG0001', type: '20GP', is_imo: false, is_oog: true, bl: { transshipments: [] } },
+        ])
+      }
+      if (table === 'baplie_containers') {
+        return queryBuilder([
+          { container_number: 'BAPOOG00001', size_type: '22G1', status: 'full', is_imo: false, is_oog: true, pod: 'BRVIX' },
+          { container_number: 'BAPNOOOG0001', size_type: '22G1', status: 'full', is_imo: false, is_oog: false, pod: 'BRVIX' },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.containers).toEqual(expect.arrayContaining([
+      { container_number: 'OOGIMO00001', size_type: '40HC', is_imo: true, is_oog: true, category: 'oog' },
+      { container_number: 'IMOONLY00001', size_type: '20GP', is_imo: true, is_oog: false, category: 'imo' },
+      { container_number: 'BAPOOG00001', size_type: '20GP', is_imo: false, is_oog: true, category: 'oog' },
+      { container_number: 'BAPNOOOG0001', size_type: '20GP', is_imo: false, is_oog: false, category: 'carga_geral' },
+    ]))
+    expect(result.containers.filter((container) => container.container_number === 'OOGIMO00001')).toHaveLength(1)
+  })
+
   describe('um cálculo só para a linha de serviço (ADR 2026-07-31, Task 8)', () => {
     it('o total de uma linha legada de armazenagem com percentual não nulo bate com o "Total da operação"', async () => {
       fromMock.mockImplementation((table: string) => {
@@ -457,7 +490,7 @@ describe('getAgencyReportDerivedData', () => {
       expect(fromMock).not.toHaveBeenCalledWith('bl_transshipments')
       expect(blContainersCall).toBe(1)
       expect(result.containers).toEqual([
-        { container_number: 'OWN0000001', size_type: '40HC', is_imo: false, category: 'carga_geral' },
+        { container_number: 'OWN0000001', size_type: '40HC', is_imo: false, is_oog: false, category: 'carga_geral' },
       ])
       expect(result.cargaSolta.transshipment).toMatchObject({ bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 })
     })
@@ -572,7 +605,7 @@ describe('Granito casa por porto normalizado, com fallback do manifesto (ADR 202
     const result = await getAgencyReportDerivedData(179, 'BRVIX')
 
     expect(result.containers).toEqual([
-      { container_number: 'SHRD1234567', size_type: '40HC', is_imo: true, category: 'imo' },
+      { container_number: 'SHRD1234567', size_type: '40HC', is_imo: true, is_oog: false, category: 'imo' },
     ])
   })
 })
