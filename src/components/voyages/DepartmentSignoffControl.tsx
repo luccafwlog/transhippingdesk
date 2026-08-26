@@ -13,6 +13,7 @@ export function DepartmentSignoffControl({
   canSignoff,
   sectionsPending,
   isPending,
+  compact = false,
   onChange,
 }: {
   department: AgencyReportDepartmentKey
@@ -22,6 +23,7 @@ export function DepartmentSignoffControl({
   canSignoff: boolean
   sectionsPending: boolean
   isPending?: boolean
+  compact?: boolean
   onChange: (department: AgencyReportDepartmentKey, signed: boolean, justification?: string) => void
 }) {
   const [action, setAction] = useState<'sign' | 'reopen' | null>(null)
@@ -43,17 +45,22 @@ export function DepartmentSignoffControl({
   }
 
   return (
-    <div className="app-panel app-panel--padded grid gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-[var(--app-text)]">{label}</span>
-        <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${signed ? 'border-[var(--app-green)] text-[var(--app-green)]' : 'border-[var(--app-border)] text-[var(--app-muted)]'}`}>
-          {signed ? 'Assinado' : 'Pendente'}
-        </span>
-      </div>
-      {attribution ? <span className="text-xs text-[var(--app-muted)]">{attribution}</span> : null}
+    <div className={compact ? 'flex flex-wrap items-center justify-end gap-2' : 'app-panel app-panel--padded grid gap-2'}>
+      {!compact ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-[var(--app-text)]">{label}</span>
+          <span className={`app-badge ${signed ? 'app-badge--green' : 'app-badge--slate'}`}>
+            {signed ? 'Assinado' : 'Pendente'}
+          </span>
+        </div>
+      ) : null}
+      {compact && attribution ? <span className="text-xs text-[var(--app-muted-soft)]">{attribution}</span> : null}
+      {!compact && attribution ? <span className="text-xs text-[var(--app-muted)]">{attribution}</span> : null}
+      {compact ? <span className={`app-badge ${signed ? 'app-badge--green' : 'app-badge--yellow'}`}>{signed ? 'Assinado' : 'Aguardando assinatura'}</span> : null}
       {canSignoff ? (
         <Button
           variant={signed ? 'secondary' : 'primary'}
+          className={compact ? 'app-btn--sm' : undefined}
           disabled={isPending || (!signed && sectionsPending)}
           title={!signed && sectionsPending ? 'Resolva todas as seções do departamento (ou marque "Nada a declarar") para assinar.' : undefined}
           onClick={openAction}
@@ -75,6 +82,7 @@ export function DepartmentSignoffControl({
               id={textareaId}
               value={justification}
               onChange={(event) => setJustification(event.target.value)}
+              autoFocus
               className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2"
             />
           </label>

@@ -104,7 +104,7 @@ function StateBadge({ state }: { state: AgencyReportDeadlineState }) {
 
 function Milestone({ title, badge, children }: { title: string; badge?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="grid gap-1 border-t border-[var(--app-border)] pt-3 first:border-t-0 first:pt-0">
+    <div className="grid min-w-0 gap-1 border-t border-[var(--app-border)] pt-3 first:border-t-0 first:pt-0 md:border-l md:border-t-0 md:pl-3 md:pt-0 md:first:border-l-0 md:first:pl-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-semibold text-[var(--app-text)]">{title}</span>
         {badge}
@@ -152,60 +152,62 @@ export function AgencyReportTimeline({
     <section className="app-panel app-panel--padded grid gap-4">
       <h3 className="app-panel__title text-base">Linha do tempo do ADR</h3>
 
-      <Milestone title="Saída do navio (ATD)">
-        {atd ? (
-          <p className="text-sm text-[var(--app-text)]">
-            {formatDate(atd)}
-            {atdRegisteredAt ? (
-              <span className="text-[var(--app-muted)]"> · registrado em {formatDateTime(atdRegisteredAt) ?? '—'}{atdSource ? ` (${ATD_SOURCE_LABELS[atdSource]})` : ''}</span>
-            ) : null}
-          </p>
-        ) : (
-          <p className="text-sm text-[var(--app-muted)]">Aguardando a saída do navio.</p>
-        )}
-      </Milestone>
-
-      <Milestone title="Prazo de Conclusão do ADR">
-        {omitted ? (
-          <p className="text-sm text-[var(--app-muted)]">Escala omitida — fora da medição.</p>
-        ) : deadline ? (
-          <p className="text-sm text-[var(--app-text)]">Vence em {formatDate(deadline)} (3 dias úteis após o ATD).</p>
-        ) : (
-          <p className="text-sm text-[var(--app-muted)]">Aguardando a saída do navio.</p>
-        )}
-      </Milestone>
-
-      {departmentRows.map((row) => (
-        <Milestone key={row.department} title={`Assinatura — ${row.label}`} badge={<StateBadge state={row.state} />}>
-          {row.signedAt ? (
+      <div className="grid gap-4 md:grid-cols-6">
+        <Milestone title="Saída do navio (ATD)">
+          {atd ? (
             <p className="text-sm text-[var(--app-text)]">
-              Assinado em {formatDateTime(row.signedAt) ?? formatDate(row.signedAt)} por {row.signedByName ?? '—'}
+              {formatDate(atd)}
+              {atdRegisteredAt ? (
+                <span className="text-[var(--app-muted)]"> · registrado em {formatDateTime(atdRegisteredAt) ?? '—'}{atdSource ? ` (${ATD_SOURCE_LABELS[atdSource]})` : ''}</span>
+              ) : null}
             </p>
           ) : (
-            <p className="text-sm text-[var(--app-muted)]">Ainda não assinado.</p>
+            <p className="text-sm text-[var(--app-muted)]">Aguardando a saída do navio.</p>
           )}
-          {row.reopenings.length ? (
-            <div className="grid gap-1">
-              {row.reopenings.map((reopening, index) => (
-                <p key={`${row.department}-reopen-${index}`} className="text-xs text-[var(--app-muted)]">
-                  Reaberto em {formatDateTime(reopening.changedAt) ?? '—'} por {reopening.changedByName ?? '—'}
-                  {reopening.justification ? `: ${reopening.justification}` : ''}
-                </p>
-              ))}
-            </div>
-          ) : null}
         </Milestone>
-      ))}
 
-      <Milestone title="Fechamento do ADR">
-        {closedAt ? (
-          <p className="text-sm text-[var(--app-text)]">
-            Fechado em {formatDateTime(closedAt) ?? formatDate(closedAt)} por {closedByName ?? '—'}
-          </p>
-        ) : (
-          <p className="text-sm text-[var(--app-muted)]">Não fechado.</p>
-        )}
-      </Milestone>
+        <Milestone title="Prazo de Conclusão do ADR">
+          {omitted ? (
+            <p className="text-sm text-[var(--app-muted)]">Escala omitida — fora da medição.</p>
+          ) : deadline ? (
+            <p className="text-sm text-[var(--app-text)]">Vence em {formatDate(deadline)} (3 dias úteis após o ATD).</p>
+          ) : (
+            <p className="text-sm text-[var(--app-muted)]">Aguardando a saída do navio.</p>
+          )}
+        </Milestone>
+
+        {departmentRows.map((row) => (
+          <Milestone key={row.department} title={`Assinatura — ${row.label}`} badge={<StateBadge state={row.state} />}>
+            {row.signedAt ? (
+              <p className="text-sm text-[var(--app-text)]">
+                Assinado em {formatDateTime(row.signedAt) ?? formatDate(row.signedAt)} por {row.signedByName ?? '—'}
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--app-muted)]">Ainda não assinado.</p>
+            )}
+            {row.reopenings.length ? (
+              <div className="grid gap-1">
+                {row.reopenings.map((reopening, index) => (
+                  <p key={`${row.department}-reopen-${index}`} className="text-xs text-[var(--app-muted)]">
+                    Reaberto em {formatDateTime(reopening.changedAt) ?? '—'} por {reopening.changedByName ?? '—'}
+                    {reopening.justification ? `: ${reopening.justification}` : ''}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+          </Milestone>
+        ))}
+
+        <Milestone title="Fechamento do ADR">
+          {closedAt ? (
+            <p className="text-sm text-[var(--app-text)]">
+              Fechado em {formatDateTime(closedAt) ?? formatDate(closedAt)} por {closedByName ?? '—'}
+            </p>
+          ) : (
+            <p className="text-sm text-[var(--app-muted)]">Não fechado.</p>
+          )}
+        </Milestone>
+      </div>
     </section>
   )
 }
