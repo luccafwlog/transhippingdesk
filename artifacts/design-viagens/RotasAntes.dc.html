@@ -1,0 +1,254 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+  @import url("https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "DM Sans", "Segoe UI", sans-serif; color: #1c1915; -webkit-font-smoothing: antialiased; }
+  a { color: #1d4d88; text-decoration: none; }
+  a:hover { color: #8f4d08; }
+
+  .shell {
+    width: 1440px;
+    background-color: #f4f1ea;
+    background-image: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
+    background-size: 20px 20px;
+    color: #1c1915;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- faixa de mercado (HeaderInfoBar) --- */
+  .strip {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    height: 26px; padding: 0 34px; background: #0e1825;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.62);
+  }
+  .strip__warn { display: inline-flex; align-items: center; gap: 6px; color: #d4882e; }
+  .strip__rate { color: rgba(255, 255, 255, 0.72); }
+  .strip__rate b { color: #ffffff; font-weight: 600; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .strip__role { color: rgba(255, 255, 255, 0.42); letter-spacing: 0.08em; }
+
+  /* --- header --- */
+  .hdr {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    min-height: 56px; padding: 0 34px;
+    background: linear-gradient(180deg, rgba(22, 36, 64, 0.98), rgba(21, 33, 58, 0.94));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+  }
+  .hdr__brand { display: flex; align-items: center; gap: 14px; }
+  .hdr__mark { display: flex; align-items: center; gap: 7px; }
+  .hdr__wordmark { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #ffffff; }
+  .hdr__eyebrow { font-family: "Syne", "DM Sans", sans-serif; font-size: 14px; font-weight: 700; line-height: 1; }
+  .hdr__subtitle {
+    margin-top: 3px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    line-height: 1.2; text-transform: uppercase; color: rgba(255, 255, 255, 0.56);
+  }
+  .hdr__actions { display: flex; align-items: center; gap: 12px; }
+  .hdr__pill {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+    padding: 6px 12px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px;
+    font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.86);
+  }
+
+  /* --- barra de navegação --- */
+  .nav {
+    display: flex; align-items: center; gap: 6px; padding: 0 34px 12px;
+    background: #1e3050; border-bottom: 2px solid rgba(212, 136, 46, 0.85);
+  }
+  .nav__link {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 42px;
+    padding: 10px 14px; border: 1px solid transparent; border-radius: 8px;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap;
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .nav__link--active {
+    color: #ffffff; border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 -3px 0 rgba(242, 169, 59, 1);
+  }
+  .nav__badge {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+    padding: 0 6px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px;
+    background: #d4882e; color: #ffffff; font-size: 10px; font-weight: 700; line-height: 1;
+  }
+  .nav__dot {
+    width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.62);
+    border-radius: 999px; background: #d4882e;
+  }
+  .nav__divider { width: 1px; height: 28px; margin: 0 6px; background: rgba(255, 255, 255, 0.14); }
+
+  /* --- área principal --- */
+  .main { padding: 34px 28px 52px; display: flex; flex-direction: column; }
+
+  /* --- page header --- */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; margin-bottom: 28px; padding-inline: 2px; }
+  .page-header__title {
+    margin: 0; color: #0e0c0a; font-family: "Syne", "DM Sans", sans-serif; font-size: 35.2px;
+    font-weight: 700; letter-spacing: -0.04em; line-height: 1.05;
+  }
+  .page-header__description { max-width: 880px; margin: 10px 0 0; color: #5a5549; font-size: 14px; line-height: 1.65; }
+  .page-header__rule { width: 48px; height: 3px; margin-top: 14px; background: #d4882e; }
+
+  /* --- botões (.app-btn) --- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: 8px;
+    font-family: "DM Sans", "Segoe UI", sans-serif; font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  }
+  .btn--sm { min-height: 40px; padding: 6px 12px; font-size: 12px; gap: 6px; }
+  .btn--primary { background: #1d4d88; border-color: #1d4d88; color: #ffffff; }
+  .btn--secondary { background: #ffffff; border-color: #b8b2a5; color: #0e0c0a; }
+  .btn--ghost { background: transparent; border-color: transparent; color: #5a5549; }
+  .btn--danger { background: linear-gradient(180deg, #fff7f8, #fff0f2); border-color: #f2b3bb; color: #c0393f; }
+  .btn--icon { width: 44px; min-height: 44px; padding: 0; }
+
+  /* --- superfície (.app-surface) --- */
+  .surface { border: 1.5px solid #cdc8bc; border-radius: 8px; background: #ffffff; overflow: hidden; }
+  .surface--padded { padding: 22px; }
+
+  /* --- campos (.app-input / .app-field) --- */
+  .input {
+    display: flex; align-items: center; gap: 10px; min-height: 44px;
+    border: 1px solid #cdc8bc; border-radius: 8px; padding: 11px 14px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    font-size: 14px; color: #0e0c0a;
+  }
+  .input__placeholder { color: #8a8579; }
+  .field__label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #5a5549; }
+
+  /* --- badges (.app-badge) --- */
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    border: 1px solid transparent; border-radius: 999px; padding: 4px 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge--blue { background: #e8f0fb; border-color: #bfdbfe; color: #1d4d88; }
+  .badge--green { background: #e6f7ee; border-color: #86efac; color: #157a45; }
+  .badge--yellow { background: #fdf0dc; border-color: #fde68a; color: #a85309; }
+  .badge--red { background: #fceaea; border-color: #fecaca; color: #c0393f; }
+  .badge--slate { background: #f3f4f6; border-color: #e5e7eb; color: #5a5549; }
+
+  /* --- abas no estilo do app (.app-tab) --- */
+  .tab {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 40px;
+    padding: 0 14px; border: 1px solid #b8b2a5; border-radius: 8px;
+    background: #ffffff; color: #1c1915; font-size: 14px; font-weight: 700; letter-spacing: 0.01em;
+  }
+  .tab--active { background: #152238; border-color: #152238; color: #ffffff; box-shadow: inset 0 -2px 0 #d4882e; }
+
+  /* --- tabela (.app-table) --- */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table thead th {
+    background: #152238; color: #ffffff; text-align: left;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 12px 14px; white-space: nowrap;
+  }
+  .table tbody td { padding: 12px 14px; color: #1c1915; white-space: nowrap; vertical-align: middle; }
+  .table tbody tr + tr td { border-top: 1px solid #cdc8bc; }
+  .table tbody tr:nth-child(even) { background: rgba(19, 32, 51, 0.018); }
+  .table--dense thead th, .table--dense tbody td { padding: 10px 10px; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .dash { color: #8a8579; }
+
+  /* --- pill do rail (RailPill) --- */
+  .pill {
+    display: inline-flex; align-items: center; border: 1px solid #cdc8bc;
+    border-radius: 999px; background: #ece9e1; padding: 2px 8px;
+    font-size: 11px; font-weight: 600; color: #5a5549; white-space: nowrap;
+  }
+
+  code { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.92em; border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 1px 5px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; flex: none; }
+  .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
+</style>
+</helmet>
+<div class="shell" style="min-height: 640px">
+  
+  <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
+      <div>
+        <span style="display: inline-flex; align-items: center; border: 1px solid #b8b2a5; border-radius: 999px; background: #ede9df; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Hoje</span>
+        <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba Escalas &amp; Manifestos &mdash; como est&aacute; hoje</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Transcrição fiel de <code>VoyageManifestosTab.tsx</code>. A aba se chama Escalas e não mostra escala nenhuma: cada linha é uma rota POL → POD.</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 18px"><div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="tab">Vis&atilde;o geral</span><span class="tab">Importa&ccedil;&atilde;o</span><span class="tab">Exporta&ccedil;&atilde;o</span><span class="tab tab--active">Escalas &amp; Manifestos</span><span class="tab">ADR</span></div><div style="display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #1a8c50; border-radius: 16px; background: #e6f7ee; padding: 12px">
+      <span style="display: flex; align-items: center; gap: 12px">
+        <span class="dot" style="width: 10px; height: 10px; background: #1a8c50"></span>
+        <span>
+          <span style="display: block; font-size: 14px; font-weight: 600; color: #1a8c50">Concilia&ccedil;&atilde;o: Conciliado</span>
+          <span style="display: block; font-size: 12px; color: #5a5549">CE Mercante 10/10</span>
+        </span>
+      </span>
+    </div>
+    <div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
+      <div>
+        <div style="font-size: 14px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Manifestos vinculados</div>
+        <div style="margin-top: 2px; font-size: 12px; line-height: 1.45; color: #5a5549">Uma rota por linha: B/Ls vinculados por POL/POD, ATD POL, CE Mercante e CE Master quando houver batch.</div>
+      </div>
+      <div style="overflow: hidden; border: 1px solid #cdc8bc; border-radius: 16px; background: #ffffff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+        <table style="width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
+          <thead><tr><th style="width: 40%; background: #152238; color: #fff; padding: 8px 12px; font-weight: 700; text-align: left; white-space: nowrap">Rota / Manifesto</th><th style="width: 12%; background: #152238; color: #fff; padding: 8px 12px; font-weight: 700; text-align: left; white-space: nowrap">ATD POL</th><th style="width: 8%; background: #152238; color: #fff; padding: 8px 12px; font-weight: 700; text-align: left; white-space: nowrap">B/Ls</th><th style="width: 12%; background: #152238; color: #fff; padding: 8px 12px; font-weight: 700; text-align: left; white-space: nowrap">CE Merc.</th><th style="width: 12%; background: #152238; color: #fff; padding: 8px 12px; font-weight: 700; text-align: left; white-space: nowrap">CE Master</th><th style="width: 16%; background: #152238; color: #fff; padding: 8px 12px; font-weight: 700; text-align: left; white-space: nowrap">A&ccedil;&otilde;es</th></tr></thead>
+          <tbody>
+            <tr style="background: #ffffff">
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; gap: 8px">
+                <span style="border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 2px 6px; font-size: 10px; font-weight: 700; color: #5a5549">CNTR</span>
+                <span style="font-weight: 600; color: #2563a8">CNSHA &rarr; BRSSZ</span>
+              </span></td>
+              <td style="padding: 8px 12px"><span style="color: #2563a8; font-weight: 500">18/07/2026</span></td>
+              <td style="padding: 8px 12px">6</td>
+              <td style="padding: 8px 12px"><span style="font-weight: 600; color: #1f7a4d">6/6</span></td>
+              <td style="padding: 8px 12px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #0e0c0a">250712345678901</span></td>
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border: 1px solid #cdc8bc; border-radius: 12px; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span></td>
+            </tr><tr style="background: rgba(19, 32, 51, 0.018); border-top: 1px solid #cdc8bc">
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; gap: 8px">
+                <span style="border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 2px 6px; font-size: 10px; font-weight: 700; color: #5a5549">CNTR</span>
+                <span style="font-weight: 600; color: #2563a8">CNNGB &rarr; BRSSZ</span>
+              </span></td>
+              <td style="padding: 8px 12px"><span style="color: #2563a8; font-weight: 500">16/07/2026</span></td>
+              <td style="padding: 8px 12px">2</td>
+              <td style="padding: 8px 12px"><span style="font-weight: 600; color: #1f7a4d">2/2</span></td>
+              <td style="padding: 8px 12px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #0e0c0a">250712345678902</span></td>
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border: 1px solid #cdc8bc; border-radius: 12px; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span></td>
+            </tr><tr style="background: #ffffff; border-top: 1px solid #cdc8bc">
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; gap: 8px">
+                <span style="border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 2px 6px; font-size: 10px; font-weight: 700; color: #5a5549">BB</span>
+                <span style="font-weight: 600; color: #2563a8">CNSHA &rarr; BRSSZ</span>
+              </span></td>
+              <td style="padding: 8px 12px"><span style="color: #2563a8; font-weight: 500">18/07/2026</span></td>
+              <td style="padding: 8px 12px">1</td>
+              <td style="padding: 8px 12px"><span style="font-weight: 600; color: #1f7a4d">1/1</span></td>
+              <td style="padding: 8px 12px"><span title="Informe o CE Master pelo l&aacute;pis desta linha" style="font-size: 12px; font-weight: 600; color: #b45309">manifesto n&atilde;o informado</span></td>
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border: 1px solid #cdc8bc; border-radius: 12px; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span></td>
+            </tr><tr style="background: rgba(19, 32, 51, 0.018); border-top: 1px solid #cdc8bc">
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; gap: 8px">
+                <span style="border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 2px 6px; font-size: 10px; font-weight: 700; color: #5a5549">CNTR</span>
+                <span style="font-weight: 600; color: #2563a8">CNSHA &rarr; <span style="text-decoration: line-through">BRVIX</span> &rarr; BRSSZ</span>
+       <span style="margin-left: 8px; border: 1px solid #b45309; border-radius: 4px; background: #fff7ed; padding: 2px 6px; font-size: 10px; font-weight: 700; color: #b45309">OMISS&Atilde;O</span>
+              </span></td>
+              <td style="padding: 8px 12px"><span style="color: #2563a8; font-weight: 500">18/07/2026</span></td>
+              <td style="padding: 8px 12px">1</td>
+              <td style="padding: 8px 12px"><span style="font-weight: 600; color: #1f7a4d">1/1</span></td>
+              <td style="padding: 8px 12px"><span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #0e0c0a">250712345678903</span></td>
+              <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; min-height: 38px; border: 1px solid #cdc8bc; border-radius: 12px; background: #ffffff; color: #1d4d88; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div></div>
+    </div>
+</div>
+</x-dc>
+</body>
+</html>

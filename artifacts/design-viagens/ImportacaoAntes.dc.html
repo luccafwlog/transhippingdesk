@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+  @import url("https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "DM Sans", "Segoe UI", sans-serif; color: #1c1915; -webkit-font-smoothing: antialiased; }
+  a { color: #1d4d88; text-decoration: none; }
+  a:hover { color: #8f4d08; }
+
+  .shell {
+    width: 1440px;
+    background-color: #f4f1ea;
+    background-image: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
+    background-size: 20px 20px;
+    color: #1c1915;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- faixa de mercado (HeaderInfoBar) --- */
+  .strip {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    height: 26px; padding: 0 34px; background: #0e1825;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.62);
+  }
+  .strip__warn { display: inline-flex; align-items: center; gap: 6px; color: #d4882e; }
+  .strip__rate { color: rgba(255, 255, 255, 0.72); }
+  .strip__rate b { color: #ffffff; font-weight: 600; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .strip__role { color: rgba(255, 255, 255, 0.42); letter-spacing: 0.08em; }
+
+  /* --- header --- */
+  .hdr {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    min-height: 56px; padding: 0 34px;
+    background: linear-gradient(180deg, rgba(22, 36, 64, 0.98), rgba(21, 33, 58, 0.94));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+  }
+  .hdr__brand { display: flex; align-items: center; gap: 14px; }
+  .hdr__mark { display: flex; align-items: center; gap: 7px; }
+  .hdr__wordmark { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #ffffff; }
+  .hdr__eyebrow { font-family: "Syne", "DM Sans", sans-serif; font-size: 14px; font-weight: 700; line-height: 1; }
+  .hdr__subtitle {
+    margin-top: 3px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    line-height: 1.2; text-transform: uppercase; color: rgba(255, 255, 255, 0.56);
+  }
+  .hdr__actions { display: flex; align-items: center; gap: 12px; }
+  .hdr__pill {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+    padding: 6px 12px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px;
+    font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.86);
+  }
+
+  /* --- barra de navegação --- */
+  .nav {
+    display: flex; align-items: center; gap: 6px; padding: 0 34px 12px;
+    background: #1e3050; border-bottom: 2px solid rgba(212, 136, 46, 0.85);
+  }
+  .nav__link {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 42px;
+    padding: 10px 14px; border: 1px solid transparent; border-radius: 8px;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap;
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .nav__link--active {
+    color: #ffffff; border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 -3px 0 rgba(242, 169, 59, 1);
+  }
+  .nav__badge {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+    padding: 0 6px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px;
+    background: #d4882e; color: #ffffff; font-size: 10px; font-weight: 700; line-height: 1;
+  }
+  .nav__dot {
+    width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.62);
+    border-radius: 999px; background: #d4882e;
+  }
+  .nav__divider { width: 1px; height: 28px; margin: 0 6px; background: rgba(255, 255, 255, 0.14); }
+
+  /* --- área principal --- */
+  .main { padding: 34px 28px 52px; display: flex; flex-direction: column; }
+
+  /* --- page header --- */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; margin-bottom: 28px; padding-inline: 2px; }
+  .page-header__title {
+    margin: 0; color: #0e0c0a; font-family: "Syne", "DM Sans", sans-serif; font-size: 35.2px;
+    font-weight: 700; letter-spacing: -0.04em; line-height: 1.05;
+  }
+  .page-header__description { max-width: 880px; margin: 10px 0 0; color: #5a5549; font-size: 14px; line-height: 1.65; }
+  .page-header__rule { width: 48px; height: 3px; margin-top: 14px; background: #d4882e; }
+
+  /* --- botões (.app-btn) --- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: 8px;
+    font-family: "DM Sans", "Segoe UI", sans-serif; font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  }
+  .btn--sm { min-height: 40px; padding: 6px 12px; font-size: 12px; gap: 6px; }
+  .btn--primary { background: #1d4d88; border-color: #1d4d88; color: #ffffff; }
+  .btn--secondary { background: #ffffff; border-color: #b8b2a5; color: #0e0c0a; }
+  .btn--ghost { background: transparent; border-color: transparent; color: #5a5549; }
+  .btn--danger { background: linear-gradient(180deg, #fff7f8, #fff0f2); border-color: #f2b3bb; color: #c0393f; }
+  .btn--icon { width: 44px; min-height: 44px; padding: 0; }
+
+  /* --- superfície (.app-surface) --- */
+  .surface { border: 1.5px solid #cdc8bc; border-radius: 8px; background: #ffffff; overflow: hidden; }
+  .surface--padded { padding: 22px; }
+
+  /* --- campos (.app-input / .app-field) --- */
+  .input {
+    display: flex; align-items: center; gap: 10px; min-height: 44px;
+    border: 1px solid #cdc8bc; border-radius: 8px; padding: 11px 14px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    font-size: 14px; color: #0e0c0a;
+  }
+  .input__placeholder { color: #8a8579; }
+  .field__label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #5a5549; }
+
+  /* --- badges (.app-badge) --- */
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    border: 1px solid transparent; border-radius: 999px; padding: 4px 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge--blue { background: #e8f0fb; border-color: #bfdbfe; color: #1d4d88; }
+  .badge--green { background: #e6f7ee; border-color: #86efac; color: #157a45; }
+  .badge--yellow { background: #fdf0dc; border-color: #fde68a; color: #a85309; }
+  .badge--red { background: #fceaea; border-color: #fecaca; color: #c0393f; }
+  .badge--slate { background: #f3f4f6; border-color: #e5e7eb; color: #5a5549; }
+
+  /* --- abas no estilo do app (.app-tab) --- */
+  .tab {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 40px;
+    padding: 0 14px; border: 1px solid #b8b2a5; border-radius: 8px;
+    background: #ffffff; color: #1c1915; font-size: 14px; font-weight: 700; letter-spacing: 0.01em;
+  }
+  .tab--active { background: #152238; border-color: #152238; color: #ffffff; box-shadow: inset 0 -2px 0 #d4882e; }
+
+  /* --- tabela (.app-table) --- */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table thead th {
+    background: #152238; color: #ffffff; text-align: left;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 12px 14px; white-space: nowrap;
+  }
+  .table tbody td { padding: 12px 14px; color: #1c1915; white-space: nowrap; vertical-align: middle; }
+  .table tbody tr + tr td { border-top: 1px solid #cdc8bc; }
+  .table tbody tr:nth-child(even) { background: rgba(19, 32, 51, 0.018); }
+  .table--dense thead th, .table--dense tbody td { padding: 10px 10px; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .dash { color: #8a8579; }
+
+  /* --- pill do rail (RailPill) --- */
+  .pill {
+    display: inline-flex; align-items: center; border: 1px solid #cdc8bc;
+    border-radius: 999px; background: #ece9e1; padding: 2px 8px;
+    font-size: 11px; font-weight: 600; color: #5a5549; white-space: nowrap;
+  }
+
+  code { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.92em; border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 1px 5px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; flex: none; }
+  .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
+</style>
+</helmet>
+<div class="shell" style="min-height: 1020px">
+  
+  <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
+      <div>
+        <span style="display: inline-flex; align-items: center; border: 1px solid #b8b2a5; border-radius: 999px; background: #ede9df; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Hoje</span>
+        <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba Importa&ccedil;&atilde;o &mdash; como est&aacute; hoje</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Transcrição fiel de <code>VoyageImportacaoTab.tsx</code>: um painel por POD com MetricPanels em gradiente, número de painéis variando conforme a escala tenha veículos ou carga solta, "Vazios Importacao" solto no fim, e seis botões idênticos de importação.</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px">
+    <div style="display: grid; gap: 16px"><div style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+        <div style="color: #0e0c0a; font-size: 16px; font-weight: 700; line-height: 1.35">BRSSZ</div>
+        <div style="font-size: 12px; color: #5a5549">11 CNTRs · 2 B/Ls carga solta</div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start"><div style="display: flex; flex-direction: column; gap: 14px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 18px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+    <div style="color: #1c1915; font-size: 17px; font-weight: 700">Containers</div>
+    <dl style="display: grid; gap: 12px; margin: 0; font-size: 14px; color: #1c1915"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">CNTRS distintos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">11</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Containers IMO</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">0</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Containers OOG</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">1</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+      <span style="color: #5a5549; line-height: 1.45">Tipos de container</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px"><span style="display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cdc8bc; border-radius: 999px; background: #ffffff; color: #1c1915; padding: 5px 9px; font-size: 11px; font-weight: 700; line-height: 1.2; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">20GP: 4</span><span style="display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cdc8bc; border-radius: 999px; background: #ffffff; color: #1c1915; padding: 5px 9px; font-size: 11px; font-weight: 700; line-height: 1.2; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">40HC: 6</span><span style="display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cdc8bc; border-radius: 999px; background: #ffffff; color: #1c1915; padding: 5px 9px; font-size: 11px; font-weight: 700; line-height: 1.2; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">40OT: 1</span></div>
+    </div></dl>
+  </div><div style="display: flex; flex-direction: column; gap: 14px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 18px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+    <div style="color: #1c1915; font-size: 17px; font-weight: 700">Carga solta</div>
+    <dl style="display: grid; gap: 12px; margin: 0; font-size: 14px; color: #1c1915"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">B/Ls carga solta</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">2</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">M&aacute;quinas</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">4</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Packages</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">61</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Weight total</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">213 ton</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">CBM total</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">388,4</span>
+  </div></dl>
+  </div></div>
+    </div><div style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+        <div style="color: #0e0c0a; font-size: 16px; font-weight: 700; line-height: 1.35">BRVIX</div>
+        <div style="font-size: 12px; color: #5a5549">2 CNTRs · 1 CNTR c/ veículos</div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start"><div style="display: flex; flex-direction: column; gap: 14px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 18px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+    <div style="color: #1c1915; font-size: 17px; font-weight: 700">Containers</div>
+    <dl style="display: grid; gap: 12px; margin: 0; font-size: 14px; color: #1c1915"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">CNTRS distintos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">2</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Containers IMO</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">0</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Containers OOG</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">0</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+      <span style="color: #5a5549; line-height: 1.45">Tipos de container</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px"><span style="display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cdc8bc; border-radius: 999px; background: #ffffff; color: #1c1915; padding: 5px 9px; font-size: 11px; font-weight: 700; line-height: 1.2; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">40HC: 2</span></div>
+    </div></dl>
+  </div><div style="display: flex; flex-direction: column; gap: 14px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 18px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+    <div style="color: #1c1915; font-size: 17px; font-weight: 700">Ve&iacute;culos</div>
+    <dl style="display: grid; gap: 12px; margin: 0; font-size: 14px; color: #1c1915"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Containers com veiculos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">1</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Carga geral (CNTRs)</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">1</span>
+  </div></dl>
+  </div></div>
+    </div></div>
+    <div style="display: flex; flex-direction: column; gap: 14px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 18px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+    <div style="color: #1c1915; font-size: 17px; font-weight: 700">Vazios Importacao</div>
+    <dl style="display: grid; gap: 12px; margin: 0; font-size: 14px; color: #1c1915"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Manifestos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">2</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Containers distintos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">6</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Tipos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">20GP, 40HC</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Destinos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">Santos, Vitória</span>
+  </div></dl>
+  </div>
+    <section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 16px; background: #f8f6f1; padding: 16px">
+      <div>
+        <div style="font-size: 14px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #5a5549">Importa&ccedil;&atilde;o r&aacute;pida</div>
+        <div style="margin-top: 4px; font-size: 14px; color: #5a5549">Importe manifestos e planilhas diretamente nesta viagem sem sair da tela.</div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> Baplie EDI</span><span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> B/L</span><span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> CE Mercante</span><span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> Manifesto BB</span><span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> Ve&iacute;culos</span><span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> Vazios IMP</span>
+      </div>
+    </section>
+  </div>
+    </div>
+</div>
+</x-dc>
+</body>
+</html>
