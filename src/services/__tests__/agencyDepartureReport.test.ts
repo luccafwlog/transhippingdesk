@@ -259,9 +259,9 @@ describe('getAgencyReportDerivedData', () => {
 
     await expect(getAgencyReportDerivedData(179, 'BRVIX')).resolves.toMatchObject({
       containers: [
-        { container_number: 'docu 1234567', size_type: '40HC', is_imo: true, category: 'veiculos' },
-        { container_number: 'TRNS1234567', size_type: '20GP', is_imo: false, category: 'transbordo' },
-        { container_number: 'NOBP1234567', size_type: '40GP', is_imo: true, category: 'imo' },
+        { container_number: 'docu 1234567', size_type: '40HC', is_imo: true, is_transshipment: false, category: 'imo' },
+        { container_number: 'TRNS1234567', size_type: '20GP', is_imo: false, is_transshipment: true, category: 'carga_geral' },
+        { container_number: 'NOBP1234567', size_type: '40GP', is_imo: true, is_transshipment: false, category: 'imo' },
       ],
       // ORPH1234567 é cheio no Baplie sem B/L correspondente: sai da matriz e
       // vira divergência (Task 3, CAR-1), não mais 'carga_geral'.
@@ -294,12 +294,45 @@ describe('getAgencyReportDerivedData', () => {
     const result = await getAgencyReportDerivedData(179, 'BRVIX')
 
     expect(result.containers).toEqual(expect.arrayContaining([
-      { container_number: 'OOGIMO00001', size_type: '40HC', is_imo: true, is_oog: true, category: 'oog' },
-      { container_number: 'IMOONLY00001', size_type: '20GP', is_imo: true, is_oog: false, category: 'imo' },
-      { container_number: 'BAPOOG00001', size_type: '20GP', is_imo: false, is_oog: true, category: 'oog' },
-      { container_number: 'BAPNOOOG0001', size_type: '20GP', is_imo: false, is_oog: false, category: 'carga_geral' },
+      { container_number: 'OOGIMO00001', size_type: '40HC', is_imo: true, is_oog: true, is_transshipment: false, category: 'oog' },
+      { container_number: 'IMOONLY00001', size_type: '20GP', is_imo: true, is_oog: false, is_transshipment: false, category: 'imo' },
+      { container_number: 'BAPOOG00001', size_type: '20GP', is_imo: false, is_oog: true, is_transshipment: false, category: 'oog' },
+      { container_number: 'BAPNOOOG0001', size_type: '20GP', is_imo: false, is_oog: false, is_transshipment: false, category: 'carga_geral' },
     ]))
     expect(result.containers.filter((container) => container.container_number === 'OOGIMO00001')).toHaveLength(1)
+  })
+
+  it('classifica containers de veículos pela natureza (IMO/OOG/Carga geral) para a matriz de descarga', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'bl_containers') {
+        return queryBuilder([
+          { id: 101, container_number: 'FM400000001', type: '40FM', is_imo: true, is_oog: false, bl: { transshipments: [] } },
+          { id: 102, container_number: 'FR480000001', type: '48FR', is_imo: true, is_oog: false, bl: { transshipments: [] } },
+          { id: 103, container_number: 'HC400000001', type: '40HC', is_imo: false, is_oog: false, bl: { transshipments: [] } },
+        ])
+      }
+      if (table === 'vehicles') {
+        return queryBuilder([
+          { brand: 'BYD', bl_id: 'bl-v1', chassis: 'VIN1', container_id: 101 },
+          { brand: 'GWM', bl_id: 'bl-v2', chassis: 'VIN2', container_id: 102 },
+        ])
+      }
+      if (table === 'vazios_export_operations') return singleQueryBuilder(null)
+      return queryBuilder()
+    })
+    schedulesMock.mockResolvedValue(new Map())
+
+    const result = await getAgencyReportDerivedData(179, 'BRVIX')
+
+    expect(result.containers).toEqual([
+      { container_number: 'FM400000001', size_type: '40FM', is_imo: true, is_oog: false, is_transshipment: false, category: 'imo' },
+      { container_number: 'FR480000001', size_type: '48FR', is_imo: true, is_oog: false, is_transshipment: false, category: 'imo' },
+      { container_number: 'HC400000001', size_type: '40HC', is_imo: false, is_oog: false, is_transshipment: false, category: 'carga_geral' },
+    ])
+    const matrix = buildContainerTypeMatrix(result.containers.map((c) => ({ type: c.size_type ?? '—', category: c.category })))
+    expect(matrix.rows['40FM']).toEqual({ imo: 1 })
+    expect(matrix.rows['48FR']).toEqual({ imo: 1 })
+    expect(matrix.rows['40HC']).toEqual({ carga_geral: 1 })
   })
 
   describe('um cálculo só para a linha de serviço (ADR 2026-07-31, Task 8)', () => {
@@ -457,7 +490,7 @@ describe('getAgencyReportDerivedData', () => {
       const result = await getAgencyReportDerivedData(179, 'BRVIX')
 
       expect(result.containers).toHaveLength(5)
-      const transbordo = result.containers.filter((container) => container.category === 'transbordo')
+      const transbordo = result.containers.filter((container) => container.is_transshipment)
       expect(transbordo.map((container) => container.container_number).sort()).toEqual(['TRB0000001', 'TRB0000002'])
 
       expect(result.cargaSolta).toMatchObject({
@@ -494,7 +527,7 @@ describe('getAgencyReportDerivedData', () => {
       expect(fromMock).not.toHaveBeenCalledWith('bl_transshipments')
       expect(blContainersCall).toBe(1)
       expect(result.containers).toEqual([
-        { container_number: 'OWN0000001', size_type: '40HC', is_imo: false, is_oog: false, category: 'carga_geral' },
+        { container_number: 'OWN0000001', size_type: '40HC', is_imo: false, is_oog: false, is_transshipment: false, category: 'carga_geral' },
       ])
       expect(result.cargaSolta.transshipment).toMatchObject({ bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 })
     })
@@ -609,7 +642,7 @@ describe('Granito casa por porto normalizado, com fallback do manifesto (ADR 202
     const result = await getAgencyReportDerivedData(179, 'BRVIX')
 
     expect(result.containers).toEqual([
-      { container_number: 'SHRD1234567', size_type: '40HC', is_imo: true, is_oog: false, category: 'imo' },
+      { container_number: 'SHRD1234567', size_type: '40HC', is_imo: true, is_oog: false, is_transshipment: false, category: 'imo' },
     ])
   })
 })

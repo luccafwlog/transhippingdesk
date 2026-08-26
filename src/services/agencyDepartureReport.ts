@@ -613,6 +613,7 @@ export type AgencyReportDischargeContainer = {
   size_type: string | null
   is_imo: boolean
   is_oog: boolean
+  is_transshipment: boolean
   category: MatrixCategory
 }
 
@@ -1073,34 +1074,22 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     ...(blContainersRes.data ?? []),
     ...(transshipmentBlContainersRes.data ?? []),
   ] as AgencyReportBlContainer[]
-  const vehicleContainerIds = new Set(vehicles.flatMap((vehicle) => vehicle.container_id === null ? [] : [vehicle.container_id]))
   const baplieByContainerNumber = new Map(baplieContainers.map((container) => [normalizeContainerNumber(container.container_number), container]))
   const blContainerNumbers = new Set(blContainers.map((container) => normalizeContainerNumber(container.container_number)))
   // Um container compartilhado (ADR 0025/blFreightImport.ts) gera uma linha em
   // bl_containers por B/L que o referencia, mas é a mesma unidade física
   // descarregada uma vez só — sem deduplicar por número, a Carga Descarregada
   // conta e soma o mesmo container 2x/3x. Agrega por container_number antes de
-  // classificar; entre duplicatas, IMO e as categorias mais específicas
-  // (transbordo/veículos/OOG) vencem carga_geral, pra não esconder uma natureza
+  // classificar; entre duplicatas, IMO e OOG vencem carga_geral, pra não esconder uma natureza
   // real só porque outro B/L do mesmo container não a declarou. OOG vence IMO
   // quando os dois flags coexistem.
-  const CATEGORY_PRIORITY: Record<MatrixCategory, number> = {
-    transbordo: 5,
-    veiculos: 4,
-    oog: 3,
-    imo: 2,
-    carga_geral: 1,
-    vazio: 0,
-    vazio_cama: 0,
-    vazio_cover_plate: 0,
-  }
   const dischargeByContainerNumber = new Map<string, AgencyReportDischargeContainer>()
   for (const container of blContainers) {
     const baplie = baplieByContainerNumber.get(normalizeContainerNumber(container.container_number))
     const isTransshipment = container.bl?.transshipments?.some((transshipment) => transshipment.disposition === 'transshipment') ?? false
     const isImo = baplie ? Boolean(baplie.is_imo) : Boolean(container.is_imo)
     const isOog = baplie ? Boolean(baplie.is_oog) : Boolean(container.is_oog)
-    const category: MatrixCategory = isTransshipment ? 'transbordo' : vehicleContainerIds.has(container.id) ? 'veiculos' : isOog ? 'oog' : isImo ? 'imo' : 'carga_geral'
+    const category: MatrixCategory = isOog ? 'oog' : isImo ? 'imo' : 'carga_geral'
 
     const key = normalizeContainerNumber(container.container_number)
     const existing = dischargeByContainerNumber.get(key)
@@ -1110,16 +1099,16 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
         size_type: container.type ?? baplie?.size_type ?? null,
         is_imo: isImo,
         is_oog: isOog,
+        is_transshipment: isTransshipment,
         category,
       })
       continue
     }
     existing.is_imo = existing.is_imo || isImo
     existing.is_oog = existing.is_oog || isOog
+    existing.is_transshipment = existing.is_transshipment || isTransshipment
     existing.size_type = existing.size_type ?? container.type ?? baplie?.size_type ?? null
-    if (CATEGORY_PRIORITY[category] > CATEGORY_PRIORITY[existing.category]) {
-      existing.category = category
-    }
+    existing.category = existing.is_oog ? 'oog' : existing.is_imo ? 'imo' : 'carga_geral'
   }
   const containers: AgencyReportDischargeContainer[] = [...dischargeByContainerNumber.values()]
 
