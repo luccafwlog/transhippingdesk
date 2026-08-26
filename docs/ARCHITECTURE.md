@@ -54,7 +54,11 @@ motivo, autor e revisão futura. Não há acknowledge nem fechamento manual para
 itens novos: os produtores resolvem a origem por RPC.
 
 `internal_notifications` é fan-out por usuário e evento, com RLS que limita a
-leitura ao destinatário e permite somente marcar `read_at`. Alertas críticos
+leitura ao destinatário e permite somente marcar `read_at`. A notificação guarda
+a mesma chave surrogate de `alert_items` (`entity_type` + `entity_id`); tanto a
+fila de `/alertas` quanto o sino resolvem o rótulo humano por uma consulta em
+lote separada (`fetchAlertEntityLabels`) e caem no id quando a tradução não
+volta. Alertas críticos
 sem audiência ativa tentam Administrativo/Admin e registram a falha em
 `alert_notification_failures` quando o fallback também não encontra ninguém.
 A audiência efetiva é a união de `alert_type_catalog.audience_departments` com

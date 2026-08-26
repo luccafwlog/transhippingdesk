@@ -3,6 +3,24 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Chaves surrogate fora da interface — sino, Demurrage, Reconciliação e
+  Embarque de Vazios:** varredura do mesmo defeito corrigido em `/alertas`. O
+  sino de notificações internas chamava `formatAlertEntity` sem o mapa de
+  rótulos e mostrava "Viagem 1"/"Fatura 7"/"Cliente 3"; agora
+  `useInternalNotificationEntityLabels` resolve a página inteira em lote, com a
+  chave sob o prefixo `internal-notifications` (invalidada junto com a lista) e
+  acompanhando o conteúdo da página, para uma notificação nova não esperar o
+  `staleTime`. O modal de cancelar baixa do Demurrage intitulava-se
+  "Demurrage #37" (`demurrage_invoices.id`) e passa a citar o `doc_number`. Em
+  `/reconciliacao` a linha "ID 42" abaixo do `doc_number` saiu — a chave natural
+  já era o título. Em `/embarquevazios` o `aria-label` da observação expunha o
+  uuid da linha de serviço e passa a usar o nome do serviço. O formato
+  `navio / viagem` com fallback para o id, duplicado em três módulos, virou
+  `voyageLabel`/`voyageDisplayName` em `src/lib/utils.ts`.
+  Continuam fora de escopo as mensagens montadas pelos detectores em PL/pgSQL
+  (`326_voyage_operation_alerts.sql:208/253/343/395` citam a viagem pelo id;
+  `117`/`121`/`123` registram "fatura consolidada #<id>"): corrigi-las exige
+  reescrever os produtores numa migration nova.
 - **Alertas — regras aposentadas fora do manual e entidade legível na fila:**
   `/alertas/regras` listava os dois tipos aposentados (`invoice_payment_invalid`
   e `invoice_cancel_blocked`) atrás de um filtro de situação, ou seja, a tela
