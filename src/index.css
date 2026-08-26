@@ -1672,8 +1672,9 @@ textarea {
 
 .app-voyage-kpi-tile__primary {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: 2px 6px;
   min-width: 0;
 }
 
@@ -1688,6 +1689,17 @@ textarea {
   letter-spacing: -0.03em;
   line-height: 1;
   white-space: nowrap;
+}
+
+/* Valores textuais (porto da próxima escala, estado da conciliação) não
+   competem com os numéricos: mesmo tile, tipografia menor e com quebra de
+   palavra, para não estourar a largura do tile em telas estreitas. */
+.app-voyage-kpi-tile__value--text {
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .app-voyage-kpi-tile__unit {

@@ -149,7 +149,10 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
                   : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:bg-[var(--app-surface-muted)]'
               }`}
             >
-              <div className="flex items-center gap-2">
+              {/* w-full + min-w-0: a linha é filha de um flex column com
+                  items-start, então sem largura explícita ela se dimensiona pelo
+                  conteúdo e o rótulo de conciliação vazava do card. */}
+              <div className="flex w-full min-w-0 items-center gap-2">
                 <span
                   className="h-2 w-2 flex-none rounded-full"
                   style={{ backgroundColor: estado.color }}
@@ -158,7 +161,7 @@ export function VoyageRail({ items, selectedId, onSelect, onEdit }: VoyageRailPr
                 <span className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted-soft)]">
                   {item.carrierName || 'Armador não informado'}
                 </span>
-                <span className="voyage-rail-card__state-label" style={{ color: estado.color }}>
+                <span className="voyage-rail-card__state-label flex-none" style={{ color: estado.color }}>
                   {estado.label}
                 </span>
                 {onEdit ? (
