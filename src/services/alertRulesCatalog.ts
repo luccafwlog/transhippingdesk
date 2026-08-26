@@ -597,4 +597,4 @@ export const ALERT_RULE_DOMAIN_DESCRIPTIONS: Record<AlertRuleDomain, string> = {
 // Regra transversal do roteamento: quando nenhum usuário ativo pertence à
 // audiência de um item crítico, a notificação é redirecionada para
 // Administrativo/Admin (`fanout_alert_item_for_department`, migration 338).
-export const ALERT_CRITICAL_FALLBACK_NOTE = 'Se nenhum usuário ativo pertencer aos setores notificados, um alerta crítico é redirecionado para Administrativo/Admin, e a falha de entrega fica registrada para auditoria.'
+export const ALERT_CRITICAL_FALLBACK_NOTE = 'Se nenhum usuário ativo pertencer aos setores notificados, um alerta crítico é redirecionado para Administrativo/Admin; a falha de entrega só é registrada para auditoria quando nem esse redirecionamento encontra destinatário ativo.'

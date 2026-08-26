@@ -24,7 +24,7 @@ Rótulos usados na coluna **Evidência**:
 - **Teste**: teste automatizado existente; não executado nesta cartografia;
 - **Teste de contrato SQL**: teste que inspeciona o texto de uma migration, sem provar aplicação em ambiente;
 - **Suspeita**: divergência ou risco que exige confirmação em schema/ambiente controlado;
-- **Runtime** não é atribuído neste documento, pois nenhum fluxo foi executado contra ambiente nesta passagem.
+- **Runtime**: afirmação verificada contra ambiente real. A cartografia original não executou nenhum fluxo; o rótulo aparece apenas nas notas que citam explicitamente a consulta feita ao banco.
 
 Fontes de linguagem e arquitetura: `CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/adr/0006-revisao-operacional-reconciliacao-cliente-gate-faturamento.md`, `docs/operations/seguranca.md` e `WORKFLOW.md`.
 
@@ -350,7 +350,7 @@ Lacunas observadas:
 - os testes de contrato SQL provam texto esperado na migration, não schema aplicado, grants efetivos nem execução transacional;
 - faltam cenários de integração para conflito real `PT409`, provisionamento Auth, RLS por papel, emissão completa de invoice e invalidation/realtime.
 
-Validação runtime futura deve usar ambiente controlado e registrar: papel, B/L/cliente, estado inicial, mutation, retorno RPC, status final, invoice/cache e evidência. Nenhum desses cenários recebe rótulo Runtime nesta cartografia.
+Validação runtime futura deve usar ambiente controlado e registrar: papel, B/L/cliente, estado inicial, mutation, retorno RPC, status final, invoice/cache e evidência. Nenhum desses cenários operacionais recebe rótulo Runtime nesta cartografia.
 
 ## Notas e divergências
 
@@ -361,6 +361,6 @@ Validação runtime futura deve usar ambiente controlado e registrar: papel, B/L
 - **Filtro `changedBy` de auditoria — Código.** O estado e a query suportam autor, mas a UI atual não renderiza um controle para preenchê-lo; módulo e período estão visíveis.
 - **CE Mercante — Código + Teste de contrato SQL.** O bloqueio de CE Mercante permanece na validação do faturamento; o predicado morto `needsCeMercante` foi removido da fila de revisão manual, que não trata esse motivo como pendência própria.
 - **Auditoria Granite não atômica — Código.** O update de `granite_bls` e o insert em `audit_logs` são chamadas separadas; o erro do insert não é verificado.
-- **Dois tipos de alerta aposentados — Código + Runtime.** `invoice_payment_invalid` e `invoice_cancel_blocked` continuam no catálogo, mas nenhum produtor os emite: a migration `327` retirou os dois do gatilho `route_catalog_alert_insert` e fechou os itens abertos, e `register_invoice_payment`/`cancel_invoice` apenas gravam a recusa em `audit_logs` e devolvem erro ao operador. A migration `347` marca os dois como inativos no catálogo, e `/alertas/regras` os exibe como aposentados.
+- **Dois tipos de alerta aposentados — Código + Runtime.** `invoice_payment_invalid` e `invoice_cancel_blocked` continuam no catálogo, mas nenhum produtor os emite: a migration `327` retirou os dois do gatilho `route_catalog_alert_insert` e fechou os itens abertos, e `register_invoice_payment`/`cancel_invoice` apenas gravam a recusa em `audit_logs` e devolvem erro ao operador. A migration `347` marca os dois como inativos no catálogo, e `/alertas/regras` os exibe como aposentados. O rótulo Runtime cobre uma verificação pontual: em 2026-08-26, `pg_get_triggerdef` do gatilho `route_catalog_alert_insert` no projeto de produção confirmou os dois tipos na cláusula `WHEN` de exclusão.
 - **Audiência do ADR inclui Documentação em todos os itens — Código.** `alert_type_catalog.audience_departments` do ADR é `{documentacao}`; como a audiência efetiva soma o departamento do item, Documentação recebe também as notificações dos itens de Operações e Equipamentos. O agrupamento da fila continua pelo departamento do item.
-- **Sem evidência Runtime.** Esta cartografia não executou suíte, browser, Supabase, Edge Function, email, fullscreen ou faturamento real.
+- **Evidência Runtime limitada.** Fora da nota dos tipos aposentados, esta cartografia não executou suíte, browser, Supabase, Edge Function, email, fullscreen ou faturamento real.

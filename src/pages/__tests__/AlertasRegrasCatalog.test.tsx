@@ -143,6 +143,25 @@ describe('Regras de Alertas', () => {
     expect(screen.getAllByText('Aposentada').length).toBeGreaterThan(0)
   })
 
+  it('aplica "Somente ativas" mesmo com uma regra aposentada selecionada', () => {
+    render(
+      <MemoryRouter initialEntries={['/alertas/regras?regra=invoice_cancel_blocked']}>
+        <AlertasRegras />
+      </MemoryRouter>,
+    )
+
+    const situacao = screen.getByRole('combobox', { name: 'Situação' }) as HTMLSelectElement
+    expect(situacao.value).toBe('all')
+
+    fireEvent.change(situacao, { target: { value: 'ativa' } })
+
+    // O parâmetro precisa continuar explícito: sem ele a derivação voltaria a
+    // 'all' por causa da regra aposentada ainda presente em `?regra=`.
+    expect((screen.getByRole('combobox', { name: 'Situação' }) as HTMLSelectElement).value).toBe('ativa')
+    expect(screen.getByText('26 regras encontradas')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Cancelamento bloqueado/ })).toBeNull()
+  })
+
   it('combina filtros no topo e limpa a combinação sem perder a regra selecionada', () => {
     render(
       <MemoryRouter initialEntries={['/alertas/regras']}>

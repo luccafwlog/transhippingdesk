@@ -116,7 +116,10 @@ export function AlertasRegras() {
 
   function updateStatusFilter(value: string) {
     const next = new URLSearchParams(searchParams)
-    if (value === DEFAULT_STATUS_FILTER) next.delete('situacao')
+    // Omitir `situacao` só é seguro quando a derivação padrão devolve o mesmo
+    // valor. Com uma regra aposentada em `?regra=`, ela devolveria 'all' e o
+    // filtro voltaria sozinho para "Ativas e aposentadas".
+    if (value === DEFAULT_STATUS_FILTER && requestedRule?.status !== 'aposentada') next.delete('situacao')
     else next.set('situacao', value)
     setSearchParams(next, { replace: true })
   }
