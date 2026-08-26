@@ -1,6 +1,6 @@
 # Roadmap do Transhipping Desk
 
-Baseline verificado contra o repositório em 2026-06-18.
+Baseline revisado contra o repositório em 2026-08-26.
 
 Este documento separa capacidades entregues, evolução confirmada, backlog e
 riscos ativos. Planos datados registram o caminho de uma mudança, mas não
@@ -17,6 +17,7 @@ substituem este baseline.
 - containers, veículos RoRo e CE Mercante;
 - Vazios de Importação por Baplie ou planilha;
 - bookings de Vazios de Exportação;
+- projeção unificada de escalas POL/POD/EXP, com operação por terminal;
 - Cadastro de Depot com tarifas e serviços extras, importação por container e custos refletidos no ADR;
 - fluxo especializado de Granito;
 - fila de revisão operacional e reconciliação de cliente.
@@ -31,7 +32,8 @@ substituem este baseline.
 - Demurrage em persistência própria;
 - conciliação PIX unificada;
 - documentos imprimíveis com QR PIX;
-- relatórios e alertas financeiros.
+- relatórios e alertas financeiros;
+- alertas internos por catálogo, detectores server-side e notificações por usuário.
 
 ### Portal do Cliente
 
@@ -78,7 +80,7 @@ substituem este baseline.
 
 ### Operação e observabilidade
 
-- monitorar abuso e falsos positivos no resolver pré-login do Portal;
+- monitorar abuso e falsos positivos no login do Portal (`portal-login`);
 - melhorar visibilidade de falhas em jobs e escritas best-effort;
 - acompanhar drift entre migrations locais e ambientes remotos;
 - amadurecer evidências de release e smoke pós-deploy.
@@ -104,9 +106,8 @@ substituem este baseline.
 | E2E completo ainda depende de execução manual | Alto | `docs/operations/validacao.md`, fixtures e testes unitários | Smoke automatizado dos fluxos financeiro e Portal |
 | Reset amplo está desatualizado | Alto | Script e procedimento marcados como suspensos | Reconstruir e provar em banco descartável |
 | Layout novo de armador pode quebrar parser | Médio | Parsers isolados, limite de upload e fixtures | Fixture real antes de cada novo layout |
-| Resolução pré-login pode sofrer enumeração/abuso | Médio | Hash, janela de tentativas e erro genérico | Métricas e revisão periódica do limite |
+| Login do Portal pode sofrer enumeração/abuso | Médio | Hash por CNPJ, janela de tentativas e erro genérico | Métricas e revisão periódica do limite |
 | Páginas grandes concentram risco de regressão | Médio | Mudanças cirúrgicas e testes focados | Decomposição oportunista com caracterização |
-| Advisory em dependência de desenvolvimento | Baixo | Não afeta bundle de produção; `npm audit --omit=dev` limpo em 2026-06-18 | Atualizar jsdom/undici quando versão corrigida estiver compatível |
 
 ## Critério para mover um item
 

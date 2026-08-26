@@ -1,6 +1,6 @@
 # Validação do Transhipping Desk
 
-Roteiro executável para o estado verificado em 2026-06-19.
+Roteiro executável para o estado atual do repositório, revisado em 2026-08-26.
 
 O objetivo não é apenas provar que a tela abre. Cada fluxo deve registrar o
 ambiente, a identidade usada, os dados de entrada, o resultado e uma evidência
@@ -351,13 +351,12 @@ Passos:
 1. provisione conta pela ficha do cliente;
 2. simule falha da Edge Function e confirme que a conta permanece inativa;
 3. conclua o provisionamento e confirme `active = true` + `auth_user_id`;
-4. entre por email;
-5. saia e entre por CNPJ;
-6. repita por CPF para cliente compatível;
-7. use identificador ou senha inválidos;
-8. ultrapasse o limite apenas em ambiente descartável;
-9. confirme mensagem genérica e rate limit;
-10. valide coexistência com uma sessão interna no mesmo navegador.
+4. entre por CNPJ normalizado;
+5. saia e entre novamente usando CNPJ com e sem máscara;
+6. use CNPJ ou senha inválidos;
+7. ultrapasse o limite apenas em ambiente descartável;
+8. confirme mensagem genérica e rate limit;
+9. valide coexistência com uma sessão interna no mesmo navegador.
 
 ### Recuperação de senha
 
@@ -474,7 +473,7 @@ Functions.
 | `/portal/recuperar-senha` sem tokens | Local sem Supabase | parcial | URL alcançada; tratamento da ausência de tokens ficou bloqueado antes da montagem da página | Browser, heading “Erro de configuração” |
 | Rota desconhecida | Local sem Supabase | parcial | URL foi servida, mas o redirecionamento por estado de Auth não pôde ser observado | Browser em `/rota-inexistente-cartografia`; bootstrap bloqueado |
 | Login interno, perfil, logout e `/admin/usuarios` | Sem credenciais/Supabase | não executado | Requer sessão interna e projeto controlado | Nenhuma credencial foi solicitada ou inferida |
-| Login Portal por email/CNPJ/CPF, logout, coexistência e recovery | Sem credenciais/Supabase | não executado | Requer Auth e RPC pré-auth em ambiente controlado | Resolver/rate limit não foram exercitados |
+| Login Portal por CNPJ, logout, coexistência e recovery | Sem credenciais/Supabase | não executado | Requer Auth, Edge Function `portal-login` e ambiente controlado | Login, rate limit e recovery não foram exercitados |
 | Histórico remoto de migrations, incluindo `20260619190144` | Sem CLI vinculada | não executado | Não foi possível comparar histórico local e remoto | Supabase CLI e `.temp/project-ref` ausentes |
 | Viagem → Baplie → manifesto → reconciliação → veículos | Sem Supabase controlado | não executado | Fixtures existem, mas nenhuma entidade foi persistida | `test-fixtures/README.md`; writes bloqueadas pelo gate de ambiente |
 | Revisão, gate canônico e auto-faturamento | Sem Supabase controlado | não executado | Não houve criação/correção de B/L nem emissão | Cobertura estática e automatizada registrada nos módulos |
@@ -489,27 +488,3 @@ Functions.
 | Integração Supabase | Sem configuração | não executado | `npm run test:integration` não foi habilitado | `SUPABASE_RUN_INTEGRATION` ausente |
 
 Integração Supabase não executada: ambiente controlado não configurado.
-
-### Gate UX pré-piloto do Portal
-
-Antes do piloto, aplicar migrations numeradas pelo fluxo controlado do projeto, confirmar as migrations `196` e `197` no ambiente alvo e registrar comandos e resultados. Validar em desktop, notebook, mobile e teclado com a conta FWLOG, sem registrar PII. O gate só pode ser marcado após merge, deploy e validação de runtime aprovada.
-
-Confirmado via `mcp__Supabase__list_migrations` (projeto `fgmkhbzhaeebrsizwccx`, "Transhipping Desk") em 2026-07-16: as migrations `196_portal_provisioning_console_read_model`, `197_portal_provisioning_console_fixes` e `198_portal_provisioning_queue_self_heal` estão aplicadas no ambiente. A `198` repara lacunas antes da leitura e registra o evento de sistema sem criar Auth, convite ou email.
-
-Para validar a integridade da fila, executar o pré-voo, confirmar os totais agregados,
-aplicar migrations com `supabase db push`, repetir o pré-voo e executar o backfill
-idempotente somente se ainda houver Clientes sem registro. A aceitação exige zero
-`customers_missing_record` e a fila `Todos` populada; nenhum CNPJ ou email deve ser
-registrado nas evidências.
-
-Runtime confirmado em 2026-07-16 após a aplicação da `198` e o backfill autorizado:
-pré-voo final com `total_customers=310`, `existing_portal_records=310`,
-`existing_auth_links=0`, `existing_recovery_emails=0` e
-`customers_missing_record=0`; `/clientes/portal?filtro=todos` exibiu Total 310 e
-Aguardando análise 310; o badge de Clientes também exibiu 310.
-
-### Limpeza desta execução
-
-Nenhum ID, usuário, B/L, container, invoice, pagamento, disputa, programação ou
-arquivo de banco foi criado. Nenhuma limpeza de produto ou SQL foi necessária.
-O script suspenso `supabase/scripts/reset_operational_data.sql` não foi executado.

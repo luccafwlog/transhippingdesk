@@ -69,5 +69,5 @@ A migration `196_portal_provisioning_console_read_model.sql` usa `SECURITY DEFIN
 
 ## Riscos de segurança monitorados
 
-- Dependência `xlsx` (SheetJS) com vulnerabilidade conhecida sem correção no npm — mitigada por limite de tamanho e acesso restrito a usuários autenticados. Ver [ROADMAP](../ROADMAP.md).
+- A leitura de planilhas usa `@e965/xlsx` com limite de upload antes do parsing e acesso restrito a usuários autenticados. O `npm audit` do repositório estava limpo em 2026-08-26; manter o limite e revalidar a dependência em atualizações. Ver [ROADMAP](../ROADMAP.md).
 - Snapshots de auditoria de segurança ficam em [archive/](../archive/README.md).

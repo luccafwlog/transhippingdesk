@@ -70,6 +70,6 @@ O procedimento só pode voltar a ser oficial após:
 3. provar preservação de usuários e cadastros estruturais;
 4. executar uma segunda vez para provar idempotência;
 5. documentar restauração ou rollback;
-6. registrar a evidência em `docs/VALIDACAO.md`.
+6. registrar a evidência em `docs/operations/validacao.md`.
 
 Até lá, o SQL existente é apenas um registro histórico protegido por aviso.

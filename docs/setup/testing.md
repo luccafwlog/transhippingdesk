@@ -7,8 +7,11 @@
 ```bash
 npm test                    # Vitest (unitários) — rápido, sem rede
 npm run test:integration    # Integração contra Supabase REAL (opt-in)
+npm run docs:check          # Consistência da documentação
+npm run typecheck           # TypeScript sem emitir bundle
 npm run lint                # ESLint (flat config)
 npm run build               # tsc -b + vite build (tipos + bundle)
+npm run size-limit          # Orçamento de JS (após o build)
 ```
 
 ## Unitários
@@ -58,7 +61,7 @@ pesada como `@e965/xlsx` deve usar `await import(...)` lazy, não import estáti
 
 ## Critério de "verde" antes de PR
 
-`npm run build` + `npm test` sem erros e `npm run lint` sem novos warnings. O workflow `ci.yml` roda exatamente esses passos em todo PR — ver [deploy.md](deploy.md).
+Antes de um PR, `npm run docs:check`, `npm run lint`, `npm test`, `npm run build` e `npm run size-limit` devem passar. O workflow `ci.yml` executa documentação + lint, build + orçamento de bundle e a suíte de testes em três shards; o job `checks` agrega esses resultados — ver [deploy.md](deploy.md).
 
 ## Validação manual
 
