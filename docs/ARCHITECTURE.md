@@ -58,8 +58,12 @@ leitura ao destinatário e permite somente marcar `read_at`. Alertas críticos
 sem audiência ativa tentam Administrativo/Admin e registram a falha em
 `alert_notification_failures` quando o fallback também não encontra ninguém.
 A audiência efetiva é a união de `alert_type_catalog.audience_departments` com
-o departamento concreto de um item terminalizado do ADR; cada notificação
-preserva o `recipient_department` real. O destino de itens ativos é derivado
+o departamento gravado no item pelo produtor — no ADR, um item por departamento
+(Operações, Documentação e Equipamentos); cada notificação preserva o
+`recipient_department` real. Um tipo sem produtor ativo é marcado
+`active = false` no catálogo: `invoice_payment_invalid` e
+`invoice_cancel_blocked` saíram do roteamento na migration `327` e foram
+desativados na `347`. O destino de itens ativos é derivado
 por `alertEntityLink`, sem uma segunda cópia em PL/pgSQL. A identidade pública
 de terminal é `voyage::porto::depots.code`; UUID fica somente no metadata.
 A leitura das notificações usa `is_active_read_user()`, portanto inclui o papel
@@ -548,7 +552,7 @@ commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 | `/demurrage/taxas` | Tarifas de demurrage |
 | `/reconciliacao` | Conciliação PIX |
 | `/alertas` | Fila de alertas internos |
-| `/alertas/regras` | Manual somente leitura das regras ativas de alertas, com filtros e links para as telas de resolução |
+| `/alertas/regras` | Manual somente leitura das regras de alertas, com setores notificados, filtros e links para as telas de resolução |
 | `/relatorios` | Relatórios e exportações |
 | `/line-up-tv` | Administração do Line Up |
 | `/line-up-tv/display` | Display protegido para TV |

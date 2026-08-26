@@ -3,6 +3,22 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Regras de Alertas — setores notificados e regras aposentadas:** o manual
+  `/alertas/regras` descrevia cada regra com um único setor responsável,
+  enquanto `fanout_alert_item_for_department` notifica a união entre
+  `alert_type_catalog.audience_departments` e o departamento gravado no item.
+  Com isso o ADR pendente de Equipamentos — que o detector emite como item
+  próprio de Equipamentos desde a `323` — aparecia como regra de Documentação e
+  sumia ao filtrar por Equipamentos (o filtro devolvia 1 regra em vez de 4).
+  O verbete passou a separar setor responsável de setores notificados, o filtro
+  de setor considera todos os notificados e as seções do ADR por setor vêm de
+  `AGENCY_REPORT_SECTIONS`. Também foram corrigidos os textos de datas, que
+  ainda descreviam o modelo anterior à `342` (o ETD virou data do terminal, e a
+  Atracação cobra ATB, ETD e ATD), e o gatilho de exportação pós-ATD.
+  `invoice_payment_invalid` e `invoice_cancel_blocked`, sem produtor desde a
+  `327`, foram desativados no catálogo pela migration `347` e passam a aparecer
+  como aposentados atrás do novo filtro de situação. Revisão completa em
+  [archive/audits/2026-08-26-revisao-alertas-e-regras.md](archive/audits/2026-08-26-revisao-alertas-e-regras.md).
 - **ADR por terminal — aba, estrutura e impressão:** toda escrita do ADR
   terminalizado estava inerte. `callReportIdAwareRpc` guardava `supabase.rpc`
   numa variável antes de chamar, o que desliga a função do cliente; o supabase-js

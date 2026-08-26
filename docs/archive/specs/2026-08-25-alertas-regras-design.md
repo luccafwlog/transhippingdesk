@@ -1,5 +1,15 @@
 # Especificação funcional — Regras de Alertas
 
+> **Nota editorial (2026-08-26).** Spec arquivada: o plano derivado foi
+> executado e a rota `/alertas/regras` está em produção. O escopo de §2 ("as 28
+> regras ativas do `alert_type_catalog`") está superado: `invoice_payment_invalid`
+> e `invoice_cancel_blocked` não têm produtor desde a migration `327` e foram
+> desativados no catálogo pela `347`, restando 26 regras ativas e 2 aposentadas.
+> A spec também não previa que um alerta pode ser dirigido a mais de um setor.
+> Comportamento vigente em
+> [`../../modules/operacao-suporte.md`](../../modules/operacao-suporte.md) e na
+> revisão [`../audits/2026-08-26-revisao-alertas-e-regras.md`](../audits/2026-08-26-revisao-alertas-e-regras.md).
+
 **Data:** 2026-08-25  
 **Status:** aprovada para implementação  
 **Rota:** `/alertas/regras`  
