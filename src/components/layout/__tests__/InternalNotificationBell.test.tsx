@@ -57,8 +57,16 @@ const mockFallbackNotification: InternalNotification = {
 const mutateMarkReadMock = vi.fn().mockResolvedValue(undefined)
 const mutateMarkAllReadMock = vi.fn().mockResolvedValue(1)
 
+// O sino recebe so a chave surrogate em `entity_id`; os rotulos chegam por uma
+// consulta separada, exatamente como na fila de /alertas.
+const entityLabels: Record<string, string> = {
+  'invoice:123': 'FAT-2026-0123',
+  'voyage:88': 'MSC LUCIA / 24W',
+}
+
 vi.mock('../../../hooks/useInternalNotifications', () => ({
   useUnreadInternalNotificationCount: () => ({ data: 3 }),
+  useInternalNotificationEntityLabels: () => ({ data: entityLabels }),
   useInternalNotifications: (open: boolean) => ({
     data: open ? [mockNotification, mockEchoNotification, mockFallbackNotification] : [],
     isLoading: false,
@@ -106,6 +114,23 @@ describe('InternalNotificationBell', () => {
     expect(screen.getByText('Eco de Tratamento')).toBeTruthy()
     expect(screen.getByText('Fallback')).toBeTruthy()
     expect(screen.getByText('Marcar todas como lidas')).toBeTruthy()
+  })
+
+  it('traduz a chave surrogate da entidade para o rotulo humano', () => {
+    render(
+      <MemoryRouter>
+        <InternalNotificationBell />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByLabelText('Notificações internas (3 não lidas)'))
+
+    expect(screen.getByText('Fatura FAT-2026-0123')).toBeTruthy()
+    expect(screen.getByText('Viagem MSC LUCIA / 24W')).toBeTruthy()
+    // B/L ja e chave natural: continua saindo cru.
+    expect(screen.getByText('B/L BL999')).toBeTruthy()
+    expect(screen.queryByText('Fatura 123')).toBeNull()
+    expect(screen.queryByText('Viagem 88')).toBeNull()
   })
 
   it('marca todas como lidas ao acionar o botão de baixa em massa', async () => {

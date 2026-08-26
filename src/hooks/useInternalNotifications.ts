@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   countUnreadInternalNotifications,
+  fetchAlertEntityLabels,
   listInternalNotifications,
   markAllInternalNotificationsRead,
   markInternalNotificationRead,
 } from '../services/alerts'
-import type { InternalNotificationCursor } from '../services/alerts'
+import type { AlertEntityLabels, InternalNotification, InternalNotificationCursor } from '../services/alerts'
 import { queryKeys } from '../services/queryKeys'
 
 export const INTERNAL_NOTIFICATIONS_QUERY_KEY = queryKeys.alerts.internalNotifications()
@@ -17,6 +18,36 @@ export function useInternalNotifications(enabled = true, before: InternalNotific
     queryFn: () => listInternalNotifications({ includeRead: false, limit: 20, before }),
     enabled,
     refetchInterval: 60_000,
+  })
+}
+
+/**
+ * O sino guarda so a chave surrogate da entidade (`entity_id`), igual a fila de
+ * /alertas. Esta consulta traduz a pagina inteira em lote e roda separada da
+ * lista, para o menu abrir sem esperar a traducao: enquanto ela nao volta,
+ * `formatAlertEntity` cai no id.
+ */
+export function useInternalNotificationEntityLabels(
+  notifications: InternalNotification[],
+  before: InternalNotificationCursor | null = null,
+) {
+  return useQuery<AlertEntityLabels>({
+    // A chave acompanha o conteudo da pagina (id mais recente + tamanho): o sino
+    // recarrega a lista a cada 60s e uma notificacao nova precisa resolver o
+    // proprio rotulo em vez de esperar o staleTime.
+    queryKey: queryKeys.alerts.internalNotificationEntityLabels(
+      `${before?.createdAt ?? ''}:${before?.id ?? ''}:${notifications[0]?.id ?? ''}:${notifications.length}`,
+    ),
+    // `payload` do sino e o `metadata` do alerta: e de la que sai o TXID do PIX.
+    queryFn: () => fetchAlertEntityLabels(
+      notifications.map((notification) => ({
+        entity_type: notification.entity_type,
+        entity_id: notification.entity_id,
+        metadata: notification.payload ?? null,
+      })),
+    ),
+    enabled: notifications.length > 0,
+    staleTime: 5 * 60_000,
   })
 }
 

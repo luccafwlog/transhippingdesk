@@ -5,13 +5,18 @@ import { Modal } from '../ui/Modal'
 
 export function DemurragePaymentReversalModal({
   open,
-  invoiceId,
+  docNumber,
   loading,
   onClose,
   onSubmit,
 }: {
   open: boolean
-  invoiceId: number | null
+  /**
+   * Numero do documento da invoice (`demurrage_invoices.doc_number`). O id da
+   * linha nao entra no titulo: o operador nao reconhece "Demurrage #37" numa
+   * conversa com o cliente.
+   */
+  docNumber: string | null
   loading: boolean
   onClose: () => void
   onSubmit: (reason: string) => void
@@ -21,7 +26,7 @@ export function DemurragePaymentReversalModal({
   const trimmedReason = reason.trim()
 
   return (
-    <Modal open={open} onClose={onClose} title={`Cancelar baixa de Demurrage${invoiceId ? ` #${invoiceId}` : ''}`}>
+    <Modal open={open} onClose={onClose} title={`Cancelar baixa de Demurrage${docNumber ? ` ${docNumber}` : ''}`}>
       <div className="space-y-4 p-4">
         <Field label="Justificativa para cancelar a baixa" required>
           <Textarea

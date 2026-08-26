@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { supabase } from './supabase'
 import type { Alert } from '../types/database'
 import { reportBestEffortFailure } from '../lib/telemetry'
+import { voyageDisplayName } from '../lib/utils'
 import { queryKeys } from './queryKeys'
 
 // Catálogo vivo de alertas suportados pela aplicação.
@@ -604,7 +605,7 @@ export async function fetchAlertEntityLabels(rows: AlertEntityRef[]): Promise<Al
       () => select<VoyageRow>('voyages', 'id, voyage_number, vessel:vessels(name)', voyageIds),
       (voyage) => {
         const vessel = Array.isArray(voyage.vessel) ? voyage.vessel[0] : voyage.vessel
-        const label = [vessel?.name, voyage.voyage_number].filter(Boolean).join(' / ')
+        const label = voyageDisplayName(vessel?.name, voyage.voyage_number)
         return label ? [`voyage:${voyage.id}`, label] : null
       },
     ),
