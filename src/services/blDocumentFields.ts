@@ -144,15 +144,79 @@ export function collectFieldsFromPdfLabels(pages: BlPdfPage[]): BlDocumentFields
 
 type LabelMap = Partial<Record<keyof typeof PDF_LABELS, BlTextRun>>
 
+// Quantos trechos vizinhos entram numa tentativa de rótulo. O formulário
+// fragmenta no máximo o número e o texto ("6" + ".Port of Discharge:"), então
+// três já cobre a pior quebra sem varrer o valor do campo junto.
+const MAX_LABEL_RUNS = 3
+const SAME_LINE_TOLERANCE = 1.5
+
+/**
+ * Procura os rótulos do formulário linha a linha.
+ *
+ * O gerador do PDF quebra um rótulo em vários comandos de texto e nem sempre
+ * grava a mesma linha de base para todos ("6" sai 0,0002pt abaixo de
+ * ".Port of Discharge:"), o que basta para a junção por proximidade de
+ * blDocumentPdf.ts entregar os dois trechos separados e fora de ordem. Montar
+ * o candidato a partir dos trechos vizinhos da linha, já ordenados pela
+ * margem esquerda, reconhece o rótulo nos dois casos; o rótulo devolvido
+ * cobre da primeira à última parte, para que o valor à direita continue sendo
+ * encontrado pela posição.
+ */
 function findLabels(runs: BlTextRun[]): LabelMap {
   const labels: LabelMap = {}
-  for (const run of runs) {
-    const normalized = normalizeHeader(run.text)
-    for (const [name, pattern] of Object.entries(PDF_LABELS) as [keyof typeof PDF_LABELS, RegExp][]) {
-      if (!labels[name] && pattern.test(normalized)) labels[name] = run
+  const pending = Object.entries(PDF_LABELS) as [keyof typeof PDF_LABELS, RegExp][]
+
+  for (const line of groupRunsIntoLines(runs)) {
+    for (let start = 0; start < line.length; start += 1) {
+      const end = Math.min(line.length, start + MAX_LABEL_RUNS)
+      for (let last = start; last < end; last += 1) {
+        const candidate = joinRunsAsLabel(line.slice(start, last + 1))
+        const normalized = normalizeHeader(candidate.text)
+        const matched = pending.filter(([name, pattern]) => !labels[name] && pattern.test(normalized))
+        if (!matched.length) continue
+        for (const [name] of matched) labels[name] = candidate
+        break
+      }
     }
   }
+
   return labels
+}
+
+/** Agrupa os trechos por linha de base e ordena cada linha pela margem esquerda. */
+function groupRunsIntoLines(runs: BlTextRun[]): BlTextRun[][] {
+  const lines: BlTextRun[][] = []
+  for (const run of [...runs].sort((left, right) => left.y - right.y || left.x - right.x)) {
+    const current = lines[lines.length - 1]
+    const reference = current?.[0]
+    if (current && reference && reference.page === run.page && run.y - reference.y <= SAME_LINE_TOLERANCE) {
+      current.push(run)
+      continue
+    }
+    lines.push([run])
+  }
+  return lines.map((line) => line.sort((left, right) => left.x - right.x))
+}
+
+/** Junta trechos vizinhos num único rótulo, preservando posição e largura. */
+function joinRunsAsLabel(parts: BlTextRun[]): BlTextRun {
+  const first = parts[0]
+  const last = parts[parts.length - 1]
+  const text = parts.reduce((accumulated, part, index) => {
+    if (index === 0) return part.text
+    const previous = parts[index - 1]
+    const gap = part.x - (previous.x + previous.width)
+    return gap > 1 ? `${accumulated} ${part.text}` : `${accumulated}${part.text}`
+  }, '')
+
+  return {
+    page: first.page,
+    x: first.x,
+    y: first.y,
+    width: last.x + last.width - first.x,
+    height: Math.max(...parts.map((part) => part.height)),
+    text,
+  }
 }
 
 /** Valor escrito na mesma linha do rótulo, à direita dele. */

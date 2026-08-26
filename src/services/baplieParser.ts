@@ -25,6 +25,16 @@ export type ParsedBaplie = {
   pods: string[]
 }
 
+// Qualificadores EDIFACT (3227) que cada armador usa para o mesmo dado. O
+// mesmo trecho do Baplie aparece como LOC+6/LOC+12 num arquivo e LOC+9/LOC+11
+// no outro (SMDG D95B), e o peso ora vem como MEA+WT ora como MEA+VGM. Ler só
+// um dos dialetos deixava POL, POD e peso nulos no arquivo inteiro.
+const POL_QUALIFIERS = new Set(['6', '9'])
+const POD_QUALIFIERS = new Set(['11', '12'])
+const FINAL_DEST_QUALIFIERS = new Set(['83'])
+const WEIGHT_QUALIFIERS = new Set(['WT', 'VGM'])
+const SLOT_QUALIFIER = '147'
+
 export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
   assertUploadFile(file, ['edi', 'txt', 'edi2', 'bpl'])
   const text = await file.text()
@@ -44,7 +54,10 @@ function parseBaplieText(text: string): ParsedBaplie {
     if (seg.startsWith('TDT+20+')) {
       const parts = seg.split('+')
       voyage_number = parts[2] ?? null
-      const vesselPart = parts[4] ?? ''
+      // O nome do navio é o último composto do TDT ("5LFD3:103::GREEN
+      // PARANAGUA"), e quantos elementos vazios vêm antes dele muda de armador
+      // para armador — por isso a busca é de trás para frente.
+      const vesselPart = [...parts].reverse().find((part) => part.includes('::')) ?? ''
       const colonIdx = vesselPart.indexOf('::')
       if (colonIdx !== -1) {
         vessel_name = vesselPart.slice(colonIdx + 2).replace(/:/g, ' ').trim() || null
@@ -65,22 +78,33 @@ function parseBaplieText(text: string): ParsedBaplie {
   let currentContainer: BaplieContainer | null = null
 
   for (const seg of segments) {
-    if (seg.startsWith('LOC+147+')) {
-      const locPart = seg.slice('LOC+147+'.length).replace(/'$/, '')
-      slot = locPart.split(':')[0] ?? null
-      weight_kg = null
-      pol = null
-      pod = null
-      final_dest = null
-      bl_ref = null
-      oog_dims = false
-      currentContainer = null
+    if (seg.startsWith('LOC+')) {
+      const qualifier = seg.split('+')[1] ?? ''
+      const code = extractLocCode(seg)
+
+      if (qualifier === SLOT_QUALIFIER) {
+        slot = code
+        weight_kg = null
+        pol = null
+        pod = null
+        final_dest = null
+        bl_ref = null
+        oog_dims = false
+        currentContainer = null
+        continue
+      }
+
+      if (POL_QUALIFIERS.has(qualifier)) pol = normalizePortCode(code)
+      else if (POD_QUALIFIERS.has(qualifier)) pod = normalizePortCode(code)
+      else if (FINAL_DEST_QUALIFIERS.has(qualifier)) final_dest = normalizePortCode(code)
       continue
     }
 
-    if (seg.startsWith('MEA+WT++KGM:')) {
-      const val = seg.slice('MEA+WT++KGM:'.length).replace(/'$/, '')
-      const n = parseFloat(val)
+    if (seg.startsWith('MEA+')) {
+      const parts = seg.replace(/'$/, '').split('+')
+      if (!WEIGHT_QUALIFIERS.has(parts[1] ?? '')) continue
+      const value = (parts[3] ?? '').split(':')[1] ?? ''
+      const n = parseFloat(value)
       weight_kg = isNaN(n) ? null : n
       continue
     }
@@ -91,21 +115,6 @@ function parseBaplieText(text: string): ParsedBaplie {
       const dims = (parts[2] ?? '').replace(/'$/, '').split(':')
       const hasValue = dims.some((d) => d.trim() !== '' && d.trim() !== '0')
       if (hasValue) oog_dims = true
-      continue
-    }
-
-    if (seg.startsWith('LOC+6+')) {
-      pol = normalizePortCode(extractLocCode(seg))
-      continue
-    }
-
-    if (seg.startsWith('LOC+12+')) {
-      pod = normalizePortCode(extractLocCode(seg))
-      continue
-    }
-
-    if (seg.startsWith('LOC+83+')) {
-      final_dest = normalizePortCode(extractLocCode(seg))
       continue
     }
 
@@ -186,8 +195,9 @@ function upsertBaplieContainer(containers: BaplieContainer[], next: BaplieContai
   return existing
 }
 
+/** Código do local do segmento LOC ("LOC+11+BRVIX:139:6" -> "BRVIX"). */
 function extractLocCode(seg: string): string | null {
-  const plusIdx = seg.lastIndexOf('+')
-  if (plusIdx === -1) return null
-  return seg.slice(plusIdx + 1).replace(/'$/, '').split(':')[0] || null
+  const parts = seg.replace(/'$/, '').split('+')
+  if (parts.length < 3) return null
+  return parts[2].split(':')[0] || null
 }
