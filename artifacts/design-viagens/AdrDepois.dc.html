@@ -173,13 +173,13 @@
   .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
 </style>
 </helmet>
-<div class="shell" style="min-height: 3530px">
+<div class="shell" style="min-height: 3800px">
   
   <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
       <div>
         <span style="display: inline-flex; align-items: center; border: 1px solid #bfdbfe; border-radius: 999px; background: #e8f0fb; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4d88">Proposta</span>
         <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba ADR &mdash; proposta</div>
-        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Mesmos dados, mesmos seis blocos. O cabeçalho fica como está hoje — a fileira de escalas e o painel <em>ADR por terminal</em>; só o contador e o Fechar ADR viram faixa própria, já que os três cartões de assinatura descem para dentro dos grupos. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar. Em Carga descarregada, os dois modos de carga ganham a mesma gramática: total do modo no topo do painel, destino final e transbordo como baldes irmãos.</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Mesmos dados, mesmos seis blocos. O cabeçalho fica como está hoje — a fileira de escalas e o painel <em>ADR por terminal</em>; só o contador e o Fechar ADR viram faixa própria, já que os três cartões de assinatura descem para dentro dos grupos. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar. Em Carga descarregada, cada modo de carga carrega o próprio total: os containers ganham duas leituras — só o tipo, e o tipo cruzado com a natureza (carga geral, IMO, OOG) — e o vazio sai daqui para viver só em Vazios descarregados.</div>
       </div>
       <div style="display: flex; flex-direction: column; gap: 16px">
     <div style="display: flex; flex-wrap: wrap; gap: 8px">
@@ -304,26 +304,65 @@
     <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Containers descarregados</div>
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
     <span style="display: inline-flex; align-items: baseline; gap: 8px">
-      <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">148</span>
+      <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">145</span>
       <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">unidades</span>
     </span>
-    <span style="display: inline-flex; align-items: center; gap: 7px"><span class="badge badge--red" style="padding: 4px 10px">IMO 8</span></span>
+    <span style="display: inline-flex; align-items: center; gap: 6px"><span class="badge badge--red" style="padding: 4px 10px">IMO 9</span><span class="badge badge--yellow" style="padding: 4px 10px">OOG 6</span></span>
   </div>
-    <div style="display: grid; gap: 8px">
+    <div style="display: grid; gap: 7px">
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
-      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Destino final</span>
-      <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1c1915">139 unidades</span>
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Por tipo</span>
+      
     </div>
-    <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">42</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; IMO<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">4</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; vazio (sem B/L)<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">3</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">62</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; IMO<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">2</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; ve&iacute;culos<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">6</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40OT &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">5</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40RH &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">15</b></span></div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">46</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">76</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40OT<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">5</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40RH<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">18</b></span></div>
   </div>
-    <div style="display: grid; gap: 8px">
+    <div style="display: grid; gap: 7px">
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
-      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Em transbordo</span>
-      <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1c1915">9 unidades</span>
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Por tipo e natureza</span>
+      <span style="font-size: 10px; color: #8a8579">IMO e OOG ao mesmo tempo conta em OOG &mdash; hoje 1</span>
     </div>
-    <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">9</b></span></div>
+    <div style="overflow: hidden; border: 1px solid #cdc8bc; border-radius: 6px">
+    <table style="width: 100%; border-collapse: collapse">
+      <thead><tr style="background: #f8f6f1">
+        <th style="padding: 6px 8px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a8579">Tipo</th>
+        <th style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a8579">carga geral</th><th style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a8579">IMO</th><th style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a8579">OOG</th>
+        <th style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #5a5549">Total</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-top: 1px solid #cdc8bc">
+          <td style="padding: 5px 8px; font-size: 12px; font-weight: 600; color: #1c1915">20GP</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">42</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">4</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #8a8579; font-weight: 500">&mdash;</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">46</td>
+        </tr><tr style="border-top: 1px solid #cdc8bc">
+          <td style="padding: 5px 8px; font-size: 12px; font-weight: 600; color: #1c1915">40HC</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">71</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">2</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">3</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">76</td>
+        </tr><tr style="border-top: 1px solid #cdc8bc">
+          <td style="padding: 5px 8px; font-size: 12px; font-weight: 600; color: #1c1915">40OT</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">2</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #8a8579; font-weight: 500">&mdash;</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">3</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">5</td>
+        </tr><tr style="border-top: 1px solid #cdc8bc">
+          <td style="padding: 5px 8px; font-size: 12px; font-weight: 600; color: #1c1915">40RH</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">15</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #1c1915; font-weight: 500">3</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #8a8579; font-weight: 500">&mdash;</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">18</td>
+        </tr>
+        <tr style="border-top: 1px solid #b8b2a5; background: #f8f6f1">
+          <td style="padding: 5px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #5a5549">Total</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">130</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">9</td><td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">6</td>
+          <td style="padding: 5px 8px; text-align: right; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #0e0c0a; font-weight: 700">145</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
-    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: #8a8579">IMO &eacute; marcador do container, n&atilde;o um balde da listagem: 2 dos 8 est&atilde;o em transbordo. A categoria &eacute; exclusiva e transbordo vence IMO.</p>
+  </div>
+    <div style="display: grid; gap: 7px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Destino</span>
+      
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">Destino final<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">136</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">Em transbordo<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">9</b></span></div>
+  </div>
+    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: #8a8579">S&oacute; container cheio. Os 3 vazios que o Baplie traz sem B/L saem daqui e passam a viver s&oacute; em <b>Vazios descarregados</b> &mdash; hoje aparecem nos dois lugares.</p>
   </div><div style="display: grid; gap: 12px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
     <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Carga solta</div>
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
@@ -347,8 +386,10 @@
     </div>
     <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">M&aacute;quinas<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">2</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">Packages<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">12</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">CBM<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">74,6</b></span></div>
   </div>
-    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: #8a8579">Os dois baldes s&atilde;o disjuntos: o de transbordo vem dos B/Ls cujo <code>pod</code> aponta para o porto omitido, n&atilde;o para esta escala.</p>
-  </div></div>
+  </div></div><div style="display: flex; align-items: flex-start; gap: 8px; font-size: 11px; line-height: 1.55; color: #8a8579">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8579" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+    <span>Tudo nesta se&ccedil;&atilde;o desceu nesta escala. <b style="color: #5a5549">Destino final</b> &eacute; a carga que acaba aqui; <b style="color: #5a5549">Em transbordo</b> desceu aqui mas tem destino no porto que o navio omitiu, e segue por outro meio.</span>
+  </div>
       <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fecaca; border-radius: 8px; background: #fceaea; padding: 10px 12px">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0393f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
             <span style="font-size: 12px; line-height: 1.5; color: #c0393f"><b>Diverg&ecirc;ncia</b> &mdash; 3 container(s) cheio(s) no Baplie sem B/L correspondente nesta escala &mdash; revisar na Concilia&ccedil;&atilde;o Baplie &times; B/L.</span>
@@ -370,11 +411,17 @@
           <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
         </span>
       </div>
-      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
   <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">26</span>
-  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">vazios descarregados</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">vazios classificados</span>
   
-</div><div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; vazio &mdash; cama<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">8</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; vazio &mdash; cama<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">12</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; vazio &mdash; cover plate<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">6</b></span></div>
+</div>
+        <span class="badge badge--slate" style="padding: 4px 10px">Baplie 28</span>
+        <span class="badge badge--yellow" style="padding: 4px 10px">2 sem natureza</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; vazio &mdash; cama<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">8</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; vazio &mdash; cama<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">12</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; vazio &mdash; cover plate<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">6</b></span></div>
+      <p style="margin: 0; font-size: 10px; line-height: 1.5; color: #8a8579">As duas fontes ficam lado a lado: o <b>Baplie</b> conta quantos vazios chegaram, o <b>m&oacute;dulo de Vazios de Importa&ccedil;&atilde;o</b> os classifica em cama e cover plate. Os 3 que o Baplie traz sem B/L moram aqui, e s&oacute; aqui.</p>
       <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fecaca; border-radius: 8px; background: #fceaea; padding: 10px 12px">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0393f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
             <span style="font-size: 12px; line-height: 1.5; color: #c0393f"><b>Diverg&ecirc;ncia</b> &mdash; Baplie aponta 28 vazio(s) descarregado(s) contra 26 no m&oacute;dulo de Vazios de Importa&ccedil;&atilde;o (2 ainda sem natureza classificada) &mdash; revisar na Concilia&ccedil;&atilde;o Baplie &times; B/L.</span>

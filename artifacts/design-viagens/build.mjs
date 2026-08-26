@@ -286,11 +286,11 @@ out('AdrAntes.dc.html', compareBoard({
   body: adrAntes(),
 }), ADR_A_H)
 
-const ADR_D_H = 3530
+const ADR_D_H = 3800
 out('AdrDepois.dc.html', compareBoard({
   height: ADR_D_H, chip: 'Proposta', chipTone: 'proposta',
   title: 'Aba ADR &mdash; proposta',
-  note: 'Mesmos dados, mesmos seis blocos. O cabeçalho fica como está hoje — a fileira de escalas e o painel <em>ADR por terminal</em>; só o contador e o Fechar ADR viram faixa própria, já que os três cartões de assinatura descem para dentro dos grupos. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar. Em Carga descarregada, os dois modos de carga ganham a mesma gramática: total do modo no topo do painel, destino final e transbordo como baldes irmãos.',
+  note: 'Mesmos dados, mesmos seis blocos. O cabeçalho fica como está hoje — a fileira de escalas e o painel <em>ADR por terminal</em>; só o contador e o Fechar ADR viram faixa própria, já que os três cartões de assinatura descem para dentro dos grupos. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar. Em Carga descarregada, cada modo de carga carrega o próprio total: os containers ganham duas leituras — só o tipo, e o tipo cruzado com a natureza (carga geral, IMO, OOG) — e o vazio sai daqui para viver só em Vazios descarregados.',
   body: adrDepois(),
 }), ADR_D_H)
 

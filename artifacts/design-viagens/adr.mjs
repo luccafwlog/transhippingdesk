@@ -51,23 +51,26 @@ const CABECALHO = {
  */
 const DESCARGA = {
   containers: {
-    total: 148,
-    imo: 8,
-    imoEmTransbordo: 2,
-    destinoFinal: {
-      total: 139,
-      tipos: [
-        ['20GP', 'carga geral', 42],
-        ['20GP', 'IMO', 4],
-        ['20GP', 'vazio (sem B/L)', 3],
-        ['40HC', 'carga geral', 62],
-        ['40HC', 'IMO', 2],
-        ['40HC', 've&iacute;culos', 6],
-        ['40OT', 'carga geral', 5],
-        ['40RH', 'carga geral', 15],
-      ],
-    },
-    transbordo: { total: 9, tipos: [['40HC', 9]] },
+    // A proposta conta só container CHEIO: os 3 vazios do Baplie sem B/L que
+    // a listagem de hoje traz como categoria 'vazio' passam para Vazios
+    // descarregados, então o total cai de 148 para 145.
+    total: 145,
+    vaziosMovidos: 3,
+    totalHoje: 148,
+    imo: 9,
+    oog: 6,
+    imoEOog: 1,
+    // Visão 1 — só o tipo. Soma o total.
+    porTipo: [['20GP', 46], ['40HC', 76], ['40OT', 5], ['40RH', 18]],
+    // Visão 2 — tipo x natureza. Mesmas linhas, mesmas somas.
+    porNatureza: [
+      ['20GP', 42, 4, 0],
+      ['40HC', 71, 2, 3],
+      ['40OT', 2, 0, 3],
+      ['40RH', 15, 3, 0],
+    ],
+    destinoFinal: 136,
+    transbordo: 9,
   },
   cargaSolta: {
     bls: 5, ton: '254',
@@ -76,13 +79,32 @@ const DESCARGA = {
   },
 }
 
-/** Matriz achatada como a tela de hoje monta: transbordo entra como categoria. */
+const NATUREZAS = ['carga geral', 'IMO', 'OOG']
+
+/**
+ * A listagem como a aba monta HOJE: uma linha por (tipo, categoria), com
+ * categoria vinda de CATEGORY_PRIORITY — transbordo > veículos > imo >
+ * carga_geral > vazio. Não há OOG (`is_oog` existe em baplie_containers e
+ * bl_containers, mas nenhum dos dois selects do ADR o traz), transbordo entra
+ * como se fosse natureza, e o vazio do Baplie sem B/L aparece aqui além de já
+ * estar contado em baplieEmptyCount, na divergência de Vazios descarregados.
+ */
 const MATRIZ_HOJE = [
-  ...DESCARGA.containers.destinoFinal.tipos,
-  ...DESCARGA.containers.transbordo.tipos.map(([tipo, n]) => [tipo, 'transbordo', n]),
-].sort((a, b) => String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1])))
+  ['20GP', 'carga geral', 42],
+  ['20GP', 'IMO', 4],
+  ['20GP', 'vazio (sem B/L)', 3],
+  ['40HC', 'carga geral', 62],
+  ['40HC', 'IMO', 2],
+  ['40HC', 'transbordo', 9],
+  ['40HC', 've&iacute;culos', 6],
+  ['40OT', 'carga geral', 5],
+  ['40RH', 'carga geral', 15],
+]
 
 const VAZIOS_IMP = {
+  modulo: 26,
+  baplie: 28,
+  semNatureza: 2,
   total: 26,
   matriz: [
     ['20GP', 'vazio &mdash; cama', 8],
@@ -238,9 +260,7 @@ function conteudo(chave, k) {
     ].join(''), 12)
   }
   if (chave === 'descarga') return k.descarga(grade)
-  if (chave === 'vaziosImp') {
-    return `${hero(String(VAZIOS_IMP.total), 'vazios descarregados')}${listagem(VAZIOS_IMP.matriz)}`
-  }
+  if (chave === 'vaziosImp') return k.vazios ? k.vazios() : `${hero(String(VAZIOS_IMP.modulo), 'vazios descarregados')}${listagem(VAZIOS_IMP.matriz)}`
   if (chave === 'veiculos') {
     return `${hero(String(VEICULOS.vins), 'VINs')}
       <div style="display: grid; gap: 8px">${VEICULOS.marcas.map(([m, d]) => info(m, d)).join('')}</div>
@@ -462,6 +482,16 @@ const KIT_DEPOIS = {
   listagem: (rows) => `<div style="display: flex; flex-wrap: wrap; gap: 6px">${rows.map(([t, c, n]) => tokenD(`${t} &middot; ${c}`, n)).join('')}</div>`,
   tabela: tabelaLinhas,
   descarga: (grade) => descargaDepois(grade),
+  vazios: () => {
+    const v = VAZIOS_IMP
+    return `<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px">
+        ${heroD(String(v.modulo), 'vazios classificados')}
+        ${chipD('slate', `Baplie ${v.baplie}`)}
+        ${chipD('yellow', `${v.semNatureza} sem natureza`)}
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px">${v.matriz.map(([t, c, n]) => tokenD(`${t} &middot; ${c}`, n)).join('')}</div>
+      <p style="margin: 0; font-size: 10px; line-height: 1.5; color: ${T.mutedSoft}">As duas fontes ficam lado a lado: o <b>Baplie</b> conta quantos vazios chegaram, o <b>m&oacute;dulo de Vazios de Importa&ccedil;&atilde;o</b> os classifica em cama e cover plate. Os ${DESCARGA.containers.vaziosMovidos} que o Baplie traz sem B/L moram aqui, e s&oacute; aqui.</p>`
+  },
 }
 
 /**
@@ -484,8 +514,8 @@ function descargaDepois(grade) {
     ${direita ?? ''}
   </div>`
 
-  /** Balde de destino: o mesmo bloco dos dois lados, só muda o que ele conta. */
-  const balde = (rotulo, lead, corpo) => `<div style="display: grid; gap: 8px">
+  /** Destino: o mesmo bloco dos dois lados, só muda o que ele conta. */
+  const destino = (rotulo, lead, corpo) => `<div style="display: grid; gap: 8px">
     <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
       <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">${rotulo}</span>
       <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${T.text}">${lead}</span>
@@ -493,12 +523,47 @@ function descargaDepois(grade) {
     ${corpo}
   </div>`
 
+  /** Duas leituras do mesmo conjunto: só o tipo, e o tipo cruzado com a natureza. */
+  const bloco = (rotulo, corpo, nota = '') => `<div style="display: grid; gap: 7px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">${rotulo}</span>
+      ${nota ? `<span style="font-size: 10px; color: ${T.mutedSoft}">${nota}</span>` : ''}
+    </div>
+    ${corpo}
+  </div>`
+
+  const cel = (v, forte = false) => `<td style="padding: 5px 8px; text-align: right; font-family: ${T.mono}; font-size: 12px; font-variant-numeric: tabular-nums; color: ${v === 0 ? T.mutedSoft : forte ? T.textStrong : T.text}; font-weight: ${forte ? 700 : 500}">${v === 0 ? '&mdash;' : v}</td>`
+  const totalCol = NATUREZAS.map((_, k) => c.porNatureza.reduce((acc, l) => acc + l[k + 1], 0))
+
+  const tabelaNatureza = `<div style="overflow: hidden; border: 1px solid ${T.border}; border-radius: 6px">
+    <table style="width: 100%; border-collapse: collapse">
+      <thead><tr style="background: ${T.surfaceMuted}">
+        <th style="padding: 6px 8px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${T.mutedSoft}">Tipo</th>
+        ${NATUREZAS.map((n) => `<th style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${T.mutedSoft}">${n}</th>`).join('')}
+        <th style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${T.muted}">Total</th>
+      </tr></thead>
+      <tbody>
+        ${c.porNatureza.map(([tipo, ...vals]) => `<tr style="border-top: 1px solid ${T.border}">
+          <td style="padding: 5px 8px; font-size: 12px; font-weight: 600; color: ${T.text}">${tipo}</td>
+          ${vals.map((v) => cel(v)).join('')}
+          ${cel(vals.reduce((a, b) => a + b, 0), true)}
+        </tr>`).join('')}
+        <tr style="border-top: 1px solid ${T.borderStrong}; background: ${T.surfaceMuted}">
+          <td style="padding: 5px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${T.muted}">Total</td>
+          ${totalCol.map((v) => cel(v, true)).join('')}
+          ${cel(c.total, true)}
+        </tr>
+      </tbody>
+    </table>
+  </div>`
+
   const painelContainers = `<div style="display: grid; gap: 12px; align-content: start; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 12px 14px">
     <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.mutedSoft}">Containers descarregados</div>
-    ${topo(String(c.total), 'unidades', `<span style="display: inline-flex; align-items: center; gap: 7px">${chipD('red', `IMO ${c.imo}`)}</span>`)}
-    ${balde('Destino final', `${c.destinoFinal.total} unidades`, `<div style="display: flex; flex-wrap: wrap; gap: 6px">${c.destinoFinal.tipos.map(([t, cat, n]) => tokenD(`${t} &middot; ${cat}`, n)).join('')}</div>`)}
-    ${balde('Em transbordo', `${c.transbordo.total} unidades`, `<div style="display: flex; flex-wrap: wrap; gap: 6px">${c.transbordo.tipos.map(([t, n]) => tokenD(t, n)).join('')}</div>`)}
-    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: ${T.mutedSoft}">IMO &eacute; marcador do container, n&atilde;o um balde da listagem: ${c.imoEmTransbordo} dos ${c.imo} est&atilde;o em transbordo. A categoria &eacute; exclusiva e transbordo vence IMO.</p>
+    ${topo(String(c.total), 'unidades', `<span style="display: inline-flex; align-items: center; gap: 6px">${chipD('red', `IMO ${c.imo}`)}${chipD('yellow', `OOG ${c.oog}`)}</span>`)}
+    ${bloco('Por tipo', `<div style="display: flex; flex-wrap: wrap; gap: 6px">${c.porTipo.map(([t, n]) => tokenD(t, n)).join('')}</div>`)}
+    ${bloco('Por tipo e natureza', tabelaNatureza, `IMO e OOG ao mesmo tempo conta em OOG &mdash; hoje ${c.imoEOog}`)}
+    ${bloco('Destino', `<div style="display: flex; flex-wrap: wrap; gap: 6px">${tokenD('Destino final', c.destinoFinal)}${tokenD('Em transbordo', c.transbordo)}</div>`)}
+    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: ${T.mutedSoft}">S&oacute; container cheio. Os ${c.vaziosMovidos} vazios que o Baplie traz sem B/L saem daqui e passam a viver s&oacute; em <b>Vazios descarregados</b> &mdash; hoje aparecem nos dois lugares.</p>
   </div>`
 
   const stats = (b) => `<div style="display: flex; flex-wrap: wrap; gap: 6px">${[['M&aacute;quinas', b.maquinas], ['Packages', b.packages], ['CBM', b.cbm]].map(([l, v]) => tokenD(l, v)).join('')}</div>`
@@ -506,12 +571,16 @@ function descargaDepois(grade) {
   const painelSolta = `<div style="display: grid; gap: 12px; align-content: start; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 12px 14px">
     <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.mutedSoft}">Carga solta</div>
     ${topo(String(cs.bls), 'B/Ls', `<span style="font-family: ${T.mono}; font-size: 13px; font-weight: 600; color: ${T.text}">${cs.ton} ton</span>`)}
-    ${balde('Destino final', `${cs.destinoFinal.bls} B/Ls &middot; ${cs.destinoFinal.ton} ton`, stats(cs.destinoFinal))}
-    ${balde('Em transbordo', `${cs.transbordo.bls} B/L &middot; ${cs.transbordo.ton} ton`, stats(cs.transbordo))}
-    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: ${T.mutedSoft}">Os dois baldes s&atilde;o disjuntos: o de transbordo vem dos B/Ls cujo <code>pod</code> aponta para o porto omitido, n&atilde;o para esta escala.</p>
+    ${destino('Destino final', `${cs.destinoFinal.bls} B/Ls &middot; ${cs.destinoFinal.ton} ton`, stats(cs.destinoFinal))}
+    ${destino('Em transbordo', `${cs.transbordo.bls} B/L &middot; ${cs.transbordo.ton} ton`, stats(cs.transbordo))}
   </div>`
 
-  return grade(2, painelContainers + painelSolta)
+  const legenda = `<div style="display: flex; align-items: flex-start; gap: 8px; font-size: 11px; line-height: 1.55; color: ${T.mutedSoft}">
+    ${icon('arrowRight', 13, T.mutedSoft)}
+    <span>Tudo nesta se&ccedil;&atilde;o desceu nesta escala. <b style="color: ${T.muted}">Destino final</b> &eacute; a carga que acaba aqui; <b style="color: ${T.muted}">Em transbordo</b> desceu aqui mas tem destino no porto que o navio omitiu, e segue por outro meio.</span>
+  </div>`
+
+  return `${grade(2, painelContainers + painelSolta)}${legenda}`
 }
 
 /* =============================== PROPOSTA ============================== */
