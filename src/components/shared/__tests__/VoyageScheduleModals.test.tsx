@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // voyageRouteSchedules importa o cliente Supabase no topo do modulo; os modais
@@ -452,6 +452,12 @@ describe('EscalaModal', () => {
 
     expect((screen.getByRole('button', { name: 'Salvar escala' }) as HTMLButtonElement).disabled).toBe(true)
     expect(onSaved).not.toHaveBeenCalled()
+  })
+
+  it('posiciona o foco na data do terminal solicitado pela ação da Visão geral', async () => {
+    renderEscala(terminalEscala({ focusTerminalId: 't-norte' }))
+
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('ETB T-NORTE')))
   })
 
   it('exige justificativa para alterar expectativa em escala já revisionada mesmo sem terminal atribuído', async () => {

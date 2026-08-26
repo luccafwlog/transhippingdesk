@@ -61,6 +61,16 @@ export function VoyageVisaoTab({
   const { user, profile } = useAuth()
   const canEditVoyages = Boolean(profile || user)
   const [timelineOpen, setTimelineOpen] = useState(true)
+  const [collapsedAtracacoes, setCollapsedAtracacoes] = useState<Set<string>>(() => new Set())
+
+  function toggleAtracacoes(port: string) {
+    setCollapsedAtracacoes((current) => {
+      const next = new Set(current)
+      if (next.has(port)) next.delete(port)
+      else next.add(port)
+      return next
+    })
+  }
 
   // Rota (POL -> POD) de cada manifesto, derivada dos B/Ls do batch, para
   // identificar o import na linha do tempo pela rota em vez do nome do arquivo.
@@ -122,7 +132,7 @@ export function VoyageVisaoTab({
     [granitePorts, emptyPorts],
   )
 
-  function buildEscalaModalData(row: VoyageEscalaSchedule | null): EscalaModalData {
+  function buildEscalaModalData(row: VoyageEscalaSchedule | null, focusTerminalId?: string | null): EscalaModalData {
     const exportSchedule = row
       ? exportScheduleByPort.get(normalizePortCode(row.port) ?? normalizePortName(row.port)) ?? null
       : null
@@ -154,6 +164,7 @@ export function VoyageVisaoTab({
       exportLocked: row ? portsWithExportCargo.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
       graniteLocked: row ? granitePorts.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
       emptyLocked: row ? emptyPorts.has(normalizePortCode(row.port) ?? normalizePortName(row.port)) : false,
+      focusTerminalId,
     }
   }
 
@@ -212,7 +223,7 @@ export function VoyageVisaoTab({
     >
       <div className="app-voyage-table-frame">
         <div className="app-table-scroll">
-          <table className="app-table app-table--compact app-table--dense app-table--sticky-actions w-full text-left text-sm">
+          <table className="app-table app-table--compact app-table--dense app-table--sticky-actions w-full text-center text-sm" aria-label="Planejamento por escala">
             <colgroup>
               <col className="min-w-[90px]" />
               <col className="min-w-[150px]" />
@@ -226,15 +237,18 @@ export function VoyageVisaoTab({
             </colgroup>
             <thead>
               <tr>
-                <th scope="col" className="px-3 py-2">Escala</th>
-                <th scope="col" className="px-3 py-2">Opera</th>
-                <th scope="col" className="px-3 py-2">ETA</th>
-                <th scope="col" className="px-3 py-2">ATA</th>
-                <th scope="col" className="px-3 py-2">ATD derivado</th>
-                <th scope="col" className="px-3 py-2">BLs e CEs</th>
-                <th scope="col" className="px-3 py-2">Nº Escala</th>
-                <th scope="col" className="px-3 py-2">VINCULADA</th>
-                <th scope="col" className="px-3 py-2">Ações</th>
+                <th scope="col" rowSpan={2} className="px-3 py-2 text-center">Escala</th>
+                <th scope="col" rowSpan={2} className="px-3 py-2 text-center">Opera</th>
+                <th scope="col" colSpan={2} className="px-3 py-2 text-center">Chegada</th>
+                <th scope="col" rowSpan={2} className="px-3 py-2 text-center">ATD</th>
+                <th scope="col" rowSpan={2} className="px-3 py-2 text-center">BLs e CEs</th>
+                <th scope="col" rowSpan={2} className="px-3 py-2 text-center">Nº Escala</th>
+                <th scope="col" rowSpan={2} className="px-3 py-2 text-center">Vinculada</th>
+                <th scope="col" rowSpan={2} className="px-3 py-2 text-center">Ações</th>
+              </tr>
+              <tr>
+                <th scope="col" className="px-3 py-2 text-center">ETA · previsto</th>
+                <th scope="col" className="px-3 py-2 text-center">ATA · real</th>
               </tr>
             </thead>
             <tbody>
@@ -251,21 +265,36 @@ export function VoyageVisaoTab({
                   return (
                     <Fragment key={`${voyage.id}-scale-${row.port}`}>
                     <tr key={`${voyage.id}-lineup-${row.port}`}>
-                      <td className="px-3 py-2 align-top">
-                        <div className="font-semibold text-[var(--app-text-strong)]">{row.port}</div>
+                      <td className="px-3 py-2 align-top text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {atracacoes.length ? (
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--app-muted)] hover:bg-[var(--app-panel)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-border-focus)]"
+                              aria-controls={`${voyage.id}-atracacoes-${row.port}`}
+                              aria-expanded={!collapsedAtracacoes.has(row.port)}
+                              aria-label={`${collapsedAtracacoes.has(row.port) ? 'Expandir' : 'Recolher'} atracações de ${row.port}`}
+                              onClick={() => toggleAtracacoes(row.port)}
+                            >
+                              {collapsedAtracacoes.has(row.port) ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                            </button>
+                          ) : null}
+                          <span className="font-semibold text-[var(--app-text-strong)]">{row.port}</span>
+                          {atracacoes.length ? <Badge tone="slate">{atracacoes.length} atracações</Badge> : null}
+                        </div>
                         {row.divergences.length ? <EscalaDivergenceWarning divergences={row.divergences} /> : null}
                       </td>
-                      <td className="px-3 py-2 align-top">
+                      <td className="px-3 py-2 align-top text-center">
                         <EscalaOperationMarkers row={row} />
                       </td>
-                      <td className="px-3 py-2">{formatDate(row.eta)}</td>
-                      <td className="px-3 py-2">{formatDate(row.ata)}</td>
-                      <td className="px-3 py-2">{formatDate(row.atd)}</td>
-                      <td className="px-3 py-2">{renderCeStatusLabel(row.ceStatus)}</td>
-                      <td className="px-3 py-2">{renderEscalaNumber(row.escalaNumber)}</td>
-                      <td className="px-3 py-2">{renderLinkedLabel(row.linked)}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
+                      <td className="px-3 py-2 text-center text-[var(--app-muted)]">{formatDate(row.eta)}</td>
+                      <td className="px-3 py-2 text-center">{formatDate(row.ata)}</td>
+                      <td className="px-3 py-2 text-center">{formatDate(row.atd)}</td>
+                      <td className="px-3 py-2 text-center">{renderCeStatusLabel(row.ceStatus)}</td>
+                      <td className="px-3 py-2 text-center">{renderEscalaNumber(row.escalaNumber)}</td>
+                      <td className="px-3 py-2 text-center"><Badge tone={row.linked ? 'green' : 'slate'}>{renderLinkedLabel(row.linked)}</Badge></td>
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex items-center justify-center gap-2">
                           {canEditVoyages ? (
                             <Button
                               variant="secondary"
@@ -303,21 +332,63 @@ export function VoyageVisaoTab({
                         </div>
                       </td>
                     </tr>
-                    {atracacoes.length ? (
-                      <tr key={`${voyage.id}-atracacoes-${row.port}`}>
-                        <td colSpan={9} className="px-3 pb-3 pt-0">
-                          <div className="ml-4 grid gap-1 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2 text-xs">
-                            <div className="font-semibold uppercase tracking-wide text-[var(--app-muted)]">Atracações</div>
-                            {atracacoes.map((atracacao, index) => (
-                              <div key={`${atracacao.terminalId ?? 'tbc'}-${index}`} className="grid gap-1 md:grid-cols-[1.2fr_repeat(5,1fr)]">
-                                <span className="font-medium text-[var(--app-text-strong)]">{atracacao.terminalCode ?? 'TBC'}</span>
-                                <span>ETB {formatDate(atracacao.etb)}</span>
-                                <span>ATB {formatDate(atracacao.atb)}</span>
-                                <span>ETD {formatDate(atracacao.etd)}</span>
-                                <span>ATD {formatDate(atracacao.atd)}</span>
-                                <span>Restow {atracacao.rtw ?? '—'}</span>
-                              </div>
-                            ))}
+                    {atracacoes.length && !collapsedAtracacoes.has(row.port) ? (
+                      <tr key={`${voyage.id}-atracacoes-${row.port}`} id={`${voyage.id}-atracacoes-${row.port}`}>
+                        <td colSpan={9} className="px-3 pb-3 pt-0 text-center">
+                          <div className="ml-4 overflow-hidden rounded-[10px] border border-[var(--app-border-strong)] bg-[var(--app-surface)] text-xs">
+                            <div className="flex items-center justify-between gap-3 border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-left">
+                              <div className="font-semibold uppercase tracking-wide text-[var(--app-muted)]">Atracações de {row.port}</div>
+                              {canEditVoyages ? (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  className="app-btn--sm"
+                                  aria-label={`Adicionar atracação na escala ${row.port}`}
+                                  onClick={() => onEditEscala(buildEscalaModalData(row, null))}
+                                >
+                                  <Plus size={13} />
+                                  Adicionar atracação
+                                </Button>
+                              ) : null}
+                            </div>
+                            <table className="app-table app-table--dense app-voyage-atracacoes-table w-full text-center" aria-label={`Atracações de ${row.port}`}>
+                              <thead>
+                                <tr>
+                                  <th scope="col" className="px-3 py-2 text-center">Terminal</th>
+                                  <th scope="col" className="px-3 py-2 text-center">ETB</th>
+                                  <th scope="col" className="px-3 py-2 text-center">ATB</th>
+                                  <th scope="col" className="px-3 py-2 text-center">ETD</th>
+                                  <th scope="col" className="px-3 py-2 text-center">ATD</th>
+                                  <th scope="col" className="px-3 py-2 text-center">Restow</th>
+                                  <th scope="col" className="px-3 py-2 text-center"><span className="sr-only">Ações</span></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {atracacoes.map((atracacao, index) => (
+                                  <tr key={`${atracacao.terminalId ?? 'tbc'}-${index}`}>
+                                    <td className="px-3 py-2 text-center"><span className="rounded-full bg-[var(--app-surface-muted)] px-2 py-1 font-medium text-[var(--app-text-strong)]">{atracacao.terminalCode ?? 'TBC'}</span></td>
+                                    <td className="px-3 py-2 text-center text-[var(--app-muted)]">{formatDate(atracacao.etb)}</td>
+                                    <td className="px-3 py-2 text-center">{formatDate(atracacao.atb)}</td>
+                                    <td className="px-3 py-2 text-center text-[var(--app-muted)]">{formatDate(atracacao.etd)}</td>
+                                    <td className="px-3 py-2 text-center">{formatDate(atracacao.atd)}</td>
+                                    <td className="px-3 py-2 text-center font-mono text-xs">{atracacao.rtw ?? '—'}</td>
+                                    <td className="px-3 py-2 text-center">
+                                      {canEditVoyages ? (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          className="app-table__icon-button app-table__icon-button--sm"
+                                          aria-label={`Editar atracação ${atracacao.terminalCode ?? atracacao.terminalId ?? 'TBC'} da escala ${row.port}`}
+                                          onClick={() => onEditEscala(buildEscalaModalData(row, atracacao.terminalId))}
+                                        >
+                                          <Pencil size={14} />
+                                        </Button>
+                                      ) : null}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         </td>
                       </tr>
@@ -327,7 +398,7 @@ export function VoyageVisaoTab({
                 })
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-3 py-3 text-[var(--app-muted)]">
+                  <td colSpan={9} className="px-3 py-3 text-center text-[var(--app-muted)]">
                     Nenhuma escala planejada para esta viagem.
                   </td>
                 </tr>
@@ -363,14 +434,18 @@ function EscalaOperationMarkers({ row }: { row: VoyageEscalaSchedule }) {
 
 function EscalaDivergenceWarning({ divergences }: { divergences: VoyageEscalaDivergence[] }) {
   return (
-    <div className="mt-1 grid gap-1 text-[11px] font-medium text-amber-400">
+    <div className="mt-1 flex flex-wrap justify-center gap-1.5">
       {divergences.map((divergence, index) => (
-        <div key={`${divergence.field}-${divergence.source}-${index}`} className="flex items-start gap-1">
-          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-          <span>
-            Divergência {formatDivergenceField(divergence.field)}: POD {formatDivergenceValue(divergence.podValue)} / {divergence.source === 'pol' ? 'POL' : 'EXP'} {formatDivergenceValue(divergence.sourceValue)}
-          </span>
-        </div>
+        (() => {
+          const field = formatDivergenceField(divergence.field)
+          const fullMessage = `Divergência ${field}: POD ${formatDivergenceValue(divergence.podValue)} / ${divergence.source === 'pol' ? 'POL' : 'EXP'} ${formatDivergenceValue(divergence.sourceValue)}`
+          return (
+            <span key={`${divergence.field}-${divergence.source}-${index}`} className="app-badge app-badge--yellow !text-[var(--app-gold-strong)] gap-1" title={fullMessage}>
+              <AlertTriangle size={12} aria-hidden="true" />
+              {field} divergente
+            </span>
+          )
+        })()
       ))}
     </div>
   )
