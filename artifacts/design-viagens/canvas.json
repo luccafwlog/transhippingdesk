@@ -10,15 +10,6 @@
       "h": 2160
     },
     {
-      "file": "AbaEscalas.dc.html",
-      "title": "Aba · Escalas & Manifestos",
-      "x": 0,
-      "y": 3820,
-      "page": "page-2",
-      "w": 1440,
-      "h": 730
-    },
-    {
       "file": "AbaAdr.dc.html",
       "title": "Aba · ADR",
       "x": 1560,
@@ -109,6 +100,24 @@
       "h": 900
     },
     {
+      "file": "RotasAntes.dc.html",
+      "title": "Aba Rotas e Manifestos · hoje",
+      "x": 0,
+      "y": 18400,
+      "page": "page-8",
+      "w": 1440,
+      "h": 640
+    },
+    {
+      "file": "RotasDepois.dc.html",
+      "title": "Aba Rotas e Manifestos · proposta",
+      "x": 0,
+      "y": 19160,
+      "page": "page-8",
+      "w": 1440,
+      "h": 700
+    },
+    {
       "file": "DirecaoC.dc.html",
       "title": "Direção C · programação em tabela",
       "x": 0,
@@ -177,6 +186,14 @@
       "text": "ABA EXPORTAÇÃO — herda a gramática fechada na Importação.\n\nO achado que move a aba: VoyageExportacaoTab.tsx chama summarizeExportByPol, que devolve granito e vazios POR terminal de embarque — e usa só o .length do resultado, para decidir se mostra os painéis. Todo o detalhe por POL é calculado e descartado; a aba exibe apenas os totais da viagem.\n\nO que vem da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, estado vazio explícito, e a barra de ações numa fila só.\n\nAÇÕES — corrigidas depois de conferir o código:\n\n1. Vazios EXP deixa de ser upload avulso. A RPC import_vazios_bookings_transactional até cria a vazios_export_operations a partir do embark_port da planilha, mas popula só as unidades — nunca as vazios_export_service_lines — e pula a escolha do porto entre as escalas. O botão passa a levar ao Embarque com a viagem travada; a planilha de unidades continua dentro dele, junto das taxas de serviço.\n2. CE Mercante (Granito) JÁ EXISTE, em /granito (Granite.tsx:475). Aqui é atalho com a viagem travada, não recurso novo. A nota anterior dizia o contrário e estava errada.\n\nMÚLTIPLOS DEPOTS (segundo artboard da proposta): um terminal de embarque pode receber vazios de vários depots — a origem já é plural no dado. Cada booking tem local_id apontando para depots, e vazios.origins é um summarizeUniqueValues, então N depots viram hoje uma string concatenada num campo só. O painel passa a abrir a repartição por depot; com um depot só, colapsa na linha única. As taxas de serviço também são por depot: vazios_export_service_lines tem local_id e destino_id.\n\nMODAL DE MANIFESTO GRANITO (último artboard): o parser devolve vesselVoyage, o navio/viagem declarado dentro da planilha, e importGraniteManifest devolve pendingCount, os B/Ls que não casaram com cliente. O modal descarta os dois e mostra só B/Ls e Erros — dá para importar a planilha errada na viagem certa sem perceber. A barra de prévia do FileImportModal ainda usa cores de tema escuro cravadas no código, dentro de um modal claro."
     },
     {
+      "id": "nota-rotas",
+      "page": "page-8",
+      "x": 0,
+      "y": 18000,
+      "w": 1000,
+      "text": "ESCALAS & MANIFESTOS → ROTAS E MANIFESTOS.\n\nA aba se chama Escalas e não mostra escala nenhuma: cada linha de collectVoyageManifestBatchRows é uma rota POL → POD. Escala vive na Visão geral. O nome passa a ser o que a aba faz.\n\nCinco melhorias junto:\n\n1. O manifesto aparece. A coluna se chama \"Rota / Manifesto\" e mostra só a rota — o campo filenames existe na linha, com fallback \"Rota derivada dos B/Ls\", e não é renderizado em lugar nenhum. Agora o arquivo fica sob a rota, e a rota sem batch diz que veio dos B/Ls.\n2. CE Merc. e CE Master ficam sob um cabeçalho CE comum, cada um dizendo o que é: Mercante é cobertura por B/L, Master é o número agrupador da rota. Hoje são nomes quase iguais em colunas vizinhas, para naturezas diferentes.\n3. O CE Master faltante vira ação. Hoje é o texto \"manifesto não informado\" em #b45309 — cor fora dos tokens — e o que fazer só aparece no title do elemento. Vira um chip \"Informar\" nos tokens dourados.\n4. Larguras redistribuídas. O table-fixed dá 40% para a rota e 12% para uma coluna de Ações com um botão de 38px; a rota com omissão (POL → POD riscado → POD de descarga, mais o selo) mais o nome do arquivo não cabem. Rota vai a 46%, ações encolhem para o botão.\n5. Faixa de totais no topo, como nas outras abas: rotas, B/Ls vinculados, cobertura de CE agregada e quantos CE Master faltam. A faixa de conciliação sai — repetia o KPI de Conciliação que já está no herói da viagem."
+    },
+    {
       "id": "nota-descartadas",
       "page": "page-4",
       "x": 0,
@@ -211,12 +228,16 @@
       "name": "Aba Exportação"
     },
     {
+      "id": "page-8",
+      "name": "Aba Rotas e Manifestos"
+    },
+    {
       "id": "page-4",
       "name": "Não escolhidas"
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "page-7"
+    "page": "page-8"
   }
 }

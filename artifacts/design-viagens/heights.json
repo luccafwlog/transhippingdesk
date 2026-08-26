@@ -1,6 +1,5 @@
 {
   "Main.dc.html": 2160,
-  "AbaEscalas.dc.html": 730,
   "AbaAdr.dc.html": 1340,
   "Cards.dc.html": 1540,
   "PlanejamentoAntes.dc.html": 560,
@@ -11,6 +10,8 @@
   "ExportacaoDepois.dc.html": 940,
   "ExportacaoMultiDepot.dc.html": 1000,
   "ModalGranito.dc.html": 900,
+  "RotasAntes.dc.html": 640,
+  "RotasDepois.dc.html": 700,
   "DirecaoC.dc.html": 960,
   "DirecaoCDetalhe.dc.html": 1500
 }

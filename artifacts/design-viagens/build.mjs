@@ -5,11 +5,12 @@ import {
   estadoDot, kpiBand, novaViagemBtn, pageHeader,
   tabsRow, timeline, toolbar, transbordoCard, voyageHero,
 } from './blocks.mjs'
-import { abaAdr, abaEscalas, metricPanel } from './tabs.mjs'
+import { abaAdr, metricPanel } from './tabs.mjs'
 import { planejamentoAntes, planejamentoEscala } from './visaogeral.mjs'
 import { importacaoAntes, importacaoDepois } from './importacao.mjs'
 import { exportacaoAntes, exportacaoDepois, exportacaoMultiDepot } from './exportacao.mjs'
 import { modalGranitoAntes, modalGranitoDepois } from './modalgranito.mjs'
+import { rotasAntes, rotasDepois } from './rotas.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -105,13 +106,6 @@ function tabBoard({ height, active, note, body }) {
     </div>`,
   })
 }
-
-const ESC_H = 730
-out('AbaEscalas.dc.html', tabBoard({
-  height: ESC_H, active: 'Escalas &amp; Manifestos',
-  note: 'A faixa de conciliação vira barra de status, e a cobertura de CE ganha um medidor em vez de só <code>8/8</code>. A rota com omissão mantém o POD riscado e a marca OMISSÃO, como no componente atual.',
-  body: abaEscalas(),
-}), ESC_H)
 
 const ADR_H = 1340
 out('AbaAdr.dc.html', tabBoard({
@@ -267,6 +261,28 @@ out('ModalGranito.dc.html', artboard({
     </div>
   </div>`,
 }), MODAL_H)
+
+function abasCom(rotulos, ativo) {
+  return `<div style="display: flex; gap: 8px; flex-wrap: wrap">${rotulos.map((t) => `<span class="tab${t === ativo ? ' tab--active' : ''}">${t}</span>`).join('')}</div>`
+}
+const ABAS_HOJE = ['Vis&atilde;o geral', 'Importa&ccedil;&atilde;o', 'Exporta&ccedil;&atilde;o', 'Escalas &amp; Manifestos', 'ADR']
+const ABAS_NOVAS = ['Vis&atilde;o geral', 'Importa&ccedil;&atilde;o', 'Exporta&ccedil;&atilde;o', 'Rotas e Manifestos', 'ADR']
+
+const ROTA_A_H = 640
+out('RotasAntes.dc.html', compareBoard({
+  height: ROTA_A_H, chip: 'Hoje', chipTone: 'hoje',
+  title: 'Aba Escalas &amp; Manifestos &mdash; como est&aacute; hoje',
+  note: 'Transcrição fiel de <code>VoyageManifestosTab.tsx</code>. A aba se chama Escalas e não mostra escala nenhuma: cada linha é uma rota POL → POD.',
+  body: `<div style="display: flex; flex-direction: column; gap: 18px">${abasCom(ABAS_HOJE, 'Escalas &amp; Manifestos')}${rotasAntes()}</div>`,
+}), ROTA_A_H)
+
+const ROTA_D_H = 700
+out('RotasDepois.dc.html', compareBoard({
+  height: ROTA_D_H, chip: 'Proposta', chipTone: 'proposta',
+  title: 'Aba Rotas e Manifestos &mdash; proposta',
+  note: 'A aba passa a se chamar pelo que mostra. Mais cinco mudanças: o manifesto aparece na coluna que o promete, CE Mercante e CE Master ficam sob um cabeçalho comum com o que cada um é, o CE Master faltante vira ação em vez de recado, as larguras do table-fixed são redistribuídas, e entra a faixa de totais das outras abas.',
+  body: `<div style="display: flex; flex-direction: column; gap: 18px">${abasCom(ABAS_NOVAS, 'Rotas e Manifestos')}${rotasDepois()}</div>`,
+}), ROTA_D_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *

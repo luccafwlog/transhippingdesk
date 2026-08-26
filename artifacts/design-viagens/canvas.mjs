@@ -5,7 +5,6 @@ const W = 1440, COL2 = 1560
 const artboards = [
   { file: 'Main.dc.html', title: 'Direção A · a página inteira', x: 0, y: 0, page: 'page-1' },
 
-  { file: 'AbaEscalas.dc.html', title: 'Aba · Escalas & Manifestos', x: 0, y: 3820, page: 'page-2' },
   { file: 'AbaAdr.dc.html', title: 'Aba · ADR', x: COL2, y: 3820, page: 'page-2' },
 
   { file: 'Cards.dc.html', title: 'Cards · anatomia e estados', x: 0, y: 5600, page: 'page-3' },
@@ -20,6 +19,9 @@ const artboards = [
   { file: 'ExportacaoDepois.dc.html', title: 'Aba Exportação · proposta', x: 0, y: 14680, page: 'page-7' },
   { file: 'ExportacaoMultiDepot.dc.html', title: 'Aba Exportação · vários depots', x: 0, y: 15860, page: 'page-7' },
   { file: 'ModalGranito.dc.html', title: 'Modal · Importar Manifesto Granito', x: 0, y: 17100, page: 'page-7' },
+
+  { file: 'RotasAntes.dc.html', title: 'Aba Rotas e Manifestos · hoje', x: 0, y: 18400, page: 'page-8' },
+  { file: 'RotasDepois.dc.html', title: 'Aba Rotas e Manifestos · proposta', x: 0, y: 19160, page: 'page-8' },
 
   { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7400, page: 'page-4' },
   { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7400, page: 'page-4' },
@@ -104,6 +106,22 @@ const annotations = [
     ].join('\n'),
   },
   {
+    id: 'nota-rotas', page: 'page-8', x: 0, y: 18000, w: 1000,
+    text: [
+      'ESCALAS & MANIFESTOS → ROTAS E MANIFESTOS.',
+      '',
+      'A aba se chama Escalas e não mostra escala nenhuma: cada linha de collectVoyageManifestBatchRows é uma rota POL → POD. Escala vive na Visão geral. O nome passa a ser o que a aba faz.',
+      '',
+      'Cinco melhorias junto:',
+      '',
+      '1. O manifesto aparece. A coluna se chama "Rota / Manifesto" e mostra só a rota — o campo filenames existe na linha, com fallback "Rota derivada dos B/Ls", e não é renderizado em lugar nenhum. Agora o arquivo fica sob a rota, e a rota sem batch diz que veio dos B/Ls.',
+      '2. CE Merc. e CE Master ficam sob um cabeçalho CE comum, cada um dizendo o que é: Mercante é cobertura por B/L, Master é o número agrupador da rota. Hoje são nomes quase iguais em colunas vizinhas, para naturezas diferentes.',
+      '3. O CE Master faltante vira ação. Hoje é o texto "manifesto não informado" em #b45309 — cor fora dos tokens — e o que fazer só aparece no title do elemento. Vira um chip "Informar" nos tokens dourados.',
+      '4. Larguras redistribuídas. O table-fixed dá 40% para a rota e 12% para uma coluna de Ações com um botão de 38px; a rota com omissão (POL → POD riscado → POD de descarga, mais o selo) mais o nome do arquivo não cabem. Rota vai a 46%, ações encolhem para o botão.',
+      '5. Faixa de totais no topo, como nas outras abas: rotas, B/Ls vinculados, cobertura de CE agregada e quantos CE Master faltam. A faixa de conciliação sai — repetia o KPI de Conciliação que já está no herói da viagem.',
+    ].join('\n'),
+  },
+  {
     id: 'nota-descartadas', page: 'page-4', x: 0, y: 7200, w: 900,
     text: 'NÃO ESCOLHIDAS — registro da Direção C, mantida só como histórico da decisão.\n\n/viagens como programação em tabela (uma linha por viagem, uma coluna por porto, marcas OMIT e X do domínio) com o detalhe roteado em /viagens/:id. Perdeu para a A por trocar a página inteira e mandar o detalhe para outra navegação.',
   },
@@ -119,9 +137,10 @@ const canvas = {
     { id: 'page-5', name: 'Visão geral · Planejamento' },
     { id: 'page-6', name: 'Aba Importação' },
     { id: 'page-7', name: 'Aba Exportação' },
+    { id: 'page-8', name: 'Aba Rotas e Manifestos' },
     { id: 'page-4', name: 'Não escolhidas' },
   ],
-  launch: { view: 'canvas', page: 'page-7' },
+  launch: { view: 'canvas', page: 'page-8' },
 }
 
 writeFileSync(new URL('./canvas.json', import.meta.url), JSON.stringify(canvas, null, 2) + '\n')
