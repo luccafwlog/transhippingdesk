@@ -10,15 +10,6 @@
       "h": 2160
     },
     {
-      "file": "AbaExportacao.dc.html",
-      "title": "Aba · Exportação",
-      "x": 1560,
-      "y": 2600,
-      "page": "page-2",
-      "w": 1440,
-      "h": 640
-    },
-    {
       "file": "AbaEscalas.dc.html",
       "title": "Aba · Escalas & Manifestos",
       "x": 0,
@@ -79,7 +70,25 @@
       "y": 12540,
       "page": "page-6",
       "w": 1440,
-      "h": 1000
+      "h": 1160
+    },
+    {
+      "file": "ExportacaoAntes.dc.html",
+      "title": "Aba Exportação · hoje",
+      "x": 0,
+      "y": 14000,
+      "page": "page-7",
+      "w": 1440,
+      "h": 560
+    },
+    {
+      "file": "ExportacaoDepois.dc.html",
+      "title": "Aba Exportação · proposta",
+      "x": 0,
+      "y": 14680,
+      "page": "page-7",
+      "w": 1440,
+      "h": 940
     },
     {
       "file": "DirecaoC.dc.html",
@@ -139,7 +148,15 @@
       "x": 0,
       "y": 11000,
       "w": 1000,
-      "text": "ABA IMPORTAÇÃO — hoje e a proposta, mesmos dados da viagem usada na Visão geral.\n\n1. Total da viagem numa faixa no topo. Hoje a aba lista POD a POD e o total só existe na faixa de KPIs, fora da aba.\n2. Os três painéis passam a existir sempre por escala, com estado vazio explícito. Hoje Veículos e Carga solta somem quando não há dado, e as escalas ficam com alturas diferentes, impossíveis de comparar.\n3. Painéis chapados, sem o gradiente e a sombra do .app-voyage-metric-panel — o vocabulário do resto da página. O paredão de pares label/valor vira um número dominante mais mini-stats.\n4. Vazios IMP deixa de ser um painel solto no fim e ganha seção própria. Continua agregado da viagem porque a origem não traz o POD — está dito na própria seção.\n5. Importação rápida agrupada por natureza (Manifestos, Complementos do B/L, Unidades), com ícone por tipo. Hoje são seis botões idênticos com o mesmo ícone de upload.\n\nFora do escopo escolhido: os acentos faltando em \"Vazios Importacao\" e \"Containers com veiculos\" (VoyageImportacaoTab.tsx:45,68)."
+      "text": "ABA IMPORTAÇÃO — hoje e a proposta, mesmos dados da viagem usada na Visão geral.\n\n1. Total da viagem numa faixa no topo. Hoje a aba lista POD a POD e o total só existe na faixa de KPIs, fora da aba.\n2. Tudo por escala: Containers e Carga solta como painéis, Veículos e Vazios IMP como faixas — com estado vazio explícito, para as escalas ficarem comparáveis. Hoje os painéis somem quando não há dado e as alturas divergem.\n3. Os dois têm POD na origem: vazios_importacao_containers tem coluna pod (o hook já lê e só agrega num Set por viagem), e o veículo chega ao POD por vehicles → container → bl_containers → bl → bls.pod, caminho que summarizeImportByPod já percorre.\n4. Painéis chapados, sem o gradiente e a sombra do .app-voyage-metric-panel. O paredão de pares label/valor vira um número dominante mais mini-stats.\n5. Containers ganha carga geral, C/ veículos, IMO, OOG e contagem por tipo; Veículos traz marca e tipo de container (brandSummary e vehicleByContainerTypeSummary).\n6. Importação rápida numa fila só, sem agrupar por manifesto: Baplie EDI | B/L container · B/L carga solta · CE Mercante | Veículos · Vazios IMP. Os dois B/L são botões distintos porque abrem modais diferentes.\n\nCE Mercante é um botão só: o import casa por número de B/L contra a tabela bls, que guarda container e carga solta no mesmo lugar (cargo_mode). O único alvo separado é granite, que vive na aba Exportação.\n\nFora do escopo escolhido: os acentos faltando em \"Vazios Importacao\" e \"Containers com veiculos\" (VoyageImportacaoTab.tsx:45,68)."
+    },
+    {
+      "id": "nota-exportacao",
+      "page": "page-7",
+      "x": 0,
+      "y": 13600,
+      "w": 1000,
+      "text": "ABA EXPORTAÇÃO — herda a gramática fechada na Importação.\n\nO achado que move a aba: VoyageExportacaoTab.tsx chama summarizeExportByPol, que devolve granito e vazios POR terminal de embarque — e usa só o .length do resultado, para decidir se mostra os painéis. Todo o detalhe por POL é calculado e descartado; a aba exibe apenas os totais da viagem.\n\nO que a proposta traz da Importação: faixa de total no topo, um bloco por escala (aqui, por terminal de embarque), painéis chapados com número dominante, mini-stats e tokens com contagem, estado vazio explícito para as escalas ficarem comparáveis, e o cadastro rápido numa fila só.\n\nUma decisão em aberto: o botão CE Mercante (Granito) é sugestão nova, não existe hoje. O import já tem o alvo `granite`, que casa contra granite_bls — só não está exposto em lugar nenhum da aba. Vazios EXP não entra porque não emite CE: é módulo de custo pago pela agência ao depot, sem invoice de cliente (CONTEXT.md, seção Mercante)."
     },
     {
       "id": "nota-descartadas",
@@ -172,12 +189,16 @@
       "name": "Aba Importação"
     },
     {
+      "id": "page-7",
+      "name": "Aba Exportação"
+    },
+    {
       "id": "page-4",
       "name": "Não escolhidas"
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "page-6"
+    "page": "page-7"
   }
 }

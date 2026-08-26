@@ -15,8 +15,9 @@ recorte da tabela de Planejamento por escala e do bloco de Atracações.
 | Página | Artboards |
 | --- | --- |
 | Página | [`Main.dc.html`](./Main.dc.html) — a Direção A inteira |
-| Abas | [`AbaExportacao`](./AbaExportacao.dc.html), [`AbaEscalas`](./AbaEscalas.dc.html), [`AbaAdr`](./AbaAdr.dc.html) — rascunhos, ainda não revisados |
+| Abas | [`AbaEscalas`](./AbaEscalas.dc.html), [`AbaAdr`](./AbaAdr.dc.html) — rascunhos, ainda não revisados |
 | Cards | [`Cards.dc.html`](./Cards.dc.html) — anatomia e estados |
+| Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html) e [`ExportacaoDepois`](./ExportacaoDepois.dc.html) |
 | Aba Importação | [`ImportacaoAntes`](./ImportacaoAntes.dc.html) e [`ImportacaoDepois`](./ImportacaoDepois.dc.html) |
 | Visão geral · Planejamento | [`PlanejamentoAntes`](./PlanejamentoAntes.dc.html) e [`PlanejamentoEscala`](./PlanejamentoEscala.dc.html) |
 | Não escolhidas | [`DirecaoC`](./DirecaoC.dc.html), [`DirecaoCDetalhe`](./DirecaoCDetalhe.dc.html) |
@@ -45,6 +46,11 @@ posicionar as molduras sem sobreposição. Os módulos de apoio:
   `X` da programação), mas **não são registros reais**.
 - [`blocks.mjs`](./blocks.mjs) — blocos da página: cabeçalho, barra de comando,
   herói da viagem, faixa de KPIs, abas, planejamento, transbordo e linha do tempo.
+- [`abakit.mjs`](./abakit.mjs) — a gramática comum das abas, fechada na
+  Importação: faixa de total, bloco por escala, painel chapado com número
+  dominante, tokens com contagem, faixa e barra de ações.
+- [`exportacao.mjs`](./exportacao.mjs) — a aba Exportação: o "hoje", transcrição
+  fiel de `src/components/voyages/VoyageExportacaoTab.tsx`, e a proposta.
 - [`importacao.mjs`](./importacao.mjs) — a aba Importação: o "hoje", transcrição
   fiel de `src/components/voyages/VoyageImportacaoTab.tsx`, e a proposta.
 - [`tabs.mjs`](./tabs.mjs) — corpo de cada aba do `VoyageCard`.

@@ -173,74 +173,59 @@
   .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
 </style>
 </helmet>
-<div class="shell" style="min-height: 640px">
+<div class="shell" style="min-height: 560px">
   
   <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
       <div>
-        <div style="font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba &middot; Exporta&ccedil;&atilde;o</div>
-        <div style="margin-top: 6px; max-width: 900px; font-size: 13px; line-height: 1.6; color: #5a5549">Dois painéis apenas — Vazios e Granito. A mesma gramática de número dominante da faixa de KPIs, para a aba não parecer de outro produto.</div>
+        <span style="display: inline-flex; align-items: center; border: 1px solid #b8b2a5; border-radius: 999px; background: #ede9df; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Hoje</span>
+        <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba Exporta&ccedil;&atilde;o &mdash; como est&aacute; hoje</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Transcrição fiel de <code>VoyageExportacaoTab.tsx</code>: dois MetricPanels em gradiente com os totais da viagem. O componente chama <code>summarizeExportByPol</code>, que devolve granito e vazios por terminal de embarque — e usa só o <code>.length</code> do resultado, para decidir se mostra os painéis. O detalhe por POL é calculado e descartado.</div>
       </div>
-      <div class="surface surface--padded" style="display: flex; flex-direction: column; gap: 18px">
-        <div style="display: flex; gap: 8px; flex-wrap: wrap">
-    <span class="tab">Vis&atilde;o geral</span><span class="tab">Importa&ccedil;&atilde;o</span><span class="tab tab--active">Exporta&ccedil;&atilde;o</span><span class="tab">Escalas &amp; Manifestos</span><span class="tab">ADR</span>
+      <div style="display: flex; flex-direction: column; gap: 16px">
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start">
+      <div style="display: flex; flex-direction: column; gap: 14px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 18px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+    <div style="color: #1c1915; font-size: 17px; font-weight: 700">Vazios</div>
+    <dl style="display: grid; gap: 12px; margin: 0; font-size: 14px; color: #1c1915"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Unidades embarcadas</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">26</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Containers distintos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">26</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Tipos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">20GP (10) | 40HC (16)</span>
+  </div></dl>
   </div>
-        <div style="display: flex; flex-direction: column; gap: 16px">
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
-      <div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 16px 18px">
-    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
-      <span style="font-size: 15px; font-weight: 700; color: #1c1915">Vazios</span>
-      <span style="display: flex; align-items: baseline; gap: 5px">
-        <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: #1a8c50">26</span>
-        <span style="font-size: 11px; font-weight: 600; color: #8a8579">unidades embarcadas</span>
-      </span>
-    </div>
-    <dl style="display: flex; flex-direction: column; gap: 0; margin: 0; font-size: 14px">
-      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 9px 0; border-bottom: 1px solid #cdc8bc">
-        <dt style="margin: 0; color: #5a5549; line-height: 1.45">Containers distintos</dt>
-        <dd style="margin: 0; font-weight: 700; text-align: right; color: #1c1915">13</dd>
-      </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 9px 0">
-        <dt style="margin: 0; color: #5a5549; line-height: 1.45">Tipos</dt>
-        <dd style="margin: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end"><span class="pill" style="background: #ffffff; padding: 5px 9px; font-weight: 700; color: #1c1915">20GP</span><span class="pill" style="background: #ffffff; padding: 5px 9px; font-weight: 700; color: #1c1915">40HC</span></dd>
-      </div>
-    </dl>
-  </div>
-      <div style="display: flex; flex-direction: column; gap: 12px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 16px 18px">
-    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
-      <span style="font-size: 15px; font-weight: 700; color: #1c1915">Granito</span>
-      <span style="display: flex; align-items: baseline; gap: 5px">
-        <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: #d4882e">213</span>
-        <span style="font-size: 11px; font-weight: 600; color: #8a8579">ton</span>
-      </span>
-    </div>
-    <dl style="display: flex; flex-direction: column; gap: 0; margin: 0; font-size: 14px">
-      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 9px 0; border-bottom: 1px solid #cdc8bc">
-        <dt style="margin: 0; color: #5a5549; line-height: 1.45">Manifestos</dt>
-        <dd style="margin: 0; font-weight: 700; text-align: right; color: #1c1915">1</dd>
-      </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 9px 0; border-bottom: 1px solid #cdc8bc">
-        <dt style="margin: 0; color: #5a5549; line-height: 1.45">B/Ls</dt>
-        <dd style="margin: 0; font-weight: 700; text-align: right; color: #1c1915">2</dd>
-      </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 9px 0; border-bottom: 1px solid #cdc8bc">
-        <dt style="margin: 0; color: #5a5549; line-height: 1.45">Prontos faturamento</dt>
-        <dd style="margin: 0; font-weight: 700; text-align: right; color: #1c1915">2</dd>
-      </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 9px 0">
-        <dt style="margin: 0; color: #5a5549; line-height: 1.45">Faturados</dt>
-        <dd style="margin: 0; font-weight: 700; text-align: right; color: #1c1915">0</dd>
-      </div>
-    </dl>
+      <div style="display: flex; flex-direction: column; gap: 14px; border: 1px solid #cdc8bc; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8f6f1 100%); padding: 18px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06)">
+    <div style="color: #1c1915; font-size: 17px; font-weight: 700">Granito</div>
+    <dl style="display: grid; gap: 12px; margin: 0; font-size: 14px; color: #1c1915"><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Manifestos</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">1</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">B/Ls</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">2</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Peso total</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">213 ton</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Prontos faturamento</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">2</span>
+  </div><div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; border-bottom: 1px solid #cdc8bc; padding-bottom: 10px">
+    <span style="color: #5a5549; line-height: 1.45">Faturados</span>
+    <span style="color: #1c1915; font-weight: 700; text-align: right">0</span>
+  </div></dl>
   </div>
     </div>
     <section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 16px; background: #f8f6f1; padding: 16px">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px">
       <div>
         <div style="font-size: 14px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #5a5549">Cadastro r&aacute;pido</div>
         <div style="margin-top: 4px; font-size: 14px; color: #5a5549">Cadastre manifestos e unidades de exporta&ccedil;&atilde;o diretamente nesta viagem.</div>
       </div>
-      
-    </div>
-    <div style="display: flex; flex-wrap: wrap; gap: 8px"><span class="btn btn--secondary btn--sm"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg> Granito</span><span class="btn btn--secondary btn--sm"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg> Vazios EXP</span></div>
-  </section>
-  </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> Manifesto Granito</span><span class="btn btn--secondary" style="font-size: 12px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 8 5.5 3h13L21 8"/><path d="M12 3v5"/></svg> Vazios Exp</span>
       </div>
+    </section>
+  </div>
     </div>
 </div>
 </x-dc>

@@ -5,9 +5,10 @@ import {
   estadoDot, kpiBand, novaViagemBtn, pageHeader,
   tabsRow, timeline, toolbar, transbordoCard, voyageHero,
 } from './blocks.mjs'
-import { abaAdr, abaEscalas, abaExportacao, metricPanel } from './tabs.mjs'
+import { abaAdr, abaEscalas, metricPanel } from './tabs.mjs'
 import { planejamentoAntes, planejamentoEscala } from './visaogeral.mjs'
 import { importacaoAntes, importacaoDepois } from './importacao.mjs'
+import { exportacaoAntes, exportacaoDepois } from './exportacao.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -103,13 +104,6 @@ function tabBoard({ height, active, note, body }) {
     </div>`,
   })
 }
-
-const EXP_H = 640
-out('AbaExportacao.dc.html', tabBoard({
-  height: EXP_H, active: 'Exporta&ccedil;&atilde;o',
-  note: 'Dois painéis apenas — Vazios e Granito. A mesma gramática de número dominante da faixa de KPIs, para a aba não parecer de outro produto.',
-  body: abaExportacao(),
-}), EXP_H)
 
 const ESC_H = 730
 out('AbaEscalas.dc.html', tabBoard({
@@ -222,6 +216,22 @@ out('ImportacaoDepois.dc.html', compareBoard({
   note: 'Tudo por escala: Containers e Carga solta como painéis, Veículos e Vazios IMP como faixas — os dois têm POD na origem (<code>vazios_importacao_containers.pod</code> e <code>vehicles → container → bl → bls.pod</code>). Containers ganha carga geral, veículos, IMO, OOG e contagem por tipo; Veículos traz marca e tipo de container. A importação rápida vira uma fila só, com B/L de container e de carga solta separados e o CE Mercante servindo os dois.',
   body: importacaoDepois(),
 }), IMPD_H)
+
+const EXPA_H = 560
+out('ExportacaoAntes.dc.html', compareBoard({
+  height: EXPA_H, chip: 'Hoje', chipTone: 'hoje',
+  title: 'Aba Exporta&ccedil;&atilde;o &mdash; como est&aacute; hoje',
+  note: 'Transcrição fiel de <code>VoyageExportacaoTab.tsx</code>: dois MetricPanels em gradiente com os totais da viagem. O componente chama <code>summarizeExportByPol</code>, que devolve granito e vazios por terminal de embarque — e usa só o <code>.length</code> do resultado, para decidir se mostra os painéis. O detalhe por POL é calculado e descartado.',
+  body: exportacaoAntes(),
+}), EXPA_H)
+
+const EXPD_H = 940
+out('ExportacaoDepois.dc.html', compareBoard({
+  height: EXPD_H, chip: 'Proposta', chipTone: 'proposta',
+  title: 'Aba Exporta&ccedil;&atilde;o &mdash; proposta',
+  note: 'Mesma gramática da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, e o cadastro rápido numa fila só. O detalhe por POL que o serviço já calcula passa a aparecer.',
+  body: exportacaoDepois(),
+}), EXPD_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *
