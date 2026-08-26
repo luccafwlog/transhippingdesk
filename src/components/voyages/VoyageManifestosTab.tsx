@@ -1,14 +1,13 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { AlertTriangle, Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Pencil } from 'lucide-react'
 import { useVoyageTransshipments } from '../../hooks/useTransshipments'
 import { Button } from '../ui/Button'
+import { Badge } from '../ui/Badge'
 import { formatDate } from '../../lib/utils'
 import { formatPortDisplayName } from '../../lib/voyageFormat'
 import type { VoyagePolSchedule } from '../../services/voyageRouteSchedules'
 import { collectVoyageManifestBatchRows, formatPolDeparture, renderCeCoverage, type VoyageImportBatch } from './voyageCardHelpers'
 import type { EditingPolPayload, Voyage } from './voyageCardTypes'
-
-type EstadoMeta = { color: string; bg: string; label: string }
 
 export function VoyageManifestosTab({
   voyage,
@@ -16,9 +15,7 @@ export function VoyageManifestosTab({
   importBatches,
   polSchedules,
   routeCeMasters,
-  divergenceCount,
   ceCoverage,
-  estadoMeta,
   onEditPol,
 }: {
   voyage: Voyage
@@ -26,12 +23,9 @@ export function VoyageManifestosTab({
   importBatches: VoyageImportBatch[]
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   routeCeMasters: Map<string, string> | undefined
-  divergenceCount: number
   ceCoverage: { filled: number; total: number }
-  estadoMeta: EstadoMeta
   onEditPol: (payload: EditingPolPayload) => void
 }) {
-  const navigate = useNavigate()
   const { data: transshipmentData } = useVoyageTransshipments(voyage.id)
   const manifestRows = collectVoyageManifestBatchRows({
     voyageId: voyage.id,
@@ -42,131 +36,96 @@ export function VoyageManifestosTab({
     omissions: transshipmentData?.omissions,
     transshipments: transshipmentData?.transshipments,
   })
+  const totalBls = manifestRows.reduce((total, row) => total + row.blCount, 0)
+  const pendingManifestCount = manifestRows.filter((row) => row.blCount > 0 && !row.ceMaster).length
 
   return (
     <>
-      <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3"
-        style={{ borderColor: estadoMeta.color, backgroundColor: estadoMeta.bg }}
-      >
-        <div className="flex items-center gap-3 text-sm">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: estadoMeta.color }} />
-          <div>
-            <div className="font-semibold" style={{ color: estadoMeta.color }}>
-              Conciliação: {estadoMeta.label}
-            </div>
-            <div className="text-xs text-[var(--app-muted)]">
-              CE Mercante {ceCoverage.filled}/{ceCoverage.total}
-              {divergenceCount ? ` · ${divergenceCount} divergência${divergenceCount === 1 ? '' : 's'} aberta${divergenceCount === 1 ? '' : 's'}` : ''}
-            </div>
-          </div>
-        </div>
-        {divergenceCount ? (
-          <Button variant="secondary" onClick={() => navigate(`/baplie?voyage=${voyage.id}`)}>
-            <AlertTriangle size={15} />
-            Resolver divergências
-          </Button>
-        ) : null}
-      </div>
+      <TotalStrip totals={[
+        ['Rotas', String(manifestRows.length)],
+        ['B/Ls vinculados', String(totalBls)],
+        ['CE Mercante', `${ceCoverage.filled}/${ceCoverage.total}`],
+        ['Nº de manifesto a informar', String(pendingManifestCount)],
+      ]} />
+      <SectionLabel label="Rotas da viagem" note="uma linha por par POL / POD" />
 
-      <div className="app-panel app-panel--padded">
-        <div className="mb-3">
-          <div className="app-panel__title">Manifestos vinculados</div>
-          <div className="app-panel__meta">
-            Uma rota por linha: B/Ls vinculados por POL/POD, ATD POL, CE Mercante e CE Master quando houver batch.
-          </div>
-        </div>
-
-        <div className="app-voyage-table-frame">
+      <div className="app-voyage-table-frame">
           <div className="app-table-scroll">
             <table className="app-table app-table--compact app-table--dense w-full table-fixed text-left text-sm">
               <colgroup>
-                <col className="w-[40%]" />
-                <col className="w-[12%]" />
+                <col className="w-[46%]" />
+                <col className="w-[13%]" />
                 <col className="w-[8%]" />
-                <col className="w-[12%]" />
-                <col className="w-[12%]" />
-                <col className="w-[16%]" />
+                <col className="w-[13%]" />
+                <col className="w-[13%]" />
+                <col className="w-[7%]" />
               </colgroup>
               <thead>
                 <tr>
-                  <th scope="col" className="px-3 py-2">Rota / Manifesto</th>
-                  <th scope="col" className="px-3 py-2">ATD POL</th>
-                  <th scope="col" className="px-3 py-2">B/Ls</th>
-                  <th scope="col" className="px-3 py-2">CE Merc.</th>
-                  <th scope="col" className="px-3 py-2">CE Master</th>
-                  <th scope="col" className="px-3 py-2">Ações</th>
+                  <th scope="col" rowSpan={2} className="px-3 py-2 text-center">Rota</th>
+                  <th scope="col" rowSpan={2} className="px-3 py-2 text-center">ATD no POL</th>
+                  <th scope="col" rowSpan={2} className="px-3 py-2 text-center">B/Ls</th>
+                  <th scope="colgroup" colSpan={2} className="border-b border-white/15 px-3 py-2 text-center">Mercante</th>
+                  <th scope="col" rowSpan={2} aria-label="Ações" className="px-3 py-2 text-center" />
+                </tr>
+                <tr>
+                  <th scope="col" className="px-3 py-1.5 text-center text-[10px] uppercase tracking-[0.08em] text-white/70">CE Mercante · cobertura</th>
+                  <th scope="col" className="px-3 py-1.5 text-center text-[10px] uppercase tracking-[0.08em] text-white/70">Nº de manifesto Mercante</th>
                 </tr>
               </thead>
               <tbody>
                 {manifestRows.length ? (
                   manifestRows.map((row) => {
                     const departure = formatPolDeparture(row.etd, row.atd)
+                    const modeTone = row.modeLabel === 'BB' ? 'yellow' : row.modeLabel === 'CNTR/BB' ? 'slate' : 'blue'
                     return (
                     <tr key={`${voyage.id}-manifest-${row.routeKey}`}>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--app-muted)]">
-                            {row.modeLabel}
-                          </span>
+                      <td className="px-3 py-2 align-middle">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge tone={modeTone} className="px-2 py-0.5 text-[10px]">{row.modeLabel}</Badge>
                           <Link
-                            className="font-semibold text-[var(--app-blue)] hover:underline"
+                            className="font-semibold text-[var(--app-blue-btn)] hover:underline"
                             to={`/manifestos?voyage=${voyage.id}&pol=${encodeURIComponent(row.pol)}&pod=${encodeURIComponent(row.pod)}`}
                             aria-label={row.routeLabel}
                           >
                             {row.omission ? (
                               <>
                                 <span>{formatPortDisplayName(row.pol)} → </span>
-                                <span className="line-through" title={`POD omitido: ${row.omission.omittedPod}`}>
+                                <span className="line-through text-[var(--app-muted-soft)]" title={`POD omitido: ${row.omission.omittedPod}`}>
                                   {formatPortDisplayName(row.omission.omittedPod)}
                                 </span>
                                 <span> → {formatPortDisplayName(row.omission.dischargePod)}</span>
-                                <span className="ml-2 rounded border border-[#b45309] bg-[#fff7ed] px-1.5 py-0.5 text-[10px] font-bold text-[#b45309]">
-                                  OMISSÃO
-                                </span>
+                                <Badge tone="yellow" className="ml-2 px-2 py-0.5 text-[10px]">Omissão</Badge>
                               </>
                             ) : row.routeLabel}
                           </Link>
                         </div>
                       </td>
-                      <td className={`px-3 py-2${departure.isActual ? ' text-[var(--app-blue)] font-medium' : ''}`}>{formatDate(departure.value)}</td>
-                      <td className="px-3 py-2">{row.blCount}</td>
-                      <td className="px-3 py-2">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
-                      <td className="px-3 py-2">
+                      <td className={`px-3 py-2 text-center${departure.isActual ? ' font-medium text-[var(--app-blue)]' : ''}`}>
+                        <span className="font-mono text-xs font-semibold tabular-nums">{formatDate(departure.value)}</span>
+                      </td>
+                      <td className="px-3 py-2 text-center"><span className="font-mono text-xs font-semibold text-[var(--app-text-strong)]">{row.blCount}</span></td>
+                      <td className="px-3 py-2 text-center">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
+                      <td className="px-3 py-2 text-center">
                         {row.ceMaster ? (
                           <span className="font-mono text-xs text-[var(--app-text-strong)]">{row.ceMaster}</span>
                         ) : row.blCount > 0 ? (
-                          <span className="text-xs font-semibold text-[#b45309]" title="Informe o CE Master pelo lápis desta linha">
-                            manifesto não informado
-                          </span>
+                          <Badge tone="yellow" className="gap-1 px-2 py-0.5 text-[10px]"><Pencil size={11} aria-hidden="true" />Informar</Badge>
                         ) : (
                           <span className="text-[var(--app-muted-soft)]">-</span>
                         )}
                       </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="secondary"
-                            className="app-voyage-icon-btn"
-                            aria-label={`Editar ETD previsto + ATD POL e CE Master de ${row.routeLabel}`}
-                            title="Editar ETD previsto + ATD POL e CE Master"
-                            onClick={() =>
-                              onEditPol({
-                                voyageId: voyage.id,
-                                voyageLabel,
-                                pol: row.pol,
-                                pod: row.pod,
-                                etd: row.etd,
-                                atd: row.atd,
-                                ceMaster: row.ceMaster,
-                                batchIds: row.batchIds,
-                              })
-                            }
-                            disabled={!row.pol || row.pol === '-'}
-                          >
-                            <Pencil size={15} />
-                          </Button>
-                        </div>
+                      <td className="px-3 py-2 text-center">
+                        <Button
+                          variant="secondary"
+                          className="app-voyage-icon-btn"
+                          aria-label={`Editar ETD previsto + ATD POL e CE Master de ${row.routeLabel}`}
+                          title="Editar ETD previsto + ATD POL e CE Master"
+                          onClick={() => onEditPol({ voyageId: voyage.id, voyageLabel, pol: row.pol, pod: row.pod, etd: row.etd, atd: row.atd, ceMaster: row.ceMaster, batchIds: row.batchIds })}
+                          disabled={!row.pol || row.pol === '-'}
+                        >
+                          <Pencil size={15} />
+                        </Button>
                       </td>
                     </tr>
                     )
@@ -182,8 +141,36 @@ export function VoyageManifestosTab({
             </table>
           </div>
         </div>
-      </div>
 
+      <div className="flex flex-wrap items-center gap-3 px-0.5 text-[11px] leading-5 text-[var(--app-muted-soft)]">
+        <span><b className="text-[var(--app-muted)]">CE Mercante</b> é a cobertura por B/L; o <b className="text-[var(--app-muted)]">Nº de manifesto Mercante</b> agrupa a rota. São coisas diferentes.</span>
+        <span className="h-3 w-px bg-[var(--app-border)]" />
+        <span>ATD em escuro é realizado; em cinza, o ETD previsto.</span>
+      </div>
     </>
+  )
+}
+
+function TotalStrip({ totals }: { totals: Array<[string, string]> }) {
+  return (
+    <div className="flex flex-wrap items-center gap-y-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
+      <span className="mr-2 shrink-0 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--app-muted)]">Total da viagem</span>
+      {totals.map(([label, value], index) => (
+        <span key={label} className={`flex items-baseline gap-1.5 px-4 ${index > 0 ? 'border-l border-[var(--app-border)]' : ''}`}>
+          <span className="font-[var(--app-font-mono)] text-[15px] font-semibold text-[var(--app-text-strong)]">{value}</span>
+          <span className="text-[11px] text-[var(--app-muted-soft)]">{label}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function SectionLabel({ label, note }: { label: string; note: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[11px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted)]">{label}</span>
+      <span className="h-px flex-1 bg-[var(--app-border)]" />
+      <span className="text-[11px] text-[var(--app-muted-soft)]">{note}</span>
+    </div>
   )
 }

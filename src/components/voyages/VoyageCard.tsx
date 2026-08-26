@@ -14,7 +14,6 @@ import {
   collectVoyagePorts,
   computeAdrEscalaPods,
   countPlannedPodRows,
-  deriveEstadoConciliacao,
   getProximaEscala,
   isEtaOverdue,
   summarizeExportByEmbarkPort,
@@ -30,7 +29,7 @@ import {
   type VoyagePolSchedule,
 } from '../../services/voyageRouteSchedules'
 import type { VoyageExportSchedule } from '../../services/voyageExportSchedules'
-import { ESTADO_CONCILIACAO_META, statusLabel, VOYAGE_STATUS_BADGE_TONE, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
+import { statusLabel, VOYAGE_STATUS_BADGE_TONE, VOYAGE_STATUS_LABELS } from '../../lib/statusLabels'
 import { buildVoyageRouteLegs, collectVoyageManifestBatchRows, type VoyageImportBatch } from './voyageCardHelpers'
 import { VoyageVisaoTab } from './VoyageVisaoTab'
 import { VoyageImportacaoTab } from './VoyageImportacaoTab'
@@ -267,19 +266,13 @@ export function VoyageCard({
   const ceMasterTotal = new Set(
     (voyage.bls ?? []).map((bl) => `${String(bl.pol ?? '').trim().toUpperCase()}__${String(bl.pod ?? '').trim().toUpperCase()}`),
   ).size
-  const estado = deriveEstadoConciliacao({
-    hasOpenDivergences: divergenceCount > 0,
-    ceFilled: ceCoverage.filled,
-    ceTotal: ceCoverage.total,
-  })
-  const estadoMeta = ESTADO_CONCILIACAO_META[estado]
   const proximaEscala = getProximaEscala(podRows)
 
   const tabs: Array<{ key: VoyageTabKey; label: string }> = [
     { key: 'visao', label: 'Visão geral' },
     { key: 'importacao', label: 'Importação' },
     { key: 'exportacao', label: 'Exportação' },
-    { key: 'manifestos', label: 'Escalas & Manifestos' },
+    { key: 'manifestos', label: 'Rotas e Manifestos' },
     { key: 'adr', label: 'ADR' },
   ]
 
@@ -464,9 +457,7 @@ export function VoyageCard({
               importBatches={importBatches}
               polSchedules={polSchedules}
               routeCeMasters={routeCeMasters}
-              divergenceCount={divergenceCount}
               ceCoverage={ceCoverage}
-              estadoMeta={estadoMeta}
               onEditPol={onEditPol}
             />
           ) : null}

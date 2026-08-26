@@ -1,6 +1,6 @@
 # Viagens
 
-> **Status:** ativo · **Atualizado:** 2026-07-02 · **Rotas:** `/viagens`, `/viagens/:voyageId`
+> **Status:** ativo · **Atualizado:** 2026-08-26 · **Rotas:** `/viagens`, `/viagens/:voyageId`
 
 ## Propósito e escopo
 
@@ -29,7 +29,7 @@ Fontes principais: `src/pages/Viagens.tsx`, `src/services/voyageSummaries.ts`, `
 - **Visão geral:** KPIs, planejamento por escala, edição/exclusão de agenda, cards contextuais e timeline. A tabela centraliza títulos e células, agrupa `ETA · previsto` e `ATA · real` sob `Chegada`, mantém `BLs e CEs` como status manual, usa `Vinculada` como badge e registra `ATD` sem expor a derivação no título. As atracações com dados aparecem em painel recolhível, com cabeçalho e tabela próprios para `Terminal`, `ETB`, `ATB`, `ETD`, `ATD` e `Restow`; `Adicionar atracação` abre o `EscalaModal` na seção de terminais e o lápis o posiciona na linha do terminal, preservando a gravação terminalizada. O planejamento registra, por escala, ETA/ATA, ETB/ATB e ETD/ATD, mantendo previsão e realização em campos distintos.
 - **Importação:** métricas por POD para containers, IMO/OOG, veículos, B/L, carga geral, carga solta e vazios de importação; inclui importação rápida por `src/components/shared/VoyageImportActions.tsx`. A ordem aprovada das ações é Baplie EDI, B/L, CE Mercante, Manifesto BB, Veículos e Vazios IMP; Manifesto CNTR deixa de integrar a aba. Os modais de CE Mercante, Manifesto BB e Veículos oferecem suas planilhas-modelo.
 - **Exportação:** faixa de totais e métricas por terminal de embarque (`embark_port`) para Granito e vazios de exportação; cada bloco reparte os vazios por depot (`local_id`), com importação rápida de Manifesto Granito, atalho de CE Mercante (Granito) e navegação para o Embarque de Vazios com a viagem travada. Vazios EXP não é mais upload avulso nesta aba.
-- **Escalas & Manifestos:** resumo de conciliação, cobertura de CE Mercante, rotas derivadas dos B/Ls por POL/POD, ETD/ATD por POL e CE Master por rota. O nome da aba e metadados de batch são legado pendente de alinhamento à ADR 0025.
+- **Rotas e Manifestos:** faixa de totais, rotas derivadas dos B/Ls por POL/POD, ETD/ATD no POL, grupo Mercante com cobertura de CE Mercante por B/L e Nº de manifesto Mercante por rota. Batches continuam como metadados internos para resolver a edição, mas nomes de arquivo não são exibidos.
 - A timeline é expansível e combina imports, agendas, dados da viagem, CE Master, Baplie e resoluções de divergência.
 - Navegação contextual:
   - `/manifestos?voyage=<id>`;
@@ -102,7 +102,7 @@ POL/POD e exportação têm contratos diferentes:
 4. **Ciclo de status.** Ao alterar ATD, `syncVoyageStatusAfterAtdChange` marca `completed` apenas quando todos os PODs ativos e nao omitidos têm ATD; caso contrário, volta a `active`. Uma viagem `cancelled` é estado retido e o guard impede que uma alteração de ATD a reverta automaticamente. Exclusão de viagem continua sendo hard delete controlado, não um status.
 5. **Número de Escala ≠ VINCULADA.** `escala_number` identifica a escala criada no Mercante; `linked=true` confirma que manifestos foram vinculados à escala.
 6. **CE Master ≠ CE Mercante.** CE Master é um agrupador por rota: com batch de manifesto vive em `import_batches.ce_master`; em viagem só-B/L (sem batch) vive em `voyage_route_ce_master` por `(voyage_id, pol, pod)` (#322). CE Mercante vive em cada B/L. Nenhum dos dois entra no EDI Mercante — só registro/agrupamento.
-7. **Escalas & Manifestos é B/L-first.** A tabela agrupa primeiro os B/Ls por rota POL/POD. Batches e nomes de arquivo são metadados opcionais; B/Ls importados sem batch continuam aparecendo como rota, com edição de ETD e de CE Master por rota.
+7. **Rotas e Manifestos é B/L-first.** A tabela agrupa primeiro os B/Ls por rota POL/POD. Batches são metadados opcionais para a edição de CE Master; nomes de arquivo não são exibidos. B/Ls importados sem batch continuam aparecendo como rota, com edição de ETD e de CE Master por rota.
 8. **Status de B/Ls e CEs do POD.** O valor manual salvo em `audit_logs.field_name='ces'` é soberano. Sem valor manual, a tela deriva apenas um fallback operacional: nenhum CE preenchido vira `Aguardando`, alguns CEs viram `Lançando`, todos os CEs viram `Em aprovação`; `Aprovado` só aparece quando selecionado manualmente.
 9. **Timeline não financeira.** A timeline combina agenda, viagem, CE, imports e Baplie; `src/services/voyageTimeline.ts` exclui eventos financeiros por decisão de produto. Importações de B/L aparecem consolidadas por lote e rota (`quantidade · POL → POD`); omissões informam POD omitido, `Porto de Transbordo — <porto>` e motivo opcional; complementações globais geram evento próprio e renomeações editoriais não geram eventos.
 10. **Conciliação é sinal operacional.** `divergente` tem prioridade; `incompleto` cobre falta de manifesto ou CE; `conciliado` indica coerência dos sinais usados pela tela, não autorização financeira.
@@ -121,7 +121,7 @@ Evidência estática localizada:
 
 - `src/lib/__tests__/viagensFilters.test.ts`: busca, status, conciliação, período e ordenação por próxima escala.
 - `src/pages/__tests__/viagensHelpers.test.ts`: métricas, estado de conciliação, próxima escala, timeline e agrupamentos por POD/POL.
-- `src/components/voyages/__tests__/voyageCardHelpers.test.tsx`: linhas de Escalas & Manifestos derivadas por rota de B/L, inclusive sem batch.
+- `src/components/voyages/__tests__/voyageCardHelpers.test.tsx`: linhas de Rotas e Manifestos derivadas por rota de B/L, inclusive sem batch.
 - `src/services/__tests__/voyageRouteSchedules.test.ts`: ciclo ETA/ATA, ETB/ATB e ETD/ATD, fallback automático do status de B/Ls e CEs por POD e guard que impede ATD de reverter viagem cancelada.
 - `src/services/__tests__/voyageMutations.test.ts`: cancelamento dedicado com motivo e auditoria, além dos guards de hard delete.
 - `src/pages/__tests__/Painel.behavior.test.tsx` e `src/pages/__tests__/Viagens.behavior.test.tsx`: filtros `cancelled` no Line-Up e no rail de viagens.
