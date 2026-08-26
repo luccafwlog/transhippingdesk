@@ -82,6 +82,7 @@ export function DepartmentSignoffControl({
               id={textareaId}
               value={justification}
               onChange={(event) => setJustification(event.target.value)}
+              autoFocus
               className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2"
             />
           </label>

@@ -214,7 +214,7 @@ function SectionObservation({
     <div className="grid gap-1.5 rounded-r-lg border-l-[3px] border-[var(--app-border-strong)] bg-[var(--app-surface-muted)] px-3 py-2.5 text-sm">
       <span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted-soft)]">Observação</span>
       <p className={`whitespace-pre-line text-[var(--app-text)] ${expanded ? '' : 'max-h-24 overflow-hidden'}`}>{text}</p>
-      {text.split('\n').length > 4 ? (
+      {text.split('\n').length > 4 || text.length > 200 ? (
         <button type="button" className="justify-self-start text-xs font-semibold text-[var(--app-muted)] underline underline-offset-4 hover:text-[var(--app-text)]" onClick={() => setExpanded((value) => !value)}>
           {expanded ? 'Recolher observação' : 'Ver observação completa'}
         </button>
@@ -401,7 +401,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
   })))
   const emptyDischargeMatrix = buildContainerTypeMatrix(vaziosImp.map((container) => ({
     type: container.container_type ?? '—',
-    category: container.natureza === 'cama' ? 'vazio_cama' : 'vazio_cover_plate',
+    category: container.natureza === 'cama' ? 'vazio_cama' : container.natureza === 'cover_plate' ? 'vazio_cover_plate' : 'vazio',
   })))
   const emptyEmbarkRows = groupEmptyEmbarkBookings(vaziosExp.map((booking) => ({
     type: booking.container_type ?? '—',

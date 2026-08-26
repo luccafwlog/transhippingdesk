@@ -626,7 +626,7 @@ export const MATRIX_CATEGORY_LABELS: Record<string, string> = {
   transbordo: 'transbordo',
   oog: 'OOG',
   imo: 'IMO',
-  vazio: 'vazio (sem B/L)',
+  vazio: 'vazio',
   vazio_cama: 'vazio — cama',
   vazio_cover_plate: 'vazio — cover plate',
 }

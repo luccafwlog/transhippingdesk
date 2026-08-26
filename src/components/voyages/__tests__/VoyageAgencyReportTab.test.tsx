@@ -1281,3 +1281,72 @@ it('aviso de Embarque de Vazios órfão não bloqueia o sign-off da seção', ()
   expect(within(embarqueSection).getByRole('button', { name: 'Confirmado' })).toBeTruthy()
   expect(within(embarqueSection).getByRole('button', { name: 'Nada a declarar' })).toBeTruthy()
 })
+
+it('vazio sem natureza classificada no módulo não vira cover plate na listagem', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'documentacao', isAdmin: false })
+  useAgencyReportDerivedMock.mockReturnValue({
+    data: {
+      containers: [], vehicles: [], granite: [], vaziosExp: [], storage: { containers: 0, days: 0 },
+      operation: { os_number: null, service_qty: [] },
+      vaziosImp: [
+        { container_type: '40HC', natureza: 'cama' },
+        { container_type: '20GP', natureza: null },
+      ],
+      vaziosDivergence: { baplieCount: 2, moduleCount: 2, unclassifiedCount: 1, diverges: false },
+    },
+    isLoading: false,
+    error: null,
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const vaziosSection = screen.getByRole('heading', { name: 'Vazios descarregados' }).closest('section')!
+  expect(within(vaziosSection).getByText('40HC · vazio — cama')).toBeTruthy()
+  expect(within(vaziosSection).getByText('20GP · vazio')).toBeTruthy()
+  expect(within(vaziosSection).queryByText('20GP · vazio — cover plate')).toBeNull()
+})
+
+it('fecha o menu compacto de resolução ao pressionar Escape ou clicar fora', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
+  const changeButton = within(datasSection).getByRole('button', { name: 'Alterar resolução de Operações' })
+
+  // Abre menu
+  fireEvent.click(changeButton)
+  expect(within(datasSection).getByRole('group', { name: 'Resolução da seção' })).toBeTruthy()
+
+  // Pressionar Escape fecha
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(within(datasSection).queryByRole('group', { name: 'Resolução da seção' })).toBeNull()
+
+  // Abre novamente e clica fora para fechar
+  fireEvent.click(changeButton)
+  expect(within(datasSection).getByRole('group', { name: 'Resolução da seção' })).toBeTruthy()
+  fireEvent.mouseDown(document.body)
+  expect(within(datasSection).queryByRole('group', { name: 'Resolução da seção' })).toBeNull()
+})
+
+it('observação longa sem quebras de linha exibe o botão para expandir', () => {
+  useAuthMock.mockReturnValue({ effectiveRole: 'operacoes', isAdmin: false })
+  useAgencyReportOwnMock.mockReturnValue({
+    data: {
+      signoffs: [{
+        section: 'datas',
+        state: 'confirmed',
+        observation: 'Esta é uma observação operacional muito longa em um único parágrafo sem quebras de linha que deve ultrapassar o limite de caracteres para acionar o botão de expandir e recolher a observação completa no componente SectionObservation.',
+      }],
+      departmentSignoffs: [],
+      occurrences: [],
+    },
+  })
+
+  render(<VoyageAgencyReportTab voyageId={7} voyageLabel="NAVIO TESTE / 01E" carrierName="Armador teste" pods={[{ pod: 'BRVIX', omitted: false }]} />)
+
+  const datasSection = screen.getByRole('heading', { name: 'Escala', level: 3 }).closest('section')!
+  expect(within(datasSection).getByRole('button', { name: 'Ver observação completa' })).toBeTruthy()
+  fireEvent.click(within(datasSection).getByRole('button', { name: 'Ver observação completa' }))
+  expect(within(datasSection).getByRole('button', { name: 'Recolher observação' })).toBeTruthy()
+})
+

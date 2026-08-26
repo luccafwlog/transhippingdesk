@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { History } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -46,6 +46,29 @@ export function SignoffControl({
   const [justification, setJustification] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [compactOpen, setCompactOpen] = useState(false)
+  const compactContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!compactOpen) return
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (compactContainerRef.current && !compactContainerRef.current.contains(event.target as Node)) {
+        setCompactOpen(false)
+      }
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setCompactOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [compactOpen])
 
   const openAction = (nextState: SignoffState) => {
     if (nextState === state) return
@@ -82,7 +105,7 @@ export function SignoffControl({
       ) : null}
       {canSignoff ? (
         compact ? (
-          <div className="relative flex items-center gap-2">
+          <div ref={compactContainerRef} className="relative flex items-center gap-2">
             <button
               type="button"
               className={`app-badge ${state === 'confirmed' ? 'app-badge--green' : state === 'nothing_to_declare' ? 'app-badge--yellow' : 'app-badge--slate'}`}
@@ -189,6 +212,7 @@ function SignoffActionModal({
             id={textareaId}
             value={justification}
             onChange={(event) => onJustificationChange(event.target.value)}
+            autoFocus
             className="min-h-24 rounded border border-[var(--app-border)] bg-transparent p-2"
           />
         </label>
