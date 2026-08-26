@@ -16,7 +16,7 @@ it('requires a justification and submits the trimmed reason', async () => {
   render(
     <ReversalModal
       open
-      invoiceId={42}
+      docNumber="DEM-2026-0042"
       loading={false}
       onClose={vi.fn()}
       onSubmit={onSubmit}
@@ -31,4 +31,7 @@ it('requires a justification and submits the trimmed reason', async () => {
   await user.click(submit)
 
   expect(onSubmit).toHaveBeenCalledWith('PIX conciliado em duplicidade')
+
+  // O titulo cita a chave natural do documento, nunca `demurrage_invoices.id`.
+  expect(screen.getByRole('dialog', { name: 'Cancelar baixa de Demurrage DEM-2026-0042' })).toBeTruthy()
 })

@@ -75,7 +75,9 @@ export function Demurrage() {
   const [viewInvoiceId, setViewInvoiceId] = useState<number | null>(null)
   const [docType, setDocType] = useState<'invoice' | 'receipt'>('invoice')
   const [payingId, setPayingId] = useState<number | null>(null)
-  const [reversingPaymentId, setReversingPaymentId] = useState<number | null>(null)
+  // Guarda o doc_number junto do id: o titulo do modal mostra a chave natural,
+  // e o breakdown que a originou pode ja estar fechado quando ele abre.
+  const [reversingPayment, setReversingPayment] = useState<{ id: number; docNumber: string | null } | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
   const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
   const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null)
@@ -234,7 +236,7 @@ export function Demurrage() {
     mutationFn: ({ id, reason }: { id: number; reason: string }) => reverseDemurragePayment(id, reason),
     onSuccess: () => {
       invalidateInvoices()
-      setReversingPaymentId(null)
+      setReversingPayment(null)
       showToast('Baixa cancelada com auditoria.', 'success')
     },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -423,7 +425,7 @@ export function Demurrage() {
               <Button variant="secondary" onClick={() => { setDetailInvoiceId(null); openDiscount(breakdownDetail.invoice as DemurrageInvoice) }}>Desconto</Button>
               <Button variant="secondary" onClick={() => { setDetailInvoiceId(null); openDispute(breakdownDetail.invoice as DemurrageInvoice) }}>Disputa</Button>
               {breakdownDetail.invoice.status === 'issued' && <><Button variant="secondary" onClick={() => { setDetailInvoiceId(null); setPayingId(breakdownDetail.invoice.id) }}>Registrar Pgto</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('invoice') }}>Fatura</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); void handleCancelInvoice(breakdownDetail.invoice.id) }}>Cancelar</Button></>}
-              {breakdownDetail.invoice.status === 'paid' && <><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('receipt') }}>Recibo</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('invoice') }}>Fatura</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setReversingPaymentId(breakdownDetail.invoice.id) }}>Cancelar baixa</Button></>}
+              {breakdownDetail.invoice.status === 'paid' && <><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('receipt') }}>Recibo</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setViewInvoiceId(breakdownDetail.invoice.id); setDocType('invoice') }}>Fatura</Button><Button variant="ghost" onClick={() => { setDetailInvoiceId(null); setReversingPayment({ id: breakdownDetail.invoice.id, docNumber: breakdownDetail.invoice.doc_number }) }}>Cancelar baixa</Button></>}
             </div></div>
             <div className="overflow-x-auto">
               <table className="app-table app-table--compact min-w-[700px] text-left text-sm">
@@ -447,7 +449,7 @@ export function Demurrage() {
       <DisputeModal open={disputeInvoiceId != null} form={disputeForm} loading={disputeMutation.isPending} onFormChange={setDisputeForm} onClose={() => setDisputeInvoiceId(null)} onSubmit={() => disputeInvoiceId && disputeMutation.mutate({ id: disputeInvoiceId, form: disputeForm })} />
       <PaymentModal open={payingId != null} paymentId={payingId} paymentDate={payDate} onPaymentDateChange={setPayDate} onClose={() => setPayingId(null)} onSubmit={(id, date) => payMutation.mutate({ id, date })} />
 
-      {reversingPaymentId != null && <DemurragePaymentReversalModal open invoiceId={reversingPaymentId} loading={unpayMutation.isPending} onClose={() => setReversingPaymentId(null)} onSubmit={(reason) => unpayMutation.mutate({ id: reversingPaymentId, reason })} />}
+      {reversingPayment != null && <DemurragePaymentReversalModal open docNumber={reversingPayment.docNumber} loading={unpayMutation.isPending} onClose={() => setReversingPayment(null)} onSubmit={(reason) => unpayMutation.mutate({ id: reversingPayment.id, reason })} />}
       {viewInvoiceId && invoiceDetail && (
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Demurrage'}>
           <div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={printInvoiceDocument}>Imprimir</Button></div>
