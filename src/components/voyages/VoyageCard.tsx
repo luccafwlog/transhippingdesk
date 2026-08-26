@@ -82,6 +82,7 @@ const DEFAULT_VEHICLE_STATS: VoyageVehicleStat = {
   containerNumbers: [],
   brandSummary: '-',
   vehicleByContainerTypeSummary: '-',
+  byPod: {},
 }
 
 const DEFAULT_VAZIOS_IMP_STATS: VoyageVaziosImportacaoStat = {
@@ -89,6 +90,7 @@ const DEFAULT_VAZIOS_IMP_STATS: VoyageVaziosImportacaoStat = {
   distinctContainers: 0,
   containerTypes: '',
   destinations: '',
+  byPod: {},
 }
 
 type VoyageCardProps = {

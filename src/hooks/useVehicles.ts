@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
 import { chunkArray, sanitizeLikeTerm } from '../lib/utils'
 import type { BLContainer, VehicleListItem } from '../types/database'
+import { normalizePortCode } from '../services/portCode'
 
 type VehicleListItemWithUnpackingLocation = Omit<VehicleListItem, 'container'> & {
   container?: Pick<BLContainer, 'id' | 'container_number' | 'type' | 'seal_number' | 'unpacking_location'> | null
@@ -27,6 +28,18 @@ export type VoyageVehicleStat = {
   containerNumbers: string[]
   brandSummary: string
   vehicleByContainerTypeSummary: string
+  byPod: Record<string, {
+    totalVehicles: number
+    distinctContainerCount: number
+    brandSummary: string
+    vehicleByContainerTypeSummary: string
+  }>
+  unassigned?: {
+    totalVehicles: number
+    distinctContainerCount: number
+    brandSummary: string
+    vehicleByContainerTypeSummary: string
+  }
 }
 
 export function useVehicleOptions() {
@@ -256,6 +269,8 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
           containers: Set<string>
           brands: Map<string, number>
           vehicleByContainerType: Map<string, number>
+          byPod: Map<string, { totalVehicles: number; containers: Set<string>; brands: Map<string, number>; vehicleByContainerType: Map<string, number> }>
+          unassigned: { totalVehicles: number; containers: Set<string>; brands: Map<string, number>; vehicleByContainerType: Map<string, number> }
         }
       >()
 
@@ -265,7 +280,7 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
         while (true) {
           const { data, error } = await supabase
             .from('vehicles')
-            .select('id, voyage_id, brand, container:bl_containers(container_number, type)')
+            .select('id, voyage_id, brand, container:bl_containers(container_number, type), bl:bls!inner(pod)')
             .in('voyage_id', voyageChunk)
             .order('id', { ascending: true })
             .range(from, from + batchSize - 1)
@@ -277,6 +292,7 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
             voyage_id: number
             brand: string | null
             container?: { container_number?: string | null; type?: string | null } | null
+            bl?: { pod?: string | null } | null
           }>
 
           if (!rows.length) break
@@ -289,6 +305,13 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
                 containers: new Set<string>(),
                 brands: new Map<string, number>(),
                 vehicleByContainerType: new Map<string, number>(),
+                byPod: new Map(),
+                unassigned: {
+                  totalVehicles: 0,
+                  containers: new Set<string>(),
+                  brands: new Map<string, number>(),
+                  vehicleByContainerType: new Map<string, number>(),
+                },
               }
 
             current.totalVehicles += 1
@@ -307,6 +330,26 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
               current.containers.add(containerNumber)
             }
 
+            const pod = normalizePortCode(row.bl?.pod)
+            if (pod) {
+              const podEntry = current.byPod.get(pod) ?? {
+                totalVehicles: 0,
+                containers: new Set<string>(),
+                brands: new Map<string, number>(),
+                vehicleByContainerType: new Map<string, number>(),
+              }
+              podEntry.totalVehicles += 1
+              podEntry.brands.set(brand, (podEntry.brands.get(brand) ?? 0) + 1)
+              podEntry.vehicleByContainerType.set(containerType, (podEntry.vehicleByContainerType.get(containerType) ?? 0) + 1)
+              if (containerNumber) podEntry.containers.add(containerNumber)
+              current.byPod.set(pod, podEntry)
+            } else {
+              current.unassigned.totalVehicles += 1
+              current.unassigned.brands.set(brand, (current.unassigned.brands.get(brand) ?? 0) + 1)
+              current.unassigned.vehicleByContainerType.set(containerType, (current.unassigned.vehicleByContainerType.get(containerType) ?? 0) + 1)
+              if (containerNumber) current.unassigned.containers.add(containerNumber)
+            }
+
             working.set(row.voyage_id, current)
           }
 
@@ -317,12 +360,30 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
 
       for (const voyageId of normalizedVoyageIds) {
         const current = working.get(voyageId)
+        const byPod = Object.fromEntries(
+          Array.from(current?.byPod.entries() ?? []).map(([pod, podEntry]) => [pod, {
+            totalVehicles: podEntry.totalVehicles,
+            distinctContainerCount: podEntry.containers.size,
+            brandSummary: summarizeCounts(podEntry.brands),
+            vehicleByContainerTypeSummary: summarizeCounts(podEntry.vehicleByContainerType),
+          }]),
+        )
+
+        const unassigned = current && current.unassigned.totalVehicles > 0 ? {
+          totalVehicles: current.unassigned.totalVehicles,
+          distinctContainerCount: current.unassigned.containers.size,
+          brandSummary: summarizeCounts(current.unassigned.brands),
+          vehicleByContainerTypeSummary: summarizeCounts(current.unassigned.vehicleByContainerType),
+        } : undefined
+
         byVoyageId[voyageId] = {
           totalVehicles: current?.totalVehicles ?? 0,
           distinctContainerCount: current?.containers.size ?? 0,
           containerNumbers: current ? Array.from(current.containers).sort((left, right) => left.localeCompare(right, 'pt-BR')) : [],
           brandSummary: summarizeCounts(current?.brands),
           vehicleByContainerTypeSummary: summarizeCounts(current?.vehicleByContainerType),
+          byPod,
+          unassigned,
         }
       }
 

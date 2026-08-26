@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Download, Upload } from 'lucide-react'
+import { Box, Car, Download, FileText, Mountain, Package, PackageOpen, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
@@ -8,6 +8,7 @@ import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { FileImportModal } from './FileImportModal'
 import { BlImportModal } from './BlImportModal'
+import { BlDocumentImportModal } from './BlDocumentImportModal'
 import { CeMercanteImportModal } from './CeMercanteImportModal'
 import { importBreakbulkManifest, parseBreakbulkManifestFile } from '../../services/breakbulkImport'
 import { importGraniteManifest, parseGraniteManifestFile } from '../../services/graniteImport'
@@ -17,7 +18,9 @@ import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicl
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
 
-type ImportType = 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'ceMercante'
+type ImportType = 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'blBreakbulk' | 'ceMercante'
+
+type ImportGroup = 'baplie' | 'bls' | 'importEquipment' | 'exportManifest' | 'exportVazios'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
   bb: 'Manifesto BB',
@@ -26,11 +29,36 @@ const IMPORT_LABELS: Record<ImportType, string> = {
   vaziosExp: 'Vazios Exp',
   vehicles: 'Veículos',
   baplie: 'Baplie EDI',
-  blFreight: 'B/L',
+  blFreight: 'B/L container',
+  blBreakbulk: 'B/L carga solta',
   ceMercante: 'CE Mercante',
 }
 
-const IMPORT_ORDER: ImportType[] = ['baplie', 'blFreight', 'ceMercante', 'bb', 'vehicles', 'vaziosImp', 'granite', 'vaziosExp']
+const IMPORT_ORDER: ImportType[] = ['baplie', 'blFreight', 'blBreakbulk', 'ceMercante', 'bb', 'vehicles', 'vaziosImp', 'granite', 'vaziosExp']
+
+const IMPORT_GROUP_BY_TYPE: Record<ImportType, ImportGroup> = {
+  baplie: 'baplie',
+  blFreight: 'bls',
+  blBreakbulk: 'bls',
+  ceMercante: 'bls',
+  bb: 'bls',
+  vehicles: 'importEquipment',
+  vaziosImp: 'importEquipment',
+  granite: 'exportManifest',
+  vaziosExp: 'exportVazios',
+}
+
+const IMPORT_ICONS: Record<ImportType, LucideIcon> = {
+  baplie: Package,
+  blFreight: Box,
+  blBreakbulk: FileText,
+  ceMercante: ShieldCheck,
+  bb: FileText,
+  vehicles: Car,
+  vaziosImp: PackageOpen,
+  granite: Mountain,
+  vaziosExp: PackageOpen,
+}
 
 export function VoyageImportActions({
   voyageId,
@@ -55,6 +83,13 @@ export function VoyageImportActions({
     if (type === 'vehicles') return canEditVehicles
     return Boolean(profile || userId)
   })
+  const actionGroups: Array<{ group: ImportGroup; types: ImportType[] }> = []
+  for (const type of allowedTypes) {
+    const group = IMPORT_GROUP_BY_TYPE[type]
+    const current = actionGroups[actionGroups.length - 1]
+    if (current?.group === group) current.types.push(type)
+    else actionGroups.push({ group, types: [type] })
+  }
 
   const invalidateAfterBLImport = async () => {
     await Promise.all([
@@ -67,12 +102,21 @@ export function VoyageImportActions({
 
   return (
     <>
-      <div className="flex flex-wrap gap-2">
-        {allowedTypes.map((type) => (
-          <Button key={type} variant="secondary" className="text-xs" onClick={() => setActiveType(type)}>
-            <Upload size={13} />
-            {IMPORT_LABELS[type]}
-          </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        {actionGroups.map(({ group, types: groupTypes }, groupIndex) => (
+          <div key={group} className="flex flex-wrap items-center gap-2">
+            {groupIndex > 0 ? <span aria-hidden="true" className="mx-1 h-6 w-px bg-[var(--app-border)]" /> : null}
+            {groupTypes.map((type) => {
+              const Icon = IMPORT_ICONS[type]
+              const highlight = type === 'blFreight' || type === 'blBreakbulk'
+              return (
+                <Button key={type} variant="secondary" className={`text-xs ${highlight ? 'border-[var(--app-blue-btn)] text-[var(--app-blue-btn)]' : ''}`} onClick={() => setActiveType(type)}>
+                  <Icon size={13} />
+                  {IMPORT_LABELS[type]}
+                </Button>
+              )
+            })}
+          </div>
         ))}
       </div>
 
@@ -136,6 +180,9 @@ export function VoyageImportActions({
             await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+              queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] }),
+              queryClient.invalidateQueries({ queryKey: ['vazios-importacao-manifests'] }),
+              queryClient.invalidateQueries({ queryKey: ['vazios-importacao-containers'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
             ])
@@ -195,6 +242,14 @@ export function VoyageImportActions({
       {activeType === 'blFreight' ? (
         <BlImportModal
           open
+          voyageId={voyageId}
+          voyageLabel={voyageLabel}
+          onClose={() => setActiveType(null)}
+        />
+      ) : null}
+
+      {activeType === 'blBreakbulk' ? (
+        <BlDocumentImportModal
           voyageId={voyageId}
           voyageLabel={voyageLabel}
           onClose={() => setActiveType(null)}

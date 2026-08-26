@@ -18,20 +18,29 @@ import { parseBlDocumentFile, type ParsedBlDocument } from '../../services/blDoc
  * continua na mesma tela — este caminho existe para quando a viagem chega em
  * B/Ls soltos, e não em uma planilha consolidada.
  */
-export function BlDocumentImportModal({ onClose }: { onClose: () => void }) {
+export function BlDocumentImportModal({
+  onClose,
+  voyageId = null,
+  voyageLabel,
+}: {
+  onClose: () => void
+  voyageId?: number | null
+  voyageLabel?: string
+}) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
   const { data: voyages } = useVoyageOptions()
-  const [voyageId, setVoyageId] = useState('')
+  const [selectedVoyageId, setSelectedVoyageId] = useState(voyageId == null ? '' : String(voyageId))
+  const lockedVoyage = voyageId != null
 
   const selectedVoyage = useMemo(
-    () => (voyages ?? []).find((voyage) => String(voyage.id) === voyageId) ?? null,
-    [voyages, voyageId],
+    () => (voyages ?? []).find((voyage) => String(voyage.id) === selectedVoyageId) ?? null,
+    [voyages, selectedVoyageId],
   )
 
   function close() {
-    setVoyageId('')
+    setSelectedVoyageId(lockedVoyage ? String(voyageId) : '')
     onClose()
   }
 
@@ -40,25 +49,27 @@ export function BlDocumentImportModal({ onClose }: { onClose: () => void }) {
       multiple
       title="Importar B/Ls de carga solta"
       accept=".pdf,.docx"
-      ready={Boolean(voyageId && user)}
+      ready={Boolean(selectedVoyageId && user)}
       prerequisite={
         <VoyageCombobox
           required
           label="Viagem de destino"
-          selectedVoyageId={voyageId}
-          onSelect={(id) => setVoyageId(id == null ? '' : String(id))}
+          initialValue={voyageLabel}
+          selectedVoyageId={selectedVoyageId}
+          disabled={lockedVoyage}
+          onSelect={(id) => setSelectedVoyageId(id == null ? '' : String(id))}
         />
       }
       parser={parseBlDocumentFile}
       batchImporter={async (entries) => {
-        if (!user || !voyageId) return
+        if (!user || !selectedVoyageId) return
         await importBlDocuments({
           filename: entries.map((entry) => entry.file.name).join(', '),
-          voyageId: Number(voyageId),
+          voyageId: Number(selectedVoyageId),
           documents: entries.map((entry) => entry.preview),
           uploadedBy: user.id,
         })
-        await afterManifestoImportado(queryClient, { voyageId })
+        await afterManifestoImportado(queryClient, { voyageId: selectedVoyageId })
         showToast(`${entries.length} B/L(s) importado(s) como carga solta.`, 'success')
       }}
       canImport={(document) => document.errors.length === 0 && !describeVoyageMismatch(document, selectedVoyage)}

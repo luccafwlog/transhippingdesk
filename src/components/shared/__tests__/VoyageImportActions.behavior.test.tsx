@@ -115,15 +115,28 @@ it('ordena as importacoes e abre CE Mercante travado na viagem', () => {
       voyageId={7}
       voyageLabel="GREEN SANTOS / 14N"
       userId="user-1"
-      types={['vaziosImp', 'vehicles', 'bb', 'ceMercante', 'blFreight', 'baplie']}
+      types={['vaziosImp', 'vehicles', 'bb', 'ceMercante', 'blFreight', 'blBreakbulk', 'baplie']}
     />,
   )
 
   expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
-    'Baplie EDI', 'B/L', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP',
+    'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP',
   ])
   fireEvent.click(screen.getByRole('button', { name: /CE Mercante/ }))
   expect(screen.getByText('CE travado: 7')).toBeTruthy()
+})
+
+it('separa a barra por família sem criar separador dentro dos B/Ls', () => {
+  const { container } = render(
+    <VoyageImportActions
+      voyageId={7}
+      voyageLabel="GREEN SANTOS / 14N"
+      userId="user-1"
+      types={['baplie', 'blFreight', 'blBreakbulk', 'ceMercante', 'vehicles', 'vaziosImp']}
+    />,
+  )
+
+  expect(container.querySelectorAll('span[aria-hidden="true"]')).toHaveLength(2)
 })
 
 it('mantém a escrita aberta também para Equipamentos', () => {
@@ -134,12 +147,12 @@ it('mantém a escrita aberta também para Equipamentos', () => {
       voyageId={7}
       voyageLabel="GREEN SANTOS / 14N"
       userId="user-1"
-      types={['bb', 'granite', 'vaziosImp', 'vaziosExp', 'vehicles', 'baplie', 'blFreight', 'ceMercante']}
+      types={['bb', 'granite', 'vaziosImp', 'vaziosExp', 'vehicles', 'baplie', 'blFreight', 'blBreakbulk', 'ceMercante']}
     />,
   )
 
   expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
-    'Baplie EDI', 'B/L', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
+    'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
   ])
 })
 
@@ -152,11 +165,11 @@ it('preserva todas as importacoes solicitadas para os demais papeis', () => {
       voyageId={7}
       voyageLabel="GREEN SANTOS / 14N"
       userId="user-1"
-      types={['bb', 'granite', 'vaziosImp', 'vaziosExp', 'vehicles', 'baplie', 'blFreight', 'ceMercante']}
+      types={['bb', 'granite', 'vaziosImp', 'vaziosExp', 'vehicles', 'baplie', 'blFreight', 'blBreakbulk', 'ceMercante']}
     />,
   )
 
   expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
-    'Baplie EDI', 'B/L', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
+    'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
   ])
 })
