@@ -11,7 +11,7 @@ ordem **lexicográfica do prefixo de versão**, então o corte era limpo (numera
 timestamped), mas o diretório era difícil de ler e a documentação (`WORKFLOW.md`) prescrevia o
 timestamp como padrão "atual".
 
-Uma auditoria estática + dinâmica das 159 migrations (ver `docs/AUDITORIA_MIGRATIONS.md`)
+Uma auditoria estática + dinâmica das 159 migrations (ver o [registro histórico da auditoria](../archive/audits/2026-06-24-auditoria-migrations-renumeracao.md))
 confirmou um estado saudável:
 
 - correspondência **1:1** entre arquivos e `supabase_migrations.schema_migrations` (zero

@@ -35,6 +35,7 @@ supabase/.temp
 
 # Catálogo da fixture QA de exibição (gerado por scripts/qa-display-production)
 artifacts/qa-display-production/operational-fixture.json
+artifacts/qa-display-production/inventory.json
 
 # Playwright MCP artifacts (design-audit skill)
 .playwright-mcp/
