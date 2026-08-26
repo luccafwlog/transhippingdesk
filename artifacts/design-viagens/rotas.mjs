@@ -8,10 +8,10 @@ import { secao, totalStrip } from './abakit.mjs'
  */
 
 const ROTAS = [
-  { modo: 'CNTR', pol: 'CNSHA', pod: 'BRSSZ', arquivo: 'MANIFESTO-CNSHA-SSZ.edi', atd: '18/07/2026', real: true, bls: 6, ce: [6, 6], master: '250712345678901' },
-  { modo: 'CNTR', pol: 'CNNGB', pod: 'BRSSZ', arquivo: 'MANIFESTO-CNNGB-SSZ.edi', atd: '16/07/2026', real: true, bls: 2, ce: [2, 2], master: '250712345678902' },
-  { modo: 'BB', pol: 'CNSHA', pod: 'BRSSZ', arquivo: null, atd: '18/07/2026', real: true, bls: 1, ce: [1, 1], master: null },
-  { modo: 'CNTR', pol: 'CNSHA', pod: 'BRSSZ', omitido: 'BRVIX', arquivo: 'MANIFESTO-CNSHA-VIX.edi', atd: '18/07/2026', real: true, bls: 1, ce: [1, 1], master: '250712345678903' },
+  { modo: 'CNTR', pol: 'CNSHA', pod: 'BRSSZ', atd: '18/07/2026', real: true, bls: 6, ce: [6, 6], master: '250712345678901' },
+  { modo: 'CNTR', pol: 'CNNGB', pod: 'BRSSZ', atd: '16/07/2026', real: true, bls: 2, ce: [2, 2], master: '250712345678902' },
+  { modo: 'BB', pol: 'CNSHA', pod: 'BRSSZ', atd: '18/07/2026', real: true, bls: 1, ce: [1, 1], master: null },
+  { modo: 'CNTR', pol: 'CNSHA', pod: 'BRSSZ', omitido: 'BRVIX', atd: '18/07/2026', real: true, bls: 1, ce: [1, 1], master: '250712345678903' },
 ]
 
 const MODO_TOM = { CNTR: 'blue', BB: 'yellow', 'CNTR/BB': 'slate' }
@@ -81,18 +81,13 @@ export function rotasDepois() {
     </span>`
   }
 
-  const rotaCell = (r) => `<div style="display: flex; flex-direction: column; gap: 4px; text-align: left">
+  const rotaCell = (r) => `<div style="text-align: left">
     <span style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap">
       <span class="badge badge--${MODO_TOM[r.modo]}" style="padding: 2px 8px; font-size: 10px">${r.modo}</span>
       ${r.omitido
         ? `<span style="font-weight: 600; color: ${T.blueBtn}">${r.pol} &rarr; <span style="text-decoration: line-through; color: ${T.mutedSoft}">${r.omitido}</span> &rarr; ${r.pod}</span>
            <span class="badge badge--yellow" style="padding: 2px 8px; font-size: 10px">Omiss&atilde;o</span>`
         : `<span style="font-weight: 600; color: ${T.blueBtn}">${r.pol} &rarr; ${r.pod}</span>`}
-    </span>
-    <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: ${T.mutedSoft}">
-      ${r.arquivo
-        ? `${icon('file', 12, T.mutedSoft)}<span style="font-family: ${T.mono}">${r.arquivo}</span>`
-        : `<span style="font-style: italic">Rota derivada dos B/Ls &mdash; sem arquivo de manifesto</span>`}
     </span>
   </div>`
 
@@ -109,29 +104,29 @@ export function rotasDepois() {
 
   return `<div style="display: flex; flex-direction: column; gap: 16px">
     ${totalStrip('Total da viagem', [
-      ['Rotas', '4'], ['B/Ls vinculados', '10'], ['CE Mercante', '10/10'], ['CE Master a informar', '1'],
+      ['Rotas', '4'], ['B/Ls vinculados', '10'], ['CE Mercante', '10/10'], ['N&ordm; de manifesto a informar', '1'],
     ])}
     ${secao('Rotas da viagem', 'uma linha por par POL / POD')}
     <div style="overflow: hidden; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surface}; box-shadow: ${T.shadow}">
       <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px">
         <thead>
           <tr>
-            ${th('Rota e manifesto', { w: '46%', rows: 2, first: true })}
+            ${th('Rota', { w: '46%', rows: 2, first: true })}
             ${th('ATD no POL', { w: '13%', rows: 2 })}
             ${th('B/Ls', { w: '8%', rows: 2 })}
-            ${th('CE', { span: 2 })}
+            ${th('Mercante', { span: 2 })}
             ${th('', { w: '7%', rows: 2, last: true })}
           </tr>
           <tr>
-            ${th('Mercante &middot; cobertura', { w: '13%', sub: true })}
-            ${th('Master &middot; n&uacute;mero da rota', { w: '13%', sub: true })}
+            ${th('CE Mercante &middot; cobertura', { w: '13%', sub: true })}
+            ${th('N&ordm; de manifesto Mercante', { w: '13%', sub: true })}
           </tr>
         </thead>
         <tbody>${linhas}</tbody>
       </table>
     </div>
     <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: ${T.mutedSoft}">
-      <span><b style="color: ${T.muted}">CE Mercante</b> &eacute; cobertura por B/L; <b style="color: ${T.muted}">CE Master</b> &eacute; o n&uacute;mero agrupador da rota. S&atilde;o coisas diferentes.</span>
+      <span><b style="color: ${T.muted}">CE Mercante</b> &eacute; a cobertura por B/L; o <b style="color: ${T.muted}">N&ordm; de manifesto Mercante</b> agrupa a rota. S&atilde;o coisas diferentes.</span>
       <span style="width: 1px; height: 12px; background: ${T.border}"></span>
       <span>ATD em escuro &eacute; realizado; em cinza, o ETD previsto.</span>
     </div>

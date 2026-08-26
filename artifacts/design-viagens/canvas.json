@@ -115,7 +115,7 @@
       "y": 19160,
       "page": "page-8",
       "w": 1440,
-      "h": 700
+      "h": 720
     },
     {
       "file": "DirecaoC.dc.html",
@@ -191,7 +191,7 @@
       "x": 0,
       "y": 18000,
       "w": 1000,
-      "text": "ESCALAS & MANIFESTOS → ROTAS E MANIFESTOS.\n\nA aba se chama Escalas e não mostra escala nenhuma: cada linha de collectVoyageManifestBatchRows é uma rota POL → POD. Escala vive na Visão geral. O nome passa a ser o que a aba faz.\n\nCinco melhorias junto:\n\n1. O manifesto aparece. A coluna se chama \"Rota / Manifesto\" e mostra só a rota — o campo filenames existe na linha, com fallback \"Rota derivada dos B/Ls\", e não é renderizado em lugar nenhum. Agora o arquivo fica sob a rota, e a rota sem batch diz que veio dos B/Ls.\n2. CE Merc. e CE Master ficam sob um cabeçalho CE comum, cada um dizendo o que é: Mercante é cobertura por B/L, Master é o número agrupador da rota. Hoje são nomes quase iguais em colunas vizinhas, para naturezas diferentes.\n3. O CE Master faltante vira ação. Hoje é o texto \"manifesto não informado\" em #b45309 — cor fora dos tokens — e o que fazer só aparece no title do elemento. Vira um chip \"Informar\" nos tokens dourados.\n4. Larguras redistribuídas. O table-fixed dá 40% para a rota e 12% para uma coluna de Ações com um botão de 38px; a rota com omissão (POL → POD riscado → POD de descarga, mais o selo) mais o nome do arquivo não cabem. Rota vai a 46%, ações encolhem para o botão.\n5. Faixa de totais no topo, como nas outras abas: rotas, B/Ls vinculados, cobertura de CE agregada e quantos CE Master faltam. A faixa de conciliação sai — repetia o KPI de Conciliação que já está no herói da viagem."
+      "text": "ESCALAS & MANIFESTOS → ROTAS E MANIFESTOS.\n\nA aba se chama Escalas e não mostra escala nenhuma: cada linha de collectVoyageManifestBatchRows é uma rota POL → POD. Escala vive na Visão geral. O nome passa a ser o que a aba faz — e o \"manifesto\" da aba é o Nº de manifesto Mercante, não um arquivo: não há mais vinculação de arquivo de manifesto.\n\nQuatro melhorias junto:\n\n1. O grupo Mercante reúne as duas colunas que hoje se chamam quase igual e são coisas diferentes: CE Mercante · cobertura é a cobertura por B/L; Nº de manifesto Mercante agrupa a rota. Cada uma passa a ser nomeada pelo que é.\n2. O número faltante vira ação. Hoje é o texto \"manifesto não informado\" em #b45309 — cor fora dos tokens — e o que fazer só aparece no title do elemento. Vira um chip \"Informar\" nos tokens dourados.\n3. Larguras redistribuídas. O table-fixed dá 40% para a rota e 12% para uma coluna de Ações com um botão de 38px; a rota com omissão (POL → POD riscado → POD de descarga, mais o selo) não cabe. Rota vai a 46%, ações encolhem para o botão.\n4. Faixa de totais no topo, como nas outras abas: rotas, B/Ls vinculados, cobertura de CE agregada e quantos números de manifesto faltam. A faixa de conciliação sai — repetia o KPI de Conciliação que já está no herói da viagem."
     },
     {
       "id": "nota-descartadas",

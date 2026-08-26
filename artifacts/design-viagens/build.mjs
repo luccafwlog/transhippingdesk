@@ -276,11 +276,11 @@ out('RotasAntes.dc.html', compareBoard({
   body: `<div style="display: flex; flex-direction: column; gap: 18px">${abasCom(ABAS_HOJE, 'Escalas &amp; Manifestos')}${rotasAntes()}</div>`,
 }), ROTA_A_H)
 
-const ROTA_D_H = 700
+const ROTA_D_H = 720
 out('RotasDepois.dc.html', compareBoard({
   height: ROTA_D_H, chip: 'Proposta', chipTone: 'proposta',
   title: 'Aba Rotas e Manifestos &mdash; proposta',
-  note: 'A aba passa a se chamar pelo que mostra. Mais cinco mudanças: o manifesto aparece na coluna que o promete, CE Mercante e CE Master ficam sob um cabeçalho comum com o que cada um é, o CE Master faltante vira ação em vez de recado, as larguras do table-fixed são redistribuídas, e entra a faixa de totais das outras abas.',
+  note: 'A aba passa a se chamar pelo que mostra. Mais quatro mudanças: o grupo Mercante reúne a cobertura de CE por B/L e o Nº de manifesto Mercante, cada um nomeado pelo que é; o número faltante vira ação em vez de recado; as larguras do table-fixed são redistribuídas; e entra a faixa de totais das outras abas.',
   body: `<div style="display: flex; flex-direction: column; gap: 18px">${abasCom(ABAS_NOVAS, 'Rotas e Manifestos')}${rotasDepois()}</div>`,
 }), ROTA_D_H)
 
