@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
 import { MemoryRouter } from 'react-router-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { useVoyageTransshipments } from '../../../hooks/useTransshipments'
 import type { VoyageBl } from '../../../services/voyageSummaries'
@@ -224,6 +226,47 @@ describe('VoyageManifestosTab', () => {
     expect(html).toContain('Informar')
     expect(html).not.toContain('manifesto não informado')
     expect(html).not.toContain('Informe o CE Master pelo lápis desta linha')
+  })
+
+  it('dispara onEditPol ao clicar no chip Informar de um manifesto pendente', () => {
+    const onEditPol = vi.fn()
+    const voyage = {
+      id: 14,
+      voyage_number: '001',
+      vessel: { name: 'ALPHA' },
+      bls: [makeBl({ id: 'BL-001', ce_mercante: 'CE-001', pol: 'CNTAC', pod: 'BRVIX' })],
+    } as Voyage
+
+    render(
+      <MemoryRouter>
+        <VoyageManifestosTab
+          voyage={voyage}
+          voyageLabel="ALPHA / 001"
+          importBatches={[]}
+          polSchedules={new Map([
+            [buildVoyagePolEntityId(14, 'CNTAC'), { entityId: '14::CNTAC', voyageId: 14, pol: 'CNTAC', etd: '2026-07-15', atd: '2026-07-16', escalaNumber: null }],
+          ])}
+          routeCeMasters={undefined}
+          ceCoverage={{ filled: 1, total: 1 }}
+          onEditPol={onEditPol}
+        />
+      </MemoryRouter>,
+    )
+
+    const button = screen.getByRole('button', { name: 'Informar CE Master de TAICANG -> BRVIX' })
+    fireEvent.click(button)
+
+    expect(onEditPol).toHaveBeenCalledTimes(1)
+    expect(onEditPol).toHaveBeenCalledWith({
+      voyageId: 14,
+      voyageLabel: 'ALPHA / 001',
+      pol: 'CNTAC',
+      pod: 'BRVIX',
+      etd: '2026-07-15',
+      atd: '2026-07-16',
+      ceMaster: null,
+      batchIds: [],
+    })
   })
 })
 

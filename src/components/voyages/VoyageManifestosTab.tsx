@@ -110,7 +110,17 @@ export function VoyageManifestosTab({
                         {row.ceMaster ? (
                           <span className="font-mono text-xs text-[var(--app-text-strong)]">{row.ceMaster}</span>
                         ) : row.blCount > 0 ? (
-                          <Badge tone="yellow" className="gap-1 px-2 py-0.5 text-[10px]"><Pencil size={11} aria-hidden="true" />Informar</Badge>
+                          <button
+                            type="button"
+                            className="app-badge app-badge--yellow cursor-pointer gap-1 px-2 py-0.5 text-[10px] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Informar CE Master de ${row.routeLabel}`}
+                            title="Informar CE Master"
+                            onClick={() => onEditPol({ voyageId: voyage.id, voyageLabel, pol: row.pol, pod: row.pod, etd: row.etd, atd: row.atd, ceMaster: row.ceMaster, batchIds: row.batchIds })}
+                            disabled={!row.pol || row.pol === '-'}
+                          >
+                            <Pencil size={11} aria-hidden="true" />
+                            <span>Informar</span>
+                          </button>
                         ) : (
                           <span className="text-[var(--app-muted-soft)]">-</span>
                         )}
