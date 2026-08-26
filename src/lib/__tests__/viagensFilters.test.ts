@@ -65,6 +65,23 @@ describe('filterVoyageRailItems', () => {
     expect(result[0].id).toBe(1)
   })
 
+  it('período "próximos 7 dias" mantém a escala dentro da janela e descarta a de depois', () => {
+    const today = new Date()
+    const inDays = (days: number) => {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days)
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    }
+    const janela: VoyageRailItem[] = [
+      { ...items[0], id: 10, proximaEscala: { pod: 'Santos', eta: inDays(3), etb: null } },
+      { ...items[0], id: 11, proximaEscala: { pod: 'Santos', eta: inDays(20), etb: null } },
+      { ...items[0], id: 12, proximaEscala: { pod: 'Santos', eta: inDays(-1), etb: null } },
+    ]
+
+    const result = filterVoyageRailItems(janela, { search: '', status: 'all', conciliacao: 'all', periodo: '7d' })
+
+    expect(result.map((item) => item.id)).toEqual([10])
+  })
+
   it('ordena por próxima escala (ETA) ascendente, depois por navio/viagem', () => {
     const result = filterVoyageRailItems(items, { search: '', status: 'all', conciliacao: 'all', periodo: 'all' })
     expect(result[0].id).toBe(2) // ETA 2026-06-18 vem antes de 2026-06-20

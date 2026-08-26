@@ -617,6 +617,18 @@ export type AgencyReportDischargeContainer = {
   category: MatrixCategory
 }
 
+/**
+ * Destino do container descarregado. Natureza (IMO/OOG/carga geral) e destino
+ * são eixos independentes desde que `is_transshipment` virou flag própria; a
+ * categoria `'transbordo'` só aparece em snapshots fechados antes disso e
+ * continua sendo lida aqui para não perder o número no histórico.
+ */
+export function isTransshipmentContainer(
+  container: { is_transshipment?: boolean | null; category?: MatrixCategory | string | null },
+) {
+  return Boolean(container.is_transshipment) || container.category === 'transbordo'
+}
+
 // Rótulo de categoria na Listagem do operado (Task 3/4/5): 'vazio' (Baplie
 // sem B/L) e 'vazio_cama'/'vazio_cover_plate' (módulo de Vazios de
 // Importação) aparecem lado a lado no mesmo documento — sem rótulo, a

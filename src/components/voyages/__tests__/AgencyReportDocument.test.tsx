@@ -640,3 +640,48 @@ it("troca a barra do rotulo da viagem no nome do arquivo impresso", () => {
     }),
   ).toBe("ADR - COSCO SHIPPING ARIES - 088E - BRVIX - TVV.pdf");
 })
+
+// Natureza (IMO/OOG/carga geral) e destino são eixos independentes: o
+// transbordo saiu da matriz e viaja no snapshot como `cargaDescarregada.destino`.
+// Sem imprimir esse par, o ADR fechado perderia um número que a aba mostra.
+it("imprime o destino dos containers descarregados quando o snapshot traz o split", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          cargaDescarregada: {
+            rows: { "40HC": { carga_geral: 3, imo: 1 } },
+            totals: { carga_geral: 3, imo: 1 },
+            destino: { destinoFinal: 3, transbordo: 1 },
+          },
+        },
+      }}
+      actorNames={{}}
+    />,
+  );
+
+  const destino = screen.getByRole("table", { name: "Destino dos containers descarregados" });
+  expect(destino.textContent).toContain("Destino final");
+  expect(destino.textContent).toContain("Em transbordo");
+  const transbordo = [...destino.querySelectorAll("tr")].find((row) => row.textContent?.includes("Em transbordo"))!;
+  expect(transbordo.textContent).toContain("1");
+});
+
+// Snapshot fechado antes da separação não tem `destino`: nada extra é impresso
+// (o transbordo dele continua saindo como categoria da própria matriz).
+it("não inventa bloco de destino em snapshot fechado antes da separação", () => {
+  render(
+    <AgencyReportDocument
+      snapshot={{
+        header: { carrierName: "Armador teste", voyageLabel: "NAVIO TESTE / 01E", port: "BRVIX" },
+        sections: {
+          cargaDescarregada: { rows: { "40HC": { transbordo: 2 } }, totals: { transbordo: 2 } },
+        },
+      }}
+      actorNames={{}}
+    />,
+  );
+
+  expect(screen.queryByRole("table", { name: "Destino dos containers descarregados" })).toBeNull();
+});

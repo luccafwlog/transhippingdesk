@@ -555,6 +555,12 @@ export function AgencyReportDocument({
     ? costs.serviceLines.map(asRecord)
     : [];
   const discargaCombos = matrixCombos(asMatrix(sections.cargaDescarregada));
+  // Destino do que foi descarregado: natureza e transbordo são eixos
+  // independentes, então o split não cabe mais na matriz por natureza. Snapshot
+  // anterior à separação não traz `destino` — ali o transbordo segue impresso
+  // como categoria da própria matriz e nenhuma linha extra aparece.
+  const discargaDestino = asRecord(asRecord(sections.cargaDescarregada).destino);
+  const hasDiscargaDestino = "destinoFinal" in discargaDestino || "transbordo" in discargaDestino;
   const vaziosDescarregadosCombos = matrixCombos(asMatrix(sections.vaziosDescarregados));
   const vaziosEmbarcadosRows = asEmptyEmbarkRows(sections.vaziosEmbarcados);
   const storage = asRecord(sections.storage);
@@ -663,6 +669,15 @@ export function AgencyReportDocument({
       </Section>
       <Section title="Matriz de descarga" {...section("carga_descarregada")} hasData={discargaCombos.length > 0}>
         <OperatedListingTable label="Matriz de descarga" combos={discargaCombos} />
+        {hasDiscargaDestino ? (
+          <MetricsTable
+            label="Destino dos containers descarregados"
+            metrics={[
+              ["Destino final", count(discargaDestino.destinoFinal)],
+              ["Em transbordo", count(discargaDestino.transbordo)],
+            ]}
+          />
+        ) : null}
       </Section>
       <Section title="Vazios descarregados" {...section("vazios_descarregados")} hasData={vaziosDescarregadosCombos.length > 0}>
         <OperatedListingTable label="Vazios descarregados" combos={vaziosDescarregadosCombos} />

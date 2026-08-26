@@ -22,13 +22,24 @@ function nextEscalaEtbSortKey(item: VoyageRailItem) {
   return item.proximaEscala?.etb ?? '￿'
 }
 
-function periodoMinEta(periodo: 'hoje' | '7d' | '30d'): string {
-  const now = new Date()
-  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  if (periodo === 'hoje') return base.toISOString().slice(0, 10)
-  const days = periodo === '7d' ? 7 : 30
-  base.setDate(base.getDate() + days)
-  return base.toISOString().slice(0, 10)
+function isoDay(date: Date): string {
+  // Data local: `toISOString` converteria para UTC e, a leste de Greenwich,
+  // devolveria o dia anterior.
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+/**
+ * Janela do filtro de período: de hoje até hoje + N dias (inclusive). "Hoje"
+ * é a janela de um dia só. O limite superior é o fim da janela — tratá-lo como
+ * piso invertia o filtro, escondendo justamente as escalas dos próximos dias.
+ */
+function periodoEtaWindow(periodo: 'hoje' | '7d' | '30d', now: Date = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const end = new Date(start)
+  if (periodo !== 'hoje') end.setDate(end.getDate() + (periodo === '7d' ? 7 : 30))
+  return { min: isoDay(start), max: isoDay(end) }
 }
 
 export function filterVoyageRailItems(
@@ -52,9 +63,9 @@ export function filterVoyageRailItems(
           if (fim && eta > fim) return false
         }
       } else if (filters.periodo !== 'all') {
-        const minEta = periodoMinEta(filters.periodo)
+        const { min, max } = periodoEtaWindow(filters.periodo)
         const eta = item.proximaEscala?.eta
-        if (!eta || eta < minEta) return false
+        if (!eta || eta < min || eta > max) return false
       }
       if (term) {
         const haystack = [
