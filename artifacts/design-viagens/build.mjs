@@ -5,12 +5,13 @@ import {
   estadoDot, kpiBand, novaViagemBtn, pageHeader,
   tabsRow, timeline, toolbar, transbordoCard, voyageHero,
 } from './blocks.mjs'
-import { abaAdr, metricPanel } from './tabs.mjs'
+import { metricPanel } from './tabs.mjs'
 import { planejamentoAntes, planejamentoEscala } from './visaogeral.mjs'
 import { importacaoAntes, importacaoDepois } from './importacao.mjs'
 import { exportacaoAntes, exportacaoDepois, exportacaoMultiDepot } from './exportacao.mjs'
 import { modalGranitoAntes, modalGranitoDepois } from './modalgranito.mjs'
 import { rotasAntes, rotasDepois } from './rotas.mjs'
+import { adrAntes, adrDepois } from './adr.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -106,13 +107,6 @@ function tabBoard({ height, active, note, body }) {
     </div>`,
   })
 }
-
-const ADR_H = 1340
-out('AbaAdr.dc.html', tabBoard({
-  height: ADR_H, active: 'ADR',
-  note: 'A aba mais densa. Escala e terminal viram seletores em pílula; os 3 departamentos ganham uma barra de progresso explícita, já que sem os três assinados o ADR não fecha; e cada bloco carrega seu estado de assinatura no cabeçalho.',
-  body: abaAdr(),
-}), ADR_H)
 
 /* ================================================================== *
  * Cards — anatomia e estados                                          *
@@ -283,6 +277,22 @@ out('RotasDepois.dc.html', compareBoard({
   note: 'A aba passa a se chamar pelo que mostra. Mais quatro mudanças: o grupo Mercante reúne a cobertura de CE por B/L e o Nº de manifesto Mercante, cada um nomeado pelo que é; o número faltante vira ação em vez de recado; as larguras do table-fixed são redistribuídas; e entra a faixa de totais das outras abas.',
   body: `<div style="display: flex; flex-direction: column; gap: 18px">${abasCom(ABAS_NOVAS, 'Rotas e Manifestos')}${rotasDepois()}</div>`,
 }), ROTA_D_H)
+
+const ADR_A_H = 1180
+out('AdrAntes.dc.html', compareBoard({
+  height: ADR_A_H, chip: 'Hoje', chipTone: 'hoje',
+  title: 'Aba ADR &mdash; como est&aacute; hoje',
+  note: 'Transcrição fiel de <code>VoyageAgencyReportTab.tsx</code>. O terminal — que decide o documento inteiro — é um seletor num painel discreto abaixo das escalas. As seções são agrupadas por fase, mas assinadas por departamento, e os dois níveis de assinatura não conversam.',
+  body: adrAntes(),
+}), ADR_A_H)
+
+const ADR_D_H = 1240
+out('AdrDepois.dc.html', compareBoard({
+  height: ADR_D_H, chip: 'Proposta', chipTone: 'proposta',
+  title: 'Aba ADR &mdash; proposta',
+  note: 'O ADR é por terminal, então o terminal sobe para o cabeçalho junto da escala e do estado do documento. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta e o próprio botão de assinar — ligando os dois níveis. Avisos ganham forma, e a hierarquia volta ao vocabulário do resto da página.',
+  body: adrDepois(),
+}), ADR_D_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *

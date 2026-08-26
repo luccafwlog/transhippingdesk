@@ -10,15 +10,6 @@
       "h": 2160
     },
     {
-      "file": "AbaAdr.dc.html",
-      "title": "Aba · ADR",
-      "x": 1560,
-      "y": 3820,
-      "page": "page-2",
-      "w": 1440,
-      "h": 1340
-    },
-    {
       "file": "Cards.dc.html",
       "title": "Cards · anatomia e estados",
       "x": 0,
@@ -118,6 +109,24 @@
       "h": 720
     },
     {
+      "file": "AdrAntes.dc.html",
+      "title": "Aba ADR · hoje",
+      "x": 0,
+      "y": 20500,
+      "page": "page-9",
+      "w": 1440,
+      "h": 1180
+    },
+    {
+      "file": "AdrDepois.dc.html",
+      "title": "Aba ADR · proposta",
+      "x": 0,
+      "y": 21800,
+      "page": "page-9",
+      "w": 1440,
+      "h": 1240
+    },
+    {
       "file": "DirecaoC.dc.html",
       "title": "Direção C · programação em tabela",
       "x": 0,
@@ -144,14 +153,6 @@
       "y": 0,
       "w": 520,
       "text": "DIREÇÃO A — a escolhida\n\nMantém o que já existe: rail horizontal + card de detalhe com abas. Nenhuma rota nova, VoyageRail e VoyageCard seguem no lugar.\n\nO que muda nesta página:\n\n1. O painel de filtros de 165px vira uma barra de comando de uma linha, com a busca sempre visível e os filtros aplicados como chips removíveis.\n2. O card do rail ganha rodapé ancorado na base com B/L · CNTR · CE, e o estado de conciliação por ponto E rótulo.\n3. Cada tile de KPI passa a ter um número dominante em Syne e no máximo três linhas de apoio, no lugar dos oito pares label/valor a 12px do DirectionKpiTile.\n4. As abas passam a usar o .app-tab do design system (navy com risco dourado), como o resto do app.\n\nAs outras páginas abrem cada aba e cada card. Dados de amostra — plausíveis, não reais."
-    },
-    {
-      "id": "nota-abas",
-      "page": "page-2",
-      "x": 0,
-      "y": 2400,
-      "w": 900,
-      "text": "ABAS — o corpo de cada uma, na largura que ocupa dentro do card de detalhe.\n\nDesenhadas a partir do componente real (VoyageImportacaoTab, VoyageExportacaoTab, VoyageManifestosTab, VoyageAgencyReportTab), não da Visão geral. Duas correções vieram daí: o Planejamento tem 9 colunas (Escala · Opera · ETA · ATA · ATD derivado · BLs e CEs · Nº Escala · Vinculada · Ações), e os cards de módulo \"Manifestos CNTR / BB / Granito / Vazios\" não existem mais na Visão geral atual."
     },
     {
       "id": "nota-cards",
@@ -194,6 +195,14 @@
       "text": "ESCALAS & MANIFESTOS → ROTAS E MANIFESTOS.\n\nA aba se chama Escalas e não mostra escala nenhuma: cada linha de collectVoyageManifestBatchRows é uma rota POL → POD. Escala vive na Visão geral. O nome passa a ser o que a aba faz — e o \"manifesto\" da aba é o Nº de manifesto Mercante, não um arquivo: não há mais vinculação de arquivo de manifesto.\n\nQuatro melhorias junto:\n\n1. O grupo Mercante reúne as duas colunas que hoje se chamam quase igual e são coisas diferentes: CE Mercante · cobertura é a cobertura por B/L; Nº de manifesto Mercante agrupa a rota. Cada uma passa a ser nomeada pelo que é.\n2. O número faltante vira ação. Hoje é o texto \"manifesto não informado\" em #b45309 — cor fora dos tokens — e o que fazer só aparece no title do elemento. Vira um chip \"Informar\" nos tokens dourados.\n3. Larguras redistribuídas. O table-fixed dá 40% para a rota e 12% para uma coluna de Ações com um botão de 38px; a rota com omissão (POL → POD riscado → POD de descarga, mais o selo) não cabe. Rota vai a 46%, ações encolhem para o botão.\n4. Faixa de totais no topo, como nas outras abas: rotas, B/Ls vinculados, cobertura de CE agregada e quantos números de manifesto faltam. A faixa de conciliação sai — repetia o KPI de Conciliação que já está no herói da viagem."
     },
     {
+      "id": "nota-adr",
+      "page": "page-9",
+      "x": 0,
+      "y": 20100,
+      "w": 1000,
+      "text": "ABA ADR — o documento é por terminal, e a aba não mostrava isso.\n\nresolvedReportId é o terminal: own, signoffEvents, departmentSignoffEvents, close, reopen e observação são todos amarrados a ele. E sectionIsVisible esconde a seção que não tem frente naquele terminal — ou seja, o terminal decide até quais seções existem. Hoje ele é um seletor num painel discreto abaixo das escalas.\n\nCinco mudanças:\n\n1. O terminal sobe para o cabeçalho, junto da escala e do estado do documento (Aberto/Fechado). Escala e terminal viram uma linha só de seletores, e cada terminal mostra o que carrega: quantas seções, ou que já está fechado.\n2. As seções passam a ser agrupadas por departamento, não por fase. AGENCY_REPORT_SECTIONS mapeia cada seção a um setor — Equipamentos responde por três, hoje espalhadas entre Importação e Exportação. Quem vai assinar precisava caçá-las.\n3. Os dois níveis de assinatura passam a conversar. Cada grupo traz o contador de seções resolvidas e o próprio botão de assinar o setor; o botão fica esmaecido enquanto sobra seção pendente. O cabeçalho diz o que falta para o Fechar ADR, que hoje só olha signedDepartmentsCount !== 3 sem explicar nada.\n4. Avisos ganham forma. Divergência, dado órfão e nada operado eram <p> de 14px, com o mesmo peso de qualquer parágrafo; agora são callout vermelho e estado vazio tracejado. A observação da seção vira um chip visível — hoje só se descobre abrindo o editor.\n5. Hierarquia e vocabulário. ReportPhase era um <h2> de 12px acima de blocos com <h3> de 16px; o selo do departamento usava borda e texto verde sem fundo, fora do .app-badge. As frentes de operação que compõem cada seção aparecem como pastilha, já que são elas que decidem a visibilidade."
+    },
+    {
       "id": "nota-descartadas",
       "page": "page-4",
       "x": 0,
@@ -206,10 +215,6 @@
     {
       "id": "page-1",
       "name": "Página"
-    },
-    {
-      "id": "page-2",
-      "name": "Abas"
     },
     {
       "id": "page-3",
@@ -232,12 +237,16 @@
       "name": "Aba Rotas e Manifestos"
     },
     {
+      "id": "page-9",
+      "name": "Aba ADR"
+    },
+    {
       "id": "page-4",
       "name": "Não escolhidas"
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "page-8"
+    "page": "page-9"
   }
 }

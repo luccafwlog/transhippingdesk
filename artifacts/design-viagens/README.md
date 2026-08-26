@@ -15,7 +15,7 @@ recorte da tabela de Planejamento por escala e do bloco de Atracações.
 | Página | Artboards |
 | --- | --- |
 | Página | [`Main.dc.html`](./Main.dc.html) — a Direção A inteira |
-| Abas | [`AbaAdr`](./AbaAdr.dc.html) — rascunhos, ainda não revisados |
+| Aba ADR | [`AdrAntes`](./AdrAntes.dc.html) e [`AdrDepois`](./AdrDepois.dc.html) |
 | Cards | [`Cards.dc.html`](./Cards.dc.html) — anatomia e estados |
 | Aba Rotas e Manifestos | [`RotasAntes`](./RotasAntes.dc.html) e [`RotasDepois`](./RotasDepois.dc.html) |
 | Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html), [`ExportacaoDepois`](./ExportacaoDepois.dc.html), [`ExportacaoMultiDepot`](./ExportacaoMultiDepot.dc.html) e [`ModalGranito`](./ModalGranito.dc.html) |
@@ -50,6 +50,8 @@ posicionar as molduras sem sobreposição. Os módulos de apoio:
 - [`abakit.mjs`](./abakit.mjs) — a gramática comum das abas, fechada na
   Importação: faixa de total, bloco por escala, painel chapado com número
   dominante, tokens com contagem, faixa e barra de ações.
+- [`adr.mjs`](./adr.mjs) — a aba ADR: o "hoje", transcrição fiel de
+  `src/components/voyages/VoyageAgencyReportTab.tsx`, e a proposta.
 - [`rotas.mjs`](./rotas.mjs) — a aba Escalas & Manifestos renomeada para Rotas e
   Manifestos: o "hoje", transcrição fiel de
   `src/components/voyages/VoyageManifestosTab.tsx`, e a proposta.

@@ -5,7 +5,6 @@ const W = 1440, COL2 = 1560
 const artboards = [
   { file: 'Main.dc.html', title: 'Direção A · a página inteira', x: 0, y: 0, page: 'page-1' },
 
-  { file: 'AbaAdr.dc.html', title: 'Aba · ADR', x: COL2, y: 3820, page: 'page-2' },
 
   { file: 'Cards.dc.html', title: 'Cards · anatomia e estados', x: 0, y: 5600, page: 'page-3' },
 
@@ -22,6 +21,9 @@ const artboards = [
 
   { file: 'RotasAntes.dc.html', title: 'Aba Rotas e Manifestos · hoje', x: 0, y: 18400, page: 'page-8' },
   { file: 'RotasDepois.dc.html', title: 'Aba Rotas e Manifestos · proposta', x: 0, y: 19160, page: 'page-8' },
+
+  { file: 'AdrAntes.dc.html', title: 'Aba ADR · hoje', x: 0, y: 20500, page: 'page-9' },
+  { file: 'AdrDepois.dc.html', title: 'Aba ADR · proposta', x: 0, y: 21800, page: 'page-9' },
 
   { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7400, page: 'page-4' },
   { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7400, page: 'page-4' },
@@ -44,10 +46,6 @@ const annotations = [
       '',
       'As outras páginas abrem cada aba e cada card. Dados de amostra — plausíveis, não reais.',
     ].join('\n'),
-  },
-  {
-    id: 'nota-abas', page: 'page-2', x: 0, y: 2400, w: 900,
-    text: 'ABAS — o corpo de cada uma, na largura que ocupa dentro do card de detalhe.\n\nDesenhadas a partir do componente real (VoyageImportacaoTab, VoyageExportacaoTab, VoyageManifestosTab, VoyageAgencyReportTab), não da Visão geral. Duas correções vieram daí: o Planejamento tem 9 colunas (Escala · Opera · ETA · ATA · ATD derivado · BLs e CEs · Nº Escala · Vinculada · Ações), e os cards de módulo "Manifestos CNTR / BB / Granito / Vazios" não existem mais na Visão geral atual.',
   },
   {
     id: 'nota-cards', page: 'page-3', x: 0, y: 5400, w: 900,
@@ -121,6 +119,22 @@ const annotations = [
     ].join('\n'),
   },
   {
+    id: 'nota-adr', page: 'page-9', x: 0, y: 20100, w: 1000,
+    text: [
+      'ABA ADR — o documento é por terminal, e a aba não mostrava isso.',
+      '',
+      'resolvedReportId é o terminal: own, signoffEvents, departmentSignoffEvents, close, reopen e observação são todos amarrados a ele. E sectionIsVisible esconde a seção que não tem frente naquele terminal — ou seja, o terminal decide até quais seções existem. Hoje ele é um seletor num painel discreto abaixo das escalas.',
+      '',
+      'Cinco mudanças:',
+      '',
+      '1. O terminal sobe para o cabeçalho, junto da escala e do estado do documento (Aberto/Fechado). Escala e terminal viram uma linha só de seletores, e cada terminal mostra o que carrega: quantas seções, ou que já está fechado.',
+      '2. As seções passam a ser agrupadas por departamento, não por fase. AGENCY_REPORT_SECTIONS mapeia cada seção a um setor — Equipamentos responde por três, hoje espalhadas entre Importação e Exportação. Quem vai assinar precisava caçá-las.',
+      '3. Os dois níveis de assinatura passam a conversar. Cada grupo traz o contador de seções resolvidas e o próprio botão de assinar o setor; o botão fica esmaecido enquanto sobra seção pendente. O cabeçalho diz o que falta para o Fechar ADR, que hoje só olha signedDepartmentsCount !== 3 sem explicar nada.',
+      '4. Avisos ganham forma. Divergência, dado órfão e nada operado eram <p> de 14px, com o mesmo peso de qualquer parágrafo; agora são callout vermelho e estado vazio tracejado. A observação da seção vira um chip visível — hoje só se descobre abrindo o editor.',
+      '5. Hierarquia e vocabulário. ReportPhase era um <h2> de 12px acima de blocos com <h3> de 16px; o selo do departamento usava borda e texto verde sem fundo, fora do .app-badge. As frentes de operação que compõem cada seção aparecem como pastilha, já que são elas que decidem a visibilidade.',
+    ].join('\n'),
+  },
+  {
     id: 'nota-descartadas', page: 'page-4', x: 0, y: 7200, w: 900,
     text: 'NÃO ESCOLHIDAS — registro da Direção C, mantida só como histórico da decisão.\n\n/viagens como programação em tabela (uma linha por viagem, uma coluna por porto, marcas OMIT e X do domínio) com o detalhe roteado em /viagens/:id. Perdeu para a A por trocar a página inteira e mandar o detalhe para outra navegação.',
   },
@@ -131,15 +145,15 @@ const canvas = {
   annotations,
   pages: [
     { id: 'page-1', name: 'Página' },
-    { id: 'page-2', name: 'Abas' },
     { id: 'page-3', name: 'Cards' },
     { id: 'page-5', name: 'Visão geral · Planejamento' },
     { id: 'page-6', name: 'Aba Importação' },
     { id: 'page-7', name: 'Aba Exportação' },
     { id: 'page-8', name: 'Aba Rotas e Manifestos' },
+    { id: 'page-9', name: 'Aba ADR' },
     { id: 'page-4', name: 'Não escolhidas' },
   ],
-  launch: { view: 'canvas', page: 'page-8' },
+  launch: { view: 'canvas', page: 'page-9' },
 }
 
 writeFileSync(new URL('./canvas.json', import.meta.url), JSON.stringify(canvas, null, 2) + '\n')

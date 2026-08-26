@@ -1,0 +1,346 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+  @import url("https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "DM Sans", "Segoe UI", sans-serif; color: #1c1915; -webkit-font-smoothing: antialiased; }
+  a { color: #1d4d88; text-decoration: none; }
+  a:hover { color: #8f4d08; }
+
+  .shell {
+    width: 1440px;
+    background-color: #f4f1ea;
+    background-image: radial-gradient(circle, rgba(168, 160, 145, 0.38) 1px, transparent 1px);
+    background-size: 20px 20px;
+    color: #1c1915;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- faixa de mercado (HeaderInfoBar) --- */
+  .strip {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    height: 26px; padding: 0 34px; background: #0e1825;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.62);
+  }
+  .strip__warn { display: inline-flex; align-items: center; gap: 6px; color: #d4882e; }
+  .strip__rate { color: rgba(255, 255, 255, 0.72); }
+  .strip__rate b { color: #ffffff; font-weight: 600; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .strip__role { color: rgba(255, 255, 255, 0.42); letter-spacing: 0.08em; }
+
+  /* --- header --- */
+  .hdr {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    min-height: 56px; padding: 0 34px;
+    background: linear-gradient(180deg, rgba(22, 36, 64, 0.98), rgba(21, 33, 58, 0.94));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+  }
+  .hdr__brand { display: flex; align-items: center; gap: 14px; }
+  .hdr__mark { display: flex; align-items: center; gap: 7px; }
+  .hdr__wordmark { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #ffffff; }
+  .hdr__eyebrow { font-family: "Syne", "DM Sans", sans-serif; font-size: 14px; font-weight: 700; line-height: 1; }
+  .hdr__subtitle {
+    margin-top: 3px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    line-height: 1.2; text-transform: uppercase; color: rgba(255, 255, 255, 0.56);
+  }
+  .hdr__actions { display: flex; align-items: center; gap: 12px; }
+  .hdr__pill {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+    padding: 6px 12px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px;
+    font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.86);
+  }
+
+  /* --- barra de navegação --- */
+  .nav {
+    display: flex; align-items: center; gap: 6px; padding: 0 34px 12px;
+    background: #1e3050; border-bottom: 2px solid rgba(212, 136, 46, 0.85);
+  }
+  .nav__link {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 42px;
+    padding: 10px 14px; border: 1px solid transparent; border-radius: 8px;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap;
+    color: rgba(255, 255, 255, 0.7);
+  }
+  .nav__link--active {
+    color: #ffffff; border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 -3px 0 rgba(242, 169, 59, 1);
+  }
+  .nav__badge {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+    padding: 0 6px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px;
+    background: #d4882e; color: #ffffff; font-size: 10px; font-weight: 700; line-height: 1;
+  }
+  .nav__dot {
+    width: 10px; height: 10px; border: 2px solid rgba(255, 255, 255, 0.62);
+    border-radius: 999px; background: #d4882e;
+  }
+  .nav__divider { width: 1px; height: 28px; margin: 0 6px; background: rgba(255, 255, 255, 0.14); }
+
+  /* --- área principal --- */
+  .main { padding: 34px 28px 52px; display: flex; flex-direction: column; }
+
+  /* --- page header --- */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; margin-bottom: 28px; padding-inline: 2px; }
+  .page-header__title {
+    margin: 0; color: #0e0c0a; font-family: "Syne", "DM Sans", sans-serif; font-size: 35.2px;
+    font-weight: 700; letter-spacing: -0.04em; line-height: 1.05;
+  }
+  .page-header__description { max-width: 880px; margin: 10px 0 0; color: #5a5549; font-size: 14px; line-height: 1.65; }
+  .page-header__rule { width: 48px; height: 3px; margin-top: 14px; background: #d4882e; }
+
+  /* --- botões (.app-btn) --- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: 8px;
+    font-family: "DM Sans", "Segoe UI", sans-serif; font-size: 13px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  }
+  .btn--sm { min-height: 40px; padding: 6px 12px; font-size: 12px; gap: 6px; }
+  .btn--primary { background: #1d4d88; border-color: #1d4d88; color: #ffffff; }
+  .btn--secondary { background: #ffffff; border-color: #b8b2a5; color: #0e0c0a; }
+  .btn--ghost { background: transparent; border-color: transparent; color: #5a5549; }
+  .btn--danger { background: linear-gradient(180deg, #fff7f8, #fff0f2); border-color: #f2b3bb; color: #c0393f; }
+  .btn--icon { width: 44px; min-height: 44px; padding: 0; }
+
+  /* --- superfície (.app-surface) --- */
+  .surface { border: 1.5px solid #cdc8bc; border-radius: 8px; background: #ffffff; overflow: hidden; }
+  .surface--padded { padding: 22px; }
+
+  /* --- campos (.app-input / .app-field) --- */
+  .input {
+    display: flex; align-items: center; gap: 10px; min-height: 44px;
+    border: 1px solid #cdc8bc; border-radius: 8px; padding: 11px 14px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    font-size: 14px; color: #0e0c0a;
+  }
+  .input__placeholder { color: #8a8579; }
+  .field__label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #5a5549; }
+
+  /* --- badges (.app-badge) --- */
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    border: 1px solid transparent; border-radius: 999px; padding: 4px 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .badge--blue { background: #e8f0fb; border-color: #bfdbfe; color: #1d4d88; }
+  .badge--green { background: #e6f7ee; border-color: #86efac; color: #157a45; }
+  .badge--yellow { background: #fdf0dc; border-color: #fde68a; color: #a85309; }
+  .badge--red { background: #fceaea; border-color: #fecaca; color: #c0393f; }
+  .badge--slate { background: #f3f4f6; border-color: #e5e7eb; color: #5a5549; }
+
+  /* --- abas no estilo do app (.app-tab) --- */
+  .tab {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 40px;
+    padding: 0 14px; border: 1px solid #b8b2a5; border-radius: 8px;
+    background: #ffffff; color: #1c1915; font-size: 14px; font-weight: 700; letter-spacing: 0.01em;
+  }
+  .tab--active { background: #152238; border-color: #152238; color: #ffffff; box-shadow: inset 0 -2px 0 #d4882e; }
+
+  /* --- tabela (.app-table) --- */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table thead th {
+    background: #152238; color: #ffffff; text-align: left;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 12px 14px; white-space: nowrap;
+  }
+  .table tbody td { padding: 12px 14px; color: #1c1915; white-space: nowrap; vertical-align: middle; }
+  .table tbody tr + tr td { border-top: 1px solid #cdc8bc; }
+  .table tbody tr:nth-child(even) { background: rgba(19, 32, 51, 0.018); }
+  .table--dense thead th, .table--dense tbody td { padding: 10px 10px; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .dash { color: #8a8579; }
+
+  /* --- pill do rail (RailPill) --- */
+  .pill {
+    display: inline-flex; align-items: center; border: 1px solid #cdc8bc;
+    border-radius: 999px; background: #ece9e1; padding: 2px 8px;
+    font-size: 11px; font-weight: 600; color: #5a5549; white-space: nowrap;
+  }
+
+  code { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.92em; border: 1px solid #cdc8bc; border-radius: 4px; background: #f8f6f1; padding: 1px 5px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; flex: none; }
+  .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
+</style>
+</helmet>
+<div class="shell" style="min-height: 1240px">
+  
+  <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
+      <div>
+        <span style="display: inline-flex; align-items: center; border: 1px solid #bfdbfe; border-radius: 999px; background: #e8f0fb; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4d88">Proposta</span>
+        <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba ADR &mdash; proposta</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">O ADR é por terminal, então o terminal sobe para o cabeçalho junto da escala e do estado do documento. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta e o próprio botão de assinar — ligando os dois níveis. Avisos ganham forma, e a hierarquia volta ao vocabulário do resto da página.</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px">
+    <div style="display: grid; gap: 14px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+      <span style="display: inline-flex; align-items: center; gap: 10px; font-size: 12px; color: #8a8579">
+        <span style="font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">ADR</span>
+        <span>escala</span>
+        <span style="font-size: 14px; font-weight: 700; color: #0e0c0a">BRSSZ</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8579" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="m9 18 6-6-6-6"/></svg>
+        <span>terminal</span>
+        <span style="font-size: 14px; font-weight: 700; color: #0e0c0a">BTP</span>
+        <span style="color: #8a8579">Brasil Terminal Portu&aacute;rio</span>
+      </span>
+      <span style="display: inline-flex; align-items: center; gap: 8px">
+        <span class="badge badge--blue" style="padding: 4px 10px">Aberto</span>
+        <span class="btn btn--primary btn--sm" style="opacity: 0.55">Fechar ADR</span>
+      </span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid #cdc8bc; padding-top: 12px">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579; margin-right: 2px">Escala</span>
+      <span class="btn btn--primary btn--sm" style="border-radius: 999px; min-height: 34px">BRSSZ</span>
+      <span class="btn btn--secondary btn--sm" style="border-radius: 999px; min-height: 34px">BRVIX <span class="badge badge--slate" style="padding: 4px 10px">Omitida</span></span>
+      <span style="width: 1px; height: 22px; background: #cdc8bc; margin: 0 6px"></span>
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579; margin-right: 2px">Terminal</span>
+      <span class="btn btn--primary btn--sm" style="border-radius: 999px; min-height: 34px">BTP <span class="badge badge--blue" style="padding: 4px 10px">5 se&ccedil;&otilde;es</span></span>
+      <span class="btn btn--secondary btn--sm" style="border-radius: 999px; min-height: 34px">DPW <span class="badge badge--green" style="padding: 2px 8px; font-size: 10px">Fechado</span></span>
+    </div>
+    <div style="display: flex; align-items: flex-start; gap: 8px; border-top: 1px solid #cdc8bc; padding-top: 12px; font-size: 12px; line-height: 1.5; color: #8a8579">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4882e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      <span><b style="color: #8f4d08">Falta Equipamentos assinar</b> &mdash; 1 de 2 se&ccedil;&otilde;es do setor ainda pendente. Os 3 departamentos precisam assinar para fechar este ADR.</span>
+    </div>
+  </div>
+    <div style="display: flex; align-items: center; gap: 12px">
+  <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Se&ccedil;&otilde;es por departamento</span>
+  <span style="flex: 1; height: 1px; background: #cdc8bc"></span>
+  <span style="font-size: 11px; color: #8a8579">quem assina responde pelo grupo inteiro</span>
+</div>
+    <div style="display: grid; gap: 12px"><section style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 12px">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Operações</span>
+          <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1a8c50">1/1 se&ccedil;&otilde;es</span>
+          <span style="display: inline-flex; gap: 3px"><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span></span>
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-size: 11px; color: #8a8579">Ana Ribeiro · 22/08 09:14</span>
+          <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Assinado</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 34px">Reabrir</span>
+        </span>
+      </div>
+      <div style="display: grid; gap: 10px"><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Escala</span>
+          <span class="pill" style="background: #f8f6f1">Atracação</span>
+          
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Confirmado</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
+        </span>
+      </div>
+      
+      
+    </div></div>
+    </section><section style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 12px">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Documentação</span>
+          <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1a8c50">2/2 se&ccedil;&otilde;es</span>
+          <span style="display: inline-flex; gap: 3px"><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span></span>
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-size: 11px; color: #8a8579">Marcos Lima · 22/08 10:02</span>
+          <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Assinado</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 34px">Reabrir</span>
+        </span>
+      </div>
+      <div style="display: grid; gap: 10px"><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Carga descarregada</span>
+          <span class="pill" style="background: #f8f6f1">CNTR importação</span>
+          <span title="Dois containers com avaria de porta, fotos no processo." style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #cdc8bc; border-radius: 999px; background: #f8f6f1; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 600; color: #5a5549"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg> Observa&ccedil;&atilde;o</span>
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Confirmado</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
+        </span>
+      </div>
+      
+      
+    </div><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Vazios descarregados</span>
+          <span class="pill" style="background: #f8f6f1">Vazios IMP</span>
+          
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span class="badge badge--yellow" style="padding: 4px 10px">Nada a declarar</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
+        </span>
+      </div>
+      
+      <div style="border: 1px dashed #cdc8bc; border-radius: 6px; padding: 12px; text-align: center; font-size: 12px; color: #8a8579">Nada operado nesta escala</div>
+    </div></div>
+    </section><section style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 12px">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Equipamentos</span>
+          <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #d4882e">1/2 se&ccedil;&otilde;es</span>
+          <span style="display: inline-flex; gap: 3px"><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span><span style="width: 26px; height: 4px; border-radius: 999px; background: #e2ddd2"></span></span>
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          
+          <span class="badge badge--yellow" style="padding: 4px 10px">Aguardando assinatura</span>
+          <span class="btn btn--primary btn--sm" style="min-height: 34px; opacity: 0.5">Assinar setor</span>
+        </span>
+      </div>
+      <div style="display: grid; gap: 10px"><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Carga carregada</span>
+          <span class="pill" style="background: #f8f6f1">Granito</span>
+          
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Confirmado</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
+        </span>
+      </div>
+      
+      
+    </div><div style="display: grid; gap: 12px; border: 1px solid #d4882e; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Embarque de vazios</span>
+          <span class="pill" style="background: #f8f6f1">Vazios EXP</span>
+          
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span class="badge badge--slate" style="padding: 4px 10px">Pendente</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
+        </span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fecaca; border-radius: 8px; background: #fceaea; padding: 10px 12px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0393f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        <span style="font-size: 12px; line-height: 1.5; color: #c0393f">18 unidades no Embarque contra 16 no Baplie — a Conciliação precisa revisar.</span>
+      </div>
+      
+    </div></div>
+    </section></div>
+    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: #8a8579">
+      <span>As se&ccedil;&otilde;es vis&iacute;veis mudam por terminal: <code>sectionIsVisible</code> esconde a que n&atilde;o tem frente naquele terminal.</span>
+      <span style="width: 1px; height: 12px; background: #cdc8bc"></span>
+      <span>A pastilha ao lado da se&ccedil;&atilde;o &eacute; a frente de opera&ccedil;&atilde;o que a comp&otilde;e.</span>
+    </div>
+  </div>
+    </div>
+</div>
+</x-dc>
+</body>
+</html>

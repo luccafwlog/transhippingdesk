@@ -1,6 +1,5 @@
 {
   "Main.dc.html": 2160,
-  "AbaAdr.dc.html": 1340,
   "Cards.dc.html": 1540,
   "PlanejamentoAntes.dc.html": 560,
   "PlanejamentoEscala.dc.html": 700,
@@ -12,6 +11,8 @@
   "ModalGranito.dc.html": 900,
   "RotasAntes.dc.html": 640,
   "RotasDepois.dc.html": 720,
+  "AdrAntes.dc.html": 1180,
+  "AdrDepois.dc.html": 1240,
   "DirecaoC.dc.html": 960,
   "DirecaoCDetalhe.dc.html": 1500
 }
