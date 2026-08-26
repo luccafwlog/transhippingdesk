@@ -180,6 +180,9 @@ export function VoyageImportActions({
             await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+              queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] }),
+              queryClient.invalidateQueries({ queryKey: ['vazios-importacao-manifests'] }),
+              queryClient.invalidateQueries({ queryKey: ['vazios-importacao-containers'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
               queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
             ])

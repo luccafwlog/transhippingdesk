@@ -44,7 +44,7 @@ describe('cache effects', () => {
     await afterManifestoImportado(client, { voyageId: 24 })
     expect(keys()).toEqual(keySet([
       ['bls'], ['containers'], ['voyages'], ['port-options'],
-      ['vazios-importacao-containers'], ['vazios-importacao-manifests'],
+      ['vazios-importacao-containers'], ['vazios-importacao-manifests'], ['vazios-importacao-stats'],
       ['voyage-escala-schedules'], ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
     ]))
   })

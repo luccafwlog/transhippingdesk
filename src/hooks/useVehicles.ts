@@ -34,6 +34,12 @@ export type VoyageVehicleStat = {
     brandSummary: string
     vehicleByContainerTypeSummary: string
   }>
+  unassigned?: {
+    totalVehicles: number
+    distinctContainerCount: number
+    brandSummary: string
+    vehicleByContainerTypeSummary: string
+  }
 }
 
 export function useVehicleOptions() {
@@ -264,6 +270,7 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
           brands: Map<string, number>
           vehicleByContainerType: Map<string, number>
           byPod: Map<string, { totalVehicles: number; containers: Set<string>; brands: Map<string, number>; vehicleByContainerType: Map<string, number> }>
+          unassigned: { totalVehicles: number; containers: Set<string>; brands: Map<string, number>; vehicleByContainerType: Map<string, number> }
         }
       >()
 
@@ -299,6 +306,12 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
                 brands: new Map<string, number>(),
                 vehicleByContainerType: new Map<string, number>(),
                 byPod: new Map(),
+                unassigned: {
+                  totalVehicles: 0,
+                  containers: new Set<string>(),
+                  brands: new Map<string, number>(),
+                  vehicleByContainerType: new Map<string, number>(),
+                },
               }
 
             current.totalVehicles += 1
@@ -330,6 +343,11 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
               podEntry.vehicleByContainerType.set(containerType, (podEntry.vehicleByContainerType.get(containerType) ?? 0) + 1)
               if (containerNumber) podEntry.containers.add(containerNumber)
               current.byPod.set(pod, podEntry)
+            } else {
+              current.unassigned.totalVehicles += 1
+              current.unassigned.brands.set(brand, (current.unassigned.brands.get(brand) ?? 0) + 1)
+              current.unassigned.vehicleByContainerType.set(containerType, (current.unassigned.vehicleByContainerType.get(containerType) ?? 0) + 1)
+              if (containerNumber) current.unassigned.containers.add(containerNumber)
             }
 
             working.set(row.voyage_id, current)
@@ -351,6 +369,13 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
           }]),
         )
 
+        const unassigned = current && current.unassigned.totalVehicles > 0 ? {
+          totalVehicles: current.unassigned.totalVehicles,
+          distinctContainerCount: current.unassigned.containers.size,
+          brandSummary: summarizeCounts(current.unassigned.brands),
+          vehicleByContainerTypeSummary: summarizeCounts(current.unassigned.vehicleByContainerType),
+        } : undefined
+
         byVoyageId[voyageId] = {
           totalVehicles: current?.totalVehicles ?? 0,
           distinctContainerCount: current?.containers.size ?? 0,
@@ -358,6 +383,7 @@ export function useVoyageVehicleStats(voyageIds: number[]) {
           brandSummary: summarizeCounts(current?.brands),
           vehicleByContainerTypeSummary: summarizeCounts(current?.vehicleByContainerType),
           byPod,
+          unassigned,
         }
       }
 

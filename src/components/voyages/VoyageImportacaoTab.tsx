@@ -39,6 +39,12 @@ export function VoyageImportacaoTab({ voyage, voyageLabel, vehicleStats, vaziosI
     ['Carga solta', `${formatMetric(totalWeightTon)} ton`],
   ] as Array<[string, string]>
 
+  const hasUnassigned = Boolean(
+    (vaziosImpStats.unassigned && (vaziosImpStats.unassigned.distinctContainers > 0 || vaziosImpStats.unassigned.manifestos > 0)) ||
+    (vehicleStats.unassigned && vehicleStats.unassigned.totalVehicles > 0),
+  )
+  const hasCargo = podCodes.length > 0 || hasUnassigned
+
   return (
     <div className="flex flex-col gap-4">
       <TotalStrip totals={totals} />
@@ -49,11 +55,17 @@ export function VoyageImportacaoTab({ voyage, voyageLabel, vehicleStats, vaziosI
             <PodBlock key={`${voyage.id}-imp-${pod}`} pod={pod} summary={importByPodMap.get(pod)} vehicle={vehicleStats.byPod[pod]} vazios={vaziosImpStats.byPod[pod]} />
           ))}
         </div>
-      ) : (
+      ) : null}
+      {hasUnassigned ? (
+        <div className="grid gap-3">
+          <UnassignedCargoBlock vehicle={vehicleStats.unassigned} vazios={vaziosImpStats.unassigned} />
+        </div>
+      ) : null}
+      {!hasCargo ? (
         <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--app-muted)]">
           Nenhuma carga de importação vinculada a esta viagem.
         </div>
-      )}
+      ) : null}
       {userId ? (
         <section className="mt-1 grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
           <div>
@@ -95,7 +107,10 @@ function PodBlock({ pod, summary, vehicle, vazios }: {
   const breakbulk = summary?.breakbulk ?? { bls: 0, machines: 0, packages: 0, weightTon: 0, cbm: 0 }
   const vehicleContainers = summary?.vehicles.distinctContainers ?? vehicle?.distinctContainerCount ?? 0
   const vehicleCount = vehicle?.totalVehicles ?? 0
-  const summaryLabel = `${containers.distinct} CNTRs · ${breakbulk.bls} B/Ls carga solta${vehicleContainers ? ` · ${vehicleContainers} CNTRs c/ veículos` : ''}`
+  const summaryParts: string[] = [`${containers.distinct} CNTRs`]
+  if (breakbulk.bls > 0) summaryParts.push(`${breakbulk.bls} B/Ls carga solta`)
+  if (vehicleContainers > 0) summaryParts.push(`${vehicleContainers} CNTRs c/ veículos`)
+  const summaryLabel = summaryParts.join(' · ')
 
   return (
     <div className="grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3.5 px-4">
@@ -105,7 +120,58 @@ function PodBlock({ pod, summary, vehicle, vazios }: {
         {breakbulk.bls ? <Panel title="Carga solta" icon={<FileText size={15} />} lead={breakbulk.weightTon} leadUnit="ton"><MiniStats stats={[['B/Ls', breakbulk.bls], ['Máquinas', breakbulk.machines], ['Packages', breakbulk.packages], ['CBM', breakbulk.cbm]]} /></Panel> : <Panel title="Carga solta" icon={<FileText size={15} />} empty="Sem carga solta nesta escala" />}
       </div>
       {vehicleCount ? <ScaleStrip title="Veículos" icon={<Car size={15} />} lead={vehicleCount} leadUnit="unidades" blocks={[{ label: 'CNTRs', value: vehicleContainers }, { label: 'Marcas', value: <CountPills values={parseCountSummary(vehicle?.brandSummary)} /> }, { label: 'Tipo de container', value: <CountPills values={parseCountSummary(vehicle?.vehicleByContainerTypeSummary)} />, grow: true }]} /> : <EmptyScaleStrip title="Veículos" icon={<Car size={15} />} text="Sem veículos descarregados nesta escala" />}
-      {vazios ? <ScaleStrip title="Vazios IMP" icon={<PackageOpen size={15} />} lead={vazios.distinctContainers} leadUnit="containers" blocks={[{ label: 'Manifestos', value: vazios.manifestos }, { label: 'Tipos', value: <CountPills values={vazios.types} />, grow: true }]} /> : <EmptyScaleStrip title="Vazios IMP" icon={<PackageOpen size={15} />} text="Sem vazios de importação nesta escala" />}
+      {vazios && (vazios.distinctContainers > 0 || vazios.manifestos > 0) ? <ScaleStrip title="Vazios IMP" icon={<PackageOpen size={15} />} lead={vazios.distinctContainers} leadUnit="containers" blocks={[{ label: 'Manifestos', value: vazios.manifestos }, { label: 'Tipos', value: <CountPills values={vazios.types} />, grow: true }]} /> : <EmptyScaleStrip title="Vazios IMP" icon={<PackageOpen size={15} />} text="Sem vazios de importação nesta escala" />}
+    </div>
+  )
+}
+
+function UnassignedCargoBlock({
+  vehicle,
+  vazios,
+}: {
+  vehicle?: VoyageVehicleStat['unassigned']
+  vazios?: VoyageVaziosImportacaoStat['unassigned']
+}) {
+  const vehicleCount = vehicle?.totalVehicles ?? 0
+  const vaziosCount = vazios?.distinctContainers ?? 0
+  const summaryParts: string[] = []
+  if (vehicleCount > 0) summaryParts.push(`${vehicleCount} veículos`)
+  if (vaziosCount > 0) summaryParts.push(`${vaziosCount} vazios`)
+
+  return (
+    <div className="grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3.5 px-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="inline-flex items-baseline gap-2">
+          <span className="text-[15px] font-bold text-[var(--app-text-strong)]">Sem escala atribuída</span>
+          <span className="text-xs text-[var(--app-muted-soft)]">Cargas de importação sem porto de descarga (POD) definido</span>
+        </span>
+        <span className="text-xs text-[var(--app-muted)]">{summaryParts.join(' · ')}</span>
+      </div>
+      {vehicleCount > 0 && vehicle ? (
+        <ScaleStrip
+          title="Veículos"
+          icon={<Car size={15} />}
+          lead={vehicleCount}
+          leadUnit="unidades"
+          blocks={[
+            { label: 'CNTRs', value: vehicle.distinctContainerCount },
+            { label: 'Marcas', value: <CountPills values={parseCountSummary(vehicle.brandSummary)} /> },
+            { label: 'Tipo de container', value: <CountPills values={parseCountSummary(vehicle.vehicleByContainerTypeSummary)} />, grow: true },
+          ]}
+        />
+      ) : null}
+      {vaziosCount > 0 && vazios ? (
+        <ScaleStrip
+          title="Vazios IMP"
+          icon={<PackageOpen size={15} />}
+          lead={vazios.distinctContainers}
+          leadUnit="containers"
+          blocks={[
+            { label: 'Manifestos', value: vazios.manifestos },
+            { label: 'Tipos', value: <CountPills values={vazios.types} />, grow: true },
+          ]}
+        />
+      ) : null}
     </div>
   )
 }
