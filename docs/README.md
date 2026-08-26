@@ -45,7 +45,7 @@ O fluxo canônico detalhado está em [ARCHITECTURE.md](ARCHITECTURE.md#fluxo-ope
 | Demurrage | [modules/demurrage.md](modules/demurrage.md) | `/demurrage`, `/demurrage/taxas` |
 | Conciliação PIX | [modules/reconciliacao-pix.md](modules/reconciliacao-pix.md) | `/reconciliacao` |
 | Portal do Cliente | [modules/portal-cliente.md](modules/portal-cliente.md) | `/portal/*` |
-| Operação & Suporte | [modules/operacao-suporte.md](modules/operacao-suporte.md) | `/painel`, `/revisao`, `/alertas`, `/relatorios`, `/line-up-tv`, `/admin/usuarios` |
+| Operação & Suporte | [modules/operacao-suporte.md](modules/operacao-suporte.md) | `/painel`, `/revisao`, `/alertas`, `/alertas/regras`, `/relatorios`, `/line-up-tv`, `/admin/usuarios` |
 
 ## Referência transversal
 

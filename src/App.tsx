@@ -37,6 +37,7 @@ const ClienteFicha = lazyPage(() => import('./pages/ClienteFicha'), 'ClienteFich
 const TaxasLocais = lazyPage(() => import('./pages/TaxasLocais'), 'TaxasLocais')
 const TaxasLocaisTabelas = lazyPage(() => import('./pages/TaxasLocaisTabelas'), 'TaxasLocaisTabelas')
 const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
+const AlertasRegras = lazyPage(() => import('./pages/AlertasRegras'), 'AlertasRegras')
 const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
 const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
@@ -108,7 +109,7 @@ const routePreloads: RoutePreloadTable = [
   ['/carga-solta', CargaSolta.preload], ['/veiculos', Veiculos.preload], ['/revisao', Revisao.preload],
   ['/clientes/portal', ClientesPortal.preload], ['/clientes/:cnpj', ClienteFicha.preload], ['/clientes', Clientes.preload],
   ['/taxas-locais/tabelas', TaxasLocaisTabelas.preload], ['/taxas-locais', TaxasLocais.preload],
-  ['/faturamento', TaxasLocais.preload], ['/alertas', Alertas.preload],
+  ['/faturamento', TaxasLocais.preload], ['/alertas/regras', AlertasRegras.preload], ['/alertas', Alertas.preload],
   ['/relatorios', Relatorios.preload], ['/demurrage', Demurrage.preload], ['/reconciliacao', Reconciliacao.preload],
   ['/granito/taxas', GraniteRates.preload], ['/granito', Granite.preload], ['/demurrage/taxas', DemurrageRates.preload],
   ['/embarquevazios/depots', DepotCadastro.preload], ['/embarquevazios', EmbarqueVazios.preload],
@@ -179,6 +180,7 @@ export default function App() {
           <Route path="/taxas-locais/tabelas" element={withSuspense(<TaxasLocaisTabelas />)} />
           <Route path="/taxas-locais" element={<TaxasLocaisRoute />} />
           <Route path="/faturamento" element={<LegacyFaturamentoRedirect />} />
+          <Route path="/alertas/regras" element={withSuspense(<AlertasRegras />)} />
           <Route path="/alertas" element={withSuspense(<Alertas />)} />
           <Route path="/relatorios" element={withSuspense(<Relatorios />)} />
           <Route path="/demurrage" element={withSuspense(<Demurrage />)} />

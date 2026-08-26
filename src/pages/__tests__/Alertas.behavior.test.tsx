@@ -68,6 +68,12 @@ it('US-138: oferece link direto para a entidade do alerta', () => {
   expect(screen.getAllByRole('link', { name: /Ver Fatura/ })[1].getAttribute('href')).toBe('/taxas-locais?invoice=123')
 })
 
+it('oferece o manual de regras no topo da página de alertas', () => {
+  renderAlertas()
+
+  expect(screen.getByRole('link', { name: 'Regras de Alertas' }).getAttribute('href')).toBe('/alertas/regras')
+})
+
 it('distingue o formato ADR legado do formato terminalizado ao abrir a viagem', () => {
   renderAlertas()
 

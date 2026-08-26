@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ExternalLink, History } from 'lucide-react'
+import { AlertTriangle, BookOpen, ExternalLink, History } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
@@ -149,6 +149,12 @@ export function Alertas() {
       <PageHeader
         title="Fila de Alertas Operacionais"
         description="Pendências de auditoria e operacionais com ações corretivas no sistema."
+        action={(
+          <Link to="/alertas/regras" className="app-btn app-btn--secondary inline-flex items-center gap-2">
+            <BookOpen size={15} aria-hidden="true" />
+            Regras de Alertas
+          </Link>
+        )}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
