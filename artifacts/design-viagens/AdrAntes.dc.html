@@ -173,13 +173,13 @@
   .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
 </style>
 </helmet>
-<div class="shell" style="min-height: 1180px">
+<div class="shell" style="min-height: 4420px">
   
   <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
       <div>
         <span style="display: inline-flex; align-items: center; border: 1px solid #b8b2a5; border-radius: 999px; background: #ede9df; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Hoje</span>
         <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba ADR &mdash; como est&aacute; hoje</div>
-        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Transcrição fiel de <code>VoyageAgencyReportTab.tsx</code>. O terminal — que decide o documento inteiro — é um seletor num painel discreto abaixo das escalas. As seções são agrupadas por fase, mas assinadas por departamento, e os dois níveis de assinatura não conversam.</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Transcrição fiel de <code>VoyageAgencyReportTab.tsx</code>, com as seis seções preenchidas até o limite do que cada uma exibe. O terminal — que decide o documento inteiro — é um seletor num painel discreto abaixo das escalas. As seções são agrupadas por fase, mas assinadas por departamento, e os dois níveis de assinatura não conversam: o bloco de departamentos abre a aba, longe das seções que ele responde.</div>
       </div>
       <div style="display: grid; gap: 16px">
     <div style="display: flex; flex-wrap: wrap; gap: 8px">
@@ -201,17 +201,17 @@
       <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
         <div style="display: grid; gap: 8px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
-            <span style="font-size: 14px; font-weight: 600; color: #1c1915">Operações</span>
+            <span style="font-size: 14px; font-weight: 600; color: #1c1915">Opera&ccedil;&otilde;es</span>
             <span style="border: 1px solid #1a8c50; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 600; color: #1a8c50">Assinado</span>
           </div>
-          <span style="font-size: 12px; color: #5a5549">Ana Ribeiro · 22/08 09:14</span>
+          <span style="font-size: 12px; color: #5a5549">Assinado por Ana Ribeiro em 22/08/2026</span>
           <span class="btn btn--secondary btn--sm">Reabrir</span>
         </div><div style="display: grid; gap: 8px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
-            <span style="font-size: 14px; font-weight: 600; color: #1c1915">Documentação</span>
+            <span style="font-size: 14px; font-weight: 600; color: #1c1915">Documenta&ccedil;&atilde;o</span>
             <span style="border: 1px solid #1a8c50; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 600; color: #1a8c50">Assinado</span>
           </div>
-          <span style="font-size: 12px; color: #5a5549">Marcos Lima · 22/08 10:02</span>
+          <span style="font-size: 12px; color: #5a5549">Assinado por Marcos Lima em 27/08/2026</span>
           <span class="btn btn--secondary btn--sm">Reabrir</span>
         </div><div style="display: grid; gap: 8px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
@@ -219,83 +219,416 @@
             <span style="border: 1px solid #cdc8bc; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 600; color: #5a5549">Pendente</span>
           </div>
           
-          <span class="btn btn--primary btn--sm">Assinar</span>
+          <span class="btn btn--primary btn--sm" style="opacity: 0.55">Assinar</span>
         </div>
       </div>
     </div>
+    <section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Escala</h3>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px">
+        <span style="font-size: 12px; color: #5a5549">Setor: Opera&ccedil;&otilde;es</span>
+        <span style="font-size: 12px; color: #5a5549">Confirmado por Ana Ribeiro em 22/08/2026</span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; color: #5a5549"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+        <span class="btn btn--secondary btn--sm">Adicionar observa&ccedil;&atilde;o</span>
+        <span style="display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cdc8bc; border-radius: 12px; background: #f8f6f1">
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #e6f7ee; color: #157a45; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Nada a declarar</span>
+  </span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: stretch"><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Armador</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">MSC Mediterranean Shipping</span>
+</div><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Navio / viagem</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">CAP SAN ANTONIO / 534N</span>
+</div><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Porto</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">BRSSZ</span>
+</div><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Terminal</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">BTP &mdash; Brasil Terminal Portu&aacute;rio</span>
+</div><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">ATA</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">19/08/2026</span>
+</div><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">ATB</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">19/08/2026</span>
+</div><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">ATD</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">21/08/2026</span>
+</div><div style="display: grid; gap: 3px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 6px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Restow</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">3</span>
+</div></div>
+    
+    
+  </section>
     <div style="display: grid; gap: 12px">
     <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: #5a5549">Importa&ccedil;&atilde;o</h2>
     <div style="display: grid; gap: 16px"><section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
     <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
-      <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Escala</h3>
-      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px">
-        <span style="font-size: 12px; color: #5a5549">Setor: Operações</span>
-        <span class="btn btn--secondary btn--sm">Observa&ccedil;&atilde;o</span>
-        <span style="display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cdc8bc; border-radius: 12px; background: #f8f6f1">
-    <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #e6f7ee; color: #157a45; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Nada a declarar</span>
-  </span>
-      </div>
-    </div>
-    
-    
-  </section><section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
-    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
       <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Carga descarregada</h3>
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px">
-        <span style="font-size: 12px; color: #5a5549">Setor: Documentação</span>
-        <span class="btn btn--secondary btn--sm">Observa&ccedil;&atilde;o</span>
+        <span style="font-size: 12px; color: #5a5549">Setor: Documenta&ccedil;&atilde;o</span>
+        <span style="font-size: 12px; color: #5a5549">Confirmado por Marcos Lima em 22/08/2026</span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; color: #5a5549"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+        <span class="btn btn--secondary btn--sm">Editar observa&ccedil;&atilde;o</span>
         <span style="display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cdc8bc; border-radius: 12px; background: #f8f6f1">
     <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #e6f7ee; color: #157a45; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Nada a declarar</span>
   </span>
       </div>
     </div>
-    
-    
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px"><div style="display: flex; align-items: baseline; gap: 7px">
+  <span style="font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c1915">148</span>
+  <span style="font-size: 14px; color: #5a5549">containers descarregados</span>
+</div><span style="border: 1px solid #cdc8bc; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; color: #1c1915">IMO: 6</span></div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch"><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Carga solta</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; gap: 7px">
+  <span style="font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c1915">213</span>
+  <span style="font-size: 14px; color: #5a5549">ton</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">B/Ls</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">4</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">M&aacute;quinas</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">7</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Packages</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">61</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Peso</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">213 ton</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">CBM</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">388,4</span>
+</div>
+        <div style="display: grid; gap: 12px; border-top: 1px solid #cdc8bc; padding-top: 16px">
+  <h4 style="margin: 0; font-size: 14px; font-weight: 600; color: #1c1915">Em transbordo</h4>
+  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">B/Ls</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">1</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">M&aacute;quinas</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">2</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Packages</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">12</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Peso</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">41 ton</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">CBM</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">74,6</span>
+</div>
+</div></div>
+</div><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Descarga de importa&ccedil;&atilde;o</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: grid; gap: 8px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">20GP &middot; carga geral</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">42</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">20GP &middot; IMO</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">4</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC &middot; carga geral</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">71</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC &middot; IMO</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">2</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC &middot; transbordo</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">9</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40OT &middot; carga geral</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">5</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40RH &middot; carga geral</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">15</span>
+</div></div></div>
+</div></div>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #c0393f">3 container(s) cheio(s) no Baplie sem B/L correspondente nesta escala &mdash; revisar na Concilia&ccedil;&atilde;o Baplie &times; B/L.</p>
+    <div style="display: grid; gap: 5px; border-radius: 8px; background: #ede9df; padding: 10px 12px">
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Observa&ccedil;&atilde;o</span>
+      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #1c1915">Dois containers com avaria de porta (MSCU7741203 e MSCU8812007) &mdash; fotos anexadas ao processo e comunicado ao armador em 21/08. O terminal registrou a avaria no EIR de descarga; a Concilia&ccedil;&atilde;o j&aacute; foi notificada para n&atilde;o reprocessar as unidades.</p>
+    </div>
   </section><section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
     <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
       <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Vazios descarregados</h3>
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px">
-        <span style="font-size: 12px; color: #5a5549">Setor: Documentação</span>
-        <span class="btn btn--secondary btn--sm">Observa&ccedil;&atilde;o</span>
+        <span style="font-size: 12px; color: #5a5549">Setor: Documenta&ccedil;&atilde;o</span>
+        <span style="font-size: 12px; color: #5a5549">Confirmado por Marcos Lima em 22/08/2026</span>
+        
+        <span class="btn btn--secondary btn--sm">Adicionar observa&ccedil;&atilde;o</span>
         <span style="display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cdc8bc; border-radius: 12px; background: #f8f6f1">
-    <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #fdf0dc; color: #a85309; font-size: 12px; font-weight: 600">Nada a declarar</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #e6f7ee; color: #157a45; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Nada a declarar</span>
   </span>
       </div>
     </div>
+    <div style="display: flex; align-items: baseline; gap: 7px">
+  <span style="font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c1915">26</span>
+  <span style="font-size: 14px; color: #5a5549">vazios descarregados</span>
+</div><div style="display: grid; gap: 8px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">20GP &middot; vazio &mdash; cama</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">8</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC &middot; vazio &mdash; cama</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">12</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC &middot; vazio &mdash; cover plate</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">6</span>
+</div></div>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #c0393f">Baplie aponta 28 vazio(s) descarregado(s) contra 26 no m&oacute;dulo de Vazios de Importa&ccedil;&atilde;o (2 ainda sem natureza classificada) &mdash; revisar na Concilia&ccedil;&atilde;o Baplie &times; B/L.</p>
     
-    <p style="margin: 0; font-size: 14px; color: #5a5549">Nada operado nesta escala.</p>
+  </section><section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Ve&iacute;culos</h3>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px">
+        <span style="font-size: 12px; color: #5a5549">Setor: Equipamentos</span>
+        
+        
+        <span class="btn btn--secondary btn--sm">Adicionar observa&ccedil;&atilde;o</span>
+        <span style="display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cdc8bc; border-radius: 12px; background: #f8f6f1">
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #e2ddd2; color: #1c1915; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Nada a declarar</span>
+  </span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 7px">
+  <span style="font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c1915">34</span>
+  <span style="font-size: 14px; color: #5a5549">VINs</span>
+</div>
+      <div style="display: grid; gap: 8px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">TOYOTA</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">3 BLs &middot; 18 VINs &middot; 4 em transbordo &middot; P&aacute;tio BTP, Armaz&eacute;m 3</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">HONDA</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">1 BL &middot; 11 VINs &middot; P&aacute;tio BTP</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Marca n&atilde;o informada</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">1 BL &middot; 5 VINs &middot; local de desova n&atilde;o informado</span>
+</div></div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch"><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Containers distintos por tipo</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">6</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">45HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">2</span>
+</div></div>
+</div><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Ve&iacute;culos por modelo</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">COROLLA</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">9</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">HILUX</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">6</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">YARIS</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">3</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">CIVIC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">7</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">HR-V</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">4</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Modelo n&atilde;o informado</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">5</span>
+</div></div>
+</div></div>
+    
+    
   </section></div>
   </div>
     <div style="display: grid; gap: 12px">
     <h2 style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: #5a5549">Exporta&ccedil;&atilde;o</h2>
     <div style="display: grid; gap: 16px"><section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
     <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
-      <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Carga carregada</h3>
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Granito</h3>
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px">
         <span style="font-size: 12px; color: #5a5549">Setor: Equipamentos</span>
-        <span class="btn btn--secondary btn--sm">Observa&ccedil;&atilde;o</span>
+        <span style="font-size: 12px; color: #5a5549">Nada a declarar por Paulo Nunes em 22/08/2026</span>
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; color: #5a5549"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+        <span class="btn btn--secondary btn--sm">Editar observa&ccedil;&atilde;o</span>
         <span style="display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cdc8bc; border-radius: 12px; background: #f8f6f1">
-    <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #e6f7ee; color: #157a45; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Nada a declarar</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #fdf0dc; color: #a85309; font-size: 12px; font-weight: 600">Nada a declarar</span>
   </span>
       </div>
     </div>
-    
-    
+    <div style="display: flex; align-items: baseline; gap: 7px">
+  <span style="font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c1915">1.842,6</span>
+  <span style="font-size: 14px; color: #5a5549">ton</span>
+</div>
+      <div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Granito</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">B/Ls</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">5</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Blocos</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">96</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Peso</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">1.842,6 ton</span>
+</div></div>
+</div>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #c0393f">2 B/L(s) de granito em BRRIO &mdash; porto n&atilde;o &eacute; escala desta viagem, verificar o cadastro.</p>
+    <div style="display: grid; gap: 5px; border-radius: 8px; background: #ede9df; padding: 10px 12px">
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Observa&ccedil;&atilde;o</span>
+      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #1c1915">Embarque de granito remanejado para a viagem 535N a pedido do shipper.</p>
+    </div>
   </section><section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
     <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
       <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #0e0c0a">Embarque de vazios</h3>
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px">
         <span style="font-size: 12px; color: #5a5549">Setor: Equipamentos</span>
-        <span class="btn btn--secondary btn--sm">Observa&ccedil;&atilde;o</span>
+        
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; color: #5a5549"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+        <span class="btn btn--secondary btn--sm">Adicionar observa&ccedil;&atilde;o</span>
         <span style="display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #cdc8bc; border-radius: 12px; background: #f8f6f1">
     <span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: #e2ddd2; color: #1c1915; font-size: 12px; font-weight: 600">Pendente</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Confirmado</span><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 40px; min-width: 44px; padding: 6px 12px; border-radius: 9px; background: transparent; color: #5a5549; font-size: 12px; font-weight: 600">Nada a declarar</span>
   </span>
       </div>
     </div>
-    <p style="margin: 0; font-size: 14px; color: #c0393f">18 unidades no Embarque contra 16 no Baplie — a Conciliação precisa revisar.</p>
+    <div style="display: grid; gap: 12px; ">
+  <h4 style="margin: 0; font-size: 14px; font-weight: 600; color: #1c1915">Containers embarcados</h4>
+  <div style="display: flex; align-items: baseline; gap: 7px">
+  <span style="font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c1915">62</span>
+  <span style="font-size: 14px; color: #5a5549">vazios embarcados</span>
+</div>
+      <div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Total por tipo</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">20GP</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">24</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">30</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40RH</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">8</span>
+</div></div>
+</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch"><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Santos Brasil Depot</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">20GP</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">14</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">12</span>
+</div></div>
+</div><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Rocha Terminais</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">20GP</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">10</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">8</span>
+</div></div>
+</div><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">BTP &mdash; Brasil Terminal Portu&aacute;rio</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">10</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">40RH</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">8</span>
+</div></div>
+</div></div>
+</div><div style="display: grid; gap: 12px; border-top: 1px solid #cdc8bc; padding-top: 16px">
+  <h4 style="margin: 0; font-size: 14px; font-weight: 600; color: #1c1915">Opera&ccedil;&atilde;o de p&aacute;tio</h4>
+  <div style="display: flex; align-items: baseline; gap: 7px">
+  <span style="font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; color: #1c1915">214</span>
+  <span style="font-size: 14px; color: #5a5549">dias de storage</span>
+</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch"><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Storage</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Containers</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">38</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Dias</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">214</span>
+</div></div>
+</div><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Embarque direto</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Unidades sem armazenagem</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">18</span>
+</div></div>
+</div><div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Locais</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Depots / terminais</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">Santos Brasil Depot, Rocha Terminais</span>
+</div></div>
+</div></div>
+      <div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Linhas de servi&ccedil;o</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="overflow: hidden; border: 1px solid #cdc8bc; border-radius: 8px">
+  <table class="table table--dense">
+    <thead><tr><th>Servi&ccedil;o</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>Unit&aacute;rio</th><th>Total</th><th>Observa&ccedil;&atilde;o</th></tr></thead>
+    <tbody><tr><td>Movimenta&ccedil;&atilde;o</td><td>Santos Brasil Depot</td><td>BTP</td><td>20GP</td><td class="num">24</td><td class="num">R$ 410,00</td><td class="num">R$ 9.840,00</td><td>&mdash;</td></tr><tr><td>Movimenta&ccedil;&atilde;o</td><td>Rocha Terminais</td><td>BTP</td><td>40HC</td><td class="num">18</td><td class="num">R$ 520,00</td><td class="num">R$ 9.360,00</td><td>Janela noturna</td></tr><tr><td>Lavagem</td><td>Santos Brasil Depot</td><td>&mdash;</td><td>40HC</td><td class="num">12</td><td class="num">R$ 285,00</td><td class="num">R$ 3.420,00</td><td>Res&iacute;duo de granito</td></tr><tr><td>Armazenagem</td><td>Rocha Terminais</td><td>&mdash;</td><td>20GP</td><td class="num">214</td><td class="num">R$ 38,00</td><td class="num">R$ 8.132,00</td><td>38 containers &times; per&iacute;odos</td></tr><tr><td>Reparo</td><td>Santos Brasil Depot</td><td>&mdash;</td><td>40RH</td><td class="num">2</td><td class="num">R$ 1.940,00</td><td class="num">R$ 3.880,00</td><td>Troca de gaxeta</td></tr></tbody>
+  </table>
+</div></div>
+</div>
+      <div style="display: grid; gap: 10px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #f8f6f1); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06); padding: 14px 16px">
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5a5549">Totais</div>
+  <div style="display: grid; gap: 8px; align-content: start"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px dashed #cdc8bc; padding-bottom: 5px">
+  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #5a5549">Total da opera&ccedil;&atilde;o</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 600; color: #1c1915">R$ 128.430,00</span>
+</div></div>
+</div>
+</div>
+    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #c0393f">6 unidade(s) de vazios embarcados em BRPNG &mdash; porto n&atilde;o &eacute; escala desta viagem, verificar o cadastro.</p>
     
   </section></div>
   </div>
+    <section style="display: grid; gap: 16px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 16px">
+    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0e0c0a">Linha do tempo do ADR</h3>
+    <div style="display: grid; gap: 4px">
+      <span style="font-size: 14px; font-weight: 600; color: #1c1915">Sa&iacute;da do navio (ATD)</span>
+      <p style="margin: 0; font-size: 14px; color: #1c1915">21/08/2026 <span style="color: #5a5549">&middot; registrado em 21/08/2026 18:40 (Atraca&ccedil;&atilde;o)</span></p>
+    </div>
+    <div style="display: grid; gap: 4px; border-top: 1px solid #cdc8bc; padding-top: 12px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600; color: #1c1915">Prazo de Conclus&atilde;o do ADR</span>
+      
+    </div>
+    <p style="margin: 0; font-size: 14px; color: #1c1915">Vence em 26/08/2026 (3 dias &uacute;teis ap&oacute;s o ATD).</p>
+  </div>
+    <div style="display: grid; gap: 4px; border-top: 1px solid #cdc8bc; padding-top: 12px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600; color: #1c1915">Assinatura &mdash; Opera&ccedil;&otilde;es</span>
+      <span style="border: 1px solid #1a8c50; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; color: #1a8c50">No prazo</span>
+    </div>
+    <p style="margin: 0; font-size: 14px; color: #1c1915">Assinado em 22/08/2026 09:14 por Ana Ribeiro</p>
+  </div><div style="display: grid; gap: 4px; border-top: 1px solid #cdc8bc; padding-top: 12px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600; color: #1c1915">Assinatura &mdash; Documenta&ccedil;&atilde;o</span>
+      <span style="border: 1px solid #c0393f; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; color: #c0393f">Atrasado</span>
+    </div>
+    <p style="margin: 0; font-size: 14px; color: #1c1915">Assinado em 27/08/2026 11:37 por Marcos Lima</p><p style="margin: 0; font-size: 12px; color: #5a5549">Reaberto em 25/08/2026 14:20 por Ana Ribeiro: Baplie reprocessado depois da corre&ccedil;&atilde;o de 3 containers &oacute;rf&atilde;os.</p>
+  </div><div style="display: grid; gap: 4px; border-top: 1px solid #cdc8bc; padding-top: 12px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600; color: #1c1915">Assinatura &mdash; Equipamentos</span>
+      <span style="border: 1px solid #1a8c50; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; color: #1a8c50">No prazo</span>
+    </div>
+    <p style="margin: 0; font-size: 14px; color: #5a5549">Ainda n&atilde;o assinado.</p>
+  </div>
+    <div style="display: grid; gap: 4px; border-top: 1px solid #cdc8bc; padding-top: 12px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600; color: #1c1915">Fechamento do ADR</span>
+      
+    </div>
+    <p style="margin: 0; font-size: 14px; color: #5a5549">ADR ainda aberto.</p>
+  </div>
+  </section>
   </div>
     </div>
 </div>

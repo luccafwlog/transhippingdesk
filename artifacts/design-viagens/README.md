@@ -10,12 +10,17 @@ versionada apenas como registro da decisão.
 O trabalho segue aba por aba. A primeira fechada é a **Visão geral**, no
 recorte da tabela de Planejamento por escala e do bloco de Atracações.
 
+Cada aba tem um par antes/depois lendo os mesmos dados. O ADR tem um terceiro
+artboard, `AdrEstados`, com as hipóteses que o fluxo cheio não mostra — os
+vazios do recorte por terminal, o documento fechado, a escala omitida, o ADR
+legado sem `terminal_id`, o leitor sem permissão e as guardas de erro.
+
 ## Páginas do canvas
 
 | Página | Artboards |
 | --- | --- |
 | Página | [`Main.dc.html`](./Main.dc.html) — a Direção A inteira |
-| Aba ADR | [`AdrAntes`](./AdrAntes.dc.html) e [`AdrDepois`](./AdrDepois.dc.html) |
+| Aba ADR | [`AdrAntes`](./AdrAntes.dc.html), [`AdrDepois`](./AdrDepois.dc.html) e [`AdrEstados`](./AdrEstados.dc.html) |
 | Cards | [`Cards.dc.html`](./Cards.dc.html) — anatomia e estados |
 | Aba Rotas e Manifestos | [`RotasAntes`](./RotasAntes.dc.html) e [`RotasDepois`](./RotasDepois.dc.html) |
 | Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html), [`ExportacaoDepois`](./ExportacaoDepois.dc.html), [`ExportacaoMultiDepot`](./ExportacaoMultiDepot.dc.html) e [`ModalGranito`](./ModalGranito.dc.html) |
@@ -51,7 +56,10 @@ posicionar as molduras sem sobreposição. Os módulos de apoio:
   Importação: faixa de total, bloco por escala, painel chapado com número
   dominante, tokens com contagem, faixa e barra de ações.
 - [`adr.mjs`](./adr.mjs) — a aba ADR: o "hoje", transcrição fiel de
-  `src/components/voyages/VoyageAgencyReportTab.tsx`, e a proposta.
+  `src/components/voyages/VoyageAgencyReportTab.tsx`, a proposta e a matriz de
+  hipóteses. Os dois primeiros artboards leem o mesmo conjunto de dados, cheio
+  até o limite do que cada uma das seis seções de `AGENCY_REPORT_SECTIONS`
+  exibe; só as primitivas de apresentação mudam entre eles.
 - [`rotas.mjs`](./rotas.mjs) — a aba Escalas & Manifestos renomeada para Rotas e
   Manifestos: o "hoje", transcrição fiel de
   `src/components/voyages/VoyageManifestosTab.tsx`, e a proposta.
@@ -66,6 +74,22 @@ posicionar as molduras sem sobreposição. Os módulos de apoio:
   o "hoje", transcrição fiel de `src/components/voyages/VoyageVisaoTab.tsx`, e
   a proposta fechada, com as atracações num painel recolhível de cabeçalho
   próprio. É a tabela que o `Main` usa.
+
+### Medindo a altura de um artboard
+
+`height` em `build.mjs` é o quadro; conteúdo além dele fica cortado. Para medir
+o que o artboard realmente ocupa, zere o `min-height` do `.shell` e leia a
+altura pelo DOM já executado:
+
+```sh
+sed -E 's/min-height: [0-9]+px/min-height: 0/' AdrDepois.dc.html > probe.html
+printf '<script>addEventListener("load",()=>setTimeout(()=>{document.title="H="+Math.ceil(document.querySelector(".shell").getBoundingClientRect().height)},300))</script>' >> probe.html
+/opt/pw-browsers/chromium --headless --disable-gpu --no-sandbox \
+  --virtual-time-budget=8000 --window-size=1440,900 --dump-dom \
+  "file://$PWD/probe.html" | grep -o '<title>H=[0-9]*'
+```
+
+O `height` do artboard é esse número mais ~140px de respiro do quadro.
 
 ## Publicação
 

@@ -11,8 +11,9 @@
   "ModalGranito.dc.html": 900,
   "RotasAntes.dc.html": 640,
   "RotasDepois.dc.html": 720,
-  "AdrAntes.dc.html": 1180,
-  "AdrDepois.dc.html": 1240,
+  "AdrAntes.dc.html": 4420,
+  "AdrDepois.dc.html": 3580,
+  "AdrEstados.dc.html": 1340,
   "DirecaoC.dc.html": 960,
   "DirecaoCDetalhe.dc.html": 1500
 }

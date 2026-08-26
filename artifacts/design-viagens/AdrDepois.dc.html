@@ -173,13 +173,13 @@
   .section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549; }
 </style>
 </helmet>
-<div class="shell" style="min-height: 1240px">
+<div class="shell" style="min-height: 3580px">
   
   <div style="padding: 28px; display: flex; flex-direction: column; gap: 18px">
       <div>
         <span style="display: inline-flex; align-items: center; border: 1px solid #bfdbfe; border-radius: 999px; background: #e8f0fb; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4d88">Proposta</span>
         <div style="margin-top: 10px; font-family: "Syne", "DM Sans", sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #0e0c0a">Aba ADR &mdash; proposta</div>
-        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">O ADR é por terminal, então o terminal sobe para o cabeçalho junto da escala e do estado do documento. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta e o próprio botão de assinar — ligando os dois níveis. Avisos ganham forma, e a hierarquia volta ao vocabulário do resto da página.</div>
+        <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: #5a5549">Mesmos dados, mesmos seis blocos. O ADR é por terminal, então o terminal sobe para o cabeçalho junto da escala, do prazo e do estado do documento. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar — ligando os dois níveis. Divergência e dado órfão ganham forma e nome, e a hierarquia volta ao vocabulário do resto da página.</div>
       </div>
       <div style="display: flex; flex-direction: column; gap: 16px">
     <div style="display: grid; gap: 14px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
@@ -195,6 +195,8 @@
       </span>
       <span style="display: inline-flex; align-items: center; gap: 8px">
         <span class="badge badge--blue" style="padding: 4px 10px">Aberto</span>
+        <span class="badge badge--yellow" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Prazo 26/08/2026</span>
+        <span class="btn btn--secondary btn--sm">Imprimir</span>
         <span class="btn btn--primary btn--sm" style="opacity: 0.55">Fechar ADR</span>
       </span>
     </div>
@@ -204,12 +206,12 @@
       <span class="btn btn--secondary btn--sm" style="border-radius: 999px; min-height: 34px">BRVIX <span class="badge badge--slate" style="padding: 4px 10px">Omitida</span></span>
       <span style="width: 1px; height: 22px; background: #cdc8bc; margin: 0 6px"></span>
       <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579; margin-right: 2px">Terminal</span>
-      <span class="btn btn--primary btn--sm" style="border-radius: 999px; min-height: 34px">BTP <span class="badge badge--blue" style="padding: 4px 10px">5 se&ccedil;&otilde;es</span></span>
-      <span class="btn btn--secondary btn--sm" style="border-radius: 999px; min-height: 34px">DPW <span class="badge badge--green" style="padding: 2px 8px; font-size: 10px">Fechado</span></span>
+      <span class="btn btn--primary btn--sm" style="border-radius: 999px; min-height: 34px">BTP <span class="badge badge--blue" style="padding: 4px 10px">6 se&ccedil;&otilde;es</span></span>
+      <span class="btn btn--secondary btn--sm" style="border-radius: 999px; min-height: 34px">DPW <span class="badge badge--green" style="padding: 4px 10px">Fechado</span></span>
     </div>
     <div style="display: flex; align-items: flex-start; gap: 8px; border-top: 1px solid #cdc8bc; padding-top: 12px; font-size: 12px; line-height: 1.5; color: #8a8579">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4882e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-      <span><b style="color: #8f4d08">Falta Equipamentos assinar</b> &mdash; 1 de 2 se&ccedil;&otilde;es do setor ainda pendente. Os 3 departamentos precisam assinar para fechar este ADR.</span>
+      <span><b style="color: #8f4d08">Falta Equipamentos assinar</b> &mdash; 2 de 3 se&ccedil;&otilde;es do setor ainda pendentes (Ve&iacute;culos e Embarque de vazios). Os 3 departamentos precisam assinar para fechar este ADR.</span>
     </div>
   </div>
     <div style="display: flex; align-items: center; gap: 12px">
@@ -220,79 +222,178 @@
     <div style="display: grid; gap: 12px"><section style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
         <span style="display: inline-flex; align-items: center; gap: 12px">
-          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Operações</span>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Opera&ccedil;&otilde;es</span>
           <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1a8c50">1/1 se&ccedil;&otilde;es</span>
           <span style="display: inline-flex; gap: 3px"><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span></span>
+          <span class="badge badge--green" style="padding: 4px 10px">No prazo</span>
         </span>
         <span style="display: inline-flex; align-items: center; gap: 10px">
-          <span style="font-size: 11px; color: #8a8579">Ana Ribeiro · 22/08 09:14</span>
+          <span style="font-size: 11px; color: #8a8579">Assinado por Ana Ribeiro em 22/08/2026</span>
           <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Assinado</span>
           <span class="btn btn--secondary btn--sm" style="min-height: 34px">Reabrir</span>
         </span>
       </div>
+      
       <div style="display: grid; gap: 10px"><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
-        <span style="display: inline-flex; align-items: center; gap: 10px">
+        <span style="display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap">
           <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Escala</span>
-          <span class="pill" style="background: #f8f6f1">Atracação</span>
-          
+          <span class="pill" style="background: #f8f6f1">Atraca&ccedil;&atilde;o</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #8a8579"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8579" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> 2 no hist&oacute;rico</span>
         </span>
         <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span style="font-size: 11px; color: #8a8579">Confirmado por Ana Ribeiro em 22/08/2026</span>
           <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Confirmado</span>
           <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
         </span>
       </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start"><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Armador</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">MSC Mediterranean Shipping</span>
+</div><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Navio / viagem</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">CAP SAN ANTONIO / 534N</span>
+</div><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Porto</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">BRSSZ</span>
+</div><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Terminal</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">BTP &mdash; Brasil Terminal Portu&aacute;rio</span>
+</div><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">ATA</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">19/08/2026</span>
+</div><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">ATB</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">19/08/2026</span>
+</div><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">ATD</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">21/08/2026</span>
+</div><div style="display: grid; gap: 2px; align-content: start">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Restow</span>
+  <span style="font-size: 13px; font-weight: 600; color: #1c1915">3</span>
+</div></div>
       
       
     </div></div>
     </section><section style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
         <span style="display: inline-flex; align-items: center; gap: 12px">
-          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Documentação</span>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Documenta&ccedil;&atilde;o</span>
           <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #1a8c50">2/2 se&ccedil;&otilde;es</span>
           <span style="display: inline-flex; gap: 3px"><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span></span>
+          <span class="badge badge--red" style="padding: 4px 10px">Atrasado</span>
         </span>
         <span style="display: inline-flex; align-items: center; gap: 10px">
-          <span style="font-size: 11px; color: #8a8579">Marcos Lima · 22/08 10:02</span>
+          <span style="font-size: 11px; color: #8a8579">Assinado por Marcos Lima em 27/08/2026</span>
           <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Assinado</span>
           <span class="btn btn--secondary btn--sm" style="min-height: 34px">Reabrir</span>
         </span>
       </div>
+      <div style="display: flex; align-items: flex-start; gap: 8px; border-radius: 6px; background: #ede9df; padding: 8px 11px; font-size: 11px; line-height: 1.5; color: #5a5549">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg><span><b>Reaberto em 25/08/2026 14:20 por Ana Ribeiro</b> &mdash; Baplie reprocessado depois da corre&ccedil;&atilde;o de 3 containers &oacute;rf&atilde;os.</span>
+      </div>
       <div style="display: grid; gap: 10px"><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
-        <span style="display: inline-flex; align-items: center; gap: 10px">
+        <span style="display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap">
           <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Carga descarregada</span>
-          <span class="pill" style="background: #f8f6f1">CNTR importação</span>
-          <span title="Dois containers com avaria de porta, fotos no processo." style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #cdc8bc; border-radius: 999px; background: #f8f6f1; padding: 3px 9px 3px 7px; font-size: 11px; font-weight: 600; color: #5a5549"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg> Observa&ccedil;&atilde;o</span>
+          <span class="pill" style="background: #f8f6f1">CNTR importa&ccedil;&atilde;o</span><span class="pill" style="background: #f8f6f1">Carga solta</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #8a8579"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8579" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> 3 no hist&oacute;rico</span>
         </span>
         <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span style="font-size: 11px; color: #8a8579">Confirmado por Marcos Lima em 22/08/2026</span>
           <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Confirmado</span>
           <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
         </span>
       </div>
-      
-      
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+  <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">148</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">containers descarregados</span>
+  <span class="badge badge--red" style="padding: 4px 10px">IMO: 6</span>
+</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start"><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Carga solta</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+  <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">213</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">ton</span>
+  
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">B/Ls</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">4</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">M&aacute;quinas</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">7</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Packages</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">61</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Peso</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">213 ton</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">CBM</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">388,4</span>
+</div>
+        <div style="display: grid; gap: 12px; border-top: 1px dashed #cdc8bc; padding-top: 14px">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Em transbordo</span>
+  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">B/Ls</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">1</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">M&aacute;quinas</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">2</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Packages</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">12</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Peso</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">41 ton</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">CBM</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">74,6</span>
+</div>
+</div></div>
+</div><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Descarga de importa&ccedil;&atilde;o</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">42</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; IMO<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">4</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">71</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; IMO<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">2</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; transbordo<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">9</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40OT &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">5</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40RH &middot; carga geral<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">15</b></span></div></div>
+</div></div>
+      <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fecaca; border-radius: 8px; background: #fceaea; padding: 10px 12px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0393f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span style="font-size: 12px; line-height: 1.5; color: #c0393f"><b>Diverg&ecirc;ncia</b> &mdash; 3 container(s) cheio(s) no Baplie sem B/L correspondente nesta escala &mdash; revisar na Concilia&ccedil;&atilde;o Baplie &times; B/L.</span>
+          </div>
+      <div style="display: grid; gap: 5px; border-left: 3px solid #b8b2a5; border-radius: 0 6px 6px 0; background: #f8f6f1; padding: 9px 12px">
+        <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Observa&ccedil;&atilde;o</span>
+        <p style="margin: 0; font-size: 12px; line-height: 1.55; color: #1c1915">Dois containers com avaria de porta (MSCU7741203 e MSCU8812007) &mdash; fotos anexadas ao processo e comunicado ao armador em 21/08. O terminal registrou a avaria no EIR de descarga; a Concilia&ccedil;&atilde;o j&aacute; foi notificada para n&atilde;o reprocessar as unidades.</p>
+      </div>
     </div><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
-        <span style="display: inline-flex; align-items: center; gap: 10px">
+        <span style="display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap">
           <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Vazios descarregados</span>
           <span class="pill" style="background: #f8f6f1">Vazios IMP</span>
           
         </span>
         <span style="display: inline-flex; align-items: center; gap: 8px">
-          <span class="badge badge--yellow" style="padding: 4px 10px">Nada a declarar</span>
+          <span style="font-size: 11px; color: #8a8579">Confirmado por Marcos Lima em 22/08/2026</span>
+          <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Confirmado</span>
           <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
         </span>
       </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+  <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">26</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">vazios descarregados</span>
+  
+</div><div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">20GP &middot; vazio &mdash; cama<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">8</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; vazio &mdash; cama<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">12</b></span><span class="pill" style="background: #f8f6f1; gap: 6px; padding: 3px 9px">40HC &middot; vazio &mdash; cover plate<b style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; color: #1c1915">6</b></span></div>
+      <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fecaca; border-radius: 8px; background: #fceaea; padding: 10px 12px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0393f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span style="font-size: 12px; line-height: 1.5; color: #c0393f"><b>Diverg&ecirc;ncia</b> &mdash; Baplie aponta 28 vazio(s) descarregado(s) contra 26 no m&oacute;dulo de Vazios de Importa&ccedil;&atilde;o (2 ainda sem natureza classificada) &mdash; revisar na Concilia&ccedil;&atilde;o Baplie &times; B/L.</span>
+          </div>
       
-      <div style="border: 1px dashed #cdc8bc; border-radius: 6px; padding: 12px; text-align: center; font-size: 12px; color: #8a8579">Nada operado nesta escala</div>
     </div></div>
     </section><section style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
         <span style="display: inline-flex; align-items: center; gap: 12px">
           <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Equipamentos</span>
-          <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #d4882e">1/2 se&ccedil;&otilde;es</span>
-          <span style="display: inline-flex; gap: 3px"><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span><span style="width: 26px; height: 4px; border-radius: 999px; background: #e2ddd2"></span></span>
+          <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; color: #d4882e">1/3 se&ccedil;&otilde;es</span>
+          <span style="display: inline-flex; gap: 3px"><span style="width: 26px; height: 4px; border-radius: 999px; background: #e2ddd2"></span><span style="width: 26px; height: 4px; border-radius: 999px; background: #1a8c50"></span><span style="width: 26px; height: 4px; border-radius: 999px; background: #e2ddd2"></span></span>
+          
         </span>
         <span style="display: inline-flex; align-items: center; gap: 10px">
           
@@ -300,43 +401,283 @@
           <span class="btn btn--primary btn--sm" style="min-height: 34px; opacity: 0.5">Assinar setor</span>
         </span>
       </div>
-      <div style="display: grid; gap: 10px"><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      
+      <div style="display: grid; gap: 10px"><div style="display: grid; gap: 12px; border: 1px solid #d4882e; border-radius: 8px; background: #ffffff; padding: 14px 16px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
-        <span style="display: inline-flex; align-items: center; gap: 10px">
-          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Carga carregada</span>
-          <span class="pill" style="background: #f8f6f1">Granito</span>
+        <span style="display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Ve&iacute;culos</span>
+          <span class="pill" style="background: #f8f6f1">Ve&iacute;culos</span>
           
         </span>
         <span style="display: inline-flex; align-items: center; gap: 8px">
-          <span class="badge badge--green" style="padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Confirmado</span>
-          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
-        </span>
-      </div>
-      
-      
-    </div><div style="display: grid; gap: 12px; border: 1px solid #d4882e; border-radius: 8px; background: #ffffff; padding: 14px 16px">
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
-        <span style="display: inline-flex; align-items: center; gap: 10px">
-          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Embarque de vazios</span>
-          <span class="pill" style="background: #f8f6f1">Vazios EXP</span>
           
-        </span>
-        <span style="display: inline-flex; align-items: center; gap: 8px">
           <span class="badge badge--slate" style="padding: 4px 10px">Pendente</span>
           <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
         </span>
       </div>
-      <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fecaca; border-radius: 8px; background: #fceaea; padding: 10px 12px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0393f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-        <span style="font-size: 12px; line-height: 1.5; color: #c0393f">18 unidades no Embarque contra 16 no Baplie — a Conciliação precisa revisar.</span>
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+  <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">34</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">VINs</span>
+  
+</div>
+      <div style="display: grid; gap: 8px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">TOYOTA</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">3 BLs &middot; 18 VINs &middot; 4 em transbordo &middot; P&aacute;tio BTP, Armaz&eacute;m 3</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">HONDA</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">1 BL &middot; 11 VINs &middot; P&aacute;tio BTP</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Marca n&atilde;o informada</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">1 BL &middot; 5 VINs &middot; local de desova n&atilde;o informado</span>
+</div></div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start"><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Containers distintos por tipo</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">6</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">45HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">2</span>
+</div></div>
+</div><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Ve&iacute;culos por modelo</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">COROLLA</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">9</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">HILUX</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">6</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">YARIS</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">3</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">CIVIC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">7</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">HR-V</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">4</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Modelo n&atilde;o informado</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">5</span>
+</div></div>
+</div></div>
+      
+      
+    </div><div style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Granito</span>
+          <span class="pill" style="background: #f8f6f1">Granito</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #8a8579"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8579" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> 1 no hist&oacute;rico</span>
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span style="font-size: 11px; color: #8a8579">Nada a declarar por Paulo Nunes em 22/08/2026</span>
+          <span class="badge badge--yellow" style="padding: 4px 10px">Nada a declarar</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
+        </span>
       </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+  <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">1.842,6</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">ton</span>
+  
+</div>
+      <div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Granito</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">B/Ls</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">5</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Blocos</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">96</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Peso</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">1.842,6 ton</span>
+</div></div>
+</div>
+      <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fde68a; border-radius: 8px; background: #fdf0dc; padding: 10px 12px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4882e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span style="font-size: 12px; line-height: 1.5; color: #8f4d08"><b>Dado &oacute;rf&atilde;o</b> &mdash; 2 B/L(s) de granito em BRRIO &mdash; porto n&atilde;o &eacute; escala desta viagem, verificar o cadastro.</span>
+          </div>
+      <div style="display: grid; gap: 5px; border-left: 3px solid #b8b2a5; border-radius: 0 6px 6px 0; background: #f8f6f1; padding: 9px 12px">
+        <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Observa&ccedil;&atilde;o</span>
+        <p style="margin: 0; font-size: 12px; line-height: 1.55; color: #1c1915">Embarque de granito remanejado para a viagem 535N a pedido do shipper.</p>
+      </div>
+    </div><div style="display: grid; gap: 12px; border: 1px solid #d4882e; border-radius: 8px; background: #ffffff; padding: 14px 16px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap">
+          <span style="font-size: 15px; font-weight: 700; color: #0e0c0a">Embarque de vazios</span>
+          <span class="pill" style="background: #f8f6f1">Vazios EXP</span><span class="pill" style="background: #f8f6f1">P&aacute;tio</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #8a8579"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8579" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> 1 no hist&oacute;rico</span>
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          
+          <span class="badge badge--slate" style="padding: 4px 10px">Pendente</span>
+          <span class="btn btn--secondary btn--sm" style="min-height: 32px; font-size: 11px">Alterar</span>
+        </span>
+      </div>
+      <div style="display: grid; gap: 12px; ">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Containers embarcados</span>
+  <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+  <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">62</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">vazios embarcados</span>
+  
+</div>
+      <div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Total por tipo</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">20GP</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">24</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">30</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">40RH</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">8</span>
+</div></div>
+</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start"><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Santos Brasil Depot</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">20GP</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">14</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">12</span>
+</div></div>
+</div><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Rocha Terminais</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">20GP</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">10</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">8</span>
+</div></div>
+</div><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">BTP &mdash; Brasil Terminal Portu&aacute;rio</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">40HC</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">10</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">40RH</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">8</span>
+</div></div>
+</div></div>
+</div><div style="display: grid; gap: 12px; border-top: 1px dashed #cdc8bc; padding-top: 14px">
+  <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Opera&ccedil;&atilde;o de p&aacute;tio</span>
+  <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px">
+  <span style="font-family: "Syne", "DM Sans", sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #0e0c0a">214</span>
+  <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #8a8579">dias de storage</span>
+  
+</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start"><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Storage</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Containers</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">38</span>
+</div><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Dias</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">214</span>
+</div></div>
+</div><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Embarque direto</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Unidades sem armazenagem</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">18</span>
+</div></div>
+</div><div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Locais</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Depots / terminais</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">Santos Brasil Depot, Rocha Terminais</span>
+</div></div>
+</div></div>
+      <div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Linhas de servi&ccedil;o</div>
+  <div style="display: grid; gap: 7px"><div style="overflow: hidden; border: 1px solid #cdc8bc; border-radius: 8px">
+  <table class="table table--dense">
+    <thead><tr><th>Servi&ccedil;o</th><th>Local</th><th>Rota</th><th>Tipo</th><th>Quantidade</th><th>Unit&aacute;rio</th><th>Total</th><th>Observa&ccedil;&atilde;o</th></tr></thead>
+    <tbody><tr><td>Movimenta&ccedil;&atilde;o</td><td>Santos Brasil Depot</td><td>BTP</td><td>20GP</td><td class="num">24</td><td class="num">R$ 410,00</td><td class="num">R$ 9.840,00</td><td>&mdash;</td></tr><tr><td>Movimenta&ccedil;&atilde;o</td><td>Rocha Terminais</td><td>BTP</td><td>40HC</td><td class="num">18</td><td class="num">R$ 520,00</td><td class="num">R$ 9.360,00</td><td>Janela noturna</td></tr><tr><td>Lavagem</td><td>Santos Brasil Depot</td><td>&mdash;</td><td>40HC</td><td class="num">12</td><td class="num">R$ 285,00</td><td class="num">R$ 3.420,00</td><td>Res&iacute;duo de granito</td></tr><tr><td>Armazenagem</td><td>Rocha Terminais</td><td>&mdash;</td><td>20GP</td><td class="num">214</td><td class="num">R$ 38,00</td><td class="num">R$ 8.132,00</td><td>38 containers &times; per&iacute;odos</td></tr><tr><td>Reparo</td><td>Santos Brasil Depot</td><td>&mdash;</td><td>40RH</td><td class="num">2</td><td class="num">R$ 1.940,00</td><td class="num">R$ 3.880,00</td><td>Troca de gaxeta</td></tr></tbody>
+  </table>
+</div></div>
+</div>
+      <div style="display: grid; gap: 9px; align-content: start; border: 1px solid #cdc8bc; border-radius: 8px; background: #ffffff; padding: 12px 14px">
+  <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #8a8579">Totais</div>
+  <div style="display: grid; gap: 7px"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+  <span style="font-size: 12px; color: #5a5549">Total da opera&ccedil;&atilde;o</span>
+  <span style="font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c1915">R$ 128.430,00</span>
+</div></div>
+</div>
+</div>
+      <div style="display: flex; align-items: flex-start; gap: 9px; border: 1px solid #fde68a; border-radius: 8px; background: #fdf0dc; padding: 10px 12px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4882e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span style="font-size: 12px; line-height: 1.5; color: #8f4d08"><b>Dado &oacute;rf&atilde;o</b> &mdash; 6 unidade(s) de vazios embarcados em BRPNG &mdash; porto n&atilde;o &eacute; escala desta viagem, verificar o cadastro.</span>
+          </div>
       
     </div></div>
     </section></div>
+    <section style="display: grid; gap: 12px; border: 1px solid #cdc8bc; border-radius: 8px; background: #f8f6f1; padding: 14px 16px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5a5549">Linha do tempo</span>
+      <span style="flex: 1; height: 1px; background: #cdc8bc"></span>
+      <span style="font-size: 11px; color: #8a8579">prazo = ATD + 3 dias &uacute;teis</span>
+    </div>
+    <div style="display: flex; gap: 14px">
+      <div style="display: grid; gap: 4px; align-content: start; flex: 1; min-width: 0; border-left: 1px solid #cdc8bc; padding-left: 14px">
+    <span style="display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Sa&iacute;da (ATD)</span>
+      
+    </span>
+    <span style="font-size: 12px; font-weight: 600; color: #1c1915">21/08/2026</span>
+    <span style="font-size: 10px; line-height: 1.45; color: #8a8579">registrado 21/08 18:40 &middot; Atraca&ccedil;&atilde;o</span>
+  </div>
+      <div style="display: grid; gap: 4px; align-content: start; flex: 1; min-width: 0; border-left: 1px solid #cdc8bc; padding-left: 14px">
+    <span style="display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Prazo</span>
+      <span class="badge badge--yellow" style="padding: 4px 10px">Em aberto</span>
+    </span>
+    <span style="font-size: 12px; font-weight: 600; color: #1c1915">26/08/2026</span>
+    <span style="font-size: 10px; line-height: 1.45; color: #8a8579">3 dias &uacute;teis ap&oacute;s o ATD</span>
+  </div>
+      <div style="display: grid; gap: 4px; align-content: start; flex: 1; min-width: 0; border-left: 1px solid #cdc8bc; padding-left: 14px">
+    <span style="display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Opera&ccedil;&otilde;es</span>
+      <span class="badge badge--green" style="padding: 4px 10px">No prazo</span>
+    </span>
+    <span style="font-size: 12px; font-weight: 600; color: #1c1915">22/08/2026 09:14</span>
+    <span style="font-size: 10px; line-height: 1.45; color: #8a8579">por Ana Ribeiro</span>
+  </div><div style="display: grid; gap: 4px; align-content: start; flex: 1; min-width: 0; border-left: 1px solid #cdc8bc; padding-left: 14px">
+    <span style="display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Documenta&ccedil;&atilde;o</span>
+      <span class="badge badge--red" style="padding: 4px 10px">Atrasado</span>
+    </span>
+    <span style="font-size: 12px; font-weight: 600; color: #1c1915">27/08/2026 11:37</span>
+    <span style="font-size: 10px; line-height: 1.45; color: #8a8579">por Marcos Lima</span>
+  </div><div style="display: grid; gap: 4px; align-content: start; flex: 1; min-width: 0; border-left: 1px solid #cdc8bc; padding-left: 14px">
+    <span style="display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Equipamentos</span>
+      <span class="badge badge--green" style="padding: 4px 10px">No prazo</span>
+    </span>
+    <span style="font-size: 12px; font-weight: 600; color: #1c1915">Ainda n&atilde;o assinado</span>
+    <span style="font-size: 10px; line-height: 1.45; color: #8a8579">2 se&ccedil;&otilde;es pendentes</span>
+  </div>
+      <div style="display: grid; gap: 4px; align-content: start; flex: 1; min-width: 0; border-left: 1px solid #cdc8bc; padding-left: 14px">
+    <span style="display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8579">Fechamento</span>
+      <span class="badge badge--slate" style="padding: 4px 10px">Aberto</span>
+    </span>
+    <span style="font-size: 12px; font-weight: 600; color: #8a8579">&mdash;</span>
+    <span style="font-size: 10px; line-height: 1.45; color: #8a8579">depende dos 3 setores</span>
+  </div>
+    </div>
+    <div style="display: flex; align-items: flex-start; gap: 8px; border-top: 1px dashed #cdc8bc; padding-top: 10px; font-size: 11px; line-height: 1.5; color: #5a5549">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5a5549" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg><span><b>Documenta&ccedil;&atilde;o</b> &middot; Reaberto em 25/08/2026 14:20 por Ana Ribeiro &mdash; Baplie reprocessado depois da corre&ccedil;&atilde;o de 3 containers &oacute;rf&atilde;os.</span>
+    </div>
+  </section>
     <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-inline: 2px; font-size: 11px; line-height: 1.5; color: #8a8579">
-      <span>As se&ccedil;&otilde;es vis&iacute;veis mudam por terminal: <code>sectionIsVisible</code> esconde a que n&atilde;o tem frente naquele terminal.</span>
+      <span>A pastilha ao lado da se&ccedil;&atilde;o &eacute; a frente de opera&ccedil;&atilde;o que a comp&otilde;e &mdash; &eacute; ela que decide se h&aacute; conte&uacute;do neste terminal.</span>
       <span style="width: 1px; height: 12px; background: #cdc8bc"></span>
-      <span>A pastilha ao lado da se&ccedil;&atilde;o &eacute; a frente de opera&ccedil;&atilde;o que a comp&otilde;e.</span>
+      <span>O prazo por departamento (<code>ADR 0039</code>) sobe para o grupo; a linha do tempo continua abaixo, como hist&oacute;rico.</span>
     </div>
   </div>
     </div>

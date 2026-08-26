@@ -23,7 +23,8 @@ const artboards = [
   { file: 'RotasDepois.dc.html', title: 'Aba Rotas e Manifestos · proposta', x: 0, y: 19160, page: 'page-8' },
 
   { file: 'AdrAntes.dc.html', title: 'Aba ADR · hoje', x: 0, y: 20500, page: 'page-9' },
-  { file: 'AdrDepois.dc.html', title: 'Aba ADR · proposta', x: 0, y: 21800, page: 'page-9' },
+  { file: 'AdrDepois.dc.html', title: 'Aba ADR · proposta', x: 0, y: 25120, page: 'page-9' },
+  { file: 'AdrEstados.dc.html', title: 'Aba ADR · hipóteses de estado', x: 0, y: 28900, page: 'page-9' },
 
   { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7400, page: 'page-4' },
   { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7400, page: 'page-4' },
@@ -123,7 +124,7 @@ const annotations = [
     text: [
       'ABA ADR — o documento é por terminal, e a aba não mostrava isso.',
       '',
-      'resolvedReportId é o terminal: own, signoffEvents, departmentSignoffEvents, close, reopen e observação são todos amarrados a ele. E sectionIsVisible esconde a seção que não tem frente naquele terminal — ou seja, o terminal decide até quais seções existem. Hoje ele é um seletor num painel discreto abaixo das escalas.',
+      'resolvedReportId é o terminal: own, signoffEvents, departmentSignoffEvents, close, reopen e observação são todos amarrados a ele. E o recorte por frente (sectionIsVisible + terminalViewFor) esvazia o conteúdo da seção que não tem frente naquele terminal — a seção continua exigindo resolução, mas mostra "Não há frente atribuída a este terminal". Hoje o terminal é um seletor num painel discreto abaixo das escalas.',
       '',
       'Cinco mudanças:',
       '',
@@ -132,6 +133,11 @@ const annotations = [
       '3. Os dois níveis de assinatura passam a conversar. Cada grupo traz o contador de seções resolvidas e o próprio botão de assinar o setor; o botão fica esmaecido enquanto sobra seção pendente. O cabeçalho diz o que falta para o Fechar ADR, que hoje só olha signedDepartmentsCount !== 3 sem explicar nada.',
       '4. Avisos ganham forma. Divergência, dado órfão e nada operado eram <p> de 14px, com o mesmo peso de qualquer parágrafo; agora são callout vermelho e estado vazio tracejado. A observação da seção vira um chip visível — hoje só se descobre abrindo o editor.',
       '5. Hierarquia e vocabulário. ReportPhase era um <h2> de 12px acima de blocos com <h3> de 16px; o selo do departamento usava borda e texto verde sem fundo, fora do .app-badge. As frentes de operação que compõem cada seção aparecem como pastilha, já que são elas que decidem a visibilidade.',
+      '6. A linha do tempo vira trilho. Eram sete marcos empilhados, cada um repetindo o mesmo par título/parágrafo; viram paradas lado a lado, com o estado do prazo dentro da parada e a reabertura justificada pendurada embaixo de quem foi reaberto.',
+      '',
+      'Os dois artboards leem os MESMOS dados, preenchidos até o limite do que cada seção exibe — as seis seções de AGENCY_REPORT_SECTIONS, matriz de descarga, carga solta com transbordo, veículos por marca/modelo/tipo, granito, embarque de vazios por local, operação de pátio com linhas de serviço, os três estados de sign-off, divergência, dado órfão, observação, atribuição e histórico.',
+      '',
+      'O terceiro artboard reúne as hipóteses que não cabem no fluxo cheio: os dois vazios do recorte por terminal, os três vazios de conteúdo, o documento fechado, a escala omitida, a escala sem ATD, o ADR legado sem terminal_id, o leitor sem permissão de sign-off, o departamento atrasado e reaberto e as guardas de erro. Cada cartão cita a condição que o produz no código.',
     ].join('\n'),
   },
   {

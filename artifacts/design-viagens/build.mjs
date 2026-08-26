@@ -11,7 +11,7 @@ import { importacaoAntes, importacaoDepois } from './importacao.mjs'
 import { exportacaoAntes, exportacaoDepois, exportacaoMultiDepot } from './exportacao.mjs'
 import { modalGranitoAntes, modalGranitoDepois } from './modalgranito.mjs'
 import { rotasAntes, rotasDepois } from './rotas.mjs'
-import { adrAntes, adrDepois } from './adr.mjs'
+import { adrAntes, adrDepois, adrEstados } from './adr.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -278,21 +278,29 @@ out('RotasDepois.dc.html', compareBoard({
   body: `<div style="display: flex; flex-direction: column; gap: 18px">${abasCom(ABAS_NOVAS, 'Rotas e Manifestos')}${rotasDepois()}</div>`,
 }), ROTA_D_H)
 
-const ADR_A_H = 1180
+const ADR_A_H = 4420
 out('AdrAntes.dc.html', compareBoard({
   height: ADR_A_H, chip: 'Hoje', chipTone: 'hoje',
   title: 'Aba ADR &mdash; como est&aacute; hoje',
-  note: 'Transcrição fiel de <code>VoyageAgencyReportTab.tsx</code>. O terminal — que decide o documento inteiro — é um seletor num painel discreto abaixo das escalas. As seções são agrupadas por fase, mas assinadas por departamento, e os dois níveis de assinatura não conversam.',
+  note: 'Transcrição fiel de <code>VoyageAgencyReportTab.tsx</code>, com as seis seções preenchidas até o limite do que cada uma exibe. O terminal — que decide o documento inteiro — é um seletor num painel discreto abaixo das escalas. As seções são agrupadas por fase, mas assinadas por departamento, e os dois níveis de assinatura não conversam: o bloco de departamentos abre a aba, longe das seções que ele responde.',
   body: adrAntes(),
 }), ADR_A_H)
 
-const ADR_D_H = 1240
+const ADR_D_H = 3580
 out('AdrDepois.dc.html', compareBoard({
   height: ADR_D_H, chip: 'Proposta', chipTone: 'proposta',
   title: 'Aba ADR &mdash; proposta',
-  note: 'O ADR é por terminal, então o terminal sobe para o cabeçalho junto da escala e do estado do documento. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta e o próprio botão de assinar — ligando os dois níveis. Avisos ganham forma, e a hierarquia volta ao vocabulário do resto da página.',
+  note: 'Mesmos dados, mesmos seis blocos. O ADR é por terminal, então o terminal sobe para o cabeçalho junto da escala, do prazo e do estado do documento. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar — ligando os dois níveis. Divergência e dado órfão ganham forma e nome, e a hierarquia volta ao vocabulário do resto da página.',
   body: adrDepois(),
 }), ADR_D_H)
+
+const ADR_E_H = 1340
+out('AdrEstados.dc.html', compareBoard({
+  height: ADR_E_H, chip: 'Hip&oacute;teses', chipTone: 'proposta',
+  title: 'Aba ADR &mdash; estados que o fluxo cheio n&atilde;o mostra',
+  note: 'O recorte por terminal produz dois vazios diferentes; o conteúdo produz mais três. Somam-se a eles o documento fechado, a escala omitida, a escala sem ATD, o ADR legado sem <code>terminal_id</code>, o leitor sem permissão de sign-off e as guardas de erro. Cada cartão cita a condição que o produz no código.',
+  body: adrEstados(),
+}), ADR_E_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *
