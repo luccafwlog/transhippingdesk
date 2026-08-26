@@ -269,7 +269,7 @@ describe('getAgencyReportDerivedData', () => {
     })
   })
 
-  it('faz OOG vencer IMO e preserva o flag no merge de duplicatas', async () => {
+  it('faz OOG vencer IMO, respeita a precedência do Baplie e preserva o merge', async () => {
     fromMock.mockImplementation((table: string) => {
       if (table === 'bl_containers') {
         return queryBuilder([
@@ -277,10 +277,14 @@ describe('getAgencyReportDerivedData', () => {
           { id: 21, container_number: 'OOGIMO00001', type: null, is_imo: false, is_oog: true, bl: { transshipments: [] } },
           { id: 22, container_number: 'IMOONLY00001', type: '20GP', is_imo: true, is_oog: false, bl: { transshipments: [] } },
           { id: 23, container_number: 'BAPOOG00001', type: '20GP', is_imo: false, is_oog: false, bl: { transshipments: [] } },
+          { id: 24, container_number: 'BAPNOOOG0001', type: '20GP', is_imo: false, is_oog: true, bl: { transshipments: [] } },
         ])
       }
       if (table === 'baplie_containers') {
-        return queryBuilder([{ container_number: 'BAPOOG00001', size_type: '22G1', status: 'full', is_imo: false, is_oog: true, pod: 'BRVIX' }])
+        return queryBuilder([
+          { container_number: 'BAPOOG00001', size_type: '22G1', status: 'full', is_imo: false, is_oog: true, pod: 'BRVIX' },
+          { container_number: 'BAPNOOOG0001', size_type: '22G1', status: 'full', is_imo: false, is_oog: false, pod: 'BRVIX' },
+        ])
       }
       if (table === 'vazios_export_operations') return singleQueryBuilder(null)
       return queryBuilder()
@@ -293,6 +297,7 @@ describe('getAgencyReportDerivedData', () => {
       { container_number: 'OOGIMO00001', size_type: '40HC', is_imo: true, is_oog: true, category: 'oog' },
       { container_number: 'IMOONLY00001', size_type: '20GP', is_imo: true, is_oog: false, category: 'imo' },
       { container_number: 'BAPOOG00001', size_type: '20GP', is_imo: false, is_oog: true, category: 'oog' },
+      { container_number: 'BAPNOOOG0001', size_type: '20GP', is_imo: false, is_oog: false, category: 'carga_geral' },
     ]))
     expect(result.containers.filter((container) => container.container_number === 'OOGIMO00001')).toHaveLength(1)
   })
