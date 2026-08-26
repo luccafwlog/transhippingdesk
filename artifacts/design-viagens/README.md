@@ -101,3 +101,15 @@ outra URL. O título publicado é "Página de Viagens".
 Para atualizar: rode os dois scripts acima e semeie de novo com o helper do
 skill `design` (`seed-canvas.mjs --template ... --artboard ... --canvas
 canvas.json`), republicando no mesmo Artifact.
+
+> **`seed-canvas.mjs` não está neste repositório.** Ele pertence ao skill
+> `design` e só existe na máquina de quem tem esse skill instalado — não há como
+> republicar o canvas a partir de um clone limpo. O que **é** reproduzível aqui,
+> e é o que o CI e a revisão conferem, são os artefatos versionados: `node
+> build.mjs && node canvas.mjs` regenera os `.dc.html`, o `heights.json` e o
+> `canvas.json` de forma determinística, byte a byte. A semeadura é o último
+> passo, manual, e só quem for republicar precisa dele.
+>
+> Consequência prática: quem alterar um `.mjs` **precisa commitar os `.dc.html`,
+> o `heights.json` e o `canvas.json` regerados junto** — quem revisa não
+> consegue produzi-los de outra forma.

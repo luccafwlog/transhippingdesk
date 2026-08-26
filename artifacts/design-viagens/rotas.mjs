@@ -45,7 +45,7 @@ export function rotasAntes() {
       </div>
       <div style="overflow: hidden; border: 1px solid ${T.border}; border-radius: 16px; background: ${T.surface}; box-shadow: ${T.shadow}">
         <table style="width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: left">
-          <thead><tr>${th('Rota / Manifesto', '40%')}${th('ATD POL', '12%')}${th('B/Ls', '8%')}${th('CE Merc.', '12%')}${th('CE Master', '16%')}${th('A&ccedil;&otilde;es', '12%')}</tr></thead>
+          <thead><tr>${th('Rota / Manifesto', '40%')}${th('ATD POL', '12%')}${th('B/Ls', '8%')}${th('CE Merc.', '12%')}${th('CE Master', '12%')}${th('A&ccedil;&otilde;es', '16%')}</tr></thead>
           <tbody>
             ${ROTAS.map((r, i) => `<tr style="background: ${i % 2 === 1 ? 'rgba(19, 32, 51, 0.018)' : T.surface}${i > 0 ? `; border-top: 1px solid ${T.border}` : ''}">
               <td style="padding: 8px 12px"><span style="display: inline-flex; align-items: center; gap: 8px">

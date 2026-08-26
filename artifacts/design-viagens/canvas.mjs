@@ -26,7 +26,16 @@ const artboards = [
   { file: 'AdrDepois.dc.html', title: 'Aba ADR · proposta', x: 0, y: 25120, page: 'page-9' },
   { file: 'AdrEstados.dc.html', title: 'Aba ADR · hipóteses de estado', x: 0, y: 29200, page: 'page-9' },
 
-].map((a) => ({ ...a, w: W, h: H[a.file] }))
+].map((a) => {
+  // Sem essa guarda, um arquivo ausente de heights.json vira h: undefined, que
+  // o JSON.stringify descarta; a conferência de sobreposição lá embaixo passa a
+  // comparar com NaN e nunca avisa nada. Melhor quebrar aqui.
+  const h = H[a.file]
+  if (!Number.isFinite(h) || h <= 0) {
+    throw new Error(`heights.json não tem altura válida para ${a.file} (rode 'node build.mjs' antes). Valor lido: ${JSON.stringify(h)}`)
+  }
+  return { ...a, w: W, h }
+})
 
 const annotations = [
   {
@@ -56,14 +65,14 @@ const annotations = [
       'VISÃO GERAL · PLANEJAMENTO POR ESCALA — hoje e a proposta, com os mesmos dados.',
       'BRSSZ já atracou (ATA, ATB, ATD preenchidos); BRVIX ainda não chegou.',
       '',
-      'Oito mudanças:',
+      'Seis mudanças:',
       '',
       '1. Cabeçalho em dois níveis: Chegada com ETA (previsto) e ATA (real). O previsto fica em cinza e o realizado em escuro — a linha passa a ser lida por onde o navio está.',
-      '2. A coluna "BLs e CEs" só mostrava o rótulo do status do CE. Passa a mostrar o B/L que o nome promete, a cobertura como medidor, e o status como legenda.',
+      '2. A coluna "BLs e CEs" continua sendo o rótulo de status manual do usuário, e só isso. Não tem ligação com o estado real dos B/Ls e CEs da escala — por isso NÃO ganha contagem nem medidor. (Uma versão anterior desta nota prometia um medidor de cobertura aqui; o artboard nunca o desenhou e a decisão é a oposta.)',
       '3. VINCULADA era texto puro SIM/NÃO. Vira badge.',
       '4. A divergência sai do text-amber-400 (#fbbf24, fora dos tokens e ilegível a 11px) para os tokens dourados, nomeando o campo; o texto completo fica no title.',
       '5. As atracações saem da grade da escala e viram painel recolhível, recuado, com tabela e cabeçalho próprios (Terminal · ETB · ATB · ETD · ATD · Restow) em tom claro — nada de herdar as colunas de cima. A escala ganha chevron e contador.',
-      '6. O ATD da escala ganha a marca "deriv." — o cabeçalho diz "ATD derivado" mas nada explicava de onde deriva.',
+      '6. O cabeçalho "ATD derivado" passa a ser só "ATD", e o badge "deriv" sai. A derivação (o ATD da escala existe quando toda atracação desatracou — VoyageScheduleModals.tsx:546-556) é regra de preenchimento, não rótulo de coluna: quem lê a linha quer a data. (Uma versão anterior desta nota dizia o contrário — que o ATD GANHAVA a marca. Plano e artboard sempre a removeram.)',
     ].join('\n'),
   },
   {
@@ -88,16 +97,20 @@ const annotations = [
     text: [
       'ABA EXPORTAÇÃO — herda a gramática fechada na Importação.',
       '',
-      'O achado que move a aba: VoyageExportacaoTab.tsx chama summarizeExportByPol, que devolve granito e vazios POR terminal de embarque — e usa só o .length do resultado, para decidir se mostra os painéis. Todo o detalhe por POL é calculado e descartado; a aba exibe apenas os totais da viagem.',
+      'O achado que move a aba: VoyageExportacaoTab.tsx chama summarizeExportByPol e usa só o .length do resultado, para decidir se mostra os painéis. Todo o detalhe por grupo é calculado e descartado; a aba exibe apenas os totais da viagem.',
+      '',
+      'CORREÇÃO (revisão do PR): summarizeExportByPol NÃO devolve por terminal de embarque, como esta nota afirmava. Ela agrupa os vazios por DEPOT — a chave é canonicalPort(booking.local?.code), e local é local:depots(...) na query. O terminal mora em vazios_export_operations.embark_port, ligado por vazios_bookings.operation_id, e não é sequer selecionado pela query da viagem. O granito já é por porto (granite_manifests.loading_port); só o lado dos vazios está desalinhado. Ver Bloco 3.0-3.2 do plano: a query de useBls passa a trazer a operação, e a função vira summarizeExportByEmbarkPort.',
       '',
       'O que vem da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, estado vazio explícito, e a barra de ações numa fila só.',
       '',
       'AÇÕES — corrigidas depois de conferir o código:',
       '',
-      '1. Vazios EXP deixa de ser upload avulso. A RPC import_vazios_bookings_transactional até cria a vazios_export_operations a partir do embark_port da planilha, mas popula só as unidades — nunca as vazios_export_service_lines — e pula a escolha do porto entre as escalas. O botão passa a levar ao Embarque com a viagem travada; a planilha de unidades continua dentro dele, junto das taxas de serviço.',
+      '1. Vazios EXP deixa de ser upload avulso. Hoje ele É um upload: VoyageImportActions.tsx:154 abre um FileImportModal que chama importVaziosManifest. A RPC import_vazios_bookings_transactional até cria a vazios_export_operations a partir do embark_port da planilha, mas popula só as unidades — nunca as vazios_export_service_lines — e pula a escolha do porto entre as escalas. O botão passa a levar ao Embarque com a viagem travada; a planilha de unidades continua dentro dele, junto das taxas de serviço.',
       '2. CE Mercante (Granito) JÁ EXISTE, em /granito (Granite.tsx:475). Aqui é atalho com a viagem travada, não recurso novo. A nota anterior dizia o contrário e estava errada.',
       '',
-      'MÚLTIPLOS DEPOTS (segundo artboard da proposta): um terminal de embarque pode receber vazios de vários depots — a origem já é plural no dado. Cada booking tem local_id apontando para depots, e vazios.origins é um summarizeUniqueValues, então N depots viram hoje uma string concatenada num campo só. O painel passa a abrir a repartição por depot; com um depot só, colapsa na linha única. As taxas de serviço também são por depot: vazios_export_service_lines tem local_id e destino_id.',
+      'MÚLTIPLOS DEPOTS (segundo artboard da proposta): um terminal de embarque pode receber vazios de vários depots — a origem é plural no dado, e as taxas de serviço também são por depot (vazios_export_service_lines tem local_id e destino_id). O painel abre a repartição por depot; com um depot só, colapsa na linha única.',
+      '',
+      'CORREÇÃO (revisão do PR): esta nota dizia que os N depots já apareciam hoje como string concatenada em vazios.origins. Não aparecem. origins é summarizeUniqueValues sobre local.name/local.code, calculado dentro de um grupo cuja PRÓPRIA chave saiu desse mesmo campo — então ele devolve sempre um depot só, e o estado multi-depot é hoje inalcançável por esse caminho. O artboard está certo; o que faltava era o eixo. Reagrupando por embark_port, os depots viram a lista de dentro de cada bloco e o painel passa a ter o que desenhar. É por isso que o Bloco 3.2 troca origins: string por depots: Array<...>.',
       '',
       'MODAL DE MANIFESTO GRANITO (último artboard): o parser devolve vesselVoyage, o navio/viagem declarado dentro da planilha, e importGraniteManifest devolve pendingCount, os B/Ls que não casaram com cliente. O modal descarta os dois e mostra só B/Ls e Erros — dá para importar a planilha errada na viagem certa sem perceber. A barra de prévia do FileImportModal ainda usa cores de tema escuro cravadas no código, dentro de um modal claro.',
     ].join('\n'),
@@ -113,7 +126,7 @@ const annotations = [
       '',
       '1. O grupo Mercante reúne as duas colunas que hoje se chamam quase igual e são coisas diferentes: CE Mercante · cobertura é a cobertura por B/L; Nº de manifesto Mercante agrupa a rota. Cada uma passa a ser nomeada pelo que é.',
       '2. O número faltante vira ação. Hoje é o texto "manifesto não informado" em #b45309 — cor fora dos tokens — e o que fazer só aparece no title do elemento. Vira um chip "Informar" nos tokens dourados.',
-      '3. Larguras redistribuídas. O table-fixed dá 40% para a rota e 12% para uma coluna de Ações com um botão de 38px; a rota com omissão (POL → POD riscado → POD de descarga, mais o selo) não cabe. Rota vai a 46%, ações encolhem para o botão.',
+      '3. Larguras redistribuídas. O colgroup atual é 40% · 12% · 8% · 12% · 12% · 16% — Rota, ATD POL, B/Ls, CE Merc., CE Master e Ações. A rota com omissão (POL → POD riscado → POD de descarga, mais o selo) não cabe em 40%, enquanto Ações leva 16% para três ícones — é hoje a segunda coluna mais larga da tabela. Rota vai a 46% e Ações a 10%; os 12% devolvidos ficam com o grupo Mercante. (Uma versão anterior desta nota, e o artboard "antes", diziam que Ações tinha 12% e CE Master 16% — estava invertido.)',
       '4. Faixa de totais no topo, como nas outras abas: rotas, B/Ls vinculados, cobertura de CE agregada e quantos números de manifesto faltam. A faixa de conciliação sai — repetia o KPI de Conciliação que já está no herói da viagem.',
     ].join('\n'),
   },
