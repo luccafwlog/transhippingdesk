@@ -125,6 +125,10 @@ export type VoyageVaziosManifest = {
     container_type: string | null
     local_id: string
     condition: string
+    operation?: {
+      id: string
+      embark_port: string | null
+    } | null
     local?: {
       id: string
       code: string
@@ -1220,48 +1224,88 @@ export function summarizeImportByPod(
   })
 }
 
-// --- Exportação por terminal de embarque (POL/origem) ------------------------
+// --- Exportação por terminal de embarque -------------------------------------
 
-export type PolExportSummary = {
-  pol: string
+export type EmbarkPortExportSummary = {
+  embarkPort: string
   granite: { manifests: number; bls: number; weightTon: number; readyForBilling: number; invoiced: number }
-  vazios: { units: number; distinctContainers: number; types: string; origins: string }
+  vazios: {
+    units: number
+    distinctContainers: number
+    types: string
+    depots: Array<{ code: string; name: string | null; units: number; types: string }>
+  }
 }
 
-/** Resume Granito e Vazios de exportação por terminal de embarque. */
-export function summarizeExportByPol(
+/** Resume Granito e Vazios de exportação pelo embark_port real da operação. */
+export function summarizeExportByEmbarkPort(
   graniteManifests: VoyageGraniteManifest[] | null | undefined,
   vaziosManifests: VoyageVaziosManifest[] | null | undefined,
-): PolExportSummary[] {
-  const granite = graniteManifests ?? []
-  const allBookings = (vaziosManifests ?? []).flatMap((manifest) => manifest.vazios_bookings ?? [])
+): EmbarkPortExportSummary[] {
+  const groups = new Map<string, {
+    granite: VoyageGraniteManifest[]
+    bookings: NonNullable<VoyageVaziosManifest['vazios_bookings']>
+  }>()
 
-  const pols = Array.from(
-    new Set([
-      ...granite.map((manifest) => canonicalPort(manifest.loading_port)),
-      ...allBookings.map((booking) => canonicalPort(booking.local?.code)),
-    ]),
-  ).sort((left, right) => left.localeCompare(right, 'pt-BR'))
+  const ensureGroup = (embarkPort: string) => {
+    const current = groups.get(embarkPort)
+    if (current) return current
+    const created = { granite: [], bookings: [] }
+    groups.set(embarkPort, created)
+    return created
+  }
 
-  return pols.map((pol) => {
-    const polGranite = granite.filter((manifest) => canonicalPort(manifest.loading_port) === pol)
-    const polBookings = allBookings.filter((booking) => canonicalPort(booking.local?.code) === pol)
-    const graniteBls = polGranite.flatMap((manifest) => manifest.granite_bls ?? [])
+  for (const manifest of graniteManifests ?? []) {
+    ensureGroup(canonicalPort(manifest.loading_port)).granite.push(manifest)
+  }
+
+  for (const manifest of vaziosManifests ?? []) {
+    for (const booking of manifest.vazios_bookings ?? []) {
+      ensureGroup(canonicalPort(booking.operation?.embark_port)).bookings.push(booking)
+    }
+  }
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, 'pt-BR'))
+    .map(([embarkPort, group]) => {
+    const graniteBls = group.granite.flatMap((manifest) => manifest.granite_bls ?? [])
+    const depots = new Map<string, { code: string; name: string | null; bookings: typeof group.bookings }>()
+
+    for (const booking of group.bookings) {
+      const depotId = booking.local_id || booking.local?.id || booking.local?.code || 'unknown'
+      const current = depots.get(depotId)
+      if (current) {
+        current.bookings.push(booking)
+      } else {
+        depots.set(depotId, {
+          code: booking.local?.code ?? booking.local_id,
+          name: booking.local?.name ?? null,
+          bookings: [booking],
+        })
+      }
+    }
 
     return {
-      pol,
+      embarkPort,
       granite: {
-        manifests: polGranite.length,
-        bls: polGranite.reduce((sum, manifest) => sum + Number(manifest.total_bls ?? manifest.granite_bls?.length ?? 0), 0),
-        weightTon: polGranite.reduce((sum, manifest) => sum + Number(manifest.total_weight_kg ?? 0) / 1000, 0),
+        manifests: group.granite.length,
+        bls: group.granite.reduce((sum, manifest) => sum + Number(manifest.total_bls ?? manifest.granite_bls?.length ?? 0), 0),
+        weightTon: group.granite.reduce((sum, manifest) => sum + Number(manifest.total_weight_kg ?? 0) / 1000, 0),
         readyForBilling: graniteBls.filter((bl) => bl.charge_status === 'ready_for_billing').length,
         invoiced: graniteBls.filter((bl) => bl.charge_status === 'invoiced').length,
       },
       vazios: {
-        units: polBookings.length,
-        distinctContainers: countDistinctContainerNumbers(polBookings),
-        types: summarizeOccurrences(polBookings, (booking) => booking.container_type, 'Não informado'),
-        origins: summarizeUniqueValues(polBookings.map((booking) => booking.local?.name ?? booking.local?.code)),
+        units: group.bookings.length,
+        distinctContainers: countDistinctContainerNumbers(group.bookings),
+        types: summarizeOccurrences(group.bookings, (booking) => booking.container_type, 'Não informado'),
+        depots: [...depots.entries()]
+          .sort(([left], [right]) => left.localeCompare(right, 'pt-BR'))
+          .map(([, depot]) => ({
+            code: depot.code,
+            name: depot.name,
+            units: depot.bookings.length,
+            types: summarizeOccurrences(depot.bookings, (booking) => booking.container_type, 'Não informado'),
+          })),
       },
     }
   })

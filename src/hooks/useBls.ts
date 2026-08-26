@@ -375,6 +375,8 @@ export function useVoyages() {
               container_type,
               local_id,
               condition,
+              operation_id,
+              operation:vazios_export_operations(id, embark_port),
               local:depots(id, code, name, tipo)
             )
           ),

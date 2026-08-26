@@ -17,7 +17,7 @@ import {
   deriveEstadoConciliacao,
   getProximaEscala,
   isEtaOverdue,
-  summarizeExportByPol,
+  summarizeExportByEmbarkPort,
   summarizeImportByPod,
   splitVoyageBls,
   voyageCeCoverage,
@@ -156,13 +156,13 @@ export function VoyageCard({
   const totalVehicleContainers = vehicleStats.distinctContainerCount
   const totalBreakbulkMachines = importSummary.reduce((sum, pod) => sum + pod.breakbulk.machines, 0)
   const totalBreakbulkPackages = importSummary.reduce((sum, pod) => sum + pod.breakbulk.packages, 0)
-  const exportSummary = summarizeExportByPol(voyage.granite_manifests, voyage.vazios_manifests)
+  const exportSummary = summarizeExportByEmbarkPort(voyage.granite_manifests, voyage.vazios_manifests)
   const totalExportContainers = (voyage.vazios_manifests ?? []).reduce(
     (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
     0,
   )
-  const totalGraniteBls = exportSummary.reduce((sum, pol) => sum + pol.granite.bls, 0)
-  const totalGraniteWeightTon = exportSummary.reduce((sum, pol) => sum + pol.granite.weightTon, 0)
+  const totalGraniteBls = exportSummary.reduce((sum, embarkPort) => sum + embarkPort.granite.bls, 0)
+  const totalGraniteWeightTon = exportSummary.reduce((sum, embarkPort) => sum + embarkPort.granite.weightTon, 0)
   const destinationPorts = collectVoyagePorts(
     voyage.bls,
     'pod',

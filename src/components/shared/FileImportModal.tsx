@@ -9,7 +9,7 @@ export type FilePreviewEntry<T> = {
   preview: T
 }
 
-type Props<T> = {
+type Props<T, TResult = void> = {
   title: string
   subtitle?: ReactNode
   prerequisite?: ReactNode
@@ -17,16 +17,17 @@ type Props<T> = {
   accept: string
   multiple?: boolean
   parser: (file: File) => Promise<T>
-  importer?: (preview: T, file: File) => Promise<void>
+  importer?: (preview: T, file: File) => Promise<TResult>
   batchImporter?: (entries: FilePreviewEntry<T>[]) => Promise<void>
   canImport: (preview: T) => boolean
   renderPreview: (preview: T, file: File) => ReactNode
   renderBatchSummary?: (entries: FilePreviewEntry<T>[]) => ReactNode
+  renderImportResult?: (result: TResult) => ReactNode
   helper?: ReactNode
   onClose: () => void
 }
 
-export function FileImportModal<T>({
+export function FileImportModal<T, TResult = void>({
   title,
   subtitle,
   prerequisite,
@@ -39,19 +40,22 @@ export function FileImportModal<T>({
   canImport,
   renderPreview,
   renderBatchSummary,
+  renderImportResult,
   helper,
   onClose,
-}: Props<T>) {
+}: Props<T, TResult>) {
   const { showToast } = useToast()
   const [entries, setEntries] = useState<FilePreviewEntry<T>[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [parsing, setParsing] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<TResult | undefined>(undefined)
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
     setEntries([])
     setActiveIndex(0)
+    setImportResult(undefined)
     if (!files.length) return
     setParsing(true)
     const parsedEntries: FilePreviewEntry<T>[] = []
@@ -70,15 +74,20 @@ export function FileImportModal<T>({
     const importableEntries = entries.filter((entry) => canImport(entry.preview))
     if (!importableEntries.length) return
     setImporting(true)
+    let hasImportResult = false
     try {
       if (batchImporter) {
         await batchImporter(importableEntries)
       } else if (importer) {
         for (const entry of importableEntries) {
-          await importer(entry.preview, entry.file)
+          const result = await importer(entry.preview, entry.file)
+          if (renderImportResult && result !== undefined) {
+            hasImportResult = true
+            setImportResult(result as TResult)
+          }
         }
       }
-      onClose()
+      if (!renderImportResult || !hasImportResult) onClose()
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao importar.', 'error')
     } finally {
@@ -115,14 +124,15 @@ export function FileImportModal<T>({
           </div>
         ) : null}
         {activeEntry ? renderPreview(activeEntry.preview, activeEntry.file) : null}
+        {importResult !== undefined && renderImportResult ? renderImportResult(importResult) : null}
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button
-            disabled={!ready || !entries.some((entry) => canImport(entry.preview))}
+            disabled={importResult !== undefined ? false : !ready || !entries.some((entry) => canImport(entry.preview))}
             loading={importing}
-            onClick={() => void handleImport()}
+            onClick={() => importResult !== undefined ? onClose() : void handleImport()}
           >
-            Confirmar
+            {importResult !== undefined ? 'Concluir' : 'Confirmar'}
           </Button>
         </div>
       </div>

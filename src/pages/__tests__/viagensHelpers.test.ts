@@ -11,7 +11,7 @@ import {
   getProximaEscala,
   getVaziosModuleStats,
   splitVoyageBls,
-  summarizeExportByPol,
+  summarizeExportByEmbarkPort,
   summarizeImportByPod,
   summarizeModuleAvailability,
   normalizeVoyageStatus,
@@ -638,42 +638,42 @@ describe('buildVoyageTimeline', () => {
   })
 })
 
-describe('summarizeExportByPol', () => {
+describe('summarizeExportByEmbarkPort', () => {
   it('consolida aliases de Vitoria no POL canonico', () => {
-    const summary = summarizeExportByPol(
+    const summary = summarizeExportByEmbarkPort(
       [{ loading_port: 'Vitoria', total_bls: 1, total_weight_kg: 1000, granite_bls: [] }] as never,
-      [{ vazios_bookings: [{ id: 'vix', container_number: 'VIX1', container_type: '40HC', local: { code: 'BRVIT' } }] }] as never,
+      [{ vazios_bookings: [{ id: 'vix', container_number: 'VIX1', container_type: '40HC', operation: { embark_port: 'BRVIT' }, local: { id: 'depot-vix', code: 'VIX-DP', name: 'Depot Vitória' } }] }] as never,
     )
 
-    expect(summary.map((row) => row.pol)).toEqual(['BRVIX'])
+    expect(summary.map((row) => row.embarkPort)).toEqual(['BRVIX'])
     expect(summary[0].granite.manifests).toBe(1)
     expect(summary[0].vazios.units).toBe(1)
+    expect(summary[0].vazios.depots).toEqual([{ code: 'VIX-DP', name: 'Depot Vitória', units: 1, types: '40HC: 1' }])
   })
 
-  it('agrupa granito e vazios por terminal de embarque', () => {
+  it('agrupa dois depots no mesmo terminal de embarque', () => {
     const granite = [
       { loading_port: 'CNSHA', total_bls: 5, total_weight_kg: 2000, granite_bls: [{ id: '1', charge_status: 'invoiced' }] },
     ] as never
     const vazios = [
       {
         vazios_bookings: [
-          { id: '1', container_number: 'V1', container_type: '40HC', local_id: 'local-sha', condition: 'vazio', local: { id: 'local-sha', code: 'CNSHA', name: 'Depot SHA', tipo: 'depot' } },
-          { id: '2', container_number: 'V2', container_type: '40HC', local_id: 'local-nbo', condition: 'vazio', local: { id: 'local-nbo', code: 'CNNBO', name: 'Depot NBO', tipo: 'depot' } },
+          { id: '1', container_number: 'V1', container_type: '40HC', local_id: 'local-sha', condition: 'vazio', operation: { embark_port: 'CNSHA' }, local: { id: 'local-sha', code: 'SHA-DP', name: 'Depot SHA', tipo: 'depot' } },
+          { id: '2', container_number: 'V2', container_type: '20GP', local_id: 'local-nbo', condition: 'vazio', operation: { embark_port: 'CNSHA' }, local: { id: 'local-nbo', code: 'NBO-DP', name: 'Depot NBO', tipo: 'depot' } },
         ],
       },
     ] as never
 
-    const summary = summarizeExportByPol(granite, vazios)
-    const sha = summary.find((s) => s.pol === 'CNSHA')!
-    const nbo = summary.find((s) => s.pol === 'CNNBO')!
+    const summary = summarizeExportByEmbarkPort(granite, vazios)
+    const sha = summary.find((s) => s.embarkPort === 'CNSHA')!
 
-    expect(summary.map((s) => s.pol)).toEqual(['CNNBO', 'CNSHA'])
+    expect(summary.map((s) => s.embarkPort)).toEqual(['CNSHA'])
     expect(sha.granite.manifests).toBe(1)
     expect(sha.granite.bls).toBe(5)
     expect(sha.granite.weightTon).toBe(2)
     expect(sha.granite.invoiced).toBe(1)
-    expect(sha.vazios.units).toBe(1)
-    expect(nbo.granite.manifests).toBe(0)
-    expect(nbo.vazios.distinctContainers).toBe(1)
+    expect(sha.vazios.units).toBe(2)
+    expect(sha.vazios.depots).toHaveLength(2)
+    expect(sha.vazios.depots.map((depot) => depot.code)).toEqual(['NBO-DP', 'SHA-DP'])
   })
 })
