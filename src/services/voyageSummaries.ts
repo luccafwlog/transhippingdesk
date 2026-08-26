@@ -1298,9 +1298,9 @@ export function summarizeExportByEmbarkPort(
         units: group.bookings.length,
         distinctContainers: countDistinctContainerNumbers(group.bookings),
         types: summarizeOccurrences(group.bookings, (booking) => booking.container_type, 'Não informado'),
-        depots: [...depots.entries()]
-          .sort(([left], [right]) => left.localeCompare(right, 'pt-BR'))
-          .map(([, depot]) => ({
+        depots: [...depots.values()]
+          .sort((left, right) => (left.code || '').localeCompare(right.code || '', 'pt-BR'))
+          .map((depot) => ({
             code: depot.code,
             name: depot.name,
             units: depot.bookings.length,

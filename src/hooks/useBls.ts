@@ -434,17 +434,22 @@ export function useVoyages() {
             description: string | null
             total_bookings: number | null
             vazios_bookings?: Array<{
-            id: string
-            container_number: string | null
-            container_type: string | null
-            local_id: string
-            condition: string
-            local?: {
               id: string
-              code: string
-              name: string | null
-              tipo: string
-            } | null
+              container_number: string | null
+              container_type: string | null
+              local_id: string
+              condition: string
+              operation_id?: string | null
+              operation?: {
+                id: string
+                embark_port: string | null
+              } | null
+              local?: {
+                id: string
+                code: string
+                name: string | null
+                tipo: string
+              } | null
             }> | null
           }> | null
           bls?: Array<{

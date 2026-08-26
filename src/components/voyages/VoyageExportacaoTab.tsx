@@ -80,8 +80,11 @@ function SectionLabel({ label }: { label: string }) {
 }
 
 function EmbarkPortBlock({ summary }: { summary: EmbarkPortExportSummary }) {
-  const summaryParts = [`${formatMetric(summary.vazios.units)} vazios`]
-  if (summary.vazios.depots.length > 1) summaryParts.push(`${summary.vazios.depots.length} depots`)
+  const summaryParts: string[] = []
+  if (summary.vazios.units > 0) {
+    summaryParts.push(`${formatMetric(summary.vazios.units)} vazios`)
+    if (summary.vazios.depots.length > 1) summaryParts.push(`${summary.vazios.depots.length} depots`)
+  }
   if (summary.granite.bls > 0) summaryParts.push(`${formatMetric(summary.granite.bls)} B/Ls de granito`)
 
   return <div className="grid gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3.5 px-4">
@@ -90,7 +93,11 @@ function EmbarkPortBlock({ summary }: { summary: EmbarkPortExportSummary }) {
       <span className="text-xs text-[var(--app-muted)]">{summaryParts.join(' · ')}</span>
     </div>
     <div className="grid items-start gap-3 xl:grid-cols-2">
-      <EmptyPanel summary={summary} />
+      {summary.vazios.units > 0 ? (
+        <EmptyPanel summary={summary} />
+      ) : (
+        <EmptyPanel title="Vazios EXP" icon={<Box size={15} />} empty="Sem vazios embarcados neste terminal" />
+      )}
       {summary.granite.manifests > 0 ? <GranitePanel summary={summary} /> : <EmptyPanel title="Granito" icon={<Mountain size={15} />} empty="Sem granito embarcado neste terminal" />}
     </div>
   </div>

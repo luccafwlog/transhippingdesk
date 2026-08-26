@@ -104,7 +104,7 @@ export function FileImportModal<T, TResult = void>({
         {helper}
         {prerequisite}
         <Field label={`Arquivo ${accept}`}>
-          <Input accept={accept} disabled={!ready} multiple={multiple} type="file" onChange={handleFile} />
+          <Input accept={accept} disabled={!ready || importing} multiple={multiple} type="file" onChange={handleFile} />
         </Field>
         {parsing ? <div className="app-panel__meta">Processando...</div> : null}
         {entries.length > 0 && renderBatchSummary ? renderBatchSummary(entries) : null}

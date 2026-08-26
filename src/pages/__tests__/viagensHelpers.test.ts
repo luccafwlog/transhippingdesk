@@ -676,4 +676,32 @@ describe('summarizeExportByEmbarkPort', () => {
     expect(sha.vazios.depots).toHaveLength(2)
     expect(sha.vazios.depots.map((depot) => depot.code)).toEqual(['NBO-DP', 'SHA-DP'])
   })
+
+  it('ordena depots pelo código mesmo quando os IDs locais tiverem ordem inversa', () => {
+    const vazios = [
+      {
+        vazios_bookings: [
+          { id: '1', container_number: 'V1', container_type: '40HC', local_id: 'uuid-z', condition: 'vazio', operation: { embark_port: 'BRSSZ' }, local: { id: 'uuid-z', code: 'AAA-DP', name: 'Depot Alpha' } },
+          { id: '2', container_number: 'V2', container_type: '20GP', local_id: 'uuid-a', condition: 'vazio', operation: { embark_port: 'BRSSZ' }, local: { id: 'uuid-a', code: 'ZZZ-DP', name: 'Depot Zulu' } },
+        ],
+      },
+    ] as never
+
+    const summary = summarizeExportByEmbarkPort([], vazios)
+    expect(summary[0].vazios.depots.map((d) => d.code)).toEqual(['AAA-DP', 'ZZZ-DP'])
+  })
+
+  it('trata terminal com apenas granito e zero vazios', () => {
+    const granite = [
+      { loading_port: 'BRSSA', total_bls: 3, total_weight_kg: 5000, granite_bls: [] },
+    ] as never
+
+    const summary = summarizeExportByEmbarkPort(granite, [])
+    expect(summary).toHaveLength(1)
+    expect(summary[0].embarkPort).toBe('BRSSA')
+    expect(summary[0].granite.bls).toBe(3)
+    expect(summary[0].vazios.units).toBe(0)
+    expect(summary[0].vazios.distinctContainers).toBe(0)
+    expect(summary[0].vazios.depots).toEqual([])
+  })
 })
