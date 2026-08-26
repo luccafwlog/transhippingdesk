@@ -29,6 +29,7 @@ Fontes principais: `src/pages/Viagens.tsx`, `src/services/voyageSummaries.ts`, `
 - **Visão geral:** KPIs, planejamento por escala, edição/exclusão de agenda, cards contextuais e timeline. A tabela centraliza títulos e células, agrupa `ETA · previsto` e `ATA · real` sob `Chegada`, mantém `BLs e CEs` como status manual, usa `Vinculada` como badge e registra `ATD` sem expor a derivação no título. As atracações com dados aparecem em painel recolhível, com cabeçalho e tabela próprios para `Terminal`, `ETB`, `ATB`, `ETD`, `ATD` e `Restow`; `Adicionar atracação` abre o `EscalaModal` na seção de terminais e o lápis o posiciona na linha do terminal, preservando a gravação terminalizada. O planejamento registra, por escala, ETA/ATA, ETB/ATB e ETD/ATD, mantendo previsão e realização em campos distintos.
 - **Importação:** métricas por POD para containers, IMO/OOG, veículos, B/L, carga geral, carga solta e vazios de importação; inclui importação rápida por `src/components/shared/VoyageImportActions.tsx`. A ordem aprovada das ações é Baplie EDI, B/L, CE Mercante, Manifesto BB, Veículos e Vazios IMP; Manifesto CNTR deixa de integrar a aba. Os modais de CE Mercante, Manifesto BB e Veículos oferecem suas planilhas-modelo.
 - **Exportação:** faixa de totais e métricas por terminal de embarque (`embark_port`) para Granito e vazios de exportação; cada bloco reparte os vazios por depot (`local_id`), com importação rápida de Manifesto Granito, atalho de CE Mercante (Granito) e navegação para o Embarque de Vazios com a viagem travada. Vazios EXP não é mais upload avulso nesta aba.
+- **Agency Departure Report (ADR):** a aba terminalizada organiza Escala, Carga descarregada, Vazios descarregados e Veículos em Operações/Documentação, e Granito/Embarque de vazios em Equipamentos, com resolução e sign-off por departamento. Carga descarregada conta somente os cheios dos B/Ls; o Baplie aparece em Vazios descarregados como contagem física para comparação, enquanto a classificação vem do módulo de Vazios de Importação. `resolvedReportId`, o recorte por frente que pode esvaziar sem esconder a seção e a atribuição por frente inteira permanecem invariantes.
 - **Rotas e Manifestos:** faixa de totais, rotas derivadas dos B/Ls por POL/POD, ETD/ATD no POL, grupo Mercante com cobertura de CE Mercante por B/L e Nº de manifesto Mercante por rota. Batches continuam como metadados internos para resolver a edição, mas nomes de arquivo não são exibidos.
 - A timeline é expansível e combina imports, agendas, dados da viagem, CE Master, Baplie e resoluções de divergência.
 - Navegação contextual:
@@ -114,6 +115,7 @@ POL/POD e exportação têm contratos diferentes:
 16. **`billingStatus` é um proxy.** Apesar do nome `fetchVoyagesWithUnpaidBls`, a consulta atual identifica viagens com B/L cujo `charge_status != 'exempt'`; não comprova pagamento de invoice.
 17. **Omissao e distinta de exclusao.** `deleted=true` remove um POD do planejamento; `omitted=true` preserva a escala como evento operacional rastreavel, exclui a escala das derivacoes internas e do Portal, e abre disposicao por B/L (`transshipment` padrao ou `cod` excecao).
 18. **Natureza OOG na descarga.** A matriz do ADR distingue `carga_geral`, `IMO` e `OOG`; quando os dois flags coexistem, `OOG` vence `IMO` na categoria exibida, e duplicatas do mesmo container preservam ambos os flags. Nota editorial da ADR 0035, adicionada em 2026-08-26.
+19. **Vazios não duplicam a carga descarregada.** A decisão histórica da ADR 0035 sobre a conciliação Baplie × B/L é preservada, mas a tela separa a presença física do Baplie da classificação do módulo de Vazios de Importação: vazio do Baplie não entra mais no total de Carga descarregada. Nota editorial do Bloco 5, adicionada em 2026-08-26.
 
 ## Testes e validação
 
@@ -129,7 +131,7 @@ Evidência estática localizada:
 - `src/components/shared/__tests__/VoyageSectionCards.test.tsx`: navegação, estado desabilitado e componentes de métricas.
 - `src/components/shared/__tests__/VoyageCombobox.test.tsx`: filtro local, seleção obrigatória/limpável e hidratação por `selectedVoyageId`.
 - `src/components/shared/__tests__/VoyageImportActions.test.ts`: somente o resumo consolidado de manifestos CNTR; não prova persistência nem invalidações.
-- `src/services/__tests__/agencyDepartureReport.test.ts`: matriz de descarga, incluindo precedência OOG sobre IMO e merge de duplicatas.
+- `src/services/__tests__/agencyDepartureReport.test.ts`: matriz de descarga, incluindo somente cheios no total de Carga descarregada, divergência Baplie × módulo, precedência OOG sobre IMO e merge de duplicatas.
 
 Os testes Vitest focados e a suíte final desta frente foram executados. Não houve validação contra Supabase ou runtime autenticado; as afirmações operacionais permanecem calibradas por código, testes locais e migrations.
 

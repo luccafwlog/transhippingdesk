@@ -28,6 +28,7 @@ export function SignoffControl({
   events,
   actorNames,
   isPending,
+  compact = false,
   onChange,
 }: {
   section: AgencyReportSection
@@ -38,11 +39,13 @@ export function SignoffControl({
   events: AgencyReportSignoffEvent[]
   actorNames: Record<string, string>
   isPending?: boolean
+  compact?: boolean
   onChange: (section: AgencyReportSection, nextState: SignoffState, justification?: string) => void
 }) {
   const [pendingAction, setPendingAction] = useState<{ nextState: SignoffState; mode: 'confirm' | 'justify' } | null>(null)
   const [justification, setJustification] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [compactOpen, setCompactOpen] = useState(false)
 
   const openAction = (nextState: SignoffState) => {
     if (nextState === state) return
@@ -64,7 +67,7 @@ export function SignoffControl({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs text-[var(--app-muted)]">Setor: {departmentLabel}</span>
+      {!compact ? <span className="text-xs text-[var(--app-muted)]">Setor: {departmentLabel}</span> : null}
       {attribution ? <span className="text-xs text-[var(--app-muted)]">{attribution}</span> : null}
       {events.length ? (
         <button
@@ -78,22 +81,59 @@ export function SignoffControl({
         </button>
       ) : null}
       {canSignoff ? (
-        <div className="app-signoff" role="group" aria-label={`Sign-off da seção`}>
-          {(Object.keys(signoffLabels) as SignoffState[]).map((option) => (
+        compact ? (
+          <div className="relative flex items-center gap-2">
             <button
-              key={option}
               type="button"
-              className={`app-signoff__segment ${segmentModifier[option]}`}
-              aria-pressed={state === option}
-              disabled={isPending}
-              onClick={() => openAction(option)}
+              className={`app-badge ${state === 'confirmed' ? 'app-badge--green' : state === 'nothing_to_declare' ? 'app-badge--yellow' : 'app-badge--slate'}`}
+              aria-expanded={compactOpen}
+              onClick={() => setCompactOpen((value) => !value)}
             >
-              {signoffLabels[option]}
+              {signoffLabels[state]}
             </button>
-          ))}
-        </div>
+            <button
+              type="button"
+              className="app-btn app-btn--secondary app-btn--sm"
+              onClick={() => setCompactOpen((value) => !value)}
+              aria-label={`Alterar resolução de ${departmentLabel}`}
+            >
+              Alterar
+            </button>
+            {compactOpen ? (
+              <div className="absolute right-0 top-full z-10 mt-2 grid min-w-44 gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-2 shadow-lg" role="group" aria-label="Resolução da seção">
+                {(Object.keys(signoffLabels) as SignoffState[]).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`rounded-md px-2.5 py-2 text-left text-xs font-semibold transition-colors hover:bg-[var(--app-surface-muted)] ${state === option ? 'text-[var(--app-text-strong)]' : 'text-[var(--app-muted)]'}`}
+                    aria-pressed={state === option}
+                    disabled={isPending}
+                    onClick={() => { setCompactOpen(false); openAction(option) }}
+                  >
+                    {signoffLabels[option]}
+                </button>
+              ))}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="app-signoff" role="group" aria-label={`Sign-off da seção`}>
+            {(Object.keys(signoffLabels) as SignoffState[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`app-signoff__segment ${segmentModifier[option]}`}
+                aria-pressed={state === option}
+                disabled={isPending}
+                onClick={() => openAction(option)}
+              >
+                {signoffLabels[option]}
+              </button>
+            ))}
+          </div>
+        )
       ) : (
-        <span className="rounded-full border border-[var(--app-border)] px-2 py-1 text-xs font-semibold">{signoffLabels[state]}</span>
+        <span className="app-badge app-badge--slate">{signoffLabels[state]}</span>
       )}
 
       <SignoffActionModal
