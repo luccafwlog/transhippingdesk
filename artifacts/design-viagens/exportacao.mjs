@@ -107,15 +107,15 @@ export function exportacaoDepois() {
     ${secao('Carga por terminal de embarque')}
     <div style="display: grid; gap: 12px">${blocos}</div>
     ${barraAcoes({
-      titulo: 'Cadastro r&aacute;pido',
-      descricao: 'Cadastre manifestos e unidades de exporta&ccedil;&atilde;o diretamente nesta viagem.',
+      titulo: 'A&ccedil;&otilde;es da exporta&ccedil;&atilde;o',
+      descricao: 'Granito importa por planilha; vazios passam pelo Embarque, onde as unidades e as taxas de servi&ccedil;o vivem juntas.',
       botoes: [
         botao('Manifesto Granito', 'mountain', { destaque: true }),
-        botao('Vazios EXP', 'boxOpen', { destaque: true }),
-        separador,
         botao('CE Mercante (Granito)', 'shield'),
+        separador,
+        botao('Novo embarque de vazios', 'arrowRight', { destaque: true }),
       ].join(''),
-      nota: '<b style="color: ' + T.muted + '">O bot&atilde;o de CE Mercante &eacute; sugest&atilde;o nova, n&atilde;o existe hoje.</b> O import j&aacute; tem o alvo <code>granite</code>, que casa contra <code>granite_bls</code> &mdash; s&oacute; n&atilde;o est&aacute; exposto nesta aba. Vazios EXP n&atilde;o emite CE: &eacute; m&oacute;dulo de custo pago pela ag&ecirc;ncia ao depot.',
+      nota: '<b style="color: ' + T.muted + '">Vazios EXP n&atilde;o &eacute; upload avulso.</b> A RPC <code>import_vazios_bookings_transactional</code> at&eacute; cria a <code>vazios_export_operations</code> a partir do <code>embark_port</code> da planilha, mas popula s&oacute; as unidades &mdash; nunca as <code>vazios_export_service_lines</code> &mdash; e pula a escolha do porto entre as escalas da viagem. Aqui o bot&atilde;o leva ao Embarque com a viagem travada; a planilha de unidades continua dentro dele. O CE Mercante de Granito j&aacute; existe em <code>/granito</code>: este &eacute; um atalho com a viagem travada, n&atilde;o um recurso novo.',
     })}
   </div>`
 }

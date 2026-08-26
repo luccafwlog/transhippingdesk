@@ -18,6 +18,7 @@ const artboards = [
 
   { file: 'ExportacaoAntes.dc.html', title: 'Aba Exportação · hoje', x: 0, y: 14000, page: 'page-7' },
   { file: 'ExportacaoDepois.dc.html', title: 'Aba Exportação · proposta', x: 0, y: 14680, page: 'page-7' },
+  { file: 'ModalGranito.dc.html', title: 'Modal · Importar Manifesto Granito', x: 0, y: 15860, page: 'page-7' },
 
   { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7400, page: 'page-4' },
   { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7400, page: 'page-4' },
@@ -89,9 +90,14 @@ const annotations = [
       '',
       'O achado que move a aba: VoyageExportacaoTab.tsx chama summarizeExportByPol, que devolve granito e vazios POR terminal de embarque — e usa só o .length do resultado, para decidir se mostra os painéis. Todo o detalhe por POL é calculado e descartado; a aba exibe apenas os totais da viagem.',
       '',
-      'O que a proposta traz da Importação: faixa de total no topo, um bloco por escala (aqui, por terminal de embarque), painéis chapados com número dominante, mini-stats e tokens com contagem, estado vazio explícito para as escalas ficarem comparáveis, e o cadastro rápido numa fila só.',
+      'O que vem da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, estado vazio explícito, e a barra de ações numa fila só.',
       '',
-      'Uma decisão em aberto: o botão CE Mercante (Granito) é sugestão nova, não existe hoje. O import já tem o alvo `granite`, que casa contra granite_bls — só não está exposto em lugar nenhum da aba. Vazios EXP não entra porque não emite CE: é módulo de custo pago pela agência ao depot, sem invoice de cliente (CONTEXT.md, seção Mercante).',
+      'AÇÕES — corrigidas depois de conferir o código:',
+      '',
+      '1. Vazios EXP deixa de ser upload avulso. A RPC import_vazios_bookings_transactional até cria a vazios_export_operations a partir do embark_port da planilha, mas popula só as unidades — nunca as vazios_export_service_lines — e pula a escolha do porto entre as escalas. O botão passa a levar ao Embarque com a viagem travada; a planilha de unidades continua dentro dele, junto das taxas de serviço.',
+      '2. CE Mercante (Granito) JÁ EXISTE, em /granito (Granite.tsx:475). Aqui é atalho com a viagem travada, não recurso novo. A nota anterior dizia o contrário e estava errada.',
+      '',
+      'MODAL DE MANIFESTO GRANITO (artboard abaixo): o parser devolve vesselVoyage, o navio/viagem declarado dentro da planilha, e importGraniteManifest devolve pendingCount, os B/Ls que não casaram com cliente. O modal descarta os dois e mostra só B/Ls e Erros — dá para importar a planilha errada na viagem certa sem perceber. A barra de prévia do FileImportModal ainda usa cores de tema escuro cravadas no código, dentro de um modal claro.',
     ].join('\n'),
   },
   {

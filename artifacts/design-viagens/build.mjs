@@ -9,6 +9,7 @@ import { abaAdr, abaEscalas, metricPanel } from './tabs.mjs'
 import { planejamentoAntes, planejamentoEscala } from './visaogeral.mjs'
 import { importacaoAntes, importacaoDepois } from './importacao.mjs'
 import { exportacaoAntes, exportacaoDepois } from './exportacao.mjs'
+import { modalGranitoAntes, modalGranitoDepois } from './modalgranito.mjs'
 
 export const HEIGHTS = {}
 const out = (name, html, height) => {
@@ -232,6 +233,32 @@ out('ExportacaoDepois.dc.html', compareBoard({
   note: 'Mesma gramática da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, e o cadastro rápido numa fila só. O detalhe por POL que o serviço já calcula passa a aparecer.',
   body: exportacaoDepois(),
 }), EXPD_H)
+
+const MODAL_H = 900
+out('ModalGranito.dc.html', artboard({
+  height: MODAL_H,
+  chrome: false,
+  body: `<div style="padding: 28px; display: flex; flex-direction: column; gap: 20px">
+    <div>
+      <div style="font-family: ${T.display}; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: ${T.textStrong}">Modal &middot; Importar Manifesto Granito</div>
+      <div style="margin-top: 6px; max-width: 1100px; font-size: 13px; line-height: 1.6; color: ${T.muted}">O parser devolve <code>vesselVoyage</code> — o navio/viagem declarado dentro da planilha — e <code>importGraniteManifest</code> devolve <code>pendingCount</code>, os B/Ls que não casaram com cliente. O modal de hoje descarta os dois: mostra só B/Ls e Erros.</div>
+    </div>
+    <div style="display: flex; gap: 28px; align-items: flex-start">
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <span style="display: inline-flex; align-self: flex-start; align-items: center; border: 1px solid ${T.borderStrong}; border-radius: 999px; background: ${T.panel}; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.muted}">Hoje</span>
+        ${modalGranitoAntes()}
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <span style="display: inline-flex; align-self: flex-start; align-items: center; border: 1px solid #bfdbfe; border-radius: 999px; background: ${T.blueSoft}; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.blueBtn}">Proposta</span>
+        ${modalGranitoDepois()}
+      </div>
+    </div>
+    <div style="display: flex; align-items: flex-start; gap: 9px; max-width: 1100px; font-size: 12px; line-height: 1.6; color: ${T.mutedSoft}">
+      ${icon('warning', 14, T.gold)}
+      <span>A barra de prévia do <code>FileImportModal</code> usa <code>border-[#30363d] bg-[#0d1117] text-slate-300</code> — cores de tema escuro cravadas no código, dentro de um modal claro. Está reproduzida fiel no "hoje".</span>
+    </div>
+  </div>`,
+}), MODAL_H)
 
 /* ================================================================== *
  * Não escolhidas — registro das direções descartadas                  *

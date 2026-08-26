@@ -17,7 +17,7 @@ recorte da tabela de Planejamento por escala e do bloco de Atracações.
 | Página | [`Main.dc.html`](./Main.dc.html) — a Direção A inteira |
 | Abas | [`AbaEscalas`](./AbaEscalas.dc.html), [`AbaAdr`](./AbaAdr.dc.html) — rascunhos, ainda não revisados |
 | Cards | [`Cards.dc.html`](./Cards.dc.html) — anatomia e estados |
-| Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html) e [`ExportacaoDepois`](./ExportacaoDepois.dc.html) |
+| Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html), [`ExportacaoDepois`](./ExportacaoDepois.dc.html) e [`ModalGranito`](./ModalGranito.dc.html) |
 | Aba Importação | [`ImportacaoAntes`](./ImportacaoAntes.dc.html) e [`ImportacaoDepois`](./ImportacaoDepois.dc.html) |
 | Visão geral · Planejamento | [`PlanejamentoAntes`](./PlanejamentoAntes.dc.html) e [`PlanejamentoEscala`](./PlanejamentoEscala.dc.html) |
 | Não escolhidas | [`DirecaoC`](./DirecaoC.dc.html), [`DirecaoCDetalhe`](./DirecaoCDetalhe.dc.html) |
@@ -49,6 +49,8 @@ posicionar as molduras sem sobreposição. Os módulos de apoio:
 - [`abakit.mjs`](./abakit.mjs) — a gramática comum das abas, fechada na
   Importação: faixa de total, bloco por escala, painel chapado com número
   dominante, tokens com contagem, faixa e barra de ações.
+- [`modalgranito.mjs`](./modalgranito.mjs) — o modal "Importar Manifesto
+  Granito", hoje e a proposta.
 - [`exportacao.mjs`](./exportacao.mjs) — a aba Exportação: o "hoje", transcrição
   fiel de `src/components/voyages/VoyageExportacaoTab.tsx`, e a proposta.
 - [`importacao.mjs`](./importacao.mjs) — a aba Importação: o "hoje", transcrição
