@@ -3,6 +3,23 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Alertas — regras aposentadas fora do manual e entidade legível na fila:**
+  `/alertas/regras` listava os dois tipos aposentados (`invoice_payment_invalid`
+  e `invoice_cancel_blocked`) atrás de um filtro de situação, ou seja, a tela
+  continuava oferecendo alertas que nenhum produtor emite desde a `327`. O
+  manual passou a documentar somente os tipos ativos do `alert_type_catalog`: o
+  filtro "Situação", o estado `AlertRuleStatus`/`statusNote` e o parâmetro
+  `?situacao=` foram removidos, e um tipo aposentado sai de `ALERT_RULES` na
+  mesma mudança que o desativa no catálogo SQL. `TYPE_LABELS` mantém o rótulo
+  dos dois, porque itens históricos continuam legíveis na fila.
+  Em `/alertas`, a coluna Entidade mostrava a chave surrogate gravada em
+  `alert_items` ("Viagem 1", "Fatura 7", "Cliente 3"). Ela agora resolve o
+  rótulo humano — navio/viagem, `invoice_number`, nome do cliente, `doc_number`
+  do Demurrage, `bl_number` do Granito e o txid do PIX (já disponível no
+  `metadata`) — por uma consulta em lote paralela à fila, caindo no id quando a
+  tradução não volta. A mensagem do alerta continua vindo pronta do detector
+  SQL e ainda cita o id da viagem; corrigi-la exige reescrever os produtores em
+  PL/pgSQL e ficou fora desta mudança.
 - **Regras de Alertas — setores notificados e regras aposentadas:** o manual
   `/alertas/regras` descrevia cada regra com um único setor responsável,
   enquanto `fanout_alert_item_for_department` notifica a união entre

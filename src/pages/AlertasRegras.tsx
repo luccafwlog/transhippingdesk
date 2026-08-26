@@ -1,4 +1,4 @@
-import { Archive, ChevronRight, CircleAlert, ExternalLink, FilterX, Search } from 'lucide-react'
+import { ChevronRight, CircleAlert, ExternalLink, FilterX, Search } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card, EmptyState, PageHeader } from '../components/ui/Card'
@@ -9,12 +9,10 @@ import {
   ALERT_RULE_DEPARTMENT_LABELS,
   ALERT_RULE_DOMAINS,
   ALERT_RULE_SEVERITY_LABELS,
-  ALERT_RULE_STATUS_LABELS,
   type AlertRule,
   type AlertRuleDepartment,
   type AlertRuleDomain,
   type AlertRuleSeverity,
-  type AlertRuleStatus,
 } from '../services/alertRulesCatalog'
 import { ENTITY_TYPE_LABELS } from '../services/alerts'
 
@@ -34,14 +32,7 @@ const SEVERITIES: Array<{ value: 'all' | AlertRuleSeverity; label: string }> = [
   { value: 'normal', label: 'Normal' },
 ]
 
-const STATUSES: Array<{ value: 'all' | AlertRuleStatus; label: string }> = [
-  { value: 'ativa', label: 'Somente ativas' },
-  { value: 'aposentada', label: 'Somente aposentadas' },
-  { value: 'all', label: 'Ativas e aposentadas' },
-]
-
 const ALL_FILTER_VALUE = 'all'
-const DEFAULT_STATUS_FILTER: 'all' | AlertRuleStatus = 'ativa'
 
 export function AlertasRegras() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -50,18 +41,10 @@ export function AlertasRegras() {
   const domain = isDomain(searchParams.get('dominio')) ? searchParams.get('dominio') as AlertRuleDomain : ALL_FILTER_VALUE
   const severity = isSeverity(searchParams.get('gravidade')) ? searchParams.get('gravidade') as AlertRuleSeverity : ALL_FILTER_VALUE
   const selectedParam = searchParams.get('regra')
-  // Um deep-link para uma regra aposentada não pode cair no filtro padrão:
-  // sem `?situacao=`, a situação segue a regra pedida na URL.
-  const requestedRule = ALERT_RULES.find((rule) => rule.type === selectedParam)
-  const statusParam = searchParams.get('situacao')
-  const status = isStatusFilter(statusParam)
-    ? statusParam
-    : requestedRule?.status === 'aposentada' ? ALL_FILTER_VALUE : DEFAULT_STATUS_FILTER
 
   const filteredRules = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR')
     return ALERT_RULES.filter((rule) => {
-      if (status !== ALL_FILTER_VALUE && rule.status !== status) return false
       // O setor filtra por quem é notificado, não só por quem responde: um
       // mesmo alerta pode chegar a mais de um setor. O valor especial 'todos'
       // filtra somente regras aplicáveis a todos os setores operacionais.
@@ -84,15 +67,13 @@ export function AlertasRegras() {
         rule.destination,
         rule.destinationLabel,
         rule.routingNote ?? '',
-        rule.statusNote ?? '',
-        ALERT_RULE_STATUS_LABELS[rule.status],
         ENTITY_TYPE_LABELS[rule.entityType],
         ...rule.notifiedDepartments.map((item) => ALERT_RULE_DEPARTMENT_LABELS[item]),
         rule.domain,
       ].join(' ').toLocaleLowerCase('pt-BR')
       return searchable.includes(normalizedQuery)
     })
-  }, [department, domain, query, severity, status])
+  }, [department, domain, query, severity])
 
   const selectedRule = filteredRules.find((rule) => rule.type === selectedParam) ?? filteredRules[0] ?? null
 
@@ -114,20 +95,9 @@ export function AlertasRegras() {
     setSearchParams(next, { replace: true })
   }
 
-  function updateStatusFilter(value: string) {
-    const next = new URLSearchParams(searchParams)
-    // Omitir `situacao` só é seguro quando a derivação padrão devolve o mesmo
-    // valor. Com uma regra aposentada em `?regra=`, ela devolveria 'all' e o
-    // filtro voltaria sozinho para "Ativas e aposentadas".
-    if (value === DEFAULT_STATUS_FILTER && requestedRule?.status !== 'aposentada') next.delete('situacao')
-    else next.set('situacao', value)
-    setSearchParams(next, { replace: true })
-  }
-
   function clearFilters() {
     const next = new URLSearchParams()
     if (selectedRule) next.set('regra', selectedRule.type)
-    if (selectedRule?.status === 'aposentada') next.set('situacao', ALL_FILTER_VALUE)
     setSearchParams(next, { replace: true })
   }
 
@@ -135,8 +105,7 @@ export function AlertasRegras() {
     query
     || department !== ALL_FILTER_VALUE
     || domain !== ALL_FILTER_VALUE
-    || severity !== ALL_FILTER_VALUE
-    || status !== DEFAULT_STATUS_FILTER,
+    || severity !== ALL_FILTER_VALUE,
   )
 
   return (
@@ -185,12 +154,6 @@ export function AlertasRegras() {
             value={severity}
             options={SEVERITIES}
             onChange={(value) => updateFilter('gravidade', value)}
-          />
-          <FilterSelect
-            label="Situação"
-            value={status}
-            options={STATUSES}
-            onChange={updateStatusFilter}
           />
           <button
             type="button"
@@ -291,18 +254,12 @@ function RuleListItem({
         : 'border-transparent hover:border-[var(--app-border)] hover:bg-[var(--app-card-bg)]'}`}
       onClick={onSelect}
     >
-      <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${rule.status === 'aposentada' ? 'bg-slate-500' : rule.severity === 'critical' ? 'bg-rose-400' : 'bg-amber-400'}`} aria-hidden="true" />
+      <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${rule.severity === 'critical' ? 'bg-rose-400' : 'bg-amber-400'}`} aria-hidden="true" />
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold leading-5 text-[var(--app-text-strong)]">{rule.label}</span>
         <span className="mt-1 block text-[11px] text-[var(--app-muted)]">
           {departmentList(rule.notifiedDepartments)} · {rule.domain}
         </span>
-        {rule.status === 'aposentada' ? (
-          <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] px-1.5 py-0.5 text-[10px] text-[var(--app-muted)]">
-            <Archive size={10} aria-hidden="true" />
-            Aposentada
-          </span>
-        ) : null}
       </span>
       <ChevronRight size={15} className={`mt-1 shrink-0 ${selected ? 'text-[var(--app-primary)]' : 'text-[var(--app-muted)] group-hover:text-[var(--app-text)]'}`} aria-hidden="true" />
     </button>
@@ -320,24 +277,12 @@ function RuleDetail({ rule }: { rule: AlertRule }) {
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <SeverityBadge severity={rule.severity} />
             <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[11px] text-[var(--app-muted)]">{rule.domain}</span>
-            {rule.status === 'aposentada' ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[11px] font-medium text-slate-400">
-                <Archive size={11} aria-hidden="true" />
-                Aposentada
-              </span>
-            ) : null}
           </div>
           <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">{rule.label}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--app-muted)]">{rule.summary}</p>
         </div>
         <span className="rounded bg-[var(--app-bg)] px-2 py-1 font-mono text-[10px] text-[var(--app-muted)]">{rule.type}</span>
       </div>
-
-      {rule.statusNote ? (
-        <p className="mt-4 rounded-lg border border-slate-500/25 bg-slate-500/5 p-4 text-xs leading-6 text-[var(--app-muted)]">
-          {rule.statusNote}
-        </p>
-      ) : null}
 
       <dl className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2">
         <DetailField label="Entidade afetada">{ENTITY_TYPE_LABELS[rule.entityType]}</DetailField>
@@ -425,6 +370,3 @@ function isSeverity(value: string | null): value is AlertRuleSeverity {
   return value === 'critical' || value === 'normal'
 }
 
-function isStatusFilter(value: string | null): value is 'all' | AlertRuleStatus {
-  return value === 'all' || value === 'ativa' || value === 'aposentada'
-}

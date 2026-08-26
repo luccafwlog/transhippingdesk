@@ -118,41 +118,67 @@ function isTerminalizedAgencyReportKey(value: string | undefined, metadata: Reco
     || isTerminalCode(value)
 }
 
-export function formatAgencyReportAlertEntity(entityId: string): string | null {
+/**
+ * Rótulos humanos das entidades citadas na fila: `alert_items` guarda apenas a
+ * chave surrogate (`voyage_id`, `invoice.id`, ...), então a tela precisa
+ * traduzi-la antes de exibir. A chave do mapa é `${entityType}:${entityId}`.
+ */
+export type AlertEntityLabels = Record<string, string>
+
+function resolveEntityLabel(
+  labels: AlertEntityLabels | undefined,
+  entityType: string,
+  entityId: string,
+): string | null {
+  return labels?.[`${entityType}:${entityId}`] ?? null
+}
+
+function voyageLabel(labels: AlertEntityLabels | undefined, voyageId: string): string {
+  return `Viagem ${resolveEntityLabel(labels, 'voyage', voyageId) ?? voyageId}`
+}
+
+export function formatAgencyReportAlertEntity(entityId: string, labels?: AlertEntityLabels): string | null {
   const parts = entityId.split('::')
   const [voyageId, port, third, fourth] = parts
   if (!voyageId || !port || parts.length < 2 || parts.length > 4) return null
-  if (parts.length === 2) return `Viagem ${voyageId} · ${port}`
+  const voyage = voyageLabel(labels, voyageId)
+  if (parts.length === 2) return `${voyage} · ${port}`
 
   const terminalized = parts.length === 4 || (parts.length === 3 && isTerminalizedAgencyReportKey(third))
   if (terminalized) {
     const terminalLabel = parts.length === 4 && fourth
       ? ` · ${((AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[fourth] ?? agencyReportSectionLabel(fourth))}`
       : ''
-    return `Viagem ${voyageId} · ${port} · Terminal ${third}${terminalLabel}`
+    return `${voyage} · ${port} · Terminal ${third}${terminalLabel}`
   }
 
   const label = (AGENCY_REPORT_DEPARTMENT_LABELS as Record<string, string>)[third]
     ?? agencyReportSectionLabel(third)
-  return `Viagem ${voyageId} · ${port} · ${label}`
+  return `${voyage} · ${port} · ${label}`
 }
 
-export function formatAlertEntity(entityType: string | null, entityId: string | null): string | null {
+export function formatAlertEntity(
+  entityType: string | null,
+  entityId: string | null,
+  labels?: AlertEntityLabels,
+): string | null {
   if (!entityType || !entityId) return null
   if (entityType === 'agency_departure_report') {
-    return formatAgencyReportAlertEntity(entityId)
+    return formatAgencyReportAlertEntity(entityId, labels)
   }
   if (entityType === 'voyage_pod_schedule') {
     const [voyageId, port] = entityId.split('::')
-    return port ? `Viagem ${voyageId} · Escala ${port}` : `Escala ${entityId}`
+    return port ? `${voyageLabel(labels, voyageId)} · Escala ${port}` : `Escala ${entityId}`
   }
   if (entityType === 'voyage_escala_terminal') {
     const [voyageId, port, terminalId] = entityId.split('::')
-    return terminalId ? `Viagem ${voyageId} · ${port} · Terminal ${terminalId}` : `Terminal ${entityId}`
+    return terminalId
+      ? `${voyageLabel(labels, voyageId)} · ${port} · Terminal ${terminalId}`
+      : `Terminal ${entityId}`
   }
   const label = ENTITY_TYPE_LABELS[entityType]
   if (label) {
-    return `${label} ${entityId}`
+    return `${label} ${resolveEntityLabel(labels, entityType, entityId) ?? entityId}`
   }
   return null
 }
@@ -465,6 +491,146 @@ export async function listAlerts(
   const { data, error } = await alertsRpc.rpc('list_alert_queue_page', params)
   if (error) throw error
   return (data as AlertQueueRow[]) ?? []
+}
+
+/**
+ * Entidades cuja chave na fila é um id surrogate: sem esta tradução a coluna
+ * "Entidade" mostra "Viagem 1" em vez do navio/viagem que o operador conhece.
+ * B/L, Granito e Container já chegam com a chave de negócio no `entity_id`.
+ */
+type VoyageDerivedEntity = 'voyage' | 'voyage_pod_schedule' | 'voyage_escala_terminal' | 'agency_departure_report'
+
+const VOYAGE_DERIVED_ENTITIES: VoyageDerivedEntity[] = [
+  'voyage',
+  'voyage_pod_schedule',
+  'voyage_escala_terminal',
+  'agency_departure_report',
+]
+
+export type AlertEntityRef = {
+  entity_type: string | null
+  entity_id: string | null
+  metadata?: Record<string, unknown> | null
+}
+
+function voyageIdOf(row: AlertEntityRef): string | null {
+  if (!row.entity_type || !row.entity_id) return null
+  if (!VOYAGE_DERIVED_ENTITIES.includes(row.entity_type as VoyageDerivedEntity)) return null
+  // Todas as chaves derivadas de viagem começam pelo id da viagem, seja
+  // sozinho ('voyage') ou como primeiro segmento de uma chave composta.
+  const [voyageId] = row.entity_id.split('::')
+  return /^\d+$/.test(voyageId) ? voyageId : null
+}
+
+function numericIdsOf(rows: AlertEntityRef[], entityType: string): string[] {
+  return Array.from(new Set(
+    rows
+      .filter((row) => row.entity_type === entityType && row.entity_id && /^\d+$/.test(row.entity_id))
+      .map((row) => row.entity_id as string),
+  ))
+}
+
+function idsOf(rows: AlertEntityRef[], entityType: string): string[] {
+  return Array.from(new Set(
+    rows.filter((row) => row.entity_type === entityType && row.entity_id).map((row) => row.entity_id as string),
+  ))
+}
+
+function pixLabelFromMetadata(metadata: Record<string, unknown> | null | undefined): string | null {
+  const txid = metadata?.normalized_txid
+  if (typeof txid === 'string' && txid.trim().length > 0) return txid.trim()
+  const importKey = metadata?.import_key
+  const line = metadata?.line_number
+  if (typeof importKey === 'string' && importKey.trim().length > 0 && (typeof line === 'number' || typeof line === 'string')) {
+    return `${importKey.trim()} linha ${line}`
+  }
+  return null
+}
+
+/**
+ * Busca em lote os rótulos humanos das entidades citadas na página de alertas.
+ * ponytail: uma consulta por tabela envolvida, no máximo uma página de 100
+ * alertas por vez. Se a fila crescer para leituras muito maiores, o caminho de
+ * evolução é devolver o rótulo já pronto em `list_alert_queue_page`.
+ */
+export async function fetchAlertEntityLabels(rows: AlertEntityRef[]): Promise<AlertEntityLabels> {
+  const labels: AlertEntityLabels = {}
+  if (rows.length === 0) return labels
+
+  for (const row of rows) {
+    if (row.entity_type !== 'pix_transaction' || !row.entity_id) continue
+    const label = pixLabelFromMetadata(row.metadata)
+    if (label) labels[`pix_transaction:${row.entity_id}`] = label
+  }
+
+  const voyageIds = Array.from(new Set(rows.map(voyageIdOf).filter((id): id is string => id !== null)))
+  const invoiceIds = numericIdsOf(rows, 'invoice')
+  const customerIds = numericIdsOf(rows, 'customer')
+  const demurrageIds = numericIdsOf(rows, 'demurrage_invoice')
+  const graniteIds = idsOf(rows, 'granite_bl')
+
+  async function collect<T>(
+    ids: string[],
+    load: () => Promise<T[]>,
+    toEntry: (record: T) => [string, string] | null,
+  ): Promise<void> {
+    if (ids.length === 0) return
+    try {
+      for (const record of await load()) {
+        const entry = toEntry(record)
+        if (entry) labels[entry[0]] = entry[1]
+      }
+    } catch (error) {
+      // Rótulo é enfeite: sem ele a tela cai no id, que continua correto.
+      reportBestEffortFailure('resolver rótulos de entidades de alertas', error)
+    }
+  }
+
+  type VoyageRow = { id: number; voyage_number: string | null; vessel: { name: string | null } | { name: string | null }[] | null }
+  type InvoiceRow = { id: number; invoice_number: string | null }
+  type CustomerRow = { id: number; name: string | null }
+  type DemurrageRow = { id: number; doc_number: string | null }
+  type GraniteRow = { id: string; bl_number: string | null }
+
+  async function select<T>(table: string, columns: string, ids: string[]): Promise<T[]> {
+    const { data, error } = await supabase.from(table as never).select(columns).in('id', ids as never[])
+    if (error) throw error
+    return (data ?? []) as unknown as T[]
+  }
+
+  await Promise.all([
+    collect<VoyageRow>(
+      voyageIds,
+      () => select<VoyageRow>('voyages', 'id, voyage_number, vessel:vessels(name)', voyageIds),
+      (voyage) => {
+        const vessel = Array.isArray(voyage.vessel) ? voyage.vessel[0] : voyage.vessel
+        const label = [vessel?.name, voyage.voyage_number].filter(Boolean).join(' / ')
+        return label ? [`voyage:${voyage.id}`, label] : null
+      },
+    ),
+    collect<InvoiceRow>(
+      invoiceIds,
+      () => select<InvoiceRow>('invoices', 'id, invoice_number', invoiceIds),
+      (invoice) => (invoice.invoice_number ? [`invoice:${invoice.id}`, invoice.invoice_number] : null),
+    ),
+    collect<CustomerRow>(
+      customerIds,
+      () => select<CustomerRow>('customers', 'id, name', customerIds),
+      (customer) => (customer.name ? [`customer:${customer.id}`, customer.name] : null),
+    ),
+    collect<DemurrageRow>(
+      demurrageIds,
+      () => select<DemurrageRow>('demurrage_invoices', 'id, doc_number', demurrageIds),
+      (invoice) => (invoice.doc_number ? [`demurrage_invoice:${invoice.id}`, invoice.doc_number] : null),
+    ),
+    collect<GraniteRow>(
+      graniteIds,
+      () => select<GraniteRow>('granite_bls', 'id, bl_number', graniteIds),
+      (bl) => (bl.bl_number ? [`granite_bl:${bl.id}`, bl.bl_number] : null),
+    ),
+  ])
+
+  return labels
 }
 
 export async function countAlertQueue(statusFilter: AlertStatusFilter = 'active'): Promise<number> {

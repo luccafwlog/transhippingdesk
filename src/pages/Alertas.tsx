@@ -10,12 +10,14 @@ import {
   alertEntityLink,
   alertEntityLinkLabel,
   dismissAlertItem,
+  fetchAlertEntityLabels,
   formatAlertEntity,
   getAlertTypeLabel,
   getEffectiveAlertType,
   invalidateAllAlertQueries,
   listAlerts,
   ENTITY_TYPE_LABELS,
+  type AlertEntityLabels,
   type AlertQueueRow,
   type AlertStatusFilter,
 } from '../services/alerts'
@@ -78,6 +80,17 @@ export function Alertas() {
   const { data, isLoading, isError, error, refetch } = useQuery<AlertQueueRow[]>({
     queryKey: queryKeys.alerts.list(statusFilter, page, departmentFilter),
     queryFn: () => listAlerts(statusFilter, undefined, page, activeDepartment),
+  })
+
+  // A fila guarda a chave surrogate da entidade; o operador reconhece o
+  // navio/viagem, o número da fatura ou o nome do cliente. A tradução é uma
+  // consulta separada para não bloquear a lista: enquanto ela não volta, a
+  // coluna mostra o id.
+  const { data: entityLabels } = useQuery<AlertEntityLabels>({
+    queryKey: queryKeys.alerts.entityLabels(statusFilter, page, departmentFilter),
+    queryFn: () => fetchAlertEntityLabels(data ?? []),
+    enabled: Boolean(data?.length),
+    staleTime: 5 * 60_000,
   })
 
   function closeDismissModal() {
@@ -231,6 +244,7 @@ export function Alertas() {
                 <AlertRow
                   key={`${alert.id}:${alert.item_id ?? getEffectiveAlertType(alert)}`}
                   alert={alert}
+                  entityLabels={entityLabels}
                   isMutating={dismissMutation.isPending}
                   onDismiss={() => requestDismissal(alert)}
                 />
@@ -331,10 +345,12 @@ export function Alertas() {
 
 function AlertRow({
   alert,
+  entityLabels,
   isMutating,
   onDismiss,
 }: {
   alert: AlertQueueRow
+  entityLabels?: AlertEntityLabels
   isMutating: boolean
   onDismiss: () => void
 }) {
@@ -343,7 +359,7 @@ function AlertRow({
   const link = alertEntityLink(alert)
   const linkLabel = alertEntityLinkLabel(alert)
 
-  const entityFormatted = formatAlertEntity(alert.entity_type, alert.entity_id)
+  const entityFormatted = formatAlertEntity(alert.entity_type, alert.entity_id, entityLabels)
 
   return (
     <tr>

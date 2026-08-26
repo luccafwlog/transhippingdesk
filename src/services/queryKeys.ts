@@ -122,6 +122,8 @@ export const queryKeys = {
       filter === undefined && page === undefined && department === undefined
         ? (['alerts'] as const)
         : (['alerts', filter ?? 'all', page ?? 0, department ?? 'all'] as const),
+    entityLabels: (filter: string, page: number, department: string) =>
+      ['alerts', 'entity-labels', filter, page, department] as const,
     departmentSummary: () => ['alert-department-summary'] as const,
     financial: () => ['financial-alerts'] as const,
     operationalCount: () => ['op-count', 'open-alerts'] as const,

@@ -5,16 +5,15 @@ export type AlertRuleDomain = 'Operação' | 'Revisão' | 'Financeiro' | 'Portal
 export type AlertRuleDepartment = 'documentacao' | 'equipamentos' | 'operacoes'
 export type AlertRuleSeverity = 'critical' | 'normal'
 
-// Uma regra aposentada continua no manual porque o tipo ainda existe no
-// histórico, mas nenhum produtor a emite hoje. Ver `statusNote` de cada uma.
-export type AlertRuleStatus = 'ativa' | 'aposentada'
+// O manual só documenta regras vivas: um tipo sem produtor sai desta lista na
+// mesma mudança que o aposenta no catálogo SQL, para a tela não prometer um
+// alerta que nunca chega. O histórico da aposentadoria fica no CHANGELOG e nas
+// migrations que a executaram.
 
 export type AlertRule = {
   type: ActiveAlertType
   label: string
   domain: AlertRuleDomain
-  status: AlertRuleStatus
-  statusNote?: string
   /**
    * Setores que aparecem como responsáveis na fila `/alertas`: é o
    * `alert_items.department` gravado pelo produtor. Quase todo tipo grava um
@@ -46,8 +45,7 @@ export type AlertRule = {
   dismissal: string
 }
 
-type AlertRuleDraft = Omit<AlertRule, 'label' | 'notifiedDepartments' | 'responsibleDepartments' | 'status'> & {
-  status?: AlertRuleStatus
+type AlertRuleDraft = Omit<AlertRule, 'label' | 'notifiedDepartments' | 'responsibleDepartments'> & {
   /**
    * Omitido quando o produtor grava sempre o mesmo setor: nesse caso o
    * responsável é o único item da audiência do catálogo declarado como dono.
@@ -86,7 +84,6 @@ function agencyReportOwnershipSentence(): string {
     .join('; ')
 }
 
-const legacyAuditOnlyNote = 'Aposentada: a migration 327 retirou o tipo do roteamento de alertas e fechou os itens abertos, e a 347 o desativou no catálogo SQL. A condição continua sendo bloqueada na hora da operação, com erro na tela e registro em `audit_logs`, mas não abre item na fila nem notificação interna.'
 
 const ALERT_RULES_BASE = [
   {
@@ -217,42 +214,6 @@ const ALERT_RULES_BASE = [
     destinationLabel: 'Abrir Taxas Locais',
     afterResolution: derivedResolution,
     dismissal: temporaryDismissal,
-  },
-  {
-    type: 'invoice_payment_invalid',
-    domain: 'Financeiro',
-    status: 'aposentada',
-    statusNote: legacyAuditOnlyNote,
-    responsible: 'documentacao',
-    catalogAudience: ['documentacao'],
-    entityType: 'invoice',
-    severity: 'critical',
-    summary: 'O pagamento recebido não pôde ser validado contra a fatura.',
-    trigger: 'Um registro de pagamento chega com valor inválido para a fatura.',
-    timing: 'Não aparece mais na fila: o registro do pagamento é recusado na hora, com erro para quem operou.',
-    resolution: 'Corrija o valor e registre o pagamento novamente na operação financeira.',
-    destination: '/taxas-locais',
-    destinationLabel: 'Abrir Taxas Locais',
-    afterResolution: 'Não há item a fechar. A tentativa recusada fica registrada em auditoria.',
-    dismissal: 'Não se aplica: a regra não abre item na fila e, portanto, não pode ser dispensada.',
-  },
-  {
-    type: 'invoice_cancel_blocked',
-    domain: 'Financeiro',
-    status: 'aposentada',
-    statusNote: legacyAuditOnlyNote,
-    responsible: 'documentacao',
-    catalogAudience: ['documentacao'],
-    entityType: 'invoice',
-    severity: 'critical',
-    summary: 'Uma tentativa de cancelar a fatura foi bloqueada por uma condição financeira.',
-    trigger: 'A fatura tem pagamento registrado e não pode ser cancelada diretamente.',
-    timing: 'Não aparece mais na fila: o cancelamento é recusado na hora, com erro para quem operou.',
-    resolution: 'Analise o estado da fatura e siga o fluxo de estorno ou reemissão indicado.',
-    destination: '/taxas-locais',
-    destinationLabel: 'Abrir Taxas Locais',
-    afterResolution: 'Não há item a fechar. A tentativa recusada fica registrada em auditoria.',
-    dismissal: 'Não se aplica: a regra não abre item na fila e, portanto, não pode ser dispensada.',
   },
   {
     type: 'pix_unreconciled',
@@ -561,7 +522,6 @@ export const ALERT_RULES: AlertRule[] = ALERT_RULES_BASE.map((rule) => {
   const responsibleDepartments = sortDepartments(rule.responsibleDepartments ?? [rule.responsible])
   return {
     ...rule,
-    status: rule.status ?? 'ativa',
     responsibleDepartments,
     // Espelha `fanout_alert_item_for_department`: audiência do catálogo unida
     // ao departamento gravado no item.
@@ -573,18 +533,11 @@ export const ALERT_RULES: AlertRule[] = ALERT_RULES_BASE.map((rule) => {
   }
 })
 
-export const ACTIVE_ALERT_RULES = ALERT_RULES.filter((rule) => rule.status === 'ativa')
-
 export const ALERT_RULE_DOMAINS: AlertRuleDomain[] = ['Operação', 'Revisão', 'Financeiro', 'Portal']
 
 export const ALERT_RULE_SEVERITY_LABELS: Record<AlertRuleSeverity, string> = {
   critical: 'Crítico',
   normal: 'Normal',
-}
-
-export const ALERT_RULE_STATUS_LABELS: Record<AlertRuleStatus, string> = {
-  ativa: 'Ativa',
-  aposentada: 'Aposentada',
 }
 
 export const ALERT_RULE_DOMAIN_DESCRIPTIONS: Record<AlertRuleDomain, string> = {

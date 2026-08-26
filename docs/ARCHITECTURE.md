@@ -63,7 +63,10 @@ o departamento gravado no item pelo produtor — no ADR, um item por departament
 `recipient_department` real. Um tipo sem produtor ativo é marcado
 `active = false` no catálogo: `invoice_payment_invalid` e
 `invoice_cancel_blocked` saíram do roteamento na migration `327` e foram
-desativados na `347`. O destino de itens ativos é derivado
+desativados na `347`; um tipo inativo não é listado em `/alertas/regras` —
+`ALERT_RULES` documenta somente os tipos vivos, para a tela não prometer um
+alerta que nunca chega. `TYPE_LABELS` mantém o rótulo dos tipos aposentados
+porque itens históricos continuam legíveis na fila. O destino de itens ativos é derivado
 por `alertEntityLink`, sem uma segunda cópia em PL/pgSQL. A identidade pública
 de terminal é `voyage::porto::depots.code`; UUID fica somente no metadata.
 A leitura das notificações usa `is_active_read_user()`, portanto inclui o papel

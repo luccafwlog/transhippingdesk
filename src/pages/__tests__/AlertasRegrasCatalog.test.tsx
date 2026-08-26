@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readSqlAlertCatalog } from '../../services/__tests__/alertCatalogSql'
-import { ACTIVE_ALERT_RULES, ALERT_RULES } from '../../services/alertRulesCatalog'
+import { ALERT_RULES } from '../../services/alertRulesCatalog'
 import { AGENCY_REPORT_SECTIONS } from '../../services/agencyDepartureReport'
 import { AlertasRegras } from '../AlertasRegras'
 
@@ -18,13 +18,11 @@ const migration342 = readFileSync(resolve(process.cwd(), 'supabase/migrations/34
 afterEach(cleanup)
 
 describe('Regras de Alertas', () => {
-  it('mantém um verbete educativo para cada tipo do catálogo SQL, ativo ou aposentado', () => {
-    const catalog = readSqlAlertCatalog()
+  it('mantém um verbete educativo para cada tipo ATIVO do catálogo SQL, e só para eles', () => {
+    const active = readSqlAlertCatalog().filter((entry) => entry.active)
 
-    expect(ALERT_RULES).toHaveLength(catalog.length)
-    expect(new Set(ALERT_RULES.map((rule) => rule.type))).toEqual(new Set(catalog.map((entry) => entry.type)))
-    expect(new Set(ACTIVE_ALERT_RULES.map((rule) => rule.type)))
-      .toEqual(new Set(catalog.filter((entry) => entry.active).map((entry) => entry.type)))
+    expect(ALERT_RULES).toHaveLength(active.length)
+    expect(new Set(ALERT_RULES.map((rule) => rule.type))).toEqual(new Set(active.map((entry) => entry.type)))
 
     for (const rule of ALERT_RULES) {
       expect(rule.summary).toBeTruthy()
@@ -33,13 +31,21 @@ describe('Regras de Alertas', () => {
       expect(rule.resolution).toBeTruthy()
       expect(rule.destination.startsWith('/')).toBe(true)
       expect(rule.notifiedDepartments.length).toBeGreaterThan(0)
-      if (rule.status === 'ativa') expect(rule.dismissal).toContain('motivo obrigatório')
-      else expect(rule.statusNote).toBeTruthy()
+      expect(rule.dismissal).toContain('motivo obrigatório')
+    }
+  })
+
+  it('não lista os tipos aposentados, que não têm produtor desde as migrations 327 e 347', () => {
+    const retired = readSqlAlertCatalog().filter((entry) => !entry.active).map((entry) => entry.type)
+
+    expect(retired.length).toBeGreaterThan(0)
+    for (const type of retired) {
+      expect(ALERT_RULES.find((rule) => rule.type === type)).toBeUndefined()
     }
   })
 
   it('espelha gravidade e audiência do alert_type_catalog em cada verbete', () => {
-    for (const entry of readSqlAlertCatalog()) {
+    for (const entry of readSqlAlertCatalog().filter((item) => item.active)) {
       const rule = ALERT_RULES.find((item) => item.type === entry.type)
       expect(rule, `Tipo ${entry.type} não tem verbete`).toBeDefined()
       expect(rule!.severity).toBe(entry.severity)
@@ -116,50 +122,16 @@ describe('Regras de Alertas', () => {
     expect(screen.getByText('26 regras encontradas')).toBeTruthy()
   })
 
-  it('esconde as regras aposentadas por padrão e as mostra pelo filtro de situação', () => {
+  it('ignora um deep-link para um tipo aposentado e cai na primeira regra viva', () => {
     render(
-      <MemoryRouter initialEntries={['/alertas/regras']}>
+      <MemoryRouter initialEntries={['/alertas/regras?regra=invoice_cancel_blocked']}>
         <AlertasRegras />
       </MemoryRouter>,
     )
 
+    expect(screen.queryByRole('heading', { name: 'Cancelamento bloqueado' })).toBeNull()
     expect(screen.queryByRole('button', { name: /Cancelamento bloqueado/ })).toBeNull()
-
-    fireEvent.change(screen.getByRole('combobox', { name: 'Situação' }), { target: { value: 'aposentada' } })
-
-    expect(screen.getByText('2 regras encontradas')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Cancelamento bloqueado/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Pagamento inválido/ })).toBeTruthy()
-  })
-
-  it('abre uma regra aposentada por deep-link sem cair no filtro padrão', () => {
-    render(
-      <MemoryRouter initialEntries={['/alertas/regras?regra=invoice_cancel_blocked']}>
-        <AlertasRegras />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByRole('heading', { name: 'Cancelamento bloqueado' })).toBeTruthy()
-    expect(screen.getAllByText('Aposentada').length).toBeGreaterThan(0)
-  })
-
-  it('aplica "Somente ativas" mesmo com uma regra aposentada selecionada', () => {
-    render(
-      <MemoryRouter initialEntries={['/alertas/regras?regra=invoice_cancel_blocked']}>
-        <AlertasRegras />
-      </MemoryRouter>,
-    )
-
-    const situacao = screen.getByRole('combobox', { name: 'Situação' }) as HTMLSelectElement
-    expect(situacao.value).toBe('all')
-
-    fireEvent.change(situacao, { target: { value: 'ativa' } })
-
-    // O parâmetro precisa continuar explícito: sem ele a derivação voltaria a
-    // 'all' por causa da regra aposentada ainda presente em `?regra=`.
-    expect((screen.getByRole('combobox', { name: 'Situação' }) as HTMLSelectElement).value).toBe('ativa')
     expect(screen.getByText('26 regras encontradas')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /Cancelamento bloqueado/ })).toBeNull()
   })
 
   it('combina filtros no topo e limpa a combinação sem perder a regra selecionada', () => {
