@@ -16,6 +16,7 @@ Quando o plano derivado de uma spec é concluído, a spec é movida para
 
 | Spec | Tema |
 |---|---|
+| [Integração futura com o Itaú — cobrança PIX](2026-08-25-integracao-itau-pix.md) | QR Code dinâmico, webhook e confirmação automática de pagamento |
 | Blocos 1–6 | Specs concluídas e arquivadas em `docs/archive/specs/` após o encerramento do Épico #519 |
 
 A spec funcional permanece nesta tabela enquanto seu plano não for concluído e
