@@ -277,8 +277,9 @@ function ReconciliacaoContent() {
             {confirmationResult.items.map((item) => (
               <div key={`${item.source}-${item.invoice_id}-${item.doc_number}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <div>
+                  {/* `invoice_id` e a chave surrogate da linha; o operador cita
+                      a fatura pelo doc_number, que ja e o titulo. */}
                   <div className="font-semibold text-white">{item.doc_number}</div>
-                  <div className="text-xs text-slate-500">ID {item.invoice_id}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone={item.source === 'demurrage' ? 'blue' : 'green'}>
