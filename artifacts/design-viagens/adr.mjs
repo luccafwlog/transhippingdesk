@@ -37,23 +37,50 @@ const CABECALHO = {
   prazo: '26/08/2026',
 }
 
+/**
+ * "Carga descarregada" é um 2x2: modo de carga (container / carga solta) x
+ * destino (final nesta escala / em transbordo). O serviço já traz assim —
+ * `bl_containers` do porto e `bl_containers` de `transshipmentBlIds` são
+ * consultas separadas e disjuntas, idem os `bls` de carga solta — mas a tela
+ * de hoje achata metade disso: os containers viram uma lista só onde
+ * transbordo é uma CATEGORIA, e a carga solta mantém transbordo como BLOCO.
+ *
+ * IMO é marcador (`is_imo` no container), não balde: CATEGORY_PRIORITY faz
+ * transbordo > veículos > imo > carga_geral, então um container em transbordo
+ * que é IMO conta como transbordo na matriz e ainda assim entra no imoCount.
+ */
 const DESCARGA = {
-  containers: 148,
-  imo: 6,
-  matriz: [
-    ['20GP', 'carga geral', 42],
-    ['20GP', 'IMO', 4],
-    ['40HC', 'carga geral', 71],
-    ['40HC', 'IMO', 2],
-    ['40HC', 'transbordo', 9],
-    ['40OT', 'carga geral', 5],
-    ['40RH', 'carga geral', 15],
-  ],
+  containers: {
+    total: 148,
+    imo: 8,
+    imoEmTransbordo: 2,
+    destinoFinal: {
+      total: 139,
+      tipos: [
+        ['20GP', 'carga geral', 42],
+        ['20GP', 'IMO', 4],
+        ['20GP', 'vazio (sem B/L)', 3],
+        ['40HC', 'carga geral', 62],
+        ['40HC', 'IMO', 2],
+        ['40HC', 've&iacute;culos', 6],
+        ['40OT', 'carga geral', 5],
+        ['40RH', 'carga geral', 15],
+      ],
+    },
+    transbordo: { total: 9, tipos: [['40HC', 9]] },
+  },
   cargaSolta: {
-    bls: 4, maquinas: 7, packages: 61, ton: '213', cbm: '388,4',
+    bls: 5, ton: '254',
+    destinoFinal: { bls: 4, maquinas: 7, packages: 61, ton: '213', cbm: '388,4' },
     transbordo: { bls: 1, maquinas: 2, packages: 12, ton: '41', cbm: '74,6' },
   },
 }
+
+/** Matriz achatada como a tela de hoje monta: transbordo entra como categoria. */
+const MATRIZ_HOJE = [
+  ...DESCARGA.containers.destinoFinal.tipos,
+  ...DESCARGA.containers.transbordo.tipos.map(([tipo, n]) => [tipo, 'transbordo', n]),
+].sort((a, b) => String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1])))
 
 const VAZIOS_IMP = {
   total: 26,
@@ -210,13 +237,7 @@ function conteudo(chave, k) {
       info('Restow', CABECALHO.restow),
     ].join(''), 12)
   }
-  if (chave === 'descarga') {
-    const cs = DESCARGA.cargaSolta
-    return `${hero(String(DESCARGA.containers), 'containers descarregados', `IMO: ${DESCARGA.imo}`)}
-      ${grade(2, painel('Carga solta', `${hero(cs.ton, 'ton')}${info('B/Ls', String(cs.bls))}${info('M&aacute;quinas', String(cs.maquinas))}${info('Packages', String(cs.packages))}${info('Peso', `${cs.ton} ton`)}${info('CBM', cs.cbm)}
-        ${sub('Em transbordo', `${info('B/Ls', String(cs.transbordo.bls))}${info('M&aacute;quinas', String(cs.transbordo.maquinas))}${info('Packages', String(cs.transbordo.packages))}${info('Peso', `${cs.transbordo.ton} ton`)}${info('CBM', cs.transbordo.cbm)}`)}`)
-        + painel('Descarga de importa&ccedil;&atilde;o', listagem(DESCARGA.matriz)))}`
-  }
+  if (chave === 'descarga') return k.descarga(grade)
   if (chave === 'vaziosImp') {
     return `${hero(String(VAZIOS_IMP.total), 'vazios descarregados')}${listagem(VAZIOS_IMP.matriz)}`
   }
@@ -272,6 +293,20 @@ const KIT_HOJE = {
   sub: subH,
   listagem: (rows) => `<div style="display: grid; gap: 8px">${rows.map(([t, c, n]) => infoH(`${t} &middot; ${c}`, String(n))).join('')}</div>`,
   tabela: tabelaLinhas,
+  // Hero da seção acima dos dois painéis; "Descarga de importação" como título
+  // do painel de containers; transbordo como categoria de um lado e bloco do
+  // outro. É assim que VoyageAgencyReportTab.tsx monta hoje.
+  descarga: (grade) => {
+    const cs = DESCARGA.cargaSolta
+    const linhas = (b) => `${infoH('B/Ls', String(b.bls))}${infoH('M&aacute;quinas', String(b.maquinas))}${infoH('Packages', String(b.packages))}${infoH('Peso', `${b.ton} ton`)}${infoH('CBM', b.cbm)}`
+    return `<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px">
+        ${heroH(String(DESCARGA.containers.total), 'containers descarregados')}
+        <span style="border: 1px solid ${T.border}; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; color: ${T.text}">IMO: ${DESCARGA.containers.imo}</span>
+      </div>
+      ${grade(2, painelH('Carga solta', `${heroH(cs.destinoFinal.ton, 'ton')}${linhas(cs.destinoFinal)}
+        ${subH('Em transbordo', linhas(cs.transbordo))}`)
+        + painelH('Descarga de importa&ccedil;&atilde;o', `<div style="display: grid; gap: 8px">${MATRIZ_HOJE.map(([t, c, n]) => infoH(`${t} &middot; ${c}`, String(n))).join('')}</div>`))}`
+  },
 }
 
 function pillHoje(label, ativo, extra = '') {
@@ -426,43 +461,97 @@ const KIT_DEPOIS = {
   align: 'start',
   listagem: (rows) => `<div style="display: flex; flex-wrap: wrap; gap: 6px">${rows.map(([t, c, n]) => tokenD(`${t} &middot; ${c}`, n)).join('')}</div>`,
   tabela: tabelaLinhas,
+  descarga: (grade) => descargaDepois(grade),
+}
+
+/**
+ * Os dois modos de carga passam a ter a MESMA gramática: total do modo no topo
+ * do próprio painel, depois os dois destinos como baldes irmãos. Some o hero
+ * solto acima dos painéis (que parecia cobrir os dois e só falava de
+ * container), e "Descarga de importação" — nome que sugere exportação sendo
+ * descarregada — vira "Containers descarregados".
+ */
+function descargaDepois(grade) {
+  const c = DESCARGA.containers
+  const cs = DESCARGA.cargaSolta
+
+  /** Cabeçalho do painel: o total daquele modo de carga, e só dele. */
+  const topo = (valor, unidade, direita) => `<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid ${T.border}; padding-bottom: 10px">
+    <span style="display: inline-flex; align-items: baseline; gap: 8px">
+      <span style="font-family: ${T.display}; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: ${T.textStrong}">${valor}</span>
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.mutedSoft}">${unidade}</span>
+    </span>
+    ${direita ?? ''}
+  </div>`
+
+  /** Balde de destino: o mesmo bloco dos dois lados, só muda o que ele conta. */
+  const balde = (rotulo, lead, corpo) => `<div style="display: grid; gap: 8px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
+      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.muted}">${rotulo}</span>
+      <span style="font-family: ${T.mono}; font-size: 12px; font-weight: 600; color: ${T.text}">${lead}</span>
+    </div>
+    ${corpo}
+  </div>`
+
+  const painelContainers = `<div style="display: grid; gap: 12px; align-content: start; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 12px 14px">
+    <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.mutedSoft}">Containers descarregados</div>
+    ${topo(String(c.total), 'unidades', `<span style="display: inline-flex; align-items: center; gap: 7px">${chipD('red', `IMO ${c.imo}`)}</span>`)}
+    ${balde('Destino final', `${c.destinoFinal.total} unidades`, `<div style="display: flex; flex-wrap: wrap; gap: 6px">${c.destinoFinal.tipos.map(([t, cat, n]) => tokenD(`${t} &middot; ${cat}`, n)).join('')}</div>`)}
+    ${balde('Em transbordo', `${c.transbordo.total} unidades`, `<div style="display: flex; flex-wrap: wrap; gap: 6px">${c.transbordo.tipos.map(([t, n]) => tokenD(t, n)).join('')}</div>`)}
+    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: ${T.mutedSoft}">IMO &eacute; marcador do container, n&atilde;o um balde da listagem: ${c.imoEmTransbordo} dos ${c.imo} est&atilde;o em transbordo. A categoria &eacute; exclusiva e transbordo vence IMO.</p>
+  </div>`
+
+  const stats = (b) => `<div style="display: flex; flex-wrap: wrap; gap: 6px">${[['M&aacute;quinas', b.maquinas], ['Packages', b.packages], ['CBM', b.cbm]].map(([l, v]) => tokenD(l, v)).join('')}</div>`
+
+  const painelSolta = `<div style="display: grid; gap: 12px; align-content: start; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surface}; padding: 12px 14px">
+    <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${T.mutedSoft}">Carga solta</div>
+    ${topo(String(cs.bls), 'B/Ls', `<span style="font-family: ${T.mono}; font-size: 13px; font-weight: 600; color: ${T.text}">${cs.ton} ton</span>`)}
+    ${balde('Destino final', `${cs.destinoFinal.bls} B/Ls &middot; ${cs.destinoFinal.ton} ton`, stats(cs.destinoFinal))}
+    ${balde('Em transbordo', `${cs.transbordo.bls} B/L &middot; ${cs.transbordo.ton} ton`, stats(cs.transbordo))}
+    <p style="margin: 0; font-size: 10px; line-height: 1.5; color: ${T.mutedSoft}">Os dois baldes s&atilde;o disjuntos: o de transbordo vem dos B/Ls cujo <code>pod</code> aponta para o porto omitido, n&atilde;o para esta escala.</p>
+  </div>`
+
+  return grade(2, painelContainers + painelSolta)
 }
 
 /* =============================== PROPOSTA ============================== */
 
 export function adrDepois() {
-  const cabecalho = `<div style="display: grid; gap: 14px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 14px 16px">
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
-      <span style="display: inline-flex; align-items: center; gap: 10px; font-size: 12px; color: ${T.mutedSoft}">
-        <span style="font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.muted}">ADR</span>
-        <span>escala</span>
-        <span style="font-size: 14px; font-weight: 700; color: ${T.textStrong}">${CABECALHO.porto}</span>
-        ${icon('chevronRight', 13, T.mutedSoft)}
-        <span>terminal</span>
-        <span style="font-size: 14px; font-weight: 700; color: ${T.textStrong}">${CABECALHO.terminal}</span>
-        <span style="color: ${T.mutedSoft}">${CABECALHO.terminalNome}</span>
-      </span>
-      <span style="display: inline-flex; align-items: center; gap: 8px">
-        ${chipD('blue', 'Aberto')}
-        ${chipD('yellow', `Prazo ${CABECALHO.prazo}`, 'clock')}
-        <span class="btn btn--secondary btn--sm">Imprimir</span>
-        <span class="btn btn--primary btn--sm" style="opacity: 0.55">Fechar ADR</span>
-      </span>
+  /**
+   * Cabeçalho preservado como está hoje: a fileira de escalas e o painel "ADR
+   * por terminal". O que sobra do painel de departamentos — o contador e o
+   * Fechar ADR — vira uma faixa própria, já que os três cartões de assinatura
+   * desceram para dentro dos grupos de seção.
+   */
+  const pill = (label, ativo, extra = '') => `<span class="btn btn--${ativo ? 'primary' : 'secondary'}" style="border-radius: 999px; font-size: 13px">${label}${extra}</span>`
+
+  const cabecalho = `<div style="display: flex; flex-wrap: wrap; gap: 8px">
+      ${pill('BRSSZ', true)}
+      ${pill('BRVIX', false, ` <span style="border-radius: 999px; background: ${T.surfaceMuted}; padding: 2px 7px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: ${T.muted}">Omitida</span>`)}
     </div>
-    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid ${T.border}; padding-top: 12px">
-      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.mutedSoft}; margin-right: 2px">Escala</span>
-      <span class="btn btn--primary btn--sm" style="border-radius: 999px; min-height: 34px">BRSSZ</span>
-      <span class="btn btn--secondary btn--sm" style="border-radius: 999px; min-height: 34px">BRVIX ${chipD('slate', 'Omitida')}</span>
-      <span style="width: 1px; height: 22px; background: ${T.border}; margin: 0 6px"></span>
-      <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.mutedSoft}; margin-right: 2px">Terminal</span>
-      <span class="btn btn--primary btn--sm" style="border-radius: 999px; min-height: 34px">BTP ${chipD('blue', '6 se&ccedil;&otilde;es')}</span>
-      <span class="btn btn--secondary btn--sm" style="border-radius: 999px; min-height: 34px">DPW ${chipD('green', 'Fechado')}</span>
+    <div style="display: grid; gap: 10px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 16px">
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: ${T.muted}">ADR por terminal</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        ${pill('BTP &mdash; Brasil Terminal Portu&aacute;rio', true)}
+        ${pill('DPW &mdash; DP World Santos', false)}
+      </div>
     </div>
-    <div style="display: flex; align-items: flex-start; gap: 8px; border-top: 1px solid ${T.border}; padding-top: 12px; font-size: 12px; line-height: 1.5; color: ${T.mutedSoft}">
-      ${icon('warning', 14, T.gold)}
-      <span><b style="color: ${T.goldStrong}">Falta Equipamentos assinar</b> &mdash; 2 de 3 se&ccedil;&otilde;es do setor ainda pendentes (Ve&iacute;culos e Embarque de vazios). Os 3 departamentos precisam assinar para fechar este ADR.</span>
-    </div>
-  </div>`
+    <div style="display: grid; gap: 12px; border: 1px solid ${T.border}; border-radius: 8px; background: ${T.surfaceMuted}; padding: 14px 16px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+        <span style="display: inline-flex; align-items: center; gap: 10px">
+          <span style="font-family: ${T.mono}; font-size: 13px; font-weight: 600; color: ${T.gold}">2/3 departamentos assinados</span>
+          ${chipD('yellow', `Prazo ${CABECALHO.prazo}`, 'clock')}
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px">
+          <span class="btn btn--secondary btn--sm">Imprimir</span>
+          <span class="btn btn--primary btn--sm" style="opacity: 0.55">Fechar ADR</span>
+        </span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 8px; border-top: 1px solid ${T.border}; padding-top: 12px; font-size: 12px; line-height: 1.5; color: ${T.mutedSoft}">
+        ${icon('warning', 14, T.gold)}
+        <span><b style="color: ${T.goldStrong}">Falta Equipamentos assinar</b> &mdash; 2 de 3 se&ccedil;&otilde;es do setor ainda pendentes (Ve&iacute;culos e Embarque de vazios). Os 3 departamentos precisam assinar para fechar este ADR.</span>
+      </div>
+    </div>`
 
   const blocoSecao = (s) => {
     const [tone, label] = ESTADO[s.estado]

@@ -286,11 +286,11 @@ out('AdrAntes.dc.html', compareBoard({
   body: adrAntes(),
 }), ADR_A_H)
 
-const ADR_D_H = 3580
+const ADR_D_H = 3530
 out('AdrDepois.dc.html', compareBoard({
   height: ADR_D_H, chip: 'Proposta', chipTone: 'proposta',
   title: 'Aba ADR &mdash; proposta',
-  note: 'Mesmos dados, mesmos seis blocos. O ADR é por terminal, então o terminal sobe para o cabeçalho junto da escala, do prazo e do estado do documento. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar — ligando os dois níveis. Divergência e dado órfão ganham forma e nome, e a hierarquia volta ao vocabulário do resto da página.',
+  note: 'Mesmos dados, mesmos seis blocos. O cabeçalho fica como está hoje — a fileira de escalas e o painel <em>ADR por terminal</em>; só o contador e o Fechar ADR viram faixa própria, já que os três cartões de assinatura descem para dentro dos grupos. As seções passam a ser agrupadas por quem assina, cada grupo com o contador do que falta, o prazo do setor e o próprio botão de assinar. Em Carga descarregada, os dois modos de carga ganham a mesma gramática: total do modo no topo do painel, destino final e transbordo como baldes irmãos.',
   body: adrDepois(),
 }), ADR_D_H)
 
