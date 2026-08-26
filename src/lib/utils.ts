@@ -160,3 +160,24 @@ export function stripBlPrefix(description: string | null | undefined, blId: stri
   const prefix = `BL ${blId} - `
   return description.startsWith(prefix) ? description.slice(prefix.length) : description
 }
+
+// `voyages.id` e uma chave surrogate: o operador reconhece a viagem por
+// "navio / numero da viagem". `voyageDisplayName` devolve a chave natural (ou
+// null, quando nem o navio nem o numero vieram) e `voyageLabel` acrescenta o
+// fallback para o id, para a tela nunca ficar vazia.
+export function voyageDisplayName(
+  vesselName: string | null | undefined,
+  voyageNumber: string | null | undefined,
+): string | null {
+  const label = [vesselName?.trim(), voyageNumber?.trim()].filter(Boolean).join(' / ')
+  return label || null
+}
+
+export function voyageLabel(
+  vesselName: string | null | undefined,
+  voyageNumber: string | null | undefined,
+  voyageId: string | number | null | undefined,
+): string {
+  return voyageDisplayName(vesselName, voyageNumber)
+    ?? (voyageId == null ? 'Viagem' : `Viagem ${voyageId}`)
+}

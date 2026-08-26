@@ -40,7 +40,7 @@ import {
   veto,
 } from "../services/vaziosCusto";
 import type { DepotService, VaziosExportServiceLine } from "../types/database";
-import { formatBRL, formatDate, normalizeText } from "../lib/utils";
+import { formatBRL, formatDate, normalizeText, voyageLabel } from "../lib/utils";
 import { classifyDbError } from "../lib/errors";
 import { invalidateAgencyReportForVoyage } from "../services/agencyReportInvalidation";
 
@@ -54,10 +54,7 @@ type OperationRow = {
 };
 
 function operationLabel(item: OperationRow): string {
-  return (
-    [item.voyage?.vessel?.name, item.voyage?.voyage_number].filter(Boolean).join(" / ") ||
-    `Viagem ${item.voyage_id}`
-  );
+  return voyageLabel(item.voyage?.vessel?.name, item.voyage?.voyage_number, item.voyage_id);
 }
 
 function countByField<T>(rows: T[], keyOf: (row: T) => string): Array<{ label: string; count: number }> {
@@ -1138,7 +1135,7 @@ export function EmbarqueVazios() {
                               {editingServiceObservation === item.id ? (
                                 <div className="grid gap-2">
                                   <textarea
-                                    aria-label={`Observação — ${item.id}`}
+                                    aria-label={`Observação — ${(item.service as { name?: string } | null)?.name ?? item.service_id}`}
                                     value={serviceObservationDraft}
                                     onChange={(event) => setServiceObservationDraft(event.target.value)}
                                     autoFocus

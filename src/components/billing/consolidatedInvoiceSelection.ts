@@ -1,4 +1,5 @@
 import type { ConsolidatableReceivable } from '../../types/database'
+import { voyageLabel } from '../../lib/utils'
 
 // Only receivables flagged 'eligible' by the ledger can enter a consolidated invoice.
 export function isReceivableSelectable(r: Pick<ConsolidatableReceivable, 'eligibility_status'>): boolean {
@@ -24,9 +25,7 @@ export function listReceivableVoyageOptions(rows: ConsolidatableReceivable[]): R
     if (!['open', 'partially_settled'].includes(row.receivable_status)) continue
     if (Number(row.balance_brl ?? 0) <= 0) continue
 
-    const vessel = row.vessel_name?.trim()
-    const voyage = row.voyage_number?.trim()
-    options.set(Number(row.voyage_id), [vessel, voyage].filter(Boolean).join(' / ') || `Viagem ${row.voyage_id}`)
+    options.set(Number(row.voyage_id), voyageLabel(row.vessel_name, row.voyage_number, row.voyage_id))
   }
 
   return Array.from(options, ([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))
