@@ -4321,6 +4321,11 @@ textarea {
   background: var(--app-surface);
 }
 
+.app-voyage-atracacoes-table thead th {
+  background: var(--app-panel-strong);
+  color: var(--app-muted);
+}
+
 .app-voyage-icon-btn {
   width: 38px;
   min-width: 38px;

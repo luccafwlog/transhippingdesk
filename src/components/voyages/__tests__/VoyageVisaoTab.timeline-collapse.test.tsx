@@ -95,6 +95,61 @@ it('não mostra atracação TBC completamente vazia no planejamento', () => {
   expect(screen.queryByText('Atracações')).toBeNull()
 })
 
+it('recolhe e expande o painel próprio de atracações sem perder os dados da escala', async () => {
+  const user = userEvent.setup()
+  const onEditEscala = vi.fn()
+  render(
+    <VoyageVisaoTab
+      voyage={{ id: 7, status: 'planning', bls: [], granite_manifests: [], vazios_manifests: [] } as never}
+      voyageLabel="NAVIO / 01N"
+      escalaRows={[{
+        voyageId: 7,
+        port: 'BRSSZ',
+        eta: '2026-08-26',
+        ata: null,
+        atd: null,
+        atracacoes: [{ terminalId: 'terminal-1', terminalCode: 'BTP', etb: '2026-08-26', atb: null, etd: null, atd: null, rtw: 26 }],
+        ceStatus: null,
+        podCeStatus: null,
+        exportCeStatus: null,
+        linked: null,
+        escalaNumber: null,
+        omitted: false,
+        deleted: false,
+        temImportacao: true,
+        temExportacao: false,
+        temGranito: false,
+        temVazios: false,
+        containersQty: null,
+        movementsQty: null,
+        dischargePorts: [],
+        divergences: [],
+      } as never]}
+      importBatches={[]}
+      exportSchedules={[]}
+      isAdmin={false}
+      divergenceCount={0}
+      ceCoverage={{ filled: 0, total: 0 }}
+      onEditEscala={onEditEscala}
+      onOmitPod={vi.fn()}
+    />,
+  )
+
+  expect(screen.getByRole('table', { name: 'Atracações de BRSSZ' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Adicionar atracação na escala BRSSZ' }))
+  expect(onEditEscala).toHaveBeenLastCalledWith(expect.objectContaining({ port: 'BRSSZ', focusTerminalId: null }))
+
+  await user.click(screen.getByRole('button', { name: 'Editar atracação BTP da escala BRSSZ' }))
+  expect(onEditEscala).toHaveBeenLastCalledWith(expect.objectContaining({ port: 'BRSSZ', focusTerminalId: 'terminal-1' }))
+
+  await user.click(screen.getByRole('button', { name: 'Recolher atracações de BRSSZ' }))
+  expect(screen.queryByRole('table', { name: 'Atracações de BRSSZ' })).toBeNull()
+
+  await user.click(screen.getByRole('button', { name: 'Expandir atracações de BRSSZ' }))
+  expect(screen.getByRole('table', { name: 'Atracações de BRSSZ' })).toBeTruthy()
+  expect(screen.getByText('BTP')).toBeTruthy()
+})
+
 it('não usa status de exportação ao reabrir uma escala que também tem importação', async () => {
   const user = userEvent.setup()
   const onEditEscala = vi.fn()

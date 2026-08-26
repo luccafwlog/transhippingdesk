@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Modal } from '../ui/Modal'
 import { Field, Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -102,6 +102,8 @@ export type EscalaModalData = {
   graniteLocked?: boolean
   emptyLocked?: boolean
   terminalScale?: EscalaModalTerminalScale | null
+  /** `undefined` keeps the normal modal focus; `null` focuses the terminal section. */
+  focusTerminalId?: string | null
 }
 
 // Modais apresentacionais de escala e de manifesto; a persistência fica no
@@ -392,6 +394,7 @@ function TerminalFrontEditor({
   error,
   blockers,
   onReopenAdr,
+  focusTerminalId,
 }: {
   scale: EscalaModalTerminalScale
   terminalFronts: Record<string, string>
@@ -407,14 +410,28 @@ function TerminalFrontEditor({
   error: string | null
   blockers: ClosedAdrBlocker[]
   onReopenAdr?: (blocker: ClosedAdrBlocker) => void
+  focusTerminalId?: string | null
 }) {
+  const sectionRef = useRef<HTMLElement>(null)
+  const terminalRowRefs = useRef(new Map<string, HTMLDivElement>())
   const grouped = (['importacao', 'exportacao'] as OperationFrontDirection[]).map((sentido) => ({
     sentido,
     fronts: scale.fronts.filter((front) => front.sentido === sentido),
   })).filter((group) => group.fronts.length > 0)
+  const terminalIdsKey = terminalIds.join('|')
+
+  useEffect(() => {
+    if (focusTerminalId === undefined) return
+    const target = (focusTerminalId ? terminalRowRefs.current.get(focusTerminalId) : null) ?? sectionRef.current
+    if (!target) return
+    target.scrollIntoView?.({ block: 'center' })
+    const focusTarget = (focusTerminalId ? target.querySelector<HTMLElement>('input, select') : null) ?? sectionRef.current
+    const timeoutId = window.setTimeout(() => focusTarget?.focus(), 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [focusTerminalId, terminalIdsKey])
 
   return (
-    <section aria-label="Terminais por operação" className="app-escala-section app-escala-terminals">
+    <section ref={sectionRef} tabIndex={-1} aria-label="Terminais por operação" className="app-escala-section app-escala-terminals">
       <div>
         <h3 className="app-escala-section__title">Terminais por operação</h3>
         <p className="app-escala-section__description">Cada operação ativa recebe seu próprio terminal. Sem atribuição, ela permanece em TBC e não cria uma atracação no planejamento.</p>
@@ -465,7 +482,14 @@ function TerminalFrontEditor({
           const draft = terminalDates[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
           const code = terminalId === '__tbc__' ? 'TBC' : option?.code ?? terminalId
           return (
-            <div key={terminalId} className="app-escala-terminal-date-row">
+            <div
+              key={terminalId}
+              ref={(node) => {
+                if (node) terminalRowRefs.current.set(terminalId, node)
+                else terminalRowRefs.current.delete(terminalId)
+              }}
+              className="app-escala-terminal-date-row"
+            >
               <div className="app-escala-terminal-date-row__name">
                 {code}
                 {option?.active === false ? <div className="app-escala-operation-row__meta app-escala-operation-row__meta--pending">Terminal inativo · histórico</div> : null}
@@ -1046,6 +1070,7 @@ export function EscalaModal({
                 error={terminalError ?? terminalScale.error ?? null}
                 blockers={closedBlockers}
                 onReopenAdr={onReopenAdr}
+                focusTerminalId={escala.focusTerminalId}
               />
             ) : null}
           </div>

@@ -104,7 +104,7 @@ it('renderiza uma escala mista em uma linha com marcadores de importação e exp
   )
 
   const table = screen.getByRole('table')
-  expect(within(table).getAllByRole('row')).toHaveLength(2)
+  expect(within(table).getAllByRole('row')).toHaveLength(3)
   expect(within(table).getByText('BRVIX')).toBeTruthy()
   expect(within(table).getByText('Importação')).toBeTruthy()
   expect(within(table).getByText('Exportação')).toBeTruthy()
@@ -155,7 +155,8 @@ it('exibe divergencia com os valores POD e POL na linha da escala', () => {
     />,
   )
 
-  expect(screen.getByText(/Diverg\u00eancia ETD: POD 2026-08-02 \/ POL 2026-08-03/)).toBeTruthy()
+  expect(screen.getByText('ETD divergente')).toBeTruthy()
+  expect(screen.getByTitle('Divergência ETD: POD 2026-08-02 / POL 2026-08-03')).toBeTruthy()
 })
 
 it('renderiza viagem só de exportação em uma linha sem marcador de importação', () => {
@@ -197,7 +198,7 @@ it('renderiza viagem só de exportação em uma linha sem marcador de importaç�
   )
 
   const table = screen.getByRole('table')
-  expect(within(table).getAllByRole('row')).toHaveLength(2)
+  expect(within(table).getAllByRole('row')).toHaveLength(3)
   expect(within(table).getByText('BRSSZ')).toBeTruthy()
   expect(within(table).getByText('Exportação')).toBeTruthy()
   expect(within(table).queryByText('Importação')).toBeNull()
