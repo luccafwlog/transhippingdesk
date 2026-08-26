@@ -167,10 +167,11 @@ export function VoyageCard({
   const totalOogContainers = countDistinctContainerNumbersBy(flatContainers, (container) => Boolean(container.is_oog))
   const totalImportVehicles = vehicleStats.totalVehicles
   const exportSummary = summarizeExportByEmbarkPort(voyage.granite_manifests, voyage.vazios_manifests)
-  const totalExportContainers = (voyage.vazios_manifests ?? []).reduce(
-    (sum, manifest) => sum + Number(manifest.total_bookings ?? manifest.vazios_bookings?.length ?? 0),
-    0,
-  )
+  // Mesma fonte da aba Exportação (`summarizeExportByEmbarkPort`): contar
+  // `vazios_manifests.total_bookings` aqui fazia o KPI divergir da faixa
+  // "Vazios embarcados" da aba sempre que o agregado do manifesto ficava
+  // defasado em relação aos bookings realmente carregados.
+  const totalExportContainers = exportSummary.reduce((sum, embarkPort) => sum + embarkPort.vazios.units, 0)
   const totalVaziosManifests = (voyage.vazios_manifests ?? []).length
   const totalGraniteBls = exportSummary.reduce((sum, embarkPort) => sum + embarkPort.granite.bls, 0)
   const totalGraniteWeightTon = exportSummary.reduce((sum, embarkPort) => sum + embarkPort.granite.weightTon, 0)
@@ -272,12 +273,13 @@ export function VoyageCard({
   const { data: reconciliation } = useVoyageReconciliation(voyage.id)
   const divergenceCount = reconciliation?.items.length ?? 0
   const ceCoverage = voyageCeCoverage(voyage.bls)
-  const ceMasterCount = routeCeMasters
-    ? [...routeCeMasters.entries()].filter(([key, value]) => key.startsWith(`${voyage.id}::`) && value.trim().length > 0).length
-    : 0
-  const ceMasterTotal = new Set(
-    (voyage.bls ?? []).map((bl) => `${String(bl.pol ?? '').trim().toUpperCase()}__${String(bl.pod ?? '').trim().toUpperCase()}`),
-  ).size
+  // Uma rota tem CE Master quando o manifesto importado traz `ce_master` OU
+  // quando a rota recebeu o número avulso (#322). Contar só `routeCeMasters`
+  // aqui zerava o KPI de viagens cujo CE Master veio do arquivo, contradizendo
+  // a coluna "Nº de manifesto Mercante" da aba Rotas e Manifestos — que já lê
+  // as duas fontes por `collectVoyageManifestBatchRows`.
+  const ceMasterCount = manifestRows.filter((row) => String(row.ceMaster ?? '').trim().length > 0).length
+  const ceMasterTotal = manifestRows.length
   const proximaEscala = getProximaEscala(podRows)
   const reconciliationState = deriveEstadoConciliacao({
     hasOpenDivergences: divergenceCount > 0,

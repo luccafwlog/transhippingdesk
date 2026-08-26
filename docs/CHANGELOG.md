@@ -3,6 +3,19 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Varredura de totais em `/viagens` (auditoria 2026-08-26):** alinhamento das
+  fontes por trás dos números exibidos. O KPI `vazios embarcados` passa a somar
+  os bookings agregados por `summarizeExportByEmbarkPort`, a mesma fonte da faixa
+  da aba Exportação, em vez de `vazios_manifests.total_bookings`; o KPI
+  `CE Master` passa a contar as rotas de `collectVoyageManifestBatchRows` com
+  número preenchido, lendo `import_batches.ce_master` além de
+  `voyage_route_ce_master` (antes zerava em viagens cujo CE Master veio do
+  arquivo, contradizendo a aba Rotas e Manifestos); o filtro de período do rail
+  vira janela fechada de hoje até hoje + N dias (estava escondendo justamente as
+  escalas dos próximos 7/30 dias); e o ADR volta a registrar o destino dos
+  containers descarregados (`sections.cargaDescarregada.destino`), que sumia do
+  fechado/impresso desde a separação entre natureza e transbordo. Achados sem
+  correção estão em [archive/audits/viagens-totais-2026-08-26.md](archive/audits/viagens-totais-2026-08-26.md).
 - **Redesenho da página `/viagens` (PRs #588, #591–#599):**
   reestruturação visual e operacional da página de Viagens e seus componentes,
   fatiada e entregue em 7 blocos a partir dos artboards do canvas:

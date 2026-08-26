@@ -26,6 +26,7 @@ import {
   buildContainerTypeMatrix,
   filterDepartmentReopeningEvents,
   groupEmptyEmbarkBookings,
+  isTransshipmentContainer,
   MATRIX_CATEGORY_LABELS,
   groupVehiclesByBrand,
   summarizeVehiclesByContainerTypeAndModel,
@@ -399,6 +400,17 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
     type: container.size_type ?? '—',
     category: container.category,
   })))
+  // Transbordo deixou de ser uma categoria da matriz (natureza e destino são
+  // eixos independentes), então o split de destino precisa viajar junto do
+  // snapshot: sem ele o ADR fechado/impresso perde um número que a aba mostra.
+  // `cargaDescarregada` continua sendo a mesma seção da allowlist de
+  // `close_agency_departure_report` (migration 249) — só ganha campos irmãos
+  // de `rows`/`totals`.
+  const dischargeTransshipmentCount = containers.filter(isTransshipmentContainer).length
+  const dischargeDestination = {
+    destinoFinal: containers.length - dischargeTransshipmentCount,
+    transbordo: dischargeTransshipmentCount,
+  }
   const emptyDischargeMatrix = buildContainerTypeMatrix(vaziosImp.map((container) => ({
     type: container.container_type ?? '—',
     category: container.natureza === 'cama' ? 'vazio_cama' : container.natureza === 'cover_plate' ? 'vazio_cover_plate' : 'vazio',
@@ -560,7 +572,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
       deadlineDate,
     },
     sections: {
-      cargaDescarregada: dischargeMatrix,
+      cargaDescarregada: { ...dischargeMatrix, destino: dischargeDestination },
       cargaSolta: cargaSolta ?? null,
       vaziosDescarregados: emptyDischargeMatrix,
       veiculos: vehicles,
@@ -739,7 +751,7 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
                 <div className="flex flex-wrap gap-1.5">{imoCount ? <ReportToken label="IMO" value={imoCount} /> : null}{containers.filter((container) => container.is_oog).length ? <ReportToken label="OOG" value={containers.filter((container) => container.is_oog).length} /> : null}</div>
                 <div className="grid gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted)]">Por tipo</span><div className="flex flex-wrap gap-1.5">{Object.entries(dischargeMatrix.rows).sort(([a], [b]) => a.localeCompare(b)).map(([type, categories]) => <ReportToken key={type} label={type} value={Object.values(categories).reduce((sum, value) => sum + value, 0)} />)}</div></div>
                 <div className="grid gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted)]">Por tipo e natureza</span><ContainerNatureTable rows={dischargeMatrix.rows} /></div>
-                <div className="grid gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted)]">Destino</span><div className="flex flex-wrap gap-1.5"><ReportToken label="Destino final" value={containers.filter((container) => !(container.is_transshipment || container.category === 'transbordo')).length} /><ReportToken label="Em transbordo" value={containers.filter((container) => Boolean(container.is_transshipment || container.category === 'transbordo')).length} /></div></div>
+                <div className="grid gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted)]">Destino</span><div className="flex flex-wrap gap-1.5"><ReportToken label="Destino final" value={dischargeDestination.destinoFinal} /><ReportToken label="Em transbordo" value={dischargeDestination.transbordo} /></div></div>
                 <p className="m-0 text-[11px] leading-5 text-[var(--app-muted-soft)]">Só container cheio. Vazios do Baplie vivem em <strong className="text-[var(--app-muted)]">Vazios descarregados</strong>.</p>
               </div> : null}
               {cargaSoltaTotal?.bls ? <div className="grid content-start gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5"><div className="flex flex-wrap items-baseline justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted-soft)]">Carga solta</span><Hero value={String(cargaSoltaTotal.bls)} unit="B/Ls" /></div><span className="font-[var(--app-font-mono)] text-xs font-semibold text-[var(--app-text)]">{cargaSoltaTotal.weightTon.toLocaleString('pt-BR')} ton</span><div className="grid gap-3 border-t border-[var(--app-border)] pt-3"><div className="flex flex-wrap items-baseline justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted)]">Destino final</span><span className="font-[var(--app-font-mono)] text-xs text-[var(--app-text)]">{cargaSolta?.bls ?? 0} B/Ls · {cargaSolta?.weightTon.toLocaleString('pt-BR') ?? '0'} ton</span></div><div className="flex flex-wrap gap-1.5"><ReportToken label="Máquinas" value={cargaSolta?.machines ?? 0} /><ReportToken label="Packages" value={cargaSolta?.packages ?? 0} /><ReportToken label="CBM" value={cargaSolta?.cbm?.toLocaleString('pt-BR') ?? '0'} /></div></div><div className="grid gap-3 border-t border-[var(--app-border)] pt-3"><div className="flex flex-wrap items-baseline justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted)]">Em transbordo</span><span className="font-[var(--app-font-mono)] text-xs text-[var(--app-text)]">{cargaSoltaTransshipment.bls} B/L · {cargaSoltaTransshipment.weightTon.toLocaleString('pt-BR')} ton</span></div><div className="flex flex-wrap gap-1.5"><ReportToken label="Máquinas" value={cargaSoltaTransshipment.machines} /><ReportToken label="Packages" value={cargaSoltaTransshipment.packages} /><ReportToken label="CBM" value={cargaSoltaTransshipment.cbm.toLocaleString('pt-BR')} /></div></div></div> : null}
