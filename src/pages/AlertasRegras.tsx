@@ -1,21 +1,28 @@
-import { ChevronRight, CircleAlert, ExternalLink, FilterX, Search } from 'lucide-react'
+import { Archive, ChevronRight, CircleAlert, ExternalLink, FilterX, Search } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import {
+  ALERT_CRITICAL_FALLBACK_NOTE,
   ALERT_RULES,
+  ALERT_RULE_DEPARTMENTS,
   ALERT_RULE_DEPARTMENT_LABELS,
   ALERT_RULE_DOMAINS,
   ALERT_RULE_SEVERITY_LABELS,
+  ALERT_RULE_STATUS_LABELS,
   type AlertRule,
   type AlertRuleDepartment,
   type AlertRuleDomain,
   type AlertRuleSeverity,
+  type AlertRuleStatus,
 } from '../services/alertRulesCatalog'
 import { ENTITY_TYPE_LABELS } from '../services/alerts'
 
-const DEPARTMENTS: Array<{ value: 'all' | AlertRuleDepartment; label: string }> = [
-  { value: 'all', label: 'Todos os setores' },
+export type AlertRuleDepartmentFilter = 'all' | 'todos' | AlertRuleDepartment
+
+const DEPARTMENTS: Array<{ value: AlertRuleDepartmentFilter; label: string }> = [
+  { value: 'all', label: 'Qualquer setor' },
+  { value: 'todos', label: 'Aplicável a todos os setores' },
   { value: 'documentacao', label: 'Documentação' },
   { value: 'equipamentos', label: 'Equipamentos' },
   { value: 'operacoes', label: 'Operações' },
@@ -27,20 +34,43 @@ const SEVERITIES: Array<{ value: 'all' | AlertRuleSeverity; label: string }> = [
   { value: 'normal', label: 'Normal' },
 ]
 
+const STATUSES: Array<{ value: 'all' | AlertRuleStatus; label: string }> = [
+  { value: 'ativa', label: 'Somente ativas' },
+  { value: 'aposentada', label: 'Somente aposentadas' },
+  { value: 'all', label: 'Ativas e aposentadas' },
+]
+
 const ALL_FILTER_VALUE = 'all'
+const DEFAULT_STATUS_FILTER: 'all' | AlertRuleStatus = 'ativa'
 
 export function AlertasRegras() {
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
-  const department = isDepartment(searchParams.get('setor')) ? searchParams.get('setor') as AlertRuleDepartment : ALL_FILTER_VALUE
+  const department = isDepartmentFilter(searchParams.get('setor')) ? searchParams.get('setor') as 'todos' | AlertRuleDepartment : ALL_FILTER_VALUE
   const domain = isDomain(searchParams.get('dominio')) ? searchParams.get('dominio') as AlertRuleDomain : ALL_FILTER_VALUE
   const severity = isSeverity(searchParams.get('gravidade')) ? searchParams.get('gravidade') as AlertRuleSeverity : ALL_FILTER_VALUE
   const selectedParam = searchParams.get('regra')
+  // Um deep-link para uma regra aposentada não pode cair no filtro padrão:
+  // sem `?situacao=`, a situação segue a regra pedida na URL.
+  const requestedRule = ALERT_RULES.find((rule) => rule.type === selectedParam)
+  const statusParam = searchParams.get('situacao')
+  const status = isStatusFilter(statusParam)
+    ? statusParam
+    : requestedRule?.status === 'aposentada' ? ALL_FILTER_VALUE : DEFAULT_STATUS_FILTER
 
   const filteredRules = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR')
     return ALERT_RULES.filter((rule) => {
-      if (department !== ALL_FILTER_VALUE && rule.department !== department) return false
+      if (status !== ALL_FILTER_VALUE && rule.status !== status) return false
+      // O setor filtra por quem é notificado, não só por quem responde: um
+      // mesmo alerta pode chegar a mais de um setor. O valor especial 'todos'
+      // filtra somente regras aplicáveis a todos os setores operacionais.
+      if (department === 'todos') {
+        const appliesToAll = ALERT_RULE_DEPARTMENTS.every((dep) => rule.notifiedDepartments.includes(dep))
+        if (!appliesToAll) return false
+      } else if (department !== ALL_FILTER_VALUE && !rule.notifiedDepartments.includes(department)) {
+        return false
+      }
       if (domain !== ALL_FILTER_VALUE && rule.domain !== domain) return false
       if (severity !== ALL_FILTER_VALUE && rule.severity !== severity) return false
       if (!normalizedQuery) return true
@@ -53,13 +83,16 @@ export function AlertasRegras() {
         rule.resolution,
         rule.destination,
         rule.destinationLabel,
+        rule.routingNote ?? '',
+        rule.statusNote ?? '',
+        ALERT_RULE_STATUS_LABELS[rule.status],
         ENTITY_TYPE_LABELS[rule.entityType],
-        ALERT_RULE_DEPARTMENT_LABELS[rule.department],
+        ...rule.notifiedDepartments.map((item) => ALERT_RULE_DEPARTMENT_LABELS[item]),
         rule.domain,
       ].join(' ').toLocaleLowerCase('pt-BR')
       return searchable.includes(normalizedQuery)
     })
-  }, [department, domain, query, severity])
+  }, [department, domain, query, severity, status])
 
   const selectedRule = filteredRules.find((rule) => rule.type === selectedParam) ?? filteredRules[0] ?? null
 
@@ -81,19 +114,33 @@ export function AlertasRegras() {
     setSearchParams(next, { replace: true })
   }
 
-  function clearFilters() {
-    const next = new URLSearchParams()
-    if (selectedRule) next.set('regra', selectedRule.type)
+  function updateStatusFilter(value: string) {
+    const next = new URLSearchParams(searchParams)
+    if (value === DEFAULT_STATUS_FILTER) next.delete('situacao')
+    else next.set('situacao', value)
     setSearchParams(next, { replace: true })
   }
 
-  const hasFilters = Boolean(query || department !== ALL_FILTER_VALUE || domain !== ALL_FILTER_VALUE || severity !== ALL_FILTER_VALUE)
+  function clearFilters() {
+    const next = new URLSearchParams()
+    if (selectedRule) next.set('regra', selectedRule.type)
+    if (selectedRule?.status === 'aposentada') next.set('situacao', ALL_FILTER_VALUE)
+    setSearchParams(next, { replace: true })
+  }
+
+  const hasFilters = Boolean(
+    query
+    || department !== ALL_FILTER_VALUE
+    || domain !== ALL_FILTER_VALUE
+    || severity !== ALL_FILTER_VALUE
+    || status !== DEFAULT_STATUS_FILTER,
+  )
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Regras de Alertas"
-        description="Use esta página como legenda: entenda o que dispara cada alerta e onde tratar a causa."
+        description="Use esta página como legenda: entenda o que dispara cada alerta, quais setores são avisados e onde tratar a causa."
         action={(
           <Link to="/alertas" className="app-btn app-btn--secondary inline-flex items-center gap-2">
             <CircleAlert size={15} aria-hidden="true" />
@@ -119,7 +166,7 @@ export function AlertasRegras() {
           </label>
 
           <FilterSelect
-            label="Setor responsável"
+            label="Setor notificado"
             value={department}
             options={DEPARTMENTS}
             onChange={(value) => updateFilter('setor', value)}
@@ -136,6 +183,12 @@ export function AlertasRegras() {
             options={SEVERITIES}
             onChange={(value) => updateFilter('gravidade', value)}
           />
+          <FilterSelect
+            label="Situação"
+            value={status}
+            options={STATUSES}
+            onChange={updateStatusFilter}
+          />
           <button
             type="button"
             className="app-btn app-btn--ghost inline-flex items-center gap-2"
@@ -146,6 +199,9 @@ export function AlertasRegras() {
             Limpar filtros
           </button>
         </div>
+        <p className="mt-3 text-[11px] leading-5 text-[var(--app-muted)]">
+          O filtro de setor considera todos os setores que recebem a notificação, não apenas o responsável na fila. {ALERT_CRITICAL_FALLBACK_NOTE}
+        </p>
       </Card>
 
       <div className="flex items-center justify-between gap-3 text-xs text-[var(--app-muted)]">
@@ -159,7 +215,7 @@ export function AlertasRegras() {
         <Card className="overflow-hidden p-0">
           <div className="border-b border-[var(--app-border)] bg-[var(--app-card-bg)] px-4 py-3">
             <h2 className="text-sm font-semibold text-[var(--app-text-strong)]">Catálogo de regras</h2>
-            <p className="mt-1 text-[11px] text-[var(--app-muted)]">As regras ativas no sistema, agrupadas para consulta.</p>
+            <p className="mt-1 text-[11px] text-[var(--app-muted)]">As regras do sistema, agrupadas para consulta.</p>
           </div>
 
           {filteredRules.length ? (
@@ -209,6 +265,10 @@ function FilterSelect<T extends string>({
   )
 }
 
+function departmentList(departments: AlertRuleDepartment[]): string {
+  return departments.map((department) => ALERT_RULE_DEPARTMENT_LABELS[department]).join(' · ')
+}
+
 function RuleListItem({
   rule,
   selected,
@@ -228,12 +288,18 @@ function RuleListItem({
         : 'border-transparent hover:border-[var(--app-border)] hover:bg-[var(--app-card-bg)]'}`}
       onClick={onSelect}
     >
-      <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${rule.severity === 'critical' ? 'bg-rose-400' : 'bg-amber-400'}`} aria-hidden="true" />
+      <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${rule.status === 'aposentada' ? 'bg-slate-500' : rule.severity === 'critical' ? 'bg-rose-400' : 'bg-amber-400'}`} aria-hidden="true" />
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold leading-5 text-[var(--app-text-strong)]">{rule.label}</span>
         <span className="mt-1 block text-[11px] text-[var(--app-muted)]">
-          {ALERT_RULE_DEPARTMENT_LABELS[rule.department]} · {rule.domain}
+          {departmentList(rule.notifiedDepartments)} · {rule.domain}
         </span>
+        {rule.status === 'aposentada' ? (
+          <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-[var(--app-border)] px-1.5 py-0.5 text-[10px] text-[var(--app-muted)]">
+            <Archive size={10} aria-hidden="true" />
+            Aposentada
+          </span>
+        ) : null}
       </span>
       <ChevronRight size={15} className={`mt-1 shrink-0 ${selected ? 'text-[var(--app-primary)]' : 'text-[var(--app-muted)] group-hover:text-[var(--app-text)]'}`} aria-hidden="true" />
     </button>
@@ -241,6 +307,8 @@ function RuleListItem({
 }
 
 function RuleDetail({ rule }: { rule: AlertRule }) {
+  const alsoNotified = rule.notifiedDepartments.filter((department) => !rule.responsibleDepartments.includes(department))
+
   return (
     <div id={`regra-${rule.type}`}>
       <Card className="p-5 sm:p-6">
@@ -249,6 +317,12 @@ function RuleDetail({ rule }: { rule: AlertRule }) {
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <SeverityBadge severity={rule.severity} />
             <span className="rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[11px] text-[var(--app-muted)]">{rule.domain}</span>
+            {rule.status === 'aposentada' ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+                <Archive size={11} aria-hidden="true" />
+                Aposentada
+              </span>
+            ) : null}
           </div>
           <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">{rule.label}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--app-muted)]">{rule.summary}</p>
@@ -256,14 +330,35 @@ function RuleDetail({ rule }: { rule: AlertRule }) {
         <span className="rounded bg-[var(--app-bg)] px-2 py-1 font-mono text-[10px] text-[var(--app-muted)]">{rule.type}</span>
       </div>
 
+      {rule.statusNote ? (
+        <p className="mt-4 rounded-lg border border-slate-500/25 bg-slate-500/5 p-4 text-xs leading-6 text-[var(--app-muted)]">
+          {rule.statusNote}
+        </p>
+      ) : null}
+
       <dl className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2">
         <DetailField label="Entidade afetada">{ENTITY_TYPE_LABELS[rule.entityType]}</DetailField>
-        <DetailField label="Setor responsável">{ALERT_RULE_DEPARTMENT_LABELS[rule.department]}</DetailField>
+        <DetailField label="Setor responsável">{departmentList(rule.responsibleDepartments)}</DetailField>
+        <DetailField label="Setores notificados">
+          {departmentList(rule.notifiedDepartments)}
+          {alsoNotified.length ? (
+            <span className="mt-1 block text-xs text-[var(--app-muted)]">
+              Além do responsável, também recebe: {departmentList(alsoNotified)}.
+            </span>
+          ) : null}
+        </DetailField>
         <DetailField label="Quando aparece">{rule.timing}</DetailField>
         <DetailField label="Gatilho">{rule.trigger}</DetailField>
         <DetailField label="Como resolver">{rule.resolution}</DetailField>
         <DetailField label="O que acontece depois">{rule.afterResolution}</DetailField>
       </dl>
+
+      {rule.routingNote ? (
+        <div className="mt-5 rounded-lg border border-[var(--app-border)] bg-[var(--app-card-bg)] p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--app-muted)]">Como o alerta é distribuído</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--app-text)]">{rule.routingNote}</p>
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-4 border-t border-[var(--app-border)] pt-5 sm:grid-cols-2">
         <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card-bg)] p-4">
@@ -315,8 +410,8 @@ function SeverityBadge({ severity }: { severity: AlertRuleSeverity }) {
   )
 }
 
-function isDepartment(value: string | null): value is AlertRuleDepartment {
-  return value === 'documentacao' || value === 'equipamentos' || value === 'operacoes'
+function isDepartmentFilter(value: string | null): value is 'todos' | AlertRuleDepartment {
+  return value === 'todos' || Boolean(value && value in ALERT_RULE_DEPARTMENT_LABELS)
 }
 
 function isDomain(value: string | null): value is AlertRuleDomain {
@@ -325,4 +420,8 @@ function isDomain(value: string | null): value is AlertRuleDomain {
 
 function isSeverity(value: string | null): value is AlertRuleSeverity {
   return value === 'critical' || value === 'normal'
+}
+
+function isStatusFilter(value: string | null): value is 'all' | AlertRuleStatus {
+  return value === 'all' || value === 'ativa' || value === 'aposentada'
 }

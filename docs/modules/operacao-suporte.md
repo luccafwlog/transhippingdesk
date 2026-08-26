@@ -1,6 +1,6 @@
 # Operação e Suporte
 
-> **Status:** ativo · **Cartografia verificada:** 2026-08-25 · **Rotas:** `/painel`, `/revisao`, `/alertas`, `/alertas/regras`, `/relatorios`, `/line-up-tv`, `/line-up-tv/display`, `/admin/usuarios`
+> **Status:** ativo · **Cartografia verificada:** 2026-08-26 · **Rotas:** `/painel`, `/revisao`, `/alertas`, `/alertas/regras`, `/relatorios`, `/line-up-tv`, `/line-up-tv/display`, `/admin/usuarios`
 
 ## Propósito e escopo
 
@@ -11,7 +11,7 @@ Escopo por rota:
 - `/painel`: KPIs operacionais, snapshot do Line-Up, exportação e atalhos;
 - `/revisao`: fila agrupada, correção individual ou por cliente, gate canônico e tentativa de faturamento automático;
 - `/alertas`: fila, filtros e dispensa temporária de alertas internos;
-- `/alertas/regras`: manual somente leitura das 28 regras ativas, com filtros e links para tratamento;
+- `/alertas/regras`: manual somente leitura das 26 regras ativas e das 2 aposentadas, com filtro por setor notificado e links para tratamento;
 - `/relatorios`: abas operacional, financeira, por cliente e demurrage, com exportação XLSX onde implementada;
 - `/line-up-tv`: compatibilidade por redirecionamento para `/painel`;
 - `/line-up-tv/display`: quadro protegido, sem o shell do `AppLayout`, para monitor/TV;
@@ -110,7 +110,11 @@ Dispensar exige motivo e uma data futura e grava o histórico por ocorrência; a
 
 ### `/alertas/regras`
 
-`src/pages/AlertasRegras.tsx` apresenta o catálogo educativo das 28 regras ativas de `alert_type_catalog`, alimentado por `src/services/alertRulesCatalog.ts`. A lista pode ser filtrada por busca, setor, domínio e gravidade; o painel detalha entidade, gatilho, prazo, resolução, dispensa e destino. A seleção e os filtros ficam na query string para permitir retorno e compartilhamento. A tela é somente leitura: não executa detectores, não resolve itens e não altera configurações.
+`src/pages/AlertasRegras.tsx` apresenta o catálogo educativo dos 28 tipos de `alert_type_catalog` — 26 ativos e 2 aposentados —, alimentado por `src/services/alertRulesCatalog.ts`. A lista pode ser filtrada por busca, setor notificado, domínio, gravidade e situação; o painel detalha entidade, setor responsável, setores notificados, distribuição, gatilho, prazo, resolução, dispensa e destino. A seleção e os filtros ficam na query string para permitir retorno e compartilhamento. A tela é somente leitura: não executa detectores, não resolve itens e não altera configurações.
+
+O verbete distingue **setor responsável** (o `alert_items.department` gravado pelo produtor, que agrupa a fila `/alertas`) de **setores notificados** (a união entre `alert_type_catalog.audience_departments` e o departamento do item, como faz `fanout_alert_item_for_department`). O filtro de setor usa os setores notificados, porque um mesmo alerta pode chegar a mais de um: `pix_unreconciled` alcança Documentação e Equipamentos; `voyage_schedule_date_pending` e `voyage_terminal_date_pending` alcançam Operações e Documentação; e os dois tipos de ADR abrem um item por departamento — Operações (Escala), Equipamentos (Granito, Veículos, Embarque de vazios) e Documentação (Carga descarregada, Vazios descarregados) — com Documentação também na audiência fixa do catálogo. A opção *"Aplicável a todos os setores"* filtra exclusivamente essas regras que envolvem todos os setores simultaneamente.
+
+As regras aposentadas ficam fora do filtro padrão e trazem o motivo no verbete. Um deep-link `?regra=` para uma regra aposentada abre o verbete sem exigir `?situacao=`.
 
 ### `/relatorios`
 
@@ -338,6 +342,7 @@ Testes existentes relevantes, não executados nesta cartografia por restrição 
 | Auto-faturamento | recálculo, invoice, review_required, valor zero e erro | **Teste:** `src/services/__tests__/reviewBillingAutomation.test.ts` |
 | Relatórios | saldos por receivables e deduplicação por cliente | **Teste:** `src/services/__tests__/reports.test.ts` |
 | Navegação financeira | badge/alerta no menu | **Teste:** `src/components/layout/__tests__/AppLayout.test.ts` |
+| Regras de Alertas | cobertura dos tipos do catálogo, espelho de gravidade/audiência, ADR por departamento, filtro por setor notificado e situação | **Teste:** `src/pages/__tests__/AlertasRegrasCatalog.test.tsx`; **Teste de contrato SQL:** `src/pages/__tests__/AlertasCatalogContract.test.ts` com `src/services/__tests__/alertCatalogSql.ts` |
 
 Lacunas observadas:
 
@@ -356,4 +361,6 @@ Validação runtime futura deve usar ambiente controlado e registrar: papel, B/L
 - **Filtro `changedBy` de auditoria — Código.** O estado e a query suportam autor, mas a UI atual não renderiza um controle para preenchê-lo; módulo e período estão visíveis.
 - **CE Mercante — Código + Teste de contrato SQL.** O bloqueio de CE Mercante permanece na validação do faturamento; o predicado morto `needsCeMercante` foi removido da fila de revisão manual, que não trata esse motivo como pendência própria.
 - **Auditoria Granite não atômica — Código.** O update de `granite_bls` e o insert em `audit_logs` são chamadas separadas; o erro do insert não é verificado.
+- **Dois tipos de alerta aposentados — Código + Runtime.** `invoice_payment_invalid` e `invoice_cancel_blocked` continuam no catálogo, mas nenhum produtor os emite: a migration `327` retirou os dois do gatilho `route_catalog_alert_insert` e fechou os itens abertos, e `register_invoice_payment`/`cancel_invoice` apenas gravam a recusa em `audit_logs` e devolvem erro ao operador. A migration `347` marca os dois como inativos no catálogo, e `/alertas/regras` os exibe como aposentados.
+- **Audiência do ADR inclui Documentação em todos os itens — Código.** `alert_type_catalog.audience_departments` do ADR é `{documentacao}`; como a audiência efetiva soma o departamento do item, Documentação recebe também as notificações dos itens de Operações e Equipamentos. O agrupamento da fila continua pelo departamento do item.
 - **Sem evidência Runtime.** Esta cartografia não executou suíte, browser, Supabase, Edge Function, email, fullscreen ou faturamento real.

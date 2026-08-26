@@ -1,30 +1,24 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readSqlAlertCatalog } from '../../services/__tests__/alertCatalogSql'
 import { ENTITY_TYPE_LABELS, TYPE_LABELS } from '../../services/alerts'
 
-const migration317 = readFileSync(resolve(process.cwd(), 'supabase/migrations/317_alerts_foundation_catalog.sql'), 'utf8')
-const migration325 = readFileSync(resolve(process.cwd(), 'supabase/migrations/325_clientes_portal_disputes_alerts.sql'), 'utf8')
-
 describe('Contrato do catálogo de alertas e tipos de entidade', () => {
-  it('todo tipo ativo do alert_type_catalog possui rótulo definido em TYPE_LABELS', () => {
-    const typeRegex = /^\s*(?:VALUES\s+)?\('([a-z0-9_]+)',\s*'(?:critical|normal)'/gm
-    const foundTypes: string[] = []
+  it('todo tipo do alert_type_catalog possui rótulo definido em TYPE_LABELS', () => {
+    const catalog = readSqlAlertCatalog()
 
-    let match: RegExpExecArray | null
-    while ((match = typeRegex.exec(migration317)) !== null) {
-      foundTypes.push(match[1])
-    }
-    while ((match = typeRegex.exec(migration325)) !== null) {
-      foundTypes.push(match[1])
-    }
+    expect(catalog).toHaveLength(28)
+    expect(catalog.filter((entry) => entry.active)).toHaveLength(26)
 
-    expect(foundTypes.length).toBe(28)
-
-    for (const catalogType of foundTypes) {
-      expect(TYPE_LABELS[catalogType], `Tipo catalogado ${catalogType} não possui rótulo em TYPE_LABELS`).toBeDefined()
-      expect(TYPE_LABELS[catalogType].length).toBeGreaterThan(0)
+    for (const entry of catalog) {
+      expect(TYPE_LABELS[entry.type], `Tipo catalogado ${entry.type} não possui rótulo em TYPE_LABELS`).toBeDefined()
+      expect(TYPE_LABELS[entry.type].length).toBeGreaterThan(0)
     }
+  })
+
+  it('mantém aposentados os dois tipos sem produtor (migrations 327 e 347)', () => {
+    const inactive = readSqlAlertCatalog().filter((entry) => !entry.active).map((entry) => entry.type)
+
+    expect(inactive.sort()).toEqual(['invoice_cancel_blocked', 'invoice_payment_invalid'])
   })
 
   it('todos os entity_types da §4 e do domínio possuem rótulo em ENTITY_TYPE_LABELS', () => {
