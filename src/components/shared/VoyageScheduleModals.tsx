@@ -422,10 +422,10 @@ function TerminalFrontEditor({
 
   useEffect(() => {
     if (focusTerminalId === undefined) return
-    const target = focusTerminalId ? terminalRowRefs.current.get(focusTerminalId) : sectionRef.current
+    const target = (focusTerminalId ? terminalRowRefs.current.get(focusTerminalId) : null) ?? sectionRef.current
     if (!target) return
     target.scrollIntoView?.({ block: 'center' })
-    const focusTarget = focusTerminalId ? target.querySelector<HTMLElement>('input, select') : sectionRef.current
+    const focusTarget = (focusTerminalId ? target.querySelector<HTMLElement>('input, select') : null) ?? sectionRef.current
     const timeoutId = window.setTimeout(() => focusTarget?.focus(), 0)
     return () => window.clearTimeout(timeoutId)
   }, [focusTerminalId, terminalIdsKey])

@@ -20,7 +20,7 @@ export function renderCeStatusLabel(status: VoyagePodCeStatus | null) {
 }
 
 export function renderLinkedLabel(linked: boolean | null) {
-  return linked ? 'SIM' : 'NÃO'
+  return linked ? 'Sim' : 'Não'
 }
 
 export function renderCeCoverage(filled: number, total: number) {
