@@ -388,6 +388,10 @@ export type VoyageRailItem = {
   destinationPorts: string[]
   estado: EstadoConciliacao
   proximaEscala: { pod: string; eta: string; etb: string | null } | null
+  /** Totais compactos exibidos no rodapé do card do rail. */
+  blCount?: number
+  containerCount?: number
+  ceCoverage?: { filled: number; total: number }
   /** Escalas brasileiras (não omitidas) com seus ETAs, ordenadas por ETA ascendente. */
   escalasBrasileiras: Array<{ port: string; eta: string | null; modules?: Partial<VoyageRailItem['modules']> }>
   /** Presença de cada tipo de carga/módulo na viagem, para os selos do card do rail. */
@@ -501,6 +505,9 @@ export function buildVoyageRailItems(
         ceTotal: total,
       }),
       proximaEscala: getProximaEscala(escalaRows),
+      blCount: (voyage.bls ?? []).length,
+      containerCount: countDistinctContainerNumbers(containerBls.flatMap((bl) => bl.bl_containers ?? [])),
+      ceCoverage: { filled, total },
       escalasBrasileiras: collectEscalasBrasileiras(escalaRows).map((escala) => {
         const vehicleContainers = new Set((moduleStats?.vehicleContainerNumbers ?? []).map((number) => String(number).trim().toUpperCase()))
         const hasVehiclesAtPort = containerBls

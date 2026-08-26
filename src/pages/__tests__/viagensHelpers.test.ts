@@ -392,6 +392,9 @@ describe('buildVoyageRailItems', () => {
     expect(item.vesselName).toBe('ARIES')
     // 1 de 2 B/Ls com CE → incompleto
     expect(item.estado).toBe('incompleto')
+    expect(item.blCount).toBe(2)
+    expect(item.containerCount).toBe(2)
+    expect(item.ceCoverage).toEqual({ filled: 1, total: 2 })
     expect(item.proximaEscala).toEqual({ pod: 'BRVIX', eta: '2026-06-09', etb: '2026-06-10' })
     expect(item.destinationPorts).toContain('BRSSA')
     expect(item.destinationPorts).toContain('BRVIX')
