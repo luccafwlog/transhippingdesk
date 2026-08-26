@@ -112,6 +112,7 @@ POL/POD e exportação têm contratos diferentes:
 15. **A fronteira do ciclo acompanha a primeira escala.** No Line-Up TV, uma borda horizontal separa permanentemente a última escala da primeira na ordem, mesmo enquanto o carrossel se desloca. No mobile, aparece antes do card inicial; não é uma borda fixa no topo da viewport.
 16. **`billingStatus` é um proxy.** Apesar do nome `fetchVoyagesWithUnpaidBls`, a consulta atual identifica viagens com B/L cujo `charge_status != 'exempt'`; não comprova pagamento de invoice.
 17. **Omissao e distinta de exclusao.** `deleted=true` remove um POD do planejamento; `omitted=true` preserva a escala como evento operacional rastreavel, exclui a escala das derivacoes internas e do Portal, e abre disposicao por B/L (`transshipment` padrao ou `cod` excecao).
+18. **Natureza OOG na descarga.** A matriz do ADR distingue `carga_geral`, `IMO` e `OOG`; quando os dois flags coexistem, `OOG` vence `IMO` na categoria exibida, e duplicatas do mesmo container preservam ambos os flags. Nota editorial da ADR 0035, adicionada em 2026-08-26.
 
 ## Testes e validação
 
@@ -127,6 +128,7 @@ Evidência estática localizada:
 - `src/components/shared/__tests__/VoyageSectionCards.test.tsx`: navegação, estado desabilitado e componentes de métricas.
 - `src/components/shared/__tests__/VoyageCombobox.test.tsx`: filtro local, seleção obrigatória/limpável e hidratação por `selectedVoyageId`.
 - `src/components/shared/__tests__/VoyageImportActions.test.ts`: somente o resumo consolidado de manifestos CNTR; não prova persistência nem invalidações.
+- `src/services/__tests__/agencyDepartureReport.test.ts`: matriz de descarga, incluindo precedência OOG sobre IMO e merge de duplicatas.
 
 Os testes Vitest focados e a suíte final desta frente foram executados. Não houve validação contra Supabase ou runtime autenticado; as afirmações operacionais permanecem calibradas por código, testes locais e migrations.
 

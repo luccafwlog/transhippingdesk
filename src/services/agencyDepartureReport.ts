@@ -598,6 +598,7 @@ export type MatrixCategory =
   | 'carga_geral'
   | 'veiculos'
   | 'transbordo'
+  | 'oog'
   | 'imo'
   // 'vazio': container vazio do Baplie sem B/L correspondente, na própria
   // listagem de carga descarregada (Task 3). 'vazio_cama'/'vazio_cover_plate':
@@ -611,6 +612,7 @@ export type AgencyReportDischargeContainer = {
   container_number: string
   size_type: string | null
   is_imo: boolean
+  is_oog: boolean
   category: MatrixCategory
 }
 
@@ -622,6 +624,7 @@ export const MATRIX_CATEGORY_LABELS: Record<string, string> = {
   carga_geral: 'carga geral',
   veiculos: 'veículos',
   transbordo: 'transbordo',
+  oog: 'OOG',
   imo: 'IMO',
   vazio: 'vazio (sem B/L)',
   vazio_cama: 'vazio — cama',
@@ -766,7 +769,7 @@ async function listTransshipmentBlIds(voyageId: number, port: string): Promise<s
   return [...new Set((blTransshipmentsRes.data ?? []).map((row) => row.bl_id))]
 }
 
-const BL_CONTAINERS_SELECT = 'id, container_number, type, is_imo, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))'
+const BL_CONTAINERS_SELECT = 'id, container_number, type, is_imo, is_oog, bl:bls!inner(voyage_id, pod, transshipments:bl_transshipments(disposition))'
 const BREAKBULK_SELECT = 'bb_machine_qty, bb_packages_qty, bb_weight_ton, total_weight_kg, total_cbm'
 const VEHICLES_SELECT = 'brand, model, bl_id, chassis, container_id, container:bl_containers(container_number, type, unpacking_location)'
 
@@ -898,7 +901,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     fetchAllRows((from, to) =>
       supabase
         .from('baplie_containers')
-        .select('container_number, size_type, status, is_imo, pod')
+        .select('container_number, size_type, status, is_imo, is_oog, pod')
         .eq('voyage_id', voyageId)
         .in('pod', portCodeVariants(port))
         .range(from, to),
@@ -1055,12 +1058,13 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     if (!normalized || normalized === portCode || escalaPorts.has(normalized)) continue
     orphanGraniteByPort.set(normalized, (orphanGraniteByPort.get(normalized) ?? 0) + 1)
   }
-  const baplieContainers = (baplieContainersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'pod'>[]
+  const baplieContainers = (baplieContainersRes.data ?? []) as Pick<BaplieContainer, 'container_number' | 'size_type' | 'status' | 'is_imo' | 'is_oog' | 'pod'>[]
   type AgencyReportBlContainer = {
     id: number
     container_number: string
     type: string | null
     is_imo: boolean | null
+    is_oog: boolean | null
     bl: { transshipments: Array<{ disposition: string }> | null } | null
   }
   // Idem: containers do porto da escala e containers em transbordo (bls.pod
@@ -1077,11 +1081,13 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
   // descarregada uma vez só — sem deduplicar por número, a Carga Descarregada
   // conta e soma o mesmo container 2x/3x. Agrega por container_number antes de
   // classificar; entre duplicatas, IMO e as categorias mais específicas
-  // (transbordo/veículos) vencem carga_geral, pra não esconder um IMO real só
-  // porque outro B/L do mesmo container não o declarou.
+  // (transbordo/veículos/OOG) vencem carga_geral, pra não esconder uma natureza
+  // real só porque outro B/L do mesmo container não a declarou. OOG vence IMO
+  // quando os dois flags coexistem.
   const CATEGORY_PRIORITY: Record<MatrixCategory, number> = {
-    transbordo: 4,
-    veiculos: 3,
+    transbordo: 5,
+    veiculos: 4,
+    oog: 3,
     imo: 2,
     carga_geral: 1,
     vazio: 0,
@@ -1093,7 +1099,8 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
     const baplie = baplieByContainerNumber.get(normalizeContainerNumber(container.container_number))
     const isTransshipment = container.bl?.transshipments?.some((transshipment) => transshipment.disposition === 'transshipment') ?? false
     const isImo = baplie ? Boolean(baplie.is_imo) : Boolean(container.is_imo)
-    const category: MatrixCategory = isTransshipment ? 'transbordo' : vehicleContainerIds.has(container.id) ? 'veiculos' : isImo ? 'imo' : 'carga_geral'
+    const isOog = baplie ? Boolean(baplie.is_oog) : Boolean(container.is_oog)
+    const category: MatrixCategory = isTransshipment ? 'transbordo' : vehicleContainerIds.has(container.id) ? 'veiculos' : isOog ? 'oog' : isImo ? 'imo' : 'carga_geral'
 
     const key = normalizeContainerNumber(container.container_number)
     const existing = dischargeByContainerNumber.get(key)
@@ -1102,11 +1109,13 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
         container_number: container.container_number,
         size_type: container.type ?? baplie?.size_type ?? null,
         is_imo: isImo,
+        is_oog: isOog,
         category,
       })
       continue
     }
     existing.is_imo = existing.is_imo || isImo
+    existing.is_oog = existing.is_oog || isOog
     existing.size_type = existing.size_type ?? container.type ?? baplie?.size_type ?? null
     if (CATEGORY_PRIORITY[category] > CATEGORY_PRIORITY[existing.category]) {
       existing.category = category
@@ -1134,6 +1143,7 @@ export async function getAgencyReportDerivedData(voyageId: number, port: string)
         container_number: container.container_number,
         size_type: container.size_type,
         is_imo: Boolean(container.is_imo),
+        is_oog: Boolean(container.is_oog),
         category: 'vazio',
       })
     }
