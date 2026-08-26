@@ -18,7 +18,8 @@ const artboards = [
 
   { file: 'ExportacaoAntes.dc.html', title: 'Aba Exportação · hoje', x: 0, y: 14000, page: 'page-7' },
   { file: 'ExportacaoDepois.dc.html', title: 'Aba Exportação · proposta', x: 0, y: 14680, page: 'page-7' },
-  { file: 'ModalGranito.dc.html', title: 'Modal · Importar Manifesto Granito', x: 0, y: 15860, page: 'page-7' },
+  { file: 'ExportacaoMultiDepot.dc.html', title: 'Aba Exportação · vários depots', x: 0, y: 15860, page: 'page-7' },
+  { file: 'ModalGranito.dc.html', title: 'Modal · Importar Manifesto Granito', x: 0, y: 17100, page: 'page-7' },
 
   { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7400, page: 'page-4' },
   { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7400, page: 'page-4' },
@@ -97,7 +98,9 @@ const annotations = [
       '1. Vazios EXP deixa de ser upload avulso. A RPC import_vazios_bookings_transactional até cria a vazios_export_operations a partir do embark_port da planilha, mas popula só as unidades — nunca as vazios_export_service_lines — e pula a escolha do porto entre as escalas. O botão passa a levar ao Embarque com a viagem travada; a planilha de unidades continua dentro dele, junto das taxas de serviço.',
       '2. CE Mercante (Granito) JÁ EXISTE, em /granito (Granite.tsx:475). Aqui é atalho com a viagem travada, não recurso novo. A nota anterior dizia o contrário e estava errada.',
       '',
-      'MODAL DE MANIFESTO GRANITO (artboard abaixo): o parser devolve vesselVoyage, o navio/viagem declarado dentro da planilha, e importGraniteManifest devolve pendingCount, os B/Ls que não casaram com cliente. O modal descarta os dois e mostra só B/Ls e Erros — dá para importar a planilha errada na viagem certa sem perceber. A barra de prévia do FileImportModal ainda usa cores de tema escuro cravadas no código, dentro de um modal claro.',
+      'MÚLTIPLOS DEPOTS (segundo artboard da proposta): um terminal de embarque pode receber vazios de vários depots — a origem já é plural no dado. Cada booking tem local_id apontando para depots, e vazios.origins é um summarizeUniqueValues, então N depots viram hoje uma string concatenada num campo só. O painel passa a abrir a repartição por depot; com um depot só, colapsa na linha única. As taxas de serviço também são por depot: vazios_export_service_lines tem local_id e destino_id.',
+      '',
+      'MODAL DE MANIFESTO GRANITO (último artboard): o parser devolve vesselVoyage, o navio/viagem declarado dentro da planilha, e importGraniteManifest devolve pendingCount, os B/Ls que não casaram com cliente. O modal descarta os dois e mostra só B/Ls e Erros — dá para importar a planilha errada na viagem certa sem perceber. A barra de prévia do FileImportModal ainda usa cores de tema escuro cravadas no código, dentro de um modal claro.',
     ].join('\n'),
   },
   {

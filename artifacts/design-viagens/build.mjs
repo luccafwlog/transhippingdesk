@@ -8,7 +8,7 @@ import {
 import { abaAdr, abaEscalas, metricPanel } from './tabs.mjs'
 import { planejamentoAntes, planejamentoEscala } from './visaogeral.mjs'
 import { importacaoAntes, importacaoDepois } from './importacao.mjs'
-import { exportacaoAntes, exportacaoDepois } from './exportacao.mjs'
+import { exportacaoAntes, exportacaoDepois, exportacaoMultiDepot } from './exportacao.mjs'
 import { modalGranitoAntes, modalGranitoDepois } from './modalgranito.mjs'
 
 export const HEIGHTS = {}
@@ -233,6 +233,14 @@ out('ExportacaoDepois.dc.html', compareBoard({
   note: 'Mesma gramática da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, e o cadastro rápido numa fila só. O detalhe por POL que o serviço já calcula passa a aparecer.',
   body: exportacaoDepois(),
 }), EXPD_H)
+
+const EXPM_H = 1000
+out('ExportacaoMultiDepot.dc.html', compareBoard({
+  height: EXPM_H, chip: 'Proposta · múltiplos depots', chipTone: 'proposta',
+  title: 'Aba Exporta&ccedil;&atilde;o &mdash; vazios de v&aacute;rios depots',
+  note: 'Mesma viagem, com BRSSZ recebendo vazios de três depots. O painel abre a repartição por depot — nome, código, tipos e unidades — e o total por tipo fica no cabeçalho da lista. Com um depot só, como BRVIX, colapsa na linha única.',
+  body: exportacaoMultiDepot(),
+}), EXPM_H)
 
 const MODAL_H = 900
 out('ModalGranito.dc.html', artboard({

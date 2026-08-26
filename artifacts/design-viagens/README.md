@@ -17,7 +17,7 @@ recorte da tabela de Planejamento por escala e do bloco de Atracações.
 | Página | [`Main.dc.html`](./Main.dc.html) — a Direção A inteira |
 | Abas | [`AbaEscalas`](./AbaEscalas.dc.html), [`AbaAdr`](./AbaAdr.dc.html) — rascunhos, ainda não revisados |
 | Cards | [`Cards.dc.html`](./Cards.dc.html) — anatomia e estados |
-| Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html), [`ExportacaoDepois`](./ExportacaoDepois.dc.html) e [`ModalGranito`](./ModalGranito.dc.html) |
+| Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html), [`ExportacaoDepois`](./ExportacaoDepois.dc.html), [`ExportacaoMultiDepot`](./ExportacaoMultiDepot.dc.html) e [`ModalGranito`](./ModalGranito.dc.html) |
 | Aba Importação | [`ImportacaoAntes`](./ImportacaoAntes.dc.html) e [`ImportacaoDepois`](./ImportacaoDepois.dc.html) |
 | Visão geral · Planejamento | [`PlanejamentoAntes`](./PlanejamentoAntes.dc.html) e [`PlanejamentoEscala`](./PlanejamentoEscala.dc.html) |
 | Não escolhidas | [`DirecaoC`](./DirecaoC.dc.html), [`DirecaoCDetalhe`](./DirecaoCDetalhe.dc.html) |

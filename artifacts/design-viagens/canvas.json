@@ -91,10 +91,19 @@
       "h": 940
     },
     {
+      "file": "ExportacaoMultiDepot.dc.html",
+      "title": "Aba Exportação · vários depots",
+      "x": 0,
+      "y": 15860,
+      "page": "page-7",
+      "w": 1440,
+      "h": 1000
+    },
+    {
       "file": "ModalGranito.dc.html",
       "title": "Modal · Importar Manifesto Granito",
       "x": 0,
-      "y": 15860,
+      "y": 17100,
       "page": "page-7",
       "w": 1440,
       "h": 900
@@ -165,7 +174,7 @@
       "x": 0,
       "y": 13600,
       "w": 1000,
-      "text": "ABA EXPORTAÇÃO — herda a gramática fechada na Importação.\n\nO achado que move a aba: VoyageExportacaoTab.tsx chama summarizeExportByPol, que devolve granito e vazios POR terminal de embarque — e usa só o .length do resultado, para decidir se mostra os painéis. Todo o detalhe por POL é calculado e descartado; a aba exibe apenas os totais da viagem.\n\nO que vem da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, estado vazio explícito, e a barra de ações numa fila só.\n\nAÇÕES — corrigidas depois de conferir o código:\n\n1. Vazios EXP deixa de ser upload avulso. A RPC import_vazios_bookings_transactional até cria a vazios_export_operations a partir do embark_port da planilha, mas popula só as unidades — nunca as vazios_export_service_lines — e pula a escolha do porto entre as escalas. O botão passa a levar ao Embarque com a viagem travada; a planilha de unidades continua dentro dele, junto das taxas de serviço.\n2. CE Mercante (Granito) JÁ EXISTE, em /granito (Granite.tsx:475). Aqui é atalho com a viagem travada, não recurso novo. A nota anterior dizia o contrário e estava errada.\n\nMODAL DE MANIFESTO GRANITO (artboard abaixo): o parser devolve vesselVoyage, o navio/viagem declarado dentro da planilha, e importGraniteManifest devolve pendingCount, os B/Ls que não casaram com cliente. O modal descarta os dois e mostra só B/Ls e Erros — dá para importar a planilha errada na viagem certa sem perceber. A barra de prévia do FileImportModal ainda usa cores de tema escuro cravadas no código, dentro de um modal claro."
+      "text": "ABA EXPORTAÇÃO — herda a gramática fechada na Importação.\n\nO achado que move a aba: VoyageExportacaoTab.tsx chama summarizeExportByPol, que devolve granito e vazios POR terminal de embarque — e usa só o .length do resultado, para decidir se mostra os painéis. Todo o detalhe por POL é calculado e descartado; a aba exibe apenas os totais da viagem.\n\nO que vem da Importação: faixa de total no topo, um bloco por terminal de embarque, painéis chapados com número dominante, mini-stats e tokens com contagem, estado vazio explícito, e a barra de ações numa fila só.\n\nAÇÕES — corrigidas depois de conferir o código:\n\n1. Vazios EXP deixa de ser upload avulso. A RPC import_vazios_bookings_transactional até cria a vazios_export_operations a partir do embark_port da planilha, mas popula só as unidades — nunca as vazios_export_service_lines — e pula a escolha do porto entre as escalas. O botão passa a levar ao Embarque com a viagem travada; a planilha de unidades continua dentro dele, junto das taxas de serviço.\n2. CE Mercante (Granito) JÁ EXISTE, em /granito (Granite.tsx:475). Aqui é atalho com a viagem travada, não recurso novo. A nota anterior dizia o contrário e estava errada.\n\nMÚLTIPLOS DEPOTS (segundo artboard da proposta): um terminal de embarque pode receber vazios de vários depots — a origem já é plural no dado. Cada booking tem local_id apontando para depots, e vazios.origins é um summarizeUniqueValues, então N depots viram hoje uma string concatenada num campo só. O painel passa a abrir a repartição por depot; com um depot só, colapsa na linha única. As taxas de serviço também são por depot: vazios_export_service_lines tem local_id e destino_id.\n\nMODAL DE MANIFESTO GRANITO (último artboard): o parser devolve vesselVoyage, o navio/viagem declarado dentro da planilha, e importGraniteManifest devolve pendingCount, os B/Ls que não casaram com cliente. O modal descarta os dois e mostra só B/Ls e Erros — dá para importar a planilha errada na viagem certa sem perceber. A barra de prévia do FileImportModal ainda usa cores de tema escuro cravadas no código, dentro de um modal claro."
     },
     {
       "id": "nota-descartadas",
