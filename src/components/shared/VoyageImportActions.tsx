@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { Box, Car, Download, FileText, Mountain, Package, PackageOpen, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
@@ -12,21 +13,21 @@ import { BlDocumentImportModal } from './BlDocumentImportModal'
 import { CeMercanteImportModal } from './CeMercanteImportModal'
 import { importBreakbulkManifest, parseBreakbulkManifestFile } from '../../services/breakbulkImport'
 import { importGraniteManifest, parseGraniteManifestFile } from '../../services/graniteImport'
-import { importVaziosManifest, parseVaziosManifestFile } from '../../services/vaziosImport'
 import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../../services/vaziosImportacaoImport'
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
 
-type ImportType = 'bb' | 'granite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'blBreakbulk' | 'ceMercante'
+type ImportType = 'bb' | 'granite' | 'ceMercanteGranite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'blBreakbulk' | 'ceMercante'
 
 type ImportGroup = 'baplie' | 'bls' | 'importEquipment' | 'exportManifest' | 'exportVazios'
 
 const IMPORT_LABELS: Record<ImportType, string> = {
   bb: 'Manifesto BB',
   granite: 'Manifesto Granito',
+  ceMercanteGranite: 'CE Mercante (Granito)',
   vaziosImp: 'Vazios IMP',
-  vaziosExp: 'Vazios Exp',
+  vaziosExp: 'Novo embarque de vazios',
   vehicles: 'Veículos',
   baplie: 'Baplie EDI',
   blFreight: 'B/L container',
@@ -34,7 +35,7 @@ const IMPORT_LABELS: Record<ImportType, string> = {
   ceMercante: 'CE Mercante',
 }
 
-const IMPORT_ORDER: ImportType[] = ['baplie', 'blFreight', 'blBreakbulk', 'ceMercante', 'bb', 'vehicles', 'vaziosImp', 'granite', 'vaziosExp']
+const IMPORT_ORDER: ImportType[] = ['baplie', 'blFreight', 'blBreakbulk', 'ceMercante', 'bb', 'vehicles', 'vaziosImp', 'granite', 'ceMercanteGranite', 'vaziosExp']
 
 const IMPORT_GROUP_BY_TYPE: Record<ImportType, ImportGroup> = {
   baplie: 'baplie',
@@ -45,6 +46,7 @@ const IMPORT_GROUP_BY_TYPE: Record<ImportType, ImportGroup> = {
   vehicles: 'importEquipment',
   vaziosImp: 'importEquipment',
   granite: 'exportManifest',
+  ceMercanteGranite: 'exportManifest',
   vaziosExp: 'exportVazios',
 }
 
@@ -57,6 +59,7 @@ const IMPORT_ICONS: Record<ImportType, LucideIcon> = {
   vehicles: Car,
   vaziosImp: PackageOpen,
   granite: Mountain,
+  ceMercanteGranite: ShieldCheck,
   vaziosExp: PackageOpen,
 }
 
@@ -72,6 +75,7 @@ export function VoyageImportActions({
   types: ImportType[]
 }) {
   const [activeType, setActiveType] = useState<ImportType | null>(null)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { profile } = useAuth()
@@ -110,7 +114,7 @@ export function VoyageImportActions({
               const Icon = IMPORT_ICONS[type]
               const highlight = type === 'blFreight' || type === 'blBreakbulk'
               return (
-                <Button key={type} variant="secondary" className={`text-xs ${highlight ? 'border-[var(--app-blue-btn)] text-[var(--app-blue-btn)]' : ''}`} onClick={() => setActiveType(type)}>
+                <Button key={type} variant="secondary" className={`text-xs ${highlight ? 'border-[var(--app-blue-btn)] text-[var(--app-blue-btn)]' : ''}`} onClick={() => type === 'vaziosExp' ? navigate(`/embarquevazios?voyage=${voyageId}`) : setActiveType(type)}>
                   <Icon size={13} />
                   {IMPORT_LABELS[type]}
                 </Button>
@@ -145,26 +149,42 @@ export function VoyageImportActions({
       ) : null}
 
       {activeType === 'granite' ? (
-        <FileImportModal
+        <FileImportModal<Awaited<ReturnType<typeof parseGraniteManifestFile>>, Awaited<ReturnType<typeof importGraniteManifest>>>
           title="Importar Manifesto Granito"
           subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls"
           parser={parseGraniteManifestFile}
           canImport={(p) => p.bls.length > 0}
           importer={async (preview, file) => {
-            await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
+            const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
               queryClient.invalidateQueries({ queryKey: ['granite-manifests'] }),
             ])
             showToast(`Manifesto Granito importado: ${preview.bls.length} B/L(s).`, 'success')
+            return result
           }}
           renderPreview={(preview) => (
-            <div className="grid grid-cols-2 gap-3">
-              <Stat label="B/Ls" value={preview.bls.length} />
-              <Stat label="Erros" value={preview.rowErrors.length} />
+            <div className="grid gap-3">
+              <div className="app-panel app-panel--padded grid gap-2 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--app-muted)]">Viagem de destino</span><span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></div>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--app-border)] pt-2"><span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--app-muted)]">Declarado na planilha</span><span className="font-[var(--app-font-mono)] text-[13px] text-[var(--app-text)]">{preview.vesselVoyage || 'Não informado'}</span></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Stat label="B/Ls" value={preview.bls.length} />
+                <Stat label="Blocos" value={preview.bls.reduce((sum, bl) => sum + Number(bl.blocks_qty ?? 0), 0)} />
+                <Stat label="Peso" value={preview.bls.reduce((sum, bl) => sum + Number(bl.real_weight_kg ?? 0), 0) / 1000} suffix="ton" />
+                <Stat label="Erros" value={preview.rowErrors.length} />
+              </div>
+              {preview.bls.some((bl) => bl.reconciliationStatus !== 'matched') ? <div className="flex items-start gap-2 rounded-lg border border-[var(--app-gold)] bg-[var(--app-gold-soft)] p-3 text-xs text-[var(--app-gold-strong)]"><ShieldCheck size={15} className="mt-0.5 shrink-0" /><span><b>{preview.bls.filter((bl) => bl.reconciliationStatus !== 'matched').length} B/L(s) entra(m) pendente(s) de reconciliação.</b> O consignatário ainda não casou com um cliente.</span></div> : null}
             </div>
           )}
+          renderImportResult={(result) => result.pendingCount > 0 ? (
+            <div className="flex items-start gap-2 rounded-lg border border-[var(--app-gold)] bg-[var(--app-gold-soft)] p-3 text-xs text-[var(--app-gold-strong)]">
+              <ShieldCheck size={15} className="mt-0.5 shrink-0" />
+              <span><b>{result.pendingCount} B/L(s) entra(m) pendente(s) de reconciliação.</b> Revise o vínculo do consignatário antes de faturar.</span>
+            </div>
+          ) : <div className="app-panel__meta">Importação concluída sem pendências de reconciliação.</div>}
           onClose={() => setActiveType(null)}
         />
       ) : null}
@@ -192,34 +212,6 @@ export function VoyageImportActions({
             <div className="grid grid-cols-2 gap-3">
               <Stat label="Containers" value={preview.containers.length} />
               <Stat label="Erros" value={preview.rowErrors.length} />
-            </div>
-          )}
-          onClose={() => setActiveType(null)}
-        />
-      ) : null}
-
-      {activeType === 'vaziosExp' && canEditVazios ? (
-        <FileImportModal
-          title="Importar Vazios Exportação"
-          subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
-          accept=".xlsx,.xls,.csv"
-          parser={parseVaziosManifestFile}
-          canImport={(p) => p.bookings.length > 0}
-          importer={async (preview, file) => {
-            const port = preview.bookings.find((booking) => booking.embark_port)?.embark_port ?? ''
-            if (!port) throw new Error('Informe o porto de embarque na planilha de Vazios EXP.')
-            await importVaziosManifest({ filename: file.name, voyageId, port, manifest: preview, uploadedBy: userId, description: file.name })
-            await Promise.all([
-              queryClient.invalidateQueries({ queryKey: ['voyages'] }),
-              queryClient.invalidateQueries({ queryKey: ['vazios-bookings'] }),
-            ])
-            showToast(`Vazios Exp importado: ${preview.bookings.length} booking(s).`, 'success')
-          }}
-          renderPreview={(preview) => (
-            <div className="grid grid-cols-3 gap-3">
-              <Stat label="Bookings" value={preview.bookings.length} />
-              <Stat label="Erros" value={preview.rowErrors.length} />
-              <Stat label="Linhas" value={preview.bookings.length + preview.rowErrors.length} />
             </div>
           )}
           onClose={() => setActiveType(null)}
@@ -258,6 +250,10 @@ export function VoyageImportActions({
 
       {activeType === 'ceMercante' ? (
         <CeMercanteImportModal open lockedVoyageId={voyageId} onClose={() => setActiveType(null)} />
+      ) : null}
+
+      {activeType === 'ceMercanteGranite' ? (
+        <CeMercanteImportModal open target="granite" lockedVoyageId={voyageId} onClose={() => setActiveType(null)} />
       ) : null}
     </>
   )
@@ -472,11 +468,11 @@ function VehiclesImportModal({
   )
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
   return (
     <div className="app-metric-tile text-center">
       <div className="app-metric-tile__label">{label}</div>
-      <div className="app-metric-tile__value">{value}</div>
+      <div className="app-metric-tile__value">{value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}{suffix ? ` ${suffix}` : ''}</div>
     </div>
   )
 }

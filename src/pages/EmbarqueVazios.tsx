@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Download, Upload, Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Card, InlineError, PageHeader } from "../components/ui/Card";
@@ -113,7 +113,11 @@ export function EmbarqueVazios() {
   const { user, profile } = useAuth();
   const { showToast } = useToast();
   const canEdit = Boolean(profile || user);
-  const [voyageId, setVoyageId] = useState<number | null>(null);
+  const [searchParams] = useSearchParams();
+  const queryVoyageId = Number(searchParams.get("voyage"));
+  const lockedVoyageId = Number.isInteger(queryVoyageId) && queryVoyageId > 0 ? queryVoyageId : null;
+  const voyageLocked = lockedVoyageId !== null;
+  const [voyageId, setVoyageId] = useState<number | null>(() => lockedVoyageId);
   const [port, setPort] = useState("");
   const [selectedOperation, setSelectedOperation] = useState<{
     id: string;
@@ -206,9 +210,9 @@ export function EmbarqueVazios() {
   const offeredServices = serviceRows.filter(
     (item) => !serviceNature || item.natureza === serviceNature,
   );
-  const operationRows: OperationRow[] = Array.isArray(operations.data)
+  const operationRows: OperationRow[] = (Array.isArray(operations.data)
     ? operations.data
-    : [];
+    : []).filter((item) => !voyageLocked || item.voyage_id === voyageId);
   const operationOptions: ComboOption[] = operationRows.map((item) => ({
     value: item.id,
     label: operationLabel(item),
@@ -538,7 +542,9 @@ export function EmbarqueVazios() {
           <VoyageCombobox
             required
             selectedVoyageId={voyageId}
+            disabled={voyageLocked}
             onSelect={(id) => {
+              if (voyageLocked) return;
               setVoyageId(id);
               setPort("");
             }}

@@ -11,10 +11,14 @@ const mocks = vi.hoisted(() => ({
   can: vi.fn<(permission: string) => boolean>(() => true),
   effectiveRole: vi.fn(() => 'documentacao'),
   profile: { id: 'user-1' },
+  navigate: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
+}))
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mocks.navigate,
 }))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
 vi.mock('../../../hooks/useAuth', () => ({
@@ -26,7 +30,7 @@ vi.mock('../../../services/breakbulkImport', () => ({
   importBreakbulkManifest: mocks.importBreakbulkManifest,
 }))
 vi.mock('../CeMercanteImportModal', () => ({
-  CeMercanteImportModal: ({ lockedVoyageId }: { lockedVoyageId?: number }) => <div>CE travado: {lockedVoyageId}</div>,
+  CeMercanteImportModal: ({ lockedVoyageId, target }: { lockedVoyageId?: number; target?: string }) => <div>CE travado: {lockedVoyageId} · {target ?? 'bls'}</div>,
 }))
 
 import { VoyageImportActions } from '../VoyageImportActions'
@@ -37,6 +41,7 @@ beforeEach(() => {
   mocks.effectiveRole.mockReturnValue('documentacao')
   mocks.invalidateQueries.mockResolvedValue(undefined)
   mocks.importBreakbulkManifest.mockResolvedValue(undefined)
+  mocks.navigate.mockReset()
 })
 afterEach(cleanup)
 
@@ -123,7 +128,7 @@ it('ordena as importacoes e abre CE Mercante travado na viagem', () => {
     'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP',
   ])
   fireEvent.click(screen.getByRole('button', { name: /CE Mercante/ }))
-  expect(screen.getByText('CE travado: 7')).toBeTruthy()
+  expect(screen.getByText('CE travado: 7 · bls')).toBeTruthy()
 })
 
 it('separa a barra por família sem criar separador dentro dos B/Ls', () => {
@@ -139,6 +144,34 @@ it('separa a barra por família sem criar separador dentro dos B/Ls', () => {
   expect(container.querySelectorAll('span[aria-hidden="true"]')).toHaveLength(2)
 })
 
+it('leva Vazios Exp ao Embarque com a viagem travada', () => {
+  render(
+    <VoyageImportActions
+      voyageId={7}
+      voyageLabel="GREEN SANTOS / 14N"
+      userId="user-1"
+      types={['vaziosExp']}
+    />,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Novo embarque de vazios' }))
+  expect(mocks.navigate).toHaveBeenCalledWith('/embarquevazios?voyage=7')
+})
+
+it('abre CE Mercante do Granito com o alvo correto e a viagem travada', () => {
+  render(
+    <VoyageImportActions
+      voyageId={7}
+      voyageLabel="GREEN SANTOS / 14N"
+      userId="user-1"
+      types={['ceMercanteGranite']}
+    />,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'CE Mercante (Granito)' }))
+  expect(screen.getByText('CE travado: 7 · granite')).toBeTruthy()
+})
+
 it('mantém a escrita aberta também para Equipamentos', () => {
   mocks.effectiveRole.mockReturnValue('equipamentos')
 
@@ -152,7 +185,7 @@ it('mantém a escrita aberta também para Equipamentos', () => {
   )
 
   expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
-    'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
+    'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Novo embarque de vazios',
   ])
 })
 
@@ -170,6 +203,6 @@ it('preserva todas as importacoes solicitadas para os demais papeis', () => {
   )
 
   expect(screen.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
-    'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Vazios Exp',
+    'Baplie EDI', 'B/L container', 'B/L carga solta', 'CE Mercante', 'Manifesto BB', 'Veículos', 'Vazios IMP', 'Manifesto Granito', 'Novo embarque de vazios',
   ])
 })
