@@ -26,8 +26,6 @@ const artboards = [
   { file: 'AdrDepois.dc.html', title: 'Aba ADR · proposta', x: 0, y: 25120, page: 'page-9' },
   { file: 'AdrEstados.dc.html', title: 'Aba ADR · hipóteses de estado', x: 0, y: 29200, page: 'page-9' },
 
-  { file: 'DirecaoC.dc.html', title: 'Direção C · programação em tabela', x: 0, y: 7400, page: 'page-4' },
-  { file: 'DirecaoCDetalhe.dc.html', title: 'Direção C · /viagens/:id', x: COL2, y: 7400, page: 'page-4' },
 ].map((a) => ({ ...a, w: W, h: H[a.file] }))
 
 const annotations = [
@@ -147,10 +145,6 @@ const annotations = [
       'O terceiro artboard reúne as hipóteses que não cabem no fluxo cheio: os dois vazios do recorte por terminal, os três vazios de conteúdo, o documento fechado, a escala omitida, a escala sem ATD, o ADR legado sem terminal_id, o leitor sem permissão de sign-off, o departamento atrasado e reaberto e as guardas de erro. Cada cartão cita a condição que o produz no código.',
     ].join('\n'),
   },
-  {
-    id: 'nota-descartadas', page: 'page-4', x: 0, y: 7200, w: 900,
-    text: 'NÃO ESCOLHIDAS — registro da Direção C, mantida só como histórico da decisão.\n\n/viagens como programação em tabela (uma linha por viagem, uma coluna por porto, marcas OMIT e X do domínio) com o detalhe roteado em /viagens/:id. Perdeu para a A por trocar a página inteira e mandar o detalhe para outra navegação.',
-  },
 ]
 
 const canvas = {
@@ -164,7 +158,6 @@ const canvas = {
     { id: 'page-7', name: 'Aba Exportação' },
     { id: 'page-8', name: 'Aba Rotas e Manifestos' },
     { id: 'page-9', name: 'Aba ADR' },
-    { id: 'page-4', name: 'Não escolhidas' },
   ],
   launch: { view: 'canvas', page: 'page-9' },
 }

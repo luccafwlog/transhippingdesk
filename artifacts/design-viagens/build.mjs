@@ -302,95 +302,9 @@ out('AdrEstados.dc.html', compareBoard({
   body: adrEstados(),
 }), ADR_E_H)
 
-/* ================================================================== *
- * Não escolhidas — registro das direções descartadas                  *
- * ================================================================== */
-const PORT_COLS = ['BRSSZ', 'BRVIX', 'BRPNG', 'BRRIG']
-function portCell(value) {
-  if (value === 'OMIT') return `<span class="badge badge--red" style="padding: 2px 8px; font-size: 10px; font-weight: 700">OMIT</span>`
-  if (value === 'X') return `<span class="dash num">X</span>`
-  return `<span class="num" style="font-weight: 600; color: ${T.textStrong}">${value}</span>`
+// Artboards de direções descartadas ficam fora do repositório: o registro da
+// decisão vive na história do git e no PR, não em arquivo versionado.
+for (const antigo of ['DirecaoA.dc.html', 'DirecaoC.dc.html', 'DirecaoCDetalhe.dc.html']) {
+  try { rmSync(new URL(`./${antigo}`, import.meta.url)) } catch { /* já removido */ }
 }
-
-const C_H = 960
-out('DirecaoC.dc.html', artboard({
-  height: C_H,
-  body: `<div class="main">
-    ${pageHeader(novaViagemBtn)}
-    ${toolbar()}
-    <div class="surface" style="overflow: hidden">
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid ${T.border}; background: ${T.surfaceMuted}">
-        <span class="section-label">Programa&ccedil;&atilde;o &middot; pr&oacute;ximos 30 dias</span>
-        <span style="display: flex; align-items: center; gap: 14px; font-size: 11px; color: ${T.mutedSoft}">
-          <span style="display: inline-flex; align-items: center; gap: 5px">${estadoDot('conciliado', 7)} Conciliada</span>
-          <span style="display: inline-flex; align-items: center; gap: 5px">${estadoDot('incompleto', 7)} Pendente</span>
-          <span style="display: inline-flex; align-items: center; gap: 5px">${estadoDot('divergente', 7)} Divergente</span>
-          <span style="width: 1px; height: 14px; background: ${T.border}"></span>
-          <span><b style="color: ${T.red}">OMIT</b> escala omitida</span>
-          <span><b style="color: ${T.muted}">X</b> data n&atilde;o informada</span>
-        </span>
-      </div>
-      <table class="table table--dense">
-        <thead><tr>
-          <th style="width: 26px"></th><th>Navio / Viagem</th><th>Armador</th><th>Rota</th>
-          ${PORT_COLS.map((p) => `<th style="text-align: center">${p}</th>`).join('')}
-          <th style="text-align: center">+</th><th style="text-align: right">B/L</th>
-          <th style="text-align: right">CNTR</th><th style="text-align: center">CE</th><th></th>
-        </tr></thead>
-        <tbody>
-          ${VOYAGES.map((v, i) => `<tr${i === 0 ? ` style="background: ${T.blueSoft}"` : ''}>
-            <td>${estadoDot(v.estado, 8)}</td>
-            <td style="font-weight: 700; color: ${T.textStrong}">${v.vessel} <span style="color: ${T.muted}">/ ${v.voy}</span></td>
-            <td style="font-size: 12px; color: ${T.muted}">${v.carrier}</td>
-            <td><span style="display: inline-flex; align-items: center; gap: 6px; font-family: ${T.mono}; font-size: 11px; color: ${T.muted}">${v.pol} ${icon('arrowRight', 12, T.mutedSoft)} <b style="color: ${T.text}">${v.pod}</b></span></td>
-            ${PORT_COLS.map((p) => `<td style="text-align: center">${portCell(v.ports[p])}</td>`).join('')}
-            <td style="text-align: center; font-size: 11px; color: ${T.mutedSoft}">${v.pod.includes('BRITJ') ? '+1' : '—'}</td>
-            <td style="text-align: right" class="num">${v.bls}</td>
-            <td style="text-align: right" class="num">${v.cntr}</td>
-            <td style="text-align: center"><span class="num" style="color: ${v.ce.split('/')[0] === v.ce.split('/')[1] && v.bls > 0 ? T.green : T.gold}">${v.ce}</span></td>
-            <td style="text-align: right; color: ${T.mutedSoft}">${icon('chevronRight', 15)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-top: 1px solid ${T.border}; background: ${T.surfaceMuted}; font-size: 12px; color: ${T.muted}">
-        <span>Mostrando <b>9</b> de <b>12</b> viagens</span>
-        <span style="display: inline-flex; align-items: center; gap: 6px">
-          <span class="btn btn--secondary btn--sm">Anterior</span>
-          <span class="btn btn--secondary btn--sm" style="background: ${T.navy}; border-color: ${T.navy}; color: #fff; width: 34px; padding: 0">1</span>
-          <span class="btn btn--secondary btn--sm" style="width: 34px; padding: 0">2</span>
-          <span class="btn btn--secondary btn--sm">Pr&oacute;xima</span>
-        </span>
-      </div>
-    </div>
-  </div>`,
-}), C_H)
-
-const CD_H = 1500
-out('DirecaoCDetalhe.dc.html', artboard({
-  height: CD_H,
-  body: `<div class="main">
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 12px; color: ${T.muted}">
-      <span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: ${T.blueBtn}">${icon('chevronLeft', 14)} Viagens</span>
-      <span style="color: ${T.mutedSoft}">/</span>
-      <span style="font-weight: 600; color: ${T.text}">COSCO SHIPPING ARIES &middot; 088E</span>
-      <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: ${T.mutedSoft}">
-        <span class="btn btn--secondary btn--sm" style="width: 34px; padding: 0">${icon('chevronLeft', 15)}</span>
-        <span>2 de 12</span>
-        <span class="btn btn--secondary btn--sm" style="width: 34px; padding: 0">${icon('chevronRight', 15)}</span>
-      </span>
-    </div>
-    <div class="surface surface--padded" style="display: flex; flex-direction: column; gap: 18px; margin-bottom: 18px">
-      ${voyageHero({ compact: true })}
-      ${kpiBand()}
-    </div>
-    <div style="display: flex; flex-direction: column; gap: 18px">
-      ${tabsRow()}
-      ${transbordoCard()}
-      ${planejamentoEscala()}
-      ${timeline()}
-    </div>
-  </div>`,
-}), CD_H)
-
-try { rmSync(new URL('./DirecaoA.dc.html', import.meta.url)) } catch { /* já removido */ }
 writeFileSync(new URL('./heights.json', import.meta.url), JSON.stringify(HEIGHTS, null, 2) + '\n')

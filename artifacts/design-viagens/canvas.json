@@ -134,24 +134,6 @@
       "page": "page-9",
       "w": 1440,
       "h": 1340
-    },
-    {
-      "file": "DirecaoC.dc.html",
-      "title": "Direção C · programação em tabela",
-      "x": 0,
-      "y": 7400,
-      "page": "page-4",
-      "w": 1440,
-      "h": 960
-    },
-    {
-      "file": "DirecaoCDetalhe.dc.html",
-      "title": "Direção C · /viagens/:id",
-      "x": 1560,
-      "y": 7400,
-      "page": "page-4",
-      "w": 1440,
-      "h": 1500
     }
   ],
   "annotations": [
@@ -210,14 +192,6 @@
       "y": 20100,
       "w": 1000,
       "text": "ABA ADR — o cabeçalho fica; o que muda é onde a assinatura mora e como a carga descarregada é contada.\n\nresolvedReportId é o terminal: own, signoffEvents, departmentSignoffEvents, close, reopen e observação são todos amarrados a ele. E o recorte por frente (sectionIsVisible + terminalViewFor) esvazia o conteúdo da seção que não tem frente naquele terminal — a seção continua exigindo resolução, mas mostra \"Não há frente atribuída a este terminal\".\n\nOito mudanças:\n\n1. O cabeçalho fica como está: a fileira de escalas e o painel \"ADR por terminal\", sem alteração. Do painel de departamentos sobra só a faixa de fechamento — contador, prazo, Imprimir e Fechar ADR — porque os três cartões de assinatura descem para dentro dos grupos de seção.\n2. As seções passam a ser agrupadas por departamento, não por fase. AGENCY_REPORT_SECTIONS mapeia cada seção a um setor — Equipamentos responde por três, hoje espalhadas entre Importação e Exportação. Quem vai assinar precisava caçá-las.\n3. Os dois níveis de assinatura passam a conversar. Cada grupo traz o contador de seções resolvidas, o estado de prazo do setor e o próprio botão de assinar; o botão fica esmaecido enquanto sobra seção pendente. A faixa de fechamento diz o que falta, que hoje só vive no title do botão Fechar ADR.\n4. Carga descarregada deixa de misturar contagens. Hoje o hero \"148 containers descarregados\" flutua acima dos DOIS painéis, mas só fala de container — carga solta se conta em B/L. E o painel se chama \"Descarga de importação\", nome que sugere exportação sendo descarregada; são containers descarregados. Na proposta cada modo de carga carrega o próprio total no topo do próprio painel.\n5. A listagem de container passa a ter DUAS leituras, porque são duas perguntas diferentes: \"Por tipo\" (20GP, 40HC, 40OT, 40RH) responde quanto se movimentou de cada tipo; \"Por tipo e natureza\" cruza com carga geral / IMO / OOG. Hoje existe uma lista só, e o eixo dela mistura coisas de ordens diferentes: transbordo (que é destino, não natureza), veículos (que tem seção própria) e vazio (que tem seção própria) aparecem como se fossem irmãos de \"carga geral\". Transbordo vira a linha Destino; veículos volta a ser carga geral aqui, com o detalhe na seção Veículos.\n6. O vazio passa a morar num lugar só. O Baplie empurra para a listagem de Carga descarregada todo container empty sem B/L (categoria vazio, agencyDepartureReport.ts ~1129) e o MESMO container já está dentro de baplieEmptyCount, que alimenta a divergência de Vazios descarregados. É presença dupla: o total de 148 inclui 3 unidades que a outra seção também conta. Na proposta Carga descarregada conta só cheio (145) e Vazios descarregados mostra as duas fontes lado a lado — Baplie 28 contra 26 classificados no módulo.\n7. Avisos ganham forma. Divergência, dado órfão e nada operado eram <p> de 14px, com o mesmo peso de qualquer parágrafo; agora são callout vermelho, callout dourado e estado vazio tracejado. A observação da seção vira bloco visível — hoje só se descobre abrindo o editor.\n8. A linha do tempo vira trilho. Eram sete marcos empilhados, cada um repetindo o mesmo par título/parágrafo; viram paradas lado a lado, com o estado do prazo dentro da parada e a reabertura justificada pendurada embaixo de quem foi reaberto.\n\nDuas coisas que a proposta exige do código, e que hoje não existem:\n\na) OOG não é lido. `is_oog` existe em baplie_containers E em bl_containers, mas nem BL_CONTAINERS_SELECT nem o select de baplie_containers do ADR o trazem, e MatrixCategory não tem a chave. Sem isso a coluna OOG não tem de onde sair.\nb) IMO e OOG não são exclusivos entre si — são dois booleanos independentes no mesmo container. A listagem precisa de uma regra declarada; a proposta adota OOG vence IMO, no mesmo espírito do CATEGORY_PRIORITY que já existe, e mostra na tela quantos caem nos dois.\n\nOs dois artboards leem os MESMOS dados, preenchidos até o limite do que cada seção exibe — as seis seções de AGENCY_REPORT_SECTIONS, matriz de descarga, carga solta com transbordo, veículos por marca/modelo/tipo, granito, embarque de vazios por local, operação de pátio com linhas de serviço, os três estados de sign-off, divergência, dado órfão, observação, atribuição e histórico.\n\nO terceiro artboard reúne as hipóteses que não cabem no fluxo cheio: os dois vazios do recorte por terminal, os três vazios de conteúdo, o documento fechado, a escala omitida, a escala sem ATD, o ADR legado sem terminal_id, o leitor sem permissão de sign-off, o departamento atrasado e reaberto e as guardas de erro. Cada cartão cita a condição que o produz no código."
-    },
-    {
-      "id": "nota-descartadas",
-      "page": "page-4",
-      "x": 0,
-      "y": 7200,
-      "w": 900,
-      "text": "NÃO ESCOLHIDAS — registro da Direção C, mantida só como histórico da decisão.\n\n/viagens como programação em tabela (uma linha por viagem, uma coluna por porto, marcas OMIT e X do domínio) com o detalhe roteado em /viagens/:id. Perdeu para a A por trocar a página inteira e mandar o detalhe para outra navegação."
     }
   ],
   "pages": [
@@ -248,10 +222,6 @@
     {
       "id": "page-9",
       "name": "Aba ADR"
-    },
-    {
-      "id": "page-4",
-      "name": "Não escolhidas"
     }
   ],
   "launch": {

@@ -4,8 +4,9 @@ Fontes do canvas de design publicado para a página `/viagens`. Não é código 
 produção: nada aqui é importado por `src/`.
 
 A **Direção A** foi a escolhida — mantém o rail horizontal e o card de detalhe
-com abas que já existem, mudando hierarquia e densidade. A Direção C fica
-versionada apenas como registro da decisão.
+com abas que já existem, mudando hierarquia e densidade. As direções
+descartadas não ficam versionadas: o registro da decisão vive na história do
+git e no pull request.
 
 O trabalho segue aba por aba. A primeira fechada é a **Visão geral**, no
 recorte da tabela de Planejamento por escala e do bloco de Atracações.
@@ -26,7 +27,6 @@ legado sem `terminal_id`, o leitor sem permissão e as guardas de erro.
 | Aba Exportação | [`ExportacaoAntes`](./ExportacaoAntes.dc.html), [`ExportacaoDepois`](./ExportacaoDepois.dc.html), [`ExportacaoMultiDepot`](./ExportacaoMultiDepot.dc.html) e [`ModalGranito`](./ModalGranito.dc.html) |
 | Aba Importação | [`ImportacaoAntes`](./ImportacaoAntes.dc.html) e [`ImportacaoDepois`](./ImportacaoDepois.dc.html) |
 | Visão geral · Planejamento | [`PlanejamentoAntes`](./PlanejamentoAntes.dc.html) e [`PlanejamentoEscala`](./PlanejamentoEscala.dc.html) |
-| Não escolhidas | [`DirecaoC`](./DirecaoC.dc.html), [`DirecaoCDetalhe`](./DirecaoCDetalhe.dc.html) |
 
 [`canvas.json`](./canvas.json) — gerado por [`canvas.mjs`](./canvas.mjs) — define
 posições, páginas, notas e a página de abertura.
