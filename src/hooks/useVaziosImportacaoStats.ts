@@ -1,12 +1,20 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../services/supabase'
+import { normalizePortCode } from '../services/portCode'
+
+export type VoyageVaziosImportacaoPodStat = {
+  manifestos: number
+  distinctContainers: number
+  types: Array<{ label: string; count: number }>
+}
 
 export type VoyageVaziosImportacaoStat = {
   totalManifests: number
   distinctContainers: number
   containerTypes: string
   destinations: string
+  byPod: Record<string, VoyageVaziosImportacaoPodStat>
 }
 
 export function useVaziosImportacaoStats(voyageIds: number[]) {
@@ -38,7 +46,12 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
       }
 
       const manifestIds = Array.from(manifestToVoyage.keys())
-      const containersByVoyage = new Map<number, { numbers: Set<string>; types: Map<string, number>; pods: Set<string> }>()
+      const containersByVoyage = new Map<number, {
+        numbers: Set<string>
+        types: Map<string, number>
+        pods: Set<string>
+        byPod: Map<string, { manifestIds: Set<string>; numbers: Set<string>; types: Map<string, number> }>
+      }>()
 
       if (manifestIds.length > 0) {
         let from = 0
@@ -54,13 +67,20 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
           for (const c of batch) {
             const voyageId = manifestToVoyage.get(c.manifest_id)
             if (voyageId == null) continue
-            const entry = containersByVoyage.get(voyageId) ?? { numbers: new Set(), types: new Map(), pods: new Set() }
+            const entry = containersByVoyage.get(voyageId) ?? { numbers: new Set(), types: new Map(), pods: new Set(), byPod: new Map() }
             const num = String(c.container_number ?? '').trim().toUpperCase()
             if (num) entry.numbers.add(num)
             const type = String(c.container_type ?? '').trim() || 'Nao informado'
             entry.types.set(type, (entry.types.get(type) ?? 0) + 1)
-            const pod = String(c.pod ?? '').trim()
+            const pod = normalizePortCode(c.pod)
             if (pod) entry.pods.add(pod)
+            if (pod) {
+              const podEntry = entry.byPod.get(pod) ?? { manifestIds: new Set(), numbers: new Set(), types: new Map() }
+              podEntry.manifestIds.add(c.manifest_id)
+              if (num) podEntry.numbers.add(num)
+              podEntry.types.set(type, (podEntry.types.get(type) ?? 0) + 1)
+              entry.byPod.set(pod, podEntry)
+            }
             containersByVoyage.set(voyageId, entry)
           }
           if (batch.length < 1000) break
@@ -73,11 +93,22 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
         const typeEntries = Array.from(entry?.types.entries() ?? [])
           .sort((a, b) => b[1] - a[1])
           .map(([label, count]) => `${label} (${count})`)
+        const byPod = Object.fromEntries(
+          Array.from(entry?.byPod.entries() ?? []).map(([pod, podEntry]) => [pod, {
+            manifestos: podEntry.manifestIds.size,
+            distinctContainers: podEntry.numbers.size,
+            types: Array.from(podEntry.types.entries())
+              .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))
+              .map(([label, count]) => ({ label, count })),
+          }]),
+        )
+
         byVoyageId[voyageId] = {
           totalManifests: manifestCountByVoyage.get(voyageId) ?? 0,
           distinctContainers: entry?.numbers.size ?? 0,
           containerTypes: typeEntries.join(' | '),
           destinations: Array.from(entry?.pods ?? []).sort((a, b) => a.localeCompare(b, 'pt-BR')).join(' | '),
+          byPod,
         }
       }
 
