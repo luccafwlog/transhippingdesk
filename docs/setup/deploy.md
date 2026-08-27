@@ -160,17 +160,20 @@ server-side. Resend não é migrado para Vercel Functions.
 
 Migrations continuam sendo aplicadas no Supabase, em ordem e antes do deploy de
 código que dependa delas. As migrations
-`351_reconcile_branch_schema_drift.sql` e
-`352_reconcile_remaining_runtime_drift.sql` reassertam, de forma idempotente,
+`351_reconcile_branch_schema_drift.sql`,
+`352_reconcile_remaining_runtime_drift.sql` e
+`354_reconcile_import_batches_timestamp.sql` reassertam, de forma idempotente,
 os elementos de schema necessários para que a produção e a `stagingtdesk`
 permaneçam alinhadas mesmo quando uma execução histórica deixou a versão
-registrada sem o efeito correspondente. A migration 352 preserva dados ao
-recusar a conversão de `import_batches.created_at` quando ele divergir de
-`uploaded_at`; ela também remove resíduos do antigo bloqueio `overdue` e repõe
-o índice de CE Mercante. Os nomes registrados para as versões 169 e 341 podem
-continuar históricos porque esses arquivos foram renumerados depois de já
-terem sido aplicados; migrations aplicadas não devem ser reescritas. A Vercel
-nunca executa migrations implicitamente.
+registrada sem o efeito correspondente. A migration 352 remove resíduos do
+antigo bloqueio `overdue`, repõe o índice de CE Mercante e preserva dados ao
+recusar a conversão de `import_batches.created_at` quando os valores legados
+divergirem de `uploaded_at`. A migration 354 consulta o catálogo antes de
+referenciar a coluna opcional, cria a coluna quando ela está ausente e converge
+branches persistentes que já registraram a 352 antes dessa proteção. Os nomes registrados
+para as versões 169 e 341 podem continuar históricos porque esses arquivos foram
+renumerados depois de já terem sido aplicados; migrations aplicadas não devem
+ser reescritas. A Vercel nunca executa migrations implicitamente.
 
 ## Firebase rollback
 
