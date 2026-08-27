@@ -87,7 +87,9 @@ describe('reconciliação da coluna import_batches.created_at', () => {
 
 describe('reconciliação do histórico remoto de migrations', () => {
   it('protege a correção do identificador histórico da versão 169', () => {
+    expect(migration355).toContain("to_regclass('supabase_migrations.schema_migrations') IS NULL")
     expect(migration355).toContain("WHERE version = '169'")
+    expect(migration355).toContain('v_existing_name IS NULL')
     expect(migration355).toContain("v_existing_name = 'demurrage_invoice_unique_active'")
     expect(migration355).toContain("v_existing_name <> 'voyage_route_ce_master_rls_active'")
     expect(migration355).toContain("SET name = 'demurrage_invoice_unique_active'")

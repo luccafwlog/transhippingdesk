@@ -14,6 +14,12 @@ DO $repair$
 DECLARE
   v_existing_name TEXT;
 BEGIN
+  -- The local disposable replay does not create Supabase's internal history
+  -- schema. The production branch runner does, so only it needs this repair.
+  IF to_regclass('supabase_migrations.schema_migrations') IS NULL THEN
+    RETURN;
+  END IF;
+
   SELECT name
   INTO v_existing_name
   FROM supabase_migrations.schema_migrations
@@ -27,7 +33,8 @@ BEGIN
     RETURN;
   END IF;
 
-  IF v_existing_name <> 'voyage_route_ce_master_rls_active' THEN
+  IF v_existing_name IS NULL
+     OR v_existing_name <> 'voyage_route_ce_master_rls_active' THEN
     RAISE EXCEPTION
       'Unexpected migration 169 name: %. Refusing to rewrite remote history',
       v_existing_name;
