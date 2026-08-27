@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ALLOWED_ORIGINS, corsHeaders, parseConfiguredOrigins } from '../../../supabase/functions/_shared/cors.ts'
+import { ALLOWED_ORIGINS, corsHeaders, isAllowedOrigin, parseConfiguredOrigins } from '../../../supabase/functions/_shared/cors.ts'
 
 // Auditoria 2026-08-14, achado A-05: devolver a string 'null' para origem fora da
 // allowlist não nega — `null` é a origem real de iframe `sandbox`, documento
@@ -38,11 +38,22 @@ describe('corsHeaders das Edge Functions', () => {
     expect(headers['Access-Control-Allow-Headers']).toContain('authorization')
   })
 
-  it('aceita somente origens HTTPS exatas na configuração de Preview', () => {
+  it('aceita somente origens HTTPS exatas na configuração manual de Preview', () => {
     expect(parseConfiguredOrigins('https://preview.example.vercel.app, https://outro.example.vercel.app')).toEqual([
       'https://preview.example.vercel.app',
       'https://outro.example.vercel.app',
     ])
     expect(parseConfiguredOrigins('*.vercel.app, http://preview.example, https://preview.example/path')).toEqual([])
+  })
+
+  it('aceita o alias de Preview gerado para este projeto Vercel', () => {
+    const origin = 'https://transhippingdesk-git-feature-abc123-luccafwlogs-projects.vercel.app'
+    expect(isAllowedOrigin(origin)).toBe(true)
+    expect(corsHeaders(origin)['Access-Control-Allow-Origin']).toBe(origin)
+  })
+
+  it('não aceita Preview de outro projeto ou equipe no Vercel', () => {
+    expect(isAllowedOrigin('https://outro-projeto-abc123-luccafwlogs-projects.vercel.app')).toBe(false)
+    expect(isAllowedOrigin('https://transhippingdesk-abc123-outra-equipe.vercel.app')).toBe(false)
   })
 })

@@ -10,6 +10,9 @@
 | Integração | Gatilho | O que faz |
 |---|---|---|
 | `.github/workflows/ci.yml` | `pull_request` e push em `main` | `docs:check`, lint, build, bundle size e testes em shards. |
+| Supabase GitHub Integration — Automatic branching | branch/PR do GitHub | Cria a branch Supabase efêmera correspondente e executa migrations/configuração do Preview. |
+| Supabase + Vercel Branching Integration | PR aberta | Sincroniza as variáveis públicas do Preview com a branch Supabase correspondente e reimplanta se houver corrida de timing. |
+| Supabase GitHub Integration — Deploy to production | merge/push em `main` | Aplica migrations e publica os artefatos de produção no projeto Supabase principal. |
 | Vercel + GitHub | pull request | Build e Preview Deployment. |
 | Vercel + GitHub | push em `main` | Build e Production Deployment. |
 
@@ -48,36 +51,58 @@ As únicas variáveis necessárias ao bundle são públicas por definição do V
 
 | Variável | Production | Preview | Development |
 |---|---|---|---|
-| `VITE_SUPABASE_URL` | URL do projeto Supabase de produção | URL da branch persistente `stagingtdesk` | valor do ambiente local |
-| `VITE_SUPABASE_ANON_KEY` | chave pública `anon` correspondente | chave pública da `stagingtdesk` | chave pública do ambiente local |
+| `VITE_SUPABASE_URL` | URL do projeto Supabase de produção | URL da branch automática correspondente à PR, injetada pela integração Supabase/Vercel | valor do ambiente local |
+| `VITE_SUPABASE_ANON_KEY` | chave pública `anon` correspondente | chave pública da branch automática correspondente, injetada pela integração Supabase/Vercel | chave pública do ambiente local |
 
 `VITE_APP_COMMIT_SHA` é opcional: `vite.config.ts` injeta o commit Git atual
 quando a variável não é fornecida, mantendo o release visível no Sentry e na
 interface. Nunca configure `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` ou
 outros segredos de Edge Functions como variáveis `VITE_*`.
 
-As variáveis devem ser cadastradas no Vercel Project Settings para os ambientes
-Production, Preview e Development conforme o ambiente escolhido. O CI do
-GitHub mantém suas próprias variáveis públicas de build; isso não substitui a
+Cadastre as credenciais de produção no Vercel Project Settings em Production e
+as credenciais locais em Development. Não mantenha um valor global fixo para
+Preview: na integração Supabase/Vercel, configure o prefixo específico do
+framework para `VITE_` e deixe a integração criar/atualizar
+`VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` por branch/PR. O CI do GitHub
+mantém suas próprias variáveis públicas de build; isso não substitui a
 configuração do projeto Vercel.
 
-### Preview compartilhado `stagingtdesk`
+### Preview ligado à branch automática
 
-O projeto Vercel `transhippingdesk` usa a branch persistente `stagingtdesk` como
-ambiente compartilhado de Preview. A configuração operacional é:
+O Vercel `transhippingdesk` deve estar conectado ao GitHub
+`luccafwlog/transhippingdesk` e à integração de branching do Supabase. O
+Automatic branching deve permanecer habilitado no Supabase, com o diretório de
+trabalho `.`, e **Supabase changes only** deve ficar desligado quando todo
+Preview precisar de um banco isolado — caso contrário uma PR que só altera
+frontend pode não criar a branch Supabase correspondente.
 
-- Supabase Production: `fgmkhbzhaeebrsizwccx`;
-- Supabase Preview: `dkmkhwdoskuwrkxwojhv` (`stagingtdesk`);
-- `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` do Preview apontam para esse
-  mesmo projeto, em escopo **Preview**;
-- Production mantém as credenciais do projeto principal.
+Ao abrir uma PR, o Supabase cria uma branch efêmera baseada na branch do GitHub,
+aplica as migrations e configura os artefatos declarados. A integração Supabase
+com Vercel atualiza no Preview as variáveis `VITE_SUPABASE_URL` e
+`VITE_SUPABASE_ANON_KEY` com os valores daquela branch. O primeiro deploy pode
+ser refeito automaticamente pela integração por causa da corrida entre a
+criação da branch e o build do Vercel.
 
-Assim, qualquer branch ou Pull Request que gerar Preview no Vercel usa o mesmo
-schema, Auth, Storage e dados de validação da `stagingtdesk`. Não se deve
-substituir essa configuração por uma variável específica de cada branch nem
-ativar o auto-branching do Supabase para esse fluxo: isso faria cada Preview
-apontar para um projeto diferente. A chave usada no Vercel é sempre pública;
-service role e demais segredos permanecem fora do bundle.
+Não cadastre uma URL de Preview fixa nem reutilize uma branch Supabase entre
+PRs. `main` usa o projeto de produção (`fgmkhbzhaeebrsizwccx`) e cada Preview
+usa seu próprio project ref efêmero. Chaves públicas podem chegar ao bundle;
+service role, secret keys e URLs PostgreSQL permanecem fora do Vercel.
+
+Checklist no Dashboard:
+
+1. No Vercel Marketplace, mantenha a integração Supabase instalada e conectada
+   ao projeto existente `transhippingdesk`.
+2. Na integração Supabase/Vercel, configure o prefixo específico do framework
+   para `VITE_`, mantendo os nomes `VITE_SUPABASE_URL` e
+   `VITE_SUPABASE_ANON_KEY` usados pelo código.
+3. No Supabase GitHub Integration, conecte `luccafwlog/transhippingdesk`, use
+   working directory `.`, deixe **Automatic branching** ligado e
+   **Supabase changes only** desligado.
+4. No Vercel Git Integration, use o mesmo repositório e `main` como production
+   branch. Não crie uma segunda integração nem variáveis Preview fixas.
+5. Abra uma PR e confirme os três sinais: branch Supabase automática criada e
+   saudável, comentário/check do Supabase Preview concluído e Preview do
+   Vercel contendo as duas variáveis `VITE_*` da mesma branch.
 
 ## Domínios e cutover sem downtime
 
@@ -140,17 +165,18 @@ As origens de produção permanecem na allowlist compartilhada em
 `supabase/functions/_shared/cors.ts`. Os domínios Firebase padrão continuam
 temporariamente para rollback.
 
-Preview URLs não são liberadas por wildcard. Para testar uma URL Preview que
-invoca Edge Functions do browser, configure no ambiente das Edge Functions do
-Supabase:
+Os aliases de Preview do projeto `transhippingdesk` são aceitos pela allowlist
+das Edge Functions. Para um domínio adicional que invoque Edge Functions pelo
+browser, configure no ambiente da branch Supabase:
 
 ```text
 VERCEL_PREVIEW_ORIGINS=https://<url-preview-exata>.vercel.app
 ```
 
 Múltiplas URLs podem ser separadas por vírgula. O parser aceita somente URLs
-HTTPS exatas, sem caminho e sem `*`. A variável não é necessária para o
-Production Deployment nos domínios próprios.
+HTTPS exatas, sem caminho e sem `*`. A variável é necessária apenas para
+domínios adicionais; os aliases gerados pelo próprio projeto Vercel já são
+validados pelo padrão restrito em `supabase/functions/_shared/cors.ts`.
 
 ## Edge Functions, Resend e migrations
 
@@ -159,18 +185,19 @@ e continuam usando `PORTAL_URL`, `APP_URL`, `RESEND_API_KEY` e demais segredos
 server-side. Resend não é migrado para Vercel Functions.
 
 Migrations continuam sendo aplicadas no Supabase, em ordem e antes do deploy de
-código que dependa delas. As migrations
+código que dependa delas, pelo branch action da integração GitHub no Preview e
+pelo deploy de produção quando `main` recebe o merge. As migrations
 `351_reconcile_branch_schema_drift.sql`,
 `352_reconcile_remaining_runtime_drift.sql` e
 `354_reconcile_import_batches_timestamp.sql` reassertam, de forma idempotente,
-os elementos de schema necessários para que a produção e a `stagingtdesk`
+os elementos de schema necessários para que a produção e branches de Preview
 permaneçam alinhadas mesmo quando uma execução histórica deixou a versão
 registrada sem o efeito correspondente. A migration 352 remove resíduos do
 antigo bloqueio `overdue`, repõe o índice de CE Mercante e preserva dados ao
 recusar a conversão de `import_batches.created_at` quando os valores legados
 divergirem de `uploaded_at`. A migration 354 consulta o catálogo antes de
 referenciar a coluna opcional, cria a coluna quando ela está ausente e converge
-branches persistentes que já registraram a 352 antes dessa proteção. A migration
+branches automáticas que já registraram a 352 antes dessa proteção. A migration
 355 corrige, de forma controlada e idempotente, o nome histórico remoto da versão
 169 para que o rebase use o arquivo correto (`169_demurrage...`) e não tente
 reaplicar a policy da migration 170. A migration 356 aplica a mesma reconciliação

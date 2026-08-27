@@ -191,15 +191,21 @@ validada por replay completo das migrations e só segura em banco descartável
 
 ### Aplicação no remoto
 
-Migrations chegam ao projeto remoto pela **integração GitHub do Supabase no merge
-para `main`**, que registra a versão com o **prefixo numérico** do arquivo
-(`192_…` → versão `192`). Não aplique migrations ao remoto por ferramentas que
-geram versão **timestamp** (ex.: `apply_migration` do MCP Supabase): elas gravam
-em `supabase_migrations.schema_migrations` uma versão sem arquivo local
-correspondente, e a checagem de branching falha com *“Remote migration versions
-not found in local migrations directory”* (`MIGRATIONS_FAILED`). Se acontecer,
-reconcilie renomeando a versão remota para o prefixo do arquivo:
-`update supabase_migrations.schema_migrations set version='NNN' where version='<timestamp>';`.
+O **Automatic branching** da integração GitHub do Supabase permanece habilitado.
+Cada branch do GitHub recebe uma branch Supabase efêmera correspondente; as
+migrations em `supabase/migrations/` são executadas pelo branch action antes do
+Preview ser usado. A integração Supabase/Vercel atualiza as variáveis públicas
+do Preview para o project ref dessa mesma branch e reimplanta o Preview quando
+necessário.
+
+No merge ou push em `main`, a opção **Deploy to production** aplica as migrations
+pendentes no projeto Supabase de produção (`fgmkhbzhaeebrsizwccx`). Não aplique
+migrations remotas por ferramentas que geram versão **timestamp** (ex.: `apply_migration`
+do MCP Supabase): elas gravam em `supabase_migrations.schema_migrations` uma
+versão sem arquivo local correspondente, e a checagem de branching falha com
+*“Remote migration versions not found in local migrations directory”*
+(`MIGRATIONS_FAILED`). Se acontecer, faça uma reconciliação forward explícita;
+não edite migrations aplicadas.
 
 ### Antes de criar
 
@@ -249,12 +255,12 @@ tipos gerados manualmente para esconder drift.
 
 ### Aplicação
 
-O CI da SPA não aplica migrations. Antes de publicar frontend dependente:
-
-1. compare `supabase/migrations/` com o histórico do ambiente;
-2. aplique todas as pendentes por fluxo controlado;
-3. verifique advisors e contrato;
-4. só então publique o código dependente.
+O CI da SPA e a Vercel não aplicam migrations. O branch action do Supabase aplica
+as migrations no Preview automático correspondente à PR; depois do merge, a
+integração GitHub do Supabase aplica as pendentes em produção. Confirme o check
+do Supabase Preview antes do merge e, em caso de falha, compare o histórico
+remoto com os arquivos locais antes de reexecutar. Após DDL, verifique advisors
+e o contrato usado pela aplicação.
 
 Nunca execute um reset amplo para “testar” uma migration. O reset operacional
 atual está suspenso em
@@ -461,6 +467,11 @@ recente do PR ocupa runners.
 O projeto Vercel integrado ao GitHub executa Preview Deployments para pull
 requests e Production Deployments para `main`. O CI do GitHub permanece como
 gate independente de documentação, lint, build, bundle size e testes.
+
+O Preview do Vercel deve usar a integração de branching do Supabase para
+receber `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` da branch Supabase
+automática daquela PR. Não defina uma URL fixa de Preview no projeto Vercel;
+`main` usa somente as credenciais do projeto de produção.
 
 ### Edge Functions e banco
 

@@ -28,9 +28,11 @@ VITE_SUPABASE_URL=https://<projeto>.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key>
 ```
 
-No Vercel, essas mesmas duas variáveis são cadastradas separadamente nos
-ambientes Production, Preview e Development do projeto. Como todo `VITE_*`
-chega ao bundle do navegador, não coloque segredos server-side nelas.
+No Vercel, `main` usa as credenciais públicas de produção. Nos Previews, a
+integração de branching do Supabase sincroniza essas mesmas variáveis com a
+branch Supabase automática correspondente à PR; não cadastre um valor global
+fixo para Preview. Como todo `VITE_*` chega ao bundle do navegador, não coloque
+segredos server-side nelas.
 
 Sem `VITE_SUPABASE_*` a aplicação loga erro e o cliente Supabase fica vazio. As demais variáveis (`SUPABASE_*`) são usadas apenas nos [testes de integração](testing.md).
 
