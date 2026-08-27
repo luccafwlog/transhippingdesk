@@ -461,10 +461,12 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
 - `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage;
 - `notify-invoice-issued`: implementada para enviar email via Resend na
   emissão de invoice, mas **não está ativa**. Não há Database Webhook
-  configurado, o `RESEND_API_KEY` não está provisionado e, por decisão atual,
-  o projeto não dispara email para clientes. A notificação ao cliente acontece
-  in-app (gatilho `trg_notify_invoice_issued`). Reativar é trabalho futuro,
-  fora do escopo atual.
+  configurado e o `RESEND_API_KEY` não está provisionado; a notificação ao
+  cliente acontece in-app (gatilho `trg_notify_invoice_issued`). A decisão de
+  2026-06-24 de não disparar email para clientes foi **revertida pela ADR
+  0055**, que cria o canal de Comunicado ao Cliente. Esta função **não** será
+  reativada: ela é apagada quando o comunicado financeiro do novo canal entrar
+  (spec `docs/spec/2026-08-27-comunicacao-email-clientes-design.md`).
 
 O Portal não participa do gate financeiro de revisão/faturamento. As migrations
 188–190 criam alertas preventivos e exceções críticas por fatura, mantendo a

@@ -1498,3 +1498,75 @@ audiência e ciclo próprios.
 
 **Provisionamento do Portal (pré-piloto)**
 O acesso operacional entra pelo cabeçalho de Clientes e mantém `/clientes/portal` como console dedicado. O console usa expansão inline, filtro Todos, deep links `?cliente={id}` e exportação XLSX. Candidatos são apenas sugestões e nunca alteram automaticamente o Email de Recuperação.
+
+## Comunicação com o cliente
+
+**Comunicado ao Cliente**
+Mensagem de e-mail enviada pela Transhipping ao Email de Contato de um Cliente.
+É canal distinto do email transacional do Portal: tem trilha, lista de
+supressão e chave de envio próprias, ainda que compartilhe remetente e
+identidade visual com ele. Um endereço suprimido no Portal continua recebendo
+Comunicado, e vice-versa.
+
+**Modelo de Comunicado**
+Texto pré-definido que um Comunicado usa. Aviso de Chegada, Aviso de Atracação
+e os dois comunicados financeiros são fixos e versionados no código; o
+institucional e o livre são escritos pelo usuário interno, e o institucional
+pode ser salvo para reuso. Todo modelo renderiza por Cliente, com as variáveis
+da carga do próprio destinatário.
+
+**Aviso de Chegada (NOA)**
+Comunicado que informa a chegada da embarcação. É sempre por Escala — chegada é
+a ATA da Escala, e uma viagem com vários terminais tem vários momentos de
+chegada. `NOA` é sinônimo de mercado do mesmo conceito.
+
+**Aviso de Atracação (NOR)**
+Comunicado que informa a atracação da embarcação no terminal. É sempre por
+Atracação, ancorado no ATB. `NOR` é sinônimo de mercado do mesmo conceito.
+
+**Disparo de Comunicado**
+Operação de enviar um Comunicado a um Recorte de Destinatários. Passa
+obrigatoriamente por conferência antes do envio e produz um e-mail por Cliente
+— nunca vários Clientes no mesmo destinatário.
+
+**Recorte de Destinatários**
+Conjunto de Clientes resolvido pelos filtros do Disparo. O universo é a carga:
+parte dos B/Ls filtrados por navio, viagem, escala, porto de descarga e porto
+de embarque, com CNPJ restringindo o resultado. Filtro vazio nunca significa
+todos os Clientes.
+
+**Preferência de Recebimento**
+Escolha, por contato do Cliente, de quais categorias de Comunicado ele recebe:
+Operacional, Financeiro e Institucional. Nasce com as três ligadas. É
+roteamento interno decidido junto ao Cliente, não opt-out do destinatário, e
+nunca substitui a conferência. É conceito distinto do `purpose` do contato, que
+classifica a função do contato no cadastro.
+
+**Vínculo do Comunicado**
+Ligação entre um Comunicado e os B/Ls que o motivaram. Um Comunicado tem um
+Cliente e vários B/Ls. O Comunicado institucional é o único sem vínculo. O
+vínculo é o que faz o Comunicado aparecer no Histórico do B/L.
+
+**Cliente Comunicável**
+Cliente elegível ao Comunicado institucional: tem ao menos um B/L nos últimos
+doze meses e ao menos um contato com e-mail. Restringe o alcance do comunicado
+que não nasce de um recorte de carga.
+
+**Prontidão de Comunicação de Taxas**
+Condição, avaliada por Cliente, para comunicar o resumo de faturas de taxas
+locais de uma viagem: todos os B/Ls daquele Cliente na viagem têm CE Mercante
+preenchido e nenhuma pendência de revisão. Cliente sem prontidão fica bloqueado
+e visível; os demais Clientes da viagem não são segurados por ele. É condição
+distinta do gate de revisão do B/L, que deliberadamente não exige CE Mercante.
+
+**Régua de Cobrança**
+Sequência automática de Comunicados de cobrança de uma fatura de Demurrage.
+Começa no primeiro faturamento, repete em intervalo configurável, para quando a
+fatura é paga ou quando atinge o teto de envios, e fica pausada enquanto houver
+Disputa de Demurrage aberta.
+
+**Chave de envio de Comunicados**
+Controle único que habilita ou silencia todo o canal de Comunicado. Nasce
+desligada e só é ligada por decisão auditada do Administrativo. Não afeta o
+email transacional do Portal. Desligada, o Disparo continua sendo montado e
+conferido, mas é registrado como simulado em vez de enviado.
