@@ -1505,8 +1505,10 @@ O acesso operacional entra pelo cabeçalho de Clientes e mantém `/clientes/port
 Mensagem de e-mail enviada pela Transhipping ao Email de Contato de um Cliente.
 É canal distinto do email transacional do Portal: tem trilha, lista de
 supressão e chave de envio próprias, ainda que compartilhe remetente e
-identidade visual com ele. Um endereço suprimido no Portal continua recebendo
-Comunicado, e vice-versa.
+identidade visual com ele. Um endereço suprimido por reclamação no Portal
+continua recebendo Comunicado, e vice-versa. A exceção é o bounce permanente,
+que vale nos dois canais: a caixa não existe, e os dois saem do mesmo
+remetente.
 
 **Modelo de Comunicado**
 Texto pré-definido que um Comunicado usa. Aviso de Chegada, Aviso de Atracação
@@ -1563,10 +1565,13 @@ distinta do gate de revisão do B/L, que deliberadamente não exige CE Mercante.
 Sequência automática de Comunicados de cobrança de uma fatura de Demurrage.
 Começa no primeiro faturamento, repete em intervalo configurável, para quando a
 fatura é paga ou quando atinge o teto de envios, e fica pausada enquanto houver
-Disputa de Demurrage aberta.
+Disputa de Demurrage aberta — o fechamento da disputa retoma a régua. Cada
+cobrança da sequência é numerada, e é esse número que distingue uma cobrança da
+anterior sobre a mesma fatura.
 
 **Chave de envio de Comunicados**
 Controle único que habilita ou silencia todo o canal de Comunicado. Nasce
-desligada e só é ligada por decisão auditada do Administrativo. Não afeta o
+desligada e só é ligada por decisão auditada do Administrativo — os demais
+perfis que operam o módulo leem a chave, mas não a alteram. Não afeta o
 email transacional do Portal. Desligada, o Disparo continua sendo montado e
 conferido, mas é registrado como simulado em vez de enviado.

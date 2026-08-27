@@ -16,6 +16,12 @@ uma chave desse tipo possa morar.
 - Existe **uma** chave que habilita ou silencia todo o canal de Comunicado.
 - A chave nasce **desligada**. Ligar é ato deliberado do perfil
   `administrativo`, registrado em `audit_logs`.
+- **Ligar exige guarda própria.** A permissão `customer_communications` da ADR
+  0058 é do módulo, não da chave: ela é concedida também a `documentacao` e
+  `equipamentos`, e sozinha deixaria qualquer um dos três ligar o envio real.
+  A escrita da chave é restrita a `administrativo` e verificada **no servidor**
+  — a ausência do botão na tela não é a guarda. A leitura fica com os três
+  perfis, porque a faixa permanente depende dela.
 - O escopo é **todo** o canal — manual e automático. Não há meio-termo que
   deixe o disparo manual passar.
 - A chave **não afeta** o email transacional do Portal: convite, reenvio,
@@ -29,7 +35,9 @@ uma chave desse tipo possa morar.
 
 O estado seguro é o estado inicial: um deploy novo, um ambiente novo ou uma
 restauração nascem sem capacidade de enviar e-mail a cliente. A capacidade só
-aparece por decisão registrada de alguém.
+aparece por decisão registrada de alguém — e por decisão de `administrativo`,
+não de qualquer um dos três perfis que operam o módulo. Sem essa separação a
+chave protegeria contra o engano, mas não contra quem pode clicar.
 
 O registro simulado permite validar o fluxo completo — recorte, preferências,
 conferência, idempotência, histórico — sem tocar em cliente real, o que é

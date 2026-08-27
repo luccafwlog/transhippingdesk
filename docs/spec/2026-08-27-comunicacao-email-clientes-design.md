@@ -41,7 +41,7 @@ Ficam **fora** do escopo:
 |---|---|---|
 | `notify-invoice-issued` existe, está inativa, e há decisão registrada de não enviar e-mail a clientes | `supabase/functions/notify-invoice-issued/index.ts`; `docs/RASTREABILIDADE.md`; `docs/ARCHITECTURE.md` | Esta spec reverte a decisão (ADR 0056). A função é apagada quando o comunicado financeiro entrar |
 | Mecânica de envio madura, porém acoplada ao Portal | `supabase/functions/_shared/portalEmail.ts` | Extrair para `_shared/email.ts`; `portalEmail.ts` passa a ser consumidor |
-| Pendências de B/L já computadas de forma canônica | `compute_bl_review_pendencies`, migration `128` | Reusar como parte do gate de taxas locais, sem reimplementar |
+| Pendências de B/L já computadas de forma canônica | `compute_bl_review_pendencies(p_customer_id, p_cargo_mode, p_bb_weight_ton)`, nascida na migration `128` e vigente na `337` | Reusar como parte do gate de taxas locais, sem reimplementar. `EXECUTE` só para `service_role`: o gate é avaliado no servidor, não no cliente |
 | Cobertura de CE Mercante já calculada | `voyageCeCoverage()`, `src/services/voyageSummaries.ts` | Reusar o sinal; o gate novo é por cliente, não por viagem |
 | Bucket privado com teto e mime types já validado | migration `325`, bucket `demurrage-disputes` | Molde do bucket de anexos |
 | `demurrage_invoices.total_usd` é o valor autoritativo; BRL é derivado do PTAX | `src/types/database.ts`; `recalc-demurrage-ptax` | A cobrança comunica USD; BRL é informativo |
@@ -59,9 +59,18 @@ trilha própria, lista de supressão própria e chave de envio própria. Compart
 com o Portal a mecânica de envio, o remetente `portal@` e a identidade visual —
 o cliente não deve perceber duas entidades.
 
-Consequência que motiva a separação: um endereço que deu bounce num Convite do
-Portal **continua recebendo** Aviso de Chegada, e vice-versa. Supressão de
+Consequência que motiva a separação: um endereço marcado como spam num Convite
+do Portal **continua recebendo** Aviso de Chegada, e vice-versa. Supressão de
 acesso e supressão de entregabilidade operacional são decisões diferentes.
+
+**Exceção: o bounce permanente é compartilhado.** `portal_suppressed_emails`
+já distingue os dois motivos (`reason IN ('bounce_permanente','complaint')`,
+migration `178`). Um `bounce_permanente` diz que a caixa **não existe**, e isso
+não é opinião de canal nenhum: continuar mirando esse endereço pelo Comunicado
+degrada a reputação do domínio de `portal@`, que é o mesmo remetente — o risco
+exato que o teto da decisão 9 existe para evitar. Endereço com
+`bounce_permanente` em qualquer canal fica bloqueado nos dois; `complaint` e
+Preferência de Recebimento permanecem por canal. **Evidência: Código.**
 
 Registrada na ADR 0056.
 
@@ -101,6 +110,13 @@ Filtros disponíveis, combinados em **E**:
 - navio · viagem · escala · porto de descarga (POD) · porto de embarque (POL)
 - CNPJ, que **restringe** o resultado; nunca adiciona destinatário fora do
   recorte de carga
+
+**Nenhum filtro selecionado não resolve para todos os B/Ls.** No modo carga, o
+recorte exige ao menos um filtro de carga (navio, viagem, escala, POD ou POL);
+CNPJ sozinho não serve, porque ele só restringe. Sem isso o invariante 3 não
+teria mecanismo neste modo: `bls` sem `WHERE` é a base inteira, e o alcance
+amplo deixaria de ser escolha visível. Filtro vazio deixa a conferência vazia,
+com o motivo — nunca com a base toda.
 
 O comunicado **institucional** não usa recorte de carga. Ele é um modo separado
 e explícito sobre o conjunto **Cliente Comunicável**: cliente com ao menos um
@@ -161,8 +177,12 @@ O resumo de taxas locais é **disparo manual agregado por viagem**, com gate
 naquela viagem:
 
 1. `bls.ce_mercante` está preenchido; **e**
-2. `compute_bl_review_pendencies(bl)` retorna vazio — cliente vinculado,
-   cliente com e-mail, acesso ao Portal ativo, peso BB presente em carga solta.
+2. `compute_bl_review_pendencies(customer_id, cargo_mode, bb_weight_ton)` do
+   B/L retorna vazio — cliente vinculado, cliente com e-mail, acesso ao Portal
+   ativo, peso BB presente em carga solta. Essa é a assinatura viva (migration
+   `337`); a variante `(p_bl_id TEXT)` da `128` existe mas está sem `GRANT`
+   desde a `129`, e não deve ser usada. Como o `EXECUTE` é só de
+   `service_role`, o gate roda no servidor. **Evidência: Código.**
 
 Cliente que não passa fica bloqueado e visível, com o motivo. Os demais clientes
 da mesma viagem **não são segurados** por ele.
@@ -212,12 +232,28 @@ Em duas camadas:
 - **Aviso na conferência** — "este cliente já recebeu Aviso de Chegada para esta
   escala em 27/08 às 14h", e o operador decide. Reenvio legítimo existe (o
   cliente pediu de novo; o endereço estava errado e foi corrigido).
-- **Chave de idempotência** por (tipo de comunicado, cliente, âncora), onde a
-  âncora é a escala, a viagem ou a fatura. Protege duplo clique e disparo
-  concorrente de dois operadores.
+- **Chave de idempotência** por (tipo de comunicado, cliente, âncora,
+  **discriminador de tentativa**), onde a âncora é a escala, a viagem ou a
+  fatura. Protege duplo clique e disparo concorrente de dois operadores.
 
-Só a primeira camada permitiria a corrida; só a segunda impediria o reenvio
-legítimo.
+O discriminador não é detalhe de implementação: sem ele a chave é constante por
+âncora, e a Régua de Cobrança da decisão 9 fica **impossível a partir do segundo
+envio** — a âncora é a fatura, a régua repete a cada 5 dias sobre a mesma
+fatura, e a 2ª cobrança reusaria a chave da 1ª. O reenvio legítimo que a
+primeira camada existe para permitir cairia junto.
+
+| Comunicado | Discriminador |
+|---|---|
+| Régua de Cobrança | número da cobrança na régua (1ª, 2ª, 3ª…) |
+| Demais comunicados | número do reenvio, `0` no primeiro disparo |
+
+O número do reenvio só incrementa quando o operador **confirma** o reenvio no
+aviso da primeira camada. Duplo clique e disparo concorrente não confirmam nada,
+continuam com o mesmo discriminador e continuam colidindo — que é o
+comportamento desejado.
+
+Só a primeira camada permitiria a corrida; só a segunda, sem discriminador,
+impediria o reenvio legítimo e a própria régua.
 
 ### 11. Vínculo do Comunicado e rastro
 
@@ -288,6 +324,16 @@ Uma permissão `customer_communications`, concedida a `administrativo`,
 `documentacao` e `equipamentos`. Sem restrição por categoria: qualquer um dos
 três dispara qualquer comunicado, e a trilha registra quem fez.
 
+**Disparar não é ligar o canal.** Ligar e desligar a chave global da decisão 13
+é ato exclusivo de `administrativo`, e `customer_communications` não o autoriza:
+sem uma segunda guarda, um usuário de `documentacao` com acesso ao módulo
+ligaria o envio real. A chave é lida por todos os três perfis — a faixa
+permanente depende disso — e escrita apenas por `administrativo`, verificado no
+servidor, não só na tela. `financeiro` fica de fora do módulo por ora: o
+Comunicado financeiro é redação operacional de quem opera a viagem e a cobrança,
+não lançamento contábil, e a permissão pode ser estendida sem ADR nova se o
+produto decidir o contrário.
+
 É a **primeira permissão do perfil `equipamentos`**, hoje intencionalmente
 vazio. Registrada na ADR 0058.
 
@@ -315,7 +361,8 @@ flowchart TD
   B --> C{Paga?}
   C -- sim --> D[Régua encerrada]
   C -- não --> E{Disputa aberta?}
-  E -- sim --> F[Pausada; retoma no fechamento]
+  E -- sim --> F[Pausada enquanto a disputa estiver aberta]
+  F -- disputa fechada --> G
   E -- não --> G{Teto atingido?}
   G -- sim --> H[Para; vira pendência interna]
   G -- não --> I[Aguarda o intervalo e reenvia]
@@ -331,18 +378,19 @@ flowchart TD
    Portal.
 5. Cliente excluído ou bloqueado sempre aparece na conferência com o motivo.
 6. Comunicado financeiro nunca leva PIX nem anexo.
-7. A supressão do canal de Comunicado é independente da supressão do Portal.
+7. A supressão por `complaint` do canal de Comunicado é independente da do
+   Portal; a supressão por `bounce_permanente` vale para os dois canais.
 8. A Régua de Cobrança nunca envia com disputa aberta.
 9. Todo comunicado com vínculo aparece no Histórico dos B/Ls vinculados.
 
 ## Termos novos
 
-Promovidos ao `CONTEXT.md` neste mesmo change: Comunicado ao Cliente, Modelo de
-Comunicado, Disparo de Comunicado, Recorte de Destinatários, Vínculo do
-Comunicado, Preferência de Recebimento, Prontidão de Comunicação de Taxas,
-Cliente Comunicável, Régua de Cobrança. Aviso de Chegada (NOA) e Aviso de
-Atracação (NOR) entram com o termo em português como canônico e a sigla como
-sinônimo.
+Doze termos promovidos ao `CONTEXT.md` neste mesmo change: Comunicado ao
+Cliente, Modelo de Comunicado, Disparo de Comunicado, Recorte de Destinatários,
+Vínculo do Comunicado, Preferência de Recebimento, Prontidão de Comunicação de
+Taxas, Cliente Comunicável, Régua de Cobrança e Chave de envio de Comunicados.
+Aviso de Chegada (NOA) e Aviso de Atracação (NOR) entram com o termo em
+português como canônico e a sigla como sinônimo.
 
 ## Decisões arquiteturais
 
@@ -362,6 +410,16 @@ O plano derivado ainda não foi escrito. A ordem sugerida, quando for:
    anexos, históricos.
 3. **Financeiro** — Prontidão de Comunicação de Taxas, resumo por viagem, Régua
    de Cobrança, colunas de estado, remoção de `notify-invoice-issued`.
+
+A remoção da `notify-invoice-issued` não é apagar o arquivo. A função tem
+**duas metades**: o e-mail ao cliente, que o comunicado financeiro substitui, e
+o `alerta_critico` interno enviado a `admin`, `administrativo` e `documentacao`
+quando a fatura sai sem Conta de Portal ativa
+(`supabase/functions/notify-invoice-issued/index.ts`). Só a primeira metade tem
+substituto nesta spec. A segunda precisa de destino explícito — Notificação
+Interna, Alerta, ou permanecer como está — decidido no plano derivado antes de
+qualquer remoção. Apagar a função inteira silenciaria um aviso interno vivo.
+**Evidência: Código.**
 
 Nenhuma etapa envia e-mail a cliente real antes de a conferência existir, e a
 chave global nasce desligada na etapa 1.

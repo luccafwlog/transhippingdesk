@@ -18,6 +18,13 @@ Administrativo em Operacional, Financeiro–taxas locais e Institucional;
 Equipamentos apenas em Financeiro–Demurrage. O produto decidiu que os três
 perfis disparam qualquer comunicado, e a trilha responde quem fez.
 
+`financeiro` fica **fora** por decisão, não por esquecimento: ele detém
+`settle_financial_adjustments` e as superfícies de taxas locais e Demurrage,
+mas o Comunicado é redação operacional dirigida ao cliente — quem opera a
+viagem (Documentação) e quem opera a cobrança (Equipamentos) —, não lançamento
+financeiro. Se o produto quiser incluí-lo, é um perfil a mais nesta mesma
+permissão, sem ADR nova.
+
 ## Decisão
 
 - Nasce a permissão `customer_communications`, concedida a `administrativo`,
@@ -34,6 +41,20 @@ perfis disparam qualquer comunicado, e a trilha responde quem fez.
 `equipamentos` deixa de ser um perfil sem permissões. O `switch` de
 `roleHasPermission` passa a ter um ramo real para ele, e o teste
 `src/hooks/__tests__/roleHasPermission.test.ts` precisa cobrir a nova matriz.
+
+**Atenção ao editar o `switch`.** Hoje `equipamentos` não tem um ramo próprio:
+ele compartilha o arm de `operacoes` (`src/hooks/useAuth.tsx`), que é literalmente
+
+```ts
+case 'operacoes':
+case 'equipamentos': return false
+```
+
+Trocar o `return false` no lugar concede `customer_communications` a
+`operacoes` junto, em silêncio. A edição correta **separa** os dois `case`,
+mantendo `case 'operacoes': return false`. A matriz do teste precisa afirmar
+que `operacoes` continua sem a permissão, senão a regressão passa despercebida.
+**Evidência: Código.**
 
 Como não há recorte por categoria, um usuário de Documentação pode disparar
 cobrança de Demurrage e um de Equipamentos pode disparar Aviso de Chegada.
