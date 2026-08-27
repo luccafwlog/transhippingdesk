@@ -123,10 +123,13 @@ com o motivo — nunca com a base toda.
 
 O comunicado **institucional** não usa recorte de carga. Ele é um modo separado
 e explícito sobre o conjunto **Cliente Comunicável**: cliente com ao menos um
-B/L nos últimos 12 meses **e** ao menos um contato com e-mail. A janela de doze
-meses é medida pelo **ETA da Escala** do B/L, não por data de cadastro nem por
-data de emissão do conhecimento: mede quando houve operação, e um B/L já
-cadastrado para viagem futura conta, porque o cliente está ativo. Filtro limpo
+B/L cuja Escala tenha **ETA a partir de doze meses atrás** — a janela tem
+limite só para trás, nenhum para frente — **e** ao menos um contato com e-mail.
+A janela é medida pelo **ETA da Escala** do B/L, não por data de cadastro nem
+por data de emissão do conhecimento: mede quando houve operação, e um B/L já
+cadastrado para viagem futura conta, porque o cliente está ativo. Ler a janela
+como "ETA nos últimos doze meses", com teto em `now()`, excluiria exatamente
+esse B/L futuro. Filtro limpo
 nunca dispara para a base inteira — o alcance amplo é uma escolha visível.
 
 O termo "manifesto" citado na issue foi retirado: não existe manifesto de
@@ -185,7 +188,7 @@ outro porto é comunicado errado.
 Eles não têm, porém, a **mesma** unidade — o `CONTEXT.md` separa as duas donas:
 a Escala é dona de ETA e ATA, a Atracação é dona de ETB, ATB, ETD e ATD.
 
-- **Aviso de Chegada é por Escala**, ancorado na ATA da Escala.
+- **Aviso de Chegada é por Escala**, ancorado no **ETA** da Escala.
 - **Aviso de Atracação é por Atracação**, ancorado no ATB — uma Escala com dois
   terminais tem duas Atracações, dois ATBs e **dois** Avisos de Atracação.
 
@@ -271,8 +274,9 @@ recalculado no dia do pagamento. Link para o Portal, sem PIX e sem anexo.
 - Repete a cada **5 dias** enquanto a cobrança não for paga.
 - Intervalo **e teto de envios** são configuráveis na tela do módulo, por
   Administrativo — não por disparo, para não virar decisão de cada operador. Os
-  valores de fábrica são **5 dias** e **6 envios**, ou seja trinta dias de
-  cobrança automática antes de a fatura virar pendência interna.
+  valores de fábrica são **5 dias** e **6 envios**: a 1ª cobrança sai no
+  `first_billed_at` e as cinco seguintes a cada 5 dias, de modo que a 6ª cai no
+  **25º dia** e a fatura vira pendência interna a partir dali.
 - Atingido o teto, a régua **para** e a cobrança vira pendência interna. Régua
   sem teto gera dezenas de e-mails ao mesmo endereço a partir de `portal@`; a
   reclamação do destinatário pune o domínio inteiro, derrubando junto os
@@ -280,6 +284,12 @@ recalculado no dia do pagamento. Link para o Portal, sem PIX e sem anexo.
 - `dispute_open = true` **pausa** a régua. O fechamento da disputa retoma.
   Cobrar quem está formalmente contestando é problema jurídico, e o dado para
   evitá-lo já está na tabela.
+
+**Nota editorial de 2026-08-27** (plano derivado): a redação anterior somava
+"trinta dias" a partir de 5 dias × 6 envios. São **25**: o primeiro envio é o
+`first_billed_at`, e só os cinco restantes pagam o intervalo. O número de
+envios continua sendo o parâmetro configurável; o total de dias é consequência
+dele, não um segundo ajuste.
 
 ### 10. Deduplicação e reenvio
 

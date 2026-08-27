@@ -29,7 +29,7 @@ comunicado — a Edge Function `notify-invoice-issued` — está morta desde sem
 |---|---|---|
 | **Comunicado** | linha própria, um Cliente, N B/Ls | Disparo manual ou Régua |
 | **Tentativa de envio** | `(comunicado, destinatário)` | Cada e-mail efetivamente montado |
-| **Chave de idempotência** | `(tipo, cliente, âncora, discriminador)` | Antes do envio |
+| **Chave de idempotência** | `(tipo, cliente, status, âncora, discriminador)` | Antes do envio |
 | **Preferência de Recebimento** | `(contato, categoria)` | Cadastro do contato |
 | **Chave de envio do canal** | linha única de configuração | Migration, `false` |
 
@@ -101,8 +101,9 @@ A Escala não é tabela: é o par `(Viagem, porto)` projetado de
 `voyages.pod_schedule_snapshot` (JSONB por porto, desde
 `046_voyage_schedule_snapshot_trigger.sql`). Não há `escala_id` a referenciar.
 
-**Consequência:** a âncora do NOA é a coluna par `(voyage_id, port)`, com FK só
-em `voyage_id` e o `port` validado por CHECK de não-vazio. É a mesma identidade
+**Consequência:** a âncora do NOA é a coluna par `(voyage_id, port)`, gravada
+como valor — sem FK, pelo motivo que a T2 registra — e com o `port` validado por
+CHECK de não-vazio. É a mesma identidade
 que o `CONTEXT.md` atribui à Escala e que `voyage_escala_terminal_state` usa.
 Nos alertas da T14 o par reusa o `entity_type = 'voyage_pod_schedule'` já
 existente (migration `342`), sem inventar entidade nova. **Evidência: Código.**
@@ -213,11 +214,50 @@ Tabelas do canal:
 
 Regras que a migration carrega:
 
-- **Índice único da idempotência:** `UNIQUE (kind, customer_id, anchor_voyage_id,
-  anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator)`
-  com `NULLS NOT DISTINCT`. Sem isso o Postgres trata cada NULL de âncora como
-  distinto e a chave não protege nada — o mesmo defeito que a migration `341`
-  corrigiu com índice parcial. **É onde o duplo clique morre.**
+- **Índice único da idempotência:** `UNIQUE (kind, customer_id, status,
+  anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id,
+  dispatch_id, attempt_discriminator)` com `NULLS NOT DISTINCT`. Sem o `NULLS
+  NOT DISTINCT` o Postgres trata cada NULL de âncora como distinto e a chave não
+  protege nada — o mesmo defeito que a migration `341` corrigiu com índice
+  parcial. **É onde o duplo clique morre.**
+
+  Três colunas da lista estão lá por motivo próprio, e cada uma quebra a chave
+  de um jeito diferente se sair:
+
+  - **`dispatch_id`** — institucional e livre não têm âncora: as quatro colunas
+    de âncora são NULL e, com `NULLS NOT DISTINCT`, todo comunicado
+    institucional de um cliente degeneraria na mesma chave
+    `(kind, customer_id, status, 0)`. O segundo comunicado institucional do ano
+    seria rejeitado como se fosse duplo clique do primeiro. O disparo **é** a
+    âncora desses dois tipos — é o que a tabela de âncoras acima já registra —, e
+    por isso a coluna entra no índice; nos tipos ancorados ela é NULL e não muda
+    nada.
+  - **`status`** — o Bloco 2 inteiro roda com a chave global desligada,
+    gravando `simulado` (T13). Sem `status` no índice, cada ensaio queima em
+    definitivo a chave do comunicado real: o NOA de verdade, disparado depois de
+    alguém ligar a chave, colidiria com o ensaio da véspera sobre a mesma escala
+    e nunca sairia — e o operador veria "já enviado" sobre um envio que nunca
+    ocorreu. Com `status` no índice, ensaio e envio ocupam chaves distintas, o
+    duplo clique continua morrendo (dois `simulado` colidem entre si, dois
+    `enviado` também) e uma `falha` não trava a retentativa.
+  - **`attempt_discriminator`** — o reenvio confirmado (T10) e a enésima
+    cobrança da Régua (T18).
+- **Âncora é valor registrado, não referência.** As quatro colunas de âncora
+  ficam **sem FK**, no mesmo padrão do `entity_id` dos alertas (migration
+  `342`). Não é omissão: `save_voyage_escala_terminal_state` (migration `306`)
+  **apaga** a linha de `voyage_escala_terminal_state` a cada edição de
+  terminais, e `src/services/voyages.ts` apaga viagens. Uma FK com `ON DELETE
+  CASCADE` — o que sai quando ninguém escreve a cláusula e alguém copia a tabela
+  vizinha — apagaria comunicados já enviados junto com a atracação editada,
+  quebrando o invariante 9; `ON DELETE RESTRICT` faria o oposto, travando a
+  edição de atracação e a exclusão de viagem por causa de um comunicado de um
+  ano atrás. Nenhuma das duas é aceitável, e é por isso que a coluna não é FK. Só
+  `customer_id` mantém a sua.
+- **Denormalizar o que o histórico lê:** navio, número da viagem, porto e
+  terminal são gravados em colunas próprias do Comunicado no momento do disparo.
+  Sem FK não há join que sobreviva à exclusão da origem, e o histórico precisa
+  continuar legível: ele é o registro do que foi dito ao cliente, não uma
+  projeção do estado atual.
 - **Backfill das preferências:** toda linha de `customer_contacts` existente
   ganha as três categorias ligadas, e um trigger `AFTER INSERT` faz o mesmo para
   contatos novos (spec, decisão 2).
@@ -231,7 +271,8 @@ Regras que a migration carrega:
 Sem backfill de comunicados: o canal nasce vazio.
 
 **Check:** teste de contrato SQL `comunicadosFundacaoMigration.test.ts` afirmando
-o `NULLS NOT DISTINCT` no índice único, o default `false` de
+o `NULLS NOT DISTINCT` no índice único, a presença de `status` e `dispatch_id`
+na lista de colunas dele, que nenhuma coluna de âncora tem FK, o default `false` de
 `communications_enabled`, o `6` de `demurrage_dunning_max_sends`, o
 `CHECK (id = 1)` de `app_settings`, e que a policy de escrita de
 `communications_enabled` nomeia `administrativo`.
@@ -320,15 +361,37 @@ lá, atualizar o status, e então:
 - `bounce` permanente → `portal_suppressed_emails` (compartilhado, ADR 0056);
 - `complaint` → `customer_communication_suppressions` (só o canal).
 
+**Corrigir junto o `ignoreDuplicates` da supressão compartilhada.** A linha 27
+do webhook grava hoje com `{ onConflict: 'email', ignoreDuplicates: true }`, e
+`portal_suppressed_emails.email` é UNIQUE (migration `178`). Um endereço já
+suprimido como `complaint` — do Portal ou, depois desta task, do canal — **nunca
+escala** para `bounce_permanente`: o upsert encontra a linha e descarta o evento.
+A caixa deixou de existir, a tabela continua dizendo "reclamou", e todo consumidor
+que distingue os dois motivos (a T5 distingue, por causa do invariante 7) segue
+mandando e-mail para uma caixa morta a partir do remetente compartilhado — que é
+o dano exato que a ADR 0056 quer evitar.
+
+O `bounce_permanente` passa a **sobrescrever** o motivo: upsert sem
+`ignoreDuplicates`, gravando `reason = 'bounce_permanente'` e renovando
+`suppressed_at`. A escalada é de mão única — um `complaint` posterior **não**
+rebaixa uma linha já em `bounce_permanente`, porque o fato da caixa não deixa de
+valer por causa de uma reclamação. É correção no ponto compartilhado, não uma
+guarda por chamador.
+
 A dedup por `provider_event_id` em `portal_email_events` já é genérica e serve
-aos dois; a `attempt_id` daquela tabela referencia `portal_email_attempts`, então
-o vínculo do evento de Comunicado precisa de coluna própria ou de nulidade
-explícita — decidir na migration, não no código.
+aos dois. A `attempt_id` daquela tabela referencia `portal_email_attempts` e **já
+é nulável** (migration `178`), então não falta nulidade: falta **para onde
+apontar** o evento de Comunicado. A migration `349` acrescenta
+`communication_attempt_id BIGINT` a `portal_email_events`, sem FK — mesma regra
+de âncora da T2 —, e um CHECK de que no máximo uma das duas colunas está
+preenchida. Nenhuma migration nova entra por causa disto.
 
 **Check:** teste afirmando que um `email.bounced` permanente de uma tentativa de
 Comunicado grava em `portal_suppressed_emails`, que um `email.complained` do
-mesmo grava só em `customer_communication_suppressions`, e que um evento sem
-tentativa em nenhuma das duas continua devolvendo `200` sem efeito.
+mesmo grava só em `customer_communication_suppressions`, que um evento sem
+tentativa em nenhuma das duas continua devolvendo `200` sem efeito, e que um
+endereço já em `complaint` passa a `bounce_permanente` ao receber o bounce — e
+não volta a `complaint` depois disso.
 
 **Encerra o Bloco 1.** PR própria.
 
@@ -362,11 +425,14 @@ Filtro vazio devolve conferência **vazia com motivo**, nunca a base inteira
 (invariante 3).
 
 Modo institucional é separado e explícito, sobre o conjunto **Cliente
-Comunicável**: ao menos um contato com e-mail **e** ao menos um B/L cuja viagem
-tenha **ETA nos últimos 12 meses**. A janela é medida pelo ETA da Escala do B/L
+Comunicável**: ao menos um contato com e-mail **e** ao menos um B/L cuja Escala
+tenha **ETA a partir de doze meses atrás** — `eta >= now() - interval '12
+months'`, **sem teto superior**. A janela é medida pelo ETA da Escala do B/L
 (`pod_schedule_snapshot`), não por `created_at` nem por `bl_emission_date` —
-mede quando houve operação, não quando alguém digitou, e um B/L já cadastrado
-para viagem futura conta, porque o cliente está ativo.
+mede quando houve operação, não quando alguém digitou. O limite é só para trás:
+escrever "ETA nos últimos 12 meses" com `eta <= now()` excluiria justamente o
+B/L já cadastrado para viagem futura, e é esse B/L que mais claramente diz que o
+cliente está ativo.
 
 **Check:** teste afirmando que recorte sem filtro de carga devolve vazio com
 motivo — e **não** todos os B/Ls (invariante 3); e que o Cliente Comunicável
@@ -380,14 +446,20 @@ excluídos com motivo; clientes bloqueados com razão; prévia renderizada de um
 destinatário real; desmarcar individual.
 
 Aviso de reenvio (camada 1 da decisão 10): "este cliente já recebeu Aviso de
-Chegada para esta escala em 27/08 às 14h". Confirmar o reenvio é o **único**
-caminho que incrementa `attempt_discriminator`. Duplo clique e disparo
-concorrente não confirmam nada, mantêm o discriminador e colidem no índice único
-da T2 — comportamento desejado.
+Chegada para esta escala em 27/08 às 14h". **No disparo manual**, confirmar o
+reenvio é o único caminho que incrementa `attempt_discriminator`. Duplo clique e
+disparo concorrente não confirmam nada, mantêm o discriminador e colidem no
+índice único da T2 — comportamento desejado.
+
+A Régua da T18 é o outro produtor do discriminador, e não passa por aqui: lá ele
+é o **número da cobrança na régua**, atribuído pelo cron, como a tabela da
+decisão 10 da spec já separa. São duas contagens distintas na mesma coluna, cada
+uma no seu tipo de comunicado — nenhum comunicado da Régua nasce de confirmação
+de operador, e nenhum reenvio manual anda a régua.
 
 **Check:** teste de comportamento — sem conferência não há botão de envio
-(invariante 2); confirmar reenvio incrementa o discriminador, e um segundo
-disparo sem confirmação não incrementa.
+(invariante 2); confirmar reenvio incrementa o discriminador no disparo manual, e
+um segundo disparo sem confirmação não incrementa.
 
 ### T11 — Modelos NOA e NOR
 
@@ -462,8 +534,24 @@ Dois tipos novos no catálogo, no padrão da migration `342` e de
 
 | Tipo | Entidade | Abre quando | Fecha quando |
 |---|---|---|---|
-| `comunicado_noa_pendente` | `voyage_pod_schedule` | `ETA − 5 dias` alcançado e nenhum NOA enviado para a Escala | NOA enviado, ou escala omitida/apagada |
-| `comunicado_nor_pendente` | `voyage_escala_terminal` | ATB informado e nenhum NOR enviado para a Atracação | NOR enviado, ou atracação apagada |
+| `comunicado_noa_pendente` | `voyage_pod_schedule` | `ETA − 5 dias ≤ agora < ETA` e nenhum NOA `enviado` para a Escala | NOA `enviado`, ETA ultrapassado, ou escala omitida/apagada |
+| `comunicado_nor_pendente` | `voyage_escala_terminal` | ATB informado **nos últimos 30 dias** e nenhum NOR `enviado` para a Atracação | NOR `enviado`, ou atracação apagada |
+
+**A janela do NOA tem os dois lados, e é isso que impede a enxurrada.** "`ETA −
+5 dias` alcançado", sozinho, é verdade para **toda** escala já ocorrida no
+histórico: a migration `351` abriria, no primeiro run do produtor, um alerta por
+escala de todo o passado — nenhum deles fechável, porque o NOA de uma viagem de
+2024 não vai mais ser enviado. O alerta só existe enquanto o disparo ainda faz
+sentido, e por isso fecha **pela origem** quando o ETA passa: o navio chegou, e o
+aviso antecipatório perdeu a função (C4). O mesmo limite de 30 dias sobre o ATB
+guarda o `comunicado_nor_pendente` da mesma enxurrada.
+
+**Só comunicado `enviado` fecha; `simulado` não fecha.** Todo o Bloco 2 roda com
+a chave global desligada (T13), e a T14 entra depois — um ensaio silenciar o
+lembrete de um NOA que nunca saiu inverteria o propósito do alerta e daria por
+resolvido justamente o esquecimento que a issue #556 quer eliminar. Pela mesma
+razão, comunicado `simulado` também não conta na condição de abertura: para o
+alerta, ensaio não é envio.
 
 `responsible: 'documentacao'`, severidade `normal`, destino
 `/clientes/comunicacao`. Fechamento **pela origem**, como manda a ADR 0053 —
@@ -476,8 +564,10 @@ Escala **omitida** não gera NOA pendente: o navio não atraca lá. A migration
 não reimplementar.
 
 **Check:** teste de contrato SQL — escala com ETA a 6 dias não abre alerta e a 5
-dias abre; escala omitida nunca abre; NOA enviado fecha o alerta pela origem;
-atracação com ATB e sem NOR abre, e o NOR fecha.
+dias abre; escala com ETA no passado não abre, e o alerta aberto fecha quando o
+ETA passa; escala omitida nunca abre; NOA `enviado` fecha o alerta pela origem e
+um NOA `simulado` **não** fecha nem impede a abertura; atracação com ATB e sem
+NOR abre, e o NOR fecha.
 
 ### T15 — Superfícies de histórico
 
@@ -500,12 +590,28 @@ todos os B/Ls vinculados (invariante 9), e que o simulado aparece com a marca.
 ### T16 — Prontidão de Comunicação de Taxas
 
 RPC `customer_local_charges_communication_readiness(p_voyage_id, p_customer_id)`,
-`SECURITY DEFINER`, `EXECUTE` só para `service_role`. Um cliente passa quando,
+`SECURITY DEFINER`, com `EXECUTE` para `service_role` **e `authenticated`**. Um
+cliente passa quando,
 para **todos** os B/Ls dele naquela viagem: `bls.ce_mercante` preenchido **e**
 `compute_bl_review_pendencies(customer_id, cargo_mode, bb_weight_ton)` vazio.
 
 Usar a assinatura de três argumentos (viva desde a migration `337`). A variante
 `(p_bl_id TEXT)` da `128` existe mas está sem `GRANT` desde a `129` — não usar.
+
+**O `GRANT` a `authenticated` não é frouxidão: é o que faz a T10 e a T19
+funcionarem.** As duas leem a Prontidão do **navegador** — a conferência precisa
+mostrar o cliente bloqueado com motivo, e a coluna de estado precisa do mesmo
+motivo em `/demurrage` e `/taxas-locais`. E as duas variantes de
+`compute_bl_review_pendencies` estão revogadas de `authenticated` (migrations
+`129`, `188` e `337`): sem `GRANT` na RPC nova, toda chamada de tela devolveria
+`42501`. É justamente para isso que ela é `SECURITY DEFINER` — a função é dona
+do acesso à `compute_bl_review_pendencies`, que continua fechada, e expõe só o
+veredito.
+
+A guarda é **dentro** da função, no servidor: primeira linha valida perfil
+interno ativo por `is_active_read_user()` e sai com `42501` se não for. A RPC não
+recebe nem devolve nada de outro cliente — o `p_customer_id` já delimita a
+resposta.
 
 O gate é **por cliente**: quem não passa fica bloqueado e visível com o motivo, e
 os demais clientes da viagem **não são segurados** por ele. Não fundir com o gate
@@ -513,7 +619,9 @@ de revisão: a `128` afirma explicitamente que CE Mercante *não* bloqueia a
 revisão, e esta exigência é própria da comunicação.
 
 **Check:** teste de contrato SQL — cliente com um B/L sem CE Mercante é
-bloqueado com motivo, e um segundo cliente da mesma viagem passa mesmo assim.
+bloqueado com motivo; um segundo cliente da mesma viagem passa mesmo assim; a
+RPC tem `EXECUTE` para `authenticated`; e a chamada por usuário sem perfil
+interno ativo é rejeitada com `42501`.
 
 ### T17 — Resumo de taxas locais e remoção da `notify-invoice-issued`
 
@@ -552,14 +660,20 @@ Régua, em cron no padrão dos detectores de alerta:
 - Repete no intervalo de `app_settings.demurrage_dunning_interval_days` (5)
   enquanto `paid_at IS NULL`.
 - `dispute_open = true` **pausa**; o fechamento retoma (invariante 8).
-- Atingido `demurrage_dunning_max_sends` (6, ou seja 30 dias de cobrança), para e
-  vira pendência interna.
-- Discriminador = número da cobrança na régua. É o que faz a 2ª cobrança não
-  colidir com a 1ª no índice único da T2 sobre a mesma fatura.
+- Atingido `demurrage_dunning_max_sends` (6), para e vira pendência interna. Com
+  os valores de fábrica isso são **25 dias**, não trinta: a 1ª cobrança sai no
+  `first_billed_at` e só as cinco seguintes pagam o intervalo de 5 dias, então a
+  6ª cai no 25º dia. Quem for exibir o prazo na tela calcula
+  `(max_sends − 1) × interval_days`, nunca `max_sends × interval_days`.
+- Discriminador = número da cobrança na régua, atribuído pelo cron. É o que faz
+  a 2ª cobrança não colidir com a 1ª no índice único da T2 sobre a mesma fatura.
+  É o segundo produtor da coluna, ao lado da confirmação de reenvio da T10, e
+  nenhum dos dois anda a contagem do outro.
 
 **Check:** teste do avanço da régua — fatura com disputa aberta não avança;
-disputa fechada retoma no número seguinte; atingido o teto não há 7º envio; e a
-2ª cobrança da mesma fatura **não** colide com a 1ª.
+disputa fechada retoma no número seguinte; atingido o teto não há 7º envio; a 6ª
+cobrança cai no 25º dia com os valores de fábrica; e a 2ª cobrança da mesma
+fatura **não** colide com a 1ª.
 
 ### T19 — Colunas de estado
 
