@@ -34,6 +34,14 @@ Ficam **fora** do escopo:
   `invoices.due_date` e o status `overdue`**. A comunicação de taxas locais não
   os ignora mais por decisão — eles deixaram de existir. **Evidência: Código.**
 - Notificação In-App do Portal, que continua existindo e não é substituída.
+- **O autoatendimento do cliente** — o cliente editar seus Emails de Contato e
+  escolher quais Naturezas cada um recebe. Levantado com o produto em
+  2026-08-27, virou a issue
+  [#609](https://github.com/luccafwlog/transhippingdesk/issues/609), com a
+  decisão de que ele nunca poderá zerar uma Natureza operacional ou de
+  Demurrage. Depende das quatro Naturezas desta spec e entra depois de o canal
+  provar que envia. Enquanto isso, a Preferência de Recebimento tem dono
+  **interno** (decisão 2).
 
 ## Ponto de partida no código
 
@@ -79,25 +87,41 @@ Registrada na ADR 0056.
 Destinatário é o **Email de Contato** (`customer_contacts`), nunca o Email de
 Recuperação do Portal — o glossário já separa os dois conceitos.
 
-Cada contato ganha uma **Preferência de Recebimento** em três categorias:
+**Todo Comunicado tem exatamente uma Natureza.** É a Natureza — não o modelo —
+que decide se um contato recebe, e são quatro:
 
-| Categoria | Cobre |
-|---|---|
-| Operacional | Aviso de Chegada, Aviso de Atracação, avisos operacionais livres |
-| Financeiro | Resumo de taxas locais, cobrança de Demurrage |
-| Institucional | Funcionamento da agência, recebimento de BLs, comunicados gerais |
+| Natureza | Cobre | Modelos de hoje |
+|---|---|---|
+| **Avisos gerais** | Funcionamento da agência, recebimento de B/Ls, comunicados da empresa | institucional, livre |
+| **Avisos operacionais** | Movimento do navio | Aviso de Chegada (NOA), Aviso de Atracação (NOR) |
+| **Documentação** | O que nasce do despacho | Resumo de taxas locais; CE Mercante quando existir |
+| **Demurrage** | Ciclo da sobre-estadia | Cobrança de Demurrage; disputa e devolução de container quando existirem |
+
+A Natureza é eixo **separado** do modelo, não sinônimo dele: cada Modelo de
+Comunicado mapeia para exatamente uma Natureza, e o mapeamento é dado explícito,
+não regra na cabeça de quem dispara. É isso que permite acrescentar CE Mercante,
+disputa e devolução de container depois, como Modelo novo apontando para Natureza
+existente, **sem recortar a tabela de preferências outra vez**.
+
+Cada contato ganha uma **Preferência de Recebimento** por Natureza.
 
 Regras:
 
-- Contato novo nasce com as três categorias **ligadas**.
+- Comunicado sem Natureza não é montado nem enviado.
+- Contato novo nasce com as quatro Naturezas **ligadas**.
 - A preferência é editada na aba Cadastro & Contatos da Ficha do Cliente
   (`src/components/clientes/CadastroContatosTab.tsx`).
-- A preferência é **roteamento interno**, não opt-out do cliente: ela nunca
-  substitui a conferência.
+- A preferência é, **nesta spec**, roteamento interno: ela nunca substitui a
+  conferência. O dono passa a ser o cliente na issue
+  [#609](https://github.com/luccafwlog/transhippingdesk/issues/609), que só entra
+  depois — e mesmo lá o cliente não poderá zerar uma Natureza operacional ou de
+  Demurrage. Para que aquela issue distinga as duas mãos sem inventar histórico,
+  `customer_contact_preferences` já nasce com a coluna `source`
+  (`interno` | `cliente`).
 - O campo `purpose` existente **não** é reaproveitado para isso. Ele é populado
   pelos importadores e lido como `'faturamento'` no perfil do Portal;
   sobrecarregá-lo quebraria significado em uso. **Evidência: Código.**
-- Cliente cujos contatos estão todos fora da categoria aparece na conferência
+- Cliente cujos contatos estão todos fora da Natureza aparece na conferência
   como **bloqueado, com motivo**. Nunca some da lista em silêncio.
 
 ### 3. Recorte de Destinatários
@@ -145,13 +169,13 @@ comunicado institucional.
 
 ### 5. Modelos de Comunicado
 
-| Modelo | Origem do texto | Anexo | Categoria |
+| Modelo | Origem do texto | Anexo | Natureza |
 |---|---|---|---|
-| Aviso de Chegada (NOA) | Fixo no código, versionado em PR | Não | Operacional |
-| Aviso de Atracação (NOR) | Fixo no código, versionado em PR | Não | Operacional |
-| Resumo de taxas locais | Fixo no código | Não | Financeiro |
-| Cobrança de Demurrage | Fixo no código | Não | Financeiro |
-| Institucional | Livre, salvável como modelo reutilizável | Sim | Institucional |
+| Aviso de Chegada (NOA) | Fixo no código, versionado em PR | Não | Avisos operacionais |
+| Aviso de Atracação (NOR) | Fixo no código, versionado em PR | Não | Avisos operacionais |
+| Resumo de taxas locais | Fixo no código | Não | Documentação |
+| Cobrança de Demurrage | Fixo no código | Não | Demurrage |
+| Institucional | Livre, salvável como modelo reutilizável | Sim | Avisos gerais |
 | Livre (sem modelo) | Escrito no momento | Sim | Escolhida no disparo |
 
 NOA e NOR são documentos operacionais com peso quase-contratual; deixá-los
@@ -321,7 +345,7 @@ Registrada na ADR 0057.
 ### 14. Permissão
 
 Uma permissão `customer_communications`, concedida a `administrativo`,
-`documentacao` e `equipamentos`. Sem restrição por categoria: qualquer um dos
+`documentacao` e `equipamentos`. Sem restrição por Natureza: qualquer um dos
 três dispara qualquer comunicado, e a trilha registra quem fez.
 
 **Disparar não é ligar o canal.** Ligar e desligar a chave global da decisão 13
@@ -346,7 +370,7 @@ Portal — exatamente o acoplamento que a decisão 1 desfaz.
 flowchart TD
   A[Filtros: navio / viagem / escala / POD / POL / CNPJ] --> B[Recorte de Destinatários]
   I[Modo institucional: Cliente Comunicável] --> B
-  B --> C[Preferência de Recebimento por categoria]
+  B --> C[Preferência de Recebimento por Natureza]
   C --> D[Conferência: elegíveis, excluídos com motivo, bloqueados, prévia]
   D --> E{Chave global ligada?}
   E -- não --> F[Registra comunicado simulado]
@@ -377,18 +401,26 @@ flowchart TD
 4. A chave global desligada impede **todo** envio do canal e **nenhum** envio do
    Portal.
 5. Cliente excluído ou bloqueado sempre aparece na conferência com o motivo.
-6. Comunicado financeiro nunca leva PIX nem anexo.
+6. Resumo de taxas locais e cobrança de Demurrage nunca levam PIX nem anexo.
+   O invariante é ancorado nesses **dois modelos**, não no nome da categoria que
+   os agrupa: quando "financeiro" se dividiu em Documentação e Demurrage
+   (decisão 2), um invariante escrito sobre o nome teria deixado de cobrir os
+   dois sem ninguém decidir isso. E a regra nunca foi sobre finanças em geral —
+   é sobre não imitar o padrão de golpe de boleto, que é próprio desses dois.
 7. A supressão por `complaint` do canal de Comunicado é independente da do
    Portal; a supressão por `bounce_permanente` vale para os dois canais.
 8. A Régua de Cobrança nunca envia com disputa aberta.
 9. Todo comunicado com vínculo aparece no Histórico dos B/Ls vinculados.
+10. Todo Comunicado tem exatamente uma Natureza, e cada Modelo mapeia para uma
+    só. Comunicado sem Natureza não é montado nem enviado.
 
 ## Termos novos
 
-Doze termos promovidos ao `CONTEXT.md` neste mesmo change: Comunicado ao
-Cliente, Modelo de Comunicado, Disparo de Comunicado, Recorte de Destinatários,
-Vínculo do Comunicado, Preferência de Recebimento, Prontidão de Comunicação de
-Taxas, Cliente Comunicável, Régua de Cobrança e Chave de envio de Comunicados.
+Treze termos promovidos ao `CONTEXT.md` neste mesmo change: Comunicado ao
+Cliente, Natureza do Comunicado, Modelo de Comunicado, Disparo de Comunicado,
+Recorte de Destinatários, Vínculo do Comunicado, Preferência de Recebimento,
+Prontidão de Comunicação de Taxas, Cliente Comunicável, Régua de Cobrança e
+Chave de envio de Comunicados.
 Aviso de Chegada (NOA) e Aviso de Atracação (NOR) entram com o termo em
 português como canônico e a sigla como sinônimo.
 

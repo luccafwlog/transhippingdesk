@@ -1510,6 +1510,15 @@ continua recebendo Comunicado, e vice-versa. A exceção é o bounce permanente,
 que vale nos dois canais: a caixa não existe, e os dois saem do mesmo
 remetente.
 
+**Natureza do Comunicado**
+Classificação obrigatória de um Comunicado, em quatro valores: Avisos gerais,
+Avisos operacionais, Documentação e Demurrage. É a Natureza, e não o Modelo, que
+decide se um contato do Cliente recebe: a Preferência de Recebimento é por
+Natureza. Cada Modelo de Comunicado mapeia para exatamente uma Natureza, e
+Comunicado sem Natureza não é montado nem enviado. É eixo distinto do Modelo,
+justamente para que Modelo novo entre apontando para Natureza existente sem
+mudar a preferência de ninguém.
+
 **Modelo de Comunicado**
 Texto pré-definido que um Comunicado usa. Aviso de Chegada, Aviso de Atracação
 e os dois comunicados financeiros são fixos e versionados no código; o
@@ -1518,9 +1527,10 @@ pode ser salvo para reuso. Todo modelo renderiza por Cliente, com as variáveis
 da carga do próprio destinatário.
 
 **Aviso de Chegada (NOA)**
-Comunicado que informa a chegada da embarcação. É sempre por Escala — chegada é
-a ATA da Escala, e uma viagem com vários terminais tem vários momentos de
-chegada. `NOA` é sinônimo de mercado do mesmo conceito.
+Comunicado que antecipa a chegada da embarcação. É sempre por Escala e comunica
+o **ETA** da Escala, saindo antes da chegada — não o ATA, que é a chegada já
+consumada e esvazia a função do aviso. Uma viagem com vários portos tem vários
+ETAs e vários avisos. `NOA` é sinônimo de mercado do mesmo conceito.
 
 **Aviso de Atracação (NOR)**
 Comunicado que informa a atracação da embarcação no terminal. É sempre por
@@ -1538,11 +1548,13 @@ de embarque, com CNPJ restringindo o resultado. Filtro vazio nunca significa
 todos os Clientes.
 
 **Preferência de Recebimento**
-Escolha, por contato do Cliente, de quais categorias de Comunicado ele recebe:
-Operacional, Financeiro e Institucional. Nasce com as três ligadas. É
-roteamento interno decidido junto ao Cliente, não opt-out do destinatário, e
-nunca substitui a conferência. É conceito distinto do `purpose` do contato, que
-classifica a função do contato no cadastro.
+Escolha, por contato do Cliente, de quais Naturezas de Comunicado aquele
+endereço recebe. Nasce com as quatro ligadas e nunca substitui a conferência.
+Hoje é roteamento interno, decidido junto ao Cliente e não pelo destinatário; a
+escolha passa às mãos do próprio Cliente, no Portal, sem que ele possa zerar uma
+Natureza operacional ou de Demurrage. Cada preferência registra de qual das duas
+mãos veio. É conceito distinto do `purpose` do contato, que classifica a função
+do contato no cadastro.
 
 **Vínculo do Comunicado**
 Ligação entre um Comunicado e os B/Ls que o motivaram. Um Comunicado tem um
@@ -1550,8 +1562,9 @@ Cliente e vários B/Ls. O Comunicado institucional é o único sem vínculo. O
 vínculo é o que faz o Comunicado aparecer no Histórico do B/L.
 
 **Cliente Comunicável**
-Cliente elegível ao Comunicado institucional: tem ao menos um B/L nos últimos
-doze meses e ao menos um contato com e-mail. Restringe o alcance do comunicado
+Cliente elegível ao Comunicado institucional: tem ao menos um contato com e-mail
+e ao menos um B/L cuja Escala tenha ETA a partir de doze meses atrás — a janela
+limita só o passado, e B/L de viagem futura conta. Restringe o alcance do comunicado
 que não nasce de um recorte de carga.
 
 **Prontidão de Comunicação de Taxas**
