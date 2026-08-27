@@ -4,6 +4,7 @@ import {
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
 import { formatPortDisplayName } from '../../lib/voyageFormat'
+import { normalizePortCode } from '../../services/portCode'
 import { collectVoyagePorts, type VoyageBl } from '../../services/voyageSummaries'
 
 export function renderEscalaNumber(value: string | null) {
@@ -118,7 +119,7 @@ export function collectVoyageManifestBatchRows({
   const groups = new Map<string, ManifestGroup>()
 
   function normalizeManifestPort(value: string | null | undefined) {
-    return String(value ?? '').trim().toUpperCase() || '-'
+    return normalizePortCode(value) ?? (String(value ?? '').trim().toUpperCase() || '-')
   }
 
   function getGroup(polValue: string | null | undefined, podValue: string | null | undefined) {

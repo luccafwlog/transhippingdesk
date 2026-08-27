@@ -27,7 +27,7 @@ describe('computeAdrEscalaPods', () => {
     const rows = [{ pod: 'VITORIA', omitted: false }, { pod: 'RIO GRANDE', omitted: false }]
     expect(computeAdrEscalaPods(rows, [])).toEqual([
       { pod: 'BRVIX', omitted: false },
-      { pod: 'RIO GRANDE', omitted: false },
+      { pod: 'BRRIG', omitted: false },
     ])
   })
 

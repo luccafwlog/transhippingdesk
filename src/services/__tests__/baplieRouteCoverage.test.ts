@@ -18,10 +18,14 @@ describe('cobertura de rotas EDI antes da conciliação', () => {
     expect(hasCompleteBaplieRouteCoverage([{ pol: ' nansha ', pod: 'brvix' }], [{ pol: 'NANSHA', pod: 'BRVIX' }])).toBe(true)
   })
 
-  it('normaliza variações e apelidos de portos como Taicang (CNTAC / CNTAI / TAIKANG)', () => {
+  it('normaliza variações e apelidos de portos como Taicang (CNTAC / CNTAI / CNTAG / TAIKANG)', () => {
     expect(hasCompleteBaplieRouteCoverage(
-      [{ pol: 'CNTAI', pod: 'BRVIX' }, { pol: 'QINGDAO', pod: 'BRVIX' }],
+      [{ pol: 'CNTAG', pod: 'BRVIX' }, { pol: 'QINGDAO', pod: 'BRVIX' }],
       [{ pol: 'CNTAC', pod: 'BRVIX' }, { pol: 'CNTAO', pod: 'BRVIX' }],
+    )).toBe(true)
+    expect(hasCompleteBaplieRouteCoverage(
+      [{ pol: 'CNTAI', pod: 'BRVIX' }],
+      [{ pol: 'TAICANG', pod: 'BRVIX' }],
     )).toBe(true)
   })
 

@@ -97,7 +97,7 @@ describe('blFreightImport', () => {
       manifest_customer_cnpj_cpf: '12345678000195',
       pol: 'CNSHA',
       pod: 'BRSSZ',
-      place_of_delivery: 'SANTOS',
+      place_of_delivery: 'BRSSZ',
       place_of_receipt: 'CNSHA',
       movement_from: 'CY',
       movement_to: 'CY',
