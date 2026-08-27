@@ -206,7 +206,7 @@ describe('collectVoyagePorts', () => {
 
   it('coleta o campo pedido, faz dedup, trim e ordena', () => {
     expect(collectVoyagePorts(bls, 'pol', null)).toEqual(['BRSSA', 'BRVIX'])
-    expect(collectVoyagePorts(bls, 'pod', null)).toEqual(['CNNBO', 'CNSHG'])
+    expect(collectVoyagePorts(bls, 'pod', null)).toEqual(['CNNGB', 'CNSHA'])
   })
 
   it('usa o fallback apenas quando não há portos', () => {

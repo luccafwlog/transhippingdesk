@@ -254,7 +254,7 @@ export function Baplie() {
             empty={emptyContainers.length}
             imo={imoCount}
             oog={oogCount}
-            divergences={stateC ? divergenceCount : null}
+            divergences={stateC && reconciliationData?.source === 'reconciled' ? divergenceCount : null}
           />
 
           {emptyContainers.length > 0 ? (
@@ -382,6 +382,8 @@ function VaziosSection({
     } finally { setLoading(false) }
   }
 
+  const isCountMismatch = existingManifest && existingManifest.total_containers !== emptyCount
+
   return (
     <Card className="mb-5">
       <div className="text-sm font-semibold text-white mb-3">Vazios de Importação</div>
@@ -390,15 +392,21 @@ function VaziosSection({
           Verificando manifesto de vazios existente...
         </div>
       ) : existingManifest ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
+          isCountMismatch
+            ? 'border-amber-500/30 bg-amber-500/10'
+            : 'border-[var(--app-border)] bg-[var(--app-surface-soft)]'
+        }`}>
           <div>
-            <div className="text-sm font-medium text-emerald-200">
+            <div className={`text-sm font-medium ${isCountMismatch ? 'text-amber-200' : 'text-slate-200'}`}>
               Manifesto de vazios Baplie cadastrado em{' '}
               <span className="font-semibold">{formatDate(existingManifest.imported_at)}</span> com{' '}
               {existingManifest.total_containers} container(s).
             </div>
             <div className="mt-1 text-xs text-slate-400">
-              Containers vazios vinculados à operação de Vazios de Importação da viagem.
+              {isCountMismatch
+                ? `O arquivo Baplie atual possui ${emptyCount} container(s) vazio(s). Clique em atualizar para sincronizar.`
+                : 'Containers vazios vinculados à operação de Vazios de Importação da viagem.'}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -408,9 +416,9 @@ function VaziosSection({
             >
               Ver em Vazios
             </Link>
-            {canWrite ? (
-              <Button variant="ghost" loading={loading} onClick={() => run(onSubstituir)}>
-                Recadastrar do Baplie
+            {canWrite && isCountMismatch ? (
+              <Button variant="secondary" loading={loading} onClick={() => run(onSubstituir)}>
+                Atualizar Vazios do Baplie
               </Button>
             ) : null}
           </div>
@@ -488,9 +496,9 @@ function ReconciliacaoSection({
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
             Containers no Baplie sem B/L ({missing.length})
           </div>
-          <div className="overflow-auto rounded-xl border border-[#30363d]">
+          <div className="max-h-[360px] overflow-auto rounded-xl border border-[#30363d]">
             <table className="app-table app-table--compact min-w-[400px] text-left text-sm">
-              <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+              <thead className="sticky top-0 bg-[#0d1117] text-xs uppercase text-slate-500 z-10">
                 <tr>
                   <th scope="col" className="px-3 py-2">Container</th>
                   <th scope="col" className="px-3 py-2">B/L ref. (Baplie)</th>
@@ -517,9 +525,9 @@ function ReconciliacaoSection({
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-400">
             Containers em B/L ausentes do Baplie ({missingInBaplie.length})
           </div>
-          <div className="overflow-auto rounded-xl border border-[#30363d]">
+          <div className="max-h-[360px] overflow-auto rounded-xl border border-[#30363d]">
             <table className="app-table app-table--compact min-w-[400px] text-left text-sm">
-              <thead className="bg-[#0d1117] text-xs uppercase text-slate-500">
+              <thead className="sticky top-0 bg-[#0d1117] text-xs uppercase text-slate-500 z-10">
                 <tr>
                   <th scope="col" className="px-3 py-2">Container</th>
                   <th scope="col" className="px-3 py-2">B/L</th>

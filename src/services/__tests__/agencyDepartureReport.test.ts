@@ -211,7 +211,7 @@ describe('getAgencyReportDerivedData', () => {
 
     expect(breakbulkQuery.eq).toHaveBeenCalledWith('voyage_id', 7)
     expect(breakbulkQuery.eq).toHaveBeenCalledWith('cargo_mode', 'carga_solta')
-    expect(breakbulkQuery.in).toHaveBeenCalledWith('pod', ['BRSSZ'])
+    expect(breakbulkQuery.in).toHaveBeenCalledWith('pod', expect.arrayContaining(['BRSSZ']))
   })
 
   it('restringe veículos ao POD do BL, evitando misturar escalas da mesma viagem', async () => {

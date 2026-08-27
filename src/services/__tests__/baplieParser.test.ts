@@ -63,10 +63,10 @@ describe('baplieParser', () => {
 
     expect(parsed.vessel_name).toBe('GREEN PARANAGUA')
     expect(parsed.voyage_number).toBe('12')
-    // BRVIT é a forma antiga de Vitória; o porto é gravado sempre como BRVIX.
+    // BRVIT é a forma antiga de Vitória; o porto é gravado sempre como BRVIX (e CNTAG como CNTAC).
     expect(parsed.containers[0]).toMatchObject({
       container_number: 'SEGU7664016',
-      pol: 'CNTAG',
+      pol: 'CNTAC',
       pod: 'BRVIX',
       final_dest: 'BRVIX',
       weight_kg: 8900,
