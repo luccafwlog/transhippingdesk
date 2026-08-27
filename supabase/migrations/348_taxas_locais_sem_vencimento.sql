@@ -214,7 +214,7 @@ BEGIN
     RETURN;
   END IF;
 
-  v_def := pg_get_functiondef(v_proc);
+  v_def := replace(pg_get_functiondef(v_proc), chr(13), '');
   FOR i IN 1 .. array_length(p_replacements, 1) LOOP
     v_before := v_def;
     v_def := replace(v_def, p_replacements[i][1], p_replacements[i][2]);

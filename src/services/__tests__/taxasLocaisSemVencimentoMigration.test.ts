@@ -12,6 +12,6 @@ describe('migration 348 - retirada de vencimento das taxas locais', () => {
     expect(migration).toContain('v_proc := to_regprocedure(p_signature)')
     expect(migration).toContain('IF v_proc IS NULL THEN')
     expect(migration).toContain('RETURN')
-    expect(migration).toContain('pg_get_functiondef(v_proc)')
+    expect(migration).toContain("replace(pg_get_functiondef(v_proc), chr(13), '')")
   })
 })
