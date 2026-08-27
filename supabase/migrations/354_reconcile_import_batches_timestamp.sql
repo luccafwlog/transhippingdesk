@@ -13,6 +13,10 @@ DECLARE
   v_is_generated BOOLEAN;
   v_generation_expression TEXT;
 BEGIN
+  -- Acquire the same lock that the later ALTER TABLE would take before
+  -- comparing legacy values. This closes the validation-to-rebuild race.
+  LOCK TABLE public.import_batches IN ACCESS EXCLUSIVE MODE;
+
   SELECT is_generated = 'ALWAYS', generation_expression
   INTO v_is_generated, v_generation_expression
   FROM information_schema.columns
