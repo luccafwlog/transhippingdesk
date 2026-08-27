@@ -8,33 +8,33 @@
 -- Consumidores: detect_voyage_operation_alerts(), triggers de viagem, Alertas UI.
 
 -- 1. Helper SQL para normalização de códigos de porto
-CREATE OR REPLACE FUNCTION public.normalize_port_code(p_port TEXT)
+CREATE OR REPLACE FUNCTION public.normalize_port_code(p_value TEXT)
 RETURNS TEXT
 LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT CASE
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('BRVIT', 'VITORIA', 'VITÓRIA', 'BRVIX', 'VIX') THEN 'BRVIX'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('SALVADOR', 'BRSSA', 'SSA') THEN 'BRSSA'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('PECEM', 'PECÉM', 'BRPEC', 'PEC') THEN 'BRPEC'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('SANTOS', 'BRSSZ', 'SSZ') THEN 'BRSSZ'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('PARANAGUA', 'PARANAGUÁ', 'BRPNG', 'PNG') THEN 'BRPNG'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('ITAJAI', 'ITAJAÍ', 'BRITJ', 'ITJ', 'NAVEGANTES', 'BRNVT', 'NVT') THEN 'BRITJ'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('RIO GRANDE', 'BRRIG', 'RIG') THEN 'BRRIG'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('SUAPE', 'RECIFE', 'BRSUA', 'SUA', 'BRREC') THEN 'BRSUA'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('RIO DE JANEIRO', 'BRRIO', 'BRRDJ') THEN 'BRRIO'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('MANAUS', 'BRMAO') THEN 'BRMAO'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('QINGDAO', 'TSINGTAO', 'CNTAO', 'CNQDG', 'QDG') THEN 'CNTAO'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('SHANGHAI', 'CNSHA', 'CNSHG', 'SHG') THEN 'CNSHA'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('TAICANG', 'TAIKANG', 'CNTAC', 'CNTAI', 'CNTAG') THEN 'CNTAC'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('NINGBO', 'CNNGB', 'CNNBO', 'NBO') THEN 'CNNGB'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('NANSHA', 'CNNSA', 'CNNAN', 'GUANGZHOU', 'CNGZU') THEN 'CNNSA'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('ZHANGJIAGANG', 'CNZJG') THEN 'CNZJG'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('XIAMEN', 'AMOY', 'CNXMN', 'XMN') THEN 'CNXMN'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('SHEKOU', 'SHENZHEN', 'CNSHK', 'CNSZK', 'CNSHE') THEN 'CNSHK'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('YANTIAN', 'CNYTN', 'YTN') THEN 'CNYTN'
-    WHEN upper(btrim(COALESCE(p_port, ''))) IN ('HONG KONG', 'HONGKONG', 'HKHKG', 'HKG') THEN 'HKHKG'
-    ELSE NULLIF(upper(btrim(COALESCE(p_port, ''))), '')
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('BRVIT', 'VITORIA', 'VITÓRIA', 'BRVIX', 'VIX') THEN 'BRVIX'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('SALVADOR', 'BRSSA', 'SSA') THEN 'BRSSA'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('PECEM', 'PECÉM', 'BRPEC', 'PEC') THEN 'BRPEC'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('SANTOS', 'BRSSZ', 'SSZ') THEN 'BRSSZ'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('PARANAGUA', 'PARANAGUÁ', 'BRPNG', 'PNG') THEN 'BRPNG'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('ITAJAI', 'ITAJAÍ', 'BRITJ', 'ITJ', 'NAVEGANTES', 'BRNVT', 'NVT') THEN 'BRITJ'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('RIO GRANDE', 'BRRIG', 'RIG') THEN 'BRRIG'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('SUAPE', 'RECIFE', 'BRSUA', 'SUA', 'BRREC') THEN 'BRSUA'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('RIO DE JANEIRO', 'BRRIO', 'BRRDJ') THEN 'BRRIO'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('MANAUS', 'BRMAO') THEN 'BRMAO'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('QINGDAO', 'TSINGTAO', 'CNTAO', 'CNQDG', 'QDG') THEN 'CNTAO'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('SHANGHAI', 'CNSHA', 'CNSHG', 'SHG') THEN 'CNSHA'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('TAICANG', 'TAIKANG', 'CNTAC', 'CNTAI', 'CNTAG') THEN 'CNTAC'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('NINGBO', 'CNNGB', 'CNNBO', 'NBO') THEN 'CNNGB'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('NANSHA', 'CNNSA', 'CNNAN', 'GUANGZHOU', 'CNGZU') THEN 'CNNSA'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('ZHANGJIAGANG', 'CNZJG') THEN 'CNZJG'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('XIAMEN', 'AMOY', 'CNXMN', 'XMN') THEN 'CNXMN'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('SHEKOU', 'SHENZHEN', 'CNSHK', 'CNSZK', 'CNSHE') THEN 'CNSHK'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('YANTIAN', 'CNYTN', 'YTN') THEN 'CNYTN'
+    WHEN upper(btrim(COALESCE(p_value, ''))) IN ('HONG KONG', 'HONGKONG', 'HKHKG', 'HKG') THEN 'HKHKG'
+    ELSE NULLIF(upper(btrim(COALESCE(p_value, ''))), '')
   END;
 $$;
 

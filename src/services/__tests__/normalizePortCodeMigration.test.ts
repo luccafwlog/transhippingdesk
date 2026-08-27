@@ -9,7 +9,7 @@ const sql = readFileSync(
 
 describe('migration 353 — normalização de códigos de porto em SQL e reconciliação Baplie/BL', () => {
   it('define a função SQL normalize_port_code com suporte a aliases incluindo CNTAG', () => {
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.normalize_port_code')
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.normalize_port_code(p_value TEXT)')
     expect(sql).toContain("'CNTAG'")
     expect(sql).toContain("'TAICANG'")
     expect(sql).toContain("'CNTAC'")
