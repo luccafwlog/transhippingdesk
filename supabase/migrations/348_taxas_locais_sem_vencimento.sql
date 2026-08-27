@@ -20,7 +20,7 @@
 --
 -- Rollback: não há reversão de dados — a coluna é removida e o vencimento
 -- histórico se perde junto. Restaurar exigiria reaplicar `031`, `024`/`329`,
--- `282` e recriar a coluna, sem os valores originais. Ver ADR 0031.
+-- `282` e recriar a coluna, sem os valores originais. Ver ADR 0055.
 
 -- ── 1. Desliga o marcador agendado ────────────────────────────────
 DO $cron$
