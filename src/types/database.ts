@@ -3791,6 +3791,7 @@ export type Database = {
           id: string
           manifest_id: string
           natureza: string | null
+          pol: string | null
           pod: string | null
           tare_kg: number | null
         }
@@ -3801,6 +3802,7 @@ export type Database = {
           id?: string
           manifest_id: string
           natureza?: string | null
+          pol?: string | null
           pod?: string | null
           tare_kg?: number | null
         }
@@ -3811,6 +3813,7 @@ export type Database = {
           id?: string
           manifest_id?: string
           natureza?: string | null
+          pol?: string | null
           pod?: string | null
           tare_kg?: number | null
         }
@@ -4278,6 +4281,7 @@ export type Database = {
       }
       voyage_route_ce_master: {
         Row: {
+          cargo_mode: string
           ce_master: string | null
           id: string
           pod: string
@@ -4287,6 +4291,7 @@ export type Database = {
           voyage_id: number
         }
         Insert: {
+          cargo_mode?: string
           ce_master?: string | null
           id?: string
           pod: string
@@ -4296,6 +4301,7 @@ export type Database = {
           voyage_id: number
         }
         Update: {
+          cargo_mode?: string
           ce_master?: string | null
           id?: string
           pod?: string

@@ -9,6 +9,12 @@ export type VoyageVaziosImportacaoPodStat = {
   types: Array<{ label: string; count: number }>
 }
 
+export type VoyageVaziosImportacaoRoute = {
+  pol: string
+  pod: string
+  containerCount: number
+}
+
 export type VoyageVaziosImportacaoStat = {
   totalManifests: number
   distinctContainers: number
@@ -16,6 +22,7 @@ export type VoyageVaziosImportacaoStat = {
   destinations: string
   byPod: Record<string, VoyageVaziosImportacaoPodStat>
   unassigned?: VoyageVaziosImportacaoPodStat
+  routes?: VoyageVaziosImportacaoRoute[]
 }
 
 export function useVaziosImportacaoStats(voyageIds: number[]) {
@@ -52,6 +59,7 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
         types: Map<string, number>
         pods: Set<string>
         byPod: Map<string, { manifestIds: Set<string>; numbers: Set<string>; types: Map<string, number> }>
+        byRoute: Map<string, { pol: string; pod: string; numbers: Set<string> }>
         unassigned: { manifestIds: Set<string>; numbers: Set<string>; types: Map<string, number> }
       }>()
 
@@ -60,11 +68,11 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
         while (true) {
           const { data: containers, error: containerError } = await supabase
             .from('vazios_importacao_containers')
-            .select('manifest_id, container_number, container_type, pod')
+            .select('manifest_id, container_number, container_type, pol, pod')
             .in('manifest_id', manifestIds)
             .range(from, from + 999)
           if (containerError) throw containerError
-          const batch = (containers ?? []) as Array<{ manifest_id: string; container_number: string | null; container_type: string | null; pod: string | null }>
+          const batch = (containers ?? []) as Array<{ manifest_id: string; container_number: string | null; container_type: string | null; pol?: string | null; pod?: string | null }>
           if (!batch.length) break
           for (const c of batch) {
             const voyageId = manifestToVoyage.get(c.manifest_id)
@@ -74,13 +82,15 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
               types: new Map(),
               pods: new Set(),
               byPod: new Map(),
+              byRoute: new Map(),
               unassigned: { manifestIds: new Set(), numbers: new Set(), types: new Map() },
             }
             const num = String(c.container_number ?? '').trim().toUpperCase()
             if (num) entry.numbers.add(num)
             const type = String(c.container_type ?? '').trim() || 'Nao informado'
             entry.types.set(type, (entry.types.get(type) ?? 0) + 1)
-            const pod = normalizePortCode(c.pod)
+            const pol = normalizePortCode(c.pol) ?? ''
+            const pod = normalizePortCode(c.pod) ?? ''
             if (pod) {
               entry.pods.add(pod)
               const podEntry = entry.byPod.get(pod) ?? { manifestIds: new Set(), numbers: new Set(), types: new Map() }
@@ -88,6 +98,11 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
               if (num) podEntry.numbers.add(num)
               podEntry.types.set(type, (podEntry.types.get(type) ?? 0) + 1)
               entry.byPod.set(pod, podEntry)
+
+              const routeKey = `${pol || '-'}__${pod}`
+              const routeEntry = entry.byRoute.get(routeKey) ?? { pol: pol || '-', pod, numbers: new Set() }
+              if (num) routeEntry.numbers.add(num)
+              entry.byRoute.set(routeKey, routeEntry)
             } else {
               entry.unassigned.manifestIds.add(c.manifest_id)
               if (num) entry.unassigned.numbers.add(num)
@@ -115,6 +130,12 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
           }]),
         )
 
+        const routes: VoyageVaziosImportacaoRoute[] = Array.from(entry?.byRoute.values() ?? []).map((r) => ({
+          pol: r.pol,
+          pod: r.pod,
+          containerCount: r.numbers.size,
+        }))
+
         const unassigned = entry && entry.unassigned.numbers.size > 0 ? {
           manifestos: entry.unassigned.manifestIds.size,
           distinctContainers: entry.unassigned.numbers.size,
@@ -129,6 +150,7 @@ export function useVaziosImportacaoStats(voyageIds: number[]) {
           containerTypes: typeEntries.join(' | '),
           destinations: Array.from(entry?.pods ?? []).sort((a, b) => a.localeCompare(b, 'pt-BR')).join(' | '),
           byPod,
+          routes,
           unassigned,
         }
       }

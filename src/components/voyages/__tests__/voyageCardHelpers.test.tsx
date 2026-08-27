@@ -137,6 +137,39 @@ describe('collectVoyageManifestBatchRows', () => {
       ceMaster: '25BR00481',
     })
   })
+
+  it('inclui linhas de manifesto de vazios de importação com badge VAZIOS e CE Master de vazios', () => {
+    const rows = collectVoyageManifestBatchRows({
+      voyageId: 14,
+      batches: [],
+      bls: [makeBl({ id: 'BL-001', ce_mercante: 'CE-001' })],
+      routeCeMasters: new Map([
+        ['14::CNTAC__BRVIX', '25BR00001'],
+        ['14::CNTAC__BRVIX__VAZIOS', '25BR99999'],
+      ]),
+      vaziosRoutes: [{ pol: 'CNTAC', pod: 'BRVIX', containerCount: 12 }],
+    })
+
+    expect(rows).toHaveLength(2)
+    const cargoRow = rows.find((r) => !r.isVazios)
+    const vaziosRow = rows.find((r) => r.isVazios)
+
+    expect(cargoRow).toMatchObject({
+      routeKey: 'CNTAC__BRVIX',
+      modeLabel: 'CNTR',
+      ceMaster: '25BR00001',
+      blCount: 1,
+    })
+
+    expect(vaziosRow).toMatchObject({
+      routeKey: 'CNTAC__BRVIX__vazios',
+      modeLabel: 'VAZIOS',
+      cargoMode: 'vazios',
+      isVazios: true,
+      containerCount: 12,
+      ceMaster: '25BR99999',
+    })
+  })
 })
 
 describe('formatPolDeparture', () => {
@@ -266,6 +299,53 @@ describe('VoyageManifestosTab', () => {
       atd: '2026-07-16',
       ceMaster: null,
       batchIds: [],
+    })
+  })
+
+  it('renderiza linha de vazios com link para vazios-importacao e permite informar CE Master de vazios', () => {
+    const onEditPol = vi.fn()
+    const voyage = {
+      id: 14,
+      voyage_number: '001',
+      vessel: { name: 'ALPHA' },
+      bls: [],
+    } as unknown as Voyage
+
+    render(
+      <MemoryRouter>
+        <VoyageManifestosTab
+          voyage={voyage}
+          voyageLabel="ALPHA / 001"
+          importBatches={[]}
+          polSchedules={new Map([
+            [buildVoyagePolEntityId(14, 'CNTAC'), { entityId: '14::CNTAC', voyageId: 14, pol: 'CNTAC', etd: '2026-07-15', atd: '2026-07-16', escalaNumber: null }],
+          ])}
+          routeCeMasters={undefined}
+          ceCoverage={{ filled: 0, total: 0 }}
+          vaziosRoutes={[{ pol: 'CNTAC', pod: 'BRVIX', containerCount: 5 }]}
+          onEditPol={onEditPol}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('VAZIOS')).toBeTruthy()
+    expect(screen.getByText('5 cntr')).toBeTruthy()
+    const link = screen.getByRole('link', { name: 'TAICANG -> BRVIX' })
+    expect(link.getAttribute('href')).toBe('/vazios-importacao?voyage=14&pod=BRVIX')
+
+    const button = screen.getByRole('button', { name: 'Informar CE Master de TAICANG -> BRVIX' })
+    fireEvent.click(button)
+
+    expect(onEditPol).toHaveBeenCalledWith({
+      voyageId: 14,
+      voyageLabel: 'ALPHA / 001',
+      pol: 'CNTAC',
+      pod: 'BRVIX',
+      etd: '2026-07-15',
+      atd: '2026-07-16',
+      ceMaster: null,
+      batchIds: [],
+      cargoMode: 'vazios',
     })
   })
 })

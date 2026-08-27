@@ -370,6 +370,7 @@ export async function exportVaziosImportacaoWorkbook(rows: VaziosImportacaoConta
       Container: row.container_number,
       Tipo: row.container_type ?? '',
       'Tara (kg)': row.tare_kg ?? '',
+      POL: row.pol ?? '',
       POD: row.pod ?? '',
       Navio: row.manifest?.voyage?.vessel?.name ?? '',
       Viagem: row.manifest?.voyage?.voyage_number ?? '',

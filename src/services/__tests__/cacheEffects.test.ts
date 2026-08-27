@@ -45,6 +45,7 @@ describe('cache effects', () => {
     expect(keys()).toEqual(keySet([
       ['bls'], ['containers'], ['voyages'], ['port-options'],
       ['vazios-importacao-containers'], ['vazios-importacao-manifests'], ['vazios-importacao-stats'],
+      ['baplie-reconciliation', '24'], ['baplie-staging', '24'],
       ['voyage-escala-schedules'], ['voyage-timeline', '24'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
     ]))
   })
