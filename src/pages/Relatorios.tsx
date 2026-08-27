@@ -273,7 +273,6 @@ function FinancialReportTab() {
               <option value="issued">Emitida</option>
               <option value="partially_paid">Parcial</option>
               <option value="paid">Paga</option>
-              <option value="overdue">Vencida</option>
               <option value="cancelled">Cancelada</option>
             </Select>
           </Field>
@@ -321,7 +320,6 @@ function FinancialReportTab() {
                 <th scope="col" className="px-4 py-3">Invoice</th>
                 <th scope="col" className="px-4 py-3">Cliente</th>
                 <th scope="col" className="px-4 py-3">Emissão</th>
-                <th scope="col" className="px-4 py-3">Vencimento</th>
                 <th scope="col" className="px-4 py-3 text-right">Total BRL</th>
                 <th scope="col" className="px-4 py-3 text-right">Saldo BRL</th>
                 <th scope="col" className="px-4 py-3">Status</th>
@@ -347,7 +345,6 @@ function FinancialReportTab() {
                   <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.invoice_number ?? `INV-${row.id}`}</td>
                   <td className="px-4 py-3 text-[var(--app-text)]">{row.customer?.name ?? '-'}</td>
                   <td className="px-4 py-3 text-[var(--app-muted)]">{formatDate(row.issued_at)}</td>
-                  <td className="px-4 py-3 text-[var(--app-muted)]">{formatDate(row.due_date)}</td>
                   <td className="px-4 py-3 text-right font-mono text-[var(--app-text-strong)]">{formatBRL(row.total_brl ?? 0)}</td>
                   <td className="px-4 py-3 text-right font-mono text-amber-700">{formatBRL(row.balance_brl ?? 0)}</td>
                   <td className="px-4 py-3">
@@ -369,8 +366,6 @@ function invoiceStatusTone(status: string | null): 'green' | 'yellow' | 'red' | 
       return 'green'
     case 'partially_paid':
       return 'blue'
-    case 'overdue':
-      return 'red'
     case 'issued':
       return 'yellow'
     case 'draft':

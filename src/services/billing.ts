@@ -12,7 +12,7 @@ import { reportBestEffortFailure } from '../lib/telemetry'
 export type InvoiceStatusFilter = '' | 'issued' | 'paid' | 'cancelled'
 
 const INVOICE_STATUS_GROUPS: Record<Exclude<InvoiceStatusFilter, ''>, InvoiceDocumentStatus[]> = {
-  issued: ['issued', 'partially_paid', 'overdue', 'draft'],
+  issued: ['issued', 'partially_paid', 'draft'],
   paid: ['paid', 'covered'],
   cancelled: ['cancelled', 'obsolete'],
 }
@@ -56,7 +56,6 @@ export type InvoiceListRow = Pick<
   | 'customer_id'
   | 'bl_id'
   | 'issued_at'
-  | 'due_date'
   | 'total_brl'
   | 'status'
   | 'invoice_type'
@@ -130,7 +129,6 @@ const INVOICE_LIST_SELECT = `
   customer_id,
   bl_id,
   issued_at,
-  due_date,
   total_brl,
   status,
   invoice_type,
@@ -753,7 +751,6 @@ export async function listInvoiceDetails(invoiceId: number) {
 export async function createInvoiceFromBls(input: {
   blIds: string[]
   customerId?: number | null
-  dueDate?: string | null
   notes?: string | null
   issueNow?: boolean
   actorId?: string | null
@@ -761,7 +758,6 @@ export async function createInvoiceFromBls(input: {
   const { data, error } = await supabase.rpc('create_invoice_from_bls_with_ledger', {
     p_bl_ids: input.blIds,
     ...(input.customerId == null ? {} : { p_customer_id: input.customerId }),
-    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
     ...(input.notes == null ? {} : { p_notes: input.notes }),
     p_issue_now: input.issueNow ?? true,
     ...(input.actorId == null ? {} : { p_actor: input.actorId }),
@@ -781,14 +777,12 @@ export async function createInvoiceFromBls(input: {
 export async function markBlReadyAndCreateInvoice(input: {
   blId: string
   customerId?: number | null
-  dueDate?: string | null
   notes?: string | null
   actorId?: string | null
 }) {
   const { data, error } = await supabase.rpc('mark_bl_ready_and_create_invoice', {
     p_bl_id: input.blId,
     ...(input.customerId == null ? {} : { p_customer_id: input.customerId }),
-    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
     ...(input.notes == null ? {} : { p_notes: input.notes }),
     ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
@@ -807,14 +801,12 @@ export async function markBlReadyAndCreateInvoice(input: {
 export async function markBlsReadyAndCreateInvoice(input: {
   blIds: string[]
   customerId: number
-  dueDate?: string | null
   notes?: string | null
   actorId?: string | null
 }) {
   const { data, error } = await supabase.rpc('mark_bls_ready_and_create_invoice', {
     p_bl_ids: input.blIds,
     p_customer_id: input.customerId,
-    ...(input.dueDate == null ? {} : { p_due_date: input.dueDate }),
     ...(input.notes == null ? {} : { p_notes: input.notes }),
     ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
@@ -859,21 +851,6 @@ export async function cancelInvoice(input: {
   const { data, error } = await supabase.rpc('cancel_invoice', {
     p_invoice_id: input.invoiceId,
     p_reason: input.reason ?? '',
-    ...(input.actorId == null ? {} : { p_actor: input.actorId }),
-  })
-
-  if (error) throw error
-  return (data ?? {}) as Json
-}
-
-export async function updateInvoiceDueDate(input: {
-  invoiceId: number
-  dueDate: string
-  actorId?: string | null
-}) {
-  const { data, error } = await supabase.rpc('update_invoice_due_date', {
-    p_invoice_id: input.invoiceId,
-    p_due_date: input.dueDate,
     ...(input.actorId == null ? {} : { p_actor: input.actorId }),
   })
 

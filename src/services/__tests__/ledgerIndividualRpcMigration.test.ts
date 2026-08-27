@@ -17,11 +17,14 @@ describe('ledger individual invoice RPC migration', () => {
     expect(sql).toContain('public.create_local_individual_invoice_from_receivable')
   })
 
-  it('keeps the local Supabase type map aware of the RPC', () => {
+  it('não mantém a RPC no mapa de tipos: a migration 268 a removeu do banco', () => {
+    const drop = readFileSync(
+      resolve(process.cwd(), 'supabase/migrations/268_local_charges_usd_conversion_at_emission.sql'),
+      'utf8',
+    )
     const types = readFileSync(resolve(process.cwd(), 'src/types/database.ts'), 'utf8')
 
-    expect(types).toContain('create_local_individual_invoice_from_receivable')
-    expect(types).toContain('p_receivable_id: number')
-    expect(types).toContain('p_due_date?: string')
+    expect(drop).toContain('DROP FUNCTION IF EXISTS public.create_local_individual_invoice_from_receivable')
+    expect(types).not.toContain('create_local_individual_invoice_from_receivable')
   })
 })

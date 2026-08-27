@@ -59,6 +59,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0052](./0052-escala-omitida-visivel-na-programacao.md) | Escala omitida e visivel na programacao, marcada como `OMIT` | aceito | **Supersede parcialmente a 0022** no fragmento que excluia PODs omitidos de `portal_ship_schedule`; o fato da omissao passa a ser visivel ao operador e ao cliente, o motivo interno continua fora do Portal (coerente com a Task 11 do plano de correcao) |
 | [0053](./0053-ciclo-de-vida-alerta-dispensa-temporaria.md) | Alerta fecha pela origem; dispensa temporária exige revisão | aceito | Supersede parcialmente a 0034 quanto a reconhecimento e fechamento manual; leitura pessoal e separação Alerta/Notificação permanecem |
 | [0054](./0054-portal-como-gate-de-faturamento.md) | Portal ativo e acesso do cliente como gate de faturamento | aceito | Supersede a nota editorial de 0006 e a retirada do Portal do gate registrada na migration 188; exige restauração em migration nova |
+| [0055](./0055-taxa-local-sem-vencimento-praticado.md) | Taxa local não tem vencimento praticado: `due_date` e `overdue` saem do domínio | aceito | Aplica às taxas locais o princípio da 0014 (Demurrage não vence); estende a 0007 — o ciclo de vida da invoice local passa a ser regido só por emissão e pagamento; implementada na migration `348` |
 
 ## Convenção
 

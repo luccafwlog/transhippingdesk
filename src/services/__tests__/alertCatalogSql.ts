@@ -20,10 +20,15 @@ const CATALOG_MIGRATIONS = [
   '325_clientes_portal_disputes_alerts.sql',
 ]
 
-const DEACTIVATION_MIGRATION = '347_alerts_retire_dead_invoice_types.sql'
+// Migrations que aposentam tipos. Aceitam tanto `type IN (...)` quanto
+// `type = '...'`; registre aqui cada nova migration que desativa um tipo.
+const DEACTIVATION_MIGRATIONS = [
+  '347_alerts_retire_dead_invoice_types.sql',
+  '348_taxas_locais_sem_vencimento.sql',
+]
 
 const ENTRY_PATTERN = /\(\s*'([a-z0-9_]+)',\s*'(critical|normal)',\s*'([a-z_]+)',\s*ARRAY\[([^\]]*)\],\s*'([^']+)'\s*\)/g
-const DEACTIVATION_PATTERN = /SET\s+active\s*=\s*false\s+WHERE\s+type\s+IN\s*\(([^)]*)\)/i
+const DEACTIVATION_PATTERN = /SET\s+active\s*=\s*false\s+WHERE\s+type\s+(?:IN\s*\(([^)]*)\)|=\s*('[a-z0-9_]+'))/i
 
 function readMigration(fileName: string): string {
   return readFileSync(resolve(process.cwd(), 'supabase/migrations', fileName), 'utf8')
@@ -47,12 +52,13 @@ export function readSqlAlertCatalog(): SqlAlertCatalogEntry[] {
     }
   }
 
-  const deactivation = readMigration(DEACTIVATION_MIGRATION)
-    .replace(/\s+/g, ' ')
-    .match(DEACTIVATION_PATTERN)
-  for (const match of (deactivation?.[1] ?? '').matchAll(/'([a-z0-9_]+)'/g)) {
-    const entry = entries.get(match[1])
-    if (entry) entry.active = false
+  for (const fileName of DEACTIVATION_MIGRATIONS) {
+    const deactivation = readMigration(fileName).replace(/\s+/g, ' ').match(DEACTIVATION_PATTERN)
+    const retired = deactivation?.[1] ?? deactivation?.[2] ?? ''
+    for (const match of retired.matchAll(/'([a-z0-9_]+)'/g)) {
+      const entry = entries.get(match[1])
+      if (entry) entry.active = false
+    }
   }
 
   return Array.from(entries.values())

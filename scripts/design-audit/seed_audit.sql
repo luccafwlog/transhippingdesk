@@ -116,13 +116,14 @@ insert into public.demurrage_rates (container_type, free_days, p1_day_from, p1_d
   ('40HC',10,1,10,120.00,11,240.00,'2026-01-01',true);
 
 -- invoices
-insert into public.invoices (id, invoice_number, customer_id, bl_id, issued_at, due_date, total_brl, status, total_paid_brl, balance_brl, invoice_type, pix_txid) values
-  (201,'FAT-2026-0018',101,'COSU6401234501', now() - interval '6 days',  current_date + 24, 3005.00,'issued',0,3005.00,'individual','TXN2026AUD001'),
-  (202,'FAT-2026-0017',105,'COSU6401234508', now() - interval '8 days',  current_date + 22, 1755.00,'issued',0,1755.00,'individual','TXN2026AUD002'),
-  (203,'FAT-2026-0016',102,'COSU6401234504', now() - interval '20 days', current_date - 4,  1805.00,'overdue',0,1805.00,'individual','TXN2026AUD003'),
-  (204,'FAT-2026-0015',101,'XPDU5500987601', now() - interval '38 days', current_date - 8,  2555.00,'paid',2555.00,0,'individual',null),
-  (205,'FAT-2026-0014',102,'XPDU5500987602', now() - interval '40 days', current_date - 10, 3010.00,'partially_paid',1500.00,1510.00,'individual','TXN2026AUD005'),
-  (206,'FAT-2026-0013',104,null,             now() - interval '45 days', current_date - 15, 5320.00,'cancelled',0,5320.00,'consolidated',null);
+-- Taxa local não tem vencimento praticado (ADR 0055): sem due_date, sem 'overdue'.
+insert into public.invoices (id, invoice_number, customer_id, bl_id, issued_at, total_brl, status, total_paid_brl, balance_brl, invoice_type, pix_txid) values
+  (201,'FAT-2026-0018',101,'COSU6401234501', now() - interval '6 days',  3005.00,'issued',0,3005.00,'individual','TXN2026AUD001'),
+  (202,'FAT-2026-0017',105,'COSU6401234508', now() - interval '8 days',  1755.00,'issued',0,1755.00,'individual','TXN2026AUD002'),
+  (203,'FAT-2026-0016',102,'COSU6401234504', now() - interval '20 days', 1805.00,'issued',0,1805.00,'individual','TXN2026AUD003'),
+  (204,'FAT-2026-0015',101,'XPDU5500987601', now() - interval '38 days', 2555.00,'paid',2555.00,0,'individual',null),
+  (205,'FAT-2026-0014',102,'XPDU5500987602', now() - interval '40 days', 3010.00,'partially_paid',1500.00,1510.00,'individual','TXN2026AUD005'),
+  (206,'FAT-2026-0013',104,null,             now() - interval '45 days', 5320.00,'cancelled',0,5320.00,'consolidated',null);
 select setval('invoices_id_seq', 300);
 
 insert into public.invoice_items (invoice_id, description, quantity, unit_value_brl, total_value_brl, bl_id, source, currency) values

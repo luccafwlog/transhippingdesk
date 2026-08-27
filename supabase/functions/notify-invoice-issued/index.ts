@@ -46,7 +46,6 @@ type WebhookPayload = {
     invoice_number: string | null
     status: string
     total_brl: number | null
-    due_date: string | null
     notes: string | null
     customer_id: number | null
   }
@@ -115,7 +114,7 @@ Deno.serve(async (req: Request) => {
     // confiável, não de um corpo POST potencialmente forjado.
     const { data: dbInvoice } = await supabase
       .from('invoices')
-      .select('id, invoice_number, status, total_brl, due_date, notes, customer_id')
+      .select('id, invoice_number, status, total_brl, notes, customer_id')
       .eq('id', payload.record.id)
       .single()
 
@@ -196,15 +195,12 @@ Deno.serve(async (req: Request) => {
 
     const fmtBRL = (val: number | null) =>
       val != null ? val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
-    const fmtDate = (d: string | null) =>
-      d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
 
     const invoiceTemplate = invoiceIssuedTemplate({
       companyName,
       cnpjMasked,
       invoiceNumber,
       totalFormatted: fmtBRL(invoice.total_brl),
-      dueDateFormatted: fmtDate(invoice.due_date),
       notes: invoice.notes,
       portalUrl,
       supportEmail,

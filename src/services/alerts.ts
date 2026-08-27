@@ -40,6 +40,8 @@ export type ActiveAlertType =
   | 'voyage_export_after_atd'
 
 export const TYPE_LABELS: Record<string, string> = {
+  // Aposentado pela 348 (issue #605): sem produtor, mas o rótulo permanece para
+  // os itens históricos, como os tipos aposentados pela 327/347.
   invoice_overdue: 'Fatura vencida',
   invoice_payment_invalid: 'Pagamento inválido',
   invoice_cancel_blocked: 'Cancelamento bloqueado',
@@ -93,7 +95,6 @@ export type AlertEventUnit = 'bl' | 'invoice' | 'pix_transaction' | 'demurrage_i
 export const FINANCIAL_ALERT_EVENTS = {
   billing_calculation_blocked: { audience: ['documentacao'], unit: 'bl' },
   billing_auto_issue_failed: { audience: ['documentacao'], unit: 'bl' },
-  invoice_overdue: { audience: ['documentacao'], unit: 'invoice' },
   pix_unreconciled: { audience: ['documentacao', 'equipamentos'], unit: 'pix_transaction' },
   portal_dispute_opened: { audience: ['equipamentos'], unit: 'demurrage_invoice' },
 } as const satisfies Record<string, { audience: readonly AlertAudience[]; unit: AlertEventUnit }>
@@ -101,7 +102,6 @@ export const FINANCIAL_ALERT_EVENTS = {
 export const FINANCIAL_ALERT_TYPES = [
   'billing_calculation_blocked',
   'billing_auto_issue_failed',
-  'invoice_overdue',
   'pix_unreconciled',
 ] as const
 
@@ -436,7 +436,9 @@ export async function resolveAlertItem(input: {
 }
 
 export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
-  const financialEntityTypes = ['bl', 'invoice', 'pix_transaction'] as const
+  // 'invoice' saiu da lista na 348 (#605): nenhum tipo financeiro ativo aponta
+  // para faturas desde que invoice_overdue foi aposentado.
+  const financialEntityTypes = ['bl', 'pix_transaction'] as const
   const financialTypes = new Set<string>(FINANCIAL_ALERT_TYPES)
   const alertsByEntityType = await Promise.all(financialEntityTypes.map(async (entityType) => {
     const rows: AlertQueueRow[] = []

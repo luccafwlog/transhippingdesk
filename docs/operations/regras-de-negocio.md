@@ -28,11 +28,21 @@ Taxas locais usam um **ledger local** (ADR 0007) como fonte de saldo:
 
 Demurrage **não** entra no ledger local — mantém persistência própria (`demurrage_invoices`), mas é exibido de forma unificada em Faturamento, Conciliação PIX e Portal (ADR 0008).
 
-## Overdue / inadimplência
+## Vencimento e inadimplência
 
-- `mark_overdue_invoices` / `detect_overdue_invoices` marcam faturas vencidas.
-- `fn_block_invoice_overdue_customer` **bloqueia novas emissões** para clientes com fatura vencida.
-- A comparação de vencimento é por **dias de calendário** (não por timestamp). Ver [Faturamento](../modules/faturamento.md).
+**A fatura de taxas locais não tem vencimento praticado** (ADR 0055, migration
+`348`). A operação nunca cobrou prazo nessa fatura, então `invoices.due_date` e o
+status `overdue` foram removidos, junto com o job `mark-overdue-invoices`, o
+detector `detect_overdue_invoices` e o gatilho
+`fn_block_invoice_overdue_customer` que bloqueava novas emissões. O estado da
+fatura local é regido só por emissão e pagamento: "em aberto" é saldo positivo.
+
+O bloqueio comercial por cliente continua existindo pelo caminho explícito
+(`billing_block_reason`), que é decisão humana registrada — ver seção abaixo.
+
+O **Demurrage** tem `due_date` próprio em `demurrage_invoices` e segue fora deste
+recorte; sob recálculo diário ele também não tem `overdue` (ADR 0014, migration
+`157`). Ver [Faturamento](../modules/faturamento.md).
 
 ## Bloqueio de faturamento por cliente (billing block)
 

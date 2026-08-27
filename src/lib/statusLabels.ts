@@ -25,7 +25,6 @@ export const INVOICE_STATUS_LABELS: Record<string, string> = {
   paid: 'Paga',
   covered: 'Coberta',
   obsolete: 'Obsoleta',
-  overdue: 'Vencida',
   cancelled: 'Cancelada',
 }
 
