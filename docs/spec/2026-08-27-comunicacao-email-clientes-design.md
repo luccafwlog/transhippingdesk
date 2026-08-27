@@ -3,7 +3,10 @@
 Issue [#556](https://github.com/luccafwlog/transhippingdesk/issues/556).
 Decisões desta spec derivam de uma sessão de grilling com o produto em
 2026-08-27. Enquanto o plano derivado não for executado, esta spec é a fonte
-das decisões — o código ainda não existe.
+das decisões — o código ainda não existe. O plano está em
+[`../plans/2026-08-27-comunicacao-email-clientes.md`](../plans/2026-08-27-comunicacao-email-clientes.md),
+que registra em "Correções à spec" os três pontos que a leitura do código
+obrigou a ajustar aqui.
 
 ## Propósito e escopo
 
@@ -165,10 +168,25 @@ escala, datas e B/Ls do próprio destinatário.
 
 ### 6. Unidade dos avisos operacionais
 
-Aviso de Chegada e Aviso de Atracação são **por escala**, nunca por viagem.
-Chegada é ATA da Escala; atracação é ATB da Atracação, e ambos são por terminal
-— uma viagem com dois terminais tem dois momentos distintos. Enviar NOA de
-viagem a quem descarrega em outro porto é comunicado errado.
+Nenhum dos dois avisos é por viagem. Enviar NOA de viagem a quem descarrega em
+outro porto é comunicado errado.
+
+Eles não têm, porém, a **mesma** unidade — o `CONTEXT.md` separa as duas donas:
+a Escala é dona de ETA e ATA, a Atracação é dona de ETB, ATB, ETD e ATD.
+
+- **Aviso de Chegada é por Escala**, ancorado na ATA da Escala.
+- **Aviso de Atracação é por Atracação**, ancorado no ATB — uma Escala com dois
+  terminais tem duas Atracações, dois ATBs e **dois** Avisos de Atracação.
+
+Ancorar o NOR na Escala colapsaria os dois terminais num comunicado só, que é o
+mesmo erro que esta decisão existe para evitar, um nível abaixo.
+
+**Nota editorial de 2026-08-27** (plano derivado): a redação anterior dizia
+"ambos são por escala" no título e "ATB da Atracação" no corpo. A leitura do
+schema forçou a distinção acima. A Escala, além disso, **não tem chave
+substituta**: é o par `(Viagem, porto)` projetado de
+`voyages.pod_schedule_snapshot`, e é esse par que serve de âncora do NOA.
+**Evidência: Código.**
 
 ### 7. Prontidão de Comunicação de Taxas
 
@@ -402,7 +420,9 @@ português como canônico e a sigla como sinônimo.
 
 ## Execução
 
-O plano derivado ainda não foi escrito. A ordem sugerida, quando for:
+O plano derivado está em
+[`../plans/2026-08-27-comunicacao-email-clientes.md`](../plans/2026-08-27-comunicacao-email-clientes.md),
+em três blocos, uma PR por bloco:
 
 1. **Fundação** — extração de `_shared/email.ts`, canal, trilha, supressão,
    Preferência de Recebimento, chave global, permissão, migrations.
@@ -411,15 +431,24 @@ O plano derivado ainda não foi escrito. A ordem sugerida, quando for:
 3. **Financeiro** — Prontidão de Comunicação de Taxas, resumo por viagem, Régua
    de Cobrança, colunas de estado, remoção de `notify-invoice-issued`.
 
-A remoção da `notify-invoice-issued` não é apagar o arquivo. A função tem
-**duas metades**: o e-mail ao cliente, que o comunicado financeiro substitui, e
-o `alerta_critico` interno enviado a `admin`, `administrativo` e `documentacao`
-quando a fatura sai sem Conta de Portal ativa
-(`supabase/functions/notify-invoice-issued/index.ts`). Só a primeira metade tem
-substituto nesta spec. A segunda precisa de destino explícito — Notificação
-Interna, Alerta, ou permanecer como está — decidido no plano derivado antes de
-qualquer remoção. Apagar a função inteira silenciaria um aviso interno vivo.
-**Evidência: Código.**
+**Nota editorial de 2026-08-27 — a `notify-invoice-issued` é apagada inteira.**
+Esta seção exigia dar destino explícito à metade interna da função, o
+`alerta_critico` enviado a `admin`, `administrativo` e `documentacao` quando a
+fatura sai sem Conta de Portal ativa, e afirmava que apagá-la silenciaria um
+aviso vivo. O plano derivado leu o código e as duas premissas caem:
+
+- **A metade interna nunca rodou.** O `alerta_critico` está dentro da função,
+  depois da autenticação do webhook. Sem Database Webhook e sem
+  `RESEND_API_KEY`, o webhook nunca dispara. É intenção dormente, não aviso vivo.
+- **A mesma condição já produz alerta.** `upsert_portal_invoice_exception()`
+  (migration `325`, herdando a `189`) roda por trigger na emissão e grava
+  `portal_excecao_critica_fatura` — "Invoice emitida sem Portal ativo ou email
+  de recuperação utilizável" —, com ciclo de vida completo e destino no B/L.
+
+A função é apagada por inteiro, e o alerta existente é o substituto. A única
+perda é de roteamento, não de visibilidade: todo perfil interno já **vê** o
+alerta (leitura interna é global, ADR 0044/0046), e o plano amplia
+`audience_departments` para incluir `administrativo`. **Evidência: Código.**
 
 Nenhuma etapa envia e-mail a cliente real antes de a conferência existir, e a
 chave global nasce desligada na etapa 1.
@@ -432,5 +461,9 @@ chave global nasce desligada na etapa 1.
   produto que é e-mail livre, não modelo (decisão 5).
 - O teto da Régua de Cobrança foi decidido depois de ser levantado como risco de
   entregabilidade; a alternativa sem teto foi considerada e descartada.
+- Três pontos foram corrigidos por notas editoriais de 2026-08-27, ao escrever o
+  plano derivado: a unidade do Aviso de Atracação (decisão 6), a ausência de
+  chave substituta da Escala (decisão 6) e o destino da `notify-invoice-issued`
+  (seção Execução).
 - `docs/RASTREABILIDADE.md` e `docs/ARCHITECTURE.md` foram corrigidos neste
   change para apontar esta spec como a reversão da decisão de 2026-06-24.
