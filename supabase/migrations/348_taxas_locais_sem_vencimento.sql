@@ -193,8 +193,9 @@ GRANT EXECUTE ON FUNCTION public.resolve_invoice_alerts_on_status_change() TO se
 
 -- ── 5. Retira due_date das funções que ainda o carregavam ─────────
 -- A edição é cirúrgica sobre a definição viva (mesmo recurso que a 292 usa para
--- clonar funções): cada substituição é verificada, e uma que não encontre o
--- alvo aborta a migration em vez de deixar a função intacta em silêncio.
+-- clonar funções): cada substituição é verificada quando a função ainda existe.
+-- Em branches que já receberam parte desta remoção, a assinatura antiga pode
+-- não existir mais; nesse caso não há nada para editar e a migration prossegue.
 CREATE OR REPLACE FUNCTION pg_temp.strip_due_date(
   p_signature TEXT,
   p_replacements TEXT[][]
@@ -203,11 +204,17 @@ RETURNS VOID
 LANGUAGE plpgsql
 AS $strip$
 DECLARE
+  v_proc REGPROCEDURE;
   v_def TEXT;
   v_before TEXT;
   i INTEGER;
 BEGIN
-  v_def := pg_get_functiondef(p_signature::regprocedure);
+  v_proc := to_regprocedure(p_signature);
+  IF v_proc IS NULL THEN
+    RETURN;
+  END IF;
+
+  v_def := pg_get_functiondef(v_proc);
   FOR i IN 1 .. array_length(p_replacements, 1) LOOP
     v_before := v_def;
     v_def := replace(v_def, p_replacements[i][1], p_replacements[i][2]);
