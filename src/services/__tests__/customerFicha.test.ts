@@ -6,8 +6,10 @@ vi.mock('../supabase', () => ({ supabase: { from: mockFrom, rpc: mockRpc } }))
 const { buildConsolidatedBalance, buildCustomerTimeline, fetchCustomerPendingReconciliation, fetchCustomerReceivables } = await import('../customerFicha')
 
 describe('buildConsolidatedBalance', () => {
-  it('soma local emitido não pago (emitida, vencida e parcial) + demurrage não pago', () => {
+  it('soma local emitido não pago (emitida e parcial) + demurrage não pago', () => {
     expect(buildConsolidatedBalance(
+      // 'overdue' saiu do domínio das taxas locais na 348 (#605): mesmo que uma
+      // linha histórica chegue com esse status, ela não entra no saldo.
       [
         { status: 'issued', balance_brl: 100 },
         { status: 'overdue', balance_brl: 300 },
@@ -16,7 +18,7 @@ describe('buildConsolidatedBalance', () => {
         { status: 'cancelled', balance_brl: 999 },
       ],
       [{ status: 'issued', current_total_brl: 50 }, { status: 'overdue', current_total_brl: 25 }, { status: 'paid', current_total_brl: 999 }, { status: 'cancelled', current_total_brl: 999 }],
-    )).toEqual({ localBrl: 440, demurrageBrl: 75, totalBrl: 515 })
+    )).toEqual({ localBrl: 140, demurrageBrl: 75, totalBrl: 215 })
   })
 })
 

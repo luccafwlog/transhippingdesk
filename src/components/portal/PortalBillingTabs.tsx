@@ -82,7 +82,6 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
                   <div className="text-xs text-[var(--app-muted)]">{(invoice.pods ?? []).join(' / ') || '—'}</div>
                 </td>
                 <td className="px-4 py-3">{formatDate(invoice.issued_at)}</td>
-                <td className="px-4 py-3">{formatDate(invoice.due_date)}</td>
                 <td className="px-4 py-3">
                   <div className="font-semibold">{formatBRL(invoice.total_brl)}</div>
                   <div className="text-xs text-[var(--app-muted)]">Saldo {formatBRL(invoice.balance_brl)}</div>

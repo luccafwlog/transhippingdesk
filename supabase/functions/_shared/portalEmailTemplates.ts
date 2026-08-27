@@ -178,14 +178,13 @@ export function emailChangeAlertTemplate(i: { portalUrl: string; supportEmail: s
   }
 }
 
-export function invoiceIssuedTemplate(i: { companyName: string; cnpjMasked: string; invoiceNumber: string; totalFormatted: string; dueDateFormatted: string; notes?: string | null; portalUrl: string; supportEmail: string }) {
+export function invoiceIssuedTemplate(i: { companyName: string; cnpjMasked: string; invoiceNumber: string; totalFormatted: string; notes?: string | null; portalUrl: string; supportEmail: string }) {
   const rows = [
     { label: 'Fatura nº', value: i.invoiceNumber },
     { label: 'Valor total', value: i.totalFormatted, emphasize: true },
-    { label: 'Vencimento', value: i.dueDateFormatted },
     ...(i.notes ? [{ label: 'Observações', value: i.notes }] : []),
   ]
-  const text = [`Nova fatura emitida para ${i.companyName} (CNPJ ${i.cnpjMasked}).`, `Fatura nº ${i.invoiceNumber} — ${i.totalFormatted}, vencimento ${i.dueDateFormatted}.`, '', `Acesse o Portal para consultar e pagar: ${i.portalUrl}`].join('\n')
+  const text = [`Nova fatura emitida para ${i.companyName} (CNPJ ${i.cnpjMasked}).`, `Fatura nº ${i.invoiceNumber} — ${i.totalFormatted}.`, '', `Acesse o Portal para consultar e pagar: ${i.portalUrl}`].join('\n')
   return {
     subject: `Fatura ${i.invoiceNumber} emitida — ${i.totalFormatted}`,
     text,

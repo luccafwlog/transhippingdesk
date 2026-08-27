@@ -1,6 +1,6 @@
 import { Badge } from '../components/ui/Badge'
 
-export const OPEN_INVOICE_STATUSES = ['issued', 'partially_paid', 'overdue', 'draft'] as const
+export const OPEN_INVOICE_STATUSES = ['issued', 'partially_paid', 'draft'] as const
 export const CLOSED_DEMURRAGE_STATUSES = ['paid', 'covered', 'cancelled', 'obsolete'] as const
 
 export const STATUS_GROUPS = {
@@ -20,7 +20,6 @@ export function renderDemurrageBadge(status: string | null) {
 export function renderInvoiceBadge(status: string | null) {
   if (status === 'paid' || status === 'covered') return <Badge tone="green">Pago</Badge>
   if (status === 'partially_paid') return <Badge tone="blue">Parcial</Badge>
-  if (status === 'overdue') return <Badge tone="yellow">Vencida</Badge>
   if (status === 'cancelled') return <Badge tone="slate">Cancelada</Badge>
   if (status === 'obsolete') return <Badge tone="slate">Obsoleta</Badge>
   if (status === 'draft') return <Badge tone="yellow">Draft</Badge>
@@ -29,7 +28,6 @@ export function renderInvoiceBadge(status: string | null) {
 
 export function portalInvoiceStatusLabel(status: string | null) {
   if (status === 'partially_paid') return 'Parcial'
-  if (status === 'overdue') return 'Vencida'
   if (status === 'cancelled') return 'Cancelada'
   if (status === 'obsolete') return 'Obsoleta'
   if (status === 'paid' || status === 'covered') return 'Paga'

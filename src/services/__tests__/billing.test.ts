@@ -21,7 +21,6 @@ import {
   isConsolidatedInvoice,
   listInvoices,
   registerInvoicePayment,
-  updateInvoiceDueDate,
 } from '../billing'
 import { buildInvoiceFileBaseName } from '../../components/shared/invoiceFormat'
 import type { InvoiceDetail, InvoiceFilters } from '../billing'
@@ -242,7 +241,6 @@ describe('createInvoiceFromBls', () => {
     const result = await createInvoiceFromBls({
       blIds: ['BL001'],
       customerId: 7,
-      dueDate: '2026-07-01',
       notes: 'obs',
       issueNow: false,
       actorId: 'user-1',
@@ -251,7 +249,6 @@ describe('createInvoiceFromBls', () => {
     expect(supabaseMocks.rpc).toHaveBeenCalledWith('create_invoice_from_bls_with_ledger', {
       p_bl_ids: ['BL001'],
       p_customer_id: 7,
-      p_due_date: '2026-07-01',
       p_notes: 'obs',
       p_issue_now: false,
       p_actor: 'user-1',
@@ -314,19 +311,6 @@ describe('registerInvoicePayment', () => {
   })
 })
 
-describe('updateInvoiceDueDate', () => {
-  it('chama o RPC de vencimento com invoice, data e ator', async () => {
-    supabaseMocks.rpc.mockResolvedValueOnce({ data: { ok: true }, error: null })
-
-    await updateInvoiceDueDate({ invoiceId: 4, dueDate: '2026-08-01', actorId: 'user-1' })
-
-    expect(supabaseMocks.rpc).toHaveBeenCalledWith('update_invoice_due_date', {
-      p_invoice_id: 4,
-      p_due_date: '2026-08-01',
-      p_actor: 'user-1',
-    })
-  })
-})
 
 describe('cancelInvoice', () => {
   it('chama o RPC cancel_invoice com payload exato', async () => {

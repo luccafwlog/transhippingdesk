@@ -2913,7 +2913,6 @@ export type Database = {
           covered_by_invoice_id: number | null
           created_at: string | null
           customer_id: number
-          due_date: string | null
           id: number
           invoice_number: string
           invoice_type: string
@@ -2939,7 +2938,6 @@ export type Database = {
           covered_by_invoice_id?: number | null
           created_at?: string | null
           customer_id: number
-          due_date?: string | null
           id?: number
           invoice_number: string
           invoice_type?: string
@@ -2965,7 +2963,6 @@ export type Database = {
           covered_by_invoice_id?: number | null
           created_at?: string | null
           customer_id?: number
-          due_date?: string | null
           id?: number
           invoice_number?: string
           invoice_type?: string
@@ -4586,7 +4583,6 @@ export type Database = {
           p_actor?: string
           p_bl_ids: string[]
           p_customer_id?: number
-          p_due_date?: string
           p_issue_now?: boolean
           p_notes?: string
         }
@@ -4597,7 +4593,6 @@ export type Database = {
           p_actor?: string
           p_bl_ids: string[]
           p_customer_id: number
-          p_due_date?: string
           p_issue_now?: boolean
           p_notes?: string
           p_origin?: string
@@ -4610,39 +4605,25 @@ export type Database = {
           p_actor?: string
           p_bl_ids: string[]
           p_customer_id?: number
-          p_due_date?: string
           p_issue_now?: boolean
           p_notes?: string
         }
         Returns: Json
       }
-      create_invoice_from_granite_bls:
-        | {
-            Args: {
-              p_actor?: string
-              p_customer_id?: number
-              p_due_date?: string
-              p_granite_bl_ids: string[]
-              p_notes?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_actor: string
-              p_customer_id: number
-              p_due_date: string
-              p_granite_bl_ids: string[]
-              p_issue_now: boolean
-              p_notes: string
-            }
-            Returns: Json
-          }
+      create_invoice_from_granite_bls: {
+        Args: {
+          p_actor?: string
+          p_customer_id?: number
+          p_granite_bl_ids: string[]
+          p_issue_now?: boolean
+          p_notes?: string
+        }
+        Returns: Json
+      }
       create_local_consolidated_invoice: {
         Args: {
           p_actor?: string
           p_customer_id: number
-          p_due_date?: string
           p_notes?: string
           p_receivable_ids: number[]
         }
@@ -4654,15 +4635,6 @@ export type Database = {
           p_customer_id: number
           p_origin?: string
           p_receivable_ids: number[]
-        }
-        Returns: Json
-      }
-      create_local_individual_invoice_from_receivable: {
-        Args: {
-          p_actor?: string
-          p_due_date?: string
-          p_notes?: string
-          p_receivable_id: number
         }
         Returns: Json
       }
@@ -4702,10 +4674,6 @@ export type Database = {
       detect_agency_report_deadline_missed: { Args: never; Returns: number }
       detect_agency_report_pending: { Args: never; Returns: number }
       detect_overdue_invoices: { Args: never; Returns: number }
-      update_invoice_due_date: {
-        Args: { p_actor?: string; p_due_date: string; p_invoice_id: number }
-        Returns: Json
-      }
       ensure_agency_departure_report: {
         Args: { p_port: string; p_voyage_id: number }
         Returns: string
@@ -4999,7 +4967,6 @@ export type Database = {
           p_actor?: string
           p_bl_id: string
           p_customer_id?: number
-          p_due_date?: string
           p_notes?: string
         }
         Returns: Json
@@ -5013,7 +4980,6 @@ export type Database = {
           p_actor?: string
           p_bl_ids: string[]
           p_customer_id: number
-          p_due_date?: string
           p_notes?: string
         }
         Returns: Json
@@ -5105,7 +5071,6 @@ export type Database = {
         Returns: {
           balance_brl: number
           bls: string[]
-          due_date: string
           id: number
           invoice_number: string
           invoice_type: string
@@ -6051,7 +6016,7 @@ export type CustomerListItem = Customer & {
 export type CustomerDetail = Customer & {
   customer_contacts?: CustomerContact[] | null
   bls?: Pick<BL, 'id' | 'consignee' | 'financial_status' | 'review_status' | 'created_at'>[] | null
-  invoices?: Pick<Invoice, 'id' | 'invoice_number' | 'issued_at' | 'due_date' | 'total_brl' | 'balance_brl' | 'status'>[] | null
+  invoices?: Pick<Invoice, 'id' | 'invoice_number' | 'issued_at' | 'total_brl' | 'balance_brl' | 'status'>[] | null
   invoices_access_denied?: boolean
 }
 
