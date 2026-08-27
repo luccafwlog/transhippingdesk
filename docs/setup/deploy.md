@@ -173,9 +173,10 @@ referenciar a coluna opcional, cria a coluna quando ela está ausente e converge
 branches persistentes que já registraram a 352 antes dessa proteção. A migration
 355 corrige, de forma controlada e idempotente, o nome histórico remoto da versão
 169 para que o rebase use o arquivo correto (`169_demurrage...`) e não tente
-reaplicar a policy da migration 170; migrations aplicadas não devem ser reescritas
-fora de uma migration explícita de reconciliação. A Vercel nunca executa migrations
-implicitamente.
+reaplicar a policy da migration 170. A migration 356 aplica a mesma reconciliação
+à versão 341, cujo nome histórico remoto também divergia do arquivo local;
+migrations aplicadas não devem ser reescritas fora de uma migration explícita de
+reconciliação. A Vercel nunca executa migrations implicitamente.
 
 ## Firebase rollback
 

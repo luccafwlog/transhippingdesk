@@ -72,6 +72,10 @@ const migration355 = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/355_reconcile_remote_migration_history.sql'),
   'utf8',
 )
+const migration356 = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/356_reconcile_atracacao_migration_history.sql'),
+  'utf8',
+)
 
 describe('reconciliação da coluna import_batches.created_at', () => {
   it('documenta o lock antes da validação e a guarda contra divergência', () => {
@@ -93,5 +97,13 @@ describe('reconciliação do histórico remoto de migrations', () => {
     expect(migration355).toContain("v_existing_name = 'demurrage_invoice_unique_active'")
     expect(migration355).toContain("v_existing_name <> 'voyage_route_ce_master_rls_active'")
     expect(migration355).toContain("SET name = 'demurrage_invoice_unique_active'")
+  })
+
+  it('protege a correção do identificador histórico da versão 341', () => {
+    expect(migration356).toContain("to_regclass('supabase_migrations.schema_migrations') IS NULL")
+    expect(migration356).toContain("WHERE version = '341'")
+    expect(migration356).toContain('v_existing_name IS NULL')
+    expect(migration356).toContain("v_existing_name = 'atracacao_datas_por_terminal'")
+    expect(migration356).toContain("SET name = 'atracacao_datas_por_terminal'")
   })
 })
