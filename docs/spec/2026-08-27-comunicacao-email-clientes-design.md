@@ -123,7 +123,10 @@ com o motivo — nunca com a base toda.
 
 O comunicado **institucional** não usa recorte de carga. Ele é um modo separado
 e explícito sobre o conjunto **Cliente Comunicável**: cliente com ao menos um
-B/L nos últimos 12 meses **e** ao menos um contato com e-mail. Filtro limpo
+B/L nos últimos 12 meses **e** ao menos um contato com e-mail. A janela de doze
+meses é medida pelo **ETA da Escala** do B/L, não por data de cadastro nem por
+data de emissão do conhecimento: mede quando houve operação, e um B/L já
+cadastrado para viagem futura conta, porque o cliente está ativo. Filtro limpo
 nunca dispara para a base inteira — o alcance amplo é uma escolha visível.
 
 O termo "manifesto" citado na issue foi retirado: não existe manifesto de
@@ -150,8 +153,8 @@ comunicado institucional.
 
 | Modelo | Origem do texto | Anexo | Categoria |
 |---|---|---|---|
-| Aviso de Chegada (NOA) | Fixo no código, versionado em PR | Não | Operacional |
-| Aviso de Atracação (NOR) | Fixo no código, versionado em PR | Não | Operacional |
+| Aviso de Chegada (NOA) | Fixo no código, versionado em PR | Sim | Operacional |
+| Aviso de Atracação (NOR) | Fixo no código, versionado em PR | Sim | Operacional |
 | Resumo de taxas locais | Fixo no código | Não | Financeiro |
 | Cobrança de Demurrage | Fixo no código | Não | Financeiro |
 | Institucional | Livre, salvável como modelo reutilizável | Sim | Institucional |
@@ -162,6 +165,14 @@ editáveis em produção convida a um NOA sem ETA. Ficam no padrão de
 `supabase/functions/_shared/portalEmailTemplates.ts`.
 
 O "aviso de atraso" citado na issue **não** é modelo próprio: é e-mail livre.
+
+NOA e NOR saem em **inglês** — são documentos de mercado marítimo. Todos os
+demais comunicados saem em pt-BR.
+
+**Nota editorial de 2026-08-27** (plano derivado): a tabela marcava "Anexo: Não"
+para NOA e NOR. O produto decidiu o contrário — os dois aceitam anexo. Isso não
+fere o invariante 6, que proíbe anexo e PIX apenas no comunicado **financeiro**;
+ver a nota da decisão 12.
 
 Todos os modelos renderizam **por cliente**, com variáveis de navio, viagem,
 escala, datas e B/Ls do próprio destinatário.
@@ -181,12 +192,37 @@ a Escala é dona de ETA e ATA, a Atracação é dona de ETB, ATB, ETD e ATD.
 Ancorar o NOR na Escala colapsaria os dois terminais num comunicado só, que é o
 mesmo erro que esta decisão existe para evitar, um nível abaixo.
 
-**Nota editorial de 2026-08-27** (plano derivado): a redação anterior dizia
-"ambos são por escala" no título e "ATB da Atracação" no corpo. A leitura do
-schema forçou a distinção acima. A Escala, além disso, **não tem chave
-substituta**: é o par `(Viagem, porto)` projetado de
-`voyages.pod_schedule_snapshot`, e é esse par que serve de âncora do NOA.
-**Evidência: Código.**
+**O Aviso de Chegada é antecipatório e comunica o ETA.** Ele sai **cinco dias
+antes do ETA** da Escala, informando essa previsão. Não é o ATA: quando o ATA
+existe, o navio já chegou e o aviso perdeu a função. O Aviso de Atracação é o
+único reativo, disparado no dia da atracação com a data e hora do ATB.
+
+| Aviso | Unidade | Data que comunica | Quando sai |
+|---|---|---|---|
+| Aviso de Chegada (NOA) | Escala | ETA da Escala | ETA − 5 dias |
+| Aviso de Atracação (NOR) | Atracação | ATB da Atracação | Dia da atracação |
+
+**ETA que muda depois do envio não refaz nada.** O Comunicado informa o ETA
+vigente no disparo e encerra. O reenvio manual continua disponível pela
+confirmação da decisão 10, que incrementa o discriminador, mas o sistema não
+cobra nem dispara sozinho.
+
+Como o Aviso de Chegada é uma contagem regressiva contra data futura, ninguém
+percebe sozinho que faltam cinco dias: o plano derivado cria os alertas
+`comunicado_noa_pendente` e `comunicado_nor_pendente` para cobrar os dois
+disparos.
+
+**Notas editoriais de 2026-08-27** (plano derivado), três correções nesta
+decisão:
+
+1. A redação anterior dizia "ambos são por escala" no título e "ATB da
+   Atracação" no corpo. A leitura do `CONTEXT.md` forçou a distinção acima entre
+   as duas unidades.
+2. A redação anterior dizia "Chegada é ATA da Escala". Está errado: confirmado
+   com o produto que o NOA sai cinco dias **antes** do ETA e comunica o ETA.
+3. A Escala **não tem chave substituta**: é o par `(Viagem, porto)` projetado de
+   `voyages.pod_schedule_snapshot`, e é esse par que serve de âncora do NOA.
+   **Evidência: Código.**
 
 ### 7. Prontidão de Comunicação de Taxas
 
@@ -234,7 +270,9 @@ recalculado no dia do pagamento. Link para o Portal, sem PIX e sem anexo.
   cobrança como se fosse nova.
 - Repete a cada **5 dias** enquanto a cobrança não for paga.
 - Intervalo **e teto de envios** são configuráveis na tela do módulo, por
-  Administrativo — não por disparo, para não virar decisão de cada operador.
+  Administrativo — não por disparo, para não virar decisão de cada operador. Os
+  valores de fábrica são **5 dias** e **6 envios**, ou seja trinta dias de
+  cobrança automática antes de a fatura virar pendência interna.
 - Atingido o teto, a régua **para** e a cobrança vira pendência interna. Régua
   sem teto gera dezenas de e-mails ao mesmo endereço a partir de `portal@`; a
   reclamação do destinatário pune o domínio inteiro, derrubando junto os
@@ -301,8 +339,14 @@ justificativa. O glossário já distingue os dois.
 
 ### 12. Anexos
 
-Só o comunicado **sem modelo fixo** (institucional e livre) aceita anexo. Isso
-mantém o financeiro livre do padrão que golpes imitam.
+Todo comunicado aceita anexo, **exceto o financeiro** — resumo de taxas locais e
+cobrança de Demurrage. Isso mantém o financeiro livre do padrão que golpes
+imitam, que é a única razão da restrição existir.
+
+**Nota editorial de 2026-08-27** (plano derivado): esta decisão restringia o
+anexo ao institucional e ao livre. O produto liberou NOA e NOR, que são
+operacionais, não financeiros. A proibição que sobra é só a do financeiro, e o
+invariante 6 continua intacto.
 
 - Tipos e teto copiam o bucket já validado: `application/pdf`, `image/jpeg`,
   `image/png`, `text/plain`, 10 MB.
@@ -461,9 +505,13 @@ chave global nasce desligada na etapa 1.
   produto que é e-mail livre, não modelo (decisão 5).
 - O teto da Régua de Cobrança foi decidido depois de ser levantado como risco de
   entregabilidade; a alternativa sem teto foi considerada e descartada.
-- Três pontos foram corrigidos por notas editoriais de 2026-08-27, ao escrever o
-  plano derivado: a unidade do Aviso de Atracação (decisão 6), a ausência de
-  chave substituta da Escala (decisão 6) e o destino da `notify-invoice-issued`
-  (seção Execução).
+- Cinco pontos foram corrigidos por notas editoriais de 2026-08-27, ao escrever
+  o plano derivado e na rodada de perguntas ao produto que o precedeu: a unidade
+  do Aviso de Atracação e a ausência de chave substituta da Escala (decisão 6),
+  a âncora do Aviso de Chegada no ETA e não no ATA (decisão 6), o anexo em NOA e
+  NOR (decisões 5 e 12) e o destino da `notify-invoice-issued` (seção Execução).
+- O idioma dos avisos operacionais, os valores de fábrica da Régua e a janela do
+  Cliente Comunicável foram definidos na mesma rodada e estão registrados nas
+  decisões 5, 9 e 3.
 - `docs/RASTREABILIDADE.md` e `docs/ARCHITECTURE.md` foram corrigidos neste
   change para apontar esta spec como a reversão da decisão de 2026-06-24.

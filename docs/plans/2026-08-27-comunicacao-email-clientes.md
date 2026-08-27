@@ -12,8 +12,8 @@ global) e
 o cliente".
 
 A spec é a fonte das decisões **funcionais**; este plano decide **como e em que
-ordem** implementá-las, e registra o que a leitura do código obrigou a corrigir
-na spec.
+ordem** implementá-las, e registra o que a leitura do código e a rodada de
+perguntas ao produto obrigaram a corrigir nela.
 
 ## Problema
 
@@ -33,21 +33,26 @@ comunicado — a Edge Function `notify-invoice-issued` — está morta desde sem
 | **Preferência de Recebimento** | `(contato, categoria)` | Cadastro do contato |
 | **Chave de envio do canal** | linha única de configuração | Migration, `false` |
 
-Âncora por tipo de comunicado — este é o ponto que a leitura do schema obrigou a
-fixar antes de qualquer código:
+### Âncora, data e gatilho por comunicado
 
-| Comunicado | Âncora | Chave real no banco |
-|---|---|---|
-| Aviso de Chegada (NOA) | Escala | `(voyage_id, port)` — a Escala **não tem chave substituta** |
-| Aviso de Atracação (NOR) | Atracação | `voyage_escala_terminal_state.id` |
-| Resumo de taxas locais | Viagem | `voyages.id` |
-| Cobrança de Demurrage | Fatura | `demurrage_invoices.id` |
-| Institucional / livre | Disparo | id do próprio disparo |
+Fixado depois da rodada de perguntas ao produto — é o que mais mudou em relação
+à spec original.
 
-## Correções à spec exigidas pela leitura do código
+| Comunicado | Âncora | Chave no banco | Data que comunica | Quando dispara |
+|---|---|---|---|---|
+| Aviso de Chegada (NOA) | Escala | `(voyage_id, port)` — a Escala **não tem chave substituta** | **ETA** da Escala | **ETA − 5 dias** |
+| Aviso de Atracação (NOR) | Atracação | `voyage_escala_terminal_state.id` | **ATB** da Atracação | Dia da atracação, quando o ATB entra |
+| Resumo de taxas locais | Viagem | `voyages.id` | — | Manual, após a Prontidão |
+| Cobrança de Demurrage | Fatura | `demurrage_invoices.id` | — | `first_billed_at`, depois a cada 5 dias |
+| Institucional / livre | Disparo | id do próprio disparo | — | Manual |
 
-Três pontos da spec não sobrevivem ao código como estão. As correções entram no
-mesmo change deste plano.
+Os dois avisos operacionais saem em **inglês**; todo o resto em **pt-BR**.
+
+## Correções à spec
+
+Cinco pontos da spec não sobrevivem ao código ou à definição operacional dos
+avisos. As correções entram no mesmo change deste plano, como notas editoriais
+na spec.
 
 ### C1 — A metade interna da `notify-invoice-issued` já tem substituto vivo
 
@@ -68,44 +73,76 @@ decidir o destino do `alerta_critico` antes da remoção. Ambas as premissas cae
    vida completo: fecha sozinha quando o gate passa, tem dispensa temporária e
    abre em `/manifestos/{bl}?tab=faturamento`.
 
-**Decisão:** a `notify-invoice-issued` é apagada **inteira** na T15, e
+**Decisão:** a `notify-invoice-issued` é apagada **inteira** na T17, e
 `portal_excecao_critica_fatura` é registrado como o substituto que já existia
-antes da spec. Manter a função pela metade interna ressuscitaria um caminho de
-e-mail morto e exigiria provisionar `RESEND_API_KEY` para duplicar um alerta
-existente; convertê-la em Notificação Interna é redundante, porque o alerta já
-alimenta o sino pelo roteamento. **Evidência: Código.**
+antes da spec. **Evidência: Código.**
 
 A única perda real é de **roteamento**, não de visibilidade: a função morta
 mirava `admin`, `administrativo` e `documentacao`, e o alerta tem
 `audience_departments = ['documentacao']`. Todos os perfis internos continuam
-**vendo** o alerta na fila (leitura interna é global — ADR 0044/0046); só a
-notificação ativa é de Documentação. A T15 amplia a audiência para
-`['documentacao','administrativo']`, preservando o alcance pretendido.
+**vendo** o alerta na fila (leitura interna é global — ADR 0044/0046). A T17
+amplia a audiência para `['documentacao','administrativo']`.
 
 ### C2 — NOR é ancorado na Atracação, não na Escala
 
 A decisão 6 da spec tem por título "Aviso de Chegada e Aviso de Atracação são
-**por escala**", mas o próprio corpo diz "atracação é ATB da Atracação", e o
-glossário registra Aviso de Atracação como "sempre por Atracação". O
-`CONTEXT.md` é inequívoco: a Escala é dona de ETA e ATA; a Atracação é dona de
-ETB, ATB, ETD e ATD. Uma Escala com dois terminais tem **duas** Atracações e
-dois ATBs — ancorar o NOR na Escala colapsaria os dois num comunicado só, que é
-exatamente o erro que a decisão 6 existe para evitar.
+**por escala**", mas o glossário registra Aviso de Atracação como "sempre por
+Atracação". O `CONTEXT.md` é inequívoco: a Escala é dona de ETA e ATA; a
+Atracação é dona de ETB, ATB, ETD e ATD. Uma Escala com dois terminais tem
+**duas** Atracações e dois ATBs — ancorar o NOR na Escala colapsaria os dois num
+comunicado só.
 
 **Decisão:** NOA ancora na Escala `(voyage_id, port)`; NOR ancora na Atracação
-(`voyage_escala_terminal_state.id`). A spec é corrigida no título da decisão 6.
+(`voyage_escala_terminal_state.id`).
 
 ### C3 — A Escala não tem chave substituta
 
 A Escala não é tabela: é o par `(Viagem, porto)` projetado de
-`voyages.pod_schedule_snapshot` (JSONB por porto, com `eta` e `ata`, desde
+`voyages.pod_schedule_snapshot` (JSONB por porto, desde
 `046_voyage_schedule_snapshot_trigger.sql`). Não há `escala_id` a referenciar.
 
 **Consequência:** a âncora do NOA é a coluna par `(voyage_id, port)`, com FK só
-em `voyage_id`, e o `port` validado por CHECK de não-vazio. É a mesma identidade
-que o `CONTEXT.md` já atribui à Escala ("identificada por `(Viagem, porto)`"), e
-a mesma que `voyage_escala_terminal_state` usa. Nenhuma tabela nova de Escala
-entra por causa deste módulo. **Evidência: Código.**
+em `voyage_id` e o `port` validado por CHECK de não-vazio. É a mesma identidade
+que o `CONTEXT.md` atribui à Escala e que `voyage_escala_terminal_state` usa.
+Nos alertas da T14 o par reusa o `entity_type = 'voyage_pod_schedule'` já
+existente (migration `342`), sem inventar entidade nova. **Evidência: Código.**
+
+### C4 — O NOA comunica o ETA, não o ATA, e sai antes da chegada
+
+A spec e a primeira versão deste plano diziam "Chegada é ATA da Escala". Está
+errado. Confirmado com o produto:
+
+> NOA = Notice of Arrival, enviado **5 dias antes do ETA**, informando o ETA.
+> NOR = Notice of Readiness, enviado **no dia da atracação**, informando data e
+> hora da atracação.
+
+O NOA é **antecipatório**. O ATA é a chegada consumada — quando ele existe, o
+navio já chegou e o aviso perdeu a função. A variável do NOA é o **ETA da
+Escala**, e o gatilho é uma contagem regressiva contra data futura, não uma
+reação a dado que entrou. Só o NOR é reativo, ao ATB.
+
+Isso troca a fonte de dados do template (`pod_schedule_snapshot[port].eta`, não
+`.ata`) e é o que motiva os alertas da T14: sem eles, ninguém é avisado de que
+faltam cinco dias para um ETA.
+
+**ETA que muda depois do NOA enviado: o sistema não faz nada.** Decisão do
+produto. O NOA informa o ETA vigente no disparo e encerra. O reenvio manual
+continua possível pelo caminho de confirmação da T10 — que incrementa o
+discriminador —, mas ninguém é cobrado a fazê-lo.
+
+### C5 — NOA e NOR aceitam anexo
+
+A decisão 5 da spec marca "Anexo: Não" para NOA e NOR, e a decisão 12 restringe
+anexo ao institucional e ao livre. O produto decidiu o contrário para os dois
+avisos operacionais.
+
+**Isso não fere o invariante 6**, que proíbe anexo e PIX no comunicado
+**financeiro** — resumo de taxas locais e cobrança de Demurrage seguem sem
+anexo, sem PIX e sem exceção. A restrição existe para manter o financeiro longe
+do padrão que golpes de boleto imitam, e NOA/NOR não são financeiros.
+
+**Consequência:** o único comunicado que continua proibido de anexar é o
+financeiro. As decisões 5 e 12 da spec são corrigidas.
 
 ---
 
@@ -123,22 +160,24 @@ duas coisas específicas do Portal — grava em `portal_email_attempts` com
 `account_id`/`invite_id`, e consulta `portal_suppressed_emails`.
 
 Extrair para `_shared/email.ts` um `sendEmail()` que recebe a mecânica e delega
-o resto por dois callbacks:
+o resto por callbacks:
 
 - `checkSuppression(to): Promise<{ suppressed: boolean; reason?: string }>`
 - `recordAttempt(...)` / `updateAttempt(...)`
+- remetente e `reply-to` como parâmetros, não lidos de env fixo dentro do módulo
 
 `portalEmail.ts` passa a ser consumidor: mantém a assinatura
-`sendPortalEmail(input)` intacta e implementa os dois callbacks contra as
-tabelas do Portal. **Nenhuma função do Portal muda de comportamento.**
+`sendPortalEmail(input)` intacta e implementa os callbacks contra as tabelas do
+Portal, com `PORTAL_FROM_EMAIL` e `PORTAL_REPLY_TO`. **Nenhuma função do Portal
+muda de comportamento.**
 
 **Atenção — a supressão de hoje ignora o motivo.** A consulta atual é
 `from('portal_suppressed_emails').select('id').eq('email', ...)`: qualquer linha
 bloqueia, sem olhar `reason`. Para o Portal isso está certo e continua. O canal
 de Comunicado precisa do contrário (só `bounce_permanente` é compartilhado — ADR
 0056), e é por isso que a supressão sai como callback em vez de ficar embutida.
-Embutir a regra do Portal no módulo compartilhado quebraria o invariante 7 da
-spec de forma silenciosa.
+Embutir a regra do Portal no módulo compartilhado quebraria o invariante 7 de
+forma silenciosa.
 
 **Check:** teste do `sendEmail()` com um duplo falso de callbacks afirmando
 (a) que o backoff só ocorre nos status transitórios `{429,500,502,503,504}`,
@@ -153,17 +192,18 @@ Tabelas do canal:
   `kind` (`aviso_chegada`, `aviso_atracacao`, `resumo_taxas_locais`,
   `cobranca_demurrage`, `institucional`, `livre`), `category`
   (`operacional`, `financeiro`, `institucional`), `anchor_voyage_id`,
-  `anchor_port`, `anchor_atracacao_id`, `anchor_invoice_id`, `attempt_discriminator`
-  INT NOT NULL DEFAULT 0, `status` (`enviado`, `simulado`, `falha`),
-  `dispatch_id`, `created_by`, `created_at`.
+  `anchor_port`, `anchor_atracacao_id`, `anchor_invoice_id`,
+  `attempt_discriminator` INT NOT NULL DEFAULT 0, `status` (`enviado`,
+  `simulado`, `falha`), `dispatch_id`, `created_by`, `created_at`.
 - `customer_communication_bls` — o Vínculo do Comunicado, espelhando
   `invoice_bls`. PK composta `(communication_id, bl_id)`.
 - `customer_communication_attempts` — a trilha, no molde de
   `portal_email_attempts`: `recipient_masked`, `status`, `retry_count`,
   `provider_message_id`, `last_error`, `idempotency_key`.
 - `customer_communication_suppressions` — supressão **do canal**, só para
-  `complaint`. `bounce_permanente` **não** entra aqui: é lido de
-  `portal_suppressed_emails`, compartilhado (ADR 0056).
+  `complaint`. `bounce_permanente` **não** entra aqui: é lido e escrito em
+  `portal_suppressed_emails`, compartilhado (ADR 0056). A caixa não existir é
+  fato da caixa, não opinião de canal.
 - `customer_contact_preferences` — `(contact_id, category)` com `enabled`
   BOOLEAN NOT NULL DEFAULT true.
 - `app_settings` — a primeira tabela de configuração global do projeto. Linha
@@ -174,17 +214,17 @@ Tabelas do canal:
 Regras que a migration carrega:
 
 - **Índice único da idempotência:** `UNIQUE (kind, customer_id, anchor_voyage_id,
-  anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator)`.
-  Com `NULLS NOT DISTINCT` — sem isso o Postgres trata cada NULL de âncora como
-  distinto e a chave não protege nada, que é o mesmo defeito que a migration
-  `341` corrigiu com índice parcial. **Este é o ponto onde o duplo clique morre.**
+  anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator)`
+  com `NULLS NOT DISTINCT`. Sem isso o Postgres trata cada NULL de âncora como
+  distinto e a chave não protege nada — o mesmo defeito que a migration `341`
+  corrigiu com índice parcial. **É onde o duplo clique morre.**
 - **Backfill das preferências:** toda linha de `customer_contacts` existente
   ganha as três categorias ligadas, e um trigger `AFTER INSERT` faz o mesmo para
-  contatos novos. Contato novo nasce com as três ligadas (spec, decisão 2).
+  contatos novos (spec, decisão 2).
 - **RLS:** leitura pelos perfis internos ativos via `is_active_read_user()`;
-  escrita de comunicado só por `service_role` (o disparo passa por RPC/Edge). A
-  escrita de `app_settings.communications_enabled` é restrita a
-  `administrativo` — guarda **de servidor**, não de tela (ADR 0057).
+  escrita de comunicado só por `service_role`. A escrita de
+  `app_settings.communications_enabled` é restrita a `administrativo` — guarda
+  **de servidor**, não de tela (ADR 0057).
 - Regenerar `src/types/database.ts` (arquivo protegido — ver
   `.claude/hooks/protect-files.sh`).
 
@@ -192,8 +232,9 @@ Sem backfill de comunicados: o canal nasce vazio.
 
 **Check:** teste de contrato SQL `comunicadosFundacaoMigration.test.ts` afirmando
 o `NULLS NOT DISTINCT` no índice único, o default `false` de
-`communications_enabled`, o `CHECK (id = 1)` de `app_settings`, e que a policy de
-escrita de `communications_enabled` nomeia `administrativo`.
+`communications_enabled`, o `6` de `demurrage_dunning_max_sends`, o
+`CHECK (id = 1)` de `app_settings`, e que a policy de escrita de
+`communications_enabled` nomeia `administrativo`.
 
 ### T3 — Permissão `customer_communications`
 
@@ -209,8 +250,7 @@ case 'equipamentos': return false
 
 Trocar o `return false` no lugar concede a permissão a `operacoes` junto, em
 silêncio. A edição correta mantém `case 'operacoes': return false` como ramo
-próprio e dá a `equipamentos` um ramo separado. Ver ADR 0058, seção
-Consequências.
+próprio e dá a `equipamentos` um ramo separado. Ver ADR 0058, Consequências.
 
 **Check:** matriz em `src/hooks/__tests__/roleHasPermission.test.ts` cobrindo os
 sete papéis contra a nova permissão, com asserção **explícita** de que
@@ -252,6 +292,44 @@ importadores e lido como `'faturamento'` no perfil do Portal (spec, decisão 2).
 **Check:** teste de comportamento — desligar Financeiro num contato não altera
 `purpose` nem as outras duas categorias.
 
+### T7 — Bounce e complaint do canal no `portal-email-webhook`
+
+**Furo encontrado ao ler o código, não previsto na spec.** O webhook
+(`supabase/functions/portal-email-webhook/index.ts`) resolve o evento assim:
+
+```ts
+const { data: attempt } = await admin.from('portal_email_attempts')
+  .select('id').eq('provider_message_id', event.data.email_id ?? '').maybeSingle()
+if (!attempt) return new Response(null, { status: 200 })
+```
+
+Um bounce de **Comunicado** não tem linha em `portal_email_attempts` — a
+tentativa está em `customer_communication_attempts`. O webhook não acha, devolve
+`200` e o evento **é descartado em silêncio**: nenhuma supressão gravada,
+nenhum status atualizado, nenhum alerta.
+
+Isso quebraria o invariante 7 pela metade: bounce do Portal suprimiria os dois
+canais, e bounce do Comunicado não suprimiria nada. O canal insistiria para
+sempre numa caixa inexistente, a partir do mesmo remetente `portal@` — o dano
+exato que a ADR 0056 usa para justificar compartilhar o `bounce_permanente`.
+
+Estender o webhook para procurar nas duas trilhas: não achando em
+`portal_email_attempts`, procurar em `customer_communication_attempts`. Achando
+lá, atualizar o status, e então:
+
+- `bounce` permanente → `portal_suppressed_emails` (compartilhado, ADR 0056);
+- `complaint` → `customer_communication_suppressions` (só o canal).
+
+A dedup por `provider_event_id` em `portal_email_events` já é genérica e serve
+aos dois; a `attempt_id` daquela tabela referencia `portal_email_attempts`, então
+o vínculo do evento de Comunicado precisa de coluna própria ou de nulidade
+explícita — decidir na migration, não no código.
+
+**Check:** teste afirmando que um `email.bounced` permanente de uma tentativa de
+Comunicado grava em `portal_suppressed_emails`, que um `email.complained` do
+mesmo grava só em `customer_communication_suppressions`, e que um evento sem
+tentativa em nenhuma das duas continua devolvendo `200` sem efeito.
+
 **Encerra o Bloco 1.** PR própria.
 
 ---
@@ -261,7 +339,7 @@ importadores e lido como `'faturamento'` no perfil do Portal (spec, decisão 2).
 Primeira etapa com tela. A chave global continua desligada: todo disparo deste
 bloco é registrado como **simulado** até alguém de Administrativo ligar.
 
-### T7 — Rota e casca do módulo
+### T8 — Rota e casca do módulo
 
 `/clientes/comunicacao`, atrás de `customer_communications`, registrada em
 `src/App.tsx` (lista de preload e `<Route>`), `src/lib/pageTitle.ts` e no
@@ -273,7 +351,7 @@ serão registrados como simulados (ADR 0057). Não é banner dispensável.
 **Check:** `AdminRoutingFailures.test.tsx` — perfil sem a permissão não alcança a
 rota; teste de render afirmando a faixa com a chave desligada.
 
-### T8 — Recorte de Destinatários
+### T9 — Recorte de Destinatários
 
 Filtros combinados em **E**: navio, viagem, escala, POD, POL, CNPJ. Todos
 existem em `bls` (`voyage_id`, `pod`, `pol`, `customer_id`) — nenhuma coluna
@@ -281,13 +359,21 @@ nova. CNPJ **restringe**, nunca adiciona.
 
 **O modo carga exige ao menos um filtro de carga.** CNPJ sozinho não serve.
 Filtro vazio devolve conferência **vazia com motivo**, nunca a base inteira
-(invariante 3). Modo institucional é separado e explícito, sobre o conjunto
-Cliente Comunicável (≥1 B/L nos últimos 12 meses **e** ≥1 contato com e-mail).
+(invariante 3).
+
+Modo institucional é separado e explícito, sobre o conjunto **Cliente
+Comunicável**: ao menos um contato com e-mail **e** ao menos um B/L cuja viagem
+tenha **ETA nos últimos 12 meses**. A janela é medida pelo ETA da Escala do B/L
+(`pod_schedule_snapshot`), não por `created_at` nem por `bl_emission_date` —
+mede quando houve operação, não quando alguém digitou, e um B/L já cadastrado
+para viagem futura conta, porque o cliente está ativo.
 
 **Check:** teste afirmando que recorte sem filtro de carga devolve vazio com
-motivo — e **não** todos os B/Ls. É o invariante 3 e merece teste dedicado.
+motivo — e **não** todos os B/Ls (invariante 3); e que o Cliente Comunicável
+inclui um cliente com viagem futura e exclui um cuja última viagem passou de 12
+meses.
 
-### T9 — Conferência
+### T10 — Conferência
 
 Contagem de clientes e e-mails; por cliente, contatos que recebem e contatos
 excluídos com motivo; clientes bloqueados com razão; prévia renderizada de um
@@ -303,40 +389,59 @@ da T2 — comportamento desejado.
 (invariante 2); confirmar reenvio incrementa o discriminador, e um segundo
 disparo sem confirmação não incrementa.
 
-### T10 — Modelos NOA e NOR
+### T11 — Modelos NOA e NOR
 
 Em `supabase/functions/_shared/`, no padrão de `portalEmailTemplates.ts`: fixos
 no código, versionados em PR, renderizados **por cliente** com navio, viagem,
 escala, datas e os B/Ls do próprio destinatário.
 
-NOA lê a ATA da Escala (`voyages.pod_schedule_snapshot[port].ata`); NOR lê o ATB
-da Atracação (`voyage_escala_terminal_state.terminal_atb`). Âncoras conforme C2 e
-C3.
+- **NOA** lê o **ETA** da Escala (`pod_schedule_snapshot[port].eta`) — não o
+  ATA (C4).
+- **NOR** lê o **ATB** da Atracação (`voyage_escala_terminal_state.terminal_atb`).
+- Os dois saem em **inglês**; todo o resto do canal em pt-BR.
+
+**O texto final vem do produto.** Esta task entrega a estrutura, as variáveis, a
+renderização por cliente e os testes; a redação entra quando o produto mandar o
+material. Fazer o inverso — inventar a redação de documentos com peso
+quase-contratual e depois trocar — é o caminho para um NOA em produção com voz
+que a agência não pratica. **Esta é a última task do Bloco 2 a fechar.**
 
 **Check:** teste de template — NOA de uma viagem com dois portos não vaza o
 outro porto; NOR de uma escala com dois terminais gera dois comunicados
-distintos, não um.
+distintos, não um; NOA renderiza o ETA e **não** referencia ATA.
 
-### T11 — Comunicado institucional, livre e anexos
+### T12 — Anexos
 
-Editor livre; institucional salvável como modelo reutilizável. Bucket privado
-`customer-communications` no molde de `demurrage-disputes` (migration `325`):
-`application/pdf`, `image/jpeg`, `image/png`, `text/plain`, 10 MB, **até 3
-arquivos somando 10 MB**. Anexo vai como bytes na mensagem — o destinatário não
-está autenticado e não abriria bucket privado — e é persistido para o histórico.
+Bucket privado `customer-communications` no molde de `demurrage-disputes`
+(migration `325`): `application/pdf`, `image/jpeg`, `image/png`, `text/plain`,
+10 MB, **até 3 arquivos somando 10 MB**. Anexo vai como bytes na mensagem — o
+destinatário não está autenticado e não abriria bucket privado — e é persistido
+para o histórico.
 
-Migration `350_comunicados_anexos.sql` para bucket, policies e a tabela de
-modelos salvos.
+**Aceitam anexo:** institucional, livre, **NOA e NOR** (C5). **Não aceitam:**
+resumo de taxas locais e cobrança de Demurrage — o comunicado financeiro nunca
+leva anexo nem PIX (invariante 6), e essa é a única proibição que sobra.
+
+Editor livre; institucional salvável como modelo reutilizável. Migration
+`350_comunicados_anexos.sql` para bucket, policies e a tabela de modelos salvos.
 
 **Check:** teste de contrato SQL das policies do bucket; teste de validação
-rejeitando o 4º arquivo e a soma acima de 10 MB.
+rejeitando o 4º arquivo e a soma acima de 10 MB; teste afirmando que um
+comunicado financeiro com anexo é **rejeitado**.
 
-### T12 — Envio e Edge Function `send-customer-communication`
+### T13 — Envio e Edge Function `send-customer-communication`
 
 Consumidora do `_shared/email.ts` da T1, com os callbacks do canal:
 `checkSuppression` lendo `bounce_permanente` de `portal_suppressed_emails`
 **e** `complaint` de `customer_communication_suppressions`; `recordAttempt`
 gravando em `customer_communication_attempts`.
+
+Remetente `portal@` (identidade compartilhada, ADR 0056) e **`reply-to` próprio
+do canal**, em `COMMUNICATIONS_REPLY_TO` — variável nova, distinta do
+`PORTAL_REPLY_TO`. Resposta a um NOA é conversa operacional ("o navio atrasou?",
+"meu B/L está nessa escala?"); cair no suporte do Portal, que trata acesso e
+senha, atrasa o cliente e polui a caixa errada. Documentar a variável em
+`docs/setup/deploy.md`.
 
 **Um e-mail por cliente, sempre** — nunca dois clientes no mesmo `to:`
 (invariante 1), inclusive no institucional. Com a chave desligada, grava
@@ -346,7 +451,35 @@ gravando em `customer_communication_attempts`.
 `simulado` sem chamada à Resend, e que o Portal continua enviando na mesma
 condição (as duas metades do invariante 4).
 
-### T13 — Superfícies de histórico
+### T14 — Alertas de NOA e NOR pendentes
+
+Sem isto o módulo só funciona se alguém lembrar — e o NOA esquecido é a falha
+que a issue #556 quer eliminar. O NOA em especial é uma contagem regressiva
+contra data futura: ninguém "vê" que faltam cinco dias (C4).
+
+Dois tipos novos no catálogo, no padrão da migration `342` e de
+`src/services/alertRulesCatalog.ts`, reusando as entidades que já existem:
+
+| Tipo | Entidade | Abre quando | Fecha quando |
+|---|---|---|---|
+| `comunicado_noa_pendente` | `voyage_pod_schedule` | `ETA − 5 dias` alcançado e nenhum NOA enviado para a Escala | NOA enviado, ou escala omitida/apagada |
+| `comunicado_nor_pendente` | `voyage_escala_terminal` | ATB informado e nenhum NOR enviado para a Atracação | NOR enviado, ou atracação apagada |
+
+`responsible: 'documentacao'`, severidade `normal`, destino
+`/clientes/comunicacao`. Fechamento **pela origem**, como manda a ADR 0053 —
+não há fechamento manual —, com dispensa temporária no padrão do catálogo.
+Migration `351_comunicado_alertas.sql`, com o produtor no runner unificado
+(`332_unified_alerts_runner.sql`).
+
+Escala **omitida** não gera NOA pendente: o navio não atraca lá. A migration
+`342` já trata omissão e apagamento por `audit_logs` — reusar o mesmo filtro,
+não reimplementar.
+
+**Check:** teste de contrato SQL — escala com ETA a 6 dias não abre alerta e a 5
+dias abre; escala omitida nunca abre; NOA enviado fecha o alerta pela origem;
+atracação com ATB e sem NOR abre, e o NOR fecha.
+
+### T15 — Superfícies de histórico
 
 Comunicado no Histórico do B/L (`src/components/bl/BlHistoricoTab.tsx`, via
 Vínculo), na aba Histórico da Ficha (`src/components/clientes/HistoricoTab.tsx`)
@@ -364,7 +497,7 @@ todos os B/Ls vinculados (invariante 9), e que o simulado aparece com a marca.
 
 # Bloco 3 — Financeiro
 
-### T14 — Prontidão de Comunicação de Taxas
+### T16 — Prontidão de Comunicação de Taxas
 
 RPC `customer_local_charges_communication_readiness(p_voyage_id, p_customer_id)`,
 `SECURITY DEFINER`, `EXECUTE` só para `service_role`. Um cliente passa quando,
@@ -382,18 +515,17 @@ revisão, e esta exigência é própria da comunicação.
 **Check:** teste de contrato SQL — cliente com um B/L sem CE Mercante é
 bloqueado com motivo, e um segundo cliente da mesma viagem passa mesmo assim.
 
-### T15 — Resumo de taxas locais e remoção da `notify-invoice-issued`
+### T17 — Resumo de taxas locais e remoção da `notify-invoice-issued`
 
-Modelo fixo: B/Ls com valor por B/L, total em BRL, link para o Portal. **Sem
-vencimento** (ADR 0055 / migration `348` removeram `invoices.due_date` e o status
-`overdue`), **sem PIX e sem anexo** — QR de pagamento em e-mail é o vetor que
-golpes de boleto imitam (invariante 6).
+Modelo fixo, em pt-BR: B/Ls com valor por B/L, total em BRL, link para o Portal.
+**Sem vencimento** (ADR 0055 / migration `348` removeram `invoices.due_date` e o
+status `overdue`), **sem PIX e sem anexo** (invariante 6).
 
 Remoção da `notify-invoice-issued`, conforme C1:
 
 - Apagar `supabase/functions/notify-invoice-issued/index.ts` e sua entrada em
   `supabase/config.toml`.
-- Migration `351_alerta_excecao_fatura_audiencia.sql`: `audience_departments` de
+- Migration `352_alerta_excecao_fatura_audiencia.sql`: `audience_departments` de
   `portal_excecao_critica_fatura` passa a `ARRAY['documentacao','administrativo']`,
   com o espelho em `src/services/alertRulesCatalog.ts`.
 - Atualizar `docs/RASTREABILIDADE.md` e `docs/ARCHITECTURE.md`: a linha da função
@@ -406,21 +538,22 @@ Remoção da `notify-invoice-issued`, conforme C1:
 grep de repositório afirmando que nenhuma referência a `notify-invoice-issued`
 sobrou fora do arquivo histórico de ADRs.
 
-### T16 — Cobrança de Demurrage e Régua
+### T18 — Cobrança de Demurrage e Régua
 
-Modelo: `total_usd` como valor da cobrança, BRL informativo com `roe` e data de
-referência explícitos, mais a frase de que o valor em reais é recalculado no dia
-do pagamento. Link para o Portal, sem PIX e sem anexo.
+Modelo em pt-BR: `total_usd` como valor da cobrança, BRL informativo com `roe` e
+data de referência explícitos, mais a frase de que o valor em reais é
+recalculado no dia do pagamento. Link para o Portal, sem PIX e sem anexo.
 
 Régua, em cron no padrão dos detectores de alerta:
 
 - Dispara em `demurrage_invoices.first_billed_at` — **não** `billed_at`, que
   muda a cada refaturamento por recálculo de PTAX e reenviaria cobrança como se
   fosse nova.
-- Repete no intervalo de `app_settings.demurrage_dunning_interval_days` enquanto
-  `paid_at IS NULL`.
+- Repete no intervalo de `app_settings.demurrage_dunning_interval_days` (5)
+  enquanto `paid_at IS NULL`.
 - `dispute_open = true` **pausa**; o fechamento retoma (invariante 8).
-- Atingido `demurrage_dunning_max_sends`, para e vira pendência interna.
+- Atingido `demurrage_dunning_max_sends` (6, ou seja 30 dias de cobrança), para e
+  vira pendência interna.
 - Discriminador = número da cobrança na régua. É o que faz a 2ª cobrança não
   colidir com a 1ª no índice único da T2 sobre a mesma fatura.
 
@@ -428,18 +561,18 @@ Régua, em cron no padrão dos detectores de alerta:
 disputa fechada retoma no número seguinte; atingido o teto não há 7º envio; e a
 2ª cobrança da mesma fatura **não** colide com a 1ª.
 
-### T17 — Colunas de estado
+### T19 — Colunas de estado
 
 Em `src/pages/Demurrage.tsx`: ponto da régua e próxima data ("3ª cobrança,
 próxima em 02/09"), ou o motivo da pausa. Em `src/pages/TaxasLocais.tsx`: data do
 envio e link para o comunicado. Em ambas: o **motivo do bloqueio** quando o
-cliente não passou na Prontidão da T14 — a informação não pode se perder entre
+cliente não passou na Prontidão da T16 — a informação não pode se perder entre
 duas telas.
 
 **Check:** teste de render afirmando o motivo do bloqueio na coluna, não só um
 traço.
 
-### T18 — Encerramento
+### T20 — Encerramento
 
 - `git mv docs/plans/2026-08-27-comunicacao-email-clientes.md docs/archive/plans/`
 - `git mv docs/spec/2026-08-27-comunicacao-email-clientes-design.md docs/archive/specs/`
@@ -455,26 +588,45 @@ traço.
 
 ```mermaid
 flowchart LR
-  T1[T1 _shared/email.ts] --> T12[T12 Envio]
+  T1[T1 _shared/email.ts] --> T13[T13 Envio]
   T2[T2 Migration fundação] --> T5[T5 Destinatários]
-  T2 --> T9[T9 Conferência]
-  T2 --> T16[T16 Régua]
-  T3[T3 Permissão] --> T7[T7 Rota]
-  T4[T4 Chave global] --> T7
-  T5 --> T9
-  T8[T8 Recorte] --> T9
-  T9 --> T12
-  T10[T10 NOA/NOR] --> T12
-  T12 --> T13[T13 Históricos]
-  T14[T14 Prontidão] --> T15[T15 Taxas locais]
-  T12 --> T16
-  T16 --> T17[T17 Colunas]
+  T2 --> T7[T7 Webhook]
+  T2 --> T10[T10 Conferência]
+  T2 --> T18[T18 Régua]
+  T1 --> T7
+  T3[T3 Permissão] --> T8[T8 Rota]
+  T4[T4 Chave global] --> T8
+  T5 --> T10
+  T9[T9 Recorte] --> T10
+  T10 --> T13
+  T11[T11 NOA/NOR] --> T13
+  T12[T12 Anexos] --> T13
+  T13 --> T14[T14 Alertas NOA/NOR]
+  T13 --> T15[T15 Históricos]
+  T16[T16 Prontidão] --> T17[T17 Taxas locais]
+  T13 --> T18
+  T18 --> T19[T19 Colunas]
 ```
 
-O índice único da T2 é a peça mais cara de errar: ele é o que faz a idempotência
-funcionar (duplo clique), o reenvio legítimo continuar possível (discriminador) e
-a Régua sobreviver ao 2º envio. Errar o `NULLS NOT DISTINCT` ali produz um
-sistema que parece funcionar e não protege nada.
+Duas peças concentram o risco:
+
+- **O índice único da T2** faz a idempotência funcionar (duplo clique), o
+  reenvio legítimo continuar possível (discriminador) e a Régua sobreviver ao 2º
+  envio. Errar o `NULLS NOT DISTINCT` produz um sistema que parece funcionar e
+  não protege nada.
+- **O webhook da T7** é a única coisa que impede o canal de insistir para sempre
+  numa caixa inexistente. Sem ele o invariante 7 vale só metade, e a metade que
+  falta é a que degrada a reputação do remetente compartilhado.
+
+## Pendências externas ao código
+
+| Pendência | Trava | Quando |
+|---|---|---|
+| Texto do NOA e do NOR, em inglês | T11 | Produto envia; T11 é a última task do Bloco 2 a fechar |
+| `COMMUNICATIONS_REPLY_TO` provisionada | T13 em envio real | Antes de ligar a chave, não antes do merge |
+| Decisão de ligar a chave global | — | Depois de ver a tela rodando em modo simulado |
+
+Nenhuma delas bloqueia o Bloco 1.
 
 ## Verificação por PR
 
@@ -486,6 +638,6 @@ migrations ou ADRs citadas.
 
 | Bloco | Status |
 |---|---|
-| 1 — Fundação (T1–T6) | TODO |
-| 2 — Disparo manual (T7–T13) | TODO |
-| 3 — Financeiro (T14–T18) | TODO |
+| 1 — Fundação (T1–T7) | TODO |
+| 2 — Disparo manual (T8–T15) | TODO |
+| 3 — Financeiro (T16–T20) | TODO |
