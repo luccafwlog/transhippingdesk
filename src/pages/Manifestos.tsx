@@ -175,6 +175,7 @@ export function Manifestos() {
         queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
         queryClient.invalidateQueries({ queryKey: ['invoice-links'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation'] }),
       ])
       showToast(`${report.deletableIds.length} B/L(s) excluido(s).`, 'success')
     } catch (err) {

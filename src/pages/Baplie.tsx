@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Upload, Download } from 'lucide-react'
+import { Upload, Download, Boxes } from 'lucide-react'
 import { exportBaplieWorkbook } from '../services/exports'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -40,7 +40,6 @@ export function Baplie() {
   const canUploadManifests = isAdmin
   const queryClient = useQueryClient()
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [confirmedBaplieManifestId, setConfirmedBaplieManifestId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [containerFilters, setContainerFilters] = useState<ContainerFilters>(EMPTY_CONTAINER_FILTERS)
 
@@ -91,13 +90,6 @@ export function Baplie() {
       modules: { ...item.modules, container: baplieVoyageIds.includes(item.id) },
     }))
   }, [baplieVoyageIds, schedulesByVoyage, voyageRows])
-
-  // Limpa a confirmação ao trocar de viagem — ajuste durante o render.
-  const [prevVoyageId, setPrevVoyageId] = useState(voyageId)
-  if (voyageId !== prevVoyageId) {
-    setPrevVoyageId(voyageId)
-    setConfirmedBaplieManifestId(null)
-  }
 
   const { data: stagingData, isLoading: stagingLoading } = useQuery({
     queryKey: ['baplie-staging', voyageId],
@@ -171,8 +163,7 @@ export function Baplie() {
     if (!user || !voyageId) return
     if (existingVaziosManifest) return
     try {
-      const result = await importVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
-      setConfirmedBaplieManifestId(result.manifestId)
+      await importVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
       await queryClient.invalidateQueries({ queryKey: ['baplie-vazios-manifest', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
@@ -187,8 +178,7 @@ export function Baplie() {
   async function handleSubstituirVazios() {
     if (!user || !voyageId || !existingVaziosManifest) return
     try {
-      const result = await replaceVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
-      setConfirmedBaplieManifestId(result.manifestId)
+      await replaceVaziosFromBaplie({ voyageId: Number(voyageId), uploadedBy: user.id })
       await queryClient.invalidateQueries({ queryKey: ['baplie-vazios-manifest', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['baplie-staging', voyageId] })
       await queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] })
@@ -198,12 +188,6 @@ export function Baplie() {
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao substituir vazios.', 'error')
     }
-  }
-
-  function handleManterVazios() {
-    if (!existingVaziosManifest) return
-    setConfirmedBaplieManifestId(existingVaziosManifest.id)
-    showToast('Manifesto de vazios existente mantido.', 'success')
   }
 
   async function handleExport() {
@@ -278,16 +262,15 @@ export function Baplie() {
               emptyCount={emptyContainers.length}
               existingManifest={existingVaziosManifestLoading ? null : (existingVaziosManifest ?? null)}
               loadingExistingManifest={existingVaziosManifestLoading}
-              confirmedManifestId={confirmedBaplieManifestId}
+              voyageId={voyageId}
               canWrite={canImportVazios}
               onConfirmar={handleConfirmarVazios}
               onSubstituir={handleSubstituirVazios}
-              onManter={handleManterVazios}
             />
           ) : null}
 
           {stateC && reconciliationData ? (
-            <ReconciliacaoSection items={reconciliationData.items} />
+            <ReconciliacaoSection items={reconciliationData.items} source={reconciliationData.source} />
           ) : stateC && !reconciliationData ? (
             <Card className="mb-5">
               <div className="py-4 text-center text-sm text-slate-400">Carregando divergencias...</div>
@@ -376,24 +359,21 @@ function VaziosSection({
   emptyCount,
   existingManifest,
   loadingExistingManifest,
-  confirmedManifestId,
+  voyageId,
   canWrite,
   onConfirmar,
   onSubstituir,
-  onManter,
 }: {
   emptyCount: number
   existingManifest: { id: string; total_containers: number; imported_at: string } | null
   loadingExistingManifest: boolean
-  confirmedManifestId: string | null
+  voyageId: string
   canWrite: boolean
   onConfirmar: () => Promise<void>
   onSubstituir: () => Promise<void>
-  onManter: () => void
 }) {
   const [loading, setLoading] = useState(false)
   const { showToast } = useToast()
-  const createdInSession = Boolean(confirmedManifestId) && (!existingManifest || existingManifest.id === confirmedManifestId)
 
   async function run(fn: () => Promise<void>) {
     setLoading(true)
@@ -409,25 +389,31 @@ function VaziosSection({
         <div className="rounded-xl border border-slate-500/30 bg-slate-500/5 p-4 text-sm text-slate-300">
           Verificando manifesto de vazios existente...
         </div>
-      ) : createdInSession ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-          Manifesto de vazios Baplie confirmado para esta viagem.
-        </div>
       ) : existingManifest ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <div className="text-sm text-amber-300 mb-3">
-            Ja existe um manifesto de vazios criado via Baplie em{' '}
-            <span className="font-semibold">{formatDate(existingManifest.imported_at)}</span> com{' '}
-            {existingManifest.total_containers} container(s). Deseja substituir ou manter?
-          </div>
-          {canWrite ? (
-            <div className="flex gap-2">
-              <Button variant="secondary" loading={loading} onClick={() => run(onSubstituir)}>
-                Substituir
-              </Button>
-              <Button variant="ghost" onClick={onManter}>Manter existente</Button>
+        <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-medium text-emerald-200">
+              Manifesto de vazios Baplie cadastrado em{' '}
+              <span className="font-semibold">{formatDate(existingManifest.imported_at)}</span> com{' '}
+              {existingManifest.total_containers} container(s).
             </div>
-          ) : null}
+            <div className="mt-1 text-xs text-slate-400">
+              Containers vazios vinculados à operação de Vazios de Importação da viagem.
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/vazios-importacao?voyage=${voyageId}`}
+              className="app-btn app-btn--secondary text-xs"
+            >
+              Ver em Vazios
+            </Link>
+            {canWrite ? (
+              <Button variant="ghost" loading={loading} onClick={() => run(onSubstituir)}>
+                Recadastrar do Baplie
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="flex items-center justify-between">
@@ -443,7 +429,31 @@ function VaziosSection({
   )
 }
 
-function ReconciliacaoSection({ items }: { items: BaplieReconciliationItem[] }) {
+function ReconciliacaoSection({
+  items,
+  source,
+}: {
+  items: BaplieReconciliationItem[]
+  source?: 'not_imported' | 'awaiting_route_coverage' | 'reconciled'
+}) {
+  if (source === 'awaiting_route_coverage') {
+    return (
+      <Card className="mb-5">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-blue-500/20 p-2 text-blue-400">
+            <Boxes size={18} />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-white">Aguardando cobertura de rotas de B/L</div>
+            <div className="text-xs text-slate-400 mt-0.5">
+              O arquivo EDI prevê rotas de containers cheios que ainda não possuem nenhum B/L importado. A conciliação de existência iniciará automaticamente quando todas as rotas previstas tiverem ao menos um B/L.
+            </div>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
   const missing = items.filter(
     (item): item is Extract<BaplieReconciliationItem, { kind: 'missing_in_manifest' }> =>
       item.kind === 'missing_in_manifest',

@@ -17,4 +17,21 @@ describe('cobertura de rotas EDI antes da conciliação', () => {
   it('normaliza maiúsculas e espaços sem confundir rotas', () => {
     expect(hasCompleteBaplieRouteCoverage([{ pol: ' nansha ', pod: 'brvix' }], [{ pol: 'NANSHA', pod: 'BRVIX' }])).toBe(true)
   })
+
+  it('normaliza variações e apelidos de portos como Taicang (CNTAC / CNTAI / TAIKANG)', () => {
+    expect(hasCompleteBaplieRouteCoverage(
+      [{ pol: 'CNTAI', pod: 'BRVIX' }, { pol: 'QINGDAO', pod: 'BRVIX' }],
+      [{ pol: 'CNTAC', pod: 'BRVIX' }, { pol: 'CNTAO', pod: 'BRVIX' }],
+    )).toBe(true)
+  })
+
+  it('ignora rotas de containers vazios na verificação de B/L quando filtradas', () => {
+    const stagedWithEmpty = [
+      { pol: 'CNSHA', pod: 'BRVIX', status: 'full' },
+      { pol: 'CNTAC', pod: 'BRVIX', status: 'empty' },
+    ]
+    const fullOnly = stagedWithEmpty.filter((c) => c.status !== 'empty')
+    // A rota vazia (CNTAC) não tem BL comercial; como filtramos fullOnly, deve dar coberta apenas com CNSHA
+    expect(hasCompleteBaplieRouteCoverage(fullOnly, [{ pol: 'CNSHA', pod: 'BRVIX' }])).toBe(true)
+  })
 })

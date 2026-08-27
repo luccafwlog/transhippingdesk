@@ -3,19 +3,32 @@ import { parseVaziosImportacaoBuffer } from '../vaziosImportacaoImport'
 import { jsonToBuffer } from './testWorkbook'
 
 describe('parseVaziosImportacaoBuffer', () => {
-  it('mapeia cabecalhos com acentos/variacoes e normaliza tara', async () => {
+  it('mapeia cabecalhos com acentos/variacoes e normaliza tara e rotas (Origem / Destino)', async () => {
     const buffer = jsonToBuffer([
-      { 'Contêiner': 'MSCU1234567', 'Tipo': '40HC', 'Tara (kg)': '3.800' },
-      { 'Contêiner': 'TGHU7654321', 'Tipo': '', 'Tara (kg)': '' },
+      { 'Contêiner': 'MSCU1234567', 'Tipo': '40HC', 'Tara (kg)': '3.800', 'Origem': 'CNTAC', 'Destino': 'BRVIX' },
+      { 'Contêiner': 'TGHU7654321', 'Tipo': '', 'Tara (kg)': '', 'Origem': 'CNSHA', 'Destino': 'BRSSZ' },
     ])
 
     const manifest = await parseVaziosImportacaoBuffer(buffer)
 
     expect(manifest.rowErrors).toEqual([])
     expect(manifest.containers).toEqual([
-      { rowNumber: 2, container_number: 'MSCU1234567', container_type: '40HC', tare_kg: 3800 },
+      { rowNumber: 2, container_number: 'MSCU1234567', container_type: '40HC', tare_kg: 3800, pol: 'CNTAC', pod: 'BRVIX' },
       // toNumber('') retorna 0 — comportamento corrente congelado aqui.
-      { rowNumber: 3, container_number: 'TGHU7654321', container_type: null, tare_kg: 0 },
+      { rowNumber: 3, container_number: 'TGHU7654321', container_type: null, tare_kg: 0, pol: 'CNSHA', pod: 'BRSSZ' },
+    ])
+  })
+
+  it('mapeia cabecalhos em ingles (POL / POD)', async () => {
+    const buffer = jsonToBuffer([
+      { 'Container': 'MSCU1234567', 'Type': '40HC', 'Tare (kg)': '3800', 'POL': 'CNTAC', 'POD': 'BRVIX' },
+    ])
+
+    const manifest = await parseVaziosImportacaoBuffer(buffer)
+
+    expect(manifest.rowErrors).toEqual([])
+    expect(manifest.containers).toEqual([
+      { rowNumber: 2, container_number: 'MSCU1234567', container_type: '40HC', tare_kg: 3800, pol: 'CNTAC', pod: 'BRVIX' },
     ])
   })
 

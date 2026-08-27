@@ -68,6 +68,7 @@ export function collectVoyageManifestBatchRows({
   routeCeMasters,
   omissions,
   transshipments,
+  vaziosRoutes,
 }: {
   voyageId: number
   batches: VoyageImportBatch[] | null | undefined
@@ -77,6 +78,7 @@ export function collectVoyageManifestBatchRows({
   routeCeMasters?: Map<string, string> | undefined
   omissions?: VoyageRouteOmission[] | null | undefined
   transshipments?: VoyageBlTransshipmentLink[] | null | undefined
+  vaziosRoutes?: Array<{ pol?: string | null; pod?: string | null; containerCount?: number }> | null | undefined
 }) {
   const batchesById = new Map<number, VoyageImportBatch>()
   for (const batch of batches ?? []) {
@@ -103,11 +105,14 @@ export function collectVoyageManifestBatchRows({
     etd: string | null
     atd: string | null
     blCount: number
+    containerCount?: number
     ceFilled: number
     ceTotal: number
     ceMaster: string | null
     blIds: Set<string>
     sortDate: number
+    cargoMode?: 'container' | 'vazios' | 'carga_solta'
+    isVazios?: boolean
   }
 
   const groups = new Map<string, ManifestGroup>()
@@ -196,6 +201,35 @@ export function collectVoyageManifestBatchRows({
     group.ceTotal += batchBls.length
   }
 
+  for (const vazio of vaziosRoutes ?? []) {
+    const pol = normalizeManifestPort(vazio.pol)
+    const pod = normalizeManifestPort(vazio.pod)
+    if (pol === '-' && pod === '-') continue
+    const routeKey = `${pol}__${pod}__vazios`
+    const polEntity = polSchedules?.get(buildVoyagePolEntityId(voyageId, pol))
+
+    const group: ManifestGroup = {
+      routeKey,
+      pol,
+      pod,
+      routeLabel: `${formatPortDisplayName(pol)} -> ${formatPortDisplayName(pod)}`,
+      batchIds: [],
+      modes: new Set(['container']),
+      etd: polEntity?.etd ?? null,
+      atd: polEntity?.atd ?? null,
+      blCount: 0,
+      containerCount: vazio.containerCount ?? 0,
+      ceFilled: 0,
+      ceTotal: 0,
+      ceMaster: routeCeMasters?.get(`${voyageId}::${pol}__${pod}__VAZIOS`) ?? null,
+      blIds: new Set(),
+      sortDate: Number.POSITIVE_INFINITY,
+      cargoMode: 'vazios',
+      isVazios: true,
+    }
+    groups.set(routeKey, group)
+  }
+
   return Array.from(groups.values())
     .map((group) => ({
       routeKey: group.routeKey,
@@ -207,19 +241,23 @@ export function collectVoyageManifestBatchRows({
         return `${formatPortDisplayName(group.pol)} → ${formatPortDisplayName(omission.omittedPod)} → ${formatPortDisplayName(omission.dischargePod)}`
       })(),
       omission: findRouteOmission(group.pod, group.blIds),
-      modeLabel:
-        group.modes.has('container') && group.modes.has('carga_solta')
+      modeLabel: group.isVazios
+        ? 'VAZIOS'
+        : group.modes.has('container') && group.modes.has('carga_solta')
           ? 'CNTR/BB'
           : group.modes.has('carga_solta')
             ? 'BB'
             : 'CNTR',
+      cargoMode: group.cargoMode,
+      containerCount: group.containerCount,
+      isVazios: group.isVazios ?? false,
       batchIds: group.batchIds,
       etd: group.etd,
       atd: group.atd,
       blCount: group.blCount,
       ceFilled: group.ceFilled,
       ceTotal: group.ceTotal,
-      ceMaster: group.ceMaster ?? routeCeMasters?.get(`${voyageId}::${group.routeKey}`) ?? null,
+      ceMaster: group.ceMaster ?? (group.isVazios ? (routeCeMasters?.get(`${voyageId}::${group.pol}__${group.pod}__VAZIOS`) ?? null) : (routeCeMasters?.get(`${voyageId}::${group.routeKey}`) ?? null)),
       sortDate: group.sortDate,
     }))
     .sort((left, right) => {
