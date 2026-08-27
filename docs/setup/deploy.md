@@ -170,10 +170,12 @@ antigo bloqueio `overdue`, repõe o índice de CE Mercante e preserva dados ao
 recusar a conversão de `import_batches.created_at` quando os valores legados
 divergirem de `uploaded_at`. A migration 354 consulta o catálogo antes de
 referenciar a coluna opcional, cria a coluna quando ela está ausente e converge
-branches persistentes que já registraram a 352 antes dessa proteção. Os nomes registrados
-para as versões 169 e 341 podem continuar históricos porque esses arquivos foram
-renumerados depois de já terem sido aplicados; migrations aplicadas não devem
-ser reescritas. A Vercel nunca executa migrations implicitamente.
+branches persistentes que já registraram a 352 antes dessa proteção. A migration
+355 corrige, de forma controlada e idempotente, o nome histórico remoto da versão
+169 para que o rebase use o arquivo correto (`169_demurrage...`) e não tente
+reaplicar a policy da migration 170; migrations aplicadas não devem ser reescritas
+fora de uma migration explícita de reconciliação. A Vercel nunca executa migrations
+implicitamente.
 
 ## Firebase rollback
 
