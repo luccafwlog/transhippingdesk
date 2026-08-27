@@ -104,6 +104,15 @@ Checklist no Dashboard:
    saudável, comentário/check do Supabase Preview concluído e Preview do
    Vercel contendo as duas variáveis `VITE_*` da mesma branch.
 
+Se o Preview mostrar a tela de erro de configuração, o deploy recebeu zero ou
+apenas parte dessas variáveis. Verifique em **Vercel → Project Settings →
+Integrations** se o projeto `transhippingdesk` está conectado ao projeto
+Supabase correto; na configuração da integração, use o prefixo `VITE_`. Depois
+de corrigir a integração, reimplante o commit mais recente da PR para que o
+Vercel refaça o build com os valores da branch automática. O build agora falha
+explicitamente quando roda no Vercel sem essas variáveis, evitando publicar um
+Preview quebrado silenciosamente.
+
 ## Domínios e cutover sem downtime
 
 O mesmo projeto Vercel deve receber:
