@@ -1,4 +1,4 @@
-# ADR 0057 — Perfil Equipamentos ganha sua primeira permissão
+# ADR 0058 — Perfil Equipamentos ganha sua primeira permissão
 
 Status: aceito — 2026-08-27
 
@@ -10,7 +10,7 @@ pela ADR 0044 e escrita com rastro pela ADR 0046, mas nenhuma permissão
 nomeada.
 
 A cobrança de Demurrage é responsabilidade de Equipamentos na operação, e o
-canal de Comunicado (ADR 0055) coloca essa cobrança dentro do sistema. Sem
+canal de Comunicado (ADR 0056) coloca essa cobrança dentro do sistema. Sem
 permissão, Equipamentos não alcançaria a tela que executa o próprio trabalho.
 
 Considerou-se recortar a permissão por categoria de comunicado — Documentação e
@@ -26,7 +26,7 @@ perfis disparam qualquer comunicado, e a trilha responde quem fez.
   Comunicado, sem recorte por categoria.
 - Todo disparo registra autor, momento e recorte.
 - `portal_provisioning` **não** é reaproveitada: amarrar comunicação
-  operacional à governança do Portal recriaria o acoplamento que a ADR 0055
+  operacional à governança do Portal recriaria o acoplamento que a ADR 0056
   desfaz.
 
 ## Consequências

@@ -38,14 +38,14 @@ Ficam **fora** do escopo:
 
 | Fato | Onde | Consequência |
 |---|---|---|
-| `notify-invoice-issued` existe, está inativa, e há decisão registrada de não enviar e-mail a clientes | `supabase/functions/notify-invoice-issued/index.ts`; `docs/RASTREABILIDADE.md`; `docs/ARCHITECTURE.md` | Esta spec reverte a decisão (ADR 0055). A função é apagada quando o comunicado financeiro entrar |
+| `notify-invoice-issued` existe, está inativa, e há decisão registrada de não enviar e-mail a clientes | `supabase/functions/notify-invoice-issued/index.ts`; `docs/RASTREABILIDADE.md`; `docs/ARCHITECTURE.md` | Esta spec reverte a decisão (ADR 0056). A função é apagada quando o comunicado financeiro entrar |
 | Mecânica de envio madura, porém acoplada ao Portal | `supabase/functions/_shared/portalEmail.ts` | Extrair para `_shared/email.ts`; `portalEmail.ts` passa a ser consumidor |
 | Pendências de B/L já computadas de forma canônica | `compute_bl_review_pendencies`, migration `128` | Reusar como parte do gate de taxas locais, sem reimplementar |
 | Cobertura de CE Mercante já calculada | `voyageCeCoverage()`, `src/services/voyageSummaries.ts` | Reusar o sinal; o gate novo é por cliente, não por viagem |
 | Bucket privado com teto e mime types já validado | migration `325`, bucket `demurrage-disputes` | Molde do bucket de anexos |
 | `demurrage_invoices.total_usd` é o valor autoritativo; BRL é derivado do PTAX | `src/types/database.ts`; `recalc-demurrage-ptax` | A cobrança comunica USD; BRL é informativo |
-| Perfil `equipamentos` não tem nenhuma permissão | `src/hooks/useAuth.tsx` | Esta spec concede a primeira (ADR 0057) |
-| Não existe tabela de configuração global | busca em `src/types/database.ts` | A chave de envio nasce como conceito novo (ADR 0056) |
+| Perfil `equipamentos` não tem nenhuma permissão | `src/hooks/useAuth.tsx` | Esta spec concede a primeira (ADR 0058) |
+| Não existe tabela de configuração global | busca em `src/types/database.ts` | A chave de envio nasce como conceito novo (ADR 0057) |
 
 **Evidência: Código** para todas as linhas acima.
 
@@ -62,7 +62,7 @@ Consequência que motiva a separação: um endereço que deu bounce num Convite 
 Portal **continua recebendo** Aviso de Chegada, e vice-versa. Supressão de
 acesso e supressão de entregabilidade operacional são decisões diferentes.
 
-Registrada na ADR 0055.
+Registrada na ADR 0056.
 
 ### 2. Destinatários e Preferência de Recebimento
 
@@ -279,7 +279,7 @@ Uma chave única, com **default desligado**, controlada por Administrativo.
   existir.
 - Ligar e desligar é auditado em `audit_logs`.
 
-Registrada na ADR 0056.
+Registrada na ADR 0057.
 
 ### 14. Permissão
 
@@ -288,7 +288,7 @@ Uma permissão `customer_communications`, concedida a `administrativo`,
 três dispara qualquer comunicado, e a trilha registra quem fez.
 
 É a **primeira permissão do perfil `equipamentos`**, hoje intencionalmente
-vazio. Registrada na ADR 0057.
+vazio. Registrada na ADR 0058.
 
 Reusar `portal_provisioning` amarraria comunicação operacional à governança do
 Portal — exatamente o acoplamento que a decisão 1 desfaz.
@@ -347,9 +347,9 @@ sinônimo.
 
 | ADR | Decisão |
 |---|---|
-| [0055](../adr/0055-canal-de-comunicado-ao-cliente.md) | Canal de Comunicado ao Cliente, revertendo a decisão de não enviar e-mail a clientes |
-| [0056](../adr/0056-chave-global-de-envio-desligada-por-padrao.md) | Chave global de envio, desligada por padrão, sem afetar o Portal |
-| [0057](../adr/0057-primeira-permissao-do-perfil-equipamentos.md) | Primeira permissão do perfil Equipamentos |
+| [0056](../adr/0056-canal-de-comunicado-ao-cliente.md) | Canal de Comunicado ao Cliente, revertendo a decisão de não enviar e-mail a clientes |
+| [0057](../adr/0057-chave-global-de-envio-desligada-por-padrao.md) | Chave global de envio, desligada por padrão, sem afetar o Portal |
+| [0058](../adr/0058-primeira-permissao-do-perfil-equipamentos.md) | Primeira permissão do perfil Equipamentos |
 
 ## Execução
 

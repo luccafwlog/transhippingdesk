@@ -1,10 +1,10 @@
-# ADR 0056 — Chave global de envio de Comunicados, desligada por padrão
+# ADR 0057 — Chave global de envio de Comunicados, desligada por padrão
 
 Status: aceito — 2026-08-27
 
 ## Contexto
 
-O canal de Comunicado ao Cliente (ADR 0055) envia e-mail em massa a clientes
+O canal de Comunicado ao Cliente (ADR 0056) envia e-mail em massa a clientes
 reais, a partir de uma tela operada por três perfis internos. O sistema está em
 desenvolvimento e teste, e um disparo indevido é irreversível.
 

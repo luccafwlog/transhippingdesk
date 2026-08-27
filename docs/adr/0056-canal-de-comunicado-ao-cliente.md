@@ -1,4 +1,4 @@
-# ADR 0055 — Canal de Comunicado ao Cliente, separado do email transacional do Portal
+# ADR 0056 — Canal de Comunicado ao Cliente, separado do email transacional do Portal
 
 Status: aceito — 2026-08-27
 
