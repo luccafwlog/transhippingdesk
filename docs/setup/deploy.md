@@ -48,8 +48,8 @@ As únicas variáveis necessárias ao bundle são públicas por definição do V
 
 | Variável | Production | Preview | Development |
 |---|---|---|---|
-| `VITE_SUPABASE_URL` | URL do projeto Supabase de produção | projeto Supabase de Preview/QA, se existir; caso contrário, o valor de produção controlado | valor do ambiente local |
-| `VITE_SUPABASE_ANON_KEY` | chave pública `anon` correspondente | chave pública do mesmo projeto usado no Preview | chave pública do ambiente local |
+| `VITE_SUPABASE_URL` | URL do projeto Supabase de produção | URL da branch persistente `stagingtdesk` | valor do ambiente local |
+| `VITE_SUPABASE_ANON_KEY` | chave pública `anon` correspondente | chave pública da `stagingtdesk` | chave pública do ambiente local |
 
 `VITE_APP_COMMIT_SHA` é opcional: `vite.config.ts` injeta o commit Git atual
 quando a variável não é fornecida, mantendo o release visível no Sentry e na
@@ -60,6 +60,24 @@ As variáveis devem ser cadastradas no Vercel Project Settings para os ambientes
 Production, Preview e Development conforme o ambiente escolhido. O CI do
 GitHub mantém suas próprias variáveis públicas de build; isso não substitui a
 configuração do projeto Vercel.
+
+### Preview compartilhado `stagingtdesk`
+
+O projeto Vercel `transhippingdesk` usa a branch persistente `stagingtdesk` como
+ambiente compartilhado de Preview. A configuração operacional é:
+
+- Supabase Production: `fgmkhbzhaeebrsizwccx`;
+- Supabase Preview: `dkmkhwdoskuwrkxwojhv` (`stagingtdesk`);
+- `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` do Preview apontam para esse
+  mesmo projeto, em escopo **Preview**;
+- Production mantém as credenciais do projeto principal.
+
+Assim, qualquer branch ou Pull Request que gerar Preview no Vercel usa o mesmo
+schema, Auth, Storage e dados de validação da `stagingtdesk`. Não se deve
+substituir essa configuração por uma variável específica de cada branch nem
+ativar o auto-branching do Supabase para esse fluxo: isso faria cada Preview
+apontar para um projeto diferente. A chave usada no Vercel é sempre pública;
+service role e demais segredos permanecem fora do bundle.
 
 ## Domínios e cutover sem downtime
 
@@ -140,9 +158,12 @@ Edge Functions continuam sendo publicadas separadamente no Supabase CLI/Console
 e continuam usando `PORTAL_URL`, `APP_URL`, `RESEND_API_KEY` e demais segredos
 server-side. Resend não é migrado para Vercel Functions.
 
-Migrations continuam sendo aplicadas manualmente no Supabase, em ordem e antes
-do deploy de código que dependa delas. A Vercel nunca executa migrations
-implicitamente.
+Migrations continuam sendo aplicadas no Supabase, em ordem e antes do deploy de
+código que dependa delas. A migration `351_reconcile_branch_schema_drift.sql`
+reasserta, de forma idempotente, os elementos de schema necessários para que a
+produção e a `stagingtdesk` permaneçam alinhadas mesmo quando uma execução
+histórica deixou a versão registrada sem o efeito correspondente. A Vercel
+nunca executa migrations implicitamente.
 
 ## Firebase rollback
 
