@@ -4673,7 +4673,6 @@ export type Database = {
       }
       detect_agency_report_deadline_missed: { Args: never; Returns: number }
       detect_agency_report_pending: { Args: never; Returns: number }
-      detect_overdue_invoices: { Args: never; Returns: number }
       ensure_agency_departure_report: {
         Args: { p_port: string; p_voyage_id: number }
         Returns: string
@@ -4984,7 +4983,6 @@ export type Database = {
         }
         Returns: Json
       }
-      mark_overdue_invoices: { Args: never; Returns: undefined }
       normalize_document_text: { Args: { p_value: string }; Returns: string }
       normalize_port_code: { Args: { p_value: string }; Returns: string }
       obsolete_consolidated_invoice: {

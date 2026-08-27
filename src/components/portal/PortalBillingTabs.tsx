@@ -59,7 +59,6 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
               <th scope="col" className="px-4 py-3">Tipo</th>
               <th scope="col" className="px-4 py-3">Navio / Viagem · POD</th>
               <th scope="col" className="px-4 py-3">Emissão</th>
-              <th scope="col" className="px-4 py-3">Pagamento</th>
               <th scope="col" className="px-4 py-3">Financeiro</th>
               <th scope="col" className="px-4 py-3">Status</th>
               <th scope="col" className="px-4 py-3">Ações</th>
@@ -67,10 +66,10 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={9}>Carregando faturas...</td></tr>
+              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>Carregando faturas...</td></tr>
             ) : null}
             {!loading && invoices.length === 0 ? (
-              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={9}>Nenhuma fatura para os filtros atuais.</td></tr>
+              <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>Nenhuma fatura para os filtros atuais.</td></tr>
             ) : null}
             {paginatedInvoices.map((invoice) => (
               <tr key={invoice.id}>

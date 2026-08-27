@@ -23,38 +23,10 @@ describe('follow-up da fundação de alertas', () => {
 })
 
 describeLocal('comportamento efetivo do follow-up no Postgres local', () => {
-  it('preserva invoice_overdue em pagamento parcial e resolve no estado terminal', () => {
-    const result = psql(`
-      BEGIN;
-      SET LOCAL ROLE postgres;
-      SELECT set_config('request.jwt.claim.role', 'service_role', true);
-      INSERT INTO public.customers (cnpj_cpf, name)
-      VALUES ('04252011000110', 'Cliente review follow-up')
-      ON CONFLICT (cnpj_cpf) DO NOTHING;
-      INSERT INTO public.invoices (invoice_number, customer_id, total_brl, total_paid_brl, balance_brl, status, due_date)
-      VALUES ('T5F-OVERDUE', (SELECT id FROM public.customers WHERE cnpj_cpf = '04252011000110'), 100, 10, 90, 'overdue', CURRENT_DATE - 10);
-      SELECT public.upsert_alert_item(
-        'invoice_overdue', 'invoice', (SELECT id::text FROM public.invoices WHERE invoice_number = 'T5F-OVERDUE'),
-        'Fatura vencida de teste', 'review_followup', '{}'::jsonb, NULL
-      );
-      UPDATE public.invoices
-      SET status = 'partially_paid', total_paid_brl = 50, balance_brl = 50
-      WHERE invoice_number = 'T5F-OVERDUE';
-      SELECT status FROM public.alert_items
-      WHERE item_type = 'invoice_overdue'
-        AND alert_id = (SELECT id FROM public.alerts WHERE type = 'aggregate' AND entity_id = (SELECT id::text FROM public.invoices WHERE invoice_number = 'T5F-OVERDUE'));
-      UPDATE public.invoices
-      SET status = 'paid', total_paid_brl = 100, balance_brl = 0
-      WHERE invoice_number = 'T5F-OVERDUE';
-      SELECT status FROM public.alert_items
-      WHERE item_type = 'invoice_overdue'
-        AND alert_id = (SELECT id FROM public.alerts WHERE type = 'aggregate' AND entity_id = (SELECT id::text FROM public.invoices WHERE invoice_number = 'T5F-OVERDUE'));
-      ROLLBACK;
-    `)
-
-    const statuses = result.split(/\r?\n/).filter((line) => line === 'active' || line === 'resolved')
-    expect(statuses).toEqual(['active', 'resolved'])
-  })
+  // O caso de invoice_overdue saiu daqui na migration 348 (ADR 0055): taxa local
+  // não tem vencimento praticado, o tipo foi aposentado no catálogo e
+  // resolve_invoice_alerts_on_status_change deixou de citá-lo. As asserções de
+  // texto sobre a 321 acima permanecem: a migration é registro histórico.
 
   it('fecha o carrier legado quando o item é anexado a um agregado existente', () => {
     const result = psql(`

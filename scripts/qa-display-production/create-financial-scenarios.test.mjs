@@ -23,7 +23,7 @@ test('builds local-charge, demurrage and consolidated financial scenarios', asyn
     receivables: [11, 12],
   })
 
-  assert.deepEqual(result.states.map((item) => item.status), ['issued', 'partially_paid', 'paid', 'overdue', 'cancelled', 'consolidated'])
+  assert.deepEqual(result.states.map((item) => item.status), ['issued', 'partially_paid', 'paid', 'cancelled', 'consolidated'])
   assert.equal(result.demurrage.docNumber, 'QAD26-DEM-002')
   assert.ok(calls.some((call) => call.name === 'create_local_consolidated_invoice'))
   assert.ok(calls.some((call) => call.name === 'mark_bl_ready_for_billing'))

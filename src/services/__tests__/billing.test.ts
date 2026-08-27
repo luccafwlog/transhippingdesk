@@ -411,7 +411,7 @@ describe('listInvoices', () => {
     expect(invoices.or).toHaveBeenCalledWith('invoice_number.ilike.%INV-2026%')
     expect(invoices.eq).toHaveBeenCalledWith('customer_id', 7)
     // "issued" agrupa os status documentais ativos, incluindo draft.
-    expect(invoices.in).toHaveBeenCalledWith('status', ['issued', 'partially_paid', 'overdue', 'draft'])
+    expect(invoices.in).toHaveBeenCalledWith('status', ['issued', 'partially_paid', 'draft'])
     // "single" agrupa individual e granite.
     expect(invoices.in).toHaveBeenCalledWith('invoice_type', ['individual', 'granite'])
     expect(invoices.gte).toHaveBeenCalledWith('issued_at', '2026-01-01T00:00:00')

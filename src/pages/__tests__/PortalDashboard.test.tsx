@@ -7,8 +7,8 @@ import type { PortalDemurrageInvoice, PortalInvoiceSummary } from '../../service
 import type { PortalOperationBL } from '../../services/portalOperation'
 
 const localInvoices: PortalInvoiceSummary[] = [
-  { id: 1, invoice_number: 'INV-1', issued_at: '2026-06-01', due_date: '2026-06-20', total_brl: 100, total_paid_brl: 0, balance_brl: 100, status: 'issued', invoice_type: 'individual', vessels: [], voyages: [], vessel_voyages: [], bls: ['BL1'], pods: [] },
-  { id: 2, invoice_number: 'INV-2', issued_at: '2026-06-02', due_date: '2026-06-21', total_brl: 50, total_paid_brl: 50, balance_brl: 0, status: 'paid', invoice_type: 'individual', vessels: [], voyages: [], vessel_voyages: [], bls: ['BL2'], pods: [] },
+  { id: 1, invoice_number: 'INV-1', issued_at: '2026-06-01', total_brl: 100, total_paid_brl: 0, balance_brl: 100, status: 'issued', invoice_type: 'individual', vessels: [], voyages: [], vessel_voyages: [], bls: ['BL1'], pods: [] },
+  { id: 2, invoice_number: 'INV-2', issued_at: '2026-06-02', total_brl: 50, total_paid_brl: 50, balance_brl: 0, status: 'paid', invoice_type: 'individual', vessels: [], voyages: [], vessel_voyages: [], bls: ['BL2'], pods: [] },
 ]
 
 const demurrageInvoices: PortalDemurrageInvoice[] = [

@@ -12,7 +12,7 @@ import { reportBestEffortFailure } from '../lib/telemetry'
 export type InvoiceStatusFilter = '' | 'issued' | 'paid' | 'cancelled'
 
 const INVOICE_STATUS_GROUPS: Record<Exclude<InvoiceStatusFilter, ''>, InvoiceDocumentStatus[]> = {
-  issued: ['issued', 'partially_paid', 'overdue', 'draft'],
+  issued: ['issued', 'partially_paid', 'draft'],
   paid: ['paid', 'covered'],
   cancelled: ['cancelled', 'obsolete'],
 }
