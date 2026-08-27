@@ -80,7 +80,7 @@ sejam migrados; a projeção mantém limite global de 200 linhas. Enquanto isso,
 o bridge acompanha inserts, fechamentos e reaberturas de carriers concretos:
 fecha o item correspondente e emite nova ocorrência/notificação quando a mesma
 pendência retorna. O backfill não dispara notificações históricas no deploy.
-Transições autoritativas resolvem invoice vencida/pagamento/cancelamento,
+Transições autoritativas resolvem pagamento/cancelamento de invoice,
 convite e falha de envio do Portal, email de recuperação saudável e Dispute de
 Demurrage; a emissão automática resolve sua falha anterior ao concluir com
 sucesso. Abuso investigável de login continua dependendo da análise do bloco

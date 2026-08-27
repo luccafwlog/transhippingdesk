@@ -486,7 +486,7 @@ export function selectLatestPayment(
 }
 
 const HISTORY_LOCAL_SELECT = `
-  id, invoice_number, customer_id, bl_id, issued_at, due_date, total_brl, status, invoice_type,
+  id, invoice_number, customer_id, bl_id, issued_at, total_brl, status, invoice_type,
   total_paid_brl, balance_brl, created_at,
   customer:customers(id,name,cnpj_cpf),
   invoice_bls(id,bl_id,subtotal_brl,subtotal_usd,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),

@@ -53,7 +53,7 @@ export function BlOperacionalTab({
 
   const invoiceDiverges = useMemo(() => {
     if (!latestInvoice?.total_brl || currentCalcTotal == null) return false
-    if (!['issued', 'overdue'].includes(latestInvoice.status ?? '')) return false
+    if (latestInvoice.status !== 'issued') return false
     return Math.abs(currentCalcTotal - latestInvoice.total_brl) > 0.01
   }, [latestInvoice, currentCalcTotal])
 

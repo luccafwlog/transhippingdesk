@@ -77,10 +77,10 @@ async function openBalance(client, invoice, result) {
   return declared
 }
 
-async function createInvoice(client, fixture, bl, status, dueDate) {
+async function createInvoice(client, fixture, bl, status) {
   await prepareBl(client, fixture, bl)
   const result = await rpc(client, 'create_invoice_from_bls_with_ledger', {
-    p_bl_ids: [bl.id], p_customer_id: bl.customer_id, p_due_date: dueDate,
+    p_bl_ids: [bl.id], p_customer_id: bl.customer_id,
     p_notes: `${FIXTURE_PREFIX} ${status}`, p_issue_now: true, p_actor: fixture.userId,
   })
   return { id: invoiceId(result), blId: bl.id, customerId: bl.customer_id, status, usedBy: 'financial', created: true, result }
@@ -88,15 +88,16 @@ async function createInvoice(client, fixture, bl, status, dueDate) {
 
 export async function createFinancialScenarios(client, fixture) {
   requireFixture(fixture)
-  const [issuedBl, partialBl, paidBl, overdueBl, cancelledBl] = await loadBillingPreconditions(client, fixture)
+  // Sem cenário 'overdue': taxa local não tem vencimento praticado (ADR 0055).
+  const [issuedBl, partialBl, paidBl, , cancelledBl] = await loadBillingPreconditions(client, fixture)
   const states = []
   const invoices = []
 
   // All B/L ownership, availability, receivables and container preconditions are checked above.
-  const issued = await createInvoice(client, fixture, issuedBl, 'issued', '2026-12-30')
+  const issued = await createInvoice(client, fixture, issuedBl, 'issued')
   invoices.push(issued); states.push({ status: 'issued', invoiceId: issued.id })
 
-  const partial = await createInvoice(client, fixture, partialBl, 'partially_paid', '2026-12-30')
+  const partial = await createInvoice(client, fixture, partialBl, 'partially_paid')
   const partialBalance = await openBalance(client, partial, partial.result)
   await rpc(client, 'register_ledger_invoice_payment', {
     p_invoice_id: partial.id, p_amount_brl: Math.max(0.01, Math.min(partialBalance / 2, partialBalance - 0.01)), p_method: 'pix',
@@ -104,7 +105,7 @@ export async function createFinancialScenarios(client, fixture) {
   })
   invoices.push(partial); states.push({ status: 'partially_paid', invoiceId: partial.id })
 
-  const paid = await createInvoice(client, fixture, paidBl, 'paid', '2026-12-30')
+  const paid = await createInvoice(client, fixture, paidBl, 'paid')
   const paidBalance = await openBalance(client, paid, paid.result)
   await rpc(client, 'register_ledger_invoice_payment', {
     p_invoice_id: paid.id, p_amount_brl: paidBalance, p_method: 'pix', p_pix_txid: 'QAD26-TEST-PAID',
@@ -112,17 +113,14 @@ export async function createFinancialScenarios(client, fixture) {
   })
   invoices.push(paid); states.push({ status: 'paid', invoiceId: paid.id })
 
-  const overdue = await createInvoice(client, fixture, overdueBl, 'overdue', '2020-01-01')
-  invoices.push(overdue); states.push({ status: 'overdue', invoiceId: overdue.id })
-
-  const cancelled = await createInvoice(client, fixture, cancelledBl, 'cancelled', '2026-12-30')
+  const cancelled = await createInvoice(client, fixture, cancelledBl, 'cancelled')
   await rpc(client, 'cancel_invoice', { p_invoice_id: cancelled.id, p_reason: 'QAD26-TEST cancellation', p_actor: fixture.userId })
   invoices.push(cancelled); states.push({ status: 'cancelled', invoiceId: cancelled.id })
 
   const receivables = requireIds(fixture, 'receivables')
   const consolidated = await rpc(client, 'create_local_consolidated_invoice', {
     p_customer_id: issued.customerId, p_receivable_ids: receivables,
-    p_due_date: '2026-12-30', p_notes: `${FIXTURE_PREFIX} consolidated`, p_actor: fixture.userId,
+    p_notes: `${FIXTURE_PREFIX} consolidated`, p_actor: fixture.userId,
   })
   const consolidatedInvoice = { id: invoiceId(consolidated), status: 'consolidated', usedBy: 'financial', created: true }
   invoices.push(consolidatedInvoice); states.push({ status: 'consolidated', invoiceId: consolidatedInvoice.id })

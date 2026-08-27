@@ -39,7 +39,6 @@ vi.mock('../../../hooks/useBilling', () => ({
   }),
   useRegisterInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCancelInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useUpdateInvoiceDueDate: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useAddManualInvoiceCharge: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteManualInvoiceCharge: () => ({ mutateAsync: deleteCharge, isPending: false }),
 }))

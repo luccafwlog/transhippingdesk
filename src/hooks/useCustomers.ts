@@ -220,7 +220,7 @@ export function useCustomerDetail(cnpj?: string) {
       while (true) {
         const { data: page, error: invoiceError } = await supabase
           .from('invoices')
-          .select('id, invoice_number, issued_at, due_date, total_brl, balance_brl, status')
+          .select('id, invoice_number, issued_at, total_brl, balance_brl, status')
           .eq('customer_id', customer.id)
           .order('issued_at', { ascending: false })
           .range(invoicesFrom, invoicesFrom + INVOICES_PAGE_SIZE - 1)

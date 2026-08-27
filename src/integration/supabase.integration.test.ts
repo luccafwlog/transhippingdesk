@@ -155,7 +155,6 @@ describeIntegration('supabase integration - hardening gate', () => {
     const blIds = env.billingBlIds ?? []
     expect(blIds.length).toBeGreaterThan(0)
     const marker = `it-operator-read-${Date.now()}`
-    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
     // Cria uma fatura conhecida com o cliente privilegiado antes de trocar
     // para a sessao do operador: sem isso, `invoices.select()` vazio nao
@@ -187,7 +186,6 @@ describeIntegration('supabase integration - hardening gate', () => {
 
     const createInvoice = await client.rpc('create_invoice_from_bls', {
       p_bl_ids: blIds,
-      p_due_date: dueDate,
       p_notes: 'integration operator-rls read check',
       p_issue_now: true,
       p_actor: userId,
@@ -237,7 +235,6 @@ describeIntegration('supabase integration - hardening gate', () => {
     expect(blIds.length).toBeGreaterThan(0)
 
     const marker = `it-billing-${Date.now()}`
-    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     const snapshot = await client
       .from('bls')
       .select('id,financial_status,charge_status')
@@ -288,8 +285,7 @@ describeIntegration('supabase integration - hardening gate', () => {
 
       const createA = await client.rpc('create_invoice_from_bls', {
         p_bl_ids: blIds,
-        p_due_date: dueDate,
-        p_notes: 'integration create/cancel',
+          p_notes: 'integration create/cancel',
         p_issue_now: true,
         p_actor: userId,
       })
@@ -314,8 +310,7 @@ describeIntegration('supabase integration - hardening gate', () => {
 
       const createB = await client.rpc('create_invoice_from_bls', {
         p_bl_ids: blIds,
-        p_due_date: dueDate,
-        p_notes: 'integration payment flow',
+          p_notes: 'integration payment flow',
         p_issue_now: true,
         p_actor: userId,
       })

@@ -74,11 +74,12 @@ describe('VisaoGeralTab — pendencias', () => {
     expect(screen.getByText(/Portal não ativo/)).toBeTruthy()
   })
 
-  it('mantem invoice local vencida legada como pendencia do cliente', () => {
+  it('não conta fatura local como vencida: taxa local não tem vencimento praticado', () => {
     renderTab(Object.assign({}, baseData, {
-      invoices: [{ id: 7, status: 'overdue', due_date: '2026-01-01' }],
+      invoices: [{ id: 7, status: 'overdue' }],
     }) as never)
 
-    expect(screen.getByText('1 invoice vencida →')).toBeTruthy()
+    expect(screen.queryByText(/invoice vencida/)).toBeNull()
+    expect(screen.queryByText(/invoices vencidas/)).toBeNull()
   })
 })

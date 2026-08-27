@@ -17,7 +17,6 @@ export type PortalInvoiceSummary = {
   id: number
   invoice_number: string | null
   issued_at: string | null
-  due_date: string | null
   total_brl: number | null
   total_paid_brl: number | null
   balance_brl: number | null

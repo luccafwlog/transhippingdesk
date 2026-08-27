@@ -14,7 +14,7 @@ export type OperationalReportFilters = ReportFilters & {
 }
 
 export type FinancialReportFilters = ReportFilters & {
-  status: '' | 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled'
+  status: '' | 'draft' | 'issued' | 'partially_paid' | 'paid' | 'cancelled'
 }
 
 export type OperationalReportRow = {
@@ -110,7 +110,6 @@ export type FinancialReportRow = {
   total_brl: number | null
   balance_brl: number | null
   issued_at: string | null
-  due_date: string | null
   created_at: string | null
   customer: { id: number; name: string; cnpj_cpf: string } | null
 }
@@ -133,7 +132,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
     .from('invoices')
     .select(
       `
-      id, invoice_number, invoice_type, status, total_brl, balance_brl, issued_at, due_date, created_at,
+      id, invoice_number, invoice_type, status, total_brl, balance_brl, issued_at, created_at,
       customer:customers(id, name, cnpj_cpf)
     `,
     )
@@ -169,7 +168,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
   const rowsWithLedgerBalances = applyReceivableBalances(rows, ledgerBalances)
 
   const isOpen = (status: string | null) =>
-    status === 'issued' || status === 'partially_paid' || status === 'overdue'
+    status === 'issued' || status === 'partially_paid'
 
   const fallbackOpen = rowsWithLedgerBalances
     .filter((row) => isOpen(row.status) && !ledgerBalances.linksByInvoiceId.has(row.id))
@@ -374,7 +373,7 @@ export async function fetchFinancialReportForExport(filters: FinancialReportFilt
     .from('invoices')
     .select(
       `
-      id, invoice_number, invoice_type, status, total_brl, balance_brl, issued_at, due_date, created_at,
+      id, invoice_number, invoice_type, status, total_brl, balance_brl, issued_at, created_at,
       customer:customers(id, name, cnpj_cpf)
     `,
     )

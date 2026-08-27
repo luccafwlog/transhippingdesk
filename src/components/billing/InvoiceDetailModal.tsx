@@ -17,7 +17,6 @@ import {
   useAddManualInvoiceCharge,
   useCancelInvoice,
   useDeleteManualInvoiceCharge,
-  useUpdateInvoiceDueDate,
   useInvoiceDetail,
   useRegisterInvoicePayment,
 } from '../../hooks/useBilling'
@@ -35,7 +34,6 @@ import { formatBRL, formatDate, stripBlPrefix } from '../../lib/utils'
 import { isLedgerInvoicePayable } from '../../pages/faturamentoLedgerPayment'
 import { invoiceStatusLabel, isOpenInvoiceStatus } from '../../pages/faturamentoInvoiceStatus'
 import { printDocumentElement } from '../../lib/printDocument'
-import { queryKeys } from '../../services/queryKeys'
 
 function extractMessage(error: unknown, fallback: string): string {
   if (!error) return fallback
@@ -68,7 +66,6 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix')
   const [paymentDate, setPaymentDate] = useState('')
   const [paymentNotes, setPaymentNotes] = useState('')
-  const [dueDate, setDueDate] = useState('')
   const [cancelReason, setCancelReason] = useState('')
   const [reversalReason, setReversalReason] = useState('')
   const [reversalLoading, setReversalLoading] = useState(false)
@@ -90,16 +87,8 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
   const registerPaymentMutation = useRegisterInvoicePayment()
   const registerLedgerPaymentMutation = useRegisterLedgerInvoicePayment()
   const cancelInvoiceMutation = useCancelInvoice()
-  const updateDueDateMutation = useUpdateInvoiceDueDate()
   const addChargeMutation = useAddManualInvoiceCharge()
   const deleteChargeMutation = useDeleteManualInvoiceCharge(invoiceId)
-
-  const dueDateSource = detailInvoice ? `${detailInvoice.id}:${detailInvoice.due_date ?? ''}` : null
-  const [previousDueDateSource, setPreviousDueDateSource] = useState<string | null>(null)
-  if (dueDateSource !== previousDueDateSource) {
-    setPreviousDueDateSource(dueDateSource)
-    setDueDate(detailInvoice?.due_date?.slice(0, 10) ?? '')
-  }
 
   // Other Charges so podem ser editados em faturas individuais, em aberto e sem pagamentos.
   // Status 'covered'/'obsolete'/'paid' representam faturas ja quitadas (direta ou via
@@ -229,20 +218,6 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
     }
   }
 
-  async function handleUpdateDueDate() {
-    if (!invoiceId || !dueDate) {
-      showToast('Informe uma data de vencimento.', 'error')
-      return
-    }
-    try {
-      await updateDueDateMutation.mutateAsync({ invoiceId, dueDate, actorId: user?.id ?? null })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.invoices.detail(invoiceId) })
-      showToast('Vencimento atualizado.', 'success')
-    } catch (error) {
-      showToast(extractMessage(error, 'Falha ao atualizar vencimento.'), 'error')
-    }
-  }
-
   async function handleReversePayment() {
     if (!paymentId) return
     const reason = reversalReason.trim()
@@ -317,16 +292,6 @@ export function InvoiceDetailModal({ invoiceId, onClose, enablePaymentReversal, 
                   <SelectionMetric label="Total BRL" value={formatBRL(detailQuery.data.invoice.total_brl)} />
                   <SelectionMetric label="Saldo BRL" value={formatBRL(detailQuery.data.invoice.balance_brl)} />
                 </div>
-                {isAdmin && isOpenInvoiceStatus(detailQuery.data.invoice.status) ? (
-                  <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-[#30363d] pt-4">
-                    <Field label="Vencimento">
-                      <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-                    </Field>
-                    <Button type="button" variant="secondary" onClick={handleUpdateDueDate} loading={updateDueDateMutation.isPending}>
-                      Salvar vencimento
-                    </Button>
-                  </div>
-                ) : null}
               </Card>
               <Card className="overflow-hidden p-0">
                 <div className="app-table-scroll">

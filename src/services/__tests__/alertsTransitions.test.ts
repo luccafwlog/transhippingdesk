@@ -36,10 +36,6 @@ it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/De
       { id: 11, type: 'portal_excecao_critica_fatura', entity_type: 'bl', created_at: '2026-08-19T10:00:00Z' },
       { id: 12, type: 'billing_auto_issue_failed', entity_type: 'granite_bl', created_at: '2026-08-20T10:00:00Z' },
     ],
-    invoice: [
-      { id: 20, type: 'invoice_overdue', entity_type: 'invoice', created_at: '2026-08-20T10:00:00Z' },
-      { id: 21, type: 'portal_dispute_opened', entity_type: 'invoice', created_at: '2026-08-21T10:00:00Z' },
-    ],
     pix_transaction: [
       { id: 30, type: 'pix_unreconciled', entity_type: 'pix_transaction', created_at: '2026-08-22T10:00:00Z' },
       { id: 31, type: 'demurrage', entity_type: 'pix_transaction', created_at: '2026-08-23T10:00:00Z' },
@@ -50,15 +46,15 @@ it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/De
     error: null,
   }))
 
+  // Nenhum tipo financeiro ativo aponta para 'invoice' desde a 348, então a
+  // fila não consulta mais essa entidade.
   await expect(listFinancialAlerts()).resolves.toEqual([
     rowsByEntityType.pix_transaction[0],
-    rowsByEntityType.invoice[0],
     rowsByEntityType.bl[0],
   ])
-  expect(rpcMock).toHaveBeenCalledTimes(3)
+  expect(rpcMock).toHaveBeenCalledTimes(2)
   expect(rpcMock).toHaveBeenNthCalledWith(1, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'bl', p_offset: 0, p_limit: 100 })
-  expect(rpcMock).toHaveBeenNthCalledWith(2, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'invoice', p_offset: 0, p_limit: 100 })
-  expect(rpcMock).toHaveBeenNthCalledWith(3, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'pix_transaction', p_offset: 0, p_limit: 100 })
+  expect(rpcMock).toHaveBeenNthCalledWith(2, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'pix_transaction', p_offset: 0, p_limit: 100 })
 })
 
 it('combina as entidades financeiras antes de cortar a fila em 200 itens', async () => {
@@ -70,13 +66,6 @@ it('combina as entidades financeiras antes de cortar a fila em 200 itens', async
       entity_id: `BL-${index + 1}`,
       created_at: '2026-08-01T10:00:00Z',
     })),
-    invoice: [{
-      id: 201,
-      type: 'invoice_overdue',
-      entity_type: 'invoice',
-      entity_id: 'INV-201',
-      created_at: '2026-08-20T10:00:00Z',
-    }],
     pix_transaction: [{
       id: 202,
       type: 'pix_unreconciled',
@@ -93,15 +82,15 @@ it('combina as entidades financeiras antes de cortar a fila em 200 itens', async
   const alerts = await listFinancialAlerts()
 
   expect(alerts).toHaveLength(200)
-  expect(alerts.slice(0, 2).map((alert) => alert.entity_id)).toEqual(['PIX-202', 'INV-201'])
+  expect(alerts.slice(0, 1).map((alert) => alert.entity_id)).toEqual(['PIX-202'])
   expect(alerts.some((alert) => alert.entity_id === 'BL-1')).toBe(false)
 })
 
 it('expõe somente os tipos financeiros ativos do contrato', () => {
+  // invoice_overdue saiu na 348: taxa local não tem vencimento praticado (#605).
   expect(FINANCIAL_ALERT_TYPES).toEqual([
     'billing_calculation_blocked',
     'billing_auto_issue_failed',
-    'invoice_overdue',
     'pix_unreconciled',
   ])
 
@@ -113,10 +102,6 @@ it('expõe somente os tipos financeiros ativos do contrato', () => {
     billing_auto_issue_failed: {
       audience: ['documentacao'],
       unit: 'bl',
-    },
-    invoice_overdue: {
-      audience: ['documentacao'],
-      unit: 'invoice',
     },
     pix_unreconciled: {
       audience: ['documentacao', 'equipamentos'],

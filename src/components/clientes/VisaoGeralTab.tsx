@@ -23,7 +23,7 @@ export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
   const balance = buildConsolidatedBalance(data.invoices ?? [], demurrage?.rows ?? [])
   const primaryContact = data.customer_contacts?.find((contact) => contact.is_primary) ?? data.customer_contacts?.[0]
   const today = new Date().toISOString().slice(0, 10)
-  const overdueLocal = (data.invoices ?? []).filter((invoice) => invoice.status === 'overdue' || (invoice.status === 'issued' && invoice.due_date && invoice.due_date < today))
+  // Taxa local não tem vencimento praticado (issue #605): só o Demurrage vence.
   const overdueDemurrage = (demurrage?.rows ?? []).filter((invoice) => invoice.status === 'overdue' || (invoice.status === 'issued' && invoice.due_date && invoice.due_date < today))
   const openDisputes = (demurrage?.rows ?? []).filter((invoice) => invoice.dispute_open || invoice.dispute_status === 'aberto')
 
@@ -41,8 +41,8 @@ export function VisaoGeralTab({ data, onNavigateTab }: VisaoGeralTabProps) {
         : 0
       pendencias.push({ key: 'portal', label: portalRow?.hasCriticalAlert ? `Pendência crítica de Portal${portalBlCount ? ` (${portalBlCount} B/L${portalBlCount === 1 ? '' : 's'})` : ''}` : `Portal não ativo${portalRow?.account_situation ? `: ${accountSituationLabel(portalRow.account_situation)}` : ''}`, to: `/clientes/portal?cliente=${data.id}` })
     }
-    if (!financialDenied && overdueLocal.length + overdueDemurrage.length > 0) {
-      pendencias.push({ key: 'vencidas', label: `${overdueLocal.length + overdueDemurrage.length} ${overdueLocal.length + overdueDemurrage.length === 1 ? 'invoice vencida' : 'invoices vencidas'}`, onClick: () => onNavigateTab('financeiro') })
+    if (!financialDenied && overdueDemurrage.length > 0) {
+      pendencias.push({ key: 'vencidas', label: `${overdueDemurrage.length} ${overdueDemurrage.length === 1 ? 'invoice de Demurrage vencida' : 'invoices de Demurrage vencidas'}`, onClick: () => onNavigateTab('financeiro') })
     }
     if (!financialDenied && openDisputes.length > 0) {
       pendencias.push({ key: 'disputas', label: `${openDisputes.length} ${openDisputes.length === 1 ? 'disputa de demurrage aberta' : 'disputas de demurrage abertas'}`, onClick: () => onNavigateTab('financeiro') })

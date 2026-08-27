@@ -9,7 +9,6 @@ export type FichaLocalInvoiceRow = {
   id: number
   invoice_number: string | null
   issued_at: string | null
-  due_date: string | null
   total_brl: number | null
   balance_brl: number | null
   status: string | null
@@ -26,8 +25,9 @@ export type FichaRunningDemurrageRow = { container_id: number; container_number:
 export type ConsolidatedBalance = { localBrl: number; demurrageBrl: number; totalBrl: number }
 const UNPAID_DEMURRAGE_STATUSES = new Set(['issued', 'overdue'])
 // Glossário (CONTEXT.md, "Saldo Pendente do Cliente"): emitidas e ainda não
-// pagas — inclui vencidas e parcialmente pagas, pelo saldo restante.
-const UNPAID_LOCAL_STATUSES = new Set(['issued', 'overdue', 'partially_paid'])
+// pagas — inclui as parcialmente pagas, pelo saldo restante. Taxa local não tem
+// vencimento praticado, então não há estado "vencida" para somar (issue #605).
+const UNPAID_LOCAL_STATUSES = new Set(['issued', 'partially_paid'])
 
 export function buildConsolidatedBalance(
   localInvoices: Array<{ status: string | null; balance_brl: number | null }>,

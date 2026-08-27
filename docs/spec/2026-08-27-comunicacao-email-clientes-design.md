@@ -26,12 +26,13 @@ Entram no escopo dois mecanismos:
 Ficam **fora** do escopo:
 
 - O `status='overdue'` de taxas locais. Confirmado com o produto que a taxa
-  local **não tem data de vencimento praticada**; o cron
-  `mark_overdue_invoices()` (`supabase/migrations/031_overdue_enforcement.sql`)
-  classifica faturas por uma regra que a operação não usa. Issue própria. Esta
-  spec determina que a comunicação de taxas locais **ignora deliberadamente**
-  `invoices.due_date` e `invoices.status='overdue'` — quem alterar isso depois
-  precisa reabrir a decisão, não "corrigir" a omissão. **Evidência: Código.**
+  local **não tem data de vencimento praticada**. Levantado aqui, virou a issue
+  [#605](https://github.com/luccafwlog/transhippingdesk/issues/605) e **já foi
+  resolvido**: a migration `348`, sob a
+  [ADR 0055](../adr/0055-taxa-local-sem-vencimento-praticado.md), desagendou o
+  cron `mark_overdue_invoices()`, aposentou o detector e **removeu a coluna
+  `invoices.due_date` e o status `overdue`**. A comunicação de taxas locais não
+  os ignora mais por decisão — eles deixaram de existir. **Evidência: Código.**
 - Notificação In-App do Portal, que continua existindo e não é substituída.
 
 ## Ponto de partida no código
@@ -178,8 +179,8 @@ essa exigência por conta própria. Os dois não devem ser fundidos.
 ### 8. Conteúdo dos comunicados financeiros
 
 **Taxas locais.** Lista de B/Ls com valor por B/L, total em BRL, link para o
-Portal. **Sem data de vencimento** (não existe vencimento praticado), **sem
-PIX** e **sem anexo**: o pagamento acontece no Portal, e QR de pagamento em
+Portal. **Sem data de vencimento** (a taxa local não tem vencimento: ADR 0055,
+migration `348`), **sem PIX** e **sem anexo**: o pagamento acontece no Portal, e QR de pagamento em
 e-mail é o vetor que golpes de boleto imitam.
 
 **Demurrage.** `total_usd` como valor da cobrança, mais BRL informativo com

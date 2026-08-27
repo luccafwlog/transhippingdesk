@@ -21,7 +21,6 @@ function makeInvoicePage(count: number, offset: number, status: string) {
     id: offset + index,
     invoice_number: `INV-${offset + index}`,
     issued_at: '2026-07-01',
-    due_date: '2026-08-01',
     total_brl: 100,
     balance_brl: 100,
     status,

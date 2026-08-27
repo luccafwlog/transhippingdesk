@@ -35,7 +35,7 @@ describe('Regras de Alertas', () => {
     }
   })
 
-  it('não lista os tipos aposentados, que não têm produtor desde as migrations 327 e 347', () => {
+  it('não lista os tipos aposentados, que não têm produtor desde as migrations 327, 347 e 348', () => {
     const retired = readSqlAlertCatalog().filter((entry) => !entry.active).map((entry) => entry.type)
 
     expect(retired.length).toBeGreaterThan(0)
@@ -100,7 +100,7 @@ describe('Regras de Alertas', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('26 regras encontradas')).toBeTruthy()
+    expect(screen.getByText('25 regras encontradas')).toBeTruthy()
     fireEvent.change(screen.getByRole('combobox', { name: 'Setor notificado' }), { target: { value: 'equipamentos' } })
 
     expect(screen.getByText('4 regras encontradas')).toBeTruthy()
@@ -119,7 +119,7 @@ describe('Regras de Alertas', () => {
 
     // Retorna para qualquer setor (sem filtro de setor)
     fireEvent.change(screen.getByRole('combobox', { name: 'Setor notificado' }), { target: { value: 'all' } })
-    expect(screen.getByText('26 regras encontradas')).toBeTruthy()
+    expect(screen.getByText('25 regras encontradas')).toBeTruthy()
   })
 
   it('ignora um deep-link para um tipo aposentado e cai na primeira regra viva', () => {
@@ -131,7 +131,7 @@ describe('Regras de Alertas', () => {
 
     expect(screen.queryByRole('heading', { name: 'Cancelamento bloqueado' })).toBeNull()
     expect(screen.queryByRole('button', { name: /Cancelamento bloqueado/ })).toBeNull()
-    expect(screen.getByText('26 regras encontradas')).toBeTruthy()
+    expect(screen.getByText('25 regras encontradas')).toBeTruthy()
   })
 
   it('combina filtros no topo e limpa a combinação sem perder a regra selecionada', () => {
@@ -151,7 +151,7 @@ describe('Regras de Alertas', () => {
     expect((clearButton as HTMLButtonElement).disabled).toBe(false)
     fireEvent.click(clearButton)
 
-    expect(screen.getByText('26 regras encontradas')).toBeTruthy()
+    expect(screen.getByText('25 regras encontradas')).toBeTruthy()
     expect((screen.getByRole('combobox', { name: 'Domínio' }) as HTMLSelectElement).value).toBe('all')
     expect((screen.getByRole('combobox', { name: 'Gravidade' }) as HTMLSelectElement).value).toBe('all')
     expect((screen.getByRole('button', { name: 'Limpar filtros' }) as HTMLButtonElement).disabled).toBe(true)
