@@ -385,8 +385,10 @@ Consumidores principais:
 
 ### Migrations
 
-`supabase/migrations/` contém a história completa do schema, com arquivos
-sequenciais antigos e arquivos por timestamp. O número de arquivos não é um
+`supabase/migrations/` contém a história completa do schema em arquivos com
+prefixo numérico sequencial. A lacuna histórica entre `282` e `284` é mantida
+porque a versão `283` foi renumerada/descartada em uma reconciliação anterior;
+ela não representa uma migration pendente. O número de arquivos não é um
 contrato. O estado de um ambiente é definido pelo histórico aplicado, não por
 um intervalo fixo documentado.
 
