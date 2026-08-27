@@ -30,7 +30,8 @@ comunicado — a Edge Function `notify-invoice-issued` — está morta desde sem
 | **Comunicado** | linha própria, um Cliente, N B/Ls | Disparo manual ou Régua |
 | **Tentativa de envio** | `(comunicado, destinatário)` | Cada e-mail efetivamente montado |
 | **Chave de idempotência** | `(tipo, cliente, status, âncora, discriminador)` | Antes do envio |
-| **Preferência de Recebimento** | `(contato, categoria)` | Cadastro do contato |
+| **Natureza do Comunicado** | um de quatro valores, obrigatório | Mapeada do `kind`, na migration |
+| **Preferência de Recebimento** | `(contato, natureza)` | Cadastro do contato |
 | **Chave de envio do canal** | linha única de configuração | Migration, `false` |
 
 ### Âncora, data e gatilho por comunicado
@@ -38,20 +39,20 @@ comunicado — a Edge Function `notify-invoice-issued` — está morta desde sem
 Fixado depois da rodada de perguntas ao produto — é o que mais mudou em relação
 à spec original.
 
-| Comunicado | Âncora | Chave no banco | Data que comunica | Quando dispara |
-|---|---|---|---|---|
-| Aviso de Chegada (NOA) | Escala | `(voyage_id, port)` — a Escala **não tem chave substituta** | **ETA** da Escala | **ETA − 5 dias** |
-| Aviso de Atracação (NOR) | Atracação | `voyage_escala_terminal_state.id` | **ATB** da Atracação | Dia da atracação, quando o ATB entra |
-| Resumo de taxas locais | Viagem | `voyages.id` | — | Manual, após a Prontidão |
-| Cobrança de Demurrage | Fatura | `demurrage_invoices.id` | — | `first_billed_at`, depois a cada 5 dias |
-| Institucional / livre | Disparo | id do próprio disparo | — | Manual |
+| Comunicado | Natureza | Âncora | Chave no banco | Data que comunica | Quando dispara |
+|---|---|---|---|---|---|
+| Aviso de Chegada (NOA) | Avisos operacionais | Escala | `(voyage_id, port)` — a Escala **não tem chave substituta** | **ETA** da Escala | **ETA − 5 dias** |
+| Aviso de Atracação (NOR) | Avisos operacionais | Atracação | `voyage_escala_terminal_state.id` | **ATB** da Atracação | Dia da atracação, quando o ATB entra |
+| Resumo de taxas locais | Documentação | Viagem | `voyages.id` | — | Manual, após a Prontidão |
+| Cobrança de Demurrage | Demurrage | Fatura | `demurrage_invoices.id` | — | `first_billed_at`, depois a cada 5 dias |
+| Institucional / livre | Avisos gerais | Disparo | id do próprio disparo | — | Manual |
 
 Os dois avisos operacionais saem em **inglês**; todo o resto em **pt-BR**.
 
 ## Correções à spec
 
-Cinco pontos da spec não sobrevivem ao código ou à definição operacional dos
-avisos. As correções entram no mesmo change deste plano, como notas editoriais
+Sete pontos da spec não sobrevivem ao código, à definição operacional dos avisos
+ou à rodada de produto que redefiniu as naturezas. As correções entram no mesmo change deste plano, como notas editoriais
 na spec.
 
 ### C1 — A metade interna da `notify-invoice-issued` já tem substituto vivo
@@ -131,19 +132,61 @@ produto. O NOA informa o ETA vigente no disparo e encerra. O reenvio manual
 continua possível pelo caminho de confirmação da T10 — que incrementa o
 discriminador —, mas ninguém é cobrado a fazê-lo.
 
+### C6 — Quatro Naturezas, e elas não são as três categorias mais uma
+
+Entrou depois da spec, na mesma rodada de produto: o cliente passa a escolher o
+que recebe entre **quatro** naturezas — avisos gerais, avisos operacionais,
+documentação e demurrage. A spec foi corrigida na decisão 2, e o corte **muda**,
+não cresce: o resumo de taxas locais sai do `financeiro` para `documentacao`, e a
+cobrança de Demurrage vira natureza própria. Duas categorias que dividiam a mesma
+linha passam a ser desligáveis em separado.
+
+O que isso obriga neste plano: T2 (enum, backfill de quatro linhas por contato,
+mapeamento `kind`→natureza), T5 (resolução por natureza), T6 (quatro toggles) e
+T13 (a guarda de que não se envia sem natureza). Bloco 3 só muda no mapeamento.
+
+**O momento é este, e não depois.** A migration `349` ainda não existe; depois de
+aplicada, a mesma mudança é migration de dados sobre uma tabela com uma linha por
+contato por natureza, mais reescrita do serviço e da tela.
+
+**A natureza é eixo separado do `kind`.** CE Mercante, disputa e devolução de
+container — citados pelo produto — **não existem** entre os seis `kind` de hoje.
+Com o mapeamento explícito, cada um deles entra depois como `kind` novo apontando
+para natureza existente, sem recortar a tabela de preferências outra vez.
+
+### C7 — O autoatendimento do cliente é issue própria
+
+O mesmo pedido de produto queria que o **cliente** editasse seus contatos e
+ditasse o que cada um recebe. Isso não entra aqui: inverte a decisão 2 da spec
+(hoje a preferência é roteamento interno) e depende de três coisas que o código
+não tem — a Conta de Portal é uma só por cliente
+(`customer_portal_accounts.customer_id` é UNIQUE, migration `025`),
+`customer_contacts` não tem unicidade (a `119` registra o bug que isso já
+causou), e não há double opt-in. Virou a issue
+[#609](https://github.com/luccafwlog/transhippingdesk/issues/609), com a decisão
+já tomada de que o cliente nunca poderá zerar uma natureza operacional ou de
+demurrage.
+
+Deste plano, ela leva uma coisa só, e é por isso que a T2 a inclui: a coluna
+`source` da preferência.
+
 ### C5 — NOA e NOR aceitam anexo
 
 A decisão 5 da spec marca "Anexo: Não" para NOA e NOR, e a decisão 12 restringe
 anexo ao institucional e ao livre. O produto decidiu o contrário para os dois
 avisos operacionais.
 
-**Isso não fere o invariante 6**, que proíbe anexo e PIX no comunicado
-**financeiro** — resumo de taxas locais e cobrança de Demurrage seguem sem
-anexo, sem PIX e sem exceção. A restrição existe para manter o financeiro longe
-do padrão que golpes de boleto imitam, e NOA/NOR não são financeiros.
+**Isso não fere o invariante 6**, que proíbe anexo e PIX no **resumo de taxas
+locais e na cobrança de Demurrage** — esses dois seguem sem anexo, sem PIX e sem
+exceção. A restrição existe para manter esse par longe do padrão que golpes de
+boleto imitam, e NOA e NOR não se parecem com boleto nenhum.
 
-**Consequência:** o único comunicado que continua proibido de anexar é o
-financeiro. As decisões 5 e 12 da spec são corrigidas.
+**Consequência:** os únicos comunicados que continuam proibidos de anexar são
+aqueles dois. As decisões 5 e 12 da spec são corrigidas.
+
+Depois da C6 isso deixou de poder ser dito como "o financeiro": os dois modelos
+nem dividem mais natureza — um é `documentacao`, o outro é `demurrage`. Por isso
+o invariante 6 foi reescrito para nomeá-los, em vez de nomear o grupo.
 
 ---
 
@@ -191,8 +234,9 @@ Tabelas do canal:
 
 - `customer_communications` — o Comunicado. `customer_id` NOT NULL,
   `kind` (`aviso_chegada`, `aviso_atracacao`, `resumo_taxas_locais`,
-  `cobranca_demurrage`, `institucional`, `livre`), `category`
-  (`operacional`, `financeiro`, `institucional`), `anchor_voyage_id`,
+  `cobranca_demurrage`, `institucional`, `livre`), `nature` **NOT NULL**
+  (`avisos_gerais`, `avisos_operacionais`, `documentacao`, `demurrage`),
+  `anchor_voyage_id`,
   `anchor_port`, `anchor_atracacao_id`, `anchor_invoice_id`,
   `attempt_discriminator` INT NOT NULL DEFAULT 0, `status` (`enviado`,
   `simulado`, `falha`), `dispatch_id`, `created_by`, `created_at`.
@@ -205,8 +249,13 @@ Tabelas do canal:
   `complaint`. `bounce_permanente` **não** entra aqui: é lido e escrito em
   `portal_suppressed_emails`, compartilhado (ADR 0056). A caixa não existir é
   fato da caixa, não opinião de canal.
-- `customer_contact_preferences` — `(contact_id, category)` com `enabled`
-  BOOLEAN NOT NULL DEFAULT true.
+- `customer_contact_preferences` — `(contact_id, nature)` com `enabled` BOOLEAN
+  NOT NULL DEFAULT true e `source` (`interno`, `cliente`) NOT NULL DEFAULT
+  `'interno'`. O `source` não tem consumidor neste plano: existe para a issue
+  [#609](https://github.com/luccafwlog/transhippingdesk/issues/609), que passa a
+  escolha ao cliente e precisa distinguir as duas mãos. Acrescentá-lo agora custa
+  uma coluna; acrescentá-lo depois obriga a inventar a procedência das linhas que
+  já existirem.
 - `app_settings` — a primeira tabela de configuração global do projeto. Linha
   única (`CHECK (id = 1)`), com `communications_enabled BOOLEAN NOT NULL DEFAULT
   false`, `demurrage_dunning_interval_days INT NOT NULL DEFAULT 5` e
@@ -242,6 +291,14 @@ Regras que a migration carrega:
     `enviado` também) e uma `falha` não trava a retentativa.
   - **`attempt_discriminator`** — o reenvio confirmado (T10) e a enésima
     cobrança da Régua (T18).
+- **Mapeamento `kind` → `nature`, no banco.** Uma tabela de domínio
+  `customer_communication_kinds (kind PK, nature NOT NULL)`, semeada com as seis
+  linhas da tabela de âncoras deste plano, e `customer_communications` referencia
+  o par: FK composta `(kind, nature)` contra ela. Assim um comunicado não pode
+  nascer com natureza que não é a do seu modelo, e acrescentar CE Mercante ou
+  devolução de container depois é uma linha de `INSERT`, não uma alteração de
+  CHECK em duas tabelas. O `livre` é o único cuja natureza é escolhida no
+  disparo, então ele entra com uma linha por natureza possível.
 - **Âncora é valor registrado, não referência.** As quatro colunas de âncora
   ficam **sem FK**, no mesmo padrão do `entity_id` dos alertas (migration
   `342`). Não é omissão: `save_voyage_escala_terminal_state` (migration `306`)
@@ -259,8 +316,8 @@ Regras que a migration carrega:
   continuar legível: ele é o registro do que foi dito ao cliente, não uma
   projeção do estado atual.
 - **Backfill das preferências:** toda linha de `customer_contacts` existente
-  ganha as três categorias ligadas, e um trigger `AFTER INSERT` faz o mesmo para
-  contatos novos (spec, decisão 2).
+  ganha as **quatro** naturezas ligadas com `source='interno'`, e um trigger
+  `AFTER INSERT` faz o mesmo para contatos novos (spec, decisão 2).
 - **RLS:** leitura pelos perfis internos ativos via `is_active_read_user()`;
   escrita de comunicado só por `service_role`. A escrita de
   `app_settings.communications_enabled` é restrita a `administrativo` — guarda
@@ -272,10 +329,13 @@ Sem backfill de comunicados: o canal nasce vazio.
 
 **Check:** teste de contrato SQL `comunicadosFundacaoMigration.test.ts` afirmando
 o `NULLS NOT DISTINCT` no índice único, a presença de `status` e `dispatch_id`
-na lista de colunas dele, que nenhuma coluna de âncora tem FK, o default `false` de
-`communications_enabled`, o `6` de `demurrage_dunning_max_sends`, o
+na lista de colunas dele, que nenhuma coluna de âncora tem FK, o default `false`
+de `communications_enabled`, o `6` de `demurrage_dunning_max_sends`, o
 `CHECK (id = 1)` de `app_settings`, e que a policy de escrita de
-`communications_enabled` nomeia `administrativo`.
+`communications_enabled` nomeia `administrativo`. Sobre a natureza: que `nature`
+é NOT NULL, que as quatro linhas de preferência nascem por contato, que o
+mapeamento tem as seis linhas de `kind`, e que inserir comunicado com natureza
+divergente da do seu `kind` é **rejeitado** pela FK composta.
 
 ### T3 — Permissão `customer_communications`
 
@@ -311,7 +371,7 @@ sete papéis contra a nova permissão, com asserção **explícita** de que
 ### T5 — Resolução de destinatários (serviço puro)
 
 `src/services/customerCommunications.ts`, sem I/O na parte decidível: dado um
-conjunto de contatos, a categoria, as supressões e as preferências, devolver
+conjunto de contatos, a **natureza**, as supressões e as preferências, devolver
 **elegíveis** e **excluídos com motivo** (`preferencia_desligada`,
 `email_ausente`, `suprimido_complaint`, `suprimido_bounce`), e marcar o cliente
 como **bloqueado** quando não sobra nenhum contato.
@@ -322,16 +382,24 @@ motivo (invariante 5).
 **Check:** teste de tabela cobrindo os quatro motivos de exclusão, o cliente
 bloqueado por exclusão total, e a assimetria da supressão — `complaint` do canal
 não bloqueia o Portal, `bounce_permanente` bloqueia os dois (invariante 7).
+Somado a isso, que desligar `demurrage` num contato **não** o exclui de um
+comunicado de `documentacao`: é o corte novo da C6, e era a mesma categoria
+antes.
 
 ### T6 — Preferência de Recebimento na Ficha do Cliente
 
-Três toggles por contato na aba Cadastro & Contatos
+**Quatro** toggles por contato na aba Cadastro & Contatos
 (`src/components/clientes/CadastroContatosTab.tsx`), no padrão de mutação de
 `react-query-pattern`. Não tocar em `purpose` — campo populado pelos
 importadores e lido como `'faturamento'` no perfil do Portal (spec, decisão 2).
 
-**Check:** teste de comportamento — desligar Financeiro num contato não altera
-`purpose` nem as outras duas categorias.
+A escrita da tela interna grava `source='interno'`. Nada nesta task lê o
+`source`; ele só passa a ter dois valores na
+[#609](https://github.com/luccafwlog/transhippingdesk/issues/609).
+
+**Check:** teste de comportamento — desligar Demurrage num contato não altera
+`purpose`, não altera as outras três naturezas, e **não** desliga Documentação,
+que era a mesma categoria antes da C6.
 
 ### T7 — Bounce e complaint do canal no `portal-email-webhook`
 
@@ -491,15 +559,18 @@ destinatário não está autenticado e não abriria bucket privado — e é pers
 para o histórico.
 
 **Aceitam anexo:** institucional, livre, **NOA e NOR** (C5). **Não aceitam:**
-resumo de taxas locais e cobrança de Demurrage — o comunicado financeiro nunca
-leva anexo nem PIX (invariante 6), e essa é a única proibição que sobra.
+resumo de taxas locais e cobrança de Demurrage — esses dois nunca levam anexo nem
+PIX (invariante 6), e essa é a única proibição que sobra. A validação é pelo
+`kind`, **não** pela natureza: `documentacao` e `demurrage` continuam aceitando
+anexo em qualquer outro modelo que venha a existir nelas.
 
 Editor livre; institucional salvável como modelo reutilizável. Migration
 `350_comunicados_anexos.sql` para bucket, policies e a tabela de modelos salvos.
 
 **Check:** teste de contrato SQL das policies do bucket; teste de validação
-rejeitando o 4º arquivo e a soma acima de 10 MB; teste afirmando que um
-comunicado financeiro com anexo é **rejeitado**.
+rejeitando o 4º arquivo e a soma acima de 10 MB; teste afirmando que um resumo de
+taxas locais e uma cobrança de Demurrage com anexo são **rejeitados**, e que a
+recusa é pelo `kind` — um comunicado de mesma natureza e outro `kind` passa.
 
 ### T13 — Envio e Edge Function `send-customer-communication`
 
@@ -519,9 +590,16 @@ senha, atrasa o cliente e polui a caixa errada. Documentar a variável em
 (invariante 1), inclusive no institucional. Com a chave desligada, grava
 `status='simulado'` e **não** chama a Resend (invariante 4).
 
+**Comunicado sem natureza não é montado** (invariante 10). A guarda é da Edge
+Function, não da tela: a natureza decide quem recebe, e um comunicado que
+chegasse aqui sem ela sairia para a lista errada de contatos ou para nenhuma. No
+banco a coluna já é NOT NULL — esta é a metade que devolve erro legível em vez de
+violação de constraint.
+
 **Check:** teste afirmando que `communications_enabled=false` produz linha
-`simulado` sem chamada à Resend, e que o Portal continua enviando na mesma
-condição (as duas metades do invariante 4).
+`simulado` sem chamada à Resend, que o Portal continua enviando na mesma condição
+(as duas metades do invariante 4), e que disparo sem natureza é recusado antes de
+montar a mensagem.
 
 ### T14 — Alertas de NOA e NOR pendentes
 

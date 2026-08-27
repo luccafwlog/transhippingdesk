@@ -13,10 +13,10 @@ A cobrança de Demurrage é responsabilidade de Equipamentos na operação, e o
 canal de Comunicado (ADR 0056) coloca essa cobrança dentro do sistema. Sem
 permissão, Equipamentos não alcançaria a tela que executa o próprio trabalho.
 
-Considerou-se recortar a permissão por categoria de comunicado — Documentação e
-Administrativo em Operacional, Financeiro–taxas locais e Institucional;
-Equipamentos apenas em Financeiro–Demurrage. O produto decidiu que os três
-perfis disparam qualquer comunicado, e a trilha responde quem fez.
+Considerou-se recortar a permissão por Natureza do Comunicado — Documentação e
+Administrativo em Avisos gerais, Avisos operacionais e Documentação;
+Equipamentos apenas em Demurrage. O produto decidiu que os três perfis disparam
+qualquer comunicado, e a trilha responde quem fez.
 
 `financeiro` fica **fora** por decisão, não por esquecimento: ele detém
 `settle_financial_adjustments` e as superfícies de taxas locais e Demurrage,
@@ -30,7 +30,7 @@ permissão, sem ADR nova.
 - Nasce a permissão `customer_communications`, concedida a `administrativo`,
   `documentacao` e `equipamentos`.
 - Ela governa o acesso ao módulo de Comunicação e a execução de Disparo de
-  Comunicado, sem recorte por categoria.
+  Comunicado, sem recorte por Natureza.
 - Todo disparo registra autor, momento e recorte.
 - `portal_provisioning` **não** é reaproveitada: amarrar comunicação
   operacional à governança do Portal recriaria o acoplamento que a ADR 0056
@@ -56,12 +56,13 @@ mantendo `case 'operacoes': return false`. A matriz do teste precisa afirmar
 que `operacoes` continua sem a permissão, senão a regressão passa despercebida.
 **Evidência: Código.**
 
-Como não há recorte por categoria, um usuário de Documentação pode disparar
+Como não há recorte por Natureza, um usuário de Documentação pode disparar
 cobrança de Demurrage e um de Equipamentos pode disparar Aviso de Chegada.
 Isso é escolha consciente do produto: a conferência obrigatória e a trilha por
-autor são as guardas, não a permissão. Se o recorte por categoria vier a ser
-necessário, ele entra como refinamento desta permissão, não como permissão
-nova.
+autor são as guardas, não a permissão. Se o recorte vier a ser necessário, ele
+entra como refinamento desta permissão, não como permissão nova — e as quatro
+Naturezas já lhe dão o corte pronto, com Equipamentos coincidindo exatamente com
+Demurrage.
 
 Não altera a ADR 0044 (leitura interna global) nem a 0046 (escrita interna
 global com rastro). Especificação funcional em
