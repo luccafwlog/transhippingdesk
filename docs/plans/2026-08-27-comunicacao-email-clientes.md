@@ -132,6 +132,25 @@ produto. O NOA informa o ETA vigente no disparo e encerra. O reenvio manual
 continua possível pelo caminho de confirmação da T10 — que incrementa o
 discriminador —, mas ninguém é cobrado a fazê-lo.
 
+### C5 — NOA e NOR aceitam anexo
+
+A decisão 5 da spec marca "Anexo: Não" para NOA e NOR, e a decisão 12 restringe
+anexo ao institucional e ao livre. O produto decidiu o contrário para os dois
+avisos operacionais.
+
+**Isso não fere o invariante 6**, que proíbe anexo e PIX no **resumo de taxas
+locais e na cobrança de Demurrage** — esses dois seguem sem anexo, sem PIX e sem
+exceção. A restrição existe para manter esse par longe do padrão que golpes de
+boleto imitam, e NOA e NOR não se parecem com boleto nenhum.
+
+**Consequência:** os únicos comunicados que continuam proibidos de anexar são
+aqueles dois. As decisões 5 e 12 da spec são corrigidas.
+
+Isso também deixou de poder ser dito como "o financeiro": depois da C6, abaixo,
+os dois modelos nem dividem mais natureza — um é `documentacao`, o outro é
+`demurrage`. Por isso o invariante 6 foi reescrito para nomeá-los, em vez de
+nomear o grupo.
+
 ### C6 — Quatro Naturezas, e elas não são as três categorias mais uma
 
 Entrou depois da spec, na mesma rodada de produto: o cliente passa a escolher o
@@ -169,24 +188,6 @@ demurrage.
 
 Deste plano, ela leva uma coisa só, e é por isso que a T2 a inclui: a coluna
 `source` da preferência.
-
-### C5 — NOA e NOR aceitam anexo
-
-A decisão 5 da spec marca "Anexo: Não" para NOA e NOR, e a decisão 12 restringe
-anexo ao institucional e ao livre. O produto decidiu o contrário para os dois
-avisos operacionais.
-
-**Isso não fere o invariante 6**, que proíbe anexo e PIX no **resumo de taxas
-locais e na cobrança de Demurrage** — esses dois seguem sem anexo, sem PIX e sem
-exceção. A restrição existe para manter esse par longe do padrão que golpes de
-boleto imitam, e NOA e NOR não se parecem com boleto nenhum.
-
-**Consequência:** os únicos comunicados que continuam proibidos de anexar são
-aqueles dois. As decisões 5 e 12 da spec são corrigidas.
-
-Depois da C6 isso deixou de poder ser dito como "o financeiro": os dois modelos
-nem dividem mais natureza — um é `documentacao`, o outro é `demurrage`. Por isso
-o invariante 6 foi reescrito para nomeá-los, em vez de nomear o grupo.
 
 ---
 
