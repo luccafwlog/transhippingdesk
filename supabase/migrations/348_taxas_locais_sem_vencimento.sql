@@ -231,7 +231,13 @@ SELECT pg_temp.strip_due_date(
   'public._portal_list_invoices_core(bigint)',
   ARRAY[
     ARRAY['issued_at timestamp with time zone, due_date date, total_brl', 'issued_at timestamp with time zone, total_brl'],
-    ARRAY[E'    i.issued_at,\n    i.due_date,\n', E'    i.issued_at,\n']
+    ARRAY[
+      $t1$    i.issued_at,
+    i.due_date,
+$t1$,
+      $t2$    i.issued_at,
+$t2$
+    ]
   ]
 );
 
@@ -257,8 +263,20 @@ SELECT pg_temp.strip_due_date(
   'public.create_invoice_from_bls_core(text[],bigint,date,text,boolean,uuid,text,bigint)',
   ARRAY[
     ARRAY['p_customer_id bigint, p_due_date date DEFAULT NULL::date, p_notes text', 'p_customer_id bigint, p_notes text'],
-    ARRAY[E'    issued_at,\n    due_date,\n', E'    issued_at,\n'],
-    ARRAY[E'    p_due_date,\n    0,\n', E'    0,\n']
+    ARRAY[
+      $t3$    issued_at,
+    due_date,
+$t3$,
+      $t4$    issued_at,
+$t4$
+    ],
+    ARRAY[
+      $t5$    p_due_date,
+    0,
+$t5$,
+      $t6$    0,
+$t6$
+    ]
   ]
 );
 
@@ -266,7 +284,13 @@ SELECT pg_temp.strip_due_date(
   'public.create_invoice_from_bls(text[],bigint,date,text,boolean,uuid)',
   ARRAY[
     ARRAY['p_customer_id bigint DEFAULT NULL::bigint, p_due_date date DEFAULT NULL::date, p_notes text', 'p_customer_id bigint DEFAULT NULL::bigint, p_notes text'],
-    ARRAY[E'    p_customer_id,\n    p_due_date,\n', E'    p_customer_id,\n']
+    ARRAY[
+      $c1a$    p_customer_id,
+    p_due_date,
+$c1a$,
+      $c1b$    p_customer_id,
+$c1b$
+    ]
   ]
 );
 
@@ -274,7 +298,13 @@ SELECT pg_temp.strip_due_date(
   'public.create_invoice_from_bls_with_ledger(text[],bigint,date,text,boolean,uuid)',
   ARRAY[
     ARRAY['p_customer_id bigint DEFAULT NULL::bigint, p_due_date date DEFAULT NULL::date, p_notes text', 'p_customer_id bigint DEFAULT NULL::bigint, p_notes text'],
-    ARRAY[E'    p_customer_id,\n    p_due_date,\n', E'    p_customer_id,\n']
+    ARRAY[
+      $c2a$    p_customer_id,
+    p_due_date,
+$c2a$,
+      $c2b$    p_customer_id,
+$c2b$
+    ]
   ]
 );
 
@@ -282,7 +312,13 @@ SELECT pg_temp.strip_due_date(
   'public.mark_bl_ready_and_create_invoice(text,bigint,date,text,uuid)',
   ARRAY[
     ARRAY['p_customer_id bigint DEFAULT NULL::bigint, p_due_date date DEFAULT NULL::date, p_notes text', 'p_customer_id bigint DEFAULT NULL::bigint, p_notes text'],
-    ARRAY[E'    v_customer_id,\n    p_due_date,\n', E'    v_customer_id,\n']
+    ARRAY[
+      $v1a$    v_customer_id,
+    p_due_date,
+$v1a$,
+      $v1b$    v_customer_id,
+$v1b$
+    ]
   ]
 );
 
@@ -290,7 +326,13 @@ SELECT pg_temp.strip_due_date(
   'public.mark_bls_ready_and_create_invoice(text[],bigint,date,text,uuid)',
   ARRAY[
     ARRAY['p_customer_id bigint, p_due_date date DEFAULT NULL::date, p_notes text', 'p_customer_id bigint, p_notes text'],
-    ARRAY[E'    p_customer_id,\n    p_due_date,\n', E'    p_customer_id,\n']
+    ARRAY[
+      $c3a$    p_customer_id,
+    p_due_date,
+$c3a$,
+      $c3b$    p_customer_id,
+$c3b$
+    ]
   ]
 );
 
@@ -353,7 +395,13 @@ SELECT pg_temp.strip_due_date(
   'public.register_invoice_payment(bigint,numeric,text,timestamp with time zone,text,uuid)',
   ARRAY[
     ARRAY[
-      E'  IF v_next_status IN (\'issued\', \'partially_paid\')\n    AND v_invoice.due_date IS NOT NULL\n    AND v_invoice.due_date < CURRENT_DATE THEN\n    v_next_status := \'overdue\';\n  END IF;\n\n',
+      $t9$  IF v_next_status IN ('issued', 'partially_paid')
+    AND v_invoice.due_date IS NOT NULL
+    AND v_invoice.due_date < CURRENT_DATE THEN
+    v_next_status := 'overdue';
+  END IF;
+
+$t9$,
       ''
     ]
   ]
