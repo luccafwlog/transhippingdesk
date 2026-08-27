@@ -466,7 +466,10 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
   2026-06-24 de não disparar email para clientes foi **revertida pela ADR
   0056**, que cria o canal de Comunicado ao Cliente. Esta função **não** será
   reativada: ela é apagada quando o comunicado financeiro do novo canal entrar
-  (spec `docs/spec/2026-08-27-comunicacao-email-clientes-design.md`).
+  (spec `docs/spec/2026-08-27-comunicacao-email-clientes-design.md`). A remoção
+  precisa dar destino à **metade interna** da função — o `alerta_critico`
+  enviado a `admin`, `administrativo` e `documentacao` quando a fatura sai sem
+  Conta de Portal ativa —, que o comunicado ao cliente não substitui.
 
 O Portal não participa do gate financeiro de revisão/faturamento. As migrations
 188–190 criam alertas preventivos e exceções críticas por fatura, mantendo a

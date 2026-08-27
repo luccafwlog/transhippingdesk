@@ -27,6 +27,10 @@ tentativa.
   Comunicado ao Cliente.
 - O canal é **separado** do email transacional do Portal em três eixos: lista
   de supressão própria, trilha de tentativas própria e chave de envio própria.
+- A separação da supressão **não vale para o bounce permanente**. O
+  `portal_suppressed_emails.reason` já distingue `bounce_permanente` de
+  `complaint` (migration `178`): `bounce_permanente` é compartilhado entre os
+  dois canais, `complaint` continua por canal.
 - O canal **compartilha** com o Portal a mecânica de envio, o remetente
   `portal@` e a identidade visual. O cliente não deve perceber duas entidades.
 - A mecânica de envio — Resend, idempotência, retry com backoff, registro de
@@ -39,11 +43,20 @@ tentativa.
 
 ## Consequências
 
-Um endereço suprimido por bounce num Convite do Portal continua recebendo Aviso
-de Chegada, e um endereço suprimido por bounce num Comunicado continua podendo
-receber convite. Isso é deliberado: supressão de acesso e supressão de
-entregabilidade operacional são decisões distintas, e fundi-las faria um cliente
-perder aviso de navio por causa de um convite marcado como spam meses antes.
+Um endereço suprimido por `complaint` num Convite do Portal continua recebendo
+Aviso de Chegada, e um endereço suprimido por `complaint` num Comunicado
+continua podendo receber convite. Isso é deliberado: supressão de acesso e
+supressão de entregabilidade operacional são decisões distintas, e fundi-las
+faria um cliente perder aviso de navio por causa de um convite marcado como spam
+meses antes.
+
+O `bounce_permanente` é o caso oposto e por isso é compartilhado. Ele não
+carrega opinião sobre o canal: diz que a caixa postal não existe. Como os dois
+canais saem do mesmo remetente `portal@`, deixar o Comunicado insistir num
+endereço que o Portal já sabe inexistente degradaria a reputação do domínio e
+derrubaria junto os convites — exatamente o dano que o teto da Régua de Cobrança
+existe para evitar. Suprimir por canal aqui compraria o pior dos dois mundos:
+canais separados no papel, reputação única na prática.
 
 O projeto passa de três caminhos de e-mail para um só mecanismo com dois
 consumidores. O histórico por cliente fica legível, porque convite de Portal não
@@ -51,6 +64,8 @@ polui a leitura de "o que comunicamos a este cliente".
 
 Esta decisão reverte a nota de 2026-06-24 registrada em
 `docs/RASTREABILIDADE.md` e `docs/ARCHITECTURE.md`, ambas corrigidas no mesmo
-change. Não altera a ADR 0018 nem a 0019 (convite do Portal), que continuam
-regendo o canal transacional. Especificação funcional em
+change. Não altera as ADRs que regem o email transacional do Portal — 0013
+(identificador de autenticação), 0048 (confirmação do Email de Recuperação em
+rota pública) e 0049 (rate limit por CNPJ) —, que continuam valendo para aquele
+canal. Especificação funcional em
 [`../spec/2026-08-27-comunicacao-email-clientes-design.md`](../spec/2026-08-27-comunicacao-email-clientes-design.md).
