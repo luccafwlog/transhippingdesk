@@ -157,6 +157,59 @@ mesmo arquivo de B/L não é barrado no nível do arquivo. Upgrade quando virar 
 real: um log leve de import por arquivo com `file_hash` (não a tabela
 `import_batches`), preservando o desacoplamento.
 
+## Nota editorial — 2026-08-28 (a reimportação troca o consignatário e leva a fatura junto)
+
+Investigação da reimportação campo a campo (migration `357`). A decisão 2 dizia
+"nada é sobrescrito em silêncio", e o preview de diff realizava isso para os
+campos comerciais. Três buracos sobreviviam, todos silenciosos:
+
+- **Campos aplicados fora do diff.** `shipper_block`, `consignee_block`,
+  `notify_block`, `notify2_block`, `notify_cnpj_cpf`, `manifest_customer_email`,
+  `vehicles`, `voyage_id` e `cargo_mode` eram gravados sem aparecer no preview.
+  Passam a ser diffados como os demais, e cada linha do diff ganha rótulo de
+  operação (`cargo_description` vira "Descrição da carga (origem do NCM)").
+- **Campos prometidos e descartados.** `voyage_id`, `pol`, `pod` e `cargo_mode`
+  eram bloqueados em bloco por `v_unlocked_bls` (migration `205`) quando o B/L
+  tinha cálculo ou fatura: o preview mostrava a mudança e a RPC não gravava,
+  sem override possível. Passam a seguir a regra da nota de 2026-07-01 —
+  bloqueados por padrão, **sobrescrevíveis com `override_billing` e auditoria**.
+  POD escolhe a tabela de taxa, e viagem define onde a cobrança vive; são
+  variáveis de faturamento como as demais, não exceções mudas.
+- **O cliente nunca mudava.** `customer_id` só era adotado quando o B/L estava
+  sem vínculo (migration `163`). Reimportar com outro consignatário trocava
+  `consignee` e `manifest_customer_cnpj_cpf` e deixava o B/L — e a fatura —
+  pertencendo ao cliente antigo.
+
+**Decisão.** A reimportação é também o caminho de **correção do consignatário**.
+Trocar o consignatário por erro de lançamento pode acontecer a qualquer momento,
+inclusive depois do CE Mercante (que não muda: `ce_mercante` não está no payload
+do import) e depois da fatura emitida. O preview mostra a troca — de quem para
+quem, com CNPJ — e a operação **aceita explicitamente**; só então
+`relink_bl_customer` move o B/L, as faturas de taxa local abertas, o recebível
+do ledger e a demurrage viva para o novo cliente. **O valor devido não muda:
+nenhuma coluna de dinheiro é reescrita, só `customer_id`.**
+
+**Limites da troca automática**, sinalizados no preview antes do aceite:
+
+- fatura **consolidada** com outros B/Ls não troca de dono inteira — separe a
+  cobrança primeiro;
+- fatura **com pagamento registrado** (ou quitada) não troca — estorne ou
+  cancele antes, para não reescrever histórico de recebimento;
+- novo consignatário **ainda não cadastrado** como cliente: sem fatura, o B/L
+  volta para a fila de reconciliação; com fatura, a troca é impedida
+  (`invoices.customer_id` e `bl_receivables.customer_id` são `NOT NULL`).
+
+Em qualquer impedimento, **os demais campos seguem sendo aplicados** — o B/L não
+é descartado inteiro, coerente com a nota de 2026-07-01. Toda troca é auditada
+com justificativa (`entity_type` `bl` e `invoice`, visíveis no Histórico do B/L
+via `bl_timeline`) e reabre a análise de Portal do novo cliente
+(`trg_portal_reopen_on_new_process`, migration `325`).
+
+**NCM não é campo próprio.** Não existe coluna `ncm`: `src/lib/ncm.ts` extrai os
+códigos da descrição da carga e a ficha do B/L os exibe a partir dela. Como
+`cargo_description` sempre foi diffada e aplicada, o NCM já acompanhava a
+reimportação; o que faltava era o preview dizer isso com todas as letras.
+
 ## Alternativas consideradas
 
 - **Sintetizar um `import_batch` "bl_file" para o import de B/L.** Ganharia dedup

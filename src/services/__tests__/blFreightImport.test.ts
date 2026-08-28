@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  BL_FREIGHT_DIFF_LABELS,
   buildBlFreightPayload,
   buildBlFreightPreview,
   confirmBlFreightImport,
@@ -77,6 +78,59 @@ function parsedBL(): ParsedBLDocument {
       { description: 'THD', rateCurrency: 'BRL', rateAmount: 1717, per: 'CNTR', currency: 'BRL', amount: 1717, payment: 'COLLECT' },
       { description: 'BAF', rateCurrency: 'USD', rateAmount: 172, per: 'CNTR', currency: 'USD', amount: 172, payment: 'PREPAID' },
     ],
+  }
+}
+
+/** B/L já gravado igual ao arquivo de `parsedBL`, para o diff isolar o que muda no teste. */
+function existingBl() {
+  return {
+    id: 'CSC45250E02Y00',
+    voyage_id: 7,
+    cargo_mode: 'container' as const,
+    shipper: 'SHIPPER LTDA\nADDRESS',
+    consignee: 'IMPORTADOR LTDA',
+    notify_party: 'NOTIFY LTDA',
+    pol: 'CNSHA',
+    pod: 'BRSSZ',
+    place_of_delivery: 'BRSSZ',
+    place_of_receipt: 'CNSHA',
+    movement_from: 'CY',
+    movement_to: 'CY',
+    issue_place: 'SHANGHAI',
+    cargo_description: 'BYD DOLPHIN GS 180EV, 200 UNITS\nNCM : 8703.80.00\nDG CLASS:9\nUN NCM: 3556',
+    total_packages: 200,
+    packages_unit: 'UNITS',
+    consignee_phone: null,
+    total_weight_kg: 28000,
+    total_cbm: 68.5,
+    payment_type: 'PREPAID' as const,
+    bl_emission_date: '2026-02-20',
+    manifest_customer_cnpj_cpf: '12345678000195',
+    manifest_customer_name: 'IMPORTADOR LTDA',
+    shipper_block: 'SHIPPER LTDA\nADDRESS',
+    consignee_block: 'IMPORTADOR LTDA\nCNPJ: 12.345.678/0001-95',
+    notify_block: 'NOTIFY LTDA',
+    notify2_block: null,
+    notify_cnpj_cpf: null,
+    manifest_customer_email: null,
+    bl_containers: [existingContainer()],
+    bl_freight_lines: [],
+    vehicles: [{ chassis: '9BWZZZ377VT004251' }],
+  }
+}
+
+function existingContainer() {
+  return {
+    container_number: 'TCLU1234567',
+    seal_number: 'SEAL001',
+    type: '40HC',
+    tare_weight_kg: 3900,
+    gross_weight_kg: 28000,
+    cbm: 68.5,
+    is_imo: true,
+    is_oog: false,
+    imo_class: '9',
+    un_number: '3556',
   }
 }
 
@@ -566,6 +620,8 @@ describe('blFreightImport', () => {
           blockedReasons: [],
           billingImpacts: [],
           requiresBillingOverride: false,
+          customerChange: null,
+          requiresCustomerConfirmation: false,
           diffs: [],
           payload: buildBlFreightPayload(parsedBL(), 7),
         },
@@ -582,14 +638,19 @@ describe('blFreightImport', () => {
           blockedReasons: ['bloqueado'],
           billingImpacts: [],
           requiresBillingOverride: false,
+          customerChange: null,
+          requiresCustomerConfirmation: false,
           diffs: [],
           payload: null,
         },
       ],
-      summary: { total: 2, newCount: 1, updatedCount: 0, unchangedCount: 0, blockedCount: 1, billingOverrideCount: 0 },
+      summary: { total: 2, newCount: 1, updatedCount: 0, unchangedCount: 0, blockedCount: 1, billingOverrideCount: 0, customerChangeCount: 0 },
     }
 
-    await expect(confirmBlFreightImport(preview, 'user-1')).resolves.toEqual({ bls_received: 1 })
+    await expect(confirmBlFreightImport(preview, 'user-1')).resolves.toEqual({
+      result: { bls_received: 1 },
+      refusedCustomerRelinks: [],
+    })
     expect(mockRpc).toHaveBeenCalledWith('import_bl_freight_transactional', {
       p_bls: [preview.rows[0]?.payload],
       p_changed_by: 'user-1',
@@ -637,6 +698,8 @@ describe('blFreightImport', () => {
           blockedReasons: [],
           billingImpacts: [],
           requiresBillingOverride: false,
+          customerChange: null,
+          requiresCustomerConfirmation: false,
           diffs: [],
           payload: documentMatched,
         },
@@ -653,11 +716,13 @@ describe('blFreightImport', () => {
           blockedReasons: [],
           billingImpacts: [],
           requiresBillingOverride: false,
+          customerChange: null,
+          requiresCustomerConfirmation: false,
           diffs: [],
           payload: nameMatched,
         },
       ],
-      summary: { total: 2, newCount: 2, updatedCount: 0, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 0 },
+      summary: { total: 2, newCount: 2, updatedCount: 0, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 0, customerChangeCount: 0 },
     }
 
     await confirmBlFreightImport(preview, 'user-1')
@@ -683,6 +748,8 @@ describe('blFreightImport', () => {
           blockedReasons: [],
           billingImpacts: ['Quantidade de containers: 1 -> 2'],
           requiresBillingOverride: true,
+          customerChange: null,
+          requiresCustomerConfirmation: false,
           diffs: [],
           payload: impactPayload,
         },
@@ -699,11 +766,13 @@ describe('blFreightImport', () => {
           blockedReasons: [],
           billingImpacts: [],
           requiresBillingOverride: false,
+          customerChange: null,
+          requiresCustomerConfirmation: false,
           diffs: [],
           payload: freePayload,
         },
       ],
-      summary: { total: 2, newCount: 0, updatedCount: 2, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 1 },
+      summary: { total: 2, newCount: 0, updatedCount: 2, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 1, customerChangeCount: 0 },
     }
 
     await confirmBlFreightImport(preview, 'user-1', true)
@@ -717,5 +786,345 @@ describe('blFreightImport', () => {
     // impacting row stays un-applied; the free row still applies
     expect(sentNoOverride.find((bl) => bl.id === 'IMPACT')?.override_billing).toBe(false)
     expect(sentNoOverride.find((bl) => bl.id === 'FREE')?.override_billing).toBe(true)
+  })
+  it('mostra no diff os campos que a reimportacao sobrescrevia em silencio', () => {
+    const doc = parsedBL()
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [
+        {
+          ...existingBl(),
+          shipper_block: 'OUTRO SHIPPER',
+          consignee_block: 'OUTRO CONSIGNATARIO',
+          notify_block: 'OUTRO NOTIFY',
+          notify2_block: 'ALSO NOTIFY ANTIGO',
+          notify_cnpj_cpf: '99999999000191',
+          manifest_customer_email: 'antigo@cliente.com',
+          vehicles: [{ chassis: 'CHASSIS-ANTIGO' }],
+        },
+      ],
+    })
+
+    const fields = preview.rows[0]?.diffs.map((diff) => diff.field) ?? []
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        'shipper_block',
+        'consignee_block',
+        'notify_block',
+        'notify2_block',
+        'notify_cnpj_cpf',
+        'vehicles',
+      ]),
+    )
+    // o rotulo e o que o operador le no preview; o nome da coluna nao diz nada
+    expect(preview.rows[0]?.diffs.find((diff) => diff.field === 'consignee_block')?.label).toBe(
+      'Consignatario (bloco completo)',
+    )
+    expect(BL_FREIGHT_DIFF_LABELS.cargo_description).toBe('Descricao da carga (origem do NCM)')
+  })
+
+  it('trata rota e viagem de B/L faturado como impacto de faturamento, nao como promessa vazia', () => {
+    const doc = parsedBL()
+    doc.route.pod = 'RIO DE JANEIRO, BRAZIL'
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 9, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      billingLockedBlIds: new Set(['CSC45250E02Y00']),
+      existingBls: [{ ...existingBl(), voyage_id: 7, bl_containers: [existingContainer()] }],
+    })
+
+    const row = preview.rows[0]
+    expect(row?.requiresBillingOverride).toBe(true)
+    expect(row?.billingImpacts).toEqual(expect.arrayContaining(['POD: BRSSZ -> BRRIO', 'Viagem do B/L: 7 -> 9']))
+    expect(row?.diffs.find((diff) => diff.field === 'pod')?.billingImpact).toBe(true)
+    expect(row?.diffs.find((diff) => diff.field === 'voyage_id')?.billingImpact).toBe(true)
+  })
+
+  it('avisa a troca de consignatario e diz qual fatura acompanha o novo cliente', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeBlock = 'NOVO IMPORTADOR LTDA\nCNPJ: 98.765.432/0001-10'
+    doc.parties.consigneeTaxId = '98765432000110'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      customerMaps: {
+        customersByDocument: new Map([['98765432000110', { id: 43, name: 'NOVO IMPORTADOR LTDA' }]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+      customersById: new Map([
+        [42, { id: 42, name: 'IMPORTADOR LTDA', document: '12345678000195' }],
+        [43, { id: 43, name: 'NOVO IMPORTADOR LTDA', document: '98765432000110' }],
+      ]),
+      invoicesByBl: new Map([
+        [
+          'CSC45250E02Y00',
+          [{ blId: 'CSC45250E02Y00', invoiceNumber: 'INV-001', kind: 'local' as const, status: 'issued', totalBrl: 1500, totalPaidBrl: 0, blCount: 1 }],
+        ],
+      ]),
+    })
+
+    const row = preview.rows[0]
+    expect(row?.requiresCustomerConfirmation).toBe(true)
+    expect(preview.summary.customerChangeCount).toBe(1)
+    expect(row?.customerChange).toMatchObject({ fromCustomerId: 42, toCustomerId: 43, targetMissing: false })
+    expect(row?.customerChange?.messages).toEqual(
+      expect.arrayContaining(['Cliente do B/L: IMPORTADOR LTDA -> NOVO IMPORTADOR LTDA']),
+    )
+    expect(row?.customerChange?.invoices[0]).toMatchObject({ invoiceNumber: 'INV-001', blockedReason: null })
+    expect(row?.customerChange?.blockedReasons).toEqual([])
+  })
+
+  it('impede a troca automatica quando a fatura e consolidada ou ja foi paga', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeTaxId = '98765432000110'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      customerMaps: {
+        customersByDocument: new Map([['98765432000110', { id: 43, name: 'NOVO IMPORTADOR LTDA' }]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+      invoicesByBl: new Map([
+        [
+          'CSC45250E02Y00',
+          [
+            { blId: 'CSC45250E02Y00', invoiceNumber: 'INV-CONS', kind: 'local' as const, status: 'issued', totalBrl: 9000, totalPaidBrl: 0, blCount: 4 },
+            { blId: 'CSC45250E02Y00', invoiceNumber: 'INV-PAGA', kind: 'local' as const, status: 'issued', totalBrl: 500, totalPaidBrl: 500, blCount: 1 },
+          ],
+        ],
+      ]),
+    })
+
+    const row = preview.rows[0]
+    expect(row?.requiresCustomerConfirmation).toBe(false)
+    expect(row?.customerChange?.blockedReasons).toEqual([
+      'Fatura INV-CONS: consolidada com outros B/Ls; separe a cobranca antes de trocar o cliente.',
+      'Fatura INV-PAGA: ja tem pagamento registrado; estorne ou cancele antes de trocar o cliente.',
+    ])
+  })
+
+  it('bloqueia a troca quando o novo consignatario ainda nao e cliente e ha fatura', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeTaxId = '98765432000110'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      invoicesByBl: new Map([
+        [
+          'CSC45250E02Y00',
+          [{ blId: 'CSC45250E02Y00', invoiceNumber: 'INV-001', kind: 'local' as const, status: 'issued', totalBrl: 1500, totalPaidBrl: 0, blCount: 1 }],
+        ],
+      ]),
+    })
+
+    expect(preview.rows[0]?.customerChange?.targetMissing).toBe(true)
+    expect(preview.rows[0]?.customerChange?.blockedReasons).toEqual([
+      'Cliente do novo consignatario nao esta cadastrado; cadastre-o antes de reimportar para a fatura acompanhar.',
+    ])
+    expect(preview.rows[0]?.requiresCustomerConfirmation).toBe(false)
+  })
+
+  it('so envia relink_customer quando o operador aceita a troca', async () => {
+    mockRpc.mockResolvedValue({ data: {}, error: null })
+    const doc = parsedBL()
+    doc.parties.consigneeTaxId = '98765432000110'
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      customerMaps: {
+        customersByDocument: new Map([['98765432000110', { id: 43, name: 'NOVO IMPORTADOR LTDA' }]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+    })
+
+    await confirmBlFreightImport(preview, 'user-1', false, 'arquivo.xlsx', false)
+    const withoutConfirmation = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ relink_customer: boolean }>
+    expect(withoutConfirmation[0].relink_customer).toBe(false)
+
+    mockRpc.mockClear()
+    await confirmBlFreightImport(preview, 'user-1', false, 'arquivo.xlsx', true)
+    const confirmed = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ relink_customer: boolean; customer_id: number | null }>
+    expect(confirmed[0]).toMatchObject({ relink_customer: true, customer_id: 43 })
+  })
+  it('grava o NCM declarado no documento e o mostra no diff', () => {
+    const doc = parsedBL()
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), ncm_codes: ['1111'] }],
+    })
+
+    // a descricao do B/L declara "NCM : 8703.80.00" e o UN 3556 nao entra
+    expect(preview.rows[0]?.payload?.ncm_codes).toEqual(['87038000'])
+    expect(preview.rows[0]?.diffs.find((diff) => diff.field === 'ncm_codes')).toMatchObject({
+      label: 'NCM',
+      from: '1111',
+      to: '87038000',
+    })
+  })
+
+  it('documento sem NCM nao apaga o cadastro manual nem inventa diferenca', () => {
+    const doc = parsedBL()
+    doc.cargo.description = 'POLYESTER/RAYON YARN\nWOODEN PACKAGE:NOT APPLICABLE'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), ncm_codes: ['5509'] }],
+    })
+
+    expect(preview.rows[0]?.payload?.ncm_codes).toEqual([])
+    expect(preview.rows[0]?.diffs.find((diff) => diff.field === 'ncm_codes')).toBeUndefined()
+  })
+
+  it('nao anuncia troca de consignatario em linha bloqueada, que nem chega a importar', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeTaxId = '98765432000110'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      onlyBlId: 'OUTRO-BL',
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      customerMaps: {
+        customersByDocument: new Map([['98765432000110', { id: 43, name: 'NOVO IMPORTADOR LTDA' }]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+    })
+
+    expect(preview.rows[0]?.status).toBe('blocked')
+    expect(preview.rows[0]?.customerChange).toBeNull()
+    expect(preview.rows[0]?.requiresCustomerConfirmation).toBe(false)
+    expect(preview.summary.customerChangeCount).toBe(0)
+  })
+
+  it('mostra o cliente cadastrado de destino, nao o nome solto do documento', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeBlock = 'NOVO IMPORTADOR COMERCIO LTDA\nCNPJ: 98.765.432/0001-10'
+    doc.parties.consigneeTaxId = '98765432000110'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      customerMaps: {
+        customersByDocument: new Map([['98765432000110', { id: 43, name: 'NOVO IMPORTADOR LTDA' }]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+      // o mapa so tem o dono atual: o cliente de destino vem do casamento do documento
+      customersById: new Map([[42, { id: 42, name: 'IMPORTADOR LTDA', document: '12345678000195' }]]),
+    })
+
+    expect(preview.rows[0]?.customerChange).toMatchObject({
+      toCustomerId: 43,
+      toCustomerName: 'NOVO IMPORTADOR LTDA',
+    })
+  })
+
+  it('bloqueia a troca por recebivel do razao: com baixa, e sem cliente de destino cadastrado', () => {
+    const doc = parsedBL()
+    doc.parties.consigneeTaxId = '98765432000110'
+
+    const comBaixa = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      customerMaps: {
+        customersByDocument: new Map([['98765432000110', { id: 43, name: 'NOVO IMPORTADOR LTDA' }]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+      receivablesByBl: new Map([
+        ['CSC45250E02Y00', [{ blId: 'CSC45250E02Y00', status: 'partially_settled', settledAmountBrl: 300 }]],
+      ]),
+    })
+
+    expect(comBaixa.rows[0]?.customerChange?.blockedReasons).toEqual([
+      'Recebivel do B/L ja tem baixa registrada; estorne no razao antes de trocar o cliente.',
+    ])
+    expect(comBaixa.rows[0]?.requiresCustomerConfirmation).toBe(false)
+
+    // sem fatura viva, mas com recebivel aberto: a RPC recusa por falta de cliente de destino
+    const semCliente = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      receivablesByBl: new Map([
+        ['CSC45250E02Y00', [{ blId: 'CSC45250E02Y00', status: 'open', settledAmountBrl: 0 }]],
+      ]),
+    })
+
+    expect(semCliente.rows[0]?.customerChange?.targetMissing).toBe(true)
+    expect(semCliente.rows[0]?.customerChange?.blockedReasons).toEqual([
+      'Cliente do novo consignatario nao esta cadastrado; cadastre-o antes de reimportar para a fatura acompanhar.',
+    ])
+  })
+
+  it('trata a lista de veiculos como variavel de faturamento propria', () => {
+    const doc = parsedBL()
+    doc.vehicles = []
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      billingLockedBlIds: new Set(['CSC45250E02Y00']),
+      existingBls: [existingBl()],
+    })
+
+    const row = preview.rows[0]
+    expect(row?.requiresBillingOverride).toBe(true)
+    expect(row?.billingImpacts).toEqual(expect.arrayContaining(['Veiculos (chassis): 1 -> 0']))
+    expect(row?.diffs.find((diff) => diff.field === 'vehicles')?.billingImpact).toBe(true)
+    expect(row?.payload?.override_billing).toBe(false)
+  })
+
+  it('nao chama de concluida a importacao cuja troca de cliente o servidor recusou', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        bls_received: 1,
+        customer_relinks: [
+          { bl_id: 'CSC45250E02Y00', applied: false, blockers: ['Fatura INV-1 ja tem pagamento registrado.'] },
+          { bl_id: 'OUTRO', applied: true, blockers: [] },
+        ],
+      },
+      error: null,
+    })
+    const doc = parsedBL()
+    doc.parties.consigneeTaxId = '98765432000110'
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), customer_id: 42, bl_containers: [existingContainer()] }],
+      customerMaps: {
+        customersByDocument: new Map([['98765432000110', { id: 43, name: 'NOVO IMPORTADOR LTDA' }]]),
+        customersByName: new Map(),
+        customersByCanonicalName: new Map(),
+        canonicalList: [],
+      },
+    })
+
+    const outcome = await confirmBlFreightImport(preview, 'user-1', false, 'arquivo.xlsx', true)
+    expect(outcome.refusedCustomerRelinks).toEqual([
+      { blNumber: 'CSC45250E02Y00', blockers: ['Fatura INV-1 ja tem pagamento registrado.'] },
+    ])
   })
 })

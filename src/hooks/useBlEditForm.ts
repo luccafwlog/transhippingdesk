@@ -4,6 +4,7 @@ import { useToast } from '../components/ui/Toast'
 import { logOperationalEvent } from '../services/operationalEvents'
 import { maybeAutoBillAfterCeMercante } from '../services/reviewBillingAutomation'
 import { supabase } from '../services/supabase'
+import { formatNcm } from '../lib/ncm'
 import type { BL, BLDetail, Json } from '../types/database'
 import { useAuth } from './useAuth'
 import { queryKeys } from '../services/queryKeys'
@@ -13,6 +14,8 @@ type BlDocumentFields = {
   movement_from: string | null
   movement_to: string | null
   issue_place: string | null
+  /** migration 358; array no banco, texto no formulário (ver makeForm) */
+  ncm_codes: string[] | null
 }
 
 type EditableBl = BL & BlDocumentFields
@@ -42,7 +45,7 @@ const editableFields: (keyof Pick<
   | 'payment_type'
   | 'free_time_override'
   | 'notes'
->)[] = [
+> | 'ncm_codes')[] = [
   'shipper',
   'consignee',
   'notify_party',
@@ -65,6 +68,7 @@ const editableFields: (keyof Pick<
   'payment_type',
   'free_time_override',
   'notes',
+  'ncm_codes',
 ]
 // `review_status` é deliberadamente omitido: o RPC save_bl_review recalcula o
 // status a partir de compute_bl_review_pendencies e ignora qualquer valor enviado
@@ -73,7 +77,11 @@ const editableFields: (keyof Pick<
 
 export const BL_EDITABLE_FIELDS = editableFields
 
-export type BlForm = Pick<EditableBl, (typeof editableFields)[number]>
+// `ncm_codes` é array no banco e texto no formulário: o operador digita
+// "5509, 8703.80.00" e a submissão converte para os códigos limpos.
+export type BlForm = Omit<Pick<EditableBl, (typeof editableFields)[number]>, 'ncm_codes'> & {
+  ncm_codes: string
+}
 
 const INVALID_NUMERIC_VALUE = Symbol('INVALID_NUMERIC_VALUE')
 
@@ -126,6 +134,12 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
       const updatePayload: JsonObject = {}
 
       for (const field of changes) {
+        // Único campo de array do formulário: a RPC recebe os códigos limpos,
+        // não o texto com pontuação que o operador digitou.
+        if (field === 'ncm_codes') {
+          updatePayload.ncm_codes = parseNcmInput(form.ncm_codes)
+          continue
+        }
         const normalized = normalizeFormValue(field, form[field])
         if (normalized === INVALID_NUMERIC_VALUE) {
           showToast(`Valor invalido para ${field}. Informe um numero valido antes de salvar.`, 'error')
@@ -254,7 +268,26 @@ function makeForm(bl: BLDetail): BlForm {
     payment_type: bl.payment_type,
     free_time_override: bl.free_time_override,
     notes: bl.notes,
+    ncm_codes: formatNcmList(documentBl.ncm_codes),
   }
+}
+
+/** Códigos gravados viram o texto que o operador vê e edita. */
+export function formatNcmList(codes: string[] | null | undefined) {
+  return (codes ?? []).map(formatNcm).join(', ')
+}
+
+/** Texto digitado vira os códigos limpos que o banco aceita (4 a 8 dígitos). */
+export function parseNcmInput(value: string): string[] {
+  const seen = new Set<string>()
+  const codes: string[] = []
+  for (const part of value.split(/[,;\s]+/)) {
+    const digits = part.replace(/\D/g, '').slice(0, 8)
+    if (digits.length < 4 || seen.has(digits)) continue
+    seen.add(digits)
+    codes.push(digits)
+  }
+  return codes
 }
 
 function stringifyValue(value: unknown) {

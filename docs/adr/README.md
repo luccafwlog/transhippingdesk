@@ -61,6 +61,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0054](./0054-portal-como-gate-de-faturamento.md) | Portal ativo e acesso do cliente como gate de faturamento | aceito | Supersede a nota editorial de 0006 e a retirada do Portal do gate registrada na migration 188; exige restauração em migration nova |
 | [0055](./0055-taxa-local-sem-vencimento-praticado.md) | Taxa local não tem vencimento praticado: `due_date` e `overdue` saem do domínio | aceito | Aplica às taxas locais o princípio da 0014 (Demurrage não vence); estende a 0007 — o ciclo de vida da invoice local passa a ser regido só por emissão e pagamento; implementada na migration `348` |
 | [0056](./0056-branching-automatico-supabase-vercel.md) | Branching automático sincroniza GitHub, Supabase e Preview do Vercel | aceito | Cada PR tem branch Supabase efêmera e credenciais Preview específicas; `main` continua sendo produção; substitui a proposta de staging persistente não adotada |
+| [0057](./0057-ncm-como-campo-proprio-do-bl.md) | NCM deixa de ser derivado da descrição e vira campo próprio do B/L | aceito | `bls.ncm_codes` cadastrável na ficha e preenchido pela importação sem apagar o cadastro manual; a extração de texto vira auxiliar (sugestão e backfill). Estende a 0017 quanto ao que a reimportação substitui; os defeitos de leitura da descrição (container lê uma célula; carga solta descarta linhas `NCM NUMBER` e itens além do 3º) ficam registrados e **não** são corrigidos aqui. Implementada na migration `358` |
 
 ## Convenção
 

@@ -24,6 +24,9 @@ describe('formatNcm', () => {
   it('dots 8-digit codes', () => expect(formatNcm('87038000')).toBe('8703.80.00'))
   it('dots 6-digit codes', () => expect(formatNcm('870380')).toBe('8703.80'))
   it('leaves 4-digit codes as-is', () => expect(formatNcm('2923')).toBe('2923'))
+  // 5 e 7 digitos existem no cadastro (a coluna aceita de 4 a 8): formatar nao pode perder digito
+  it('keeps every digit of a 7-digit code', () => expect(formatNcm('8703800')).toBe('8703.80.0'))
+  it('keeps every digit of a 5-digit code', () => expect(formatNcm('87038')).toBe('8703.8'))
 })
 
 describe('listBlNcms', () => {
