@@ -127,7 +127,13 @@ export function BlImportModal({
 
     setSubmitting(true)
     try {
-      await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling, files[0]?.name, confirmCustomerChange)
+      const { refusedCustomerRelinks } = await confirmBlFreightImport(
+        preview,
+        user?.id ?? '',
+        overrideBilling,
+        files[0]?.name,
+        confirmCustomerChange,
+      )
       try {
         await applyLadenOnBoardAtd({ rows: preview.rows, changedBy: user?.id ?? null })
       } catch {
@@ -143,10 +149,21 @@ export function BlImportModal({
         queryClient.invalidateQueries({ queryKey: ['invoices'] }),
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
       ])
-      showToast(
-        `Importacao de B/L concluida: ${importableCount} B/L(s), ${preview.summary.blockedCount} bloqueado(s).`,
-        'success',
-      )
+      if (refusedCustomerRelinks.length) {
+        // Importou, mas o B/L continua com o cliente antigo: dizer "concluida" aqui
+        // esconderia justamente o que o operador pediu para acontecer.
+        showToast(
+          `Importacao concluida, mas a troca de cliente foi recusada em ${refusedCustomerRelinks.length} B/L(s): ${refusedCustomerRelinks
+            .map((relink) => `${relink.blNumber} (${relink.blockers.join(' ')})`)
+            .join(' | ')}`,
+          'error',
+        )
+      } else {
+        showToast(
+          `Importacao de B/L concluida: ${importableCount} B/L(s), ${preview.summary.blockedCount} bloqueado(s).`,
+          'success',
+        )
+      }
       resetAndClose()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao confirmar importacao de B/L.'

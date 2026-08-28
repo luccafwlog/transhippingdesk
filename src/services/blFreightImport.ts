@@ -212,6 +212,8 @@ export type BlFreightSelectedVoyage = {
 type BillingImpact = {
   messages: string[]
   container: boolean
+  /** chassis apagados/alterados em B/L faturado: a unidade cobrada e o veiculo */
+  vehicles: boolean
   weight: boolean
   cnpj: boolean
   /** POD drives the charge table, and voyage/cargo mode drive where the charges live */
@@ -237,6 +239,17 @@ export type BlInvoiceSnapshot = {
   blCount: number
 }
 
+/**
+ * Recebivel do razao do B/L. Ele nao aparece como fatura, mas `relink_bl_customer`
+ * bloqueia a troca por causa dele: sem recebivel no preview, o operador confirmava
+ * uma troca que o servidor recusa.
+ */
+export type BlReceivableSnapshot = {
+  blId: string
+  status: string | null
+  settledAmountBrl: number | null
+}
+
 export type BuildBlFreightPreviewArgs = {
   documents: ParsedBLDocument[]
   existingBls?: ExistingBl[]
@@ -251,6 +264,8 @@ export type BuildBlFreightPreviewArgs = {
   customersById?: Map<number, BlCustomerSnapshot> | null
   /** live invoices of each existing B/L, indexed by B/L id */
   invoicesByBl?: Map<string, BlInvoiceSnapshot[]> | null
+  /** ledger receivables of each existing B/L, indexed by B/L id */
+  receivablesByBl?: Map<string, BlReceivableSnapshot[]> | null
 }
 
 export async function previewBlFreightImport(args: {
@@ -272,9 +287,19 @@ export async function previewBlFreightImport(args: {
 
   // Troca de consignatario: o preview precisa dizer de quem para quem o B/L vai
   // e o que acontece com a fatura ja emitida, antes de o operador confirmar.
-  const [customersById, invoicesByBl] = await Promise.all([
-    fetchCustomerSnapshots(existingBls.map((bl) => bl.customer_id ?? null)),
+  // Os clientes envolvidos sao os dois lados: o dono atual do B/L e o cliente
+  // que o documento passa a declarar (resolvido pelo mesmo casamento do payload).
+  const targetCustomerIds = args.documents.map((doc) => {
+    const payload = buildBlFreightPayload(doc, selectedVoyage.id)
+    return findMatchedCustomer(
+      { cnpjCpf: payload.manifest_customer_cnpj_cpf, consignee: payload.consignee },
+      customerMaps,
+    )?.customer.id ?? null
+  })
+  const [customersById, invoicesByBl, receivablesByBl] = await Promise.all([
+    fetchCustomerSnapshots([...existingBls.map((bl) => bl.customer_id ?? null), ...targetCustomerIds]),
     fetchBlInvoiceSnapshots([...existingIds]),
+    fetchBlReceivableSnapshots([...existingIds]),
   ])
 
   return buildBlFreightPreview({
@@ -287,6 +312,7 @@ export async function previewBlFreightImport(args: {
     customerMaps,
     customersById,
     invoicesByBl,
+    receivablesByBl,
   })
 }
 
@@ -300,6 +326,7 @@ export function buildBlFreightPreview({
   customerMaps = null,
   customersById = null,
   invoicesByBl = null,
+  receivablesByBl = null,
 }: BuildBlFreightPreviewArgs): BlFreightImportPreview {
   const existingById = new Map(existingBls.map((bl) => [bl.id, bl]))
   const rows = documents.map((doc) => {
@@ -309,11 +336,14 @@ export function buildBlFreightPreview({
     if (payload && existing) {
       preserveExistingContainerPhysicalAttributes(payload, existing)
     }
-    if (payload && customerMaps) {
-      applyCustomerReconciliation(payload, findMatchedCustomer(
+    const matchedCustomer = payload && customerMaps
+      ? findMatchedCustomer(
         { cnpjCpf: payload.manifest_customer_cnpj_cpf, consignee: payload.consignee },
         customerMaps,
-      ))
+      )
+      : null
+    if (payload && customerMaps) {
+      applyCustomerReconciliation(payload, matchedCustomer)
     }
     const blockedReasons: string[] = []
 
@@ -334,11 +364,19 @@ export function buildBlFreightPreview({
     const billed = billingLockedBlIds.has(doc.blNumber)
     const impact = existing && billed && payload
       ? computeBillingImpact(existing, payload, sharedContainerNumbers)
-      : { messages: [], container: false, weight: false, cnpj: false, route: false }
+      : { messages: [], container: false, vehicles: false, weight: false, cnpj: false, route: false }
     const requiresBillingOverride = impact.messages.length > 0
 
-    const customerChange = existing && payload
-      ? describeCustomerChange(existing, payload, customersById, invoicesByBl?.get(existing.id) ?? [])
+    // Linha bloqueada nao importa nada (o payload vira null adiante): anunciar a
+    // troca de consignatario dela faria o operador confirmar um relink que a
+    // confirmacao nem envia.
+    const customerChange = existing && payload && !blockedReasons.length
+      ? describeCustomerChange(existing, payload, {
+        customersById,
+        invoices: invoicesByBl?.get(existing.id) ?? [],
+        receivables: receivablesByBl?.get(existing.id) ?? [],
+        matchedCustomerName: matchedCustomer?.customer.name ?? null,
+      })
       : null
     const requiresCustomerConfirmation = Boolean(customerChange && !customerChange.blockedReasons.length)
 
@@ -392,13 +430,45 @@ export function buildBlFreightPreview({
   }
 }
 
+/** Troca de consignatario que o servidor recusou, com o motivo que ele devolveu. */
+export type RefusedCustomerRelink = {
+  blNumber: string
+  blockers: string[]
+}
+
+export type BlFreightImportResult = {
+  /** retorno cru da RPC de importacao */
+  result: unknown
+  /** trocas de cliente pedidas no preview e recusadas pelo servidor */
+  refusedCustomerRelinks: RefusedCustomerRelink[]
+}
+
+/**
+ * A RPC devolve `customer_relinks` com o resultado de cada troca pedida. Ler isso
+ * e o que separa "importado com a fatura junto" de "importado, mas o B/L continua
+ * com o cliente antigo" — sem isso a recusa do servidor virava toast de sucesso.
+ */
+export function readRefusedCustomerRelinks(data: unknown): RefusedCustomerRelink[] {
+  const relinks = (data as { customer_relinks?: unknown } | null)?.customer_relinks
+  if (!Array.isArray(relinks)) return []
+  return relinks.flatMap((entry) => {
+    const relink = entry as { bl_id?: unknown; applied?: unknown; blockers?: unknown; unchanged?: unknown }
+    if (relink.applied === true || relink.unchanged === true) return []
+    const blockers = Array.isArray(relink.blockers) ? relink.blockers.map((blocker) => String(blocker)) : []
+    return [{
+      blNumber: typeof relink.bl_id === 'string' ? relink.bl_id : '',
+      blockers: blockers.length ? blockers : ['Troca de consignatario recusada pelo servidor.'],
+    }]
+  })
+}
+
 export async function confirmBlFreightImport(
   preview: BlFreightImportPreview,
   changedBy: string,
   overrideBilling = false,
   filename = 'importacao-bl.xlsx',
   confirmCustomerChange = false,
-) {
+): Promise<BlFreightImportResult> {
   const payload = preview.rows.flatMap((row) => {
     if (!row.payload) return []
     // Rows that touch a billing variable only apply the physical change when the operator overrode.
@@ -465,7 +535,7 @@ export async function confirmBlFreightImport(
     if (linkError) throw linkError
   }
 
-  return data
+  return { result: data, refusedCustomerRelinks: readRefusedCustomerRelinks(data) }
 }
 
 export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | null): BlFreightRpcPayload {
@@ -624,6 +694,17 @@ function computeBillingImpact(
     messages.push('Perfil IMO/OOG dos containers muda')
   }
 
+  // Veiculo e unidade faturada por si (chassis), e a reimportacao sem anexo de
+  // veiculos apaga a lista inteira (migration 205). Sem entrar aqui, o diff saia
+  // como mudanca comum e o override vinha ligado por padrao.
+  const existingVehicleSet = normalizeVehicleSet(existing.vehicles ?? [])
+  const nextVehicleSet = normalizeVehicleSet(payload.vehicles)
+  const vehicles = existingVehicleSet !== nextVehicleSet
+  if (vehicles) {
+    const existingVehicleCount = (existing.vehicles ?? []).length
+    messages.push(`Veiculos (chassis): ${existingVehicleCount} -> ${payload.vehicles.length}`)
+  }
+
   const isBreakBulk = existing.cargo_mode === 'carga_solta'
   const weightChanged = normalizeComparable(existing.total_weight_kg) !== normalizeComparable(payload.total_weight_kg)
   const weight = isBreakBulk && weightChanged
@@ -651,6 +732,7 @@ function computeBillingImpact(
   return {
     messages,
     container: countChanged || shared.length > 0 || imoOogChanged,
+    vehicles,
     weight,
     cnpj,
     route: routeChanges.length > 0,
@@ -756,7 +838,7 @@ function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, impa
 
   const existingVehicles = normalizeVehicleSet(existing.vehicles ?? [])
   const nextVehicles = normalizeVehicleSet(payload.vehicles)
-  addDiff(diffs, 'vehicles', existingVehicles, nextVehicles, impact.container)
+  addDiff(diffs, 'vehicles', existingVehicles, nextVehicles, impact.vehicles)
 
   const existingFreight = normalizeFreightSet(existing.bl_freight_lines ?? [])
   const nextFreight = normalizeFreightSet(payload.freight_lines)
@@ -787,9 +869,15 @@ function addDiff(
 function describeCustomerChange(
   existing: ExistingBl,
   payload: BlFreightRpcPayload,
-  customersById: Map<number, BlCustomerSnapshot> | null,
-  invoices: BlInvoiceSnapshot[],
+  context: {
+    customersById: Map<number, BlCustomerSnapshot> | null
+    invoices: BlInvoiceSnapshot[]
+    receivables: BlReceivableSnapshot[]
+    /** nome do cliente cadastrado que o documento passa a apontar */
+    matchedCustomerName: string | null
+  },
 ): BlCustomerChange | null {
+  const { customersById, invoices, receivables, matchedCustomerName } = context
   const fromDocument = canonicalizeDocument(existing.manifest_customer_cnpj_cpf ?? '')
   const toDocument = canonicalizeDocument(payload.manifest_customer_cnpj_cpf ?? '')
   const documentChanged = Boolean(toDocument) && fromDocument !== toDocument
@@ -799,7 +887,9 @@ function describeCustomerChange(
   if (!documentChanged && !linkChanged) return null
 
   const current = existing.customer_id ? customersById?.get(existing.customer_id) ?? null : null
-  const next = payload.customer_id ? customersById?.get(payload.customer_id) ?? null : null
+  const next = payload.customer_id
+    ? customersById?.get(payload.customer_id) ?? (matchedCustomerName ? { id: payload.customer_id, name: matchedCustomerName, document: null } : null)
+    : null
   const targetMissing = payload.customer_id === null
   const messages: string[] = []
   const blockedReasons: string[] = []
@@ -823,8 +913,17 @@ function describeCustomerChange(
     if (invoice.blockedReason) blockedReasons.push(`Fatura ${invoice.invoiceNumber}: ${invoice.blockedReason}`)
   }
 
+  // Recebivel do razao segue a mesma regra da fatura: com baixa registrada ele
+  // carrega historico de recebimento e nao troca de dono (migration 360).
+  const liveReceivables = receivables.filter((receivable) => receivable.status !== 'void')
+  if (liveReceivables.some((receivable) => (receivable.settledAmountBrl ?? 0) > 0)) {
+    blockedReasons.push('Recebivel do B/L ja tem baixa registrada; estorne no razao antes de trocar o cliente.')
+  }
+
   if (targetMissing) {
-    if (invoiceRows.length) {
+    // O servidor recusa a troca quando ha qualquer financeiro vivo — fatura,
+    // demurrage ou recebivel — e nao ha cliente de destino cadastrado.
+    if (invoiceRows.length || liveReceivables.length) {
       blockedReasons.push(
         'Cliente do novo consignatario nao esta cadastrado; cadastre-o antes de reimportar para a fatura acompanhar.',
       )
@@ -915,11 +1014,12 @@ async function fetchBlInvoiceSnapshots(blNumbers: string[]) {
 
   const [links, demurrage] = await Promise.all([
     supabase.from('invoice_bls').select('bl_id, invoice_id').in('bl_id', blNumbers),
+    // `not.in` descarta linha com status NULL, e a RPC (COALESCE(status, '')) a
+    // move: o filtro fica no codigo para preview e servidor cobrirem as mesmas faturas.
     supabase
       .from('demurrage_invoices')
       .select('bl_id, doc_number, status, current_total_brl')
-      .in('bl_id', blNumbers)
-      .not('status', 'in', '("cancelled","obsolete")'),
+      .in('bl_id', blNumbers),
   ])
   if (links.error) throw links.error
   if (demurrage.error) throw demurrage.error
@@ -974,6 +1074,7 @@ async function fetchBlInvoiceSnapshots(blNumbers: string[]) {
     status: string | null
     current_total_brl: number | null
   }>) {
+    if (row.status === 'cancelled' || row.status === 'obsolete') continue
     push({
       blId: row.bl_id,
       invoiceNumber: row.doc_number,
@@ -985,6 +1086,29 @@ async function fetchBlInvoiceSnapshots(blNumbers: string[]) {
     })
   }
 
+  return byBl
+}
+
+/**
+ * Recebiveis do razao de cada B/L. `relink_bl_customer` conta com eles para
+ * decidir se a troca de cliente pode acontecer, entao o preview precisa dos
+ * mesmos dados para nao prometer uma troca que o servidor recusa.
+ */
+async function fetchBlReceivableSnapshots(blNumbers: string[]) {
+  const byBl = new Map<string, BlReceivableSnapshot[]>()
+  if (!blNumbers.length) return byBl
+
+  const { data, error } = await supabase
+    .from('bl_receivables')
+    .select('bl_id, status, settled_amount_brl')
+    .in('bl_id', blNumbers)
+  if (error) throw error
+
+  for (const row of (data ?? []) as Array<{ bl_id: string; status: string | null; settled_amount_brl: number | null }>) {
+    const current = byBl.get(row.bl_id) ?? []
+    current.push({ blId: row.bl_id, status: row.status, settledAmountBrl: row.settled_amount_brl })
+    byBl.set(row.bl_id, current)
+  }
   return byBl
 }
 

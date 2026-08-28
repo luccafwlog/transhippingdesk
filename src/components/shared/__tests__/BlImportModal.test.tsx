@@ -8,7 +8,10 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   parseBLFile: vi.fn(),
   previewBlFreightImport: vi.fn(),
-  confirmBlFreightImport: vi.fn(() => Promise.resolve({ imported: 1 })),
+  confirmBlFreightImport: vi.fn(() => Promise.resolve({
+    result: { imported: 1 },
+    refusedCustomerRelinks: [] as Array<{ blNumber: string; blockers: string[] }>,
+  })),
   applyLadenOnBoardAtd: vi.fn(() => Promise.resolve()),
 }))
 
@@ -46,7 +49,7 @@ import { BlImportModal } from '../BlImportModal'
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.invalidateQueries.mockResolvedValue(undefined)
-  mocks.confirmBlFreightImport.mockResolvedValue({ imported: 1 })
+  mocks.confirmBlFreightImport.mockResolvedValue({ result: { imported: 1 }, refusedCustomerRelinks: [] })
   mocks.applyLadenOnBoardAtd.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
@@ -318,8 +321,8 @@ it('exibe impacto de faturamento e envia override quando o operador marca', asyn
   await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithBillingImpact, 'user-1', true, 'bl.xlsx', false))
 })
 
-it('alerta a troca de consignatario e so envia o revinculo quando o operador aceita', async () => {
-  const previewWithCustomerChange = {
+/** Preview com troca de consignatario, compartilhado pelos testes de confirmacao. */
+const previewWithCustomerChange = {
     rows: [{
       blNumber: 'COSU888',
       status: 'updated',
@@ -351,6 +354,8 @@ it('alerta a troca de consignatario e so envia o revinculo quando o operador ace
     }],
     summary: { total: 1, newCount: 0, updatedCount: 1, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 0, customerChangeCount: 1 },
   }
+
+it('alerta a troca de consignatario e so envia o revinculo quando o operador aceita', async () => {
   mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU888'))
   mocks.previewBlFreightImport.mockResolvedValue(previewWithCustomerChange)
   const { container } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
@@ -370,6 +375,35 @@ it('alerta a troca de consignatario e so envia o revinculo quando o operador ace
   fireEvent.click(confirm)
 
   await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithCustomerChange, 'user-1', false, 'bl.xlsx', true))
+})
+
+it('nao diz "concluida" quando o servidor recusa a troca de cliente', async () => {
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU888'))
+  mocks.previewBlFreightImport.mockResolvedValue(previewWithCustomerChange)
+  mocks.confirmBlFreightImport.mockResolvedValue({
+    result: { imported: 1 },
+    refusedCustomerRelinks: [{ blNumber: 'COSU888', blockers: ['Fatura INV-001 ja tem pagamento registrado.'] }],
+  })
+  const { container } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  await screen.findByText('Cliente do B/L: IMPORTADOR LTDA -> NOVO IMPORTADOR LTDA')
+  fireEvent.click(container.querySelector('input[type="checkbox"]') as HTMLInputElement)
+
+  const confirm = await screen.findByRole('button', { name: /Confirmar importacao/ })
+  await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
+  fireEvent.click(confirm)
+
+  await waitFor(() =>
+    expect(mocks.showToast).toHaveBeenCalledWith(
+      expect.stringContaining('troca de cliente foi recusada em 1 B/L(s): COSU888 (Fatura INV-001 ja tem pagamento registrado.)'),
+      'error',
+    ),
+  )
+  expect(mocks.showToast).not.toHaveBeenCalledWith(expect.stringContaining('Importacao de B/L concluida'), 'success')
 })
 
 it('mostra o impedimento quando a fatura nao pode acompanhar a troca de cliente', async () => {
