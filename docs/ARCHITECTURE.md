@@ -91,8 +91,13 @@ Portal, como definido na spec #521.
 Os detectores server-side são executados pela Edge Function
 `alerts-detector`, protegida por `ALERTS_DETECTOR_SECRET`, a cada 15 minutos
 por `pg_cron` + `pg_net`. O browser não dispara detectores nem cria
-notificações internas. Triggers em audit logs e no estado terminalizado também
-reconciliam a origem imediatamente; o cron é a rede de segurança. A pendência
+notificações internas. Triggers em audit logs, no estado terminalizado e nas
+origens da divergência Baplie/B/L (`baplie_containers`, `bls`, `bl_containers`,
+statement-level, migration `361`) também reconciliam a origem imediatamente; o
+cron é a rede de segurança. Enquanto `pg_net` não estiver instalado ou
+`app.settings.supabase_url`/`app.settings.alerts_detector_secret` não estiverem
+definidos no banco, o job **não existe** e apenas os alertas com trigger de
+origem se movem. A pendência
 de exportação pós-ATD fica no nível `(viagem, escala)` enquanto os manifests
 não possuírem vínculo de terminal. A agenda é instalada quando as extensões estão
 disponíveis; se `app.settings.supabase_url` ou

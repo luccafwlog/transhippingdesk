@@ -185,7 +185,7 @@ describe('reconcileBaplieWithManifest', () => {
       baplie: [{ container_number: 'ABCD1234567', status: 'full', bl_ref: 'BL1', slot: null, is_oog: true }],
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }],
     })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled' })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled', pendingRoutes: [] })
   })
 
   it('gera divergência de existência quando o container do Baplie não está em nenhum B/L', async () => {
@@ -209,15 +209,15 @@ describe('reconcileBaplieWithManifest', () => {
       ],
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }],
     })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled' })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled', pendingRoutes: [] })
   })
 
   it('sinaliza source not_imported quando nao ha staging do Baplie para a viagem, distinto de reconciliado sem divergencias', async () => {
     installReconcileMocks({ bls: [{ id: 'BL1' }], baplie: [], containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }] })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'not_imported' })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'not_imported', pendingRoutes: [] })
   })
 
-  it('força reconciliação em D-7 mesmo com cobertura incompleta de rotas', async () => {
+  it('concilia a rota coberta e mantém a rota sem B/L fora da conciliação; D-7 força as duas', async () => {
     installReconcileMocks({
       bls: [{ id: 'BL1', pol: 'CNTAO', pod: 'BRSSZ' }],
       baplie: [
@@ -227,10 +227,15 @@ describe('reconcileBaplieWithManifest', () => {
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567' }],
     })
 
-    // Sem forçar D-7: aguarda cobertura
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'awaiting_route_coverage' })
+    // Gate por rota: CNTAO::BRSSZ tem B/L com containers e concilia (sem divergência);
+    // CNNGB::BRSSZ ainda não tem B/L e fica pendente, sem virar divergência nem silenciar a viagem.
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({
+      items: [],
+      source: 'reconciled',
+      pendingRoutes: ['CNNGB::BRSSZ'],
+    })
 
-    // Forçando D-7: reconcilia e aponta divergência de existência
+    // Forçando D-7: reconcilia também a rota pendente e aponta a divergência de existência
     const result = await reconcileBaplieWithManifest(1, { isD7: true })
     expect(result.source).toBe('reconciled')
     expect(result.items).toHaveLength(1)

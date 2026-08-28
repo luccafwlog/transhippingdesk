@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasCompleteBaplieRouteCoverage } from '../baplieReconciliation'
+import { computeBaplieRouteCoverage, hasCompleteBaplieRouteCoverage } from '../baplieReconciliation'
 
 describe('cobertura de rotas EDI antes da conciliação', () => {
   const ediRoutes = [
@@ -37,5 +37,39 @@ describe('cobertura de rotas EDI antes da conciliação', () => {
     const fullOnly = stagedWithEmpty.filter((c) => c.status !== 'empty')
     // A rota vazia (CNTAC) não tem BL comercial; como filtramos fullOnly, deve dar coberta apenas com CNSHA
     expect(hasCompleteBaplieRouteCoverage(fullOnly, [{ pol: 'CNSHA', pod: 'BRVIX' }])).toBe(true)
+  })
+})
+
+describe('cobertura POR ROTA (gate por rota, #604)', () => {
+  it('trata Zhoushan (CNZOS) do Baplie como Ningbo (CNNGB) do B/L — mesmo complexo portuário', () => {
+    const { covered, pending } = computeBaplieRouteCoverage(
+      [{ pol: 'CNZOS', pod: 'BRVIX' }],
+      [{ pol: 'CNNGB', pod: 'BRVIX' }],
+    )
+    expect([...covered]).toEqual(['CNNGB::BRVIX'])
+    expect(pending).toEqual([])
+  })
+
+  it('concilia as rotas cobertas e deixa pendente apenas a rota sem B/L', () => {
+    const { covered, pending } = computeBaplieRouteCoverage(
+      [
+        { pol: 'CNTAC', pod: 'BRVIX' },
+        { pol: 'CNTAO', pod: 'BRVIX' },
+        { pol: 'CNSHA', pod: 'BRVIX' },
+      ],
+      [
+        { pol: 'CNTAC', pod: 'BRVIX' },
+        { pol: 'CNTAO', pod: 'BRVIX' },
+      ],
+    )
+    expect([...covered].sort()).toEqual(['CNTAC::BRVIX', 'CNTAO::BRVIX'])
+    expect(pending).toEqual(['CNSHA::BRVIX'])
+  })
+
+  it('B/L sem containers não cobre rota: o chamador filtra e a rota segue pendente', () => {
+    // reconcileBaplieWithManifest só passa B/Ls com containers; aqui a lista chega vazia.
+    const { covered, pending } = computeBaplieRouteCoverage([{ pol: 'CNTAC', pod: 'BRVIX' }], [])
+    expect(covered.size).toBe(0)
+    expect(pending).toEqual(['CNTAC::BRVIX'])
   })
 })
