@@ -54,6 +54,9 @@ declaração fiscal.
    regra — inclusive a exclusão do número ONU escrito como `UN NCM.:3556` — e
    servem para propor valor, fazer o backfill e alimentar a heurística de
    máquinas da carga solta. Nenhuma delas é mais a fonte do dado exibido.
+   A paridade entre as duas foi conferida contra o Postgres do branch de
+   preview: a primeira versão SQL (migration `358`) deixava o número ONU passar
+   e colava códigos vizinhos, e a migration `359` a corrigiu.
 
 5. **Backfill em duas fontes.** B/L cuja descrição declara NCM começa
    preenchido; carga solta é preenchida a partir do texto completo dos itens
