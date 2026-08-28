@@ -6,6 +6,7 @@ import { parseBLFile } from '../../services/blParser'
 import {
   confirmBlFreightImport,
   previewBlFreightImport,
+  type BlCustomerChange,
   type BlFreightImportPreview,
   type BlFreightImportRow,
 } from '../../services/blFreightImport'
@@ -39,6 +40,7 @@ export function BlImportModal({
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [overrideBilling, setOverrideBilling] = useState(false)
+  const [confirmCustomerChange, setConfirmCustomerChange] = useState(false)
   const [selectedVoyageId, setSelectedVoyageId] = useState<number | null>(voyageId)
 
   const importableCount = useMemo(
@@ -46,6 +48,11 @@ export function BlImportModal({
     [preview],
   )
   const billingOverrideCount = preview?.summary.billingOverrideCount ?? 0
+  const customerChangeCount = preview?.summary.customerChangeCount ?? 0
+  const customerChangeRows = useMemo(
+    () => preview?.rows.filter((row) => row.customerChange) ?? [],
+    [preview],
+  )
 
   function resetAndClose() {
     setFiles([])
@@ -53,6 +60,7 @@ export function BlImportModal({
     setParsing(false)
     setSubmitting(false)
     setOverrideBilling(false)
+    setConfirmCustomerChange(false)
     setSelectedVoyageId(voyageId ?? null)
     onClose()
   }
@@ -61,6 +69,7 @@ export function BlImportModal({
     setSelectedVoyageId(nextVoyageId)
     setPreview(null)
     setOverrideBilling(false)
+    setConfirmCustomerChange(false)
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
@@ -68,6 +77,7 @@ export function BlImportModal({
     setFiles(selectedFiles)
     setPreview(null)
     setOverrideBilling(false)
+    setConfirmCustomerChange(false)
     if (!selectedFiles.length) return
     if (!selectedVoyageId) {
       showToast('Selecione a viagem antes de carregar o preview do B/L.', 'error')
@@ -117,7 +127,7 @@ export function BlImportModal({
 
     setSubmitting(true)
     try {
-      await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling, files[0]?.name)
+      await confirmBlFreightImport(preview, user?.id ?? '', overrideBilling, files[0]?.name, confirmCustomerChange)
       try {
         await applyLadenOnBoardAtd({ rows: preview.rows, changedBy: user?.id ?? null })
       } catch {
@@ -130,6 +140,8 @@ export function BlImportModal({
         queryClient.invalidateQueries({ queryKey: ['voyage-pol-schedules'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-timeline'] }),
         queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation'] }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+        queryClient.invalidateQueries({ queryKey: ['customers'] }),
       ])
       showToast(
         `Importacao de B/L concluida: ${importableCount} B/L(s), ${preview.summary.blockedCount} bloqueado(s).`,
@@ -173,6 +185,32 @@ export function BlImportModal({
         {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
 
         {preview ? <BlImportPreview preview={preview} /> : null}
+
+        {customerChangeRows.length ? (
+          <div className="app-panel app-panel--padded grid gap-3 text-sm">
+            <div className="font-semibold text-amber-200">
+              Troca de consignatario em {customerChangeRows.length} B/L(s)
+            </div>
+            {customerChangeRows.map((row) => (
+              <CustomerChangeCard key={row.blNumber} blNumber={row.blNumber} change={row.customerChange!} />
+            ))}
+            {customerChangeCount > 0 ? (
+              <label className="flex items-start gap-2 text-amber-200">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={confirmCustomerChange}
+                  onChange={(event) => setConfirmCustomerChange(event.target.checked)}
+                />
+                <span>
+                  Confirmo a troca de cliente em {customerChangeCount} B/L(s): o B/L passa a pertencer ao novo
+                  consignatario e a fatura aberta acompanha, com o mesmo valor. Sem marcar, os demais campos sao
+                  aplicados e o vinculo de cliente fica como esta.
+                </span>
+              </label>
+            ) : null}
+          </div>
+        ) : null}
 
         {billingOverrideCount > 0 ? (
           <label className="app-panel app-panel--padded flex items-start gap-2 text-sm text-amber-200">
@@ -273,6 +311,31 @@ function BlImportPreview({ preview }: { preview: BlFreightImportPreview }) {
   )
 }
 
+/**
+ * O aviso que o operador le antes de aceitar: de quem para quem o B/L vai, o que
+ * a fatura faz, e o que impede a troca quando ela nao pode ser automatica.
+ */
+function CustomerChangeCard({ blNumber, change }: { blNumber: string; change: BlCustomerChange }) {
+  return (
+    <div className="rounded-lg border border-[var(--app-border)] px-3 py-2">
+      <div className="font-semibold text-[var(--app-text-strong)]">{blNumber}</div>
+      <ul className="mt-1 grid gap-1 text-xs">
+        {change.messages.map((message) => (
+          <li key={message} className="text-amber-200">{message}</li>
+        ))}
+        {change.blockedReasons.map((reason) => (
+          <li key={reason} className="text-red-300">Impedimento: {reason}</li>
+        ))}
+      </ul>
+      {change.blockedReasons.length ? (
+        <div className="mt-1 text-xs text-red-300">
+          O cliente deste B/L nao sera trocado; os demais campos seguem sendo aplicados.
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function DiffList({ row }: { row: BlFreightImportRow }) {
   if (!row.diffs.length) {
     return <span className="text-xs text-[var(--app-muted-soft)]">-</span>
@@ -282,7 +345,7 @@ function DiffList({ row }: { row: BlFreightImportRow }) {
     <div className="grid gap-1">
       {row.diffs.map((diff) => (
         <div key={`${row.blNumber}-${diff.field}`} className={diff.billingImpact ? 'text-amber-300' : undefined}>
-          <span className="font-semibold">{diff.field}</span>:{' '}
+          <span className="font-semibold">{diff.label}</span>:{' '}
           <span>{formatDiffValue(diff.from)}</span> {'->'} <span>{formatDiffValue(diff.to)}</span>
           {diff.billingImpact ? <span className="ml-1 text-xs">(faturamento)</span> : null}
         </div>

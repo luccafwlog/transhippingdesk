@@ -2,7 +2,7 @@ import { canonicalizeDocument } from '../lib/cnpj'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import { canonicalizeVesselName } from '../lib/vesselAlias'
 import { extractConsigneeShortName } from '../lib/consigneeName'
-import type { BL, BLContainer, BlFreightLine } from '../types/database'
+import type { BL, BLContainer, BlFreightLine, Vehicle } from '../types/database'
 import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink, type CustomerMaps } from './customerReconciliation'
 import { applyBapliePhysicalFlags } from './baplieReconciliation'
@@ -12,10 +12,41 @@ import { supabase } from './supabase'
 
 export type BlFreightImportDiff = {
   field: string
+  /** operator-facing name of the field; the raw column name means nothing outside the code */
+  label: string
   from: string | number | null
   to: string | number | null
   /** true when this change touches a billing variable and needs an explicit override */
   billingImpact: boolean
+}
+
+/** Invoice attached to the B/L whose payer follows (or cannot follow) the consignee change. */
+export type BlCustomerChangeInvoice = {
+  invoiceNumber: string
+  kind: 'local' | 'demurrage'
+  status: string | null
+  totalBrl: number | null
+  /** null when the invoice follows the B/L; the reason when it cannot */
+  blockedReason: string | null
+}
+
+/**
+ * Troca de consignatario detectada na reimportacao. O B/L muda de dono, e o que
+ * ja foi faturado precisa acompanhar: mesmo valor, outro cliente.
+ */
+export type BlCustomerChange = {
+  fromCustomerId: number | null
+  fromCustomerName: string | null
+  fromDocument: string | null
+  toCustomerId: number | null
+  toCustomerName: string | null
+  toDocument: string | null
+  /** true when the incoming CNPJ has no customer registered yet */
+  targetMissing: boolean
+  invoices: BlCustomerChangeInvoice[]
+  /** reasons that stop the relink entirely; the rest of the B/L still imports */
+  blockedReasons: string[]
+  messages: string[]
 }
 
 export type BlFreightImportRow = {
@@ -36,6 +67,10 @@ export type BlFreightImportRow = {
   billingImpacts: string[]
   /** true when the row changes a billing variable on an already-billed B/L */
   requiresBillingOverride: boolean
+  /** set when the re-import moves the B/L to another consignee/CNPJ */
+  customerChange: BlCustomerChange | null
+  /** true when the operator has to confirm the customer change before it applies */
+  requiresCustomerConfirmation: boolean
   diffs: BlFreightImportDiff[]
   payload: BlFreightRpcPayload | null
 }
@@ -49,6 +84,7 @@ export type BlFreightImportPreview = {
     unchangedCount: number
     blockedCount: number
     billingOverrideCount: number
+    customerChangeCount: number
   }
 }
 
@@ -91,6 +127,8 @@ export type BlFreightRpcPayload = {
   billing_impact: boolean
   /** authorizes applying billing-relevant physical changes (containers/vehicles/carga-solta weight) to a billed B/L */
   override_billing: boolean
+  /** authorizes moving the B/L (and its invoices) to the consignee the file now declares */
+  relink_customer: boolean
   freight_lines: Array<{
     seq: number
     description: string
@@ -148,6 +186,14 @@ type ExistingBl = Pick<
   total_packages?: number | null
   packages_unit?: string | null
   consignee_phone?: string | null
+  customer_id?: number | null
+  shipper_block?: string | null
+  consignee_block?: string | null
+  notify_block?: string | null
+  notify2_block?: string | null
+  notify_cnpj_cpf?: string | null
+  manifest_customer_email?: string | null
+  vehicles?: Pick<Vehicle, 'chassis'>[] | null
   bl_containers?: Pick<BLContainer, 'container_number' | 'seal_number' | 'type' | 'tare_weight_kg' | 'gross_weight_kg' | 'cbm' | 'is_imo' | 'is_oog' | 'imo_class' | 'un_number'>[] | null
   bl_freight_lines?: Pick<BlFreightLine, 'seq' | 'description' | 'category' | 'mercante_code' | 'currency' | 'amount' | 'payment'>[] | null
 }
@@ -164,6 +210,27 @@ type BillingImpact = {
   container: boolean
   weight: boolean
   cnpj: boolean
+  /** POD drives the charge table, and voyage/cargo mode drive where the charges live */
+  route: boolean
+}
+
+/** Cliente vigente do B/L, para o preview dizer de quem para quem a carga muda. */
+export type BlCustomerSnapshot = {
+  id: number
+  name: string | null
+  document: string | null
+}
+
+/** Fatura viva do B/L, usada para dizer o que acompanha a troca de cliente. */
+export type BlInvoiceSnapshot = {
+  blId: string
+  invoiceNumber: string
+  kind: 'local' | 'demurrage'
+  status: string | null
+  totalBrl: number | null
+  totalPaidBrl: number | null
+  /** quantos B/Ls a fatura cobre; > 1 significa fatura consolidada */
+  blCount: number
 }
 
 export type BuildBlFreightPreviewArgs = {
@@ -176,6 +243,10 @@ export type BuildBlFreightPreviewArgs = {
   onlyBlId?: string | null
   /** customers indexed by document/name so the import links each B/L to its payer */
   customerMaps?: CustomerMaps | null
+  /** current payer of each existing B/L, indexed by customer id */
+  customersById?: Map<number, BlCustomerSnapshot> | null
+  /** live invoices of each existing B/L, indexed by B/L id */
+  invoicesByBl?: Map<string, BlInvoiceSnapshot[]> | null
 }
 
 export async function previewBlFreightImport(args: {
@@ -195,6 +266,13 @@ export async function previewBlFreightImport(args: {
   const selectedVoyage = await fetchSelectedVoyage(args.voyageId)
   if (!selectedVoyage) throw new Error('Viagem selecionada nao encontrada.')
 
+  // Troca de consignatario: o preview precisa dizer de quem para quem o B/L vai
+  // e o que acontece com a fatura ja emitida, antes de o operador confirmar.
+  const [customersById, invoicesByBl] = await Promise.all([
+    fetchCustomerSnapshots(existingBls.map((bl) => bl.customer_id ?? null)),
+    fetchBlInvoiceSnapshots([...existingIds]),
+  ])
+
   return buildBlFreightPreview({
     documents: args.documents,
     existingBls,
@@ -203,6 +281,8 @@ export async function previewBlFreightImport(args: {
     selectedVoyage,
     onlyBlId: args.onlyBlId,
     customerMaps,
+    customersById,
+    invoicesByBl,
   })
 }
 
@@ -214,6 +294,8 @@ export function buildBlFreightPreview({
   selectedVoyage = null,
   onlyBlId = null,
   customerMaps = null,
+  customersById = null,
+  invoicesByBl = null,
 }: BuildBlFreightPreviewArgs): BlFreightImportPreview {
   const existingById = new Map(existingBls.map((bl) => [bl.id, bl]))
   const rows = documents.map((doc) => {
@@ -248,14 +330,20 @@ export function buildBlFreightPreview({
     const billed = billingLockedBlIds.has(doc.blNumber)
     const impact = existing && billed && payload
       ? computeBillingImpact(existing, payload, sharedContainerNumbers)
-      : { messages: [], container: false, weight: false, cnpj: false }
+      : { messages: [], container: false, weight: false, cnpj: false, route: false }
     const requiresBillingOverride = impact.messages.length > 0
+
+    const customerChange = existing && payload
+      ? describeCustomerChange(existing, payload, customersById, invoicesByBl?.get(existing.id) ?? [])
+      : null
+    const requiresCustomerConfirmation = Boolean(customerChange && !customerChange.blockedReasons.length)
 
     const diffs = existing && payload ? diffExistingBl(existing, payload, impact) : []
     // Only the operator's override decision is pending; a billing impact never nulls the payload.
     if (payload) {
       payload.billing_impact = requiresBillingOverride
       payload.override_billing = !requiresBillingOverride
+      payload.relink_customer = false
     }
 
     const status: BlFreightImportRow['status'] = blockedReasons.length
@@ -279,6 +367,8 @@ export function buildBlFreightPreview({
       blockedReasons,
       billingImpacts: impact.messages,
       requiresBillingOverride,
+      customerChange,
+      requiresCustomerConfirmation,
       diffs,
       payload: blockedReasons.length ? null : payload,
     }
@@ -293,6 +383,7 @@ export function buildBlFreightPreview({
       unchangedCount: rows.filter((row) => row.status === 'unchanged').length,
       blockedCount: rows.filter((row) => row.status === 'blocked').length,
       billingOverrideCount: rows.filter((row) => row.requiresBillingOverride).length,
+      customerChangeCount: rows.filter((row) => row.requiresCustomerConfirmation).length,
     },
   }
 }
@@ -302,11 +393,16 @@ export async function confirmBlFreightImport(
   changedBy: string,
   overrideBilling = false,
   filename = 'importacao-bl.xlsx',
+  confirmCustomerChange = false,
 ) {
   const payload = preview.rows.flatMap((row) => {
     if (!row.payload) return []
     // Rows that touch a billing variable only apply the physical change when the operator overrode.
-    return [row.requiresBillingOverride ? { ...row.payload, override_billing: overrideBilling } : row.payload]
+    const base = row.requiresBillingOverride ? { ...row.payload, override_billing: overrideBilling } : row.payload
+    // A troca de consignatario move o B/L e a fatura de dono: so acontece com
+    // aceite explicito, e nunca quando o preview ja apontou um impedimento.
+    if (!row.requiresCustomerConfirmation) return [base]
+    return [{ ...base, relink_customer: confirmCustomerChange }]
   })
   if (!payload.length) {
     throw new Error('Nenhum B/L liberado para importar.')
@@ -428,6 +524,7 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     manifest_customer_email: doc.parties.consigneeEmail ?? null,
     billing_impact: false,
     override_billing: true,
+    relink_customer: false,
     freight_lines: doc.freightCharges.map((charge, index) => ({
       seq: index + 1,
       description: charge.description,
@@ -536,20 +633,99 @@ function computeBillingImpact(
     messages.push(`CNPJ faturado: ${existing.manifest_customer_cnpj_cpf} -> ${payload.manifest_customer_cnpj_cpf}`)
   }
 
-  return { messages, container: countChanged || shared.length > 0 || imoOogChanged, weight, cnpj }
+  // Rota e viagem escolhem a tabela de taxa (POD) e o lugar onde a cobranca vive.
+  // Sem passar por aqui elas ficavam prometidas no preview e descartadas na RPC.
+  const routeChanges = ROUTE_BILLING_FIELDS.flatMap(({ field, label, read }) => {
+    const from = read(existing)
+    const to = read(payload)
+    if (normalizeComparable(from) === normalizeComparable(to)) return []
+    return [{ field, message: `${label}: ${from ?? '-'} -> ${to ?? '-'}` }]
+  })
+  for (const change of routeChanges) messages.push(change.message)
+
+  return {
+    messages,
+    container: countChanged || shared.length > 0 || imoOogChanged,
+    weight,
+    cnpj,
+    route: routeChanges.length > 0,
+  }
+}
+
+/**
+ * Campos que a RPC protege por faturamento inteiro (nao por variavel), e que por
+ * isso precisam do mesmo override explicito dos demais impactos.
+ */
+const ROUTE_BILLING_FIELDS: Array<{
+  field: string
+  label: string
+  read: (source: ExistingBl | BlFreightRpcPayload) => string | number | null
+}> = [
+  { field: 'voyage_id', label: 'Viagem do B/L', read: (source) => source.voyage_id ?? null },
+  { field: 'pol', label: 'POL', read: (source) => source.pol ?? null },
+  { field: 'pod', label: 'POD', read: (source) => source.pod ?? null },
+  { field: 'cargo_mode', label: 'Modo de carga', read: (source) => source.cargo_mode ?? null },
+]
+
+/**
+ * Nome de cada campo do diff na lingua da operacao. O preview e lido por quem
+ * confere o B/L, nao por quem escreveu a tabela: `cargo_description` nao diz
+ * nada, "Descricao da carga (origem do NCM)" diz.
+ */
+export const BL_FREIGHT_DIFF_LABELS: Record<string, string> = {
+  voyage_id: 'Viagem do B/L',
+  cargo_mode: 'Modo de carga',
+  shipper: 'Shipper',
+  consignee: 'Consignatario',
+  notify_party: 'Notify Party',
+  shipper_block: 'Shipper (bloco completo)',
+  consignee_block: 'Consignatario (bloco completo)',
+  notify_block: 'Notify (bloco completo)',
+  notify2_block: 'Notify 2 (bloco completo)',
+  notify_cnpj_cpf: 'CNPJ/CPF do notify',
+  cargo_description: 'Descricao da carga (origem do NCM)',
+  total_packages: 'Total de volumes',
+  packages_unit: 'Unidade dos volumes',
+  consignee_phone: 'Telefone do consignatario',
+  pol: 'POL',
+  pod: 'POD',
+  place_of_delivery: 'Place of Delivery',
+  place_of_receipt: 'Place of Receipt',
+  movement_from: 'Movement From',
+  movement_to: 'Movement To',
+  issue_place: 'Local de emissao',
+  payment_type: 'Pagamento do frete',
+  bl_emission_date: 'Data de emissao',
+  manifest_customer_cnpj_cpf: 'CNPJ/CPF do consignatario',
+  manifest_customer_name: 'Razao social do consignatario',
+  manifest_customer_email: 'E-mail do consignatario',
+  total_weight_kg: 'Peso total (kg)',
+  total_cbm: 'CBM total',
+  containers: 'Containers',
+  vehicles: 'Veiculos (chassis)',
+  bl_freight_lines: 'Frete e despesas',
 }
 
 function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, impact: BillingImpact): BlFreightImportDiff[] {
   const diffs: BlFreightImportDiff[] = []
+  addDiff(diffs, 'voyage_id', existing.voyage_id, payload.voyage_id, impact.route)
+  addDiff(diffs, 'cargo_mode', existing.cargo_mode, payload.cargo_mode, impact.route)
   addDiff(diffs, 'shipper', existing.shipper, payload.shipper, false)
   addDiff(diffs, 'consignee', existing.consignee, payload.consignee, false)
   addDiff(diffs, 'notify_party', existing.notify_party, payload.notify_party, false)
+  // Blocos completos das partes: alimentam o C5 do EDI e a ficha do B/L, e eram
+  // sobrescritos sem aparecer no preview.
+  addDiff(diffs, 'shipper_block', existing.shipper_block, payload.shipper_block, false)
+  addDiff(diffs, 'consignee_block', existing.consignee_block, payload.consignee_block, false)
+  addDiff(diffs, 'notify_block', existing.notify_block, payload.notify_block, false)
+  addDiff(diffs, 'notify2_block', existing.notify2_block, payload.notify2_block, false)
+  addDiff(diffs, 'notify_cnpj_cpf', existing.notify_cnpj_cpf, payload.notify_cnpj_cpf, false)
   addDiff(diffs, 'cargo_description', existing.cargo_description, payload.cargo_description, false)
   addDiff(diffs, 'total_packages', existing.total_packages, payload.total_packages, false)
   addDiff(diffs, 'packages_unit', existing.packages_unit, payload.packages_unit, false)
   addDiff(diffs, 'consignee_phone', existing.consignee_phone, payload.consignee_phone, false)
-  addDiff(diffs, 'pol', existing.pol, payload.pol, false)
-  addDiff(diffs, 'pod', existing.pod, payload.pod, false)
+  addDiff(diffs, 'pol', existing.pol, payload.pol, impact.route)
+  addDiff(diffs, 'pod', existing.pod, payload.pod, impact.route)
   addDiff(diffs, 'place_of_delivery', existing.place_of_delivery, payload.place_of_delivery, false)
   addDiff(diffs, 'place_of_receipt', existing.place_of_receipt, payload.place_of_receipt, false)
   addDiff(diffs, 'movement_from', existing.movement_from, payload.movement_from, false)
@@ -559,12 +735,17 @@ function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, impa
   addDiff(diffs, 'bl_emission_date', existing.bl_emission_date, payload.bl_emission_date, false)
   addDiff(diffs, 'manifest_customer_cnpj_cpf', existing.manifest_customer_cnpj_cpf, payload.manifest_customer_cnpj_cpf, impact.cnpj)
   addDiff(diffs, 'manifest_customer_name', existing.manifest_customer_name, payload.manifest_customer_name, false)
+  addDiff(diffs, 'manifest_customer_email', existing.manifest_customer_email, payload.manifest_customer_email, false)
   addDiff(diffs, 'total_weight_kg', existing.total_weight_kg, payload.total_weight_kg, impact.weight)
   addDiff(diffs, 'total_cbm', existing.total_cbm, payload.total_cbm, false)
 
   const existingContainers = normalizeContainerSet(existing.bl_containers ?? [])
   const nextContainers = normalizeContainerSet(payload.containers)
   addDiff(diffs, 'containers', existingContainers, nextContainers, impact.container)
+
+  const existingVehicles = normalizeVehicleSet(existing.vehicles ?? [])
+  const nextVehicles = normalizeVehicleSet(payload.vehicles)
+  addDiff(diffs, 'vehicles', existingVehicles, nextVehicles, impact.container)
 
   const existingFreight = normalizeFreightSet(existing.bl_freight_lines ?? [])
   const nextFreight = normalizeFreightSet(payload.freight_lines)
@@ -583,7 +764,92 @@ function addDiff(
   const left = normalizeComparable(from)
   const right = normalizeComparable(to)
   if (left === right) return
-  diffs.push({ field, from: from ?? null, to: to ?? null, billingImpact })
+  diffs.push({ field, label: BL_FREIGHT_DIFF_LABELS[field] ?? field, from: from ?? null, to: to ?? null, billingImpact })
+}
+
+/**
+ * Troca de consignatario: quem paga o B/L muda. Descreve de quem para quem, o
+ * que acompanha (fatura aberta do proprio B/L) e o que impede a troca — um
+ * cliente ainda nao cadastrado, uma fatura ja paga ou uma fatura consolidada
+ * que cobre outros B/Ls e nao pode trocar de dono inteira.
+ */
+function describeCustomerChange(
+  existing: ExistingBl,
+  payload: BlFreightRpcPayload,
+  customersById: Map<number, BlCustomerSnapshot> | null,
+  invoices: BlInvoiceSnapshot[],
+): BlCustomerChange | null {
+  const fromDocument = canonicalizeDocument(existing.manifest_customer_cnpj_cpf ?? '')
+  const toDocument = canonicalizeDocument(payload.manifest_customer_cnpj_cpf ?? '')
+  const documentChanged = Boolean(toDocument) && fromDocument !== toDocument
+  const linkChanged = Boolean(
+    existing.customer_id && payload.customer_id && existing.customer_id !== payload.customer_id,
+  )
+  if (!documentChanged && !linkChanged) return null
+
+  const current = existing.customer_id ? customersById?.get(existing.customer_id) ?? null : null
+  const next = payload.customer_id ? customersById?.get(payload.customer_id) ?? null : null
+  const targetMissing = payload.customer_id === null
+  const messages: string[] = []
+  const blockedReasons: string[] = []
+
+  messages.push(
+    `Cliente do B/L: ${current?.name ?? existing.manifest_customer_name ?? 'sem vinculo'} -> ${next?.name ?? payload.manifest_customer_name ?? 'cliente nao cadastrado'}`,
+  )
+  if (documentChanged) {
+    messages.push(`CNPJ/CPF: ${existing.manifest_customer_cnpj_cpf ?? '-'} -> ${payload.manifest_customer_cnpj_cpf ?? '-'}`)
+  }
+
+  const invoiceRows: BlCustomerChangeInvoice[] = invoices.map((invoice) => ({
+    invoiceNumber: invoice.invoiceNumber,
+    kind: invoice.kind,
+    status: invoice.status,
+    totalBrl: invoice.totalBrl,
+    blockedReason: describeInvoiceTransferBlock(invoice),
+  }))
+
+  for (const invoice of invoiceRows) {
+    if (invoice.blockedReason) blockedReasons.push(`Fatura ${invoice.invoiceNumber}: ${invoice.blockedReason}`)
+  }
+
+  if (targetMissing) {
+    if (invoiceRows.length) {
+      blockedReasons.push(
+        'Cliente do novo consignatario nao esta cadastrado; cadastre-o antes de reimportar para a fatura acompanhar.',
+      )
+    } else {
+      messages.push('B/L volta para reconciliacao de cliente ate o novo consignatario ser cadastrado.')
+    }
+  } else if (invoiceRows.length) {
+    messages.push(
+      `Fatura(s) que acompanham o novo cliente, com o mesmo valor: ${invoiceRows.map((invoice) => invoice.invoiceNumber).join(', ')}`,
+    )
+  }
+
+  return {
+    fromCustomerId: existing.customer_id ?? null,
+    fromCustomerName: current?.name ?? existing.manifest_customer_name ?? null,
+    fromDocument: existing.manifest_customer_cnpj_cpf ?? null,
+    toCustomerId: payload.customer_id,
+    toCustomerName: next?.name ?? payload.manifest_customer_name ?? null,
+    toDocument: payload.manifest_customer_cnpj_cpf ?? null,
+    targetMissing,
+    invoices: invoiceRows,
+    blockedReasons,
+    messages,
+  }
+}
+
+/**
+ * Uma fatura so troca de dono enquanto ninguem pagou nada nela e ela cobre
+ * apenas este B/L. Consolidada ou com pagamento, a troca vira trabalho manual
+ * do financeiro — automatizar aqui reescreveria historico de recebimento.
+ */
+function describeInvoiceTransferBlock(invoice: BlInvoiceSnapshot): string | null {
+  if (invoice.blCount > 1) return 'consolidada com outros B/Ls; separe a cobranca antes de trocar o cliente.'
+  if ((invoice.totalPaidBrl ?? 0) > 0) return 'ja tem pagamento registrado; estorne ou cancele antes de trocar o cliente.'
+  if (invoice.status === 'paid') return 'ja quitada; cancele ou emita nota de correcao antes de trocar o cliente.'
+  return null
 }
 
 async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
@@ -596,12 +862,119 @@ async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
       total_weight_kg, total_cbm, payment_type, bl_emission_date,
       manifest_customer_cnpj_cpf, manifest_customer_name,
       place_of_receipt, movement_from, movement_to, issue_place,
+      customer_id, shipper_block, consignee_block, notify_block, notify2_block, notify_cnpj_cpf,
+      manifest_customer_email,
       bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_imo, is_oog, imo_class, un_number),
-      bl_freight_lines(seq, description, category, mercante_code, currency, amount, payment)
+      bl_freight_lines(seq, description, category, mercante_code, currency, amount, payment),
+      vehicles(chassis)
     `)
     .in('id', blNumbers)
   if (error) throw error
   return (data ?? []) as unknown as ExistingBl[]
+}
+
+/** Nome e documento dos clientes envolvidos na troca, para o preview nao mostrar so ids. */
+async function fetchCustomerSnapshots(customerIds: Array<number | null>) {
+  const ids = [...new Set(customerIds.filter((id): id is number => typeof id === 'number'))]
+  if (!ids.length) return new Map<number, BlCustomerSnapshot>()
+  const { data, error } = await supabase.from('customers').select('id, name, cnpj_cpf').in('id', ids)
+  if (error) throw error
+  return new Map(
+    ((data ?? []) as Array<{ id: number; name: string | null; cnpj_cpf: string | null }>).map((customer) => [
+      customer.id,
+      { id: customer.id, name: customer.name, document: customer.cnpj_cpf },
+    ]),
+  )
+}
+
+/**
+ * Faturas vivas de cada B/L (taxas locais e demurrage). `blCount` distingue a
+ * fatura individual da consolidada: a consolidada cobre outros B/Ls e nao pode
+ * trocar de cliente junto com este.
+ */
+async function fetchBlInvoiceSnapshots(blNumbers: string[]) {
+  const byBl = new Map<string, BlInvoiceSnapshot[]>()
+  if (!blNumbers.length) return byBl
+
+  const push = (snapshot: BlInvoiceSnapshot) => {
+    const current = byBl.get(snapshot.blId) ?? []
+    current.push(snapshot)
+    byBl.set(snapshot.blId, current)
+  }
+
+  const [links, demurrage] = await Promise.all([
+    supabase.from('invoice_bls').select('bl_id, invoice_id').in('bl_id', blNumbers),
+    supabase
+      .from('demurrage_invoices')
+      .select('bl_id, doc_number, status, current_total_brl')
+      .in('bl_id', blNumbers)
+      .not('status', 'in', '("cancelled","obsolete")'),
+  ])
+  if (links.error) throw links.error
+  if (demurrage.error) throw demurrage.error
+
+  const linkRows = (links.data ?? []) as Array<{ bl_id: string; invoice_id: number }>
+  const invoiceIds = [...new Set(linkRows.map((row) => row.invoice_id))]
+
+  if (invoiceIds.length) {
+    const [invoices, allLinks] = await Promise.all([
+      supabase
+        .from('invoices')
+        .select('id, invoice_number, status, total_brl, total_paid_brl')
+        .in('id', invoiceIds),
+      supabase.from('invoice_bls').select('invoice_id, bl_id').in('invoice_id', invoiceIds),
+    ])
+    if (invoices.error) throw invoices.error
+    if (allLinks.error) throw allLinks.error
+
+    const blCountByInvoice = new Map<number, number>()
+    for (const row of (allLinks.data ?? []) as Array<{ invoice_id: number; bl_id: string }>) {
+      blCountByInvoice.set(row.invoice_id, (blCountByInvoice.get(row.invoice_id) ?? 0) + 1)
+    }
+
+    const invoiceById = new Map(
+      ((invoices.data ?? []) as Array<{
+        id: number
+        invoice_number: string
+        status: string | null
+        total_brl: number | null
+        total_paid_brl: number | null
+      }>).map((invoice) => [invoice.id, invoice]),
+    )
+
+    for (const row of linkRows) {
+      const invoice = invoiceById.get(row.invoice_id)
+      if (!invoice || invoice.status === 'cancelled' || invoice.status === 'obsolete') continue
+      push({
+        blId: row.bl_id,
+        invoiceNumber: invoice.invoice_number,
+        kind: 'local',
+        status: invoice.status,
+        totalBrl: invoice.total_brl,
+        totalPaidBrl: invoice.total_paid_brl,
+        blCount: blCountByInvoice.get(row.invoice_id) ?? 1,
+      })
+    }
+  }
+
+  for (const row of (demurrage.data ?? []) as Array<{
+    bl_id: string
+    doc_number: string
+    status: string | null
+    current_total_brl: number | null
+  }>) {
+    push({
+      blId: row.bl_id,
+      invoiceNumber: row.doc_number,
+      kind: 'demurrage',
+      status: row.status,
+      totalBrl: row.current_total_brl,
+      totalPaidBrl: row.status === 'paid' ? row.current_total_brl : 0,
+      blCount: 1,
+    })
+  }
+
+  return byBl
 }
 
 async function fetchBillingLockedBlIds(blNumbers: string[]) {
@@ -736,6 +1109,15 @@ function normalizeContainerSet(containers: Array<Partial<BLContainer> | BlFreigh
       normalizeComparable(container.gross_weight_kg),
       normalizeComparable(container.cbm),
     ].join('|'))
+    .sort()
+    .join(';')
+}
+
+// Chassis identifica o veiculo; o container em que ele viaja ja aparece no diff
+// de containers, entao repeti-lo aqui so encheria a lista de ruido.
+function normalizeVehicleSet(vehicles: Array<{ chassis?: string | null }>) {
+  return vehicles
+    .map((vehicle) => vehicle.chassis ?? '')
     .sort()
     .join(';')
 }

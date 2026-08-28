@@ -736,6 +736,21 @@ ou `suggested_client_id`) e aparece na fila de revisão. Só a confirmação hum
 preenche o vínculo; faturamento considera exclusivamente `customer_id` e
 `client_id`. Ver ADR 0043 e migrations `284`–`287`.
 
+**Troca de Consignatário**
+Correção do consignatário de um B/L já gravado, feita reimportando o arquivo do
+armador. Nasce de erro de lançamento e pode acontecer a qualquer momento,
+inclusive depois do CE Mercante — que permanece o mesmo — e depois da fatura
+emitida. Quando o B/L muda de consignatário, ele muda de dono: o vínculo de
+Cliente é refeito e a cobrança já emitida acompanha, **com o mesmo valor devido**;
+só o cliente vinculado à fatura muda. A troca é sempre antecipada no preview da
+importação — de quem para quem, com CNPJ, e quais faturas acompanham — e só
+acontece com aceite explícito do operador.
+
+Não é automática em três situações, sinalizadas antes do aceite: fatura
+consolidada com outros B/Ls, fatura com pagamento registrado, e consignatário
+ainda não cadastrado como Cliente havendo cobrança. Nesses casos o vínculo fica
+como está e os demais campos do B/L seguem sendo corrigidos. Ver ADR 0017.
+
 **Cliente**
 Pessoa jurídica ou física responsável por cargas e cobranças no sistema.
 

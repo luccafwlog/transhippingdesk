@@ -121,7 +121,7 @@ const previewWithDiff = {
       blockedReasons: [],
       billingImpacts: [],
       requiresBillingOverride: false,
-      diffs: [{ field: 'bl_freight_lines', from: 'USD 10', to: 'USD 12', billingImpact: false }],
+      diffs: [{ field: 'bl_freight_lines', label: 'Frete e despesas', from: 'USD 10', to: 'USD 12', billingImpact: false }],
       payload: { id: 'COSU456' },
     },
   ],
@@ -163,7 +163,7 @@ it('mostra preview consolidado e tabela de diferencas depois do upload', async (
   expect(screen.getByText('COSU456')).toBeTruthy()
   expect(screen.getByText('2026-02-19')).toBeTruthy()
   expect(screen.getByText('2026-02-20')).toBeTruthy()
-  expect(screen.getByText('bl_freight_lines')).toBeTruthy()
+  expect(screen.getByText('Frete e despesas')).toBeTruthy()
   expect(screen.getByText('USD 10')).toBeTruthy()
   expect(screen.getByText('USD 12')).toBeTruthy()
 })
@@ -246,7 +246,7 @@ it('confirma importacao, invalida caches e fecha modal', async () => {
   await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
   fireEvent.click(confirm)
 
-  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithDiff, 'user-1', false, 'bl.xlsx'))
+  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithDiff, 'user-1', false, 'bl.xlsx', false))
   expect(mocks.applyLadenOnBoardAtd).toHaveBeenCalledWith({ rows: previewWithDiff.rows, changedBy: 'user-1' })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bls'] })
   expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['bl-detail'] })
@@ -293,7 +293,7 @@ it('exibe impacto de faturamento e envia override quando o operador marca', asyn
       blockedReasons: [],
       billingImpacts: ['Quantidade de containers: 1 -> 2'],
       requiresBillingOverride: true,
-      diffs: [{ field: 'containers', from: 'a', to: 'b', billingImpact: true }],
+      diffs: [{ field: 'containers', label: 'Containers', from: 'a', to: 'b', billingImpact: true }],
       payload: { id: 'COSU777' },
     }],
     summary: { total: 1, newCount: 0, updatedCount: 1, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 1 },
@@ -315,5 +315,102 @@ it('exibe impacto de faturamento e envia override quando o operador marca', asyn
   await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
   fireEvent.click(confirm)
 
-  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithBillingImpact, 'user-1', true, 'bl.xlsx'))
+  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithBillingImpact, 'user-1', true, 'bl.xlsx', false))
+})
+
+it('alerta a troca de consignatario e so envia o revinculo quando o operador aceita', async () => {
+  const previewWithCustomerChange = {
+    rows: [{
+      blNumber: 'COSU888',
+      status: 'updated',
+      existing: true,
+      voyageId: 7,
+      ladenOnBoard: '2026-02-19',
+      consigneeDocumentMatches: false,
+      blockedReasons: [],
+      billingImpacts: [],
+      requiresBillingOverride: false,
+      customerChange: {
+        fromCustomerId: 42,
+        fromCustomerName: 'IMPORTADOR LTDA',
+        fromDocument: '12345678000195',
+        toCustomerId: 43,
+        toCustomerName: 'NOVO IMPORTADOR LTDA',
+        toDocument: '98765432000110',
+        targetMissing: false,
+        invoices: [{ invoiceNumber: 'INV-001', kind: 'local', status: 'issued', totalBrl: 1500, blockedReason: null }],
+        blockedReasons: [],
+        messages: [
+          'Cliente do B/L: IMPORTADOR LTDA -> NOVO IMPORTADOR LTDA',
+          'Fatura(s) que acompanham o novo cliente, com o mesmo valor: INV-001',
+        ],
+      },
+      requiresCustomerConfirmation: true,
+      diffs: [{ field: 'consignee', label: 'Consignatario', from: 'IMPORTADOR LTDA', to: 'NOVO IMPORTADOR LTDA', billingImpact: false }],
+      payload: { id: 'COSU888' },
+    }],
+    summary: { total: 1, newCount: 0, updatedCount: 1, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 0, customerChangeCount: 1 },
+  }
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU888'))
+  mocks.previewBlFreightImport.mockResolvedValue(previewWithCustomerChange)
+  const { container } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  await screen.findByText('Cliente do B/L: IMPORTADOR LTDA -> NOVO IMPORTADOR LTDA')
+  expect(screen.getByText('Fatura(s) que acompanham o novo cliente, com o mesmo valor: INV-001')).toBeTruthy()
+
+  const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement
+  fireEvent.click(checkbox)
+
+  const confirm = await screen.findByRole('button', { name: /Confirmar importacao/ })
+  await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false))
+  fireEvent.click(confirm)
+
+  await waitFor(() => expect(mocks.confirmBlFreightImport).toHaveBeenCalledWith(previewWithCustomerChange, 'user-1', false, 'bl.xlsx', true))
+})
+
+it('mostra o impedimento quando a fatura nao pode acompanhar a troca de cliente', async () => {
+  const previewBlockedChange = {
+    rows: [{
+      blNumber: 'COSU999',
+      status: 'updated',
+      existing: true,
+      voyageId: 7,
+      ladenOnBoard: '2026-02-19',
+      consigneeDocumentMatches: false,
+      blockedReasons: [],
+      billingImpacts: [],
+      requiresBillingOverride: false,
+      customerChange: {
+        fromCustomerId: 42,
+        fromCustomerName: 'IMPORTADOR LTDA',
+        fromDocument: '12345678000195',
+        toCustomerId: null,
+        toCustomerName: 'NOVO IMPORTADOR LTDA',
+        toDocument: '98765432000110',
+        targetMissing: true,
+        invoices: [],
+        blockedReasons: ['Cliente do novo consignatario nao esta cadastrado; cadastre-o antes de reimportar para a fatura acompanhar.'],
+        messages: ['Cliente do B/L: IMPORTADOR LTDA -> NOVO IMPORTADOR LTDA'],
+      },
+      requiresCustomerConfirmation: false,
+      diffs: [],
+      payload: { id: 'COSU999' },
+    }],
+    summary: { total: 1, newCount: 0, updatedCount: 1, unchangedCount: 0, blockedCount: 0, billingOverrideCount: 0, customerChangeCount: 0 },
+  }
+  mocks.parseBLFile.mockResolvedValue(parsedDoc('COSU999'))
+  mocks.previewBlFreightImport.mockResolvedValue(previewBlockedChange)
+  const { container } = renderModal({ voyageId: 7, voyageLabel: 'GREEN / 14N' })
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['x'], 'bl.xlsx')] },
+  })
+
+  await screen.findByText(/Impedimento: Cliente do novo consignatario nao esta cadastrado/)
+  // sem troca aplicavel nao ha caixa de aceite; os demais campos seguem importando
+  expect(container.querySelector('input[type="checkbox"]')).toBeNull()
 })
