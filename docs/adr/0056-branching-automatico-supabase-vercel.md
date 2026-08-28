@@ -40,6 +40,10 @@ production** do Supabase permanece habilitada somente para o fluxo de `main`.
 - Não existe branch Supabase compartilhada nem secret PostgreSQL no Vercel.
 - A criação da branch Supabase e a atualização das variáveis de Preview são
   assíncronas; o primeiro Preview pode ser reimplantado automaticamente.
+  <!-- Nota editorial (2026-08-28): enquanto as variáveis não chegam, o primeiro
+  deploy falhava no guard de `vite.config.ts` e aparecia como erro em toda PR.
+  `scripts/vercel-build.mjs` passou a publicar apenas uma página de espera nesse
+  caso; a decisão desta ADR não muda. Ver `docs/setup/deploy.md`. -->
 - Branches de Preview são efêmeras e devem ser usadas para validação da PR,
   não como ambiente de dados persistente.
 - A política de CORS aceita os aliases gerados pelo projeto Vercel e URLs

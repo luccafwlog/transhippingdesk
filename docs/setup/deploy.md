@@ -27,7 +27,8 @@ O contrato versionado está em [`vercel.json`](../../vercel.json):
 - framework Vite;
 - Node.js `24.x` em Vercel e no CI;
 - instalação reproduzível com `npm ci --legacy-peer-deps`;
-- comando `npm run build`;
+- comando `node scripts/vercel-build.mjs`, que roda `npm run build` e trata a
+  corrida de variáveis do Preview (ver abaixo);
 - saída `dist`;
 - `ignoreCommand` ignora commits sem alterações no frontend, dependências ou
   configuração de build;
@@ -82,6 +83,17 @@ com Vercel atualiza no Preview as variáveis `VITE_SUPABASE_URL` e
 `VITE_SUPABASE_ANON_KEY` com os valores daquela branch. O primeiro deploy pode
 ser refeito automaticamente pela integração por causa da corrida entre a
 criação da branch e o build do Vercel.
+
+Quando o primeiro deploy cai nessa janela, ele não tem as variáveis e o guard de
+[`vite.config.ts`](../../vite.config.ts) derrubaria o build. Para que a corrida
+não vire um deployment vermelho enganoso a cada PR,
+[`scripts/vercel-build.mjs`](../../scripts/vercel-build.mjs) publica uma página
+de espera autoexplicativa — e só isso — quando `VERCEL_ENV=preview` e falta
+`VITE_SUPABASE_URL` ou `VITE_SUPABASE_ANON_KEY`. Nada do app é publicado nesse
+estado, e o redeploy automático da integração substitui a página pela build
+real. Em Production, ou com as variáveis presentes, o wrapper apenas executa
+`npm run build`: a falta de variável em produção continua quebrando o build de
+forma visível.
 
 O arquivo [`supabase/seed.sql`](../../supabase/seed.sql) é executado depois das
 migrations em resets/bancos descartáveis e fornece os catálogos-base corretos

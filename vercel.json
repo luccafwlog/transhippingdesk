@@ -2,9 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "installCommand": "npm ci --legacy-peer-deps",
-  "buildCommand": "npm run build",
+  "buildCommand": "node scripts/vercel-build.mjs",
   "outputDirectory": "dist",
-  "ignoreCommand": "p=${VERCEL_GIT_PREVIOUS_SHA:-x}; git cat-file -e \"$p^{commit}\" 2>/dev/null || exit 1; git diff --quiet \"$p\" \"$VERCEL_GIT_COMMIT_SHA\" -- src public index.html package.json package-lock.json vercel.json vite.config.ts tsconfig*.json",
+  "ignoreCommand": "p=${VERCEL_GIT_PREVIOUS_SHA:-x}; git cat-file -e \"$p^{commit}\" 2>/dev/null || exit 1; git diff --quiet \"$p\" \"$VERCEL_GIT_COMMIT_SHA\" -- src public index.html package.json package-lock.json vercel.json vite.config.ts tsconfig*.json scripts/vercel-build.mjs",
   "rewrites": [
     {
       "source": "/(.*)",
