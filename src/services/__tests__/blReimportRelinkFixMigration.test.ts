@@ -34,6 +34,17 @@ describe('B/L re-import relink fixes migration contract', () => {
     expect(queueSyncAfterDocument).toBeGreaterThan(documentUpdate)
   })
 
+  it('fixes the 357 layer of the chain, leaving the NCM stage of migration 358 on top', () => {
+    const sql = readMigration()
+
+    // a 358 renomeou o wrapper da 357 e instalou a etapa do NCM por cima: substituir
+    // o ponto de entrada aqui faria toda importacao com NCM declarado parar de grava-lo
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.import_bl_freight_transactional_legacy_357\(p_bls JSONB, p_changed_by UUID\)/i)
+    expect(sql).not.toMatch(/CREATE OR REPLACE FUNCTION public\.import_bl_freight_transactional\(/i)
+    expect(sql).not.toMatch(/GRANT EXECUTE ON FUNCTION public\.import_bl_freight_transactional\(JSONB, UUID\)/i)
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.import_bl_freight_transactional_legacy_357\(JSONB, UUID\)\s*\n?\s*FROM PUBLIC, anon, authenticated/i)
+  })
+
   it('keeps the wrapper contract of migration 357: legacy call, route override, relinks in the result', () => {
     const sql = readMigration()
 
@@ -41,7 +52,6 @@ describe('B/L re-import relink fixes migration contract', () => {
     expect(sql).toMatch(/IF v_billed AND COALESCE\(\(v_item->>'override_billing'\)::BOOLEAN, false\) THEN/i)
     expect(sql).toMatch(/jsonb_build_object\('customer_relinks', v_relinks\)/i)
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.relink_bl_customer\(TEXT, BIGINT, UUID, TEXT\)\s*\n?\s*FROM PUBLIC, anon, authenticated/i)
-    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.import_bl_freight_transactional\(JSONB, UUID\) TO authenticated/i)
     // o valor devido continua intocado: nenhuma coluna de dinheiro e reescrita
     expect(sql).not.toMatch(/SET[^;]*\b(total_brl|balance_brl|total_paid_brl|total_usd|original_amount_brl)\s*=/i)
   })

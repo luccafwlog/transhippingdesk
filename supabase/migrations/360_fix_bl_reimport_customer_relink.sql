@@ -20,8 +20,9 @@
 --    estava presa a `applied`: em B/L faturado (a `205` protege essas colunas sem
 --    `override_billing`) a correção de CNPJ prometida no preview era descartada.
 --
--- Rollback: restaurar as duas funções como estão na migration 357; nenhum dado
--- é migrado por este arquivo.
+-- Rollback: restaurar `relink_bl_customer` e `import_bl_freight_transactional_legacy_357`
+-- (o wrapper como está na migration 357, renomeado pela 358); nenhum dado é
+-- migrado por este arquivo.
 
 CREATE OR REPLACE FUNCTION public.relink_bl_customer(
   p_bl_id TEXT,
@@ -230,11 +231,16 @@ REVOKE ALL ON FUNCTION public.relink_bl_customer(TEXT, BIGINT, UUID, TEXT)
   FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Wrapper: documento do consignatário também quando o cliente já era o mesmo,
--- e fila de reconciliação sincronizada depois de gravá-lo.
+-- Camada 357 da cadeia de import: documento do consignatário também quando o
+-- cliente já era o mesmo, e fila de reconciliação sincronizada depois de gravá-lo.
 -- ---------------------------------------------------------------------------
+-- A 358 renomeou este wrapper para `..._legacy_357` e instalou por cima dele a
+-- camada que grava `ncm_codes`. Corrigir aqui, e não no topo da cadeia
+-- (205 → 284 → 322 → 357 → 358), mantém a etapa do NCM intacta: substituir o
+-- ponto de entrada por uma cópia deste corpo faria toda importação com NCM
+-- declarado parar de gravá-lo em silêncio.
 
-CREATE OR REPLACE FUNCTION public.import_bl_freight_transactional(p_bls JSONB, p_changed_by UUID)
+CREATE OR REPLACE FUNCTION public.import_bl_freight_transactional_legacy_357(p_bls JSONB, p_changed_by UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -339,5 +345,6 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.import_bl_freight_transactional(JSONB, UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.import_bl_freight_transactional(JSONB, UUID) TO authenticated;
+-- Só a 358 (topo da cadeia) é chamável pelo app; esta camada continua interna.
+REVOKE ALL ON FUNCTION public.import_bl_freight_transactional_legacy_357(JSONB, UUID)
+  FROM PUBLIC, anon, authenticated;
