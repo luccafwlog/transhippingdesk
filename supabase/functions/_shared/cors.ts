@@ -11,9 +11,12 @@ const FIXED_ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
 ]
 
-// Preview URLs são efêmeras e não devem ser liberadas por um wildcard de
-// `vercel.app`. Configure no Supabase apenas as URLs exatas que precisam
-// acessar as funções, separadas por vírgula.
+// Preview URLs são efêmeras. O Vercel/Supabase Branching gera aliases dentro
+// do projeto e da equipe abaixo; o padrão é restrito a essa combinação, nunca
+// a um wildcard amplo de `vercel.app`. Origens adicionais continuam podendo
+// ser configuradas como uma lista de URLs exatas.
+const VERCEL_PREVIEW_ORIGIN = /^https:\/\/transhippingdesk(?:-[a-z0-9-]+)?-luccafwlogs-projects\.vercel\.app$/
+
 export function parseConfiguredOrigins(raw: string | undefined): string[] {
   return (raw ?? '')
     .split(',')
@@ -36,6 +39,10 @@ const configuredPreviewOrigins = parseConfiguredOrigins(denoRuntime?.env.get('VE
 
 export const ALLOWED_ORIGINS = new Set([...FIXED_ALLOWED_ORIGINS, ...configuredPreviewOrigins])
 
+export function isAllowedOrigin(origin: string): boolean {
+  return ALLOWED_ORIGINS.has(origin) || VERCEL_PREVIEW_ORIGIN.test(origin)
+}
+
 // Origem fora da allowlist recebe a AUSÊNCIA do header, que é a negação correta
 // em CORS. Devolver a string 'null' não nega: `null` é uma origem real — a que o
 // navegador apresenta em iframe `sandbox`, documento `data:` e alguns
@@ -49,7 +56,7 @@ export function corsHeaders(origin: string | null): Record<string, string> {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     Vary: 'Origin',
   }
-  if (origin && ALLOWED_ORIGINS.has(origin)) headers['Access-Control-Allow-Origin'] = origin
+  if (origin && isAllowedOrigin(origin)) headers['Access-Control-Allow-Origin'] = origin
   return headers
 }
 

@@ -28,9 +28,22 @@ function originOf(value: string | undefined) {
   }
 }
 
+function assertVercelSupabaseEnv(env: Record<string, string>) {
+  if (process.env.VERCEL !== '1') return
+
+  const missing = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'].filter((name) => !env[name])
+  if (missing.length > 0) {
+    throw new Error(
+      `[vercel] Variáveis ausentes no Preview: ${missing.join(', ')}. ` +
+        'Conecte a integração Supabase/Vercel, configure o prefixo VITE_ e faça um novo deploy.',
+    )
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  assertVercelSupabaseEnv(env)
 
   return {
     plugins: [

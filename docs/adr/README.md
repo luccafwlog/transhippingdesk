@@ -60,6 +60,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0053](./0053-ciclo-de-vida-alerta-dispensa-temporaria.md) | Alerta fecha pela origem; dispensa temporária exige revisão | aceito | Supersede parcialmente a 0034 quanto a reconhecimento e fechamento manual; leitura pessoal e separação Alerta/Notificação permanecem |
 | [0054](./0054-portal-como-gate-de-faturamento.md) | Portal ativo e acesso do cliente como gate de faturamento | aceito | Supersede a nota editorial de 0006 e a retirada do Portal do gate registrada na migration 188; exige restauração em migration nova |
 | [0055](./0055-taxa-local-sem-vencimento-praticado.md) | Taxa local não tem vencimento praticado: `due_date` e `overdue` saem do domínio | aceito | Aplica às taxas locais o princípio da 0014 (Demurrage não vence); estende a 0007 — o ciclo de vida da invoice local passa a ser regido só por emissão e pagamento; implementada na migration `348` |
+| [0056](./0056-branching-automatico-supabase-vercel.md) | Branching automático sincroniza GitHub, Supabase e Preview do Vercel | aceito | Cada PR tem branch Supabase efêmera e credenciais Preview específicas; `main` continua sendo produção; substitui a proposta de staging persistente não adotada |
 
 ## Convenção
 
