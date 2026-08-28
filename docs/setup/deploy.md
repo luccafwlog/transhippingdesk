@@ -83,6 +83,16 @@ com Vercel atualiza no Preview as variáveis `VITE_SUPABASE_URL` e
 ser refeito automaticamente pela integração por causa da corrida entre a
 criação da branch e o build do Vercel.
 
+O arquivo [`supabase/seed.sql`](../../supabase/seed.sql) é executado depois das
+migrations em resets/bancos descartáveis e fornece os catálogos-base corretos
+para uma branch nova: taxas locais, demurrage, depots e terminais. Ele é um
+snapshot semântico de `main`, resolve vínculos por chaves naturais/LOCODEs e
+contém guardas para abortar se houver dados operacionais. O seed não é aplicado
+no deploy de migrations de produção; portanto não substitui nem altera o
+catálogo já correto de `main`. Se o catálogo de produção mudar, o snapshot deve
+ser atualizado conscientemente e validado com
+`supabase/tests/seed_catalog.sql` em banco descartável.
+
 Não cadastre uma URL de Preview fixa nem reutilize uma branch Supabase entre
 PRs. `main` usa o projeto de produção (`fgmkhbzhaeebrsizwccx`) e cada Preview
 usa seu próprio project ref efêmero. Chaves públicas podem chegar ao bundle;
