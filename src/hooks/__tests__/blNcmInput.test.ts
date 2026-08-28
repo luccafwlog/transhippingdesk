@@ -25,5 +25,7 @@ describe('NCM cadastrado na ficha do B/L', () => {
 
   it('ida e volta é estável: o que sai do banco e volta para ele não muda', () => {
     expect(parseNcmInput(formatNcmList(['5509', '87038000']))).toEqual(['5509', '87038000'])
+    // 7 dígitos voltavam com 6: a formatação descartava o último e a próxima edição gravava o código truncado
+    expect(parseNcmInput(formatNcmList(['8703800']))).toEqual(['8703800'])
   })
 })

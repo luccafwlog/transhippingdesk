@@ -23,10 +23,12 @@ export function extractNcmCodes(value: string): string[] {
 }
 
 // Formata um código NCM (somente dígitos) para exibição: 8703.80.00 / 8703.80 / 2923.
+// Nenhum dígito é descartado: o campo aceita de 4 a 8 dígitos (migration 358), e
+// um código de 5 ou 7 formatado com perda voltava mais curto na próxima edição.
 export function formatNcm(code: string): string {
-  if (code.length >= 8) return `${code.slice(0, 4)}.${code.slice(4, 6)}.${code.slice(6, 8)}`
-  if (code.length >= 6) return `${code.slice(0, 4)}.${code.slice(4, 6)}`
-  return code
+  if (code.length <= 4) return code
+  const groups = [code.slice(0, 4), code.slice(4, 6), code.slice(6)]
+  return groups.filter(Boolean).join('.')
 }
 
 // Lista deduplicada e formatada de NCMs de uma descrição de carga (para a UI).
