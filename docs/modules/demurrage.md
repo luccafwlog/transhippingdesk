@@ -145,6 +145,10 @@ excluir para admin, conforme
   um carregamento válido, preserva o último cache vindo do banco. Sem cache
   válido ou sem linha vigente para o tipo de container, o cálculo falha com
   mensagem explícita ao operador.
+- **Aliases ISO:** o catálogo pode manter somente as linhas canônicas de
+  `main`; `demurrageRates` resolve os aliases históricos (`22G1`, `42G1`,
+  `45G1`, `20FT`, `40FT`, `45R1` e equivalentes) para a tarifa canônica, sem
+  duplicar essas linhas no banco.
 - **Datas:** `bl_containers.discharge_date` e `return_date` são a fonte
   operacional. `demurrage_invoice_items` copia datas, dias, tarifas e subtotal
   no momento de criação da invoice.

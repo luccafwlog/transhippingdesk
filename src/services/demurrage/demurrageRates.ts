@@ -21,6 +21,28 @@ const RATES_UNAVAILABLE_MESSAGE = 'Tarifas de Demurrage indisponíveis. Verifiqu
 let dynamicRateGroups: RateGroup[] | null = null
 let dynamicRateGroupsLoadedAt = 0
 
+// O catálogo atual de main guarda apenas uma linha por tipo canônico. Estes
+// aliases permanecem aceitos porque aparecem em B/Ls e nas migrations legadas.
+const DEMURRAGE_ALIAS_GROUPS = [
+  { canonical: '20GP', aliases: ['20GP', '20G0', '20HC', '20HQ', '22G1', '20G1'] },
+  { canonical: '40GP', aliases: ['40GP', '40G0', '40HC', '40HQ', '40G1', '42G1', '45G1'] },
+  { canonical: '20FR', aliases: ['20FR', '20OT', '20FT'] },
+  { canonical: '40FR', aliases: ['40FR', '40OT', '40FT'] },
+  { canonical: '20RF', aliases: ['20RF', '20RQ', '20R1'] },
+  { canonical: '40RF', aliases: ['40RF', '40RQ', '40R1', '45R1'] },
+] as const
+
+const DEMURRAGE_ALIAS_TO_CANONICAL: Map<string, string> = new Map(
+  DEMURRAGE_ALIAS_GROUPS.flatMap(({ canonical, aliases }) => aliases.map((alias) => [alias, canonical] as const)),
+)
+const DEMURRAGE_ALIASES_BY_CANONICAL: Map<string, readonly string[]> = new Map(
+  DEMURRAGE_ALIAS_GROUPS.map(({ canonical, aliases }) => [canonical, aliases] as const),
+)
+
+function normalizeContainerType(value: unknown): string {
+  return String(value ?? '').trim().toUpperCase()
+}
+
 function resolveActiveRateGroups(): RateGroup[] {
   if (dynamicRateGroups && dynamicRateGroups.length > 0) {
     if (Date.now() - dynamicRateGroupsLoadedAt < RATE_CACHE_TTL_MS) {
@@ -36,17 +58,27 @@ function resolveActiveRateGroups(): RateGroup[] {
 }
 
 function toRateGroups(rows: DemurrageRate[]): RateGroup[] {
-  const grouped = new Map<string, DemurrageRate>()
+  const grouped = new Map<string, { row: DemurrageRate; aliases: Set<string> }>()
   for (const row of rows) {
-    const key = String(row.container_type ?? '').trim().toUpperCase()
-    if (!key || grouped.has(key)) continue
-    grouped.set(key, row)
+    const rowType = normalizeContainerType(row.container_type)
+    if (!rowType) continue
+
+    const canonicalType = DEMURRAGE_ALIAS_TO_CANONICAL.get(rowType) ?? rowType
+    const existing = grouped.get(canonicalType)
+    if (existing) {
+      existing.aliases.add(rowType)
+      continue
+    }
+
+    const aliases = new Set<string>(DEMURRAGE_ALIASES_BY_CANONICAL.get(canonicalType) ?? [rowType])
+    aliases.add(rowType)
+    grouped.set(canonicalType, { row, aliases })
   }
 
   const groups: RateGroup[] = []
-  for (const row of grouped.values()) {
+  for (const { row, aliases } of grouped.values()) {
     groups.push({
-      aliases: [String(row.container_type).trim().toUpperCase()],
+      aliases: [...aliases],
       freeUntil: Number(row.free_days ?? 0),
       p1: {
         range: [Number(row.p1_day_from ?? 0), Number(row.p1_day_to ?? 0)],
@@ -129,7 +161,7 @@ export async function toggleDemurrageRateActive(id: number, active: boolean) {
 }
 
 function getRate(containerType: string | null, freeTimeOverride?: number | null, ov1?: number | null, ov2?: number | null): ResolvedRate {
-  const type = (containerType ?? '').toUpperCase().trim()
+  const type = normalizeContainerType(containerType)
   const groups = resolveActiveRateGroups()
   const group = groups.find((g) => g.aliases.includes(type))
   if (!group) {
