@@ -51,7 +51,7 @@ Os dois avisos operacionais saem em **inglês**; todo o resto em **pt-BR**.
 
 ## Correções à spec
 
-Sete pontos da spec não sobrevivem ao código, à definição operacional dos avisos
+Oito pontos da spec não sobrevivem ao código, à definição operacional dos avisos
 ou à rodada de produto que redefiniu as naturezas. As correções entram no mesmo change deste plano, como notas editoriais
 na spec.
 
@@ -164,7 +164,7 @@ O que isso obriga neste plano: T2 (enum, backfill de quatro linhas por contato,
 mapeamento `kind`→natureza), T5 (resolução por natureza), T6 (quatro toggles) e
 T13 (a guarda de que não se envia sem natureza). Bloco 3 só muda no mapeamento.
 
-**O momento é este, e não depois.** A migration `349` ainda não existe; depois de
+**O momento é este, e não depois.** A migration `361` ainda não existe; depois de
 aplicada, a mesma mudança é migration de dados sobre uma tabela com uma linha por
 contato por natureza, mais reescrita do serviço e da tela.
 
@@ -188,6 +188,28 @@ demurrage.
 
 Deste plano, ela leva uma coisa só, e é por isso que a T2 a inclui: a coluna
 `source` da preferência.
+
+
+### C8 — A Prontidão não olhava o faturamento, e por isso não protegia nada
+
+Apontado no review da PR #604, verificado no código. A Prontidão exigia CE
+Mercante e `compute_bl_review_pendencies` vazio. Nenhum dos dois olha estado de
+taxa ou de fatura: a `128` confere cliente vinculado, contato, acesso ao Portal
+e peso BB em carga solta, e para aí.
+
+Um B/L cuja taxa ainda não foi emitida passa nas duas condições. O resumo sai
+sem ele, o cliente paga o que recebeu e acha que quitou a viagem — que é
+exatamente o dano que a decisão 7 da spec diz eliminar "inteiramente".
+
+**Decisão:** terceira condição, reusando a coluna que já existe —
+`bls.financial_status` (`001_schema.sql`, domínio `pending`, `invoiced`, `paid`,
+`cancelled`). O cliente só passa quando **todos** os B/Ls dele na viagem estão
+em `invoiced` ou `paid`. `pending` bloqueia; `cancelled` sai do resumo e não
+bloqueia. Não é join novo contra `invoices`: a coluna é mantida pelos gatilhos
+de faturamento desde a `020`, e é o que as telas de faturamento já leem.
+**Evidência: Código.**
+
+A spec recebe a condição 3 na decisão 7, com nota editorial.
 
 ---
 
@@ -229,7 +251,7 @@ forma silenciosa.
 (b) que a colisão `23505` no `recordAttempt` retorna `ok` sem chamar a Resend, e
 (c) que `checkSuppression` suprimindo aborta antes de gravar tentativa.
 
-### T2 — Migration `349_comunicados_fundacao.sql`
+### T2 — Migration `361_comunicados_fundacao.sql`
 
 Tabelas do canal:
 
@@ -450,7 +472,7 @@ guarda por chamador.
 A dedup por `provider_event_id` em `portal_email_events` já é genérica e serve
 aos dois. A `attempt_id` daquela tabela referencia `portal_email_attempts` e **já
 é nulável** (migration `178`), então não falta nulidade: falta **para onde
-apontar** o evento de Comunicado. A migration `349` acrescenta
+apontar** o evento de Comunicado. A migration `361` acrescenta
 `communication_attempt_id BIGINT` a `portal_email_events`, sem FK — mesma regra
 de âncora da T2 —, e um CHECK de que no máximo uma das duas colunas está
 preenchida. Nenhuma migration nova entra por causa disto.
@@ -566,7 +588,7 @@ PIX (invariante 6), e essa é a única proibição que sobra. A validação é p
 anexo em qualquer outro modelo que venha a existir nelas.
 
 Editor livre; institucional salvável como modelo reutilizável. Migration
-`350_comunicados_anexos.sql` para bucket, policies e a tabela de modelos salvos.
+`362_comunicados_anexos.sql` para bucket, policies e a tabela de modelos salvos.
 
 **Check:** teste de contrato SQL das policies do bucket; teste de validação
 rejeitando o 4º arquivo e a soma acima de 10 MB; teste afirmando que um resumo de
@@ -618,7 +640,7 @@ Dois tipos novos no catálogo, no padrão da migration `342` e de
 
 **A janela do NOA tem os dois lados, e é isso que impede a enxurrada.** "`ETA −
 5 dias` alcançado", sozinho, é verdade para **toda** escala já ocorrida no
-histórico: a migration `351` abriria, no primeiro run do produtor, um alerta por
+histórico: a migration `363` abriria, no primeiro run do produtor, um alerta por
 escala de todo o passado — nenhum deles fechável, porque o NOA de uma viagem de
 2024 não vai mais ser enviado. O alerta só existe enquanto o disparo ainda faz
 sentido, e por isso fecha **pela origem** quando o ETA passa: o navio chegou, e o
@@ -635,7 +657,7 @@ alerta, ensaio não é envio.
 `responsible: 'documentacao'`, severidade `normal`, destino
 `/clientes/comunicacao`. Fechamento **pela origem**, como manda a ADR 0053 —
 não há fechamento manual —, com dispensa temporária no padrão do catálogo.
-Migration `351_comunicado_alertas.sql`, com o produtor no runner unificado
+Migration `363_comunicado_alertas.sql`, com o produtor no runner unificado
 (`332_unified_alerts_runner.sql`).
 
 Escala **omitida** não gera NOA pendente: o navio não atraca lá. A migration
@@ -671,8 +693,10 @@ todos os B/Ls vinculados (invariante 9), e que o simulado aparece com a marca.
 RPC `customer_local_charges_communication_readiness(p_voyage_id, p_customer_id)`,
 `SECURITY DEFINER`, com `EXECUTE` para `service_role` **e `authenticated`**. Um
 cliente passa quando,
-para **todos** os B/Ls dele naquela viagem: `bls.ce_mercante` preenchido **e**
-`compute_bl_review_pendencies(customer_id, cargo_mode, bb_weight_ton)` vazio.
+para **todos** os B/Ls dele naquela viagem: `bls.ce_mercante` preenchido,
+`compute_bl_review_pendencies(customer_id, cargo_mode, bb_weight_ton)` vazio
+**e** `bls.financial_status` em `invoiced` ou `paid` — o faturamento concluído
+(C8). B/L `cancelled` fica fora do resumo e não entra na conta.
 
 Usar a assinatura de três argumentos (viva desde a migration `337`). A variante
 `(p_bl_id TEXT)` da `128` existe mas está sem `GRANT` desde a `129` — não usar.
@@ -700,7 +724,9 @@ revisão, e esta exigência é própria da comunicação.
 **Check:** teste de contrato SQL — cliente com um B/L sem CE Mercante é
 bloqueado com motivo; um segundo cliente da mesma viagem passa mesmo assim; a
 RPC tem `EXECUTE` para `authenticated`; e a chamada por usuário sem perfil
-interno ativo é rejeitada com `42501`.
+interno ativo é rejeitada com `42501`. Sobre a C8: cliente com um B/L em
+`financial_status = 'pending'` é bloqueado mesmo com CE Mercante e revisão
+limpas, e um B/L `cancelled` **não** bloqueia.
 
 ### T17 — Resumo de taxas locais e remoção da `notify-invoice-issued`
 
@@ -712,7 +738,7 @@ Remoção da `notify-invoice-issued`, conforme C1:
 
 - Apagar `supabase/functions/notify-invoice-issued/index.ts` e sua entrada em
   `supabase/config.toml`.
-- Migration `352_alerta_excecao_fatura_audiencia.sql`: `audience_departments` de
+- Migration `364_alerta_excecao_fatura_audiencia.sql`: `audience_departments` de
   `portal_excecao_critica_fatura` passa a `ARRAY['documentacao','administrativo']`,
   com o espelho em `src/services/alertRulesCatalog.ts`.
 - Atualizar `docs/RASTREABILIDADE.md` e `docs/ARCHITECTURE.md`: a linha da função

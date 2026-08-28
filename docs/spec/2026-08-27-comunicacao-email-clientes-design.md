@@ -264,6 +264,17 @@ naquela viagem:
    `337`); a variante `(p_bl_id TEXT)` da `128` existe mas está sem `GRANT`
    desde a `129`, e não deve ser usada. Como o `EXECUTE` é só de
    `service_role`, o gate roda no servidor. **Evidência: Código.**
+3. o **faturamento do B/L está concluído** — `bls.financial_status` é
+   `invoiced` ou `paid`. B/L ainda em `pending` segura o cliente; B/L
+   `cancelled` fica fora do resumo e não segura ninguém.
+
+> **Nota editorial (2026-08-28).** A condição 3 não estava na primeira versão
+> desta decisão, e sem ela o gate não cumpria o que o parágrafo seguinte
+> promete: `compute_bl_review_pendencies` (migration `128`) olha cliente,
+> contato, Portal e peso BB, e **não** olha estado de taxa nem de fatura. Um
+> B/L com taxa ainda não emitida passava nas duas primeiras condições e saía
+> ausente do resumo — o resumo parcial que o gate existe para impedir. Apontado
+> no review da PR #604. **Evidência: Código.**
 
 Cliente que não passa fica bloqueado e visível, com o motivo. Os demais clientes
 da mesma viagem **não são segurados** por ele.
