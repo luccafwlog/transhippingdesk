@@ -254,4 +254,35 @@ describe('reconcileBaplieWithManifest', () => {
       new_value: JSON.stringify({ is_imo: true, imo_class: '3', un_number: '1203', is_oog: true }),
     })
   })
+
+  it('ativa conciliação e acusa containers faltantes quando 4 portos de origem (ex.: Taicang) têm BL mas nem todos os containers foram importados', async () => {
+    installReconcileMocks({
+      bls: [
+        { id: 'BL-NSA', pol: 'CNNSA', pod: 'BRVIX' },
+        { id: 'BL-NGB', pol: 'CNNGB', pod: 'BRVIX' },
+        { id: 'BL-SHA', pol: 'CNSHA', pod: 'BRVIX' },
+        { id: 'BL-TAC', pol: 'CNTAC', pod: 'BRVIX' }, // Taicang
+      ],
+      baplie: [
+        { container_number: 'CNSA1000001', pol: 'CNNSA', pod: 'BRVIX', status: 'full', bl_ref: null, slot: null },
+        { container_number: 'CNGB1000001', pol: 'CNNGB', pod: 'BRVIX', status: 'full', bl_ref: null, slot: null },
+        { container_number: 'CSHA1000001', pol: 'CNSHA', pod: 'BRVIX', status: 'full', bl_ref: null, slot: null },
+        { container_number: 'CTAC1000001', pol: 'CNTAI', pod: 'BRVIX', status: 'full', bl_ref: null, slot: null }, // No Baplie veio CNTAI
+        { container_number: 'CTAC1000002', pol: 'CNTAI', pod: 'BRVIX', status: 'full', bl_ref: null, slot: null }, // Container que ficou de fora do BL
+        { container_number: 'EMPU1000001', pol: 'CNTAI', pod: 'BRVIX', status: 'empty', bl_ref: null, slot: null }, // Container vazio no Baplie
+      ],
+      containers: [
+        { id: 1, bl_id: 'BL-NSA', container_number: 'CNSA1000001' },
+        { id: 2, bl_id: 'BL-NGB', container_number: 'CNGB1000001' },
+        { id: 3, bl_id: 'BL-SHA', container_number: 'CSHA1000001' },
+        { id: 4, bl_id: 'BL-TAC', container_number: 'CTAC1000001' },
+      ],
+    })
+
+    const result = await reconcileBaplieWithManifest(1)
+    expect(result.source).toBe('reconciled')
+    expect(result.items).toEqual([
+      { kind: 'missing_in_manifest', container_number: 'CTAC1000002', baplie_bl_ref: null, slot: null },
+    ])
+  })
 })

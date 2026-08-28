@@ -36,9 +36,11 @@ O frontend é uma SPA estática. A segurança real não depende do roteador: tab
 views e funções do Supabase aplicam escopo e autorização por RLS, grants e
 validações dentro das RPCs.
 
-O hosting é um único projeto Vercel para a SPA Vite. Preview Deployments vêm da
-integração com GitHub em pull requests; o branch `main` gera o Production
-Deployment. `https://transhippingdesk.com.br` e
+O hosting é um único projeto Vercel para a SPA Vite. O GitHub Integration cria
+Preview Deployments para pull requests, e a integração de branching do Supabase
+faz cada Preview apontar para a branch Supabase automática da mesma branch Git.
+O branch `main` gera o Production Deployment e usa o projeto Supabase de
+produção. `https://transhippingdesk.com.br` e
 `https://portal.transhippingdesk.com.br` são aliases do mesmo projeto, e o
 roteamento entre operação interna e Portal continua sendo responsabilidade do
 host/rota/autenticação da aplicação. O Firebase permanece apenas como rollback
@@ -385,8 +387,10 @@ Consumidores principais:
 
 ### Migrations
 
-`supabase/migrations/` contém a história completa do schema, com arquivos
-sequenciais antigos e arquivos por timestamp. O número de arquivos não é um
+`supabase/migrations/` contém a história completa do schema em arquivos com
+prefixo numérico sequencial. A lacuna histórica entre `282` e `284` é mantida
+porque a versão `283` foi renumerada/descartada em uma reconciliação anterior;
+ela não representa uma migration pendente. O número de arquivos não é um
 contrato. O estado de um ambiente é definido pelo histórico aplicado, não por
 um intervalo fixo documentado.
 

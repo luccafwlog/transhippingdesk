@@ -9,13 +9,44 @@ import { normalizeText } from '../lib/utils'
 const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
   ['salvador', 'BRSSA'],
   ['vitoria', 'BRVIX'],
+  ['vitória', 'BRVIX'],
   ['pecem', 'BRPEC'],
+  ['pecém', 'BRPEC'],
+  ['santos', 'BRSSZ'],
+  ['paranagua', 'BRPNG'],
+  ['paranaguá', 'BRPNG'],
+  ['itajai', 'BRITJ'],
+  ['itajaí', 'BRITJ'],
+  ['navegantes', 'BRITJ'],
+  ['rio grande', 'BRRIG'],
+  ['suape', 'BRSUA'],
+  ['recife', 'BRSUA'],
+  ['rio de janeiro', 'BRRIO'],
+  ['manaus', 'BRMAO'],
   ['qingdao', 'CNTAO'],
+  ['tsingtao', 'CNTAO'],
+  ['cnqdg', 'CNTAO'],
   ['shanghai', 'CNSHA'],
+  ['cnshg', 'CNSHA'],
   ['taicang', 'CNTAC'],
+  ['taikang', 'CNTAC'],
+  ['cntai', 'CNTAC'],
+  ['cntag', 'CNTAC'],
   ['ningbo', 'CNNGB'],
+  ['cnnbo', 'CNNGB'],
   ['nansha', 'CNNSA'],
+  ['cnnan', 'CNNSA'],
+  ['guangzhou', 'CNNSA'],
+  ['cngzu', 'CNNSA'],
   ['zhangjiagang', 'CNZJG'],
+  ['xiamen', 'CNXMN'],
+  ['shekou', 'CNSHK'],
+  ['shenzhen', 'CNSHK'],
+  ['cnszk', 'CNSHK'],
+  ['cnshe', 'CNSHK'],
+  ['yantian', 'CNYTN'],
+  ['hong kong', 'HKHKG'],
+  ['hongkong', 'HKHKG'],
 ]
 
 export function normalizePortCode(value: string | null | undefined) {
@@ -25,13 +56,13 @@ export function normalizePortCode(value: string | null | undefined) {
   if (normalized === 'BRVIT') return 'BRVIX'
   const text = normalizeText(normalized)
   const match = PORT_NAME_TO_LOCODE
-    .map(([name, code]) => ({ code, index: text.indexOf(name) }))
+    .map(([name, code]) => ({ code, index: text.indexOf(normalizeText(name)) }))
     .filter((item) => item.index >= 0)
     .sort((left, right) => left.index - right.index)[0]
   if (match) return match.code
 
   if (/^[A-Z]{5}$/.test(normalized)) return normalized
-  const embeddedLocode = normalized.match(/\b(?:BR|CN)[A-Z0-9]{3}\b/)?.[0]
+  const embeddedLocode = normalized.match(/\b(?:BR|CN|HK)[A-Z0-9]{3}\b/)?.[0]
   if (embeddedLocode) return embeddedLocode === 'BRVIT' ? 'BRVIX' : embeddedLocode
 
   return normalized

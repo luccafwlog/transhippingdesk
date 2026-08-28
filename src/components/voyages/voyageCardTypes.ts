@@ -29,6 +29,7 @@ export type EditingPolPayload = {
   atd: string | null
   ceMaster: string | null
   batchIds: number[]
+  cargoMode?: 'container' | 'vazios' | 'carga_solta'
 }
 
 export type EditingExportPayload = {

@@ -16,6 +16,7 @@ export function VoyageManifestosTab({
   polSchedules,
   routeCeMasters,
   ceCoverage,
+  vaziosRoutes,
   onEditPol,
 }: {
   voyage: Voyage
@@ -24,6 +25,7 @@ export function VoyageManifestosTab({
   polSchedules: Map<string, VoyagePolSchedule> | undefined
   routeCeMasters: Map<string, string> | undefined
   ceCoverage: { filled: number; total: number }
+  vaziosRoutes?: Array<{ pol: string; pod: string; containerCount: number }> | undefined
   onEditPol: (payload: EditingPolPayload) => void
 }) {
   const { data: transshipmentData } = useVoyageTransshipments(voyage.id)
@@ -35,9 +37,10 @@ export function VoyageManifestosTab({
     routeCeMasters,
     omissions: transshipmentData?.omissions,
     transshipments: transshipmentData?.transshipments,
+    vaziosRoutes,
   })
   const totalBls = manifestRows.reduce((total, row) => total + row.blCount, 0)
-  const pendingManifestCount = manifestRows.filter((row) => row.blCount > 0 && !row.ceMaster).length
+  const pendingManifestCount = manifestRows.filter((row) => (row.blCount > 0 || row.isVazios) && !row.ceMaster).length
 
   return (
     <>
@@ -77,7 +80,10 @@ export function VoyageManifestosTab({
                 {manifestRows.length ? (
                   manifestRows.map((row) => {
                     const departure = formatPolDeparture(row.etd, row.atd)
-                    const modeTone = row.modeLabel === 'BB' ? 'yellow' : row.modeLabel === 'CNTR/BB' ? 'slate' : 'blue'
+                    const modeTone = row.modeLabel === 'BB' ? 'yellow' : row.modeLabel === 'VAZIOS' ? 'slate' : row.modeLabel === 'CNTR/BB' ? 'slate' : 'blue'
+                    const routeTargetUrl = row.isVazios
+                      ? `/vazios-importacao?voyage=${voyage.id}&pod=${encodeURIComponent(row.pod)}`
+                      : `/manifestos?voyage=${voyage.id}&pol=${encodeURIComponent(row.pol)}&pod=${encodeURIComponent(row.pod)}`
                     return (
                     <tr key={`${voyage.id}-manifest-${row.routeKey}`}>
                       <td className="px-3 py-2 align-middle">
@@ -85,7 +91,7 @@ export function VoyageManifestosTab({
                           <Badge tone={modeTone} className="px-2 py-0.5 text-[10px]">{row.modeLabel}</Badge>
                           <Link
                             className="font-semibold text-[var(--app-blue-btn)] hover:underline"
-                            to={`/manifestos?voyage=${voyage.id}&pol=${encodeURIComponent(row.pol)}&pod=${encodeURIComponent(row.pod)}`}
+                            to={routeTargetUrl}
                             aria-label={row.routeLabel}
                           >
                             {row.omission ? (
@@ -104,18 +110,28 @@ export function VoyageManifestosTab({
                       <td className={`px-3 py-2 text-center${departure.isActual ? ' font-medium text-[var(--app-blue)]' : ''}`}>
                         <span className="font-mono text-xs font-semibold tabular-nums">{formatDate(departure.value)}</span>
                       </td>
-                      <td className="px-3 py-2 text-center"><span className="font-mono text-xs font-semibold text-[var(--app-text-strong)]">{row.blCount}</span></td>
-                      <td className="px-3 py-2 text-center">{renderCeCoverage(row.ceFilled, row.ceTotal)}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className="font-mono text-xs font-semibold text-[var(--app-text-strong)]">
+                          {row.isVazios ? `${row.containerCount ?? 0} cntr` : row.blCount}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {row.isVazios ? (
+                          <span className="text-[var(--app-muted-soft)]">-</span>
+                        ) : (
+                          renderCeCoverage(row.ceFilled, row.ceTotal)
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         {row.ceMaster ? (
                           <span className="font-mono text-xs text-[var(--app-text-strong)]">{row.ceMaster}</span>
-                        ) : row.blCount > 0 ? (
+                        ) : (row.blCount > 0 || row.isVazios) ? (
                           <button
                             type="button"
                             className="app-badge app-badge--yellow cursor-pointer gap-1 px-2 py-0.5 text-[10px] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Informar CE Master de ${row.routeLabel}`}
                             title="Informar CE Master"
-                            onClick={() => onEditPol({ voyageId: voyage.id, voyageLabel, pol: row.pol, pod: row.pod, etd: row.etd, atd: row.atd, ceMaster: row.ceMaster, batchIds: row.batchIds })}
+                            onClick={() => onEditPol({ voyageId: voyage.id, voyageLabel, pol: row.pol, pod: row.pod, etd: row.etd, atd: row.atd, ceMaster: row.ceMaster, batchIds: row.batchIds, cargoMode: row.cargoMode })}
                             disabled={!row.pol || row.pol === '-'}
                           >
                             <Pencil size={11} aria-hidden="true" />
@@ -131,7 +147,7 @@ export function VoyageManifestosTab({
                           className="app-voyage-icon-btn"
                           aria-label={`Editar ETD previsto + ATD POL e CE Master de ${row.routeLabel}`}
                           title="Editar ETD previsto + ATD POL e CE Master"
-                          onClick={() => onEditPol({ voyageId: voyage.id, voyageLabel, pol: row.pol, pod: row.pod, etd: row.etd, atd: row.atd, ceMaster: row.ceMaster, batchIds: row.batchIds })}
+                          onClick={() => onEditPol({ voyageId: voyage.id, voyageLabel, pol: row.pol, pod: row.pod, etd: row.etd, atd: row.atd, ceMaster: row.ceMaster, batchIds: row.batchIds, cargoMode: row.cargoMode })}
                           disabled={!row.pol || row.pol === '-'}
                         >
                           <Pencil size={15} />

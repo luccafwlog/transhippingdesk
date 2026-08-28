@@ -45,9 +45,11 @@ export async function afterRotaAlterada(queryClient: QueryInvalidator, options: 
 }
 
 export async function afterManifestoImportado(queryClient: QueryInvalidator, options: { voyageId: number | string }): Promise<void> {
+  const vId = String(options.voyageId)
   await invalidate(queryClient, [
     ['bls'], ['containers'], ['voyages'], ['port-options'],
     ['vazios-importacao-containers'], ['vazios-importacao-manifests'], ['vazios-importacao-stats'],
+    ['baplie-reconciliation', vId], ['baplie-staging', vId],
     ['voyage-escala-schedules'], voyageTimelineKey(options.voyageId), ...LINEUP_KEYS,
   ])
 }

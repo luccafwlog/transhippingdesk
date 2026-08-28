@@ -9,6 +9,18 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
     ['NANSHA', 'CNNSA'],
     ['PECEM', 'BRPEC'],
     ['PECÉM', 'BRPEC'],
+    ['CNTAG', 'CNTAC'],
+    ['TAICANG', 'CNTAC'],
+    ['TAIKANG', 'CNTAC'],
+    ['CNTAI', 'CNTAC'],
+    ['CNNBO', 'CNNGB'],
+    ['CNSHG', 'CNSHA'],
+    ['CNQDG', 'CNTAO'],
+    ['SANTOS', 'BRSSZ'],
+    ['PARANAGUÁ', 'BRPNG'],
+    ['ITAJAÍ', 'BRITJ'],
+    ['NAVEGANTES', 'BRITJ'],
+    ['VITÓRIA', 'BRVIX'],
   ]
 
   it.each(cases)('mapeia %s -> %s', (name, code) => {
@@ -18,11 +30,13 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
   it('mantem os codigos ja suportados', () => {
     expect(normalizePortCode('SALVADOR')).toBe('BRSSA')
     expect(normalizePortCode('TAICANG')).toBe('CNTAC')
+    expect(normalizePortCode('CNTAG')).toBe('CNTAC')
     expect(normalizePortCode('CNSHA')).toBe('CNSHA')
   })
 
   it('retorna aliases persistidos para consultas sem duplicar o porto', () => {
     expect(portCodeVariants('BRVIX')).toEqual(expect.arrayContaining(['BRVIX', 'VITORIA', 'BRVIT']))
     expect(portCodeVariants('PECEM')).toEqual(expect.arrayContaining(['BRPEC', 'PECEM']))
+    expect(portCodeVariants('CNTAC')).toEqual(expect.arrayContaining(['CNTAC', 'TAICANG', 'CNTAG']))
   })
 })

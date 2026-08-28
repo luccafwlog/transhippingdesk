@@ -27,11 +27,13 @@ export type BaplieReconciliationResult = {
   source: 'not_imported' | 'awaiting_route_coverage' | 'reconciled'
 }
 
+import { normalizePortCode } from './portCode'
+
 type RouteRow = { pol: string | null; pod: string | null }
 
 function routeKey(row: RouteRow): string | null {
-  const pol = row.pol?.trim().toUpperCase() ?? ''
-  const pod = row.pod?.trim().toUpperCase() ?? ''
+  const pol = normalizePortCode(row.pol) ?? row.pol?.trim().toUpperCase() ?? ''
+  const pod = normalizePortCode(row.pod) ?? row.pod?.trim().toUpperCase() ?? ''
   return pol && pod ? `${pol}::${pod}` : null
 }
 
@@ -214,7 +216,8 @@ export async function reconcileBaplieWithManifest(
 ): Promise<BaplieReconciliationResult> {
   const { staged, blContainers, blRows } = await fetchStagingAndBlContainers(voyageId)
   if (!staged.length) return { items: [], source: 'not_imported' }
-  const hasCoverage = hasCompleteBaplieRouteCoverage(staged, blRows)
+  const fullStaged = staged.filter((c) => c.status !== 'empty')
+  const hasCoverage = hasCompleteBaplieRouteCoverage(fullStaged.length > 0 ? fullStaged : staged, blRows)
   const forceReconcile = Boolean(options?.isD7)
   if (!hasCoverage && !forceReconcile) return { items: [], source: 'awaiting_route_coverage' }
   return { items: computeExistenceDivergences(staged, blContainers), source: 'reconciled' }

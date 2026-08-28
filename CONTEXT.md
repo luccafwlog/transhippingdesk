@@ -693,6 +693,17 @@ Container com dimensões fora do padrão ISO.
 
 ## Mercante
 
+**NCM**
+Código da Nomenclatura Comum do Mercosul da mercadoria do B/L, guardado como
+campo próprio do B/L — somente dígitos, de 4 a 8 por código, sem pontuação e sem
+duplicata. Um B/L pode ter mais de um. É exigido pela manifestação no Mercante.
+
+Vazio significa que ninguém cadastrou e nenhum documento declarou; não significa
+que a carga não tem NCM. A descrição da carga continua sendo lida para **propor**
+o código, nunca para substituí-lo: a importação grava o NCM que o documento
+declara e preserva o cadastrado quando o documento não declara nenhum. Ver
+ADR 0057.
+
 **CE Mercante**
 Conhecimento Eletrônico registrado por B/L no sistema Mercante, nos sentidos de
 importação e exportação. Sua ausência pode bloquear a visibilidade de dados e
@@ -735,6 +746,21 @@ Match por nome é persistido separadamente como sugestão (`suggested_customer_i
 ou `suggested_client_id`) e aparece na fila de revisão. Só a confirmação humana
 preenche o vínculo; faturamento considera exclusivamente `customer_id` e
 `client_id`. Ver ADR 0043 e migrations `284`–`287`.
+
+**Troca de Consignatário**
+Correção do consignatário de um B/L já gravado, feita reimportando o arquivo do
+armador. Nasce de erro de lançamento e pode acontecer a qualquer momento,
+inclusive depois do CE Mercante — que permanece o mesmo — e depois da fatura
+emitida. Quando o B/L muda de consignatário, ele muda de dono: o vínculo de
+Cliente é refeito e a cobrança já emitida acompanha, **com o mesmo valor devido**;
+só o cliente vinculado à fatura muda. A troca é sempre antecipada no preview da
+importação — de quem para quem, com CNPJ, e quais faturas acompanham — e só
+acontece com aceite explícito do operador.
+
+Não é automática em três situações, sinalizadas antes do aceite: fatura
+consolidada com outros B/Ls, fatura com pagamento registrado, e consignatário
+ainda não cadastrado como Cliente havendo cobrança. Nesses casos o vínculo fica
+como está e os demais campos do B/L seguem sendo corrigidos. Ver ADR 0017.
 
 **Cliente**
 Pessoa jurídica ou física responsável por cargas e cobranças no sistema.

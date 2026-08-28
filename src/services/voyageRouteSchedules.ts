@@ -671,8 +671,10 @@ export function buildVoyageRouteCeMasterKey(
   voyageId: number,
   pol: string | null | undefined,
   pod: string | null | undefined,
+  cargoMode?: string | null,
 ) {
-  return `${voyageId}::${normalizeRoutePort(pol)}__${normalizeRoutePort(pod)}`
+  const mode = cargoMode && cargoMode.toLowerCase() === 'vazios' ? '__VAZIOS' : ''
+  return `${voyageId}::${normalizeRoutePort(pol)}__${normalizeRoutePort(pod)}${mode}`
 }
 
 export async function setVoyageRouteCeMaster({
@@ -681,12 +683,14 @@ export async function setVoyageRouteCeMaster({
   pod,
   ceMaster,
   changedBy,
+  cargoMode = 'container',
 }: {
   voyageId: number
   pol: string
   pod: string
   ceMaster: string | null
   changedBy: string
+  cargoMode?: string
 }) {
   const { error } = await supabase.rpc('set_voyage_route_ce_master', {
     p_voyage_id: voyageId,
@@ -695,6 +699,7 @@ export async function setVoyageRouteCeMaster({
     // A função normaliza string vazia e NULL da mesma forma (NULLIF/btrim).
     p_ce_master: ceMaster ?? '',
     p_changed_by: changedBy,
+    p_cargo_mode: cargoMode,
   })
   if (error) throw error
 }
@@ -706,15 +711,16 @@ export async function listVoyageRouteCeMasters(voyageIds: number[]) {
   for (const voyageChunk of chunkArray(voyageIds, 25)) {
     const { data, error } = await supabase
       .from('voyage_route_ce_master')
-      .select('voyage_id, pol, pod, ce_master')
+      .select('voyage_id, pol, pod, ce_master, cargo_mode')
       .in('voyage_id', voyageChunk)
 
     if (error) throw error
 
-    for (const row of data ?? []) {
+    for (const row of (data ?? []) as Array<{ voyage_id: number; pol: string; pod: string; ce_master: string | null; cargo_mode?: string | null }>) {
       const ce = normalizeTextValue(row.ce_master)
       if (!ce) continue
-      result.set(buildVoyageRouteCeMasterKey(row.voyage_id, row.pol, row.pod), ce)
+      const mode = typeof row.cargo_mode === 'string' ? row.cargo_mode : 'container'
+      result.set(buildVoyageRouteCeMasterKey(row.voyage_id, row.pol, row.pod, mode), ce)
     }
   }
 

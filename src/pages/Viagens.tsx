@@ -500,7 +500,7 @@ export function Viagens() {
         open={editingPol !== null}
         polSchedule={editingPol}
         onClose={() => setEditingPol(null)}
-        onSaved={async ({ voyageId, pol, pod, etd, atd, ceMaster, batchIds }) => {
+        onSaved={async ({ voyageId, pol, pod, etd, atd, ceMaster, batchIds, cargoMode }) => {
           if (!user?.id) {
             showToast('Sessao expirada. Entre novamente para registrar a auditoria.', 'error')
             return
@@ -518,8 +518,15 @@ export function Viagens() {
               // Arquivos do mesmo manifesto compartilham o CE Master.
               await Promise.all(batchIds.map((id) => setImportBatchCeMaster(id, ceMaster, user.id)))
             } else {
-              // Viagem só-B/L: sem batch onde guardar; CE Master fica por rota (#322).
-              await setVoyageRouteCeMaster({ voyageId, pol, pod, ceMaster, changedBy: user.id })
+              // Viagem só-B/L ou manifesto de vazios: CE Master fica por rota (#322).
+              await setVoyageRouteCeMaster({
+                voyageId,
+                pol,
+                pod,
+                ceMaster,
+                changedBy: user.id,
+                cargoMode: cargoMode ?? 'container',
+              })
             }
             await afterRotaAlterada(queryClient, { voyageId })
             showToast('Manifesto atualizado com sucesso.', 'success')

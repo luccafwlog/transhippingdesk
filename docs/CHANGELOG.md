@@ -3,6 +3,12 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Branching automático Supabase ↔ GitHub ↔ Vercel:** o fluxo de Preview volta
+  a usar uma branch Supabase efêmera por PR. A integração de branching atualiza
+  `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no Preview correspondente, e
+  `main` continua sendo o único destino de produção; a configuração anterior
+  baseada em `stagingtdesk` foi descartada. Os aliases de Preview do projeto
+  Vercel também passaram a ter CORS restrito na allowlist das Edge Functions.
 - **Varredura de totais em `/viagens` (auditoria 2026-08-26):** alinhamento das
   fontes por trás dos números exibidos. O KPI `vazios embarcados` passa a somar
   os bookings agregados por `summarizeExportByEmbarkPort`, a mesma fonte da faixa

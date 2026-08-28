@@ -18,6 +18,16 @@ const HEADER_MAP: Record<string, string> = {
   'tara kg': 'tare_kg',
   'tare (kg)': 'tare_kg',
   'tare kg': 'tare_kg',
+  'pol': 'pol',
+  'origem': 'pol',
+  'porto_origem': 'pol',
+  'porto origem': 'pol',
+  'port of loading': 'pol',
+  'pod': 'pod',
+  'destino': 'pod',
+  'porto_destino': 'pod',
+  'porto destino': 'pod',
+  'port of discharge': 'pod',
 }
 
 type ParsedVaziosImportacaoContainer = {
@@ -25,6 +35,8 @@ type ParsedVaziosImportacaoContainer = {
   container_number: string
   container_type: string | null
   tare_kg: number | null
+  pol?: string | null
+  pod?: string | null
 }
 
 export type ParsedVaziosImportacaoManifest = {
@@ -61,12 +73,16 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
     const taraRaw = String(mapped['tare_kg'] ?? '').trim().replace(/[^\d.,]/g, '')
     const normalizedTara = /^\d{1,3}\.\d{3}$/.test(taraRaw) ? taraRaw.replace('.', '') : taraRaw
     const tare_kg = toNumber(normalizedTara) ?? 0
+    const pol = String(mapped['pol'] ?? '').trim() || null
+    const pod = String(mapped['pod'] ?? '').trim() || null
 
     containers.push({
       rowNumber,
       container_number: containerNumber,
       container_type: String(mapped['container_type'] ?? '').trim() || null,
       tare_kg,
+      pol,
+      pod,
     })
   })
 
@@ -90,6 +106,8 @@ export async function importVaziosImportacaoManifest({
     container_number: container.container_number,
     container_type: container.container_type,
     tare_kg: container.tare_kg,
+    pol: container.pol ?? null,
+    pod: container.pod ?? null,
   }))
   const { data, error } = await supabase.rpc('import_vazios_importacao_transactional', {
     p_voyage_id: voyageId,

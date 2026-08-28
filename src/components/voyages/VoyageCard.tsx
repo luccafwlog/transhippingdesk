@@ -194,8 +194,9 @@ export function VoyageCard({
       bls: voyage.bls,
       polSchedules,
       routeCeMasters,
+      vaziosRoutes: vaziosImpStats?.routes,
     }),
-    [importBatches, polSchedules, routeCeMasters, voyage.bls, voyage.id],
+    [importBatches, polSchedules, routeCeMasters, vaziosImpStats?.routes, voyage.bls, voyage.id],
   )
   const blCountByPod = useMemo(() => {
     const counts = new Map<string, number>()
@@ -474,6 +475,7 @@ export function VoyageCard({
               polSchedules={polSchedules}
               routeCeMasters={routeCeMasters}
               ceCoverage={ceCoverage}
+              vaziosRoutes={vaziosImpStats?.routes}
               onEditPol={onEditPol}
             />
           ) : null}

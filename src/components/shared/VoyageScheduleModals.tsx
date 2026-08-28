@@ -125,9 +125,10 @@ export function PolScheduleModal({
     atd: string | null
     ceMaster: string | null
     batchIds: number[]
+    cargoMode?: 'container' | 'vazios' | 'carga_solta'
   } | null
   onClose: () => void
-  onSaved: (payload: { voyageId: number; pol: string; pod: string; etd: string | null; atd: string | null; ceMaster: string | null; batchIds: number[] }) => Promise<void>
+  onSaved: (payload: { voyageId: number; pol: string; pod: string; etd: string | null; atd: string | null; ceMaster: string | null; batchIds: number[]; cargoMode?: 'container' | 'vazios' | 'carga_solta' }) => Promise<void>
 }) {
   const [etd, setEtd] = useState('')
   const [atd, setAtd] = useState('')
@@ -158,6 +159,7 @@ export function PolScheduleModal({
         atd: atd || null,
         ceMaster: ceMaster.trim() || null,
         batchIds: polSchedule.batchIds,
+        cargoMode: polSchedule.cargoMode,
       })
     } finally {
       setSaving(false)
@@ -165,7 +167,7 @@ export function PolScheduleModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar ETD + ATD e CE Master">
+    <Modal open={open} onClose={onClose} title={polSchedule?.cargoMode === 'vazios' ? 'Manifesto de Vazios · CE Master' : 'Editar ETD + ATD e CE Master'}>
       {polSchedule ? (
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="app-panel app-panel--padded text-sm order-1">

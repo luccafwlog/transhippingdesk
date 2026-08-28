@@ -170,4 +170,27 @@ describe('calculateDemurrage', () => {
     await expect(ensureDemurrageRatesLoaded()).rejects.toThrow(/Tarifas de Demurrage indisponíveis/)
     expect(mocks.reportBestEffortFailure).toHaveBeenCalled()
   })
+
+  it('resolve aliases ISO históricos a partir das linhas canônicas do banco', async () => {
+    __setDemurrageRateGroupsForTest(null)
+    mocks.from.mockReturnValue(createRatesQuery({
+      data: [
+        { id: 1, container_type: '20GP', free_days: 21, p1_day_from: 22, p1_day_to: 30, p1_usd: 30, p2_day_from: 31, p2_usd: 50 },
+        { id: 2, container_type: '40GP', free_days: 21, p1_day_from: 22, p1_day_to: 30, p1_usd: 60, p2_day_from: 31, p2_usd: 80 },
+        { id: 3, container_type: '20RF', free_days: 10, p1_day_from: 11, p1_day_to: 19, p1_usd: 95, p2_day_from: 20, p2_usd: 110 },
+        { id: 4, container_type: '40RF', free_days: 10, p1_day_from: 11, p1_day_to: 19, p1_usd: 190, p2_day_from: 20, p2_usd: 220 },
+        { id: 5, container_type: '20FR', free_days: 21, p1_day_from: 22, p1_day_to: 30, p1_usd: 50, p2_day_from: 31, p2_usd: 80 },
+        { id: 6, container_type: '40FR', free_days: 21, p1_day_from: 22, p1_day_to: 30, p1_usd: 100, p2_day_from: 31, p2_usd: 140 },
+      ],
+      error: null,
+    }))
+
+    await ensureDemurrageRatesLoaded(true)
+
+    expect(calculateDemurrage('22G1', '2026-01-01', '2026-01-26').total_usd).toBe(4 * 30)
+    expect(calculateDemurrage('42G1', '2026-01-01', '2026-01-26').total_usd).toBe(4 * 60)
+    expect(calculateDemurrage('45R1', '2026-01-01', '2026-01-13').total_usd).toBe(2 * 190)
+    expect(calculateDemurrage('20FT', '2026-01-01', '2026-01-26').total_usd).toBe(4 * 50)
+    expect(calculateDemurrage('40FT', '2026-01-01', '2026-01-26').total_usd).toBe(4 * 100)
+  })
 })
