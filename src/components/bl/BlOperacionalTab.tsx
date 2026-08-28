@@ -9,7 +9,8 @@ import { useInvoiceLinks } from '../../hooks/useBilling'
 import { useBlLocalChargeLines } from '../../hooks/useLocalCharges'
 import type { BlForm } from '../../hooks/useBlEditForm'
 import { cargoModeLabel, type CargoMode } from '../../pages/blDetalheHelpers'
-import { listBlNcms } from '../../lib/ncm'
+import { formatNcm, listBlNcms } from '../../lib/ncm'
+import { parseNcmInput } from '../../hooks/useBlEditForm'
 import { REVIEW_STATUS_LABELS } from '../../lib/statusLabels'
 import type { BL, BLDetail } from '../../types/database'
 
@@ -57,7 +58,15 @@ export function BlOperacionalTab({
     return Math.abs(currentCalcTotal - latestInvoice.total_brl) > 0.01
   }, [latestInvoice, currentCalcTotal])
 
-  const ncms = useMemo(() => listBlNcms(form.cargo_description), [form.cargo_description])
+  // NCM cadastrado no B/L (migration 358) e o que a descrição declara. Os dois
+  // costumam coincidir, mas a descrição nem sempre traz o código — daí o campo
+  // próprio, exigido pela manifestação no Mercante.
+  const ncmSugerido = useMemo(() => listBlNcms(form.cargo_description), [form.cargo_description])
+  const ncmCadastrado = useMemo(() => parseNcmInput(form.ncm_codes).map(formatNcm), [form.ncm_codes])
+  const sugestaoAplicavel = useMemo(
+    () => ncmSugerido.length > 0 && ncmSugerido.join(',') !== ncmCadastrado.join(','),
+    [ncmSugerido, ncmCadastrado],
+  )
   // ponytail: these imported document fields are not in generated database.ts yet.
   const documentBl = bl as BLDetail & { notify2_block?: string | null; consignee_phone?: string | null }
 
@@ -201,10 +210,18 @@ export function BlOperacionalTab({
         </div>
 
         <div className="mt-4 grid gap-4">
-          <Field label="NCM">
-            {ncms.length ? (
-              <div className="flex flex-wrap gap-2">
-                {ncms.map((ncm) => (
+          <Field
+            label="NCM"
+            hint="Códigos separados por vírgula. Campo próprio do B/L — necessário para a manifestação no Mercante e preservado quando o documento reimportado não declara NCM."
+          >
+            <Input
+              placeholder="5509, 8703.80.00"
+              value={form.ncm_codes}
+              onChange={(event) => onFieldChange('ncm_codes', event.target.value)}
+            />
+            {ncmCadastrado.length ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ncmCadastrado.map((ncm) => (
                   <span
                     key={ncm}
                     className="rounded-full border border-[#30363d] bg-[#0d1117] px-2.5 py-1 text-xs font-semibold text-slate-200"
@@ -214,8 +231,17 @@ export function BlOperacionalTab({
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-slate-400">Nenhum NCM identificado na descrição.</div>
+              <div className="mt-2 text-sm text-slate-400">Nenhum NCM cadastrado neste B/L.</div>
             )}
+            {sugestaoAplicavel ? (
+              <button
+                type="button"
+                className="mt-2 text-left text-xs text-[#58a6ff] hover:underline"
+                onClick={() => onFieldChange('ncm_codes', ncmSugerido.join(', '))}
+              >
+                A descrição declara {ncmSugerido.join(', ')} — usar como NCM do B/L
+              </button>
+            ) : null}
           </Field>
           <Field label="Descrição da carga">
             <Textarea

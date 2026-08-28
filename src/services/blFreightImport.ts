@@ -1,4 +1,5 @@
 import { canonicalizeDocument } from '../lib/cnpj'
+import { extractNcmCodes } from '../lib/ncm'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import { canonicalizeVesselName } from '../lib/vesselAlias'
 import { extractConsigneeShortName } from '../lib/consigneeName'
@@ -129,6 +130,8 @@ export type BlFreightRpcPayload = {
   override_billing: boolean
   /** authorizes moving the B/L (and its invoices) to the consignee the file now declares */
   relink_customer: boolean
+  /** NCM declarado no documento; vazio nunca apaga o cadastro manual (migration 358) */
+  ncm_codes: string[]
   freight_lines: Array<{
     seq: number
     description: string
@@ -193,6 +196,7 @@ type ExistingBl = Pick<
   notify2_block?: string | null
   notify_cnpj_cpf?: string | null
   manifest_customer_email?: string | null
+  ncm_codes?: string[] | null
   vehicles?: Pick<Vehicle, 'chassis'>[] | null
   bl_containers?: Pick<BLContainer, 'container_number' | 'seal_number' | 'type' | 'tare_weight_kg' | 'gross_weight_kg' | 'cbm' | 'is_imo' | 'is_oog' | 'imo_class' | 'un_number'>[] | null
   bl_freight_lines?: Pick<BlFreightLine, 'seq' | 'description' | 'category' | 'mercante_code' | 'currency' | 'amount' | 'payment'>[] | null
@@ -525,6 +529,7 @@ export function buildBlFreightPayload(doc: ParsedBLDocument, voyageId: number | 
     billing_impact: false,
     override_billing: true,
     relink_customer: false,
+    ncm_codes: [...new Set(extractNcmCodes(doc.cargo.description || ''))],
     freight_lines: doc.freightCharges.map((charge, index) => ({
       seq: index + 1,
       description: charge.description,
@@ -699,6 +704,7 @@ export const BL_FREIGHT_DIFF_LABELS: Record<string, string> = {
   manifest_customer_cnpj_cpf: 'CNPJ/CPF do consignatario',
   manifest_customer_name: 'Razao social do consignatario',
   manifest_customer_email: 'E-mail do consignatario',
+  ncm_codes: 'NCM',
   total_weight_kg: 'Peso total (kg)',
   total_cbm: 'CBM total',
   containers: 'Containers',
@@ -736,6 +742,11 @@ function diffExistingBl(existing: ExistingBl, payload: BlFreightRpcPayload, impa
   addDiff(diffs, 'manifest_customer_cnpj_cpf', existing.manifest_customer_cnpj_cpf, payload.manifest_customer_cnpj_cpf, impact.cnpj)
   addDiff(diffs, 'manifest_customer_name', existing.manifest_customer_name, payload.manifest_customer_name, false)
   addDiff(diffs, 'manifest_customer_email', existing.manifest_customer_email, payload.manifest_customer_email, false)
+  // Documento sem NCM não apaga o cadastro manual (migration 358), então só há
+  // diferença a mostrar quando o arquivo declara algum código.
+  if (payload.ncm_codes.length) {
+    addDiff(diffs, 'ncm_codes', (existing.ncm_codes ?? []).join(', '), payload.ncm_codes.join(', '), false)
+  }
   addDiff(diffs, 'total_weight_kg', existing.total_weight_kg, payload.total_weight_kg, impact.weight)
   addDiff(diffs, 'total_cbm', existing.total_cbm, payload.total_cbm, false)
 
@@ -863,7 +874,7 @@ async function fetchExistingBls(blNumbers: string[]): Promise<ExistingBl[]> {
       manifest_customer_cnpj_cpf, manifest_customer_name,
       place_of_receipt, movement_from, movement_to, issue_place,
       customer_id, shipper_block, consignee_block, notify_block, notify2_block, notify_cnpj_cpf,
-      manifest_customer_email,
+      manifest_customer_email, ncm_codes,
       bl_containers(container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_imo, is_oog, imo_class, un_number),
       bl_freight_lines(seq, description, category, mercante_code, currency, amount, payment),
       vehicles(chassis)

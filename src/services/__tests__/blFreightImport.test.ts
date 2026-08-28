@@ -957,4 +957,34 @@ describe('blFreightImport', () => {
     const confirmed = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ relink_customer: boolean; customer_id: number | null }>
     expect(confirmed[0]).toMatchObject({ relink_customer: true, customer_id: 43 })
   })
+  it('grava o NCM declarado no documento e o mostra no diff', () => {
+    const doc = parsedBL()
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), ncm_codes: ['1111'] }],
+    })
+
+    // a descricao do B/L declara "NCM : 8703.80.00" e o UN 3556 nao entra
+    expect(preview.rows[0]?.payload?.ncm_codes).toEqual(['87038000'])
+    expect(preview.rows[0]?.diffs.find((diff) => diff.field === 'ncm_codes')).toMatchObject({
+      label: 'NCM',
+      from: '1111',
+      to: '87038000',
+    })
+  })
+
+  it('documento sem NCM nao apaga o cadastro manual nem inventa diferenca', () => {
+    const doc = parsedBL()
+    doc.cargo.description = 'POLYESTER/RAYON YARN\nWOODEN PACKAGE:NOT APPLICABLE'
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [{ ...existingBl(), ncm_codes: ['5509'] }],
+    })
+
+    expect(preview.rows[0]?.payload?.ncm_codes).toEqual([])
+    expect(preview.rows[0]?.diffs.find((diff) => diff.field === 'ncm_codes')).toBeUndefined()
+  })
 })

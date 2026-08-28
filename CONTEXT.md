@@ -693,6 +693,17 @@ Container com dimensões fora do padrão ISO.
 
 ## Mercante
 
+**NCM**
+Código da Nomenclatura Comum do Mercosul da mercadoria do B/L, guardado como
+campo próprio do B/L — somente dígitos, de 4 a 8 por código, sem pontuação e sem
+duplicata. Um B/L pode ter mais de um. É exigido pela manifestação no Mercante.
+
+Vazio significa que ninguém cadastrou e nenhum documento declarou; não significa
+que a carga não tem NCM. A descrição da carga continua sendo lida para **propor**
+o código, nunca para substituí-lo: a importação grava o NCM que o documento
+declara e preserva o cadastrado quando o documento não declara nenhum. Ver
+ADR 0057.
+
 **CE Mercante**
 Conhecimento Eletrônico registrado por B/L no sistema Mercante, nos sentidos de
 importação e exportação. Sua ausência pode bloquear a visibilidade de dados e

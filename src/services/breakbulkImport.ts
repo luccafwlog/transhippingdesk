@@ -1,4 +1,5 @@
 import { chunkArray } from '../lib/utils'
+import { extractNcmCodes } from '../lib/ncm'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
 import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { supabase } from './supabase'
@@ -103,6 +104,14 @@ export async function importBreakbulkManifest({
           manifest.layout === 'summary'
             ? buildBreakbulkSummaryDescription(bl)
             : bl.items.map((item) => item.item_description).filter(Boolean).slice(0, 3).join(' | ') || null,
+        // A descrição acima descarta as linhas "NCM NUMBER" e guarda só os 3
+        // primeiros itens; o NCM tem de sair do texto completo dos itens, senão
+        // nunca chega ao B/L (migration 358).
+        ncm_codes: [
+          ...new Set(
+            extractNcmCodes(bl.items.map((item) => item.item_description).filter(Boolean).join('\n')),
+          ),
+        ],
         total_weight_kg: bl.total_weight_kg,
         total_cbm: bl.total_cbm,
         review_status: reviewReasons.size > 0 ? ('pending_review' as const) : ('ok' as const),
