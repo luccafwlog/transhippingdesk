@@ -1,10 +1,10 @@
-# ADR 0057 — Chave global de envio de Comunicados, desligada por padrão
+# ADR 0059 — Chave global de envio de Comunicados, desligada por padrão
 
 Status: aceito — 2026-08-27
 
 ## Contexto
 
-O canal de Comunicado ao Cliente (ADR 0056) envia e-mail em massa a clientes
+O canal de Comunicado ao Cliente (ADR 0058) envia e-mail em massa a clientes
 reais, a partir de uma tela operada por três perfis internos. O sistema está em
 desenvolvimento e teste, e um disparo indevido é irreversível.
 
@@ -17,7 +17,7 @@ uma chave desse tipo possa morar.
 - A chave nasce **desligada**. Ligar é ato deliberado do perfil
   `administrativo`, registrado em `audit_logs`.
 - **Ligar exige guarda própria.** A permissão `customer_communications` da ADR
-  0058 é do módulo, não da chave: ela é concedida também a `documentacao` e
+  0060 é do módulo, não da chave: ela é concedida também a `documentacao` e
   `equipamentos`, e sozinha deixaria qualquer um dos três ligar o envio real.
   A escrita da chave é restrita a `administrativo` e verificada **no servidor**
   — a ausência do botão na tela não é a guarda. A leitura fica com os três

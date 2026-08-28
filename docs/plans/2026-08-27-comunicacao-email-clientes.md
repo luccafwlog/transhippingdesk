@@ -4,10 +4,10 @@ Plano derivado da spec
 [`../spec/2026-08-27-comunicacao-email-clientes-design.md`](../spec/2026-08-27-comunicacao-email-clientes-design.md)
 (issue [#556](https://github.com/luccafwlog/transhippingdesk/issues/556)).
 Decisões arquiteturais em
-[ADR 0056](../adr/0056-canal-de-comunicado-ao-cliente.md) (canal próprio),
-[ADR 0057](../adr/0057-chave-global-de-envio-desligada-por-padrao.md) (chave
+[ADR 0058](../adr/0058-canal-de-comunicado-ao-cliente.md) (canal próprio),
+[ADR 0059](../adr/0059-chave-global-de-envio-desligada-por-padrao.md) (chave
 global) e
-[ADR 0058](../adr/0058-primeira-permissao-do-perfil-equipamentos.md)
+[ADR 0060](../adr/0060-primeira-permissao-do-perfil-equipamentos.md)
 (permissão). Termos em [`CONTEXT.md`](../../CONTEXT.md), seção "Comunicação com
 o cliente".
 
@@ -220,7 +220,7 @@ muda de comportamento.**
 `from('portal_suppressed_emails').select('id').eq('email', ...)`: qualquer linha
 bloqueia, sem olhar `reason`. Para o Portal isso está certo e continua. O canal
 de Comunicado precisa do contrário (só `bounce_permanente` é compartilhado — ADR
-0056), e é por isso que a supressão sai como callback em vez de ficar embutida.
+0058), e é por isso que a supressão sai como callback em vez de ficar embutida.
 Embutir a regra do Portal no módulo compartilhado quebraria o invariante 7 de
 forma silenciosa.
 
@@ -248,7 +248,7 @@ Tabelas do canal:
   `provider_message_id`, `last_error`, `idempotency_key`.
 - `customer_communication_suppressions` — supressão **do canal**, só para
   `complaint`. `bounce_permanente` **não** entra aqui: é lido e escrito em
-  `portal_suppressed_emails`, compartilhado (ADR 0056). A caixa não existir é
+  `portal_suppressed_emails`, compartilhado (ADR 0058). A caixa não existir é
   fato da caixa, não opinião de canal.
 - `customer_contact_preferences` — `(contact_id, nature)` com `enabled` BOOLEAN
   NOT NULL DEFAULT true e `source` (`interno`, `cliente`) NOT NULL DEFAULT
@@ -322,7 +322,7 @@ Regras que a migration carrega:
 - **RLS:** leitura pelos perfis internos ativos via `is_active_read_user()`;
   escrita de comunicado só por `service_role`. A escrita de
   `app_settings.communications_enabled` é restrita a `administrativo` — guarda
-  **de servidor**, não de tela (ADR 0057).
+  **de servidor**, não de tela (ADR 0059).
 - Regenerar `src/types/database.ts` (arquivo protegido — ver
   `.claude/hooks/protect-files.sh`).
 
@@ -352,7 +352,7 @@ case 'equipamentos': return false
 
 Trocar o `return false` no lugar concede a permissão a `operacoes` junto, em
 silêncio. A edição correta mantém `case 'operacoes': return false` como ramo
-próprio e dá a `equipamentos` um ramo separado. Ver ADR 0058, Consequências.
+próprio e dá a `equipamentos` um ramo separado. Ver ADR 0060, Consequências.
 
 **Check:** matriz em `src/hooks/__tests__/roleHasPermission.test.ts` cobrindo os
 sete papéis contra a nova permissão, com asserção **explícita** de que
@@ -421,13 +421,13 @@ nenhum status atualizado, nenhum alerta.
 Isso quebraria o invariante 7 pela metade: bounce do Portal suprimiria os dois
 canais, e bounce do Comunicado não suprimiria nada. O canal insistiria para
 sempre numa caixa inexistente, a partir do mesmo remetente `portal@` — o dano
-exato que a ADR 0056 usa para justificar compartilhar o `bounce_permanente`.
+exato que a ADR 0058 usa para justificar compartilhar o `bounce_permanente`.
 
 Estender o webhook para procurar nas duas trilhas: não achando em
 `portal_email_attempts`, procurar em `customer_communication_attempts`. Achando
 lá, atualizar o status, e então:
 
-- `bounce` permanente → `portal_suppressed_emails` (compartilhado, ADR 0056);
+- `bounce` permanente → `portal_suppressed_emails` (compartilhado, ADR 0058);
 - `complaint` → `customer_communication_suppressions` (só o canal).
 
 **Corrigir junto o `ignoreDuplicates` da supressão compartilhada.** A linha 27
@@ -438,7 +438,7 @@ escala** para `bounce_permanente`: o upsert encontra a linha e descarta o evento
 A caixa deixou de existir, a tabela continua dizendo "reclamou", e todo consumidor
 que distingue os dois motivos (a T5 distingue, por causa do invariante 7) segue
 mandando e-mail para uma caixa morta a partir do remetente compartilhado — que é
-o dano exato que a ADR 0056 quer evitar.
+o dano exato que a ADR 0058 quer evitar.
 
 O `bounce_permanente` passa a **sobrescrever** o motivo: upsert sem
 `ignoreDuplicates`, gravando `reason = 'bounce_permanente'` e renovando
@@ -478,7 +478,7 @@ bloco é registrado como **simulado** até alguém de Administrativo ligar.
 cabeçalho de Clientes, ao lado de `/clientes/portal`.
 
 **Faixa permanente** enquanto a chave estiver desligada, dizendo que os disparos
-serão registrados como simulados (ADR 0057). Não é banner dispensável.
+serão registrados como simulados (ADR 0059). Não é banner dispensável.
 
 **Check:** `AdminRoutingFailures.test.tsx` — perfil sem a permissão não alcança a
 rota; teste de render afirmando a faixa com a chave desligada.
@@ -580,7 +580,7 @@ Consumidora do `_shared/email.ts` da T1, com os callbacks do canal:
 **e** `complaint` de `customer_communication_suppressions`; `recordAttempt`
 gravando em `customer_communication_attempts`.
 
-Remetente `portal@` (identidade compartilhada, ADR 0056) e **`reply-to` próprio
+Remetente `portal@` (identidade compartilhada, ADR 0058) e **`reply-to` próprio
 do canal**, em `COMMUNICATIONS_REPLY_TO` — variável nova, distinta do
 `PORTAL_REPLY_TO`. Resposta a um NOA é conversa operacional ("o navio atrasou?",
 "meu B/L está nessa escala?"); cair no suporte do Portal, que trata acesso e
@@ -653,7 +653,7 @@ NOR abre, e o NOR fecha.
 Comunicado no Histórico do B/L (`src/components/bl/BlHistoricoTab.tsx`, via
 Vínculo), na aba Histórico da Ficha (`src/components/clientes/HistoricoTab.tsx`)
 e no histórico de disparos da própria tela. Comunicado simulado aparece
-**marcado** — qualquer leitura precisa distinguir enviado de simulado (ADR 0057).
+**marcado** — qualquer leitura precisa distinguir enviado de simulado (ADR 0059).
 
 Comunicado é evento de **Histórico**, não de Auditoria: não tem justificativa.
 

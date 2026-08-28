@@ -50,14 +50,14 @@ Ficam **fora** do escopo:
 
 | Fato | Onde | Consequência |
 |---|---|---|
-| `notify-invoice-issued` existe, está inativa, e há decisão registrada de não enviar e-mail a clientes | `supabase/functions/notify-invoice-issued/index.ts`; `docs/RASTREABILIDADE.md`; `docs/ARCHITECTURE.md` | Esta spec reverte a decisão (ADR 0056). A função é apagada quando o comunicado financeiro entrar |
+| `notify-invoice-issued` existe, está inativa, e há decisão registrada de não enviar e-mail a clientes | `supabase/functions/notify-invoice-issued/index.ts`; `docs/RASTREABILIDADE.md`; `docs/ARCHITECTURE.md` | Esta spec reverte a decisão (ADR 0058). A função é apagada quando o comunicado financeiro entrar |
 | Mecânica de envio madura, porém acoplada ao Portal | `supabase/functions/_shared/portalEmail.ts` | Extrair para `_shared/email.ts`; `portalEmail.ts` passa a ser consumidor |
 | Pendências de B/L já computadas de forma canônica | `compute_bl_review_pendencies(p_customer_id, p_cargo_mode, p_bb_weight_ton)`, nascida na migration `128` e vigente na `337` | Reusar como parte do gate de taxas locais, sem reimplementar. `EXECUTE` só para `service_role`: o gate é avaliado no servidor, não no cliente |
 | Cobertura de CE Mercante já calculada | `voyageCeCoverage()`, `src/services/voyageSummaries.ts` | Reusar o sinal; o gate novo é por cliente, não por viagem |
 | Bucket privado com teto e mime types já validado | migration `325`, bucket `demurrage-disputes` | Molde do bucket de anexos |
 | `demurrage_invoices.total_usd` é o valor autoritativo; BRL é derivado do PTAX | `src/types/database.ts`; `recalc-demurrage-ptax` | A cobrança comunica USD; BRL é informativo |
-| Perfil `equipamentos` não tem nenhuma permissão | `src/hooks/useAuth.tsx` | Esta spec concede a primeira (ADR 0058) |
-| Não existe tabela de configuração global | busca em `src/types/database.ts` | A chave de envio nasce como conceito novo (ADR 0057) |
+| Perfil `equipamentos` não tem nenhuma permissão | `src/hooks/useAuth.tsx` | Esta spec concede a primeira (ADR 0060) |
+| Não existe tabela de configuração global | busca em `src/types/database.ts` | A chave de envio nasce como conceito novo (ADR 0059) |
 
 **Evidência: Código** para todas as linhas acima.
 
@@ -83,7 +83,7 @@ exato que o teto da decisão 9 existe para evitar. Endereço com
 `bounce_permanente` em qualquer canal fica bloqueado nos dois; `complaint` e
 Preferência de Recebimento permanecem por canal. **Evidência: Código.**
 
-Registrada na ADR 0056.
+Registrada na ADR 0058.
 
 ### 2. Destinatários e Preferência de Recebimento
 
@@ -414,7 +414,7 @@ Uma chave única, com **default desligado**, controlada por Administrativo.
   existir.
 - Ligar e desligar é auditado em `audit_logs`.
 
-Registrada na ADR 0057.
+Registrada na ADR 0059.
 
 ### 14. Permissão
 
@@ -433,7 +433,7 @@ não lançamento contábil, e a permissão pode ser estendida sem ADR nova se o
 produto decidir o contrário.
 
 É a **primeira permissão do perfil `equipamentos`**, hoje intencionalmente
-vazio. Registrada na ADR 0058.
+vazio. Registrada na ADR 0060.
 
 Reusar `portal_provisioning` amarraria comunicação operacional à governança do
 Portal — exatamente o acoplamento que a decisão 1 desfaz.
@@ -502,9 +502,9 @@ português como canônico e a sigla como sinônimo.
 
 | ADR | Decisão |
 |---|---|
-| [0056](../adr/0056-canal-de-comunicado-ao-cliente.md) | Canal de Comunicado ao Cliente, revertendo a decisão de não enviar e-mail a clientes |
-| [0057](../adr/0057-chave-global-de-envio-desligada-por-padrao.md) | Chave global de envio, desligada por padrão, sem afetar o Portal |
-| [0058](../adr/0058-primeira-permissao-do-perfil-equipamentos.md) | Primeira permissão do perfil Equipamentos |
+| [0058](../adr/0058-canal-de-comunicado-ao-cliente.md) | Canal de Comunicado ao Cliente, revertendo a decisão de não enviar e-mail a clientes |
+| [0059](../adr/0059-chave-global-de-envio-desligada-por-padrao.md) | Chave global de envio, desligada por padrão, sem afetar o Portal |
+| [0060](../adr/0060-primeira-permissao-do-perfil-equipamentos.md) | Primeira permissão do perfil Equipamentos |
 
 ## Execução
 

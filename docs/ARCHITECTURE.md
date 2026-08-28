@@ -464,7 +464,7 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
   configurado e o `RESEND_API_KEY` não está provisionado; a notificação ao
   cliente acontece in-app (gatilho `trg_notify_invoice_issued`). A decisão de
   2026-06-24 de não disparar email para clientes foi **revertida pela ADR
-  0056**, que cria o canal de Comunicado ao Cliente. Esta função **não** será
+  0058**, que cria o canal de Comunicado ao Cliente. Esta função **não** será
   reativada: ela é apagada quando o comunicado financeiro do novo canal entrar
   (spec `docs/spec/2026-08-27-comunicacao-email-clientes-design.md`). A remoção
   precisa dar destino à **metade interna** da função — o `alerta_critico`
