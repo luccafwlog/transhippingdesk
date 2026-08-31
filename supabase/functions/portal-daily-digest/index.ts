@@ -16,7 +16,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response(null, { status: 405 })
   const expectedSecret = Deno.env.get('PORTAL_DIGEST_SECRET')
   const providedSecret = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? ''
-  if (!expectedSecret || providedSecret !== expectedSecret) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  if (!expectedSecret || !timingSafeEqual(providedSecret, expectedSecret)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   if (!serviceRoleKey) return new Response(JSON.stringify({ error: 'internal_configuration_error' }), { status: 500 })
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceRoleKey)
