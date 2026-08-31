@@ -1,4 +1,4 @@
-﻿-- 364: consolidação dos alertas de revisão de B/L por cliente (Issue #628).
+-- 364: consolidação dos alertas de revisão de B/L por cliente (Issue #628).
 --
 -- Agrupa as pendências de revisão documental de B/Ls por cliente (para B/Ls
 -- vinculados) e por consignatário (para B/Ls não vinculados), quantificando os
