@@ -2,17 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   computeBapliePhysicalUpdates,
   computeExistenceDivergences,
+  isBaplieReconciliationD7,
   reconcileBaplieWithManifest,
   applyBapliePhysicalFlags,
 } from '../baplieReconciliation'
 
-const { mockFrom } = vi.hoisted(() => ({
+const { mockFrom, mockRpc } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
   supabase: {
     from: mockFrom,
+    rpc: mockRpc,
   },
 }))
 
@@ -176,7 +179,15 @@ describe('computeBapliePhysicalUpdates (Baplie soberano)', () => {
 describe('reconcileBaplieWithManifest', () => {
   beforeEach(() => {
     mockFrom.mockReset()
+    mockRpc.mockReset()
+    mockRpc.mockResolvedValue({ data: null, error: null })
     mutationCalls.length = 0
+  })
+
+  it('aplica a janela D-7 sobre a data da primeira ETA brasileira', () => {
+    expect(isBaplieReconciliationD7('2026-09-07', '2026-08-31')).toBe(true)
+    expect(isBaplieReconciliationD7('2026-09-08', '2026-08-31')).toBe(false)
+    expect(isBaplieReconciliationD7(null, '2026-08-31')).toBe(false)
   })
 
   it('não gera divergência de atributo — mesmo container com IMO/OOG divergentes retorna vazio', async () => {
@@ -185,7 +196,7 @@ describe('reconcileBaplieWithManifest', () => {
       baplie: [{ container_number: 'ABCD1234567', status: 'full', bl_ref: 'BL1', slot: null, is_oog: true }],
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }],
     })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled' })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled', pendingRoutes: [] })
   })
 
   it('gera divergência de existência quando o container do Baplie não está em nenhum B/L', async () => {
@@ -209,15 +220,15 @@ describe('reconcileBaplieWithManifest', () => {
       ],
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }],
     })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled' })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'reconciled', pendingRoutes: [] })
   })
 
   it('sinaliza source not_imported quando nao ha staging do Baplie para a viagem, distinto de reconciliado sem divergencias', async () => {
     installReconcileMocks({ bls: [{ id: 'BL1' }], baplie: [], containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_oog: false }] })
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'not_imported' })
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'not_imported', pendingRoutes: [] })
   })
 
-  it('força reconciliação em D-7 mesmo com cobertura incompleta de rotas', async () => {
+  it('concilia a rota coberta e mantém a rota sem B/L fora da conciliação; D-7 força as duas', async () => {
     installReconcileMocks({
       bls: [{ id: 'BL1', pol: 'CNTAO', pod: 'BRSSZ' }],
       baplie: [
@@ -227,14 +238,37 @@ describe('reconcileBaplieWithManifest', () => {
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567' }],
     })
 
-    // Sem forçar D-7: aguarda cobertura
-    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({ items: [], source: 'awaiting_route_coverage' })
+    // Gate por rota: CNTAO::BRSSZ tem B/L com containers e concilia (sem divergência);
+    // CNNGB::BRSSZ ainda não tem B/L e fica pendente, sem virar divergência nem silenciar a viagem.
+    await expect(reconcileBaplieWithManifest(1)).resolves.toEqual({
+      items: [],
+      source: 'reconciled',
+      pendingRoutes: ['CNNGB::BRSSZ'],
+    })
 
-    // Forçando D-7: reconcilia e aponta divergência de existência
+    // Forçando D-7: reconcilia também a rota pendente e aponta a divergência de existência
     const result = await reconcileBaplieWithManifest(1, { isD7: true })
     expect(result.source).toBe('reconciled')
     expect(result.items).toHaveLength(1)
     expect(result.items[0]).toMatchObject({ kind: 'missing_in_manifest', container_number: 'XYZU9876543' })
+  })
+
+  it('resolve D-7 automaticamente pela RPC quando o chamador não informa isD7', async () => {
+    mockRpc.mockResolvedValue({ data: '2000-01-01', error: null })
+    installReconcileMocks({
+      bls: [{ id: 'BL1', pol: 'CNTAO', pod: 'BRSSZ' }],
+      baplie: [{ container_number: 'ABCD1234567', pol: 'CNTAO', pod: 'BRSSZ', status: 'full' }],
+      containers: [],
+    })
+
+    const result = await reconcileBaplieWithManifest(1)
+
+    expect(result.source).toBe('reconciled')
+    expect(result.pendingRoutes).toEqual([])
+    expect(result.items).toMatchObject([
+      { kind: 'missing_in_manifest', container_number: 'ABCD1234567' },
+    ])
+    expect(mockRpc).toHaveBeenCalledWith('get_voyage_first_brazilian_eta', { p_voyage_id: 1 })
   })
 
   it('audita flags Baplie com old_value real e new_value aplicado', async () => {

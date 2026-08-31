@@ -14,6 +14,7 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
     ['TAIKANG', 'CNTAC'],
     ['CNTAI', 'CNTAC'],
     ['CNNBO', 'CNNGB'],
+    ['ZOS', 'CNNGB'],
     ['CNSHG', 'CNSHA'],
     ['CNQDG', 'CNTAO'],
     ['SANTOS', 'BRSSZ'],
@@ -38,5 +39,6 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
     expect(portCodeVariants('BRVIX')).toEqual(expect.arrayContaining(['BRVIX', 'VITORIA', 'BRVIT']))
     expect(portCodeVariants('PECEM')).toEqual(expect.arrayContaining(['BRPEC', 'PECEM']))
     expect(portCodeVariants('CNTAC')).toEqual(expect.arrayContaining(['CNTAC', 'TAICANG', 'CNTAG']))
+    expect(portCodeVariants('CNNGB')).toEqual(expect.arrayContaining(['CNNGB', 'ZOS']))
   })
 })

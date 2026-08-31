@@ -24,12 +24,19 @@ export type BaplieReconciliationResult = {
   items: BaplieReconciliationItem[]
   // 'not_imported': nenhuma linha de staging do Baplie para a viagem — nao e o
   // mesmo estado que uma reconciliacao concluida com zero divergencias.
+  // 'awaiting_route_coverage': ha Baplie, mas NENHUMA rota de containers cheios
+  // tem B/L com containers ainda — nada e conciliavel.
   source: 'not_imported' | 'awaiting_route_coverage' | 'reconciled'
+  // Rotas de containers cheios do Baplie que ainda nao tem B/L com containers.
+  // Ficam de fora da conciliacao (o B/L pode nao ter chegado), mas sao exibidas
+  // para que a espera seja visivel em vez de silenciosa.
+  pendingRoutes: string[]
 }
 
 import { normalizePortCode } from './portCode'
 
 type RouteRow = { pol: string | null; pod: string | null }
+type BlRouteRow = RouteRow & { id: string }
 
 function routeKey(row: RouteRow): string | null {
   const pol = normalizePortCode(row.pol) ?? row.pol?.trim().toUpperCase() ?? ''
@@ -37,13 +44,34 @@ function routeKey(row: RouteRow): string | null {
   return pol && pod ? `${pol}::${pod}` : null
 }
 
+export type BaplieRouteCoverage = {
+  /** Rotas EDI (cheios) com pelo menos um B/L com containers — conciliáveis. */
+  covered: Set<string>
+  /** Rotas EDI (cheios) ainda sem B/L com containers — aguardando importação. */
+  pending: string[]
+}
+
+/**
+ * Cobertura POR ROTA (pura, testável). A regra de negócio é que uma rota de
+ * containers cheios prevista pelo Baplie só entra na conciliação quando existe
+ * pelo menos um B/L COM CONTAINERS naquela rota — B/L sem container não cobre
+ * rota nenhuma. O gate é por rota, e não da viagem inteira: uma rota sem B/L
+ * apenas se exclui da conciliação, sem silenciar as demais (#604).
+ */
+export function computeBaplieRouteCoverage(staged: RouteRow[], blsWithContainers: RouteRow[]): BaplieRouteCoverage {
+  const ediRoutes = new Set(staged.map(routeKey).filter((route): route is string => route !== null))
+  const blRoutes = new Set(blsWithContainers.map(routeKey).filter((route): route is string => route !== null))
+  const covered = new Set([...ediRoutes].filter((route) => blRoutes.has(route)))
+  const pending = [...ediRoutes].filter((route) => !blRoutes.has(route)).sort()
+  return { covered, pending }
+}
+
+/** Compatibilidade: cobertura total (todas as rotas EDI cobertas). */
 export function hasCompleteBaplieRouteCoverage(staged: RouteRow[], bls: RouteRow[]): boolean {
   const ediRoutes = new Set(staged.map(routeKey).filter((route): route is string => route !== null))
-  const blRoutes = new Set(bls.map(routeKey).filter((route): route is string => route !== null))
   // Compatibilidade com chamadas/fixtures legados que não carregam a rota.
   if (!ediRoutes.size) return true
-  if (!blRoutes.size) return false
-  return ediRoutes.size > 0 && [...ediRoutes].every((route) => blRoutes.has(route))
+  return computeBaplieRouteCoverage(staged, bls).pending.length === 0
 }
 
 type BlContainerPhysical = Pick<
@@ -65,10 +93,18 @@ export type BapliePhysicalUpdate = {
   is_oog: boolean
 }
 
-/** Divergências de existência (pura, testável) — as duas direções. */
+/**
+ * Divergências de existência (pura, testável) — as duas direções.
+ *
+ * `pendingRoutes` são rotas do Baplie ainda sem B/L com containers: os
+ * containers dessas rotas não viram divergência `missing_in_manifest` (o B/L
+ * pode não ter chegado), mas continuam contando como presentes no Baplie, para
+ * não gerar `missing_in_baplie` falso do outro lado.
+ */
 export function computeExistenceDivergences(
   staged: BaplieContainerRow[],
   blContainers: BlContainerPhysical[],
+  pendingRoutes?: Set<string>,
 ): BaplieReconciliationItem[] {
   const items: BaplieReconciliationItem[] = []
 
@@ -89,6 +125,10 @@ export function computeExistenceDivergences(
   // Container no Baplie (full) e em nenhum B/L.
   for (const b of staged) {
     if (b.status === 'empty') continue
+    if (pendingRoutes?.size) {
+      const route = routeKey({ pol: b.pol, pod: b.pod })
+      if (route && pendingRoutes.has(route)) continue
+    }
     const key = normalizeContainerNumber(b.container_number)
     if (!blByNumber.has(key)) {
       items.push({
@@ -207,7 +247,55 @@ async function fetchStagingAndBlContainers(voyageId: number) {
     }
   }
 
-  return { staged: dedupeBaplieContainers(staged), blContainers, blRows: (blRows ?? []) as RouteRow[] }
+  return { staged: dedupeBaplieContainers(staged), blContainers, blRows: (blRows ?? []) as BlRouteRow[] }
+}
+
+type UntypedRpcClient = {
+  rpc: (functionName: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+}
+
+async function fetchFirstBrazilianEta(voyageId: number): Promise<string | null> {
+  // Esse helper foi criado na migration 326, mas os tipos gerados neste
+  // checkout ainda não incluem a função. O cast fica local até a regeneração
+  // dos tipos a partir do schema Supabase alvo.
+  const rpcClient = supabase as unknown as UntypedRpcClient
+  const { data, error } = await rpcClient.rpc('get_voyage_first_brazilian_eta', { p_voyage_id: voyageId })
+  if (error) throw error
+  return data == null ? null : String(data).slice(0, 10)
+}
+
+function saoPauloDateKey(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
+
+/** Mantém a mesma regra do SQL: a janela começa em ETA - 7 dias e não expira. */
+export function isBaplieReconciliationD7(
+  firstBrazilianEta: string | null | undefined,
+  today = saoPauloDateKey(),
+): boolean {
+  if (!firstBrazilianEta) return false
+  const etaDate = Date.parse(`${firstBrazilianEta.slice(0, 10)}T00:00:00Z`)
+  const todayDate = Date.parse(`${today.slice(0, 10)}T00:00:00Z`)
+  if (Number.isNaN(etaDate) || Number.isNaN(todayDate)) return false
+  return todayDate >= etaDate - 7 * 24 * 60 * 60 * 1000
+}
+
+async function resolveIsD7(
+  voyageId: number,
+  options?: { isD7?: boolean; firstBrazilianEta?: string | null },
+): Promise<boolean> {
+  if (options?.isD7 !== undefined) return options.isD7
+  const firstBrazilianEta = options && 'firstBrazilianEta' in options
+    ? options.firstBrazilianEta
+    : await fetchFirstBrazilianEta(voyageId)
+  return isBaplieReconciliationD7(firstBrazilianEta)
 }
 
 export async function reconcileBaplieWithManifest(
@@ -215,12 +303,31 @@ export async function reconcileBaplieWithManifest(
   options?: { isD7?: boolean; firstBrazilianEta?: string | null },
 ): Promise<BaplieReconciliationResult> {
   const { staged, blContainers, blRows } = await fetchStagingAndBlContainers(voyageId)
-  if (!staged.length) return { items: [], source: 'not_imported' }
+  if (!staged.length) return { items: [], source: 'not_imported', pendingRoutes: [] }
+
+  const isD7 = await resolveIsD7(voyageId, options)
+
   const fullStaged = staged.filter((c) => c.status !== 'empty')
-  const hasCoverage = hasCompleteBaplieRouteCoverage(fullStaged.length > 0 ? fullStaged : staged, blRows)
-  const forceReconcile = Boolean(options?.isD7)
-  if (!hasCoverage && !forceReconcile) return { items: [], source: 'awaiting_route_coverage' }
-  return { items: computeExistenceDivergences(staged, blContainers), source: 'reconciled' }
+  // Só B/L COM containers cobre rota: um B/L sem container não conferiu nada.
+  const blIdsWithContainers = new Set(blContainers.map((c) => String(c.bl_id)))
+  const blsWithContainers = blRows.filter((bl) => blIdsWithContainers.has(String(bl.id)))
+  const { covered, pending } = computeBaplieRouteCoverage(
+    fullStaged.length > 0 ? fullStaged : staged,
+    blsWithContainers,
+  )
+
+  // D-7 força a conciliação de todas as rotas, inclusive as ainda sem B/L.
+  const pendingRoutes = isD7 ? [] : pending
+  // Nenhuma rota conciliável e nada forçado: a viagem inteira segue aguardando.
+  if (!covered.size && pendingRoutes.length) {
+    return { items: [], source: 'awaiting_route_coverage', pendingRoutes }
+  }
+
+  return {
+    items: computeExistenceDivergences(staged, blContainers, new Set(pendingRoutes)),
+    source: 'reconciled',
+    pendingRoutes,
+  }
 }
 
 /**

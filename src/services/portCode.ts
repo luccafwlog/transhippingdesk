@@ -34,6 +34,11 @@ const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
   ['cntag', 'CNTAC'],
   ['ningbo', 'CNNGB'],
   ['cnnbo', 'CNNGB'],
+  // Zhoushan integra o complexo portuário Ningbo-Zhoushan: o Baplie codifica
+  // CNZOS enquanto o B/L declara Ningbo (CNNGB). Mesma rota comercial.
+  ['zhoushan', 'CNNGB'],
+  ['cnzos', 'CNNGB'],
+  ['zos', 'CNNGB'],
   ['nansha', 'CNNSA'],
   ['cnnan', 'CNNSA'],
   ['guangzhou', 'CNNSA'],

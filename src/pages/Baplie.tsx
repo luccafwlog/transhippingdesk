@@ -270,7 +270,11 @@ export function Baplie() {
           ) : null}
 
           {stateC && reconciliationData ? (
-            <ReconciliacaoSection items={reconciliationData.items} source={reconciliationData.source} />
+            <ReconciliacaoSection
+              items={reconciliationData.items}
+              source={reconciliationData.source}
+              pendingRoutes={reconciliationData.pendingRoutes}
+            />
           ) : stateC && !reconciliationData ? (
             <Card className="mb-5">
               <div className="py-4 text-center text-sm text-slate-400">Carregando divergencias...</div>
@@ -437,12 +441,29 @@ function VaziosSection({
   )
 }
 
+function formatRouteKey(route: string) {
+  const [pol, pod] = route.split('::')
+  return `${pol} → ${pod}`
+}
+
+function PendingRoutesNote({ routes }: { routes: string[] }) {
+  if (!routes.length) return null
+  return (
+    <p className="mt-1 text-xs text-slate-500">
+      Rotas do Baplie ainda sem B/L com containers e por isso fora da conciliação:{' '}
+      <span className="text-slate-400">{routes.map(formatRouteKey).join(', ')}</span>.
+    </p>
+  )
+}
+
 function ReconciliacaoSection({
   items,
   source,
+  pendingRoutes = [],
 }: {
   items: BaplieReconciliationItem[]
   source?: 'not_imported' | 'awaiting_route_coverage' | 'reconciled'
+  pendingRoutes?: string[]
 }) {
   if (source === 'awaiting_route_coverage') {
     return (
@@ -454,8 +475,9 @@ function ReconciliacaoSection({
           <div>
             <div className="text-sm font-semibold text-white">Aguardando cobertura de rotas de B/L</div>
             <div className="text-xs text-slate-400 mt-0.5">
-              O arquivo EDI prevê rotas de containers cheios que ainda não possuem nenhum B/L importado. A conciliação de existência iniciará automaticamente quando todas as rotas previstas tiverem ao menos um B/L.
+              Nenhuma rota de containers cheios prevista pelo EDI tem B/L com containers importado. Cada rota entra na conciliação assim que receber ao menos um B/L com containers.
             </div>
+            <PendingRoutesNote routes={pendingRoutes} />
           </div>
         </div>
       </Card>
@@ -475,6 +497,7 @@ function ReconciliacaoSection({
     return (
       <Card className="mb-5">
         <div className="py-4 text-center text-sm text-emerald-400">Sem divergências de existência entre Baplie e B/Ls. Flags físicas (IMO/OOG) do Baplie aplicadas automaticamente.</div>
+        <div className="text-center"><PendingRoutesNote routes={pendingRoutes} /></div>
       </Card>
     )
   }
@@ -489,6 +512,7 @@ function ReconciliacaoSection({
           </span>
         </div>
         <div className="text-xs text-slate-500 mt-0.5">Baplie é soberano nas flags físicas (IMO/OOG) e já foram aplicadas ao B/L. Aqui só aparecem containers presentes em uma fonte e ausentes na outra.</div>
+        <PendingRoutesNote routes={pendingRoutes} />
       </div>
 
       {missing.length > 0 ? (
