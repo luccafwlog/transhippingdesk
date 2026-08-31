@@ -57,13 +57,13 @@ export function getBillingBlock(row: {
       detail: 'Granito fornece conferência de quantidades e não participa da emissão de invoices.',
     }
   }
-  if (row.financial_status === 'invoiced') return { code: 'faturado', label: 'Faturado', detail: 'Fatura ja emitida.' }
+  if (row.financial_status === 'invoiced') return { code: 'faturado', label: 'Faturado', detail: 'Fatura já emitida.' }
   if (row.charge_status === 'exempt') return { code: 'isento', label: 'Isento', detail: row.charge_exemption_reason ?? 'B/L isento de taxas locais.' }
   if (!row.customer?.id || !isCustomerReconciliationResolved(row.customer_reconciliation_status)) {
     return {
       code: 'sem_cliente',
       label: 'Sem cliente vinculado',
-      detail: row.billing_hold_reason ?? row.customer_reconciliation_notes ?? 'Cliente nao vinculado.',
+      detail: row.billing_hold_reason ?? row.customer_reconciliation_notes ?? 'Cliente não vinculado.',
     }
   }
   const hasCalculationIssue = row.review_status === 'pending_review' || row.totals.review_required_count > 0 || row.totals.line_count === 0 || Number(row.totals.total_brl ?? 0) <= 0
@@ -72,7 +72,7 @@ export function getBillingBlock(row: {
     return {
       code: 'calculo_incompleto',
       label: 'Cálculo incompleto',
-      detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Ha linhas de taxa com revisao pendente.' : 'Sem linhas de taxa calculadas.'),
+      detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Há linhas de taxa com revisão pendente.' : 'Sem linhas de taxa calculadas.'),
     }
   }
   if (row.billing_hold_reason) {

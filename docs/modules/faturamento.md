@@ -53,6 +53,17 @@ foi removido junto com a coluna `invoices.due_date`.
   `src/components/billing/ValidacaoControls.tsx` contém filtros, pipeline e
   ações em lote; `src/components/billing/ValidacaoOperationsTable.tsx` renderiza
   seleção, detalhes, conciliação e emissão individual.
+- **Detalhe expandido da linha (issue 583):** o destaque no topo da expansão usa
+  o código do bloqueio (`getBillingBlock`) para escolher título e tom
+  (`src/components/billing/validacaoDetalhes.ts`): só quem impede a emissão
+  (`sem_cliente`, `calculo_incompleto`, `aguardando_ce`) aparece em âmbar como
+  “Por que não fatura?”; estados finais (`pronto`, `faturado`, `isento`) e
+  Granito ficam neutros como “Situação da fatura”/“Escopo da operação”. O mesmo
+  motivo deixa de repetir na coluna Motivo enquanto a linha está expandida. A
+  expansão mostra ainda cliente vinculado com CNPJ formatado, CE Mercante,
+  subtotal (BRL e USD quando houver), e o último evento auditado com o campo
+  humanizado e data/hora (`describeLastEvent`); a conciliação pendente formata o
+  CNPJ do manifesto e explica quando não há cliente sugerido para aprovar.
 - **Etapa 12 do plano de faturamento (ADR 0038):** a aba Pendências foi
   removida — era subconjunto literal da Validação (mesma fonte
   `useLocalChargeOperations`, mesmo limite 1200, só `chargeStatus=review_required`

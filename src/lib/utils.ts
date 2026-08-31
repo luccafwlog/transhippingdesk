@@ -60,6 +60,24 @@ export function formatDate(value?: string | null) {
   }).format(new Date(value))
 }
 
+// Timestamps de auditoria só são conferíveis com a hora: dois eventos no mesmo
+// dia ficam indistinguíveis quando a UI mostra apenas a data.
+export function formatDateTime(value?: string | null) {
+  if (!value) return '-'
+  if (isDateOnly(value)) return formatDate(value)
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return '-'
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed)
+}
+
 export function isDateOnly(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }

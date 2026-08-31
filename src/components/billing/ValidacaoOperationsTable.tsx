@@ -5,11 +5,12 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, EmptyState, InlineError } from '../ui/Card'
 import { useBlLocalChargeLines } from '../../hooks/useLocalCharges'
-import { formatBRL, formatDate } from '../../lib/utils'
+import { formatBRL, formatCnpjCpf, formatDateTime, formatUSD } from '../../lib/utils'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import type { LocalChargeOperationalRow } from '../../services/charges/chargeOperationsService'
 import { getBillingBlock, isBlLockedForRecalc } from './validacaoPipeline'
+import { calloutTitle, calloutTone, describeLastEvent } from './validacaoDetalhes'
 
 type ReconciliationQueueItem = {
   id: number
@@ -115,7 +116,7 @@ export function ValidacaoOperationsTable({
                       </button>
                     </td>
                     <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.id}</td>
-                    <td className="px-4 py-3"><div className="max-w-[360px] whitespace-normal"><Badge tone={block.code === 'aguardando_ce' ? 'slate' : block.code === 'sem_cliente' ? 'yellow' : block.code === 'calculo_incompleto' ? 'red' : 'blue'}>{block.label}</Badge><div className="mt-1 text-xs text-[var(--app-muted)]">{block.detail}</div></div></td>
+                    <td className="px-4 py-3"><div className="max-w-[360px] whitespace-normal"><Badge tone={block.code === 'aguardando_ce' ? 'slate' : block.code === 'sem_cliente' ? 'yellow' : block.code === 'calculo_incompleto' ? 'red' : 'blue'}>{block.label}</Badge>{isExpanded ? null : <div className="mt-1 text-xs text-[var(--app-muted)]">{block.detail}</div>}</div></td>
                     <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                     <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
                     <td className="px-4 py-3">{renderChargeStatus(row.charge_status, row.financial_status, row.cargo_mode)}</td>
@@ -151,8 +152,8 @@ export function ValidacaoOperationsTable({
                         <div className="grid gap-4 xl:grid-cols-2">
                           <div className="grid gap-3">
                             {block.detail ? (
-                              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">{row.cargo_mode === 'granito' ? 'Escopo da operação' : 'Por que não fatura?'}</div>
+                              <div className={`rounded-lg border px-3 py-2 text-sm ${calloutTone(block.code).body}`}>
+                                <div className={`text-xs font-semibold uppercase tracking-wide ${calloutTone(block.code).title}`}>{calloutTitle(block.code)}</div>
                                 <div className="mt-0.5">{block.detail}</div>
                               </div>
                             ) : null}
@@ -163,25 +164,46 @@ export function ValidacaoOperationsTable({
                                 <div className="text-[var(--app-text-strong)]">{row.pol ?? '-'} → {row.pod ?? '-'}</div>
                               </div>
                               <div>
-                                <div className="text-[var(--app-muted)]">Linhas</div>
+                                <div className="text-[var(--app-muted)]">CE Mercante</div>
+                                <div className="text-[var(--app-text-strong)]">{row.ce_mercante?.trim() ? row.ce_mercante : 'Não informado'}</div>
+                              </div>
+                              <div className="col-span-2">
+                                <div className="text-[var(--app-muted)]">Cliente vinculado</div>
+                                <div className="whitespace-normal text-[var(--app-text-strong)]">
+                                  {row.customer?.id
+                                    ? `${row.customer.name ?? 'Sem nome cadastrado'}${row.customer.cnpj_cpf ? ` · ${formatCnpjCpf(row.customer.cnpj_cpf)}` : ''}`
+                                    : 'Nenhum cliente vinculado a este B/L.'}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[var(--app-muted)]">Subtotal</div>
                                 <div className="text-[var(--app-text-strong)]">
-                                  {Number(row.totals.line_count).toLocaleString('pt-BR')}
-                                  {row.totals.review_required_count > 0 ? (
-                                    <span className="ml-2 text-xs text-amber-300">rev: {row.totals.review_required_count}</span>
+                                  {formatBRL(row.totals.total_brl)}
+                                  {Number(row.totals.total_usd ?? 0) !== 0 ? (
+                                    <span className="ml-2 text-xs text-[var(--app-muted)]">{formatUSD(row.totals.total_usd)}</span>
                                   ) : null}
                                 </div>
                               </div>
                               <div>
-                                <div className="text-[var(--app-muted)]">Ult. calculo</div>
-                                <div className="text-[var(--app-text-strong)]">{formatDate(row.charges_calculated_at)}</div>
+                                <div className="text-[var(--app-muted)]">Linhas</div>
+                                <div className="text-[var(--app-text-strong)]">
+                                  {Number(row.totals.line_count).toLocaleString('pt-BR')}
+                                  {row.totals.review_required_count > 0 ? (
+                                    <span className="ml-2 text-xs text-amber-600">em revisão: {row.totals.review_required_count}</span>
+                                  ) : null}
+                                </div>
                               </div>
                               <div>
-                                <div className="text-[var(--app-muted)]">Ult. revisao</div>
-                                <div className="text-[var(--app-text-strong)]">{formatDate(row.charges_reviewed_at)}</div>
+                                <div className="text-[var(--app-muted)]">Últ. cálculo</div>
+                                <div className="text-[var(--app-text-strong)]">{formatDateTime(row.charges_calculated_at)}</div>
+                              </div>
+                              <div>
+                                <div className="text-[var(--app-muted)]">Últ. revisão</div>
+                                <div className="text-[var(--app-text-strong)]">{formatDateTime(row.charges_reviewed_at)}</div>
                               </div>
                               <div className="col-span-2">
-                                <div className="text-[var(--app-muted)]">Ult. evento</div>
-                                <div className="text-[var(--app-text-strong)]">{row.trail.last_event_field ?? '-'} | {formatDate(row.trail.last_event_at)}</div>
+                                <div className="text-[var(--app-muted)]">Últ. evento</div>
+                                <div className="whitespace-normal text-[var(--app-text-strong)]">{describeLastEvent(row.trail)}</div>
                               </div>
                             </div>
                             {row.charge_status === 'review_required' ? (
@@ -202,18 +224,22 @@ export function ValidacaoOperationsTable({
                               <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                                 <div>
                                   <div className="text-[var(--app-muted)]">Cliente no manifesto</div>
-                                  <div className="text-[var(--app-text-strong)]">{queueItem.manifest_customer_name ?? '-'}</div>
+                                  <div className="whitespace-normal text-[var(--app-text-strong)]">{queueItem.manifest_customer_name ?? 'Não informado no manifesto'}</div>
                                 </div>
                                 <div>
                                   <div className="text-[var(--app-muted)]">CNPJ</div>
-                                  <div className="text-[var(--app-text-strong)]">{queueItem.cnpj_cpf ?? '-'}</div>
+                                  <div className="text-[var(--app-text-strong)]">{queueItem.cnpj_cpf ? formatCnpjCpf(queueItem.cnpj_cpf) : 'Não informado no manifesto'}</div>
                                 </div>
                                 <div>
                                   <div className="text-[var(--app-muted)]">Cliente sugerido</div>
-                                  <div className="text-[var(--app-text-strong)]">{queueItem.current_customer_name ?? '-'}</div>
+                                  <div className="whitespace-normal text-[var(--app-text-strong)]">
+                                    {queueItem.customer_id
+                                      ? (queueItem.current_customer_name ?? 'Cliente sem nome cadastrado')
+                                      : 'Nenhum cliente sugerido — cadastre o cliente para aprovar.'}
+                                  </div>
                                 </div>
                                 <div>
-                                  <div className="text-[var(--app-muted)]">Deteccao</div>
+                                  <div className="text-[var(--app-muted)]">Detecção</div>
                                   <div>{renderDetectionType(queueItem.detection_type)}</div>
                                 </div>
                               </div>
@@ -223,6 +249,7 @@ export function ValidacaoOperationsTable({
                                   onClick={() => onApproveQueueItem(queueItem.id, queueItem.customer_id)}
                                   loading={approvePending}
                                   disabled={!queueItem.customer_id || rejectPending}
+                                  title={!queueItem.customer_id ? 'Sem cliente sugerido: cadastre e vincule o cliente antes de aprovar.' : undefined}
                                 >
                                   Aprovar
                                 </Button>
@@ -305,7 +332,7 @@ function renderChargeStatus(status: string | null, financialStatus?: string | nu
 function renderReconciliationStatus(status: string | null) {
   if (status === 'reconciled') return <Badge tone="green">Reconciliado</Badge>
   if (status === 'matched_document') return <Badge tone="blue">Match CNPJ</Badge>
-  if (status === 'matched_name') return <Badge tone="yellow">Sugestao por nome</Badge>
+  if (status === 'matched_name') return <Badge tone="yellow">Sugestão por nome</Badge>
   if (status === 'rejected') return <Badge tone="red">Rejeitado</Badge>
   return <Badge tone="yellow">Pendente</Badge>
 }
