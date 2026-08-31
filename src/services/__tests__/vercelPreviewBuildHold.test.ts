@@ -23,10 +23,11 @@ describe('página de espera do Preview do Vercel (ADR 0056)', () => {
     expect(resolvePreviewHoldReason({})).toBeNull()
   })
 
-  it('mantém o vercel.json apontando para o wrapper e observando o próprio script', () => {
+  it('mantém o vercel.json apontando para o wrapper e força build em SHA repetido', () => {
     const config = JSON.parse(readFileSync(resolve(__dirname, '../../../vercel.json'), 'utf-8'))
     expect(config.buildCommand).toBe('node scripts/vercel-build.mjs')
-    expect(config.ignoreCommand).toContain('scripts/vercel-build.mjs')
     expect(config.ignoreCommand).toMatch(/\[ "\$p" = "\$c" \] && exit 1/)
+    expect(config.ignoreCommand).toContain('git diff --quiet "$p" "$c" -- .')
+    expect(config.ignoreCommand.length).toBeLessThanOrEqual(256)
   })
 })
