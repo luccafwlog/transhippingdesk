@@ -332,6 +332,3 @@ DROP TRIGGER IF EXISTS trg_reconcile_bl_review_on_contact_change ON public.custo
 CREATE TRIGGER trg_reconcile_bl_review_on_contact_change
   AFTER INSERT OR UPDATE OR DELETE ON public.customer_contacts
   FOR EACH ROW EXECUTE FUNCTION public.trg_reconcile_bl_review_on_portal_change();
-
--- Executa o detector para migrar/reconciliar os alertas existentes
-SELECT public.detect_bl_review_pendencies();
