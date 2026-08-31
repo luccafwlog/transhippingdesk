@@ -137,7 +137,7 @@ Há exportação XLSX para operacional, financeiro e clientes. A aba demurrage a
 
 `src/pages/LineUpTVDisplay.tsx` usa `['lineup-tv-display-v2']`, `staleTime` e auto-refresh de 30 segundos. Remove linhas com `atd`, tenta fullscreen na carga, mostra flash verde quando recebe novo snapshot e:
 
-- em desktop, dimensiona oito linhas visíveis e anima um carrossel quando há mais de nove linhas;
+- em desktop, dimensiona oito linhas visíveis e anima um carrossel quando há mais de oito linhas;
 - em touch/mobile, renderiza cards estáticos;
 - mantém placeholders quando há menos de oito linhas.
 

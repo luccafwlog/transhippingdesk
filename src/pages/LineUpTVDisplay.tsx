@@ -14,13 +14,21 @@ const DISPLAY_ROW_TRAVEL_MS = 3000
 const DISPLAY_GRID_TEMPLATE = '16fr 5fr 7fr 10fr 6fr 6fr 5fr 6fr 6fr 7fr 5fr 5fr 7fr 9fr 6fr'
 const DISPLAY_COLUMNS = ['Vessel', 'Voy', 'POD', 'Terminal', 'ETA', 'ETB', 'VIN', 'VIN CNTR', 'CG', 'Total', 'MTY', 'RTW', 'BB', 'CEs', 'Linked']
 
-const isTouchDevice = () => {
-  if (typeof window === 'undefined') return false
-  return (
-    window.matchMedia('(pointer: coarse)').matches ||
-    navigator.maxTouchPoints > 0 ||
-    window.innerWidth <= 1024
-  )
+function useIsMobileDisplay() {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth <= 1024
+  })
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 1024)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  return isMobile
 }
 
 export function LineUpTVDisplay() {
@@ -30,7 +38,7 @@ export function LineUpTVDisplay() {
   const [rowHeight, setRowHeight] = useState(DISPLAY_MIN_ROW_HEIGHT)
   const [startIndex, setStartIndex] = useState(0)
   const [isSliding, setIsSliding] = useState(false)
-  const isMobile = isTouchDevice()
+  const isMobile = useIsMobileDisplay()
 
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [flashRefresh, setFlashRefresh] = useState(false)
@@ -62,7 +70,7 @@ export function LineUpTVDisplay() {
   // pendências de chegada: o navio não atracará naquele POD.
   const rows = useMemo(() => (data?.rows ?? []).filter((row) => !row.atd || row.omitted), [data?.rows])
   const firstRoute = rows[0] ?? null
-  const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS + 1
+  const hasAnimatedLoop = !isMobile && rows.length > DISPLAY_VISIBLE_ROWS
   const placeholderCount = hasAnimatedLoop ? 0 : Math.max(0, DISPLAY_VISIBLE_ROWS - rows.length)
   const displayRows = useMemo(() => {
     if (!hasAnimatedLoop) return rows
@@ -169,6 +177,11 @@ export function LineUpTVDisplay() {
     const recalculate = () => {
       const nextHeight = Math.max(DISPLAY_MIN_ROW_HEIGHT, Math.floor(viewport.clientHeight / DISPLAY_VISIBLE_ROWS))
       setRowHeight(nextHeight)
+    }
+
+    if (typeof ResizeObserver === 'undefined') {
+      recalculate()
+      return
     }
 
     const observer = new ResizeObserver(recalculate)
