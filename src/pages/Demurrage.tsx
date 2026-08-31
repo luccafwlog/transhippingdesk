@@ -45,6 +45,7 @@ import { reverseDemurragePayment } from '../services/reconciliacao'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
 import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters } from '../lib/operationalState'
+import { printDocumentElement } from '../lib/printDocument'
 import { formatDate } from '../lib/utils'
 
 type DemurrageTab = 'containers' | 'clientes' | (typeof DEMURRAGE_INVOICE_TABS)[number]['key']
@@ -149,15 +150,7 @@ export function Demurrage() {
   function printInvoiceDocument() {
     const content = document.querySelector<HTMLElement>('.invoice-print-content')
     if (!content) return
-    const printWindow = window.open('', '_blank', 'width=900,height=1100')
-    if (!printWindow) {
-      window.print()
-      return
-    }
-    printWindow.document.write(`<!doctype html><html><head><title>Fatura de Demurrage</title><style>@page{size:A4;margin:0}html,body{margin:0;background:#fff}body{font-family:Arial,sans-serif}.invoice-print-content{width:198mm;min-height:281mm;margin:0 auto;padding:8mm;box-sizing:border-box;background:#fff}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}</style></head><body><div class="invoice-print-content">${content.innerHTML}</div></body></html>`)
-    printWindow.document.close()
-    printWindow.focus()
-    window.setTimeout(() => { printWindow.print(); printWindow.close() }, 250)
+    printDocumentElement(content, 'Fatura de Demurrage')
   }
 
   function openEditContainer(container: DemurrageContainerListItem) {

@@ -80,13 +80,26 @@ jobs:
       - name: Test
         run: npm test -- --shard=${{ matrix.shard }}/3
 
+  security-audit:
+    name: Security guard replay
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify database security guards
+        run: python scripts/security/verificar_guardas.py --ci
+
   # Gate único exigido pela proteção de branch: fica verde só quando todos os
   # jobs acima terminam verdes. Mantém um nome estável mesmo que os shards
   # mudem de quantidade.
   checks:
     name: checks
     runs-on: ubuntu-latest
-    needs: [quality, build, test]
+    needs: [quality, build, test, security-audit]
     if: always()
     steps:
       - name: Verify all jobs succeeded
@@ -94,6 +107,8 @@ jobs:
           echo "quality: ${{ needs.quality.result }}"
           echo "build:   ${{ needs.build.result }}"
           echo "test:    ${{ needs.test.result }}"
+          echo "security-audit: ${{ needs.security-audit.result }}"
           [ "${{ needs.quality.result }}" = "success" ] \
             && [ "${{ needs.build.result }}" = "success" ] \
-            && [ "${{ needs.test.result }}" = "success" ]
+            && [ "${{ needs.test.result }}" = "success" ] \
+            && [ "${{ needs.security-audit.result }}" = "success" ]
