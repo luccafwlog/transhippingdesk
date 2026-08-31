@@ -73,9 +73,9 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers })
   }
 
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   const webhookSecret =
-    Deno.env.get('NOTIFY_WEBHOOK_SECRET') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    Deno.env.get('NOTIFY_WEBHOOK_SECRET') ?? ''
 
   // Autenticação do webhook: o Database Webhook envia
   // `Authorization: Bearer <NOTIFY_WEBHOOK_SECRET>` como secret header.
@@ -88,6 +88,10 @@ Deno.serve(async (req: Request) => {
       status: 401,
       headers: { ...headers, 'Content-Type': 'application/json' },
     })
+  }
+
+  if (!serviceRoleKey) {
+    return new Response(JSON.stringify({ error: 'internal_configuration_error' }), { status: 500 })
   }
 
   try {

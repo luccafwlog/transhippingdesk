@@ -2,12 +2,24 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { dailyDigestTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder()
+  const left = encoder.encode(a)
+  const right = encoder.encode(b)
+  if (left.length !== right.length) return false
+  let diff = 0
+  for (let index = 0; index < left.length; index += 1) diff |= left[index] ^ right[index]
+  return diff === 0
+}
+
 if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response(null, { status: 405 })
   const expectedSecret = Deno.env.get('PORTAL_DIGEST_SECRET')
-  const providedSecret = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
+  const providedSecret = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? ''
   if (!expectedSecret || providedSecret !== expectedSecret) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!serviceRoleKey) return new Response(JSON.stringify({ error: 'internal_configuration_error' }), { status: 500 })
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceRoleKey)
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const [{ data: failures }, { data: events }, { data: pending }, { data: users }] = await Promise.all([
     admin.from('portal_email_attempts').select('id').in('status', ['bounce', 'complaint', 'falha_transitoria', 'falha_permanente']).gte('created_at', since),

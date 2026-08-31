@@ -59,7 +59,7 @@ async function fetchLatestPtax(): Promise<BcbQuote> {
 
 Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  const cronSecret = Deno.env.get('RECALC_CRON_SECRET') ?? serviceRoleKey
+  const cronSecret = Deno.env.get('RECALC_CRON_SECRET') ?? ''
   const auth = req.headers.get('authorization') ?? ''
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : ''
   if (!cronSecret || !timingSafeEqual(bearer, cronSecret)) {
@@ -67,6 +67,10 @@ Deno.serve(async (req: Request) => {
       status: 401,
       headers: { 'content-type': 'application/json' },
     })
+  }
+
+  if (!serviceRoleKey) {
+    return new Response(JSON.stringify({ error: 'internal_configuration_error' }), { status: 500 })
   }
 
   let quote: BcbQuote
