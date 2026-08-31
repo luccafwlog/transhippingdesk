@@ -37,6 +37,20 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
     onChange({ ...formData, dates: { ...formData.dates, [label]: value } })
   }
 
+  function toggleOmitted(label: string, omitted: boolean) {
+    const nextDates = { ...formData.dates }
+    if (omitted) {
+      nextDates[label] = ''
+    } else if (!nextDates[label]) {
+      nextDates[label] = new Date().toISOString().slice(0, 10)
+    }
+    onChange({
+      ...formData,
+      dates: nextDates,
+      omitted: { ...(formData.omitted ?? {}), [label]: omitted },
+    })
+  }
+
   return (
     <form onSubmit={(event) => { event.preventDefault(); onSubmit() }} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -63,6 +77,7 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {PORTAL_SCHEDULE_LANES.map((lane) => {
+          const isOmitted = formData.omitted ? (formData.omitted[lane.label] ?? !formData.dates[lane.label]) : !formData.dates[lane.label]
           const value = formData.dates[lane.label] ?? ''
           return (
             <div key={lane.label} className="app-field rounded-lg border border-[var(--app-border)] p-3">
@@ -72,11 +87,20 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
                 type="date"
                 className="app-input app-input--full"
                 value={value}
-                disabled={!value}
+                disabled={isOmitted}
                 onChange={(event) => updateDate(lane.label, event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                  }
+                }}
               />
               <label className="mt-2 flex items-center gap-2 text-xs text-[var(--app-muted)]">
-                <input type="checkbox" checked={!value} onChange={(event) => updateDate(lane.label, event.target.checked ? '' : new Date().toISOString().slice(0, 10))} />
+                <input
+                  type="checkbox"
+                  checked={isOmitted}
+                  onChange={(event) => toggleOmitted(lane.label, event.target.checked)}
+                />
                 Não escala
               </label>
             </div>
@@ -216,7 +240,11 @@ export function ChegadasSaidas() {
 
   const openAdd = () => {
     setEditingId(null)
-    setFormData({ ...emptyScheduleForm, dates: { ...emptyScheduleForm.dates } })
+    setFormData({
+      ...emptyScheduleForm,
+      dates: { ...emptyScheduleForm.dates },
+      omitted: { ...(emptyScheduleForm.omitted ?? {}) },
+    })
     setDialogOpen(true)
   }
 
@@ -229,7 +257,11 @@ export function ChegadasSaidas() {
   const closeDialog = () => {
     setDialogOpen(false)
     setEditingId(null)
-    setFormData({ ...emptyScheduleForm, dates: { ...emptyScheduleForm.dates } })
+    setFormData({
+      ...emptyScheduleForm,
+      dates: { ...emptyScheduleForm.dates },
+      omitted: { ...(emptyScheduleForm.omitted ?? {}) },
+    })
   }
 
   const handleSubmit = async () => {
