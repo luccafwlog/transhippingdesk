@@ -93,7 +93,7 @@ Os detectores server-side são executados pela Edge Function
 por `pg_cron` + `pg_net`. O browser não dispara detectores nem cria
 notificações internas. Triggers em audit logs, no estado terminalizado e nas
 origens da divergência Baplie/B/L (`baplie_containers`, `bls`, `bl_containers`,
-statement-level, migration `361`) também reconciliam a origem imediatamente; o
+statement-level, migrations `361`/`362`) também reconciliam a origem imediatamente; o
 cron é a rede de segurança. Enquanto `pg_net` não estiver instalado ou
 `app.settings.supabase_url`/`app.settings.alerts_detector_secret` não estiverem
 definidos no banco, o job **não existe** e apenas os alertas com trigger de

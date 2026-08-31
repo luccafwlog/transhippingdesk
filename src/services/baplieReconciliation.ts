@@ -250,12 +250,62 @@ async function fetchStagingAndBlContainers(voyageId: number) {
   return { staged: dedupeBaplieContainers(staged), blContainers, blRows: (blRows ?? []) as BlRouteRow[] }
 }
 
+type UntypedRpcClient = {
+  rpc: (functionName: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+}
+
+async function fetchFirstBrazilianEta(voyageId: number): Promise<string | null> {
+  // Esse helper foi criado na migration 326, mas os tipos gerados neste
+  // checkout ainda não incluem a função. O cast fica local até a regeneração
+  // dos tipos a partir do schema Supabase alvo.
+  const rpcClient = supabase as unknown as UntypedRpcClient
+  const { data, error } = await rpcClient.rpc('get_voyage_first_brazilian_eta', { p_voyage_id: voyageId })
+  if (error) throw error
+  return data == null ? null : String(data).slice(0, 10)
+}
+
+function saoPauloDateKey(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
+
+/** Mantém a mesma regra do SQL: a janela começa em ETA - 7 dias e não expira. */
+export function isBaplieReconciliationD7(
+  firstBrazilianEta: string | null | undefined,
+  today = saoPauloDateKey(),
+): boolean {
+  if (!firstBrazilianEta) return false
+  const etaDate = Date.parse(`${firstBrazilianEta.slice(0, 10)}T00:00:00Z`)
+  const todayDate = Date.parse(`${today.slice(0, 10)}T00:00:00Z`)
+  if (Number.isNaN(etaDate) || Number.isNaN(todayDate)) return false
+  return todayDate >= etaDate - 7 * 24 * 60 * 60 * 1000
+}
+
+async function resolveIsD7(
+  voyageId: number,
+  options?: { isD7?: boolean; firstBrazilianEta?: string | null },
+): Promise<boolean> {
+  if (options?.isD7 !== undefined) return options.isD7
+  const firstBrazilianEta = options && 'firstBrazilianEta' in options
+    ? options.firstBrazilianEta
+    : await fetchFirstBrazilianEta(voyageId)
+  return isBaplieReconciliationD7(firstBrazilianEta)
+}
+
 export async function reconcileBaplieWithManifest(
   voyageId: number,
   options?: { isD7?: boolean; firstBrazilianEta?: string | null },
 ): Promise<BaplieReconciliationResult> {
   const { staged, blContainers, blRows } = await fetchStagingAndBlContainers(voyageId)
   if (!staged.length) return { items: [], source: 'not_imported', pendingRoutes: [] }
+
+  const isD7 = await resolveIsD7(voyageId, options)
 
   const fullStaged = staged.filter((c) => c.status !== 'empty')
   // Só B/L COM containers cobre rota: um B/L sem container não conferiu nada.
@@ -267,7 +317,7 @@ export async function reconcileBaplieWithManifest(
   )
 
   // D-7 força a conciliação de todas as rotas, inclusive as ainda sem B/L.
-  const pendingRoutes = options?.isD7 ? [] : pending
+  const pendingRoutes = isD7 ? [] : pending
   // Nenhuma rota conciliável e nada forçado: a viagem inteira segue aguardando.
   if (!covered.size && pendingRoutes.length) {
     return { items: [], source: 'awaiting_route_coverage', pendingRoutes }

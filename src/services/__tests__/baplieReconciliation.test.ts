@@ -2,17 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   computeBapliePhysicalUpdates,
   computeExistenceDivergences,
+  isBaplieReconciliationD7,
   reconcileBaplieWithManifest,
   applyBapliePhysicalFlags,
 } from '../baplieReconciliation'
 
-const { mockFrom } = vi.hoisted(() => ({
+const { mockFrom, mockRpc } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
   supabase: {
     from: mockFrom,
+    rpc: mockRpc,
   },
 }))
 
@@ -176,7 +179,15 @@ describe('computeBapliePhysicalUpdates (Baplie soberano)', () => {
 describe('reconcileBaplieWithManifest', () => {
   beforeEach(() => {
     mockFrom.mockReset()
+    mockRpc.mockReset()
+    mockRpc.mockResolvedValue({ data: null, error: null })
     mutationCalls.length = 0
+  })
+
+  it('aplica a janela D-7 sobre a data da primeira ETA brasileira', () => {
+    expect(isBaplieReconciliationD7('2026-09-07', '2026-08-31')).toBe(true)
+    expect(isBaplieReconciliationD7('2026-09-08', '2026-08-31')).toBe(false)
+    expect(isBaplieReconciliationD7(null, '2026-08-31')).toBe(false)
   })
 
   it('não gera divergência de atributo — mesmo container com IMO/OOG divergentes retorna vazio', async () => {
@@ -240,6 +251,24 @@ describe('reconcileBaplieWithManifest', () => {
     expect(result.source).toBe('reconciled')
     expect(result.items).toHaveLength(1)
     expect(result.items[0]).toMatchObject({ kind: 'missing_in_manifest', container_number: 'XYZU9876543' })
+  })
+
+  it('resolve D-7 automaticamente pela RPC quando o chamador não informa isD7', async () => {
+    mockRpc.mockResolvedValue({ data: '2000-01-01', error: null })
+    installReconcileMocks({
+      bls: [{ id: 'BL1', pol: 'CNTAO', pod: 'BRSSZ' }],
+      baplie: [{ container_number: 'ABCD1234567', pol: 'CNTAO', pod: 'BRSSZ', status: 'full' }],
+      containers: [],
+    })
+
+    const result = await reconcileBaplieWithManifest(1)
+
+    expect(result.source).toBe('reconciled')
+    expect(result.pendingRoutes).toEqual([])
+    expect(result.items).toMatchObject([
+      { kind: 'missing_in_manifest', container_number: 'ABCD1234567' },
+    ])
+    expect(mockRpc).toHaveBeenCalledWith('get_voyage_first_brazilian_eta', { p_voyage_id: 1 })
   })
 
   it('audita flags Baplie com old_value real e new_value aplicado', async () => {

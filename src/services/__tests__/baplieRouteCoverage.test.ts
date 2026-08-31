@@ -50,6 +50,15 @@ describe('cobertura POR ROTA (gate por rota, #604)', () => {
     expect(pending).toEqual([])
   })
 
+  it('trata o alias curto ZOS como Ningbo (CNNGB)', () => {
+    const { covered, pending } = computeBaplieRouteCoverage(
+      [{ pol: 'ZOS', pod: 'BRVIX' }],
+      [{ pol: 'CNNGB', pod: 'BRVIX' }],
+    )
+    expect([...covered]).toEqual(['CNNGB::BRVIX'])
+    expect(pending).toEqual([])
+  })
+
   it('concilia as rotas cobertas e deixa pendente apenas a rota sem B/L', () => {
     const { covered, pending } = computeBaplieRouteCoverage(
       [

@@ -234,7 +234,9 @@ branches automáticas que já registraram a 352 antes dessa proteção. A migrat
 reaplicar a policy da migration 170. A migration 356 aplica a mesma reconciliação
 à versão 341, cujo nome histórico remoto também divergia do arquivo local;
 migrations aplicadas não devem ser reescritas fora de uma migration explícita de
-reconciliação. A Vercel nunca executa migrations implicitamente.
+reconciliação. A migration 362 corrige a autorização do backfill da divergência
+Baplie/BL e mantém as reimportações atômicas sem transições intermediárias. A
+Vercel nunca executa migrations implicitamente.
 
 ## Firebase rollback
 

@@ -27,5 +27,6 @@ describe('página de espera do Preview do Vercel (ADR 0056)', () => {
     const config = JSON.parse(readFileSync(resolve(__dirname, '../../../vercel.json'), 'utf-8'))
     expect(config.buildCommand).toBe('node scripts/vercel-build.mjs')
     expect(config.ignoreCommand).toContain('scripts/vercel-build.mjs')
+    expect(config.ignoreCommand).toMatch(/\[ "\$p" = "\$c" \] && exit 1/)
   })
 })

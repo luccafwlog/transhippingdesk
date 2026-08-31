@@ -38,6 +38,7 @@ const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
   // CNZOS enquanto o B/L declara Ningbo (CNNGB). Mesma rota comercial.
   ['zhoushan', 'CNNGB'],
   ['cnzos', 'CNNGB'],
+  ['zos', 'CNNGB'],
   ['nansha', 'CNNSA'],
   ['cnnan', 'CNNSA'],
   ['guangzhou', 'CNNSA'],

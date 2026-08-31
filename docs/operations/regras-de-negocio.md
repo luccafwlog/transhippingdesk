@@ -68,7 +68,7 @@ não pertence a esse contrato.
 
 - Match key: `container_number` + `voyage_id`. `bl_ref` do Baplie é sinal secundário, não critério de bloqueio.
 - **Gate de cobertura por rota:** uma rota (POL→POD) de containers cheios prevista pelo Baplie só entra na conciliação quando tem pelo menos um B/L **com containers** naquela rota — B/L sem container não cobre rota. O gate é por rota: uma rota ainda sem B/L fica fora da conciliação, sem silenciar as demais rotas da viagem. Em D-7 do primeiro ETA brasileiro todas as rotas são conciliadas, inclusive as sem B/L.
-- Códigos de porto são normalizados antes da comparação (`public.normalize_port_code` no banco, `src/services/portCode.ts` no app). Zhoushan (`CNZOS`) e Ningbo (`CNNGB`) são o mesmo complexo portuário: o Baplie costuma codificar `CNZOS` onde o B/L declara Ningbo.
+- Códigos de porto são normalizados antes da comparação (`public.normalize_port_code` no banco, `src/services/portCode.ts` no app). Zhoushan (`CNZOS`/`ZOS`) e Ningbo (`CNNGB`) são o mesmo complexo portuário: o Baplie costuma codificar `CNZOS` onde o B/L declara Ningbo.
 - **Divergência de existência** (container no Baplie sem correspondência nos B/Ls) → aviso, sem bloqueio.
 - **Divergência de atributo** (status full/empty, IMO, OOG conflitantes) → aviso, com opção de aceitar valor do Baplie por linha.
 - O Baplie pode sobrescrever flags operacionais (`is_imo`, `imo_class`, `un_number`, `is_oog`, `status`); dados documentais e financeiros vêm do B/L e permanecem protegidos.
