@@ -261,6 +261,19 @@ export function alertEntityLink(alert: {
   ) {
     return `/manifestos/${encodeURIComponent(alert.entity_id)}?tab=faturamento`
   }
+  if (effectiveType === 'review_portal_not_ready') {
+    return alert.entity_id
+      ? `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
+      : '/clientes/portal'
+  }
+  if (effectiveType === 'review_granite_customer_unlinked') {
+    return '/granito'
+  }
+  if (effectiveType.startsWith('review_')) {
+    return alert.entity_id
+      ? `/revisao?cliente=${encodeURIComponent(alert.entity_id)}`
+      : '/revisao'
+  }
   if (effectiveType.startsWith('portal_')) {
     if (alert.entity_type === 'invoice') return invoiceLink(alert)
     return `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
@@ -311,6 +324,9 @@ export function alertEntityLinkLabel(alert: {
   if (alert.entity_type === 'bl' && (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed')) {
     return 'Taxas Locais'
   }
+  if (effectiveType === 'review_portal_not_ready') return 'Abrir Portal'
+  if (effectiveType === 'review_granite_customer_unlinked') return 'Abrir Granito'
+  if (effectiveType.startsWith('review_')) return 'Revisar B/Ls'
   if (alert.entity_type === 'pix_transaction') return 'Abrir Reconciliação'
   if (alert.entity_type === 'customer') return 'Abrir Portal'
   if (alert.entity_type === 'invoice') return 'Ver Fatura'

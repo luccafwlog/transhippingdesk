@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Search, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -40,14 +40,18 @@ import { useReviewCustomerGroup } from '../hooks/useReviewCustomerGroup'
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
 
 export function Revisao() {
+  const [searchParams] = useSearchParams()
+  const initialCliente = searchParams.get('cliente') || searchParams.get('busca') || searchParams.get('q') || ''
+  const initialReason = searchParams.get('motivo') || searchParams.get('reason') || null
+
   const { data, isLoading, error, graniteUnavailable } = useReviewQueue()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
   const reviewCustomerGroup = useReviewCustomerGroup()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [searchText, setSearchText] = useState('')
-  const [reasonFilter, setReasonFilter] = useState<string | null>(null)
+  const [searchText, setSearchText] = useState(initialCliente)
+  const [reasonFilter, setReasonFilter] = useState<string | null>(initialReason)
   // A fila inicia recolhida; o conjunto guarda apenas os grupos que o operador abriu.
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
@@ -192,13 +196,17 @@ export function Revisao() {
     if (!data) return []
     let result = data
     if (searchText.trim()) {
-      const q = searchText.toLowerCase()
+      const q = searchText.toLowerCase().trim()
       result = result.filter(
         (item) =>
           item.id.toLowerCase().includes(q) ||
           (item.consignee ?? '').toLowerCase().includes(q) ||
           (item.shipper ?? '').toLowerCase().includes(q) ||
-          (item.customer?.name ?? '').toLowerCase().includes(q),
+          (item.customer?.name ?? '').toLowerCase().includes(q) ||
+          (item.customer?.cnpj_cpf ?? '').includes(q) ||
+          (item.manifest_customer_cnpj_cpf ?? '').includes(q) ||
+          (item.customer_id ? String(item.customer_id) === q : false) ||
+          (item.source === 'granite' && item.bl_number ? item.bl_number.toLowerCase().includes(q) : false),
       )
     }
     if (reasonFilter) {
@@ -209,7 +217,29 @@ export function Revisao() {
 
   const groups = useMemo(() => groupReviewItems(filteredData), [filteredData])
 
-  const visibleExpandedGroups = expandedGroups
+  const visibleExpandedGroups = useMemo(() => {
+    const targetCliente = searchParams.get('cliente') || searchParams.get('busca') || searchParams.get('q')
+    if (targetCliente && groups.length > 0) {
+      const q = targetCliente.toLowerCase().trim()
+      const matchingKeys = groups
+        .filter((group) =>
+          group.displayName.toLowerCase().includes(q) ||
+          (group.cnpj && group.cnpj.includes(q)) ||
+          group.items.some((item) =>
+            item.id.toLowerCase().includes(q) ||
+            (item.customer_id && String(item.customer_id) === q) ||
+            (item.customer?.name && item.customer.name.toLowerCase().includes(q)) ||
+            (item.consignee && item.consignee.toLowerCase().includes(q))
+          )
+        )
+        .map((g) => g.key)
+
+      const merged = new Set(expandedGroups)
+      matchingKeys.forEach((k) => merged.add(k))
+      return merged
+    }
+    return expandedGroups
+  }, [searchParams, groups, expandedGroups])
 
   const allReasons = useMemo(() => {
     if (!data) return []

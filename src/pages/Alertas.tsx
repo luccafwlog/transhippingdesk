@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, BookOpen, ExternalLink, History } from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, BookOpen, ExternalLink, FilterX, History, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
@@ -47,7 +47,29 @@ const DEPARTMENT_OPTIONS = [
   { value: 'documentacao', label: 'Documentação' },
   { value: 'equipamentos', label: 'Equipamentos' },
   { value: 'operacoes', label: 'Operações' },
+  { value: 'administrativo', label: 'Administrativo' },
   { value: 'sem_departamento', label: 'Sem setor / Legado' },
+]
+
+const SEVERITY_OPTIONS = [
+  { value: 'all', label: 'Todas as severidades' },
+  { value: 'critical', label: 'Crítico' },
+  { value: 'normal', label: 'Normal' },
+]
+
+const ENTITY_OPTIONS = [
+  { value: 'all', label: 'Todas as entidades' },
+  { value: 'bl', label: 'B/L' },
+  { value: 'customer', label: 'Cliente' },
+  { value: 'voyage', label: 'Viagem' },
+  { value: 'voyage_pod_schedule', label: 'Escala' },
+  { value: 'voyage_escala_terminal', label: 'Terminal da escala' },
+  { value: 'agency_departure_report', label: 'ADR' },
+  { value: 'invoice', label: 'Fatura' },
+  { value: 'demurrage_invoice', label: 'Invoice Demurrage' },
+  { value: 'container', label: 'Container' },
+  { value: 'granite_bl', label: 'Granito' },
+  { value: 'pix_transaction', label: 'Transação PIX' },
 ]
 
 export function Alertas() {
@@ -56,6 +78,10 @@ export function Alertas() {
   const departmentFilter = DEPARTMENT_OPTIONS.some((opt) => opt.value === rawDept) ? rawDept : 'all'
 
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [severityFilter, setSeverityFilter] = useState<string>('all')
+  const [entityFilter, setEntityFilter] = useState<string>('all')
+
   const [pagination, setPagination] = useState({ department: departmentFilter, page: 0 })
   const page = pagination.department === departmentFilter ? pagination.page : 0
 
@@ -92,6 +118,36 @@ export function Alertas() {
     enabled: Boolean(data?.length),
     staleTime: 5 * 60_000,
   })
+
+  const filteredAlerts = useMemo(() => {
+    if (!data) return []
+    let list = data
+
+    if (severityFilter !== 'all') {
+      list = list.filter((alert) => alert.severity === severityFilter)
+    }
+
+    if (entityFilter !== 'all') {
+      list = list.filter((alert) => alert.entity_type === entityFilter)
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      list = list.filter((alert) => {
+        const messageMatch = (alert.message ?? '').toLowerCase().includes(q)
+        const entityIdMatch = (alert.entity_id ?? '').toLowerCase().includes(q)
+        const typeLabelMatch = getAlertTypeLabel(getEffectiveAlertType(alert)).toLowerCase().includes(q)
+        const entityFormatted = formatAlertEntity(alert.entity_type, alert.entity_id, entityLabels)
+        const entityLabelMatch = entityFormatted ? entityFormatted.toLowerCase().includes(q) : false
+        const metadataStr = alert.metadata ? JSON.stringify(alert.metadata).toLowerCase() : ''
+        const metadataMatch = metadataStr.includes(q)
+
+        return messageMatch || entityIdMatch || typeLabelMatch || entityLabelMatch || metadataMatch
+      })
+    }
+
+    return list
+  }, [data, severityFilter, entityFilter, searchQuery, entityLabels])
 
   function closeDismissModal() {
     setDismissTarget(null)
@@ -157,6 +213,15 @@ export function Alertas() {
     setSearchParams(newParams)
   }
 
+  const hasActiveFilters = searchQuery.trim().length > 0 || severityFilter !== 'all' || entityFilter !== 'all' || departmentFilter !== 'all'
+
+  function clearFilters() {
+    setSearchQuery('')
+    setSeverityFilter('all')
+    setEntityFilter('all')
+    handleDepartmentChange('all')
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -170,8 +235,9 @@ export function Alertas() {
         )}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Barra de Filtros e Busca */}
+      <Card className="p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card-bg)] p-1">
             {FILTER_TABS.map((tab) => (
               <Button
@@ -187,24 +253,89 @@ export function Alertas() {
             ))}
           </div>
 
-          <select
-            className="app-input app-select text-xs py-1.5 px-3 w-44"
-            value={departmentFilter}
-            aria-label="Filtrar por setor"
-            onChange={(e) => handleDepartmentChange(e.target.value)}
-          >
-            {DEPARTMENT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <Button variant="secondary" onClick={() => void refetch()} loading={isLoading}>
+            Atualizar
+          </Button>
         </div>
 
-        <Button variant="secondary" onClick={() => void refetch()} loading={isLoading}>
-          Atualizar
-        </Button>
-      </div>
+        <div className="flex flex-wrap items-end gap-3 pt-1 border-t border-[var(--app-border)]">
+          <label className="min-w-[240px] flex-1">
+            <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">
+              Buscar (B/L, Navio/Viagem, Cliente, CNPJ, mensagem)
+            </span>
+            <span className="relative block">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" aria-hidden="true" />
+              <input
+                className="app-input w-full pl-9 text-xs"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Ex.: MSC, 12.345.678/0001, BL123..."
+                aria-label="Buscar alertas"
+              />
+            </span>
+          </label>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">Setor</span>
+            <select
+              className="app-input app-select text-xs py-1.5 px-3 w-44"
+              value={departmentFilter}
+              aria-label="Filtrar por setor"
+              onChange={(e) => handleDepartmentChange(e.target.value)}
+            >
+              {DEPARTMENT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">Entidade</span>
+            <select
+              className="app-input app-select text-xs py-1.5 px-3 w-40"
+              value={entityFilter}
+              aria-label="Filtrar por tipo de entidade"
+              onChange={(e) => setEntityFilter(e.target.value)}
+            >
+              {ENTITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">Severidade</span>
+            <select
+              className="app-input app-select text-xs py-1.5 px-3 w-36"
+              value={severityFilter}
+              aria-label="Filtrar por severidade"
+              onChange={(e) => setSeverityFilter(e.target.value)}
+            >
+              {SEVERITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              className="app-btn app-btn--ghost inline-flex items-center gap-1 text-xs text-[var(--app-muted)] hover:text-[var(--app-text)]"
+              onClick={clearFilters}
+              title="Limpar todos os filtros"
+            >
+              <FilterX size={14} aria-hidden="true" />
+              Limpar
+            </button>
+          ) : null}
+        </div>
+      </Card>
 
       <Card>
         {isError ? (
@@ -233,14 +364,16 @@ export function Alertas() {
                   </td>
                 </tr>
               ) : null}
-              {!isLoading && data?.length === 0 ? (
+              {!isLoading && filteredAlerts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-[var(--app-muted)]">
-                    Nenhum alerta encontrado no filtro selecionado.
+                    {hasActiveFilters
+                      ? 'Nenhum alerta corresponde aos filtros aplicados.'
+                      : 'Nenhum alerta encontrado no filtro selecionado.'}
                   </td>
                 </tr>
               ) : null}
-              {data?.map((alert) => (
+              {filteredAlerts.map((alert) => (
                 <AlertRow
                   key={`${alert.id}:${alert.item_id ?? getEffectiveAlertType(alert)}`}
                   alert={alert}
@@ -256,7 +389,8 @@ export function Alertas() {
 
       <div className="flex items-center justify-between text-xs text-[var(--app-muted)]">
         <span>
-          Página {page + 1} · {data?.length ?? 0} itens carregados
+          Página {page + 1} · {filteredAlerts.length} {filteredAlerts.length === 1 ? 'item exibido' : 'itens exibidos'}
+          {data && filteredAlerts.length !== data.length ? ` (de ${data.length} carregados)` : ''}
         </span>
         <div className="flex gap-2">
           <Button
@@ -404,10 +538,10 @@ function AlertRow({
           {link ? (
             <Link
               to={link}
-              className="inline-flex items-center gap-1 text-xs text-[var(--app-primary)] hover:underline"
+              className="app-btn app-btn--secondary inline-flex items-center gap-1.5 text-xs whitespace-nowrap"
             >
               <span>{linkLabel}</span>
-              <ExternalLink size={12} />
+              <ExternalLink size={12} className="shrink-0 text-[var(--app-muted)]" />
             </Link>
           ) : null}
           {isDismissed ? (
