@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { ensureDemurrageRatesLoaded, calculateDemurrage } from './demurrageRates'
+import { findActiveAgreementForCustomer } from './customerDemurrageAgreements'
 import { reportBestEffortFailure } from '../../lib/telemetry'
 import { CUSTOMER_OF_BL } from '../../lib/supabaseEmbeds'
 import type { DemurrageContainerListItem } from '../../types/database'
@@ -19,6 +20,7 @@ type DemurrageRateSourceRow = {
   discharge_date?: string | null
   return_date?: string | null
   bl?: {
+    customer_id?: number | null
     free_time_override?: number | null
     demurrage_rate_override_p1_usd?: number | null
     demurrage_rate_override_p2_usd?: number | null
@@ -86,7 +88,7 @@ export async function updateContainerDates(containerId: number, dischargeDate: s
 
   const { data: row, error: fetchErr } = await supabase
     .from('bl_containers')
-    .select('type, bl:bls(free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd)')
+    .select('type, bl:bls(customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd)')
     .eq('id', containerId)
     .single()
     .overrideTypes<DemurrageRateSourceRow, { merge: false }>()
@@ -94,8 +96,17 @@ export async function updateContainerDates(containerId: number, dischargeDate: s
 
   const container = row!
   const bl = container.bl
+  const agreement = bl?.customer_id ? await findActiveAgreementForCustomer(bl.customer_id, dischargeDate) : null
   await ensureDemurrageRatesLoaded()
-  const calc = calculateDemurrage(container.type, dischargeDate, returnDate, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd)
+  const calc = calculateDemurrage(
+    container.type,
+    dischargeDate,
+    returnDate,
+    bl?.free_time_override,
+    bl?.demurrage_rate_override_p1_usd,
+    bl?.demurrage_rate_override_p2_usd,
+    agreement,
+  )
 
   const demurrage_status = calc.status === 'overdue' ? 'overdue' : 'within_free_time'
   const { error } = await supabase.from('bl_containers').update({ discharge_date: dischargeDate, return_date: returnDate, demurrage_status }).eq('id', containerId)
@@ -113,7 +124,7 @@ export async function updateContainerReturnDate(containerId: number, returnDate:
 
   const { data: row, error: fetchErr } = await supabase
     .from('bl_containers')
-    .select('type, discharge_date, return_date, bl:bls(free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd)')
+    .select('type, discharge_date, return_date, bl:bls(customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd)')
     .eq('id', containerId)
     .single()
     .overrideTypes<DemurrageRateSourceRow, { merge: false }>()
@@ -121,8 +132,18 @@ export async function updateContainerReturnDate(containerId: number, returnDate:
 
   const container = row!
   const bl = container.bl
+  const dischargeDate = container.discharge_date ?? ''
+  const agreement = bl?.customer_id && dischargeDate ? await findActiveAgreementForCustomer(bl.customer_id, dischargeDate) : null
   await ensureDemurrageRatesLoaded()
-  const calc = calculateDemurrage(container.type, container.discharge_date ?? '', returnDate, bl?.free_time_override, bl?.demurrage_rate_override_p1_usd, bl?.demurrage_rate_override_p2_usd)
+  const calc = calculateDemurrage(
+    container.type,
+    dischargeDate,
+    returnDate,
+    bl?.free_time_override,
+    bl?.demurrage_rate_override_p1_usd,
+    bl?.demurrage_rate_override_p2_usd,
+    agreement,
+  )
 
   const demurrage_status = calc.status === 'overdue' ? 'overdue' : 'within_free_time'
   const { error } = await supabase.from('bl_containers').update({ return_date: returnDate, demurrage_status }).eq('id', containerId)

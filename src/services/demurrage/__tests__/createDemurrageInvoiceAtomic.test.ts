@@ -93,6 +93,9 @@ beforeEach(() => {
       // Guard de duplicidade: nenhuma fatura ativa para o B/L.
       return listQuery({ data: [], error: null }) as unknown as Record<string, unknown>
     }
+    if (table === 'customer_demurrage_agreements') {
+      return listQuery({ data: [], error: null }) as unknown as Record<string, unknown>
+    }
     throw new Error(`Unexpected table: ${table}`)
   })
   mocks.rpc.mockResolvedValue({ data: { invoice_id: 321 }, error: null })

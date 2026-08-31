@@ -205,7 +205,7 @@ O escopo inclui `customers`, `customer_contacts`, `carriers`, `vessels`, `ports`
 `voyages`, `voyage_export_schedules`, `vessel_schedules`, `voyage_omissions`,
 `voyage_route_ce_master`, `bl_transshipments`, `ended_vessels`, `depots`,
 `depot_services`, `charge_tables`, `charge_table_items`,
-`customer_rate_overrides`, `demurrage_rates`, `granite_rates`,
+`customer_rate_overrides`, `customer_demurrage_agreements`, `demurrage_rates`, `granite_rates`,
 `vazios_reorg_rates`, `vazios_reorg_services`, `exchange_rate_reference`,
 `invoices`, `invoice_items`, `payments`, `invoice_refunds`, `invoice_bls`,
 `bl_receivables`, `invoice_receivable_links`, `ledger_settlements`,

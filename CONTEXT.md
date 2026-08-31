@@ -1049,12 +1049,23 @@ operacional, não gera fatura.
 - **Related:** P1, P2, Free Time, ROE, Recálculo Diário
 
 **Tarifa de Demurrage (Rate)**
-Configurável por container type com vigência temporal. A resolução usa
-precedência: override do B/L > tarifa do banco > fallback. A tarifa do banco é a
+Configurável por container type com vigência temporal na tabela geral do
+armador (`demurrage_rates`). A resolução usa precedência estrita: override no B/L >
+acordo vigente do cliente > tarifa geral do armador. A tarifa do banco é a
 única fonte de verdade; não existe fallback estático. O `active` flag é o
 mecanismo de desativação imediata; `valid_to` é para expiração agendada.
 
-- **Related:** P1, P2, Free Time, Free Time Override
+- **Related:** P1, P2, Free Time, Free Time Override, Acordo de Demurrage do Cliente
+
+**Acordo de Demurrage do Cliente**
+Condições comerciais negociadas diretamente com o cliente (`customer_demurrage_agreements`),
+definindo dias de Free Time e, opcionalmente, tarifas diárias personalizadas (P1/P2)
+válidas para todos os tipos de container no período de vigência. A vigência é
+resolvida com base na data de descarga (`discharge_date`) do container. Campos não
+personalizados no acordo herdam automaticamente os valores padrão da tabela geral
+do armador.
+
+- **Related:** Demurrage, Free Time, P1, P2, Tarifa de Demurrage (Rate), Free Time Override
 
 **Conciliação PIX**
 Comparação entre transações recebidas e cobranças emitidas, priorizando TXID e

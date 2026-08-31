@@ -1413,6 +1413,56 @@ export type Database = {
           },
         ]
       }
+      customer_demurrage_agreements: {
+        Row: {
+          active: boolean
+          created_at: string
+          customer_id: number
+          free_days: number
+          id: number
+          notes: string | null
+          p1_usd: number | null
+          p2_usd: number | null
+          updated_at: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          customer_id: number
+          free_days: number
+          id?: number
+          notes?: string | null
+          p1_usd?: number | null
+          p2_usd?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          customer_id?: number
+          free_days?: number
+          id?: number
+          notes?: string | null
+          p1_usd?: number | null
+          p2_usd?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_demurrage_agreements_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_portal_accounts: {
         Row: {
           account_situation: string

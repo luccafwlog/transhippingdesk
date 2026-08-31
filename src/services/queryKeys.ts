@@ -99,6 +99,7 @@ export const queryKeys = {
     manualChargeBls: (customerId: number) => ['customer-ficha', 'manual-charge-bls', customerId] as const,
     pendingReconciliation: (customerId: number) => ['customer-ficha', 'pending-reconciliation', customerId] as const,
     runningDemurrage: (customerId: number) => ['customer-ficha', 'running-demurrage', customerId] as const,
+    demurrageAgreements: (customerId: number) => ['customer-ficha', 'demurrage-agreements', customerId] as const,
     timeline: (customerId: number) => ['customer-ficha', 'timeline', customerId] as const,
   },
   vehicles: {
@@ -114,6 +115,8 @@ export const queryKeys = {
   },
   demurrage: {
     rates: () => ['demurrage-rates'] as const,
+    customerAgreements: (filters?: unknown) =>
+      filters === undefined ? (['customer-demurrage-agreements'] as const) : (['customer-demurrage-agreements', filters] as const),
     invoices: (filters?: unknown) => (filters === undefined ? (['demurrage-invoices'] as const) : (['demurrage-invoices', filters] as const)),
   },
   alerts: {
