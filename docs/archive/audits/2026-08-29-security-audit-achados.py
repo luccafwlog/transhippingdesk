@@ -10,7 +10,7 @@ de linha referem-se ao estado do repositório no commit auditado.
 
 DATA_AUDITORIA = '29 de agosto de 2026'
 PROJETO = 'Transhipping Desk'
-COMMIT_ESCOPO = 'branch claude/security-audit-five-categories-esz0rs'
+COMMIT_ESCOPO = '29b1ca4c5cd19f17eed021f495a9a4288f070e73'
 
 # --------------------------------------------------------------------------
 # Paleta (definida no pedido da auditoria)
@@ -41,8 +41,8 @@ STACK = [
     ('Linguagem', 'TypeScript 6 (strict) — 861 arquivos .ts/.tsx'),
     ('Frontend', 'React 19 + Vite 8 + React Router 7 + TanStack Query 5 + Tailwind 4'),
     ('Backend', 'Supabase — sem servidor de aplicação próprio'),
-    ('Banco / ORM', 'PostgreSQL 17 via PostgREST; sem ORM. 360 migrations SQL versionadas'),
-    ('Camada de API', '23 Edge Functions Deno + 363 funções PL/pgSQL expostas como RPC'),
+    ('Banco / ORM', 'PostgreSQL 17 via PostgREST; sem ORM. 359 migrations SQL no snapshot'),
+    ('Camada de API', '13 Edge Functions Deno + 349 funções identificadas pelo replay estático'),
     ('Autenticação', 'Supabase Auth (JWT). Duas sessões no mesmo projeto: usuário interno e cliente do Portal'),
     ('Autorização', 'RLS + GRANT/REVOKE + guardas dentro de funções SECURITY DEFINER'),
     ('Deploy', 'Vercel (produção) + Firebase Hosting (rollback) + GitHub Actions (CI)'),
@@ -63,18 +63,19 @@ NOTA_METODOLOGICA = [
     ),
     (
         'Cobertura da varredura',
-        'As 360 migrations foram reproduzidas em ordem por um script de replay que resolve o estado '
+        'As 359 migrations foram reproduzidas em ordem por um script de replay que resolve o estado '
         '<b>final</b> de cada policy e de cada GRANT — inclusive os criados dentro de blocos '
         '<font face="Courier">DO $$ ... FOREACH ... $$</font>, que uma leitura por grep não enxerga. '
-        'Sobre esse estado final foram cruzadas 92 tabelas × RLS, 282 policies vivas e 363 funções × '
+        'Sobre esse estado final foram cruzadas 92 tabelas × RLS, 282 policies vivas e 349 funções identificadas × '
         'grants × guardas, com resolução recursiva de cadeias de delegação (uma função sem guarda '
-        'própria que delega a uma função guardada não é achado). As 23 Edge Functions e os 1.717 '
-        'linhas de seus helpers foram lidas integralmente, não amostradas.'
+        'própria que delega a uma função guardada não é achado). As 13 Edge Functions e seus helpers '
+        'foram lidos integralmente, não amostrados.'
     ),
     (
         'Critério de achado',
         'Só entrou no relatório o que foi confirmado no código com arquivo e linha. Hipóteses não '
-        'confirmadas foram descartadas em vez de reportadas com ressalva. Onde a categoria não '
+        'confirmadas foram descartadas em vez de reportadas como vulnerabilidade. Resultados estáticos '
+        'são evidência de Código/Teste; ausência de Runtime não prova ausência de risco. Onde a categoria não '
         'produziu achado, isso é dito explicitamente e acompanhado da evidência que sustenta a '
         'conclusão — a ausência de achado é um resultado da auditoria, não uma lacuna dela.'
     ),
@@ -96,7 +97,7 @@ CATEGORIAS = [
     ('cat4', '4. Chaves expostas (hardcode)',
      'Código-fonte, configs, <font face="Courier">supabase/config.toml</font>, '
      '<font face="Courier">vercel.json</font>, <font face="Courier">firebase.json</font>, CI, '
-     'scripts, documentação, defaults de variável de ambiente e os 200 commits do histórico git.'),
+     'scripts, documentação, defaults de variável de ambiente e o histórico git.'),
     ('cat5', '5. Inputs sem tratamento (XSS)',
      'Frontend: <font face="Courier">dangerouslySetInnerHTML</font>, '
      '<font face="Courier">innerHTML</font>, <font face="Courier">eval</font>, '
@@ -572,8 +573,8 @@ printWindow.document.write(`...<title>Fatura de Demurrage</title>...
             'impressa ou de um chamador que passe título controlado pelo usuário.'
         ),
         'correcao': (
-            'Remover <font face="Courier">printDocumentElement</font>, que não tem chamador, ou escapar o '
-            '<font face="Courier">title</font> antes de interpolar. A CSP de '
+            'Manter o chamador vivo e construir a janela por APIs DOM, sem interpolar o '
+            '<font face="Courier">title</font> ou <font face="Courier">innerHTML</font>. A CSP de '
             '<font face="Courier">vercel.json</font> (<font face="Courier">script-src \'self\'</font>) já bloqueia '
             'script inline e é a mitigação que hoje segura o caso — vale registrar essa dependência no '
             'comentário da função.'
@@ -585,12 +586,17 @@ printWindow.document.write(`...<title>Fatura de Demurrage</title>...
     },
 ]
 
+# O item 4 do rascunho original era falso positivo: a migration 114 removeu
+# portal_check_auth_method e o verificador antigo não entendia DROP FUNCTION.
+# Ele permanece acima para rastreabilidade, mas não integra a contagem publicada.
+ACHADOS = [a for a in ACHADOS if a['id'] != 4]
+
 # --------------------------------------------------------------------------
 # Pontos fortes verificados
 # --------------------------------------------------------------------------
 PONTOS_FORTES = [
     ('RLS universal e sem policy permissiva',
-     'Replay das 360 migrations: <b>92 de 92 tabelas</b> com <font face="Courier">ENABLE ROW LEVEL '
+     'Replay das 359 migrations: <b>92 de 92 tabelas</b> com <font face="Courier">ENABLE ROW LEVEL '
      'SECURITY</font> e <b>282 policies vivas</b>. Nenhuma sobrevivente com '
      '<font face="Courier">USING (true)</font> ou <font face="Courier">auth.role() = \'authenticated\'</font>. '
      'As policies permissivas originais de <font face="Courier">002_rls.sql</font> foram substituídas por '
@@ -656,7 +662,7 @@ PONTOS_FORTES = [
      '<font face="Courier">ShipScheduleWidget.tsx:67</font>) montam URL do MarineTraffic a partir de um '
      'número IMO, sem espaço para <font face="Courier">javascript:</font>.'),
     ('Histórico git limpo e .env protegido',
-     'Nenhum JWT ou chave em 200 commits (busca por padrão '
+      'Nenhum JWT ou chave foi encontrado na busca histórica documentada (padrão '
      '<font face="Courier">eyJ...eyJ...</font> em toda a árvore de revisões). O único arquivo de ambiente '
      'versionado é <font face="Courier">.env.example</font>, com placeholders; '
      '<font face="Courier">.gitignore:16-18</font> cobre <font face="Courier">.env</font> e '
@@ -691,22 +697,19 @@ PONTOS_FORTES = [
 
 PONTOS_FRACOS = [
     ('O role authenticated é compartilhado entre operador e cliente',
-     'É a fragilidade estrutural da qual derivam quatro dos oito achados. O cliente do Portal e o '
+     'É a fragilidade estrutural da qual derivam os achados de autorização. O cliente do Portal e o '
      'operador interno recebem o mesmo role do Supabase Auth; a separação real é feita <b>função a '
-     'função</b>, por guarda no corpo ou por ACL. Com <b>201 funções SECURITY DEFINER concedidas a '
-     'authenticated</b>, o custo de errar é uma função nova sem guarda — e cada uma delas ignora a RLS por '
+     'função</b>, por guarda no corpo ou por ACL. Com muitas funções SECURITY DEFINER concedidas a '
+     '<b>authenticated</b>, o custo de errar é uma função nova sem guarda — e cada uma delas ignora a RLS por '
      'definição. A disciplina hoje é humana e não tem verificação automatizada.'),
     ('Código morto continua publicado no PostgREST',
-     'O fluxo de token legado do Portal (cinco funções) e '
-     '<font face="Courier">portal_billing_gate</font> não têm chamador de produção, mas seguem com '
-     'EXECUTE para <font face="Courier">authenticated</font> e, portanto, publicados como endpoint HTTP. As '
-     'migrations 093 e 296 já identificaram esse resíduo por escrito — a 296 chega a chamá-lo de "o '
-     'resíduo que vira vulnerabilidade quando alguém reaproveita a função legada mais tarde" — mas '
-     'fecharam apenas os nomes que casavam com um padrão, e estes ficaram de fora.'),
+     'O fluxo de token legado do Portal foi removido pela migration 114. O que a auditoria encontrou '
+     'foi a necessidade de modelar DROP FUNCTION no replay para que código histórico não continue sendo '
+     'tratado como endpoint vivo.'),
     ('Degradação silenciosa de configuração de segredo',
-     'Duas Edge Functions aceitam a <font face="Courier">service_role</font> como bearer quando o segredo '
-     'dedicado não está definido, sem nenhuma validação de inicialização que recuse esse estado. A ausência '
-     'de configuração não é distinguível da configuração correta em tempo de execução.'),
+     'Duas Edge Functions aceitavam a <font face="Courier">service_role</font> como bearer quando o segredo '
+     'dedicado não estava definido. O código atual precisa falhar fechado; a auditoria não teve evidência '
+     'de que isso ocorreu em produção.'),
 ]
 
 # --------------------------------------------------------------------------
@@ -714,13 +717,12 @@ PONTOS_FRACOS = [
 # --------------------------------------------------------------------------
 SEM_ACHADO = [
     ('cat2', '2. Permissão definida no navegador',
-     'Nenhum achado. A categoria se aplica à stack e foi verificada exaustivamente: o modelo de '
-     'permissão do frontend é pequeno e fechado — quatro permissões em '
+     'Nenhum bypass foi confirmado, mas a cobertura não é exaustiva: além das quatro permissões em '
      '<font face="Courier">roleHasPermission</font> (<font face="Courier">src/hooks/useAuth.tsx:14-34</font>) '
      'e uma única rota <font face="Courier">adminOnly</font> (<font face="Courier">src/App.tsx:202-206</font>, '
-     '<font face="Courier">/admin/usuarios</font>). Cada uma das quatro foi cruzada com o endpoint que '
-     'executa a operação e <b>todas têm verificação equivalente no servidor</b>, detalhada nos pontos '
-     'fortes. Vale registrar que <font face="Courier">ProtectedRoute</font> é honesto quanto ao seu papel: '
+     '<font face="Courier">/admin/usuarios</font>), há gates independentes em páginas operacionais. As '
+     'permissões revisadas têm contraparte server-side; os gates independentes devem permanecer na lista '
+     'de cobertura. Vale registrar que <font face="Courier">ProtectedRoute</font> é honesto quanto ao seu papel: '
      'ele redireciona a UI, e a autorização real está no banco — que é exatamente a postura correta para '
      'uma SPA estática.'),
 ]
@@ -737,27 +739,24 @@ RECOMENDACOES = [
      'É a única escrita não autorizada da auditoria. Manter apenas '
      '<font face="Courier">service_role</font> ou adicionar a guarda '
      '<font face="Courier">is_active_user()</font> que as funções irmãs já usam.'),
-    ('P2', 'Retirar o fluxo de token legado e os helpers de viagem do papel compartilhado', 'Achados 3 e 4',
-     'Sete funções sem chamador de produção ou sem consumidor de UI, todas concedidas a '
-     '<font face="Courier">authenticated</font>. Fechar o ACL das sete de uma vez elimina dois achados e '
-     'reduz a superfície de RPC de forma permanente. Aplicar a mesma disciplina da migration 296.'),
+    ('P2', 'Fechar o ACL dos helpers de viagem sem consumidor de cliente', 'Achado 3',
+     'Os helpers de POD devem ficar disponíveis apenas para os detectores internos. A ETA tem consumidor '
+     'interno real e precisa de guarda server-side; ela não pode ser revogada cegamente.'),
     ('P2', 'Remover o fallback para a service_role key e girar a chave se necessário', 'Achado 5',
      'Substituir o <font face="Courier">?? SUPABASE_SERVICE_ROLE_KEY</font> por falha explícita na '
      'inicialização, no padrão que <font face="Courier">portalEmail.ts:47</font> já adota. Se a chave já '
      'tiver sido usada como secret header em produção, girá-la é parte da correção, não um passo opcional.'),
     ('P2', 'Automatizar a verificação que esta auditoria fez à mão', 'Estrutural',
      'A fragilidade central é que a guarda de cada função SECURITY DEFINER depende de disciplina humana '
-     'em 201 funções. O script de replay usado aqui '
-     '(<font face="Courier">docs/security-audit/verificar_guardas.py</font>) resolve o estado final de '
+     'em funções. O script de replay usado aqui '
+     '(<font face="Courier">scripts/security/verificar_guardas.py</font>) resolve o estado final de '
      'policies e grants e aponta funções DEFINER concedidas a '
      '<font face="Courier">authenticated</font> sem guarda, seguindo cadeias de delegação. Rodá-lo no CI '
      'transforma a próxima ocorrência desta classe em build vermelho, em vez de outra auditoria.'),
     ('P3', 'Unificar a comparação de segredos das Edge Functions', 'Achado 6',
-     'Mover <font face="Courier">timingSafeEqual</font> — hoje triplicado — para '
-     '<font face="Courier">_shared/</font> e usá-lo nas quatro funções com bearer secret. Resolve o achado '
-     'e remove a duplicação.'),
+     'Usar comparação <font face="Courier">timingSafeEqual</font> em todas as funções com bearer secret. '
+     'A implementação foi aplicada ao digest; a duplicação residual é apenas manutenção.'),
     ('P3', 'Limpar os sinks latentes e os segredos de script local', 'Achados 7 e 8',
-     'Remover <font face="Courier">printDocumentElement</font>, que não tem chamador, e parametrizar as '
-     'credenciais do shim local. Nenhum dos dois é explorável hoje; ambos são higiene que evita que uma '
-     'mudança futura os torne relevantes.'),
+     'O helper de impressão tem consumidor real e foi endurecido sem remover o fluxo. As credenciais do '
+     'shim local continuam explicitamente restritas ao ambiente de desenvolvimento.'),
 ]

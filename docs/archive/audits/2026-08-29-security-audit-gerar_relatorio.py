@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Gera docs/security-audit/relatorio-auditoria-seguranca.pdf.
+"""Gera o snapshot PDF da auditoria arquivado em docs/archive/audits.
 
 Uso (a partir da raiz do repositório):
 
-    docs/security-audit/.venv/bin/python docs/security-audit/gerar_relatorio.py
+    scripts/security/.venv/bin/python docs/archive/audits/2026-08-29-security-audit-gerar_relatorio.py
 
 Se o venv não existir:
 
-    python3 -m venv docs/security-audit/.venv
-    docs/security-audit/.venv/bin/pip install reportlab matplotlib
+    python3 -m venv scripts/security/.venv
+    scripts/security/.venv/bin/pip install -r scripts/security/requirements.txt
 
 O conteúdo vive em `achados.py`; este arquivo só o diagrama. Para atualizar o
 relatório depois de uma correção, edite os achados lá e rode isto de novo.
@@ -45,9 +45,15 @@ from reportlab.platypus import (
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
 
-import achados as A  # noqa: E402
+import importlib.util  # noqa: E402
 
-SAIDA = os.path.join(AQUI, 'relatorio-auditoria-seguranca.pdf')
+_fonte = os.path.join(AQUI, '2026-08-29-security-audit-achados.py')
+_spec = importlib.util.spec_from_file_location('auditoria_achados', _fonte)
+A = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+_spec.loader.exec_module(A)
+
+SAIDA = os.path.join(AQUI, '2026-08-29-security-audit.pdf')
 NOME_RELATORIO = f'Relatório de Auditoria de Segurança — {A.PROJETO}'
 
 TINTA = colors.HexColor('#0F172A')
@@ -302,9 +308,9 @@ def secao_capa(por_sev: Counter):
     f.append(Paragraph(
         'Auditoria de código do repositório <font face="Courier">transhippingdesk</font> '
         f'({A.COMMIT_ESCOPO}), cobrindo cinco categorias de falha adaptadas à stack detectada. '
-        'Foram examinados: as 360 migrations SQL (RLS, policies, grants e funções), as 23 Edge '
+        'Foram examinados: as 359 migrations SQL (RLS, policies, grants e funções), as 13 Edge '
         'Functions Deno com seus helpers compartilhados, o código-fonte do frontend React, os '
-        'arquivos de configuração e de deploy, o workflow de CI e os 200 commits do histórico git. '
+        'arquivos de configuração e de deploy, o workflow de CI e o histórico git. '
         'A auditoria é estática — nenhum teste foi executado contra ambiente de produção e nenhuma '
         'exploração foi realizada.', E['p']))
 
@@ -366,18 +372,17 @@ def secao_resumo(por_sev: Counter, por_cat: dict, img_rosca: str, img_barras: st
         f'<b>{por_sev.get("media", 0)} médios</b>, <b>{por_sev.get("baixa", 0)} baixos</b> e '
         f'<b>{por_sev.get("informativa", 0)} informativo</b>. Também foram registrados '
         f'<b>{len(A.PONTOS_FORTES)} pontos fortes verificados</b>, que sustentam a cobertura da '
-        'varredura e explicam por que uma base deste tamanho — 92 tabelas, 363 funções de banco e '
-        '23 Edge Functions — produziu tão poucos achados.', E['p']))
+        'varredura e explicam o resultado encontrado no snapshot.', E['p']))
     f.append(Paragraph(
         'O projeto tem histórico visível de endurecimento: várias migrations existem apenas para '
         'fechar brechas encontradas em auditorias anteriores, e a maior parte delas documenta no '
         'cabeçalho o que foi fechado e por quê. Os achados aqui não contradizem esse trabalho — '
-        '<b>seis dos oito são resíduos dele</b>. São funções que uma correção anterior identificou '
+        '<b>parte dos achados são resíduos dele</b>. São funções que uma correção anterior identificou '
         'como problema, corrigiu para o caminho não autenticado e deixou abertas para o papel '
         '<font face="Courier">authenticated</font>, ou que ficaram de fora de uma revogação em lote '
         'porque o nome não casava com o padrão usado. O risco central não é uma falha de projeto: '
         'é a ausência de verificação automatizada de um invariante que hoje depende de disciplina '
-        'humana repetida em 201 funções.', E['p']))
+        'humana repetida em funções.', E['p']))
 
     f.append(Spacer(1, 0.25 * cm))
     esq = [Paragraph('Achados por severidade', E['h3']),
@@ -600,10 +605,10 @@ def agrupar_issues():
         {'n': 2, 'achados': [mapa[2]],
          'titulo': '[Segurança] refresh_voyage_status_from_terminal_scales altera status de viagem sem verificar privilégio',
          'labels': ['security', 'severidade:media']},
-        {'n': 3, 'achados': [mapa[3], mapa[4]],
+        {'n': 3, 'achados': [mapa[3]],
          'titulo': '[Segurança] Fechar o ACL das RPCs SECURITY DEFINER sem guarda expostas a authenticated',
          'labels': ['security', 'severidade:media'],
-         'nota': 'Agrupa os achados 3 e 4: mesma classe (função SECURITY DEFINER concedida a '
+         'nota': 'Agrupa o achado 3: função SECURITY DEFINER concedida a '
                  '`authenticated` sem guarda no corpo) e mesma correção (fechar o ACL). Resolver '
                  'os dois no mesmo commit evita duas revisões de migration para a mesma decisão.'},
         {'n': 4, 'achados': [mapa[5], mapa[6]],
@@ -626,7 +631,7 @@ def markdown_issue(issue) -> str:
     L.append(f'**Labels:** `{"`, `".join(issue["labels"])}`')
     L.append('')
     if issue.get('nota'):
-        nota = issue['nota'].replace('`', '`')
+        nota = issue['nota']
         L.append(f'> **Por que agrupada:** {nota}')
         L.append('')
 
@@ -647,7 +652,8 @@ def markdown_issue(issue) -> str:
         for arq in a['arquivos']:
             L.append(f'- `{arq}`')
         L.append('')
-        L.append('```sql' if arq.endswith('.sql') else '```ts')
+        extensao = next((item for item in issue['achados'][0]['arquivos'] if '.' in item), '')
+        L.append('```sql' if extensao.endswith('.sql') else '```ts')
         L.append(a['trecho'].rstrip())
         L.append('```')
         L.append('')
@@ -701,7 +707,7 @@ def limpar(html: str) -> str:
 def secao_issues():
     f = [PageBreak(), Paragraph('Issues para o GitHub', E['h1'])]
     f.append(Paragraph(
-        'Texto completo em Markdown, pronto para copiar e colar. Os oito achados foram agrupados em '
+        'Texto completo em Markdown, pronto para copiar e colar. Os sete achados foram agrupados em '
         '<b>cinco issues</b>: achados da mesma classe, com a mesma correção e o mesmo revisor, '
         'entram juntos para não gerar tickets redundantes. Cada bloco começa em '
         '<font face="Courier">--- ISSUE n ---</font> e termina em '
