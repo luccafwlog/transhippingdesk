@@ -150,4 +150,87 @@ describe('ChegadasSaidas user behaviours', () => {
     expect(screen.getAllByTitle('Remover do Portal').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /Baixar Planilha Modelo/ })).toBeTruthy()
   })
+
+  it('permite digitar datas com zero ou limpar o campo sem desabilitar nem marcar Nao escala involuntariamente', async () => {
+    const user = userEvent.setup()
+    render(<ChegadasSaidas />)
+
+    await user.click(screen.getAllByTitle('Editar')[0])
+    const dateInput = screen.getByLabelText(/SALVADOR/) as HTMLInputElement
+    const checkbox = screen.getAllByLabelText('Não escala')[5] as HTMLInputElement
+
+    expect(dateInput.disabled).toBe(false)
+    expect(checkbox.checked).toBe(false)
+
+    // Simula digitacao intermediaria onde o browser zera o valor (ex: tecla 0)
+    await user.clear(dateInput)
+    expect(dateInput.value).toBe('')
+    expect(dateInput.disabled).toBe(false)
+    expect(checkbox.checked).toBe(false)
+
+    // Preenche com nova data contendo zeros
+    await user.type(dateInput, '2026-05-01')
+    expect(dateInput.disabled).toBe(false)
+    expect(checkbox.checked).toBe(false)
+  })
+
+  it('nao submete o formulario ao pressionar Enter em campo de data', async () => {
+    const user = userEvent.setup()
+    render(<ChegadasSaidas />)
+
+    await user.click(screen.getAllByTitle('Editar')[0])
+    const dateInput = screen.getByLabelText(/SALVADOR/)
+
+    await user.type(dateInput, '{Enter}')
+    expect(mocks.createOrAttach).not.toHaveBeenCalled()
+  })
+
+  it('ao marcar Nao escala explicitamente, limpa a data e desabilita o campo', async () => {
+    const user = userEvent.setup()
+    render(<ChegadasSaidas />)
+
+    await user.click(screen.getAllByTitle('Editar')[0])
+    const dateInput = screen.getByLabelText(/SALVADOR/) as HTMLInputElement
+    const checkbox = screen.getAllByLabelText('Não escala')[5] as HTMLInputElement
+
+    expect(checkbox.checked).toBe(false)
+    expect(dateInput.disabled).toBe(false)
+
+    await user.click(checkbox)
+    expect(checkbox.checked).toBe(true)
+    expect(dateInput.disabled).toBe(true)
+    expect(dateInput.value).toBe('')
+  })
+
+  it('ao adicionar navio novo, permite desmarcar Nao escala e digitar nova data com zeros', async () => {
+    const user = userEvent.setup()
+    render(<ChegadasSaidas />)
+
+    await user.click(screen.getByRole('button', { name: /Adicionar Navio/ }))
+    await user.type(screen.getByLabelText('Nome do Navio'), 'DELTA')
+    await user.type(screen.getByLabelText('Viagem (VOY)'), '004')
+
+    // Desmarca "Não escala" em Salvador (lane index 5)
+    await user.click(screen.getAllByLabelText('Não escala')[5])
+    const dateInput = screen.getByLabelText(/SALVADOR/) as HTMLInputElement
+    expect(dateInput.disabled).toBe(false)
+
+    // Altera a data digitando valor com 0
+    await user.clear(dateInput)
+    await user.type(dateInput, '2026-09-08')
+
+    await user.click(screen.getByRole('button', { name: 'Adicionar' }))
+
+    expect(mocks.createOrAttach).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vesselName: 'DELTA',
+        voyageNumber: '004',
+        lanes: expect.arrayContaining([
+          expect.objectContaining({ code: 'BRSSA', date: '2026-09-08' }),
+        ]),
+      }),
+      'user-1',
+      expect.anything(),
+    )
+  })
 })
