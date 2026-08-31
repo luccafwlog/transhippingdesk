@@ -193,4 +193,78 @@ describe('calculateDemurrage', () => {
     expect(calculateDemurrage('20FT', '2026-01-01', '2026-01-26').total_usd).toBe(4 * 50)
     expect(calculateDemurrage('40FT', '2026-01-01', '2026-01-26').total_usd).toBe(4 * 100)
   })
+
+  describe('hierarquia com acordos customizados do cliente', () => {
+    it('aplica free time customizado do acordo do cliente quando B/L não tem override', () => {
+      // Acordo: 28 dias free time. Sem taxas personalizadas (herda P1/P2 padrão).
+      // Descarga 01/01, Devolução 30/01 (29 dias) -> 28 dias livres, 1 dia em P1 (dia 29) a 30 USD
+      const agreement = { free_days: 28, p1_usd: null, p2_usd: null }
+      const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-30', null, null, null, agreement)
+
+      expect(r.total_days).toBe(29)
+      expect(r.free_days).toBe(28)
+      expect(r.status).toBe('overdue')
+      expect(r.days_p1).toBe(1)
+      expect(r.rate_p1_usd).toBe(30)
+      expect(r.days_p2).toBe(0)
+      expect(r.total_usd).toBe(30)
+    })
+
+    it('aplica free time e tarifas P1/P2 do acordo do cliente', () => {
+      // Acordo: 25 dias free time, P1=20 USD/dia, P2=40 USD/dia.
+      // Descarga 01/01, Devolução 05/02 (35 dias) -> 25 dias livres, P1 [26..30] (5 dias a 20 USD), P2 [31..35] (5 dias a 40 USD)
+      const agreement = { free_days: 25, p1_usd: 20, p2_usd: 40 }
+      const r = calculateDemurrage('20GP', '2026-01-01', '2026-02-05', null, null, null, agreement)
+
+      expect(r.total_days).toBe(35)
+      expect(r.free_days).toBe(25)
+      expect(r.days_p1).toBe(5)
+      expect(r.rate_p1_usd).toBe(20)
+      expect(r.days_p2).toBe(5)
+      expect(r.rate_p2_usd).toBe(40)
+      expect(r.total_usd).toBe(5 * 20 + 5 * 40) // 100 + 200 = 300
+    })
+
+    it('override no B/L tem precedência total sobre o acordo do cliente', () => {
+      // Acordo: 28 dias free, P1=20, P2=40
+      // B/L Override: 30 dias free, P1=15, P2=35
+      // Descarga 01/01, Devolução 05/02 (35 dias) -> usa 30 dias free do B/L, P1=0 (fim P1=30), P2 [31..35] (5 dias a 35 USD)
+      const agreement = { free_days: 28, p1_usd: 20, p2_usd: 40 }
+      const r = calculateDemurrage('20GP', '2026-01-01', '2026-02-05', 30, 15, 35, agreement)
+
+      expect(r.free_days).toBe(30)
+      expect(r.days_p1).toBe(0)
+      expect(r.days_p2).toBe(5)
+      expect(r.rate_p2_usd).toBe(35)
+      expect(r.total_usd).toBe(5 * 35)
+    })
+
+    it('override parcial no B/L (somente free time) combina com tarifas do acordo do cliente', () => {
+      // Acordo: 25 dias free, P1=22, P2=42
+      // B/L Override: apenas free_time=27 dias (sem ov1 nem ov2)
+      // Descarga 01/01, Devolução 31/01 (30 dias) -> free=27, P1 [28..30] (3 dias a 22 USD do acordo)
+      const agreement = { free_days: 25, p1_usd: 22, p2_usd: 42 }
+      const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-31', 27, null, null, agreement)
+
+      expect(r.free_days).toBe(27)
+      expect(r.days_p1).toBe(3)
+      expect(r.rate_p1_usd).toBe(22)
+      expect(r.rate_p2_usd).toBe(42)
+      expect(r.total_usd).toBe(3 * 22)
+    })
+
+    it('override parcial no B/L (somente tarifa P1) combina com free time do acordo do cliente', () => {
+      // Acordo: 28 dias free, P1=20, P2=40
+      // B/L Override: apenas ov1=18 (sem free time override nem ov2)
+      // Descarga 01/01, Devolução 30/01 (29 dias) -> free=28 do acordo, 1 dia P1 a 18 USD (do B/L), P2 a 40 USD (do acordo)
+      const agreement = { free_days: 28, p1_usd: 20, p2_usd: 40 }
+      const r = calculateDemurrage('20GP', '2026-01-01', '2026-01-30', null, 18, null, agreement)
+
+      expect(r.free_days).toBe(28)
+      expect(r.days_p1).toBe(1)
+      expect(r.rate_p1_usd).toBe(18)
+      expect(r.rate_p2_usd).toBe(40)
+      expect(r.total_usd).toBe(18)
+    })
+  })
 })

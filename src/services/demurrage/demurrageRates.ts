@@ -160,7 +160,19 @@ export async function toggleDemurrageRateActive(id: number, active: boolean) {
   invalidateDemurrageRatesCache()
 }
 
-function getRate(containerType: string | null, freeTimeOverride?: number | null, ov1?: number | null, ov2?: number | null): ResolvedRate {
+export type CustomerAgreementRates = {
+  free_days?: number | null
+  p1_usd?: number | null
+  p2_usd?: number | null
+} | null
+
+function getRate(
+  containerType: string | null,
+  freeTimeOverride?: number | null,
+  ov1?: number | null,
+  ov2?: number | null,
+  customerAgreement?: CustomerAgreementRates,
+): ResolvedRate {
   const type = normalizeContainerType(containerType)
   const groups = resolveActiveRateGroups()
   const group = groups.find((g) => g.aliases.includes(type))
@@ -168,16 +180,33 @@ function getRate(containerType: string | null, freeTimeOverride?: number | null,
     throw new Error(`Tipo de container "${type || '(vazio)'}" sem tarifa de Demurrage cadastrada. Cadastre a tarifa em Tarifas de Demurrage antes de calcular.`)
   }
 
-  const freeUntil = freeTimeOverride != null ? freeTimeOverride : group.freeUntil
+  const freeUntil = freeTimeOverride != null
+    ? freeTimeOverride
+    : customerAgreement?.free_days != null
+      ? customerAgreement.free_days
+      : group.freeUntil
+
   const p1Start = freeUntil + 1
   const p1End = group.p1.range[1]
   const p1Range: [number, number] = [p1Start, p1End]
   const p2Range: [number, number] = [group.p2.range[0], Infinity]
 
+  const p1Usd = ov1 != null
+    ? ov1
+    : customerAgreement?.p1_usd != null
+      ? customerAgreement.p1_usd
+      : group.p1.usd
+
+  const p2Usd = ov2 != null
+    ? ov2
+    : customerAgreement?.p2_usd != null
+      ? customerAgreement.p2_usd
+      : group.p2.usd
+
   return {
     freeUntil,
-    p1: { range: p1Range, usd: ov1 != null ? ov1 : group.p1.usd },
-    p2: { range: p2Range, usd: ov2 != null ? ov2 : group.p2.usd },
+    p1: { range: p1Range, usd: p1Usd },
+    p2: { range: p2Range, usd: p2Usd },
   }
 }
 
@@ -200,8 +229,9 @@ export function calculateDemurrage(
   freeTimeOverride?: number | null,
   ov1?: number | null,
   ov2?: number | null,
+  customerAgreement?: CustomerAgreementRates,
 ): DemurrageCalcResult {
-  const rate = getRate(containerType, freeTimeOverride, ov1, ov2)
+  const rate = getRate(containerType, freeTimeOverride, ov1, ov2, customerAgreement)
   const dischargeMs = noonMs(dischargeDate)
   const returnMs = noonMs(returnDate)
   if (returnMs < dischargeMs) {

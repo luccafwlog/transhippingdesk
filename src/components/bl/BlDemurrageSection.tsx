@@ -6,6 +6,7 @@ import { Card } from '../ui/Card'
 import { Field, Input } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
+import { useCustomerDemurrageAgreements } from '../../hooks/useCustomerDemurrageAgreements'
 import { saveBlDemurrageConfig } from '../../services/blDemurrageConfig'
 import { calculateDemurrage, ensureDemurrageRatesLoaded } from '../../services/demurrage/demurrageRates'
 import { updateContainerReturnDate } from '../../services/demurrage/demurrageContainers'
@@ -19,6 +20,11 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { showToast } = useToast()
+
+  const { data: customerAgreements } = useCustomerDemurrageAgreements({
+    customerId: bl.customer_id ?? undefined,
+    activeOnly: true,
+  })
 
   // --- Config form state ---
   const [freeTime, setFreeTime] = useState<string>(
@@ -184,14 +190,18 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
                   let demError = ratesError
                   if (container.discharge_date && returnDateVal && ratesReady) {
                     try {
+                      const matchingAgreement = (customerAgreements ?? []).find(
+                        (a) => container.discharge_date! >= a.valid_from && (!a.valid_to || container.discharge_date! <= a.valid_to),
+                      ) ?? null
                       demCalc = calculateDemurrage(
-                          container.type,
-                          container.discharge_date,
-                          returnDateVal,
-                          bl.free_time_override,
-                          bl.demurrage_rate_override_p1_usd,
-                          bl.demurrage_rate_override_p2_usd,
-                        )
+                        container.type,
+                        container.discharge_date,
+                        returnDateVal,
+                        bl.free_time_override,
+                        bl.demurrage_rate_override_p1_usd,
+                        bl.demurrage_rate_override_p2_usd,
+                        matchingAgreement,
+                      )
                     } catch (error) {
                       demError = error instanceof Error ? error.message : 'Falha ao calcular Demurrage.'
                     }

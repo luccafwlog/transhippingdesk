@@ -46,7 +46,10 @@ function containerBlRates(container: DemurrageContainerListItem) {
 
 // Demurrage operacional do container: usa a devolucao quando existe, senao hoje
 // (container ainda fora, sobreestadia correndo). Null sem data de descarga.
-export function effectiveDemurrage(container: DemurrageContainerListItem) {
+export function effectiveDemurrage(
+  container: DemurrageContainerListItem,
+  customerAgreement?: { free_days?: number | null; p1_usd?: number | null; p2_usd?: number | null } | null,
+) {
   if (!container.discharge_date) return null
   const end = container.return_date ?? new Date().toISOString().slice(0, 10)
   const bl = containerBlRates(container)
@@ -57,5 +60,6 @@ export function effectiveDemurrage(container: DemurrageContainerListItem) {
     bl?.free_time_override,
     bl?.demurrage_rate_override_p1_usd,
     bl?.demurrage_rate_override_p2_usd,
+    customerAgreement,
   )
 }

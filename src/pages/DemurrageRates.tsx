@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
+import { TabButton } from '../components/ui/TabButton'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { Field, Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
@@ -15,6 +17,7 @@ import {
   useSaveDemurrageRate,
   useToggleDemurrageRateActive,
 } from '../hooks/useDemurrageRates'
+import { CustomerDemurrageAgreementsTab } from '../components/demurrage/CustomerDemurrageAgreementsTab'
 import { formatDate, formatUSD } from '../lib/utils'
 
 type DemurrageRateForm = Omit<DemurrageRate, 'id' | 'created_at' | 'updated_at' | 'valid_from'> & {
@@ -39,6 +42,9 @@ export function DemurrageRates() {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const confirm = useConfirm()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const currentTab = searchParams.get('tab') === 'acordos' ? 'acordos' : 'padrao'
+  const [tab, setTab] = useState<'padrao' | 'acordos'>(currentTab)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<DemurrageRateForm & { id?: number }>(EMPTY_FORM)
 
@@ -46,6 +52,15 @@ export function DemurrageRates() {
   const saveMutation = useSaveDemurrageRate()
   const deleteMutation = useDeleteDemurrageRate()
   const toggleMutation = useToggleDemurrageRateActive()
+
+  function handleSelectTab(nextTab: 'padrao' | 'acordos') {
+    setTab(nextTab)
+    setSearchParams((params) => {
+      if (nextTab === 'acordos') params.set('tab', 'acordos')
+      else params.delete('tab')
+      return params
+    }, { replace: true })
+  }
 
   function openNew() {
     setForm({ ...EMPTY_FORM })
@@ -94,8 +109,8 @@ export function DemurrageRates() {
     <div className="space-y-6">
       <PageHeader
         title="Tarifas de Demurrage"
-        description="Gerencie os valores de sobrestadia por tipo de container, faixa de dias e vigência."
-        action={isAdmin ? (
+        description="Gerencie a tabela geral por tipo de container e acordos comerciais customizados por cliente."
+        action={isAdmin && tab === 'padrao' ? (
           <Button onClick={openNew}>
             <Plus size={16} />
             Nova Tarifa
@@ -103,41 +118,50 @@ export function DemurrageRates() {
         ) : undefined}
       />
 
-      {error ? <InlineError message="Erro ao carregar tarifas de demurrage." /> : null}
+      <div className="flex flex-wrap gap-2" role="tablist">
+        <TabButton active={tab === 'padrao'} label="Tabela Padrão (Armador)" onClick={() => handleSelectTab('padrao')} />
+        <TabButton active={tab === 'acordos'} label="Acordos de Clientes" onClick={() => handleSelectTab('acordos')} />
+      </div>
 
-      <Card className="overflow-hidden p-0">
-        <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[800px] text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
-              <tr>
-                <th scope="col" className="px-4 py-3">Tipo Container</th>
-                <th scope="col" className="px-4 py-3">Free time</th>
-                <th scope="col" className="px-4 py-3">P1 (dias)</th>
-                <th scope="col" className="px-4 py-3">P1 USD/dia</th>
-                <th scope="col" className="px-4 py-3">P2 (dias)</th>
-                <th scope="col" className="px-4 py-3">P2 USD/dia</th>
-                <th scope="col" className="px-4 py-3">Vigência</th>
-                <th scope="col" className="px-4 py-3">Status</th>
-                {isAdmin && <th scope="col" className="px-4 py-3 w-20">Ações</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#30363d]">
-              {isLoading && (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
-                    Carregando...
-                  </td>
-                </tr>
-              )}
-              {!isLoading && !rates?.length && (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
-                    Nenhuma tarifa cadastrada.
-                  </td>
-                </tr>
-              )}
-              {(rates ?? []).map((rate) => (
-                <tr key={rate.id} className="hover:bg-[#21262d]/60">
+      {tab === 'acordos' ? (
+        <CustomerDemurrageAgreementsTab canEdit={isAdmin} />
+      ) : (
+        <>
+          {error ? <InlineError message="Erro ao carregar tarifas de demurrage." /> : null}
+
+          <Card className="overflow-hidden p-0">
+            <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[800px] text-left text-sm whitespace-nowrap">
+                <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Tipo Container</th>
+                    <th scope="col" className="px-4 py-3">Free time</th>
+                    <th scope="col" className="px-4 py-3">P1 (dias)</th>
+                    <th scope="col" className="px-4 py-3">P1 USD/dia</th>
+                    <th scope="col" className="px-4 py-3">P2 (dias)</th>
+                    <th scope="col" className="px-4 py-3">P2 USD/dia</th>
+                    <th scope="col" className="px-4 py-3">Vigência</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                    {isAdmin && <th scope="col" className="px-4 py-3 w-20">Ações</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#30363d]">
+                  {isLoading && (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                        Carregando...
+                      </td>
+                    </tr>
+                  )}
+                  {!isLoading && !rates?.length && (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                        Nenhuma tarifa cadastrada.
+                      </td>
+                    </tr>
+                  )}
+                  {(rates ?? []).map((rate) => (
+                    <tr key={rate.id} className="hover:bg-[#21262d]/60">
                   <td className="px-4 py-3 font-mono font-semibold">{rate.container_type}</td>
                   <td className="px-4 py-3">{rate.free_days}</td>
                   <td className="px-4 py-3">
@@ -276,6 +300,8 @@ export function DemurrageRates() {
           </div>
         </div>
       </Modal>
+        </>
+      )}
     </div>
   )
 }

@@ -145,9 +145,26 @@ export async function createInvoiceForBL(blId: string): Promise<number> {
   if (cErr) throw cErr
   if (!containers?.length) throw new Error('Nenhum container em atraso para este BL')
 
+  const { data: customerAgreements } = await supabase
+    .from('customer_demurrage_agreements')
+    .select('*')
+    .eq('customer_id', bl.customer_id)
+    .eq('active', true)
+
   const items = containers
     .map((c) => {
-      const calc = calculateDemurrage(c.type, c.discharge_date!, c.return_date!, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+      const agreement = (customerAgreements ?? []).find(
+        (a) => c.discharge_date! >= a.valid_from && (!a.valid_to || c.discharge_date! <= a.valid_to),
+      ) ?? null
+      const calc = calculateDemurrage(
+        c.type,
+        c.discharge_date!,
+        c.return_date!,
+        bl.free_time_override,
+        bl.demurrage_rate_override_p1_usd,
+        bl.demurrage_rate_override_p2_usd,
+        agreement,
+      )
       return { container: c, calc }
     })
     .filter((i) => i.calc.total_usd > 0)
@@ -213,9 +230,26 @@ export async function createInvoiceForReturnedBL(blId: string): Promise<number |
   if (cErr) throw cErr
   if (!containers?.length) return null
 
+  const { data: customerAgreements } = await supabase
+    .from('customer_demurrage_agreements')
+    .select('*')
+    .eq('customer_id', bl.customer_id)
+    .eq('active', true)
+
   const items = containers
     .map((c) => {
-      const calc = calculateDemurrage(c.type, c.discharge_date!, c.return_date!, bl.free_time_override, bl.demurrage_rate_override_p1_usd, bl.demurrage_rate_override_p2_usd)
+      const agreement = (customerAgreements ?? []).find(
+        (a) => c.discharge_date! >= a.valid_from && (!a.valid_to || c.discharge_date! <= a.valid_to),
+      ) ?? null
+      const calc = calculateDemurrage(
+        c.type,
+        c.discharge_date!,
+        c.return_date!,
+        bl.free_time_override,
+        bl.demurrage_rate_override_p1_usd,
+        bl.demurrage_rate_override_p2_usd,
+        agreement,
+      )
       return { container: c, calc }
     })
     .filter((i) => i.calc.total_usd > 0)

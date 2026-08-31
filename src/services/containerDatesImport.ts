@@ -53,12 +53,27 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
   const { data: bls, error: blsError } = await supabase
     .from('bls')
-    .select('id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd')
+    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd')
     .in('id', blIds)
 
   if (blsError) throw blsError
 
   const blOverrides = new Map(bls?.map((b) => [b.id, b]) ?? [])
+  const customerIds = [...new Set((bls ?? []).map((b) => b.customer_id).filter((id): id is number => typeof id === 'number'))]
+  const customerAgreements = new Map<number, import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement>()
+
+  if (customerIds.length > 0) {
+    const { data: agreements } = await supabase
+      .from('customer_demurrage_agreements')
+      .select('*')
+      .in('customer_id', customerIds)
+      .eq('active', true)
+    for (const a of (agreements ?? []) as unknown as import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement[]) {
+      if (!customerAgreements.has(a.customer_id)) {
+        customerAgreements.set(a.customer_id, a)
+      }
+    }
+  }
 
   type ContainerRow = { id: number; bl_id: string | null; container_number: string; container_type: string | null; discharge_date: string | null; return_date: string | null; demurrage_status: string | null }
   const containersByKey = new Map<string, ContainerRow>()
@@ -85,6 +100,11 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     if (sameDischarge && sameReturn) { unchanged += 1; continue }
 
     const bl = blOverrides.get(row.bl_id)
+    const agreement = bl?.customer_id ? customerAgreements.get(bl.customer_id) : null
+    const validAgreement = agreement && row.discharge_date >= agreement.valid_from && (!agreement.valid_to || row.discharge_date <= agreement.valid_to)
+      ? agreement
+      : null
+
     if (!row.return_date && !demurrageRatesLoaded) {
       await ensureDemurrageRatesLoaded()
       demurrageRatesLoaded = true
@@ -96,6 +116,7 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
       bl?.free_time_override ?? null,
       bl?.demurrage_rate_override_p1_usd ?? null,
       bl?.demurrage_rate_override_p2_usd ?? null,
+      validAgreement,
     )
 
     const { error: updateError } = await supabase
@@ -137,10 +158,11 @@ function resolveStatus(
   freeTimeOverride: number | null,
   ov1: number | null,
   ov2: number | null,
+  customerAgreement?: { free_days?: number | null; p1_usd?: number | null; p2_usd?: number | null } | null,
 ): string {
   if (returnDate) return 'returned'
   const today = new Date().toISOString().slice(0, 10)
-  const result = calculateDemurrage(containerType, dischargeDate, today, freeTimeOverride, ov1, ov2)
+  const result = calculateDemurrage(containerType, dischargeDate, today, freeTimeOverride, ov1, ov2, customerAgreement)
   return result.total_usd > 0 ? 'overdue' : 'within_free_time'
 }
 
