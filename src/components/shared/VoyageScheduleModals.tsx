@@ -170,9 +170,14 @@ export function PolScheduleModal({
     <Modal open={open} onClose={onClose} title={polSchedule?.cargoMode === 'vazios' ? 'Manifesto de Vazios · CE Master' : 'Editar ETD + ATD e CE Master'}>
       {polSchedule ? (
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="app-panel app-panel--padded text-sm order-1">
-            <div className="font-semibold text-[var(--app-text-strong)]">{polSchedule.voyageLabel}</div>
-            <div className="mt-1">Rota: {polSchedule.pol} -&gt; {polSchedule.pod}</div>
+          <div className="app-escala-summary">
+            <div>
+              <div className="app-escala-summary__voyage">{polSchedule.voyageLabel}</div>
+              <div className="app-escala-summary__meta">Rota: {polSchedule.pol} -&gt; {polSchedule.pod}</div>
+            </div>
+            <div className="app-escala-summary__status">
+              {polSchedule.cargoMode === 'vazios' ? 'Manifesto de Vazios' : 'Rota / Manifesto'}
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -182,7 +187,7 @@ export function PolScheduleModal({
             <Field label="ATD">
               <Input type="date" value={atd} onChange={(event) => setAtd(event.target.value)} />
             </Field>
-            <Field label="CE Master">
+            <Field label="Nº MANIFESTO">
               <Input value={ceMaster} onChange={(event) => setCeMaster(event.target.value)} placeholder="Ex.: 25BR00481" />
             </Field>
           </div>

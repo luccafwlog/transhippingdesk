@@ -77,7 +77,7 @@ describe('PolScheduleModal', () => {
       <PolScheduleModal open polSchedule={{ ...base, ceMaster: '25BR00481' }} onClose={() => {}} onSaved={onSaved} />,
     )
 
-    expect((screen.getByLabelText('CE Master') as HTMLInputElement).value).toBe('25BR00481')
+    expect((screen.getByLabelText('Nº MANIFESTO') as HTMLInputElement).value).toBe('25BR00481')
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ ceMaster: '25BR00481', batchIds: [11, 12] }))
   })
@@ -95,7 +95,7 @@ describe('PolScheduleModal', () => {
     )
 
     expect(screen.getByText('Editar ETD + ATD e CE Master')).toBeTruthy()
-    expect((screen.getByLabelText('CE Master') as HTMLInputElement).value).toBe('25BR00481')
+    expect((screen.getByLabelText('Nº MANIFESTO') as HTMLInputElement).value).toBe('25BR00481')
 
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ pod: 'BRSSZ', ceMaster: '25BR00481', batchIds: [] }))

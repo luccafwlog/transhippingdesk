@@ -417,13 +417,13 @@ export function VoyageCard({
           ]}
         />
         <DirectionKpiTile
-          direction="CONCILIAÇÃO MERCANTE"
+          direction="CONCILIAÇÃO"
           tone={reconciliationMeta.badgeTone}
           primary={{ value: reconciliationMeta.label, color: reconciliationMeta.color, variant: 'text' }}
           metrics={[
             { label: 'CE Mercante', value: `${ceCoverage.filled}/${ceCoverage.total}` },
-            { label: 'CE Master', value: `${ceMasterCount}/${ceMasterTotal}` },
-            { label: 'Divergências', value: String(divergenceCount) },
+            { label: 'Manifestos Mercante', value: `${ceMasterCount}/${ceMasterTotal}` },
+            { label: 'Divergências EDIxBLs', value: String(divergenceCount) },
           ]}
         />
       </section>

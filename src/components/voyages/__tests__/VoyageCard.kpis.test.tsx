@@ -53,7 +53,21 @@ function kpiValue(label: string) {
 }
 
 describe('KPIs do cabeçalho da viagem', () => {
-  it('conta CE Master do manifesto importado, como a aba Rotas e Manifestos', () => {
+  it('renderiza o card de conciliação com o título CONCILIAÇÃO e métricas estruturadas', () => {
+    renderCard({
+      bls: [
+        { id: 'bl-1', batch_id: null, cargo_mode: 'container', pol: 'CNSHA', pod: 'BRVIX', ce_mercante: '123', bl_containers: [] },
+        { id: 'bl-2', batch_id: null, cargo_mode: 'container', pol: 'CNSHA', pod: 'BRVIX', ce_mercante: null, bl_containers: [] },
+      ],
+    } as unknown as Partial<Voyage>)
+
+    expect(screen.getByText('CONCILIAÇÃO')).toBeTruthy()
+    expect(kpiValue('CE Mercante')).toBe('1/2')
+    expect(kpiValue('Manifestos Mercante')).toBe('0/1')
+    expect(kpiValue('Divergências EDIxBLs')).toBe('0')
+  })
+
+  it('conta Manifestos Mercante do manifesto importado, como a aba Rotas e Manifestos', () => {
     // O número Mercante desta rota vive no batch (setImportBatchCeMaster), não
     // em voyage_route_ce_master: o KPI precisa ler as duas fontes.
     renderCard({
@@ -65,16 +79,16 @@ describe('KPIs do cabeçalho da viagem', () => {
       ],
     } as unknown as Partial<Voyage>)
 
-    expect(kpiValue('CE Master')).toBe('1/1')
+    expect(kpiValue('Manifestos Mercante')).toBe('1/1')
   })
 
-  it('conta CE Master avulso por rota quando a viagem nasce só de B/Ls', () => {
+  it('conta Manifestos Mercante avulso por rota quando a viagem nasce só de B/Ls', () => {
     renderCard(
       { bls: [{ id: 'bl-1', batch_id: null, cargo_mode: 'container', pol: 'CNSHA', pod: 'BRVIX', ce_mercante: null, bl_containers: [] }] } as unknown as Partial<Voyage>,
       new Map([['7::CNSHA__BRVIX', 'CE-999']]),
     )
 
-    expect(kpiValue('CE Master')).toBe('1/1')
+    expect(kpiValue('Manifestos Mercante')).toBe('1/1')
   })
 
   it('usa os bookings realmente vinculados como total de vazios embarcados', () => {
