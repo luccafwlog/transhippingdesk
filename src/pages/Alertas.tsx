@@ -259,17 +259,18 @@ export function Alertas() {
         </div>
 
         <div className="flex flex-wrap items-end gap-3 pt-1 border-t border-[var(--app-border)]">
-          <label className="min-w-[240px] flex-1">
+          <label className="w-full sm:w-72 md:w-80">
             <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">
-              Buscar (B/L, Navio/Viagem, Cliente, CNPJ, mensagem)
+              Buscar (B/L, navio, cliente, CNPJ...)
             </span>
             <span className="relative block">
               <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" aria-hidden="true" />
               <input
-                className="app-input w-full pl-9 text-xs"
+                className="app-input app-alerts-search__input w-full text-xs"
+                style={{ paddingLeft: '38px' }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Ex.: MSC, 12.345.678/0001, BL123..."
+                placeholder="Ex.: MSC, CNPJ, BL123..."
                 aria-label="Buscar alertas"
               />
             </span>
@@ -278,7 +279,7 @@ export function Alertas() {
           <div>
             <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">Setor</span>
             <select
-              className="app-input app-select text-xs py-1.5 px-3 w-44"
+              className="app-input app-select text-xs py-1.5 px-3 w-full sm:w-44"
               value={departmentFilter}
               aria-label="Filtrar por setor"
               onChange={(e) => handleDepartmentChange(e.target.value)}
@@ -294,7 +295,7 @@ export function Alertas() {
           <div>
             <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">Entidade</span>
             <select
-              className="app-input app-select text-xs py-1.5 px-3 w-40"
+              className="app-input app-select text-xs py-1.5 px-3 w-full sm:w-48"
               value={entityFilter}
               aria-label="Filtrar por tipo de entidade"
               onChange={(e) => setEntityFilter(e.target.value)}
@@ -310,7 +311,7 @@ export function Alertas() {
           <div>
             <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">Severidade</span>
             <select
-              className="app-input app-select text-xs py-1.5 px-3 w-36"
+              className="app-input app-select text-xs py-1.5 px-3 w-full sm:w-44"
               value={severityFilter}
               aria-label="Filtrar por severidade"
               onChange={(e) => setSeverityFilter(e.target.value)}
