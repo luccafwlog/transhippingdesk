@@ -5,7 +5,7 @@ import { Button } from '../ui/Button'
 type BulkActionsBarProps = {
   count: number
   onClear: () => void
-  onDelete: () => void
+  onDelete?: () => void
   deleting?: boolean
   /** Singular/plural do rotulo da entidade, ex: ['veiculo', 'veiculos']. */
   noun: [string, string]
@@ -31,10 +31,12 @@ export function BulkActionsBar({ count, onClear, onDelete, deleting, noun, extra
           Limpar
         </Button>
         {extraActions}
-        <Button variant="danger" onClick={onDelete} loading={deleting}>
-          <Trash2 size={15} />
-          Excluir selecionados
-        </Button>
+        {onDelete ? (
+          <Button variant="danger" onClick={onDelete} loading={deleting}>
+            <Trash2 size={15} />
+            Excluir selecionados
+          </Button>
+        ) : null}
       </div>
     </div>
   )

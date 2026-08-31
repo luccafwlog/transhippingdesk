@@ -1,3 +1,4 @@
+import { escapeFilterTerm } from '../lib/utils'
 import { supabase } from './supabase'
 
 export async function setVazioImportacaoNatureza(
@@ -9,6 +10,68 @@ export async function setVazioImportacaoNatureza(
     .update({ natureza })
     .eq('id', id)
   if (error) throw error
+}
+
+export async function setVaziosImportacaoNaturezaMany(
+  ids: string[],
+  natureza: 'cama' | 'cover_plate' | null,
+) {
+  if (ids.length === 0) return
+  const CHUNK_SIZE = 200
+  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + CHUNK_SIZE)
+    const { error } = await supabase
+      .from('vazios_importacao_containers')
+      .update({ natureza })
+      .in('id', chunk)
+    if (error) throw error
+  }
+}
+
+export async function fetchVaziosImportacaoContainerIds(filters: {
+  manifestId?: string
+  voyageId?: string
+  pod?: string
+  search?: string
+}): Promise<string[]> {
+  let query = supabase
+    .from('vazios_importacao_containers')
+    .select('id')
+    .order('created_at', { ascending: false })
+
+  if (filters.search) {
+    const safe = escapeFilterTerm(filters.search)
+    if (safe) {
+      query = query.or(
+        `container_number.ilike.%${safe}%,container_type.ilike.%${safe}%`,
+      )
+    }
+  }
+
+  if (filters.manifestId) {
+    query = query.eq('manifest_id', filters.manifestId)
+  }
+
+  if (filters.voyageId) {
+    const { data: manifestIds } = await supabase
+      .from('vazios_importacao_manifests')
+      .select('id')
+      .eq('voyage_id', Number(filters.voyageId))
+    const ids = (manifestIds ?? []).map((m: { id: string }) => m.id)
+    if (!ids.length) return []
+    query = query.in('manifest_id', ids)
+  }
+
+  if (filters.pod) {
+    const safe = escapeFilterTerm(filters.pod)
+    if (safe) {
+      query = query.ilike('pod', safe)
+    }
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []).map((r: { id: string }) => r.id)
 }
 
 export async function setContainerUnpackingLocation(

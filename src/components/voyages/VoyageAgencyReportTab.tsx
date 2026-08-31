@@ -768,10 +768,27 @@ export function VoyageAgencyReportTab({ voyageId, voyageLabel, carrierName, pods
             section="vazios_descarregados" state={sectionState('vazios_descarregados')} attribution={sectionAttribution('vazios_descarregados')} canSignoff={canSignoff('vazios_descarregados')} events={eventsBySection('vazios_descarregados')} actorNames={actorNames} isPending={signoffMutation.isPending} onSignoff={updateSignoff}
             observation={signoffRows.get('vazios_descarregados')?.observation} onObservationChange={updateObservation} terminalView={terminalViewFor('vazios_descarregados')}
           >
-            {vaziosImp.length || data?.vaziosDivergence?.baplieCount ? <div className="grid gap-3 md:grid-cols-2">
-              <div className="grid content-start gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted-soft)]">Módulo de Vazios de Importação</span><Hero value={String(vaziosImp.length)} unit="vazios classificados" /><OperatedListing rows={emptyDischargeMatrix.rows} /></div>
-              <div className="grid content-start gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5"><span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted-soft)]">Baplie</span><Hero value={String(data?.vaziosDivergence?.baplieCount ?? 0)} unit="vazios descarregados" />{data?.vaziosDivergence?.unclassifiedCount ? <span className="app-badge app-badge--yellow w-fit">{data.vaziosDivergence.unclassifiedCount} sem natureza</span> : null}<p className="m-0 text-xs leading-5 text-[var(--app-muted-soft)]">O Baplie conta a presença física; o módulo classifica cama e cover plate. A diferença fica visível na divergência abaixo.</p></div>
-            </div> : <NadaOperado />}
+            {vaziosImp.length || data?.vaziosDivergence?.baplieCount ? (
+              <div className="grid content-start gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.09em] text-[var(--app-muted-soft)]">
+                    Vazios descarregados
+                  </span>
+                  <Hero value={String(vaziosImp.length || data?.vaziosDivergence?.baplieCount || 0)} unit="vazios descarregados" />
+                </div>
+                {data?.vaziosDivergence?.unclassifiedCount ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="app-badge app-badge--yellow w-fit">
+                      {data.vaziosDivergence.unclassifiedCount} sem natureza
+                    </span>
+                    <span className="text-xs text-[var(--app-muted-soft)]">
+                      Classifique como cama ou cover plate em Vazios — Importação
+                    </span>
+                  </div>
+                ) : null}
+                <OperatedListing rows={emptyDischargeMatrix.rows} />
+              </div>
+            ) : <NadaOperado />}
             {data?.vaziosDivergence?.diverges ? (
               <DivergenceWarning>
                 Baplie aponta {data.vaziosDivergence.baplieCount} vazio(s) descarregado(s) contra {data.vaziosDivergence.moduleCount} no módulo de Vazios de Importação
