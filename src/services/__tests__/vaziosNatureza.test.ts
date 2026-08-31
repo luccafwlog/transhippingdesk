@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { setContainerUnpackingLocation, setVazioImportacaoNatureza } from '../vaziosNatureza'
+import {
+  setContainerUnpackingLocation,
+  setVazioImportacaoNatureza,
+  setVaziosImportacaoNaturezaMany,
+} from '../vaziosNatureza'
 
 const { mockFrom } = vi.hoisted(() => ({ mockFrom: vi.fn() }))
 
@@ -22,6 +26,26 @@ describe('vaziosNatureza', () => {
     expect(eq).toHaveBeenCalledWith('id', 'empty-1')
   })
 
+  it('atualiza a natureza de múltiplos vazios em lote com chunking', async () => {
+    const inMock = vi.fn(() => Promise.resolve({ error: null }))
+    const update = vi.fn(() => ({ in: inMock }))
+    mockFrom.mockReturnValue({ update })
+
+    const ids = Array.from({ length: 250 }, (_, i) => `id-${i}`)
+    await setVaziosImportacaoNaturezaMany(ids, 'cama')
+
+    expect(mockFrom).toHaveBeenCalledWith('vazios_importacao_containers')
+    expect(update).toHaveBeenCalledWith({ natureza: 'cama' })
+    expect(inMock).toHaveBeenCalledTimes(2)
+    expect(inMock).toHaveBeenNthCalledWith(1, 'id', ids.slice(0, 200))
+    expect(inMock).toHaveBeenNthCalledWith(2, 'id', ids.slice(200))
+  })
+
+  it('não dispara queries se lista de IDs estiver vazia', async () => {
+    await setVaziosImportacaoNaturezaMany([], 'cama')
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
   it('atualiza o local de desova no container compartilhado', async () => {
     const eq = vi.fn(() => Promise.resolve({ error: null }))
     const update = vi.fn(() => ({ eq }))
@@ -42,3 +66,4 @@ describe('vaziosNatureza', () => {
     await expect(setVazioImportacaoNatureza('empty-1', 'cama')).rejects.toThrow('db down')
   })
 })
+

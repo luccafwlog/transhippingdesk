@@ -15,6 +15,8 @@ import { useAuth } from '../hooks/useAuth'
 import { PAGE_SIZES, usePageFilters } from '../hooks/usePageFilters'
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { formatDate } from '../lib/utils'
+import { useRowSelection } from '../hooks/useRowSelection'
+import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import {
   parseVaziosImportacaoFile,
   importVaziosImportacaoManifest,
@@ -23,7 +25,11 @@ import {
   type ParsedVaziosImportacaoManifest,
 } from '../services/vaziosImportacaoImport'
 import { exportVaziosImportacaoWorkbook } from '../services/exports'
-import { setVazioImportacaoNatureza } from '../services/vaziosNatureza'
+import {
+  fetchVaziosImportacaoContainerIds,
+  setVazioImportacaoNatureza,
+  setVaziosImportacaoNaturezaMany,
+} from '../services/vaziosNatureza'
 import { afterManifestoImportado } from '../services/cacheEffects'
 
 const exportPageSize = 200
@@ -77,6 +83,10 @@ export function VaziosImportacao() {
   const [description, setDescription] = useState('')
   const [exporting, setExporting] = useState(false)
   const [updatingNaturezaId, setUpdatingNaturezaId] = useState<string | null>(null)
+  const [bulkUpdating, setBulkUpdating] = useState(false)
+  const [selectingAllFiltered, setSelectingAllFiltered] = useState(false)
+
+  const selection = useRowSelection<string>(filters)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vazios-importacao-containers', filters],
@@ -89,6 +99,10 @@ export function VaziosImportacao() {
   })
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
+  const pageContainerIds = (data?.rows ?? []).map((row) => row.id)
+  const allPageSelected = pageContainerIds.length > 0 && pageContainerIds.every((id) => selection.isSelected(id))
+  const hasMultiplePages = (data?.count ?? 0) > pageContainerIds.length
+  const isAllFilteredSelected = selection.count === (data?.count ?? 0) && (data?.count ?? 0) > 0
 
   const activeFilterCount = (['search', 'manifestId', 'voyageId', 'pod'] as (keyof Filters)[])
     .filter((key) => String(filters[key] ?? '').trim() !== '').length
@@ -114,6 +128,37 @@ export function VaziosImportacao() {
     setUploadOpen(false)
     setVoyageId('')
     setDescription('')
+  }
+
+  async function handleSelectAllFiltered() {
+    setSelectingAllFiltered(true)
+    try {
+      const allIds = await fetchVaziosImportacaoContainerIds(filters)
+      selection.toggleMany(allIds)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao selecionar todos os containers.', 'error')
+    } finally {
+      setSelectingAllFiltered(false)
+    }
+  }
+
+  async function handleBulkNatureza(natureza: 'cama' | 'cover_plate' | null) {
+    const selectedIds = Array.from(selection.selected)
+    if (!selectedIds.length) return
+    setBulkUpdating(true)
+    try {
+      await setVaziosImportacaoNaturezaMany(selectedIds, natureza)
+      await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-containers'] })
+      await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] })
+      await queryClient.invalidateQueries({ queryKey: ['agency-report'] })
+      const label = natureza === 'cama' ? 'Cama' : natureza === 'cover_plate' ? 'Cover plate' : 'Sem natureza'
+      showToast(`${selectedIds.length} container(s) atualizado(s) como ${label}.`, 'success')
+      selection.clear()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao atualizar containers em lote.', 'error')
+    } finally {
+      setBulkUpdating(false)
+    }
   }
 
   async function handleExport() {
@@ -143,6 +188,8 @@ export function VaziosImportacao() {
     try {
       await setVazioImportacaoNatureza(id, natureza)
       await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-containers'] })
+      await queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] })
+      await queryClient.invalidateQueries({ queryKey: ['agency-report'] })
       showToast('Natureza atualizada.', 'success')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao atualizar natureza.', 'error')
@@ -150,6 +197,8 @@ export function VaziosImportacao() {
       setUpdatingNaturezaId(null)
     }
   }
+
+  const colSpanCount = canImport ? 9 : 8
 
   return (
     <>
@@ -208,6 +257,56 @@ export function VaziosImportacao() {
         </div>
       </FilterBar>
 
+      {canImport ? (
+        <BulkActionsBar
+          count={selection.count}
+          onClear={selection.clear}
+          deleting={bulkUpdating}
+          noun={['container', 'containers']}
+          extraActions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                disabled={bulkUpdating}
+                onClick={() => void handleBulkNatureza('cama')}
+              >
+                Definir como Cama
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={bulkUpdating}
+                onClick={() => void handleBulkNatureza('cover_plate')}
+              >
+                Definir como Cover plate
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={bulkUpdating}
+                onClick={() => void handleBulkNatureza(null)}
+              >
+                Limpar Natureza
+              </Button>
+            </div>
+          }
+        />
+      ) : null}
+
+      {canImport && allPageSelected && hasMultiplePages && !isAllFilteredSelected ? (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-2 text-xs text-[var(--app-muted)]">
+          <span>
+            Todos os {pageContainerIds.length} containers desta página estão selecionados.
+          </span>
+          <button
+            type="button"
+            className="font-semibold text-[var(--app-link)] hover:underline disabled:opacity-50"
+            disabled={selectingAllFiltered}
+            onClick={() => void handleSelectAllFiltered()}
+          >
+            {selectingAllFiltered ? 'Selecionando...' : `Selecionar todos os ${data?.count} containers do filtro`}
+          </button>
+        </div>
+      ) : null}
+
       <Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-1 border-b border-[#30363d] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span className="font-semibold text-white">{formatResultCount(data?.count ?? 0, 'container retornado', 'containers retornados')}</span>
@@ -219,6 +318,16 @@ export function VaziosImportacao() {
           <table className="app-table app-table--compact min-w-[600px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
+                {canImport ? (
+                  <th scope="col" className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos os containers da página"
+                      checked={allPageSelected}
+                      onChange={() => selection.toggleMany(pageContainerIds)}
+                    />
+                  </th>
+                ) : null}
                 <th scope="col" className="px-4 py-3">Container</th>
                 <th scope="col" className="px-4 py-3">Tipo</th>
                 <th scope="col" className="px-4 py-3">Tara (kg)</th>
@@ -232,12 +341,12 @@ export function VaziosImportacao() {
             <tbody className="divide-y divide-[#30363d]">
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>Carregando...</td>
+                  <td className="px-4 py-8 text-center text-slate-400" colSpan={colSpanCount}>Carregando...</td>
                 </tr>
               ) : null}
               {!isLoading && data?.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-0">
+                  <td colSpan={colSpanCount} className="p-0">
                     <EmptyState
                       title={emptyState.title}
                       description={emptyState.description}
@@ -251,6 +360,16 @@ export function VaziosImportacao() {
                   : formatDate(row.manifest?.imported_at)
                 return (
                   <tr key={row.id} className="hover:bg-[#21262d]/60">
+                    {canImport ? (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Selecionar container ${row.container_number}`}
+                          checked={selection.isSelected(row.id)}
+                          onChange={() => selection.toggle(row.id)}
+                        />
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3 font-semibold text-[#58a6ff]">{row.container_number}</td>
                     <td className="px-4 py-3">{row.container_type ?? '-'}</td>
                     <td className="px-4 py-3">{row.tare_kg != null ? Number(row.tare_kg).toLocaleString('pt-BR') : '-'}</td>
@@ -259,7 +378,7 @@ export function VaziosImportacao() {
                       <Select
                         aria-label={`Natureza do container ${row.container_number}`}
                         className="min-w-32"
-                        disabled={!canImport || updatingNaturezaId === row.id}
+                        disabled={!canImport || updatingNaturezaId === row.id || bulkUpdating}
                         value={row.natureza ?? ''}
                         onChange={(event) => handleNaturezaChange(
                           row.id,

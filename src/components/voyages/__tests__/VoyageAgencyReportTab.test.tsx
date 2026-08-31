@@ -1282,7 +1282,7 @@ it('aviso de Embarque de Vazios órfão não bloqueia o sign-off da seção', ()
   expect(within(embarqueSection).getByRole('button', { name: 'Nada a declarar' })).toBeTruthy()
 })
 
-it('vazio sem natureza classificada no módulo não vira cover plate na listagem', () => {
+it('vazio sem natureza classificada no módulo não vira cover plate na listagem e exibe card único consolidado', () => {
   useAuthMock.mockReturnValue({ effectiveRole: 'documentacao', isAdmin: false })
   useAgencyReportDerivedMock.mockReturnValue({
     data: {
@@ -1304,6 +1304,8 @@ it('vazio sem natureza classificada no módulo não vira cover plate na listagem
   expect(within(vaziosSection).getByText('40HC · vazio — cama')).toBeTruthy()
   expect(within(vaziosSection).getByText('20GP · vazio')).toBeTruthy()
   expect(within(vaziosSection).queryByText('20GP · vazio — cover plate')).toBeNull()
+  expect(within(vaziosSection).getByText('1 sem natureza')).toBeTruthy()
+  expect(within(vaziosSection).queryByText('Módulo de Vazios de Importação')).toBeNull()
 })
 
 it('fecha o menu compacto de resolução ao pressionar Escape ou clicar fora', () => {
