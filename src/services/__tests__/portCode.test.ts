@@ -4,6 +4,8 @@ import { normalizePortCode, portCodeVariants } from '../portCode'
 describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
   const cases: Array<[string, string]> = [
     ['QINGDAO', 'CNTAO'],
+    ['QINDGAO', 'CNTAO'],
+    ['qindgao', 'CNTAO'],
     ['SHANGHAI', 'CNSHA'],
     ['NINGBO', 'CNNGB'],
     ['NANSHA', 'CNNSA'],
@@ -37,6 +39,7 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
 
   it('retorna aliases persistidos para consultas sem duplicar o porto', () => {
     expect(portCodeVariants('BRVIX')).toEqual(expect.arrayContaining(['BRVIX', 'VITORIA', 'BRVIT']))
+    expect(portCodeVariants('CNTAO')).toEqual(expect.arrayContaining(['CNTAO', 'QINGDAO', 'QINDGAO']))
     expect(portCodeVariants('PECEM')).toEqual(expect.arrayContaining(['BRPEC', 'PECEM']))
     expect(portCodeVariants('CNTAC')).toEqual(expect.arrayContaining(['CNTAC', 'TAICANG', 'CNTAG']))
     expect(portCodeVariants('CNNGB')).toEqual(expect.arrayContaining(['CNNGB', 'ZOS']))

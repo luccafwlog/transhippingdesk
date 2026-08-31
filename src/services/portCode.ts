@@ -24,6 +24,7 @@ const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
   ['rio de janeiro', 'BRRIO'],
   ['manaus', 'BRMAO'],
   ['qingdao', 'CNTAO'],
+  ['qindgao', 'CNTAO'],
   ['tsingtao', 'CNTAO'],
   ['cnqdg', 'CNTAO'],
   ['shanghai', 'CNSHA'],

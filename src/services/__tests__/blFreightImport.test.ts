@@ -1127,4 +1127,87 @@ describe('blFreightImport', () => {
       { blNumber: 'CSC45250E02Y00', blockers: ['Fatura INV-1 ja tem pagamento registrado.'] },
     ])
   })
+
+  it('normaliza o alias QINDGAO para CNTAO nas rotas do B/L no payload e no preview', () => {
+    const doc = parsedBL()
+    doc.route.pol = 'QINDGAO'
+    doc.route.receipt = 'QINDGAO, CHINA'
+    const payload = buildBlFreightPayload(doc, 7)
+    expect(payload.pol).toBe('CNTAO')
+    expect(payload.place_of_receipt).toBe('CNTAO')
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+    })
+    expect(preview.rows[0].pol).toBe('CNTAO')
+  })
+
+  it('substitui integralmente blocos C5, partes, containers, pesos, fretes e descricao na reimportacao', () => {
+    const doc = parsedBL()
+    doc.parties.shipperBlock = 'NOVO SHIPPER COMPLETO\nENDERECO 123'
+    doc.parties.consigneeBlock = 'NOVO CONSIGNEE COMPLETO\nCNPJ: 12.345.678/0001-95'
+    doc.parties.notifyBlock = 'NOVO NOTIFY COMPLETO'
+    doc.parties.alsoNotifyBlock = 'NOVO NOTIFY 2 COMPLETO'
+    doc.cargo.description = 'NOVA DESCRICAO DA CARGA\nNCM: 8703.80.00'
+    doc.cargo.totalPackages = 350
+    doc.cargo.packagesUnit = 'VOLUMES'
+    doc.containers = [
+      {
+        containerNumber: 'TCLU9999999',
+        sealNumber: 'SEAL999',
+        tareKg: 4000,
+        ownership: 'COC',
+        packages: '1 PKG',
+        type: '20GP',
+        grossWeightKg: 15000,
+        cbm: 33.2,
+      },
+    ]
+    doc.freightCharges = [
+      { description: 'OCEAN FREIGHT', rateCurrency: 'USD', rateAmount: 3200, per: 'BL', currency: 'USD', amount: 3200, payment: 'COLLECT' },
+    ]
+
+    const preview = buildBlFreightPreview({
+      documents: [doc],
+      selectedVoyage: { id: 7, vesselName: 'GREEN SANTOS', voyageNumber: '14' },
+      existingBls: [existingBl()],
+    })
+
+    const row = preview.rows[0]
+    expect(row.status).toBe('updated')
+    const diffFields = row.diffs.map((d) => d.field)
+    expect(diffFields).toEqual(
+      expect.arrayContaining([
+        'shipper_block',
+        'consignee_block',
+        'notify_block',
+        'notify2_block',
+        'cargo_description',
+        'total_packages',
+        'packages_unit',
+        'containers',
+        'total_weight_kg',
+        'total_cbm',
+        'bl_freight_lines',
+        'payment_type',
+      ]),
+    )
+    expect(row.payload).toMatchObject({
+      shipper_block: 'NOVO SHIPPER COMPLETO\nENDERECO 123',
+      consignee_block: 'NOVO CONSIGNEE COMPLETO\nCNPJ: 12.345.678/0001-95',
+      notify_block: 'NOVO NOTIFY COMPLETO',
+      notify2_block: 'NOVO NOTIFY 2 COMPLETO',
+      cargo_description: 'NOVA DESCRICAO DA CARGA\nNCM: 8703.80.00',
+      total_packages: 350,
+      packages_unit: 'VOLUMES',
+      payment_type: 'COLLECT',
+      total_weight_kg: 15000,
+      total_cbm: 33.2,
+    })
+    expect(row.payload?.containers).toHaveLength(1)
+    expect(row.payload?.containers[0].container_number).toBe('TCLU9999999')
+    expect(row.payload?.freight_lines).toHaveLength(1)
+    expect(row.payload?.freight_lines[0].description).toBe('OCEAN FREIGHT')
+  })
 })
