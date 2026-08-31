@@ -10,10 +10,10 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   listVaziosImportacaoContainers: vi.fn(),
   listVaziosImportacaoManifests: vi.fn(),
-  setVazioImportacaoNatureza: vi.fn((_id?: string, _nat?: 'cama' | 'cover_plate' | null) => Promise.resolve()),
-  setVaziosImportacaoNaturezaMany: vi.fn((_ids?: string[], _nat?: 'cama' | 'cover_plate' | null) => Promise.resolve()),
-  fetchVaziosImportacaoContainerIds: vi.fn((_filters?: unknown) => Promise.resolve(['c-1', 'c-2', 'c-3'])),
-  exportVaziosImportacaoWorkbook: vi.fn((_rows?: unknown[]) => Promise.resolve()),
+  setVazioImportacaoNatureza: vi.fn(),
+  setVaziosImportacaoNaturezaMany: vi.fn(),
+  fetchVaziosImportacaoContainerIds: vi.fn(),
+  exportVaziosImportacaoWorkbook: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -60,22 +60,26 @@ vi.mock('../../services/vaziosImportacaoImport', () => ({
 }))
 
 vi.mock('../../services/vaziosNatureza', () => ({
-  setVazioImportacaoNatureza: (id: string, nat: 'cama' | 'cover_plate' | null) =>
-    mocks.setVazioImportacaoNatureza(id, nat),
-  setVaziosImportacaoNaturezaMany: (ids: string[], nat: 'cama' | 'cover_plate' | null) =>
-    mocks.setVaziosImportacaoNaturezaMany(ids, nat),
-  fetchVaziosImportacaoContainerIds: (filters: unknown) =>
-    mocks.fetchVaziosImportacaoContainerIds(filters),
+  setVazioImportacaoNatureza: (...args: unknown[]) =>
+    mocks.setVazioImportacaoNatureza(...args),
+  setVaziosImportacaoNaturezaMany: (...args: unknown[]) =>
+    mocks.setVaziosImportacaoNaturezaMany(...args),
+  fetchVaziosImportacaoContainerIds: (...args: unknown[]) =>
+    mocks.fetchVaziosImportacaoContainerIds(...args),
 }))
 
 vi.mock('../../services/exports', () => ({
-  exportVaziosImportacaoWorkbook: (rows: unknown) =>
-    mocks.exportVaziosImportacaoWorkbook(rows as unknown[]),
+  exportVaziosImportacaoWorkbook: (...args: unknown[]) =>
+    mocks.exportVaziosImportacaoWorkbook(...args),
 }))
 
 describe('VaziosImportacao — Atribuição em Lote de Natureza', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.setVazioImportacaoNatureza.mockResolvedValue(undefined)
+    mocks.setVaziosImportacaoNaturezaMany.mockResolvedValue(undefined)
+    mocks.fetchVaziosImportacaoContainerIds.mockResolvedValue(['c-1', 'c-2', 'c-3'])
+    mocks.exportVaziosImportacaoWorkbook.mockResolvedValue(undefined)
     mocks.listVaziosImportacaoManifests.mockReturnValue([])
     mocks.listVaziosImportacaoContainers.mockReturnValue({
       rows: [
