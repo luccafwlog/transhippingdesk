@@ -1,4 +1,4 @@
-﻿-- 365_port_alias_qindgao.sql
+-- 365_port_alias_qindgao.sql
 -- Cadastra a variacao tipografica/comercial QINDGAO como alias para o porto
 -- canonico CNTAO (Qingdao) na funcao de normalizacao de portos.
 --
