@@ -350,7 +350,8 @@ export function Alertas() {
             <thead>
               <tr className="border-b border-[var(--app-border)] bg-[var(--app-card-bg)] text-[var(--app-muted)]">
                 <th className="px-4 py-3 font-medium">Severidade</th>
-                <th className="px-4 py-3 font-medium">Tipo / Responsável</th>
+                <th className="px-4 py-3 font-medium">Tipo</th>
+                <th className="px-4 py-3 font-medium">Responsável</th>
                 <th className="px-4 py-3 font-medium">Mensagem</th>
                 <th className="px-4 py-3 font-medium">Entidade</th>
                 <th className="px-4 py-3 font-medium">Criação</th>
@@ -360,14 +361,14 @@ export function Alertas() {
             <tbody className="divide-y divide-[var(--app-border)]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--app-muted)]">
+                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--app-muted)]">
                     Carregando alertas...
                   </td>
                 </tr>
               ) : null}
               {!isLoading && filteredAlerts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--app-muted)]">
+                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--app-muted)]">
                     {hasActiveFilters
                       ? 'Nenhum alerta corresponde aos filtros aplicados.'
                       : 'Nenhum alerta encontrado no filtro selecionado.'}
@@ -514,11 +515,13 @@ function AlertRow({
           <AlertTriangle size={14} className="shrink-0 text-amber-400" />
           <span className="text-xs text-[var(--app-text)]">{getAlertTypeLabel(effectiveType)}</span>
         </div>
+      </td>
+      <td className="px-4 py-3 text-xs text-[var(--app-muted)] whitespace-nowrap">
         {alert.department ? (
-          <div className="mt-1 text-[11px] text-[var(--app-muted)]">
-            Responsável: {AGENCY_REPORT_DEPARTMENT_LABELS[alert.department] ?? alert.department}
-          </div>
-        ) : null}
+          <span>{AGENCY_REPORT_DEPARTMENT_LABELS[alert.department] ?? alert.department}</span>
+        ) : (
+          <span className="text-[var(--app-muted-soft)]">—</span>
+        )}
       </td>
       <td className="max-w-sm px-4 py-3 text-[var(--app-text)]">{alert.message}</td>
       <td className="px-4 py-3 text-[var(--app-muted)]">
