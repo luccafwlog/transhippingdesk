@@ -98,6 +98,7 @@ src/
 
 scripts/
   check-docs.mjs          verificação de documentação (`npm run docs:check`)
+  provision-preview-admin.mjs  fixture autenticada da Preview Supabase
   perf/                   harness de orçamento de carga das rotas
   design-audit/           bootstrap e seed da auditoria de design
 
@@ -462,6 +463,17 @@ pode mudar sem reconfigurar o repositório. Runs antigos do mesmo ref são
 cancelados (`concurrency` + `cancel-in-progress`), então só o commit mais
 recente do PR ocupa runners.
 
+Após um CI verde, `.github/workflows/provision-preview-admin.yml` executa no
+contexto confiável da branch padrão, aguarda o check `Supabase Preview`, obtém
+as credenciais da branch efêmera e roda `scripts/provision-preview-admin.mjs`.
+Esse script cria ou atualiza `qa-admin@example.test` pela Auth Admin API e
+garante seu `user_profiles.role = 'admin'`. O password fica exclusivamente no
+secret `PREVIEW_ADMIN_PASSWORD`; o workflow também exige os secrets
+`SUPABASE_ACCESS_TOKEN` e `SUPABASE_PROJECT_REF`. Não faça checkout do código da
+PR nesse workflow nem coloque credenciais server-side em `VITE_*`.
+PRs de forks são ignoradas pelo provisionamento porque não podem receber esses
+secrets nem têm branch automática no projeto Supabase conectado.
+
 ### Push em main
 
 O projeto Vercel integrado ao GitHub executa Preview Deployments para pull
@@ -472,6 +484,10 @@ O Preview do Vercel deve usar a integração de branching do Supabase para
 receber `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` da branch Supabase
 automática daquela PR. Não defina uma URL fixa de Preview no projeto Vercel;
 `main` usa somente as credenciais do projeto de produção.
+
+O login com o usuário fixo só deve ser tentado depois que o job `Provision
+Preview Admin` estiver verde. A Vercel pode concluir seu build antes desse job,
+porque o provisionamento altera dados da Auth, não o artefato estático.
 
 ### Edge Functions e banco
 

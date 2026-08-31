@@ -10,6 +10,7 @@
 | Integração | Gatilho | O que faz |
 |---|---|---|
 | `.github/workflows/ci.yml` | `pull_request` e push em `main` | `docs:check`, lint, build, bundle size e testes em shards. |
+| `.github/workflows/provision-preview-admin.yml` | conclusão verde do CI de uma PR | Aguarda o check `Supabase Preview` e cria/atualiza o usuário admin de teste na branch Supabase correspondente. |
 | Supabase GitHub Integration — Automatic branching | branch/PR do GitHub | Cria a branch Supabase efêmera correspondente e executa migrations/configuração do Preview. |
 | Supabase + Vercel Branching Integration | PR aberta | Sincroniza as variáveis públicas do Preview com a branch Supabase correspondente e reimplanta se houver corrida de timing. |
 | Supabase GitHub Integration — Deploy to production | merge/push em `main` | Aplica migrations e publica os artefatos de produção no projeto Supabase principal. |
@@ -94,6 +95,39 @@ estado, e o redeploy automático da integração substitui a página pela build
 real. Em Production, ou com as variáveis presentes, o wrapper apenas executa
 `npm run build`: a falta de variável em produção continua quebrando o build de
 forma visível.
+
+### Usuário administrador da Preview
+
+O workflow [`provision-preview-admin.yml`](../../.github/workflows/provision-preview-admin.yml)
+é executado por `workflow_run` após um CI verde de uma PR. Ele usa a versão do
+arquivo na branch padrão e faz checkout explícito dessa mesma branch; não
+executa scripts modificados pela PR com secrets disponíveis. Depois de aguardar
+o check `Supabase Preview`, obtém as credenciais da branch com o Supabase CLI e
+roda [`scripts/provision-preview-admin.mjs`](../../scripts/provision-preview-admin.mjs).
+
+O script usa a Auth Admin API server-side para criar ou atualizar, de forma
+idempotente, o usuário `qa-admin@example.test`, confirmar seu e-mail e fazer
+upsert de `public.user_profiles` com `role = 'admin'` e `active = true`. A senha
+não fica no repositório nem em variáveis `VITE_*`. O usuário é recriado quando a
+PR gera uma nova branch; ao fechar a PR, o próprio Supabase remove a Preview
+Branch e seus dados.
+
+Configure uma vez, em **Settings → Secrets and variables → Actions** do
+repositório, os secrets:
+
+| Secret | Conteúdo |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN` | Personal access token do Supabase com acesso ao projeto e ao branching. |
+| `SUPABASE_PROJECT_REF` | `fgmkhbzhaeebrsizwccx`, project ref de produção usado para localizar as branches. |
+| `PREVIEW_ADMIN_PASSWORD` | Senha fixa de teste, com pelo menos 8 caracteres e compatível com a política de Auth. |
+
+O `SUPABASE_ACCESS_TOKEN` e a senha são consumidos somente pelo GitHub Actions.
+Não use `pull_request_target` com checkout do código da PR e não copie a chave
+server-side para o Vercel. O Vercel pode terminar o build antes do workflow de
+provisionamento, mas o login só deve ser testado depois que o job
+`Provision Preview Admin` estiver verde.
+PRs originadas de forks são ignoradas, pois não têm acesso aos secrets e não
+possuem uma branch automática correspondente no projeto Supabase conectado.
 
 O arquivo [`supabase/seed.sql`](../../supabase/seed.sql) é executado depois das
 migrations em resets/bancos descartáveis e fornece os catálogos-base corretos

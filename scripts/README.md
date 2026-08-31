@@ -280,6 +280,20 @@ termina com erro de propósito — serve como portão antes da migração real.
 
 ---
 
+## 11. Usuário admin da Preview (`provision-preview-admin`)
+
+**O que faz:** cria ou atualiza o usuário `qa-admin@example.test` usando a Auth
+Admin API e garante o perfil interno `admin` na branch Supabase indicada pelas
+variáveis `SUPABASE_URL` e `SUPABASE_SECRET_KEY` (ou a chave legada
+`SUPABASE_SERVICE_ROLE_KEY`).
+
+O uso normal é automático pelo workflow
+`.github/workflows/provision-preview-admin.yml`, depois que a branch Preview
+está saudável. A senha vem de `PREVIEW_ADMIN_PASSWORD` e nunca deve ser
+colocada em `VITE_*` ou no repositório.
+
+---
+
 ### Resumo rápido
 
 | Ferramenta | Para quê serve |
@@ -294,3 +308,4 @@ termina com erro de propósito — serve como portão antes da migração real.
 | `download-fonts` | Rebaixar as fontes do site para `public/fonts/` |
 | `no-mistakes/setup` | Ligar a proteção contra erros de Git |
 | `migracao-demurrage/dry-run` | Ensaiar a migração do Demurrage Manager (só lê) |
+| `provision-preview-admin` | Provisionar o usuário admin da branch Preview |

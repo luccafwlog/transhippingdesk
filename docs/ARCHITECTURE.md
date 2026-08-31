@@ -46,6 +46,12 @@ roteamento entre operação interna e Portal continua sendo responsabilidade do
 host/rota/autenticação da aplicação. O Firebase permanece apenas como rollback
 temporário durante a troca de DNS.
 
+Depois de um CI verde, o workflow confiável
+`.github/workflows/provision-preview-admin.yml` aguarda o check da branch
+Supabase e provisiona `qa-admin@example.test` pela Auth Admin API da própria
+Preview, com perfil interno `admin`. A senha existe somente como secret do
+GitHub Actions; ela não participa do bundle Vite nem do projeto de produção.
+
 ### Alertas e notificações internas
 
 Alertas internos têm um agregado histórico em `alerts` e uma projeção de
@@ -118,6 +124,10 @@ As duas sessões podem coexistir no navegador sem que um logout derrube a outra.
 O usuário autentica pelo Supabase Auth e precisa de perfil ativo em
 `user_profiles`. A interface usa o perfil para navegação e UX; RLS e RPCs
 continuam responsáveis pela autorização.
+
+Em Preview, o usuário fixo de teste é criado ou reparado automaticamente pelo
+workflow de provisionamento após a branch Supabase estar saudável. Isso é um
+procedimento de ambiente, não um usuário ou uma migration de produção.
 
 ### Portal do Cliente
 
