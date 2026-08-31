@@ -29,17 +29,28 @@ quem deve pagá-la.
 
 ## Nota editorial — 2026-08-31
 
-O gate decidido aqui seguia aceito e **não implementado**: nenhuma migration
-posterior à `188` restaurou a guarda, e por isso a UI e o `CONTEXT.md` ainda
-descreviam a categoria de bloqueio como fechada em três motivos. A implementação
-foi retomada nesta data, com dois pontos fixados que esta ADR não detalhava:
+O gate decidido aqui **foi implementado** pela migration
+`337_review_portal_alert_producer.sql`, que devolveu
+`Acesso ao portal nao provisionado` ao produtor canônico
+`compute_bl_review_pendencies`. Como a fronteira que promove
+`ready_for_billing` e emite consulta essa função e recusa gravando
+`billing_hold_reason`, a guarda server-side exigida por esta ADR está em vigor.
+Nem esta ADR nem o `CONTEXT.md` foram atualizados na época, e por isso o
+glossário seguiu descrevendo a categoria de bloqueio como fechada em três
+motivos — a contradição era documental, não de comportamento.
 
-- **Critério de prontidão** — vale o texto da decisão: conta ativa, vinculada ao
-  usuário de autenticação, com e-mail de recuperação válido e não suprimido.
-  `convite_pendente` não passa: o cliente ainda não acessou.
+Dois pontos ficam fixados agora, ambos pendentes de implementação:
+
+- **Critério de prontidão** — a 337 verifica apenas conta `active` com
+  `auth_user_id`. O texto desta ADR exige mais: conta ativa
+  (`account_situation = 'ativo'`), vinculada ao usuário de autenticação, com
+  e-mail de recuperação válido e não suprimido. `convite_pendente` não passa: o
+  cliente ainda não acessou.
 - **Precedência na fila** — quando há mais de um bloqueio aberto, o portal é o
   último exibido (cliente, cálculo, CE Mercante, portal), por ser o único que se
-  resolve no cadastro do cliente e não no B/L.
+  resolve no cadastro do cliente e não no B/L. Hoje a Validação não nomeia esse
+  motivo: ele chega como `billing_hold_reason` genérico e é exibido como
+  *Cálculo incompleto*.
 
 O gate atinge a **emissão**, individual e consolidada, nunca o cálculo: as taxas
 seguem sendo calculadas para conferência com o bloqueio aberto.

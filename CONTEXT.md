@@ -801,7 +801,8 @@ de marcação como pronto.
 
 Nenhum deles impede **calcular**: as taxas são calculadas para conferência
 mesmo com bloqueio aberto. Todos impedem **emitir** — a fatura só existe quando
-o cliente pode recebê-la e vê-la (ADR 0054). Quando mais de um está aberto, o
+o cliente pode recebê-la e vê-la (ADR 0054, em vigor no servidor desde a
+migration `337`). Quando mais de um está aberto, o
 motivo exibido segue esta ordem: cliente, cálculo, CE Mercante, portal. O portal
 vem por último porque é o único que não se resolve no B/L: é cadastro do
 cliente, e vale para todos os B/Ls dele.
