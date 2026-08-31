@@ -793,10 +793,18 @@ específicas do cliente.
 
 **Motivo de Bloqueio de Faturamento**
 *Pronto para emitir* é um código resolvido, fora da fila padrão, e não um bloqueio.
-Categoria fechada que responde por que um B/L ainda não virou fatura. São três,
+Categoria fechada que responde por que um B/L ainda não virou fatura. São quatro,
 e nenhuma é status marcado por alguém: *Sem cliente vinculado*, *Cálculo
-incompleto* e *Aguardando CE Mercante*. A confirmação do cálculo é o cadastro do
-CE Mercante — não existe ato separado de aprovação ou de marcação como pronto.
+incompleto*, *Aguardando CE Mercante* e *Portal não provisionado*. A confirmação
+do cálculo é o cadastro do CE Mercante — não existe ato separado de aprovação ou
+de marcação como pronto.
+
+Nenhum deles impede **calcular**: as taxas são calculadas para conferência
+mesmo com bloqueio aberto. Todos impedem **emitir** — a fatura só existe quando
+o cliente pode recebê-la e vê-la (ADR 0054). Quando mais de um está aberto, o
+motivo exibido segue esta ordem: cliente, cálculo, CE Mercante, portal. O portal
+vem por último porque é o único que não se resolve no B/L: é cadastro do
+cliente, e vale para todos os B/Ls dele.
 Distinto de `charge_status`, que é registro interno do motor de cálculo e não é
 exibido ao operador.
 
@@ -953,6 +961,15 @@ Recálculo Diário a uma taxa local criaria dois comportamentos para o mesmo
 documento conforme a moeda do item.
 
 - **Related:** ROE, Recálculo Diário, Item de Taxa
+
+**Conferência de Cálculo**
+Reconstituição de como o valor de taxas locais de um B/L foi obtido: a tabela de
+cobrança usada, os itens dela que incidiram, a base de aplicação de cada item e a
+quantidade correspondente. É leitura, nunca ato — conferir não recalcula, não
+aprova e não emite. Enquanto a fatura não existe, a conferência é feita sobre o
+cálculo; emitida a fatura, ela passa a ser a fonte, porque é o que o cliente
+recebeu.
+- **Related:** Taxas Locais, Item de Taxa, Invoice Individual, Invoice Consolidada
 
 **Recebível Local**
 Saldo financeiro de taxas locais de um B/L. Pode ser ligado a invoice individual
