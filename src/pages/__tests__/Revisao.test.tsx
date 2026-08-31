@@ -88,11 +88,11 @@ function makeLinkedBl(
   } as unknown as ReviewQueueItem
 }
 
-function renderPage() {
+function renderPage(initialEntries = ['/revisao']) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <Revisao />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -303,6 +303,27 @@ describe('Revisao', () => {
     await user.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
 
     expect(mockedSaveGraniteBlReview).not.toHaveBeenCalled()
+  })
+
+  it('inicializa com busca pré-preenchida e auto-expande o grupo quando passado query param ?cliente=...', async () => {
+    mockedUseReviewQueue.mockReturnValue({
+      data: [
+        makeBl('BL1', 'Empresa Alpha'),
+        makeLinkedBl('BL2', { emails: ['alpha@test.com'], portalActive: true }),
+      ],
+      isLoading: false,
+      error: null,
+    } as never)
+
+    renderPage(['/revisao?cliente=Linked'])
+
+    const searchInput = screen.getByPlaceholderText('Buscar B/L, cliente, consignatário...') as HTMLInputElement
+    expect(searchInput.value).toBe('Linked')
+
+    // Somente o grupo correspondente a 'Linked' deve estar visível e seus B/Ls auto-expandidos
+    expect(screen.getByText('Linked Co SA')).toBeTruthy()
+    expect(screen.getByText('BL2')).toBeTruthy()
+    expect(screen.queryByText('Empresa Alpha')).toBeNull()
   })
 
 })
