@@ -270,7 +270,7 @@ export function Alertas() {
                 style={{ paddingLeft: '38px' }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Ex.: MSC, CNPJ, BL123..."
+                placeholder="Ex.: COSCO SHIPPING, CNPJ, BL123..."
                 aria-label="Buscar alertas"
               />
             </span>
@@ -311,7 +311,7 @@ export function Alertas() {
           <div>
             <span className="mb-1 block text-xs font-medium text-[var(--app-muted)]">Severidade</span>
             <select
-              className="app-input app-select text-xs py-1.5 px-3 w-full sm:w-44"
+              className="app-input app-select text-xs py-1.5 px-3 w-full sm:w-48"
               value={severityFilter}
               aria-label="Filtrar por severidade"
               onChange={(e) => setSeverityFilter(e.target.value)}
