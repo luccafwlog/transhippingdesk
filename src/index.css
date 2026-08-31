@@ -4130,7 +4130,11 @@ textarea {
 
 .app-lineup-display-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
   flex-direction: column;
   background:
     linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
@@ -4520,7 +4524,10 @@ textarea {
 
 @media (max-width: 1024px) {
   .app-lineup-display-shell {
+    height: auto;
     min-height: 100svh;
+    max-height: none;
+    overflow: visible;
   }
 
   .app-lineup-display-header {

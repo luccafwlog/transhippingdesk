@@ -3,6 +3,14 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-08
+- **Revisão e correção da rolagem da tela Line-up TV (Issue #582):**
+  correção do loop contínuo de rotação no quadro `/line-up-tv/display`. A condição
+  de ativação do carrossel foi ajustada de `> DISPLAY_VISIBLE_ROWS + 1` para
+  `> DISPLAY_VISIBLE_ROWS` (8 linhas), eliminando a inacessibilidade da 9ª escala;
+  a detecção mobile/touch foi calibrada para responder reativamente por largura de
+  tela (`window.innerWidth <= 1024`), impedindo que computadores desktop com tela touch
+  exibam cards mobile; e o shell desktop recebeu contenção estrita de altura contra
+  overflow vertical do documento.
 - **Branching automático Supabase ↔ GitHub ↔ Vercel:** o fluxo de Preview volta
   a usar uma branch Supabase efêmera por PR. A integração de branching atualiza
   `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no Preview correspondente, e
