@@ -14,6 +14,15 @@ Quando um plano é totalmente executado, ele é movido para
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
+### Sincronização de 2026-09-01
+
+> **Nota de sincronização do Bloco 1 (PR #645).**
+> O **Bloco 1 — Fundação** do plano de Comunicação por E-mail com Clientes foi implementado
+> na [PR #645](https://github.com/luccafwlog/transhippingdesk/pull/645) (migration `372_comunicados_fundacao.sql`),
+> cobrindo a mecânica compartilhada `_shared/email.ts`, modelo de dados com idempotência `NULLS NOT DISTINCT`,
+> isolamento de naturezas, RLS e permissão RBAC `customer_communications`, webhook com cascata de bounce
+> e preferências de recebimento na Ficha do Cliente.
+
 ### Sincronização de 2026-08-20
 
 O plano de 2026-08-11 foi ressincronizado com as decisões posteriores a ele —

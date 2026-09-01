@@ -15,6 +15,15 @@ A spec é a fonte das decisões **funcionais**; este plano decide **como e em qu
 ordem** implementá-las, e registra o que a leitura do código e a rodada de
 perguntas ao produto obrigaram a corrigir nela.
 
+## Progresso de Implementação
+
+| Bloco | Escopo | PR / Migration | Status |
+|---|---|---|---|
+| **Bloco 1 — Fundação** | T1 a T7 (Mecânica `_shared/email.ts`, Migration 372, RBAC, Ficha, Webhook + Cascata de Bounce) | [PR #645](https://github.com/luccafwlog/transhippingdesk/pull/645) / `372_comunicados_fundacao.sql` | **DONE** (2026-09-01) |
+| **Bloco 2 — Avisos Operacionais** | T8 a T11 (Gatilhos NOA/NOR/NOB, modal com hora, preview e disparo) | — | TODO |
+| **Bloco 3 — CE Mercante e Demurrage** | T12 a T16 (Régua semanal, disparo no CE Mercante, alerta e histórico) | — | TODO |
+| **Bloco 4 — Disparo Livre, Cleanup e Gate Final** | T17 a T20 (Disparo livre, remoção de `notify-invoice-issued`, consolidação) | — | TODO |
+
 ## Problema
 
 A agência envia NOA, NOR, avisos institucionais e cobranças de Demurrage
@@ -267,6 +276,8 @@ com confirmação do operador.
 ---
 
 # Bloco 1 — Fundação
+
+> **Status:** Concluído na [PR #645](https://github.com/luccafwlog/transhippingdesk/pull/645) (migration `372_comunicados_fundacao.sql`).
 
 Sem tela e sem envio a cliente real. Ao fim do bloco o canal existe, está
 desligado, e a mecânica de envio tem um dono só.
