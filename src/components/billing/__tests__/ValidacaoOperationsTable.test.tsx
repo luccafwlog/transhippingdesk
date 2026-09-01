@@ -132,10 +132,11 @@ describe('ValidacaoOperationsTable', () => {
     expect(screen.getByText('Cliente manifesto')).toBeTruthy()
     expect(screen.getByText('ACME LOGISTICA LTDA')).toBeTruthy()
     const links = screen.getAllByRole('link', { name: /Vincular cliente na Revisão/ })
-    expect(links.length).toBeGreaterThan(0)
+    expect(links).toHaveLength(1)
     for (const link of links) {
       expect(link.getAttribute('href')).toBe('/revisao?bl=BL-001')
     }
+    expect(screen.queryByText('Conciliação pendente')).toBeNull()
   })
 
   it('não repete o motivo na coluna quando a linha está expandida e rotula estados finais sem alarme', () => {

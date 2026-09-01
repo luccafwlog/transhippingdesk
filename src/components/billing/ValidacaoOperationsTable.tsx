@@ -10,7 +10,7 @@ import { formatPortDisplayName } from '../../lib/voyageFormat'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import type { LocalChargeOperationalRow } from '../../services/charges/chargeOperationsService'
-import { ConferenciaCalculo } from './ConferenciaCalculo'
+import { ConferenciaCalculo } from './ConferenciaCalculo.tsx'
 import { getBillingBlock, isBlLockedForRecalc } from './validacaoPipeline'
 import { calloutTitle, calloutTone, describeLastEvent } from './validacaoDetalhes'
 
@@ -170,6 +170,34 @@ export function ValidacaoOperationsTable({
                                     : 'Nenhum cliente vinculado a este B/L.'}
                                 </div>
                               </div>
+                              {reconciliationPending && queueItem ? (
+                                <>
+                                  <div>
+                                    <div className="text-[var(--app-muted)]">Cliente no manifesto</div>
+                                    <div className="whitespace-normal text-[var(--app-text-strong)]">{queueItem.manifest_customer_name ?? 'Não informado no manifesto'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-[var(--app-muted)]">CNPJ</div>
+                                    <div className="text-[var(--app-text-strong)]">{queueItem.cnpj_cpf ? formatCnpjCpf(queueItem.cnpj_cpf) : 'Não informado no manifesto'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-[var(--app-muted)]">Cliente sugerido</div>
+                                    <div className="whitespace-normal text-[var(--app-text-strong)]">
+                                      {queueItem.customer_id
+                                        ? (queueItem.current_customer_name ?? 'Cliente sem nome cadastrado')
+                                        : 'Nenhum cliente sugerido — cadastre o cliente na Revisão.'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-[var(--app-muted)]">Detecção</div>
+                                    <div>{renderDetectionType(queueItem.detection_type)}</div>
+                                  </div>
+                                </>
+                              ) : reconciliationPending ? (
+                                <div className="col-span-2 text-sm text-[var(--app-muted)]">
+                                  Nenhum item de conciliação encontrado na fila para este B/L.
+                                </div>
+                              ) : null}
                               <div>
                                 <div className="text-[var(--app-muted)]">Subtotal</div>
                                 <div className="text-[var(--app-text-strong)]">
@@ -216,49 +244,6 @@ export function ValidacaoOperationsTable({
                           {row.cargo_mode === 'granito' ? null : (
                             <ConferenciaCalculo blId={row.id} financialStatus={row.financial_status} />
                           )}
-                          {reconciliationPending && queueItem ? (
-                            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-                              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-700">Conciliação pendente</div>
-                              <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Cliente no manifesto</div>
-                                  <div className="whitespace-normal text-[var(--app-text-strong)]">{queueItem.manifest_customer_name ?? 'Não informado no manifesto'}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">CNPJ</div>
-                                  <div className="text-[var(--app-text-strong)]">{queueItem.cnpj_cpf ? formatCnpjCpf(queueItem.cnpj_cpf) : 'Não informado no manifesto'}</div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Cliente sugerido</div>
-                                  <div className="whitespace-normal text-[var(--app-text-strong)]">
-                                    {queueItem.customer_id
-                                      ? (queueItem.current_customer_name ?? 'Cliente sem nome cadastrado')
-                                      : 'Nenhum cliente sugerido — cadastre o cliente na Revisão.'}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-[var(--app-muted)]">Detecção</div>
-                                  <div>{renderDetectionType(queueItem.detection_type)}</div>
-                                </div>
-                              </div>
-                              {/* ADR 0061: a conciliacao tem casa unica, a Revisao. Esta fila
-                                  exibe o estado e aponta para la; nao decide. A Revisao produz
-                                  o efeito completo (vinculo + captura do contato do manifesto,
-                                  migration 370), que era o que faltava para remover os botoes
-                                  daqui sem perder capacidade. */}
-                              <Link
-                                className="app-table__action"
-                                to={`/revisao?bl=${encodeURIComponent(row.id)}`}
-                              >
-                                Vincular cliente na Revisão →
-                              </Link>
-                            </div>
-                          ) : reconciliationPending ? (
-                            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-                              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700">Conciliação pendente</div>
-                              <div className="text-sm text-[var(--app-muted)]">Nenhum item de conciliação encontrado na fila para este B/L.</div>
-                            </div>
-                          ) : null}
                         </div>
                       </td>
                     </tr>

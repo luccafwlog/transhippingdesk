@@ -86,9 +86,10 @@ foi removido junto com a coluna `invoices.due_date`.
   motivo deixa de repetir na coluna Motivo enquanto a linha está expandida. A
   expansão mostra ainda cliente vinculado com CNPJ formatado, CE Mercante,
   subtotal (BRL e USD quando houver), e o último evento auditado com o campo
-  humanizado e data/hora (`describeLastEvent`); a conciliação pendente formata o
-  CNPJ do manifesto e explica quando não há cliente sugerido para aprovar. Cada
-  bloqueio aponta para onde se resolve: cliente para `/revisao?bl=<id>` — a
+  humanizado e data/hora (`describeLastEvent`); a conciliação pendente mantém os
+  dados do manifesto, CNPJ, sugestão e detecção dentro do bloco "Detalhes", sem
+  montar uma segunda caixa. O callout do bloqueio concentra o único link para
+  onde se resolve: cliente para `/revisao?bl=<id>` — a
   Revisão lê `bl` junto de `cliente`/`busca`/`q`, filtrando a fila e abrindo o
   grupo daquele B/L (ADR 0061) —, CE
   Mercante para a ficha do B/L e portal para a ficha do cliente — este último
