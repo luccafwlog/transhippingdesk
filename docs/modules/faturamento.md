@@ -94,6 +94,25 @@ foi removido junto com a coluna `invoices.due_date`.
   Mercante para a ficha do B/L e portal para a ficha do cliente — este último
   visível a todos os perfis, já que conhecer o bloqueio não exige a permissão
   `portal_provisioning` que a tela de destino aplica.
+- **Conferência de cálculo na expansão (issue 583):** a expansão do B/L mostra
+  como se chegou ao valor, não só qual é. `list_bl_local_charge_lines` passou a
+  devolver `charge_table_name`, `charge_table_pod` e `application_basis`
+  (migration `369`, `DROP`+`CREATE` porque o `RETURNS TABLE` muda de forma):
+  `charge_tables` e `charge_table_items` são admin-only sob RLS, então sem essas
+  colunas a tela não teria como nomear a tabela usada. `ConferenciaCalculo`
+  agrupa as linhas por origem (`src/components/billing/conferenciaCalculo.ts`):
+  um grupo por tabela de cobrança, com o porto de descarga no subtítulo — é o
+  POD que escolhe a tabela, Vitória cobra pela de Vitória e Salvador pela de
+  Salvador —, mais os grupos **Lançamentos manuais** e **Sem tabela vinculada**,
+  este último marcado como anomalia por ser linha automática sem tabela. Cada
+  grupo soma seu subtotal e o cabeçalho soma o total, BRL e USD separados, sem
+  converter moeda. A conferência nasce aberta: quem expande o B/L está ali para
+  conferir. Granito não a exibe (não participa da emissão), e para B/L faturado
+  as mesmas linhas aparecem rotuladas como as que compuseram a fatura — é delas
+  que o detalhamento da fatura é reconstruído em leitura
+  (`get_consolidated_invoice_item_breakdown`). Portos aparecem pelo alias e não
+  pelo LOCODE: `formatPortDisplayName` cobre os códigos canônicos que
+  `normalize_port_code` produz (migration `365`).
 - **Etapa 12 do plano de faturamento (ADR 0038):** a aba Pendências foi
   removida — era subconjunto literal da Validação (mesma fonte
   `useLocalChargeOperations`, mesmo limite 1200, só `chargeStatus=review_required`

@@ -15,15 +15,29 @@ export function formatPortDisplayName(port: string | null | undefined) {
     CNTAC: 'TAICANG',
     CNTAG: 'TAICANG',
     CNTAI: 'TAICANG',
-    CNTAO: 'CNTAO',
-    CNQDG: 'CNTAO',
+    CNTAO: 'QINGDAO',
+    CNQDG: 'QINGDAO',
     CNZJG: 'ZHANGJIAGANG',
     CNXMN: 'XIAMEN',
     CNSHK: 'SHEKOU',
     CNYTN: 'YANTIAN',
     HKHKG: 'HONG KONG',
+    // Lado brasileiro: os codigos canonicos sao os que `normalize_port_code`
+    // (migration 365) produz, e e por eles que a tabela de cobranca e escolhida.
+    // Sem estes nomes a tela mostra o LOCODE cru justamente no porto de descarga,
+    // que e o dado que explica qual tabela foi usada.
+    BRVIX: 'VITORIA',
     BRVIT: 'VITORIA',
     VIX: 'VITORIA',
+    BRSSA: 'SALVADOR',
+    BRSSZ: 'SANTOS',
+    BRPNG: 'PARANAGUA',
+    BRITJ: 'ITAJAI',
+    BRRIG: 'RIO GRANDE',
+    BRSUA: 'SUAPE',
+    BRRIO: 'RIO DE JANEIRO',
+    BRPEC: 'PECEM',
+    BRMAO: 'MANAUS',
   }
 
   return portNames[normalized] ?? (String(port ?? '').trim() || '-')
