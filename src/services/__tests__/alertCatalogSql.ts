@@ -20,6 +20,7 @@ const CATALOG_MIGRATIONS = [
   '325_clientes_portal_disputes_alerts.sql',
   '372_comunicados_fundacao.sql',
   '374_comunicados_alertas.sql',
+  '377_portal_invoice_exception_audience.sql',
 ]
 
 // Migrations que aposentam tipos. Aceitam tanto `type IN (...)` quanto
@@ -31,6 +32,7 @@ const DEACTIVATION_MIGRATIONS = [
 
 const ENTRY_PATTERN = /\(\s*'([a-z0-9_]+)',\s*'(critical|normal)',\s*'([a-z_]+)',\s*ARRAY\[([^\]]*)\],\s*'([^']+)'\s*\)/g
 const DEACTIVATION_PATTERN = /SET\s+active\s*=\s*false\s+WHERE\s+type\s+(?:IN\s*\(([^)]*)\)|=\s*('[a-z0-9_]+'))/i
+const AUDIENCE_UPDATE_PATTERN = /UPDATE\s+public\.alert_type_catalog\s+SET\s+audience_departments\s*=\s*ARRAY\[([^\]]*)\][^;]*?WHERE\s+type\s*=\s*'([a-z0-9_]+)'/gi
 
 function readMigration(fileName: string): string {
   return readFileSync(resolve(process.cwd(), 'supabase/migrations', fileName), 'utf8')
@@ -51,6 +53,11 @@ export function readSqlAlertCatalog(): SqlAlertCatalogEntry[] {
         defaultDestination,
         active: true,
       })
+    }
+    for (const match of migration.matchAll(AUDIENCE_UPDATE_PATTERN)) {
+      const [, audience, type] = match
+      const entry = entries.get(type)
+      if (entry) entry.audienceDepartments = Array.from(audience.matchAll(/'([a-z_]+)'/g), (item) => item[1])
     }
   }
 

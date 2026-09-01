@@ -17,7 +17,8 @@ AS $function$
 DECLARE
   v_result JSONB;
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN
+  IF auth.role() IS DISTINCT FROM 'service_role'
+     AND (auth.uid() IS NULL OR NOT public.is_active_read_user()) THEN
     RAISE EXCEPTION 'Usuário interno ativo é obrigatório.' USING ERRCODE = '42501';
   END IF;
 
@@ -68,7 +69,7 @@ BEGIN
       ), '[]'::JSONB) AS bls
     FROM annotated
   ), reason_aggregate AS (
-    SELECT COALESCE(jsonb_agg(DISTINCT reason), '[]'::JSONB) AS reasons
+    SELECT COALESCE(jsonb_agg(DISTINCT reason ORDER BY reason), '[]'::JSONB) AS reasons
     FROM annotated
     CROSS JOIN LATERAL unnest(annotated.blocked_reasons) AS reason
   )

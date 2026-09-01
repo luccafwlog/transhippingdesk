@@ -31,6 +31,7 @@ type FinanceBlRow = {
 type InvoiceBlRow = {
   bl_id: string | null
   subtotal_brl: number | null
+  status?: string | null
   invoice: { id: number; status: string | null } | null
 }
 
@@ -95,16 +96,34 @@ async function fetchFinanceBls(voyageId: number, customerId: number): Promise<Fi
 
 async function fetchInvoiceBls(blIds: readonly string[]): Promise<InvoiceBlRow[]> {
   if (!blIds.length) return []
-  const { data, error } = await supabase
+  const { data: directData, error: directError } = await supabase
     .from('invoice_bls')
     .select('bl_id, subtotal_brl, invoice:invoices(id, status)')
     .in('bl_id', [...blIds])
     .overrideTypes<InvoiceBlRow[], { merge: false }>()
-  if (error) throw error
-  return (data ?? []).map((row) => ({
+  if (directError) throw directError
+  const directRows = (directData ?? []).map((row) => ({
     ...row,
     invoice: normalizeNested(row.invoice),
-  }))
+  })).filter((row) => row.bl_id && row.invoice && ACTIVE_LOCAL_INVOICE_STATUSES.has(row.invoice.status ?? ''))
+  const directBlIds = new Set(directRows.map((row) => row.bl_id as string))
+  const missingBlIds = blIds.filter((blId) => !directBlIds.has(blId))
+  if (!missingBlIds.length) return directRows
+
+  // Individual invoices are present in invoice_bls and are mirrored into the
+  // ledger. Consolidated invoices only have invoice_receivable_links; prefer
+  // the direct source per B/L so the mirror is never counted twice.
+  const { data: ledgerData, error: ledgerError } = await supabase
+    .from('invoice_receivable_links')
+    .select('bl_id, subtotal_brl, status, invoice:invoices(id, status)')
+    .in('bl_id', missingBlIds)
+    .overrideTypes<InvoiceBlRow[], { merge: false }>()
+  if (ledgerError) throw ledgerError
+  const ledgerRows = (ledgerData ?? []).map((row) => ({
+    ...row,
+    invoice: normalizeNested(row.invoice),
+  })).filter((row) => row.bl_id && row.status !== 'obsolete' && row.invoice && ACTIVE_LOCAL_INVOICE_STATUSES.has(row.invoice.status ?? ''))
+  return [...directRows, ...ledgerRows]
 }
 
 async function fetchContacts(customerId: number): Promise<{

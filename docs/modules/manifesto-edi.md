@@ -105,9 +105,11 @@ importação vivos — o de documento do B/L e o de carga solta.
 Ela roda **antes** do laço de pendências, e não dentro dele: o laço faz
 `CONTINUE` para B/L sem pendência, que é exatamente o caso do vínculo
 automático por CNPJ (`matched_document`). Esse B/L nunca chega à Revisão, então
-a importação é a única oportunidade de registrar o contato — e sem contato
-nenhum na ficha, `notify-invoice-issued` não tem para quem enviar e o aviso da
-fatura não sai.
+a importação é a única oportunidade de registrar o contato. Depois que o CE
+Mercante é vinculado, o comunicado financeiro consulta a prontidão de todos os
+B/Ls ativos do cliente na viagem; quando o conjunto está completo, o resumo de
+CE e Taxas Locais é disparado em background pelo canal
+`send-customer-communication`, sujeito à chave global e às supressões.
 
 Duas notas de estado:
 

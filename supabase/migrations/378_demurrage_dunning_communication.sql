@@ -30,7 +30,6 @@ AS $function$
 DECLARE
   v_invoice RECORD;
   v_interval_days INTEGER;
-  v_claim_count INTEGER;
   v_inserted INTEGER;
   v_candidates JSONB := '[]'::JSONB;
 BEGIN

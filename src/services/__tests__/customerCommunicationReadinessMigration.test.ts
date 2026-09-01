@@ -8,6 +8,7 @@ describe('migration 376 — prontidão financeira de Comunicados', () => {
   it('expõe uma RPC por cliente e viagem, com guarda interna e grants de leitura', () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.customer_local_charges_communication_readiness\(\s*p_voyage_id BIGINT,\s*p_customer_id BIGINT\s*\)/i)
     expect(sql).toMatch(/RETURNS JSONB[\s\S]*SECURITY DEFINER[\s\S]*is_active_read_user\(\)[\s\S]*42501/i)
+    expect(sql).toContain("auth.role() IS DISTINCT FROM 'service_role'")
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.customer_local_charges_communication_readiness\(BIGINT, BIGINT\)[\s\S]*TO service_role, authenticated/i)
   })
 

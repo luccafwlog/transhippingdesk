@@ -1,6 +1,6 @@
 # Faturamento
 
-> **Status:** ativo · **Atualizado:** 2026-08-18 · **Rotas:** operação em `/taxas-locais`; `/faturamento` é redirect legado; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
+> **Status:** ativo · **Atualizado:** 2026-09-01 · **Rotas:** operação em `/taxas-locais`; `/faturamento` é redirect legado; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
 
 ## Propósito e escopo
 
@@ -23,6 +23,15 @@ Para taxas locais, o saldo canônico é o ledger por recebível; a tabela
   “Aguardando CE Mercante”; a exceção manual é a emissão individual “Emitir”,
   que mantém os mesmos gates. Embarque de Vazios não emite CE nem possui
   faturamento de cliente.
+- A comunicação financeira é posterior à emissão/disponibilização no Portal:
+  `customer_local_charges_communication_readiness()` exige CE, revisão limpa e
+  faturamento concluído em todos os B/Ls ativos do cliente na viagem. Quando
+  pronta, a automação dispara `ce_mercante_taxas` em background; o reenvio é
+  manual e assistido na coluna da Taxas Locais. Essa trilha não altera o gate de
+  faturamento.
+- Demurrage mantém sua persistência separada, e a Régua de Cobrança
+  `cobranca_demurrage` usa `first_billed_at`, intervalo de sete dias configurável
+  e pausas por disputa ou falta de contato válido.
 - [Reconciliação PIX](reconciliacao-pix.md) é dona do upload, matching,
   confirmação por TXID e estorno a partir do histórico.
 - Demurrage permanece em sua própria experiência em `/demurrage` e em

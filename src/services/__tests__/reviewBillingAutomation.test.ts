@@ -12,6 +12,14 @@ const { mockLogOperationalEvent } = vi.hoisted(() => ({
   mockLogOperationalEvent: vi.fn(),
 }))
 
+const { mockDispatchCeMercanteTaxasCommunication } = vi.hoisted(() => ({
+  mockDispatchCeMercanteTaxasCommunication: vi.fn(),
+}))
+
+vi.mock('../customerFinanceCommunications', () => ({
+  dispatchCeMercanteTaxasCommunication: mockDispatchCeMercanteTaxasCommunication,
+}))
+
 vi.mock('../operationalEvents', () => ({
   logOperationalEvent: mockLogOperationalEvent,
 }))
@@ -41,6 +49,7 @@ const mockedCreateInvoice = vi.mocked(markBlReadyAndCreateInvoice)
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockDispatchCeMercanteTaxasCommunication.mockResolvedValue({ status: 'simulado' })
   mockFrom.mockImplementation(() => ({
     select: () => ({
       eq: () => ({
@@ -537,6 +546,16 @@ describe('maybeAutoBillAfterCeMercante', () => {
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
     expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
     expect(mockedCreateInvoice).toHaveBeenCalled()
+  })
+
+  it('dispara o resumo financeiro em background após faturar o B/L', async () => {
+    mockBl({ voyage_id: 7 })
+
+    const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
+    await Promise.resolve()
+
+    expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
+    expect(mockDispatchCeMercanteTaxasCommunication).toHaveBeenCalledWith(7, 99)
   })
 
   it('registra falha inesperada quando a emissao lanca erro', async () => {

@@ -38,7 +38,10 @@ const ready = {
   ],
 }
 
-function configureQueries(history: unknown[] = []) {
+function configureQueries(
+  history: unknown[] = [],
+  options: { directInvoiceRows?: unknown[]; ledgerInvoiceRows?: unknown[] } = {},
+) {
   mockRpc.mockResolvedValue({ data: ready, error: null })
   mockFrom.mockImplementation((table: string) => {
     if (table === 'customer_communications') return queryResult(history)
@@ -54,10 +57,11 @@ function configureQueries(history: unknown[] = []) {
         voyage: { id: 7, voyage_number: 'V7', eta: '2026-09-01T12:00:00Z', vessel: { name: 'Navio 7' } },
       },
     ])
-    if (table === 'invoice_bls') return queryResult([
+    if (table === 'invoice_bls') return queryResult(options.directInvoiceRows ?? [
       { bl_id: 'BL-1', subtotal_brl: 100, invoice: { id: 10, status: 'issued' } },
       { bl_id: 'BL-2', subtotal_brl: 50, invoice: { id: 11, status: 'paid' } },
     ])
+    if (table === 'invoice_receivable_links') return queryResult(options.ledgerInvoiceRows ?? [])
     if (table === 'customer_contacts') return queryResult([{
       id: 1, customer_id: 99, name: 'Contato', email: 'financeiro@example.com', phone: null, purpose: 'faturamento', is_primary: true, created_at: null,
     }])
@@ -113,5 +117,23 @@ describe('automação de comunicados financeiros', () => {
 
     await dispatchCeMercanteTaxasCommunication(7, 99, { forceRetry: true })
     expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ attemptDiscriminator: 1 }))
+  })
+
+  it('usa links de recebíveis para invoice consolidada sem duplicar B/Ls do ledger', async () => {
+    configureQueries([], {
+      directInvoiceRows: [],
+      ledgerInvoiceRows: [
+        { bl_id: 'BL-1', subtotal_brl: 225, status: 'active', invoice: { id: 20, status: 'issued' } },
+        { bl_id: 'BL-2', subtotal_brl: 75, status: 'obsolete', invoice: { id: 20, status: 'issued' } },
+      ],
+    })
+
+    await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(mockDispatch).toHaveBeenCalledTimes(1)
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({
+      blIds: ['BL-1', 'BL-2'],
+    }))
+    expect(mockDispatch.mock.calls[0]?.[0].text.replace(/\u00a0/g, ' ')).toContain('Total da viagem: R$ 225,00')
   })
 })

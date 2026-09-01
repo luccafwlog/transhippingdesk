@@ -17,7 +17,7 @@ cliente. Match por nome nunca preenche `customer_id` ou `client_id`: fica em
 as colunas de sugestão. O backfill preserva faturados e decisões manuais; suas
 consultas de impacto devem ser executadas em somente-leitura antes da aplicação.
 
-Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/pages/ClientesComunicacao.tsx`, `src/components/customers/CustomerTable.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/components/customers/ImportBaseModal.tsx`, `src/components/customers/customerCreateForm.ts`, `src/pages/ClienteFicha.tsx`, `src/components/clientes/FichaTabs.tsx`, `src/components/clientes/fichaTabConfig.ts`, `src/components/clientes/VisaoGeralTab.tsx`, `src/components/clientes/CadastroContatosTab.tsx`, `src/components/clientes/OperacionalTab.tsx`, `src/components/clientes/FinanceiroTab.tsx`, `src/components/clientes/HistoricoTab.tsx`, `src/components/bl/BlHistoricoTab.tsx`, `src/hooks/useCustomers.ts`, `src/hooks/useCustomerFicha.ts`, `src/hooks/useCustomerCommunications.ts`, `src/services/customers.ts`, `src/services/customerFicha.ts`, `src/services/customerCommunications.ts`, `src/services/customerCommunicationDispatches.ts`, `src/services/customerCommunicationTemplates.ts`, `src/services/portalProvisioning.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts`, `supabase/functions/send-customer-communication/index.ts`, `supabase/migrations/373_comunicados_anexos.sql` e `supabase/migrations/374_comunicados_alertas.sql`.
+Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/pages/ClientesComunicacao.tsx`, `src/components/customers/CustomerTable.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/components/customers/ImportBaseModal.tsx`, `src/components/customers/customerCreateForm.ts`, `src/pages/ClienteFicha.tsx`, `src/components/clientes/FichaTabs.tsx`, `src/components/clientes/fichaTabConfig.ts`, `src/components/clientes/VisaoGeralTab.tsx`, `src/components/clientes/CadastroContatosTab.tsx`, `src/components/clientes/OperacionalTab.tsx`, `src/components/clientes/FinanceiroTab.tsx`, `src/components/clientes/HistoricoTab.tsx`, `src/components/bl/BlHistoricoTab.tsx`, `src/components/billing/InvoiceCommunicationStatusCell.tsx`, `src/hooks/useCustomers.ts`, `src/hooks/useCustomerFicha.ts`, `src/hooks/useCustomerCommunications.ts`, `src/hooks/useCustomerCommunicationReadiness.ts`, `src/services/customers.ts`, `src/services/customerFicha.ts`, `src/services/customerCommunications.ts`, `src/services/customerCommunicationDispatches.ts`, `src/services/customerCommunicationTemplates.ts`, `src/services/customerFinanceCommunications.ts`, `src/services/customerCommunicationReadiness.ts`, `src/services/portalProvisioning.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts`, `supabase/functions/send-customer-communication/index.ts`, `supabase/migrations/376_customer_local_charges_communication_readiness.sql`, `supabase/migrations/377_portal_invoice_exception_audience.sql`, `supabase/migrations/373_comunicados_anexos.sql` e `supabase/migrations/374_comunicados_alertas.sql`.
 
 ## Anatomia das telas
 
@@ -55,6 +55,13 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend. Modelos institucionais reutilizáveis são salvos pela RPC `save_customer_communication_saved_template`; o bucket de anexos permanece privado e sem escrita direta pelo navegador (`supabase/migrations/375_comunicados_bloco2_correcoes.sql`).
 
 O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`.
+
+O resumo financeiro `ce_mercante_taxas` não é um disparo genérico por invoice:
+após o vínculo do CE, a prontidão é calculada por cliente/viagem e exige CE,
+revisão limpa e faturamento concluído em todos os B/Ls ativos. A Taxas Locais
+exibe o bloqueio e o último comunicado; um reenvio assistido pede confirmação e
+usa novo discriminador. A chave global continua controlando envio real versus
+simulação.
 
 ## Catálogo de ações
 
@@ -96,6 +103,8 @@ O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `custom
 | `['customer-communications', 'conference', filters, kind, nature]` | `useCustomerCommunicationConference` | Só habilitada após “Conferir”; escopo inclui modo e todos os filtros, tipo e natureza. |
 | `['customer-communications', 'history', customerId?]` | `useCustomerCommunicationHistory` | Histórico da rota ou da ficha; atualizado após cada dispatch. |
 | `['customer-communications', 'bl', blId]` | `useBlCommunicationHistory` | Histórico de Comunicados vinculados ao B/L; atualizado após dispatch. |
+| `['customer-communications', 'readiness', voyageId, customerId]` | `useCustomerCommunicationReadiness` | Readiness financeira por cliente/viagem; motivos por B/L e bloqueio da comunicação de CE. |
+| `['customer-communications', 'status', voyageId, customerId]` | `useCustomerVoyageCommunicationStatus` | Último envio, discriminador e motivo de bloqueio exibidos em Taxas Locais. |
 | Filtros, seleção, modais e formulários | Estado local das páginas | Não persistem na URL, exceto a própria rota da ficha e a aba ativa (`?tab=`). |
 | `customers.cnpj_cpf` | Identidade cadastral | UNIQUE e NOT NULL desde `supabase/migrations/001_schema.sql`; a migration `293` persiste 14 caracteres `A-Z0-9` em maiúsculas, sem pontuação. |
 | `customer_contacts` | Contatos do cliente | Finalidade aceita: `geral`, `operacional`, `faturamento`, `financeiro`. |
