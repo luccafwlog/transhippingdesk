@@ -19,26 +19,21 @@ export function isPendingBillingReview(row: {
   )
 }
 
-// O gate de faturamento (ADR 0054, migrations 337/367) recusa a promoção a
-// `ready_for_billing` gravando as pendências canônicas em `billing_hold_reason`.
-// A da conta de Portal chega como texto igual ao das outras, e sem separá-la o
-// operador via "Cálculo incompleto" para um cálculo que está completo.
+// O gate de faturamento (ADR 0054, migrations 337/367/368) recusa a promoção a
+// `ready_for_billing`, mas a recusa é uma exceção: o `UPDATE` de
+// `billing_hold_reason` que a antecedia morria no rollback da mesma transação
+// (por isso a 368 o removeu). O estado vivo das pendências canônicas é o que a
+// `save_bl_review` grava em `notes`, e é dele que esta tela lê.
 const PORTAL_PENDENCY = /acesso ao portal nao provisionado/i
-const GATE_HOLD_PREFIX = /pendencias no gate de revisao:\s*(.*)$/i
-
-export function parseGateHoldReasons(holdReason: string | null | undefined) {
-  const match = (holdReason ?? '').match(GATE_HOLD_PREFIX)
-  if (!match?.[1]) return []
-  return match[1].split(',').map((reason) => reason.trim()).filter(Boolean)
-}
 
 // Portal é o único bloqueio que não se resolve no B/L — mora no cadastro do
 // cliente e vale para todos os B/Ls dele. Por isso é o último da precedência:
 // só responde pelo B/L quando é a única pendência aberta.
 function isPortalOnlyPendency(row: { billing_hold_reason: string | null; notes: string | null }) {
-  const gateReasons = parseGateHoldReasons(row.billing_hold_reason)
-  const noteReasons = extractReviewReasons(row.notes)
-  const reasons = gateReasons.length > 0 ? gateReasons : noteReasons
+  // `billing_hold_reason` gravado é hold próprio do B/L (reconciliação de
+  // cliente, sem linhas faturáveis): nunca é "só o portal".
+  if ((row.billing_hold_reason ?? '').trim()) return false
+  const reasons = extractReviewReasons(row.notes)
   return reasons.length > 0 && reasons.every((reason) => PORTAL_PENDENCY.test(reason))
 }
 
@@ -105,7 +100,7 @@ export function getBillingBlock(row: {
       detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Há linhas de taxa com revisão pendente.' : 'Sem linhas de taxa calculadas.'),
     }
   }
-  if (row.billing_hold_reason && !portalOnly) {
+  if (row.billing_hold_reason) {
     return { code: 'calculo_incompleto', label: 'Cálculo incompleto', detail: row.billing_hold_reason }
   }
   const mode = row.cargo_mode ?? 'container'

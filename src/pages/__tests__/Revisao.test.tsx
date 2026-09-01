@@ -326,4 +326,28 @@ describe('Revisao', () => {
     expect(screen.queryByText('Empresa Alpha')).toBeNull()
   })
 
+  // A Validacao aponta para ca por B/L (ADR 0061). Sem ler `?bl=`, o link levava
+  // o operador para a fila inteira, para procurar o B/L a mao.
+  it('abre no B/L endereçado quando passado query param ?bl=...', () => {
+    mockedUseReviewQueue.mockReturnValue({
+      data: [
+        makeBl('BL1', 'Empresa Alpha'),
+        makeLinkedBl('BL2', { emails: ['alpha@test.com'], portalActive: true }),
+      ],
+      isLoading: false,
+      error: null,
+    } as never)
+
+    renderPage(['/revisao?bl=BL2'])
+
+    const searchInput = screen.getByPlaceholderText('Buscar B/L, cliente, consignatário...') as HTMLInputElement
+    expect(searchInput.value).toBe('BL2')
+
+    // Grupo do B/L aberto, o B/L visivel e o resto da fila fora do caminho.
+    expect(screen.getByText('BL2')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Linked Co SA/ }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.queryByText('Empresa Alpha')).toBeNull()
+    expect(screen.queryByText('BL1')).toBeNull()
+  })
+
 })
