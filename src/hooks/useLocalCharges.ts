@@ -10,6 +10,7 @@ import {
   markBlChargesReviewed,
   markBlReadyForBilling,
   listBlLocalChargeLines,
+  getInvoicedSubtotalForBl,
   updateManualBlCharge,
 } from '../services/charges/chargeOperationsService'
 import {
@@ -35,6 +36,16 @@ export function useBlLocalChargeLines(blId?: string) {
     queryKey: queryKeys.bls.localChargeLines(blId ?? ''),
     enabled: Boolean(blId),
     queryFn: () => listBlLocalChargeLines(blId!),
+  })
+}
+
+// Só para B/L faturado: é nesse estado que a conferência tem com o que
+// comparar. Enquanto o B/L não foi faturado não existe número congelado.
+export function useInvoicedSubtotalForBl(blId?: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.invoices.blSubtotal(blId ?? ''),
+    enabled: Boolean(blId) && enabled,
+    queryFn: () => getInvoicedSubtotalForBl(blId!),
   })
 }
 

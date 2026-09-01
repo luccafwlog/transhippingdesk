@@ -8,8 +8,10 @@ import type { LocalChargeLine } from '../../../services/charges/chargeOperations
 // A expansao passou a montar a conferencia de calculo, que le as linhas pelo
 // hook. O teste controla essa fonte para exercitar a tela, nao a rede.
 const chargeLinesState = { data: [] as LocalChargeLine[], isLoading: false, isError: false }
+const invoicedSubtotalState = { data: null as { totalBrl: number; totalUsd: number | null } | null }
 vi.mock('../../../hooks/useLocalCharges', () => ({
   useBlLocalChargeLines: () => chargeLinesState,
+  useInvoicedSubtotalForBl: () => invoicedSubtotalState,
 }))
 
 import { ValidacaoOperationsTable } from '../ValidacaoOperationsTable'
@@ -21,6 +23,7 @@ afterEach(() => {
   chargeLinesState.data = []
   chargeLinesState.isLoading = false
   chargeLinesState.isError = false
+  invoicedSubtotalState.data = null
 })
 
 const row: LocalChargeOperationalRow = {
@@ -295,6 +298,25 @@ describe('conferência de cálculo na expansão', () => {
     chargeLinesState.data = [chargeLine]
     renderTable({ rows: [{ ...row, financial_status: 'invoiced' }], expandedBlId: 'BL-001' })
     expect(screen.getByText('Linhas que compuseram a fatura emitida.')).toBeTruthy()
+  })
+
+  // A 261 congela o detalhamento na emissao e, na consolidacao com soma que nao
+  // fecha, guarda uma linha agregada: e o caso em que a tela mostraria um total
+  // diferente do cobrado sem dizer nada.
+  it('avisa quando o cálculo não bate com o que a fatura registrou', () => {
+    chargeLinesState.data = [chargeLine]
+    invoicedSubtotalState.data = { totalBrl: 1500, totalUsd: null }
+    renderTable({ rows: [{ ...row, financial_status: 'invoiced' }], expandedBlId: 'BL-001' })
+
+    expect(screen.getByText('O total calculado não bate com o que a fatura registrou.')).toBeTruthy()
+  })
+
+  it('não avisa nada quando o cálculo bate com a fatura', () => {
+    chargeLinesState.data = [chargeLine]
+    invoicedSubtotalState.data = { totalBrl: 1890, totalUsd: null }
+    renderTable({ rows: [{ ...row, financial_status: 'invoiced' }], expandedBlId: 'BL-001' })
+
+    expect(screen.queryByText('O total calculado não bate com o que a fatura registrou.')).toBeNull()
   })
 
   it('orienta o recálculo quando não há linha nenhuma', () => {

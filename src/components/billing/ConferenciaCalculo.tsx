@@ -1,8 +1,8 @@
 import { Badge } from '../ui/Badge'
-import { useBlLocalChargeLines } from '../../hooks/useLocalCharges'
+import { useBlLocalChargeLines, useInvoicedSubtotalForBl } from '../../hooks/useLocalCharges'
 import { formatBRL, formatUSD } from '../../lib/utils'
 import type { LocalChargeLine } from '../../services/charges/chargeOperationsService'
-import { applicationBasisLabel, groupChargeLinesByTable, sumChargeLines } from './conferenciaCalculo'
+import { applicationBasisLabel, detectarDivergenciaComFatura, groupChargeLinesByTable, sumChargeLines } from './conferenciaCalculo'
 
 function formatQuantity(value: number | null) {
   const amount = Number(value ?? 0)
@@ -55,6 +55,8 @@ export function ConferenciaCalculo({
   const groups = groupChargeLinesByTable(lines)
   const total = sumChargeLines(lines)
   const invoiced = financialStatus === 'invoiced'
+  const { data: faturado } = useInvoicedSubtotalForBl(blId, invoiced)
+  const divergencia = invoiced && lines.length > 0 ? detectarDivergenciaComFatura(total, faturado ?? null) : null
 
   return (
     <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4">
@@ -67,6 +69,18 @@ export function ConferenciaCalculo({
           ? 'Linhas que compuseram a fatura emitida.'
           : 'Linhas calculadas para este B/L, pela tabela de cobrança de cada origem.'}
       </div>
+
+      {divergencia ? (
+        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+          <div className="font-medium text-amber-800">O total calculado não bate com o que a fatura registrou.</div>
+          <div className="mt-1 text-amber-700">
+            Cálculo {renderTotal(divergencia.calculado.totalBrl, divergencia.calculado.totalUsd)} · fatura{' '}
+            {renderTotal(divergencia.faturado.totalBrl, divergencia.faturado.totalUsd ?? 0)}. Em fatura consolidada, o
+            detalhamento por item é congelado como uma linha agregada quando a soma não fecha com o saldo do B/L — o
+            que vale para o cliente é o valor da fatura.
+          </div>
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div className="text-sm text-[var(--app-muted)]">Carregando linhas de cálculo...</div>

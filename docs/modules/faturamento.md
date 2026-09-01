@@ -107,12 +107,24 @@ foi removido junto com a coluna `invoices.due_date`.
   este último marcado como anomalia por ser linha automática sem tabela. Cada
   grupo soma seu subtotal e o cabeçalho soma o total, BRL e USD separados, sem
   converter moeda. A conferência nasce aberta: quem expande o B/L está ali para
-  conferir. Granito não a exibe (não participa da emissão), e para B/L faturado
-  as mesmas linhas aparecem rotuladas como as que compuseram a fatura — é delas
-  que o detalhamento da fatura é reconstruído em leitura
-  (`get_consolidated_invoice_item_breakdown`). Portos aparecem pelo alias e não
-  pelo LOCODE: `formatPortDisplayName` cobre os códigos canônicos que
+  conferir. Granito não a exibe (não participa da emissão). Portos aparecem pelo
+  alias e não pelo LOCODE: `formatPortDisplayName` cobre os códigos canônicos que
   `normalize_port_code` produz (migration `365`).
+
+  Para **B/L faturado** a conferência continua lendo `charge_calculations`, que é
+  o cálculo e está congelado na prática — `calculate_bl_local_charges` recusa
+  recálculo (`22023`) em `invoiced`/`partially_paid`/`paid`. Mas o que a fatura
+  registrou pode divergir desse total num caso concreto: desde a migration `261`
+  o detalhamento é **congelado** em `invoice_items` na emissão (não mais
+  reconstruído em leitura, que virou rede de segurança), e na consolidação, quando
+  a soma dos itens não fecha com o saldo do B/L, o que se congela é **uma linha
+  agregada** por B/L. Nesse caso a tela mostraria um número diferente do cobrado.
+  Por isso a conferência compara seu total com o subtotal congelado do B/L
+  (`invoice_bls`, ou `invoice_receivable_links` nas consolidadas — esta sem coluna
+  em USD, daí o `null` significar "não sei" e não "zero") e **avisa quando
+  diverge**, dizendo que o que vale para o cliente é o valor da fatura. A
+  tolerância é de um centavo, porque os dois lados são `NUMERIC(14,2)` somados em
+  pontos diferentes.
 - **Etapa 12 do plano de faturamento (ADR 0038):** a aba Pendências foi
   removida — era subconjunto literal da Validação (mesma fonte
   `useLocalChargeOperations`, mesmo limite 1200, só `chargeStatus=review_required`
