@@ -43,6 +43,10 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
   - Atalho "Importar B/L" abre o modal compartilhado filtrado para o B/L da ficha, evitando aplicar arquivo de outro conhecimento.
 - **Faturamento:** `BlFaturamentoTab` compõe `BlClienteSection`, `BlCobrancasSection`, `BlDemurrageSection` e o status/link da invoice ativa.
   - Cliente existente é vinculado/desvinculado por `save_bl_review`; cliente vindo do manifesto pode ser criado por `createCustomer` e então vinculado.
+  - Vincular o cliente produz o efeito completo da conciliação (ADR 0061, migration `370`): além de fechar a fila,
+    o e-mail do manifesto é capturado como contato **financeiro** do cliente — normalizado e sem duplicar contato
+    já cadastrado — e `approved_by` registra o revisor que resolveu. É a mesma regra usada pelo Aprovar da
+    Validação, agora em função única (`capture_manifest_financial_contact`).
   - Taxas locais podem ser calculadas, receber linhas manuais, ser revisadas e avançar para faturamento.
   - Demurrage reúne free time, P1/P2, descarga/devolução e cálculo por container; as regras canônicas continuam em [Demurrage](demurrage.md).
 - **Histórico:** `BlHistoricoTab` usa paginação incremental de `bl_timeline`, badges por família e marca “Auditoria” somente quando há justificativa.
