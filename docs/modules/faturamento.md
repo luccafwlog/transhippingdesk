@@ -53,6 +53,11 @@ foi removido junto com a coluna `invoices.due_date`.
   `src/components/billing/ValidacaoControls.tsx` contém filtros, pipeline e
   ações em lote; `src/components/billing/ValidacaoOperationsTable.tsx` renderiza
   seleção, detalhes, conciliação e emissão individual.
+- **Ajustes de COD (ADR 0051):** `src/components/billing/CodAdjustmentsPanel.tsx`
+  lê a fila de `cod_adjustments` com status `pending` e só monta o painel quando
+  há ao menos uma pendência. Uma resposta bem-sucedida sem pendências omite o
+  painel inteiro; carregamento e erro continuam visíveis para não esconder uma
+  consulta inconclusiva.
 - **Bloqueio por Portal não provisionado (ADR 0054, issue 638):** o gate
   server-side é o produtor canônico `compute_bl_review_pendencies` — a migration
   `337` devolveu a pendência `Acesso ao portal nao provisionado` e a `367`

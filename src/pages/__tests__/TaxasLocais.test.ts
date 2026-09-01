@@ -1,10 +1,17 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TaxasLocais } from '../TaxasLocais'
 import { isLedgerInvoicePayable } from '../faturamentoLedgerPayment'
 import { invoiceStatusLabel } from '../faturamentoInvoiceStatus'
+
+const pendingCodAdjustmentsState = vi.hoisted(() => ({
+  data: [] as Array<Record<string, unknown>>,
+  isLoading: false,
+  isSuccess: true,
+  error: null,
+}))
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: [], isLoading: false, error: null }),
@@ -53,7 +60,7 @@ vi.mock('../../hooks/useBillingLedger', () => ({
   useConsolidatableReceivables: () => ({ data: [], isLoading: false }),
   useCreateConsolidatedInvoice: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRegisterLedgerInvoicePayment: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  usePendingCodAdjustments: () => ({ data: [], isLoading: false, error: null }),
+  usePendingCodAdjustments: () => pendingCodAdjustmentsState,
   useSettleCodAdjustment: () => ({ mutateAsync: vi.fn(), isPending: false, variables: undefined }),
   useInvoiceRefunds: () => ({ data: [] }),
   useSettleInvoiceRefund: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -86,18 +93,48 @@ vi.mock('../../components/billing/ValidacaoTab', () => ({
 }))
 
 describe('TaxasLocais', () => {
-  it('usa abas destacadas com Faturas e Validação e mantém o painel de ajustes COD', () => {
+  afterEach(() => {
+    pendingCodAdjustmentsState.data = []
+  })
+
+  it('omite o painel de ajustes COD quando não há pendências', () => {
     const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
 
     expect(html).toContain('class="app-tab app-tab--active"')
     expect(html).toContain('Valida')
     expect(html).toContain('Faturas')
-    expect(html).toContain('Ajustes de COD')
+    expect(html).not.toContain('Ajustes de COD')
     expect(html).not.toContain('role="tab" aria-selected="false">Pendências')
     // Demurrage não é mais uma aba, lista, modal, faixa ou impressão duplicada
     // nesta superfície; sua operação própria continua em /demurrage.
     expect(html).not.toContain('role="tab" aria-selected="false">Demurrage')
     expect(html).toContain('Vencidas')
+  })
+
+  it('mantém o painel de ajustes COD quando há pendência', () => {
+    pendingCodAdjustmentsState.data = [{
+      id: 1,
+      bl_id: 'BL-COD-001',
+      omission_id: 2,
+      original_value_brl: 100,
+      new_destination_value_brl: 120,
+      difference_brl: 20,
+      paid_amount_brl: 100,
+      outstanding_balance_brl: 0,
+      offset_amount_brl: 0,
+      refund_amount_brl: 0,
+      action: 'complementary_invoice',
+      status: 'pending',
+      manual_review_required: false,
+      resulting_document_id: null,
+      resulting_document_type: null,
+      created_at: '2026-09-01T12:00:00Z',
+    }]
+
+    const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(TaxasLocais)))
+
+    expect(html).toContain('Ajustes de COD')
+    expect(html).toContain('BL-COD-001')
   })
 
   it('redireciona ?tab=demurrage para /demurrage', () => {

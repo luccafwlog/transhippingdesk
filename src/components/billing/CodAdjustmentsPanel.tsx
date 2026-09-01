@@ -29,6 +29,8 @@ export function CodAdjustmentsPanel() {
   const rows = adjustmentsQuery.data ?? []
   const [documentIds, setDocumentIds] = useState<Record<number, string>>({})
 
+  if (adjustmentsQuery.isSuccess && rows.length === 0) return null
+
   async function settle(id: number) {
     try {
       const row = rows.find((candidate) => candidate.id === id)
