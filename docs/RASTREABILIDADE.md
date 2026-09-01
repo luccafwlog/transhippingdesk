@@ -1,6 +1,6 @@
 # Rastreabilidade Técnica
 
-Verificado contra o repositório em 2026-08-26.
+Verificado contra o repositório em 2026-09-01.
 
 Este índice liga cada rota e ação relevante aos chamadores do frontend, aos
 contratos executáveis do Supabase e ao documento do módulo proprietário. Ele é
@@ -41,6 +41,34 @@ No ADR terminalizado, as escritas por `report_id` usam as RPCs
 `reopen_agency_departure_report_by_report_id`. O snapshot fechado também
 congela `header.terminalScope`, distinguindo uma seção sem frente atribuída ao
 terminal de uma seção atribuída que recebeu a resolução “Nada a declarar”.
+
+### Fundação de Comunicados ao Cliente — Bloco 1
+
+A migration `372_comunicados_fundacao.sql` criou a fundação sem histórico
+retroativo: `customer_communications`, vínculos com B/L, tentativas, catálogo
+explícito de `kind`/`nature`, quatro preferências por contato, supressões do
+canal e o singleton `app_settings`. As âncoras do comunicado são valores
+congelados, sem FK para escala, atracação ou invoice. A chave global nasce
+desligada e a RPC `set_communications_enabled(boolean)` exige Administrativo e
+registra alterações em `audit_logs`.
+
+`CadastroContatosTab` expõe as quatro naturezas sem alterar
+`customer_contacts.purpose`; a gravação usa `source='interno'` e o guard
+de permissão `customer_communications` exclui Operações, Financeiro e os
+demais papéis não autorizados na tela. O mapeamento e as preferências são
+cobertos por testes de
+comportamento e de contrato SQL; a aplicação da migration foi reproduzida em
+PostgreSQL local descartável. Não há runtime remoto nem envio real afirmado
+nesta etapa.
+
+O webhook do Resend procura a tentativa no Portal e, como fallback, em
+`customer_communication_attempts`, vinculando cada evento a apenas uma delas.
+Complaint de Comunicado grava somente `customer_communication_suppressions`;
+`bounce_permanente` usa a supressão compartilhada, escala uma linha de
+`complaint` sem rebaixamento posterior e resolve a notificação ao contato
+alternativo ou o alerta `cliente_contato_bounced_sem_alternativa`. **Código**;
+**Teste:** `portalEmailWebhook.test.ts`, `portalBounceCascade.test.ts` e
+`portalEdgeFunctionsOrder.test.ts`.
 
 ## Índice por rota e ação
 
@@ -509,11 +537,13 @@ adiciona `public.can_edit_voyages()`/`public.can_edit_customers()` (espelhando
 `operator=documentacao`) e reforça ambas as camadas. Outros usos de `isAdmin`
 sem correspondente no banco continuam fora deste recorte.
 
-Email transacional: `sendPortalEmail` é o dono de idempotência, retry e
-supressão; `portal-email-webhook` atualiza entrega/deduplica eventos; e
-`portal-daily-digest` consolida a atividade diária. Evidência versionada nas
-Edge Functions e migrations `182`–`185`; runtime remoto ainda requer secrets e
-domínio verificado.
+Email transacional: `supabase/functions/_shared/email.ts` é dono da mecânica
+comum de idempotência e retry; `sendPortalEmail` adapta tentativas e supressão
+do Portal; `portal-email-webhook` atualiza entrega, deduplica eventos e
+processa as duas trilhas; e `portal-daily-digest` consolida a atividade diária.
+A fundação de Comunicados está em `372_comunicados_fundacao.sql` e nasce com o
+envio global desligado. Evidência: **Código** e **Teste de contrato SQL**;
+runtime remoto ainda requer secrets e domínio verificado.
 
 ## Vínculo de cliente por documento
 
