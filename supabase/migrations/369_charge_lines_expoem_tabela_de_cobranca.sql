@@ -15,13 +15,18 @@
 --   `application_basis` — base de aplicação do item (`charge_table_items`),
 --                         que explica por que a quantidade é aquela.
 --
--- A query, a ordenação e o gate de usuário ativo (151) permanecem. Como
--- `RETURNS TABLE` muda, é DROP + CREATE: `CREATE OR REPLACE` não altera o tipo
--- de retorno de uma função existente. Os grants são reaplicados idênticos aos
--- da 151, e nenhum consumidor perde coluna — o retorno só cresce.
+-- A query e a ordenação (151) permanecem. Como `RETURNS TABLE` muda, é DROP +
+-- CREATE: `CREATE OR REPLACE` não altera o tipo de retorno de uma função
+-- existente. Os grants são reaplicados idênticos aos da 151, e nenhum
+-- consumidor perde coluna — o retorno só cresce.
 --
--- Rollback: reaplicar a definição da migration 151 (DROP FUNCTION seguido do
--- corpo de lá), que volta ao retorno sem as três colunas.
+-- O gate usa `is_active_read_user()`, não `is_active_user()`: a 212 já havia
+-- trocado essa RPC de leitura (junto com outras oito) para o helper de
+-- leitura, porque `is_active_user()` (211) exclui o perfil Equipamentos. Um
+-- DROP + CREATE que voltasse ao corpo da 151 reabriria essa lacuna.
+--
+-- Rollback: reaplicar a definição da migration 212 para esta RPC (mesmo
+-- corpo, sem as três colunas novas), que já usa `is_active_read_user()`.
 
 DROP FUNCTION IF EXISTS public.list_bl_local_charge_lines(TEXT);
 
@@ -54,7 +59,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $function$
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.is_active_user() THEN
+  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN
     RAISE EXCEPTION 'Usuario sem permissao ativa' USING ERRCODE = '42501';
   END IF;
 

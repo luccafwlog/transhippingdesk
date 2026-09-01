@@ -29,8 +29,12 @@ describe('migration 369 — linhas de calculo expoem a tabela de cobranca', () =
     expect(sql).not.toContain('cti.charge_table_id')
   })
 
-  it('preserva o gate de usuario ativo e a ordenacao da 151', () => {
-    expect(sql).toContain('IF auth.uid() IS NULL OR NOT public.is_active_user() THEN')
+  // A 212 ja trocara esta RPC de leitura para is_active_read_user() (exclui
+  // Equipamentos de is_active_user(), nao de leitura). O DROP+CREATE nao pode
+  // reabrir essa lacuna reaplicando o corpo antigo da 151.
+  it('preserva o gate de usuario ativo de leitura (212) e a ordenacao da 151', () => {
+    expect(sql).toContain('IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN')
+    expect(sql).not.toContain('NOT public.is_active_user()')
     expect(sql).toContain("RAISE EXCEPTION 'Usuario sem permissao ativa' USING ERRCODE = '42501'")
     expect(sql).toContain('ORDER BY cc.source DESC, cc.id ASC')
     expect(sql).toContain('SECURITY DEFINER')

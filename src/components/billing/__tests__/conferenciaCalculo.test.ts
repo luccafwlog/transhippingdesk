@@ -10,7 +10,7 @@ const base: LocalChargeLine = {
   charge_name: 'THC',
   charge_table_name: 'Taxas Locais — Vitória',
   charge_table_pod: 'BRVIX',
-  application_basis: 'per_container',
+  application_basis: 'container_distinct_voyage',
   source: 'auto',
   status: 'calculated',
   quantity: 2,
@@ -102,8 +102,10 @@ describe('conferência de cálculo — agrupamento por tabela', () => {
 
 describe('base de aplicação', () => {
   it('humaniza as bases conhecidas', () => {
-    expect(applicationBasisLabel('per_container')).toBe('por container')
-    expect(applicationBasisLabel('per_ton')).toBe('por tonelada')
+    expect(applicationBasisLabel('container_distinct_voyage')).toBe('por container')
+    expect(applicationBasisLabel('weight_ton')).toBe('por tonelada')
+    expect(applicationBasisLabel('bl')).toBe('por B/L')
+    expect(applicationBasisLabel('teu')).toBe('por TEU')
   })
 
   it('não inventa rótulo para base desconhecida nem para ausência', () => {

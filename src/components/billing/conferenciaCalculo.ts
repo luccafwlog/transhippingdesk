@@ -75,14 +75,15 @@ function groupSubtitle(kind: ConferenceGroupKind, line: LocalChargeLine) {
 
 // A base de aplicação explica a quantidade ("por container", "por tonelada").
 // Vem do cadastro do item e chega crua; o rótulo só a torna legível, sem
-// inventar significado para valores que o cadastro ainda não conhece.
+// inventar significado para valores que o cadastro ainda não conhece. O
+// vocabulário é o mesmo do CHECK de charge_table_items (migration 016) e do
+// motor de cálculo (274): 'bl', 'container_distinct_voyage', 'weight_ton',
+// 'teu' — não os per_* que a UI tinha inventado.
 const APPLICATION_BASIS_LABEL: Record<string, string> = {
-  per_container: 'por container',
-  per_bl: 'por B/L',
-  per_ton: 'por tonelada',
-  per_unit: 'por unidade',
-  per_vehicle: 'por veículo',
-  fixed: 'valor fixo',
+  bl: 'por B/L',
+  container_distinct_voyage: 'por container',
+  weight_ton: 'por tonelada',
+  teu: 'por TEU',
 }
 
 export function applicationBasisLabel(basis: string | null | undefined) {

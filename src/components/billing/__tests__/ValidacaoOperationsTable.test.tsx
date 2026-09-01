@@ -228,7 +228,7 @@ describe('conferência de cálculo na expansão', () => {
     charge_name: 'THC',
     charge_table_name: 'Taxas Locais — Salvador',
     charge_table_pod: 'BRSSA',
-    application_basis: 'per_container',
+    application_basis: 'container_distinct_voyage',
     source: 'auto',
     status: 'calculated',
     quantity: 2,
@@ -268,6 +268,23 @@ describe('conferência de cálculo na expansão', () => {
 
     expect(screen.getByText('Sem tabela vinculada')).toBeTruthy()
     expect(screen.getByText('Anomalia')).toBeTruthy()
+  })
+
+  // O motor grava total_value_brl NULL em linhas USD: headlinear pela moeda
+  // BRL faria uma linha ou grupo só em USD aparecer como "R$ 0,00".
+  it('não zera o total em BRL quando o grupo é só em USD', () => {
+    chargeLinesState.data = [{
+      ...chargeLine,
+      currency: 'USD',
+      unit_value_brl: null,
+      unit_value_usd: 300,
+      total_value_brl: null,
+      total_value_usd: 600,
+    }]
+    renderTable({ expandedBlId: 'BL-001' })
+
+    expect(screen.queryByText('R$ 0,00')).toBeNull()
+    expect(screen.getAllByText('US$ 600,00').length).toBeGreaterThan(0)
   })
 
   it('diz que as linhas compuseram a fatura quando o B/L já está faturado', () => {

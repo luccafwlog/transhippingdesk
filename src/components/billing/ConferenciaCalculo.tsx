@@ -10,17 +10,26 @@ function formatQuantity(value: number | null) {
   return amount.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
 }
 
+// O motor grava total_value_brl (e por vezes unit_value_brl) como NULL em
+// linhas USD — a moeda da linha é quem decide a coluna a ler, não se o valor
+// USD é diferente de zero (uma linha USD de valor 0 continua sendo USD).
 function lineUnitValue(line: LocalChargeLine) {
-  if (line.currency === 'USD' && line.unit_value_usd != null) return formatUSD(line.unit_value_usd)
+  if (line.currency === 'USD') return formatUSD(line.unit_value_usd ?? 0)
   return formatBRL(line.unit_value_brl)
 }
 
 function lineTotalValue(line: LocalChargeLine) {
-  if (line.currency === 'USD' && Number(line.total_value_usd ?? 0) !== 0) return formatUSD(line.total_value_usd)
+  if (line.currency === 'USD') return formatUSD(line.total_value_usd ?? 0)
   return formatBRL(line.total_value_brl)
 }
 
+// Idem para os totais agregados: um grupo ou B/L só em USD soma totalBrl=0,
+// e headlinear "R$ 0,00" nesse caso esconderia o valor real atrás do detalhe
+// em cinza. Só mistura as duas moedas quando ambas têm valor de fato.
 function renderTotal(totalBrl: number, totalUsd: number) {
+  if (totalBrl === 0 && totalUsd !== 0) {
+    return <span className="text-[var(--app-text-strong)]">{formatUSD(totalUsd)}</span>
+  }
   return (
     <span className="text-[var(--app-text-strong)]">
       {formatBRL(totalBrl)}
