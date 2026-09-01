@@ -385,7 +385,7 @@ VALUES (
   'cliente_contato_bounced_sem_alternativa',
   'critical',
   'documentacao',
-  ARRAY['documentacao', 'administrativo'],
+  ARRAY['documentacao'],
   '/clientes'
 )
 ON CONFLICT (type) DO UPDATE SET
