@@ -28,6 +28,16 @@ export const INVOICE_STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelada',
 }
 
+// Demurrage fala "Faturado" onde o faturamento local fala "Emitida"; sao dominios
+// distintos e a UI de cada um mantem o proprio vocabulario. Mapa unico para badge,
+// filtro e exportacao nao divergirem entre si.
+export const DEMURRAGE_INVOICE_STATUS_LABELS: Record<string, string> = {
+  draft: 'Rascunho',
+  issued: 'Faturado',
+  paid: 'Pago',
+  cancelled: 'Cancelado',
+}
+
 export const VOYAGE_STATUS_LABELS: Record<string, string> = {
   active: 'Ativa',
   completed: 'Concluída',

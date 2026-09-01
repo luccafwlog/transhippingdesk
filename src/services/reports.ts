@@ -3,6 +3,13 @@ import { classifyDbError } from '../lib/errors'
 
 const REPORT_ROW_LIMIT = 2000
 
+// created_at/issued_at sao TIMESTAMPTZ; comparar com a data crua descarta tudo que
+// foi criado ou emitido depois da meia-noite do ultimo dia do filtro. Fonte unica
+// para as quatro visoes, senao cada aba interpreta o mesmo periodo de forma diferente.
+function endOfDay(date: string) {
+  return `${date}T23:59:59.999`
+}
+
 export type ReportFilters = {
   dateFrom: string
   dateTo: string
@@ -69,7 +76,7 @@ export async function fetchOperationalReport(filters: OperationalReportFilters):
     .limit(REPORT_ROW_LIMIT)
 
   if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
-  if (filters.dateTo) query = query.lte('created_at', `${filters.dateTo}T23:59:59`)
+  if (filters.dateTo) query = query.lte('created_at', endOfDay(filters.dateTo))
   if (filters.pod) query = query.eq('pod', filters.pod.toUpperCase())
   if (filters.cargoMode) query = query.eq('cargo_mode', filters.cargoMode)
 
@@ -140,7 +147,7 @@ export async function fetchFinancialReport(filters: FinancialReportFilters): Pro
     .limit(REPORT_ROW_LIMIT)
 
   if (filters.dateFrom) query = query.gte('issued_at', filters.dateFrom)
-  if (filters.dateTo) query = query.lte('issued_at', filters.dateTo)
+  if (filters.dateTo) query = query.lte('issued_at', endOfDay(filters.dateTo))
   if (filters.status) query = query.eq('status', filters.status)
 
   const { data, error } = await query.overrideTypes<FinancialReportRow[], { merge: false }>()
@@ -232,7 +239,7 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
     .limit(REPORT_ROW_LIMIT * 2)
 
   if (filters.dateFrom) blsQuery = blsQuery.gte('created_at', filters.dateFrom)
-  if (filters.dateTo) blsQuery = blsQuery.lte('created_at', `${filters.dateTo}T23:59:59`)
+  if (filters.dateTo) blsQuery = blsQuery.lte('created_at', endOfDay(filters.dateTo))
 
   const { data: blsData, error: blsError } = await blsQuery.overrideTypes<BlRow[], { merge: false }>()
   if (blsError) throw blsError
@@ -279,7 +286,7 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
     .limit(REPORT_ROW_LIMIT * 2)
 
   if (filters.dateFrom) invoicesQuery = invoicesQuery.gte('issued_at', filters.dateFrom)
-  if (filters.dateTo) invoicesQuery = invoicesQuery.lte('issued_at', filters.dateTo)
+  if (filters.dateTo) invoicesQuery = invoicesQuery.lte('issued_at', endOfDay(filters.dateTo))
 
   const { data: invoicesData, error: invoicesError } = await invoicesQuery.overrideTypes<InvoiceRow[], { merge: false }>()
   if (invoicesError) {
@@ -336,7 +343,8 @@ export async function fetchCustomerReport(filters: ReportFilters): Promise<Custo
     topByBls,
     topByInvoiced,
     totalIssued: rows.reduce((sum, row) => sum + row.totalIssued, 0),
-    truncated: bls.length === REPORT_ROW_LIMIT * 2,
+    // Duas consultas independentes; qualquer uma no teto ja torna os totais parciais.
+    truncated: bls.length === REPORT_ROW_LIMIT * 2 || invoices.length === REPORT_ROW_LIMIT * 2,
   }
 
   return { rows, kpis, invoicesAccessDenied }
@@ -359,7 +367,7 @@ export async function fetchOperationalReportForExport(filters: OperationalReport
     .order('created_at', { ascending: false })
 
   if (filters.dateFrom) query = query.gte('created_at', filters.dateFrom)
-  if (filters.dateTo) query = query.lte('created_at', `${filters.dateTo}T23:59:59`)
+  if (filters.dateTo) query = query.lte('created_at', endOfDay(filters.dateTo))
   if (filters.pod) query = query.eq('pod', filters.pod.toUpperCase())
   if (filters.cargoMode) query = query.eq('cargo_mode', filters.cargoMode)
 
@@ -380,7 +388,7 @@ export async function fetchFinancialReportForExport(filters: FinancialReportFilt
     .order('issued_at', { ascending: false, nullsFirst: false })
 
   if (filters.dateFrom) query = query.gte('issued_at', filters.dateFrom)
-  if (filters.dateTo) query = query.lte('issued_at', filters.dateTo)
+  if (filters.dateTo) query = query.lte('issued_at', endOfDay(filters.dateTo))
   if (filters.status) query = query.eq('status', filters.status)
 
   const { data, error } = await query.overrideTypes<FinancialReportRow[], { merge: false }>()

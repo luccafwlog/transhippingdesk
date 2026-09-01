@@ -21,10 +21,16 @@ vi.mock('@tanstack/react-query', () => ({
     }
     if (queryKey[0] === 'demurrage-report') {
       return {
-        data: [{
-          id: 'd1', doc_number: 'DEM-1', bl_id: 'BL-9', status: 'issued', total_usd: 100,
-          current_total_brl: 500, billed_at: null, due_date: null, customer: { name: 'Cliente Dem' },
-        }],
+        data: [
+          {
+            id: 'd1', doc_number: 'DEM-1', bl_id: 'BL-9', status: 'issued', total_usd: 100,
+            current_total_brl: 500, doc_date: '2026-05-10', due_date: null, customer: { name: 'Cliente Dem' },
+          },
+          {
+            id: 'd2', doc_number: 'DEM-2', bl_id: 'BL-8', status: 'cancelled', total_usd: 900,
+            current_total_brl: 4500, doc_date: '2026-05-11', due_date: null, customer: { name: 'Cliente Cancelado' },
+          },
+        ],
         isLoading: false,
         error: null,
       }
@@ -58,4 +64,16 @@ it('US-142: consulta demurrage lista as invoices do periodo', () => {
   expect(screen.getByText('BL-9')).toBeTruthy()
   expect(screen.getByText('Cliente Dem')).toBeTruthy()
   expect(screen.getAllByText('Total USD').length).toBeGreaterThan(0)
+})
+
+// Faturas canceladas continuam listadas, mas somá-las inflaria os indicadores.
+it('US-142: totais de demurrage ignoram faturas canceladas', () => {
+  render(<Relatorios />)
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Demurrage' }))
+
+  expect(screen.getByText('DEM-2')).toBeTruthy()
+  expect(screen.getByText('Total USD (exceto canceladas)').nextSibling?.textContent).toContain('100,00')
+  expect(screen.getByText('Faturado (BRL)').nextSibling?.textContent).toContain('500,00')
+  expect(screen.getByText('Recebido (BRL)').nextSibling?.textContent).toContain('0,00')
 })
