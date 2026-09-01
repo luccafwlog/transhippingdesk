@@ -24,6 +24,7 @@ const DEPARTMENTS: Array<{ value: AlertRuleDepartmentFilter; label: string }> = 
   { value: 'documentacao', label: 'Documentação' },
   { value: 'equipamentos', label: 'Equipamentos' },
   { value: 'operacoes', label: 'Operações' },
+  { value: 'administrativo', label: 'Administrativo' },
 ]
 
 const SEVERITIES: Array<{ value: 'all' | AlertRuleSeverity; label: string }> = [
@@ -369,4 +370,3 @@ function isDomain(value: string | null): value is AlertRuleDomain {
 function isSeverity(value: string | null): value is AlertRuleSeverity {
   return value === 'critical' || value === 'normal'
 }
-

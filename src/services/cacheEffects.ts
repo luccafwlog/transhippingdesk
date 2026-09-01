@@ -61,3 +61,15 @@ export async function afterBaplieImportado(queryClient: QueryInvalidator, option
 export async function afterBlRevisado(queryClient: QueryClient, scope: ReviewCacheScope = {}): Promise<void> {
   await invalidateReviewQueueCaches(queryClient, scope)
 }
+
+export async function afterCustomerCommunicationDispatched(
+  queryClient: QueryInvalidator,
+  options: { customerId?: number; blIds?: readonly string[] } = {},
+): Promise<void> {
+  const keys: readonly (readonly unknown[])[] = [
+    ['customer-communications'],
+    ...(options.customerId != null ? [['customer-ficha', 'timeline', options.customerId] as const] : []),
+    ...(options.blIds ?? []).map((blId) => ['bl-timeline', blId] as const),
+  ]
+  await invalidate(queryClient, keys)
+}

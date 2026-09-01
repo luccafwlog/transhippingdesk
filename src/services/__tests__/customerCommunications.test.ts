@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildCustomerCommunicationConference,
+  filterCustomerCommunicationBls,
   getEmailSuppressionReason,
+  isInstitutionalCustomerCommunicable,
   resolveCustomerCommunicationRecipients,
+  validateCustomerCommunicationFilters,
+  type CustomerCommunicationBlCandidate,
 } from '../customerCommunications'
 import type { CustomerContact } from '../../types/database'
 
@@ -104,5 +109,130 @@ describe('resolução pura de destinatários de Comunicados', () => {
     expect(result.eligible).toEqual([row])
     expect(result.excluded).toEqual([])
     expect(row.purpose).toBe('demurrage')
+  })
+})
+
+function candidate(overrides: Partial<CustomerCommunicationBlCandidate> = {}): CustomerCommunicationBlCandidate {
+  return {
+    id: 'BL-1',
+    customerId: 99,
+    customerName: 'Cliente 99',
+    customerCnpj: '12.345.678/0001-95',
+    voyageId: 7,
+    vesselName: 'Navio 7',
+    voyageNumber: 'V7',
+    pod: 'BRSSZ',
+    pol: 'BRRIO',
+    cargoMode: 'container',
+    eta: '2026-09-01T12:00:00Z',
+    ata: null,
+    scaleNumber: 'ESC-7',
+    terminalId: 'terminal-1',
+    terminalName: 'Terminal 1',
+    terminalStateId: 'state-1',
+    milestoneAt: '2026-09-01T12:00:00Z',
+    ...overrides,
+  }
+}
+
+describe('recorte e conferência de Comunicados', () => {
+  it('não permite conferência de carga sem filtro operacional, mesmo com CNPJ', () => {
+    expect(validateCustomerCommunicationFilters({
+      mode: 'carga', vessel: '', voyage: '', scale: '', pod: '', pol: '', cnpj: '12.345.678/0001-95',
+    }).valid).toBe(false)
+    expect(validateCustomerCommunicationFilters({
+      mode: 'carga', vessel: 'Navio', voyage: '', scale: '', pod: '', pol: '', cnpj: '',
+    }).valid).toBe(true)
+  })
+
+  it('aplica CNPJ como restrição e normaliza pontuação', () => {
+    const rows = filterCustomerCommunicationBls([
+      candidate({ id: 'BL-1' }),
+      candidate({ id: 'BL-2', customerId: 100, customerCnpj: '98.765.432/0001-10' }),
+    ], {
+      mode: 'carga', vessel: '', voyage: '', scale: '', pod: '', pol: '', cnpj: '12.345.678000195',
+    })
+    expect(rows.map((row) => row.id)).toEqual(['BL-1'])
+  })
+
+  it('não reaplica filtros operacionais antigos no modo institucional', () => {
+    const rows = filterCustomerCommunicationBls([candidate()], {
+      mode: 'institucional', vessel: 'Outro navio', voyage: 'V999', scale: 'Outra escala', pod: 'BRXXX', pol: 'BRYYY', cnpj: '',
+    })
+    expect(rows.map((row) => row.id)).toEqual(['BL-1'])
+  })
+
+  it('inclui ETA futuro e exclui somente carga anterior ao limite institucional', () => {
+    const now = new Date('2026-09-01T12:00:00Z')
+    expect(isInstitutionalCustomerCommunicable([candidate({ eta: '2027-01-01T00:00:00Z' })], now)).toBe(true)
+    expect(isInstitutionalCustomerCommunicable([candidate({ eta: '2025-08-31T23:59:59Z' })], now)).toBe(false)
+  })
+
+  it('agrupa por cliente, mostra exclusões e avança discriminador só para reenvio confirmado', () => {
+    const first = candidate()
+    const second = candidate({ id: 'BL-2', pod: 'BRSSZ', milestoneAt: first.milestoneAt })
+    const contactRows = new Map([[99, [contact(1, 'cliente@example.com')]]])
+    const conference = buildCustomerCommunicationConference({
+      kind: 'aviso_chegada_noa',
+      mode: 'carga',
+      candidates: [first, second],
+      contactsByCustomer: contactRows,
+      preferences: [{ contact_id: 1, nature: 'avisos_operacionais', enabled: true }],
+      history: [{
+        customerId: 99,
+        kind: 'aviso_chegada_noa',
+        anchorVoyageId: 7,
+        anchorPort: 'BRSSZ',
+        anchorAtracacaoId: null,
+        anchorInvoiceId: null,
+        attemptDiscriminator: 0,
+      }],
+    })
+
+    expect(conference.rows).toHaveLength(1)
+    expect(conference.rows[0]?.bls).toHaveLength(2)
+    expect(conference.rows[0]?.eligibleRecipients).toHaveLength(1)
+    expect(conference.rows[0]?.nextAttemptDiscriminator).toBe(1)
+    expect(conference.blockedCustomers).toHaveLength(0)
+  })
+
+  it('separa NOBs por identidade da linha de terminal', () => {
+    const conference = buildCustomerCommunicationConference({
+      kind: 'aviso_atracacao_nob',
+      mode: 'carga',
+      candidates: [
+        candidate({ id: 'BL-1', terminalId: 'terminal-1', terminalStateId: 'state-1' }),
+        candidate({ id: 'BL-2', terminalId: 'terminal-1', terminalStateId: 'state-2' }),
+      ],
+      contactsByCustomer: new Map([[99, [contact(1, 'cliente@example.com')]]]),
+      preferences: [{ contact_id: 1, nature: 'avisos_operacionais', enabled: true }],
+    })
+
+    expect(conference.rows).toHaveLength(2)
+    expect(conference.rows.map((row) => row.renderInput.terminalId)).toEqual(['terminal-1', 'terminal-1'])
+  })
+
+  it('usa o próprio disparo como âncora do comunicado livre e avança o discriminador', () => {
+    const conference = buildCustomerCommunicationConference({
+      kind: 'livre',
+      mode: 'carga',
+      nature: 'documentacao',
+      candidates: [candidate({ id: 'BL-1' }), candidate({ id: 'BL-2', pod: 'BRVIX' })],
+      contactsByCustomer: new Map([[99, [contact(1, 'cliente@example.com')]]]),
+      preferences: [{ contact_id: 1, nature: 'documentacao', enabled: true }],
+      history: [{
+        customerId: 99,
+        kind: 'livre',
+        anchorVoyageId: null,
+        anchorPort: null,
+        anchorAtracacaoId: null,
+        anchorInvoiceId: null,
+        attemptDiscriminator: 1,
+      }],
+    })
+
+    expect(conference.rows).toHaveLength(1)
+    expect(conference.rows[0]?.bls).toHaveLength(2)
+    expect(conference.rows[0]?.nextAttemptDiscriminator).toBe(2)
   })
 })

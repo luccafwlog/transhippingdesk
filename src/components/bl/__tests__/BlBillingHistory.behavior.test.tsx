@@ -6,13 +6,15 @@ import { BlFaturamentoTab } from '../BlFaturamentoTab'
 import { BlHistoricoTab } from '../BlHistoricoTab'
 import type { BLDetail } from '../../../types/database'
 
-const { fetchNextPage, useBlTimelineMock, useInvoiceLinksMock } = vi.hoisted(() => ({
+const { fetchNextPage, useBlTimelineMock, useInvoiceLinksMock, useBlCommunicationHistoryMock } = vi.hoisted(() => ({
   fetchNextPage: vi.fn(),
   useBlTimelineMock: vi.fn(),
   useInvoiceLinksMock: vi.fn(),
+  useBlCommunicationHistoryMock: vi.fn(),
 }))
 
 vi.mock('../../../hooks/useBlTimeline', () => ({ useBlTimeline: useBlTimelineMock }))
+vi.mock('../../../hooks/useCustomerCommunications', () => ({ useBlCommunicationHistory: useBlCommunicationHistoryMock }))
 vi.mock('../../../hooks/useBilling', () => ({ useInvoiceLinks: useInvoiceLinksMock }))
 vi.mock('../BlClienteSection', () => ({ BlClienteSection: () => <div>Cliente</div> }))
 vi.mock('../BlCobrancasTab', () => ({ BlCobrancasSection: () => <div>Cobrancas</div> }))
@@ -20,6 +22,7 @@ vi.mock('../BlDemurrageSection', () => ({ BlDemurrageSection: () => <div>Demurra
 
 beforeEach(() => {
   fetchNextPage.mockReset()
+  useBlCommunicationHistoryMock.mockReturnValue({ data: [] })
   useInvoiceLinksMock.mockReturnValue({
     data: { 'BL-1': [{ id: 77, invoice_number: 'INV-077' }] },
   })

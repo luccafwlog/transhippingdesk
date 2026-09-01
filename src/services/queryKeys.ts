@@ -103,6 +103,14 @@ export const queryKeys = {
     demurrageAgreements: (customerId: number) => ['customer-ficha', 'demurrage-agreements', customerId] as const,
     timeline: (customerId: number) => ['customer-ficha', 'timeline', customerId] as const,
   },
+  customerCommunications: {
+    all: () => ['customer-communications'] as const,
+    conference: (filters: unknown, kind: string, nature?: string) => ['customer-communications', 'conference', filters, kind, nature ?? null] as const,
+    history: (customerId?: number) => customerId == null
+      ? (['customer-communications', 'history'] as const)
+      : (['customer-communications', 'history', customerId] as const),
+    byBl: (blId: string) => ['customer-communications', 'bl', blId] as const,
+  },
   vehicles: {
     all: () => ['vehicles'] as const,
     stats: (voyageIds: number[]) => ['voyage-vehicle-stats', voyageIds] as const,

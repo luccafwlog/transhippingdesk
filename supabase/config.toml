@@ -26,6 +26,9 @@ verify_jwt = false
 [functions.portal-invite-send]
 verify_jwt = false
 
+[functions.send-customer-communication]
+verify_jwt = false
+
 [functions.portal-login]
 verify_jwt = false
 

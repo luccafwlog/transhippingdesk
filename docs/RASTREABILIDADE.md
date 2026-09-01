@@ -8,7 +8,7 @@ um mapa de navegação; regras completas continuam nos módulos e ADRs. A defini
 vigente é a última definição aplicável por assinatura e ordem de migration;
 snapshots e planos datados servem apenas como histórico.
 Nesta etapa foram inventariados 61 nomes literais de RPC, 41 tabelas acessadas
-diretamente e os diretórios de `supabase/functions` (hoje 12 Edge Functions
+diretamente e os diretórios de `supabase/functions` (hoje 13 Edge Functions
 além de `_shared`).
 
 ## Evidência
@@ -70,6 +70,32 @@ alternativo ou o alerta `cliente_contato_bounced_sem_alternativa`. **Código**;
 **Teste:** `portalEmailWebhook.test.ts`, `portalBounceCascade.test.ts` e
 `portalEdgeFunctionsOrder.test.ts`.
 
+### Bloco 2 — Disparo manual e alertas de Comunicados
+
+`/clientes/comunicacao` é a superfície protegida pela permissão
+`customer_communications`: o modo carga exige filtro operacional e agrupa B/Ls
+por cliente; o modo institucional usa Cliente Comunicável, com ETA a partir de
+doze meses atrás e sem teto futuro. A conferência mostra elegíveis, exclusões,
+bloqueios, preview e confirmação explícita de reenvio. **Código**;
+**Teste:** `customerCommunications.test.ts` e
+`customerCommunicationTemplates.test.ts`.
+
+`customerCommunicationDispatches.ts` chama `send-customer-communication`, que
+confere contato, preferência, complaint/bounce e natureza, registra a operação
+por RPC atômica e mantém o dry-run quando
+`app_settings.communications_enabled=false`. A migration
+`373_comunicados_anexos.sql` cria templates e bucket privado; anexos são
+limitados a três arquivos e 10 MB e não são aceitos em cobrança local ou
+demurrage. **Código**; **Teste de contrato SQL:**
+`comunicadosAnexosMigration.test.ts` e
+`sendCustomerCommunicationFunction.test.ts`.
+
+O Histórico de Comunicados aparece na própria rota, na Ficha do Cliente e no
+Histórico do B/L vinculado. A migration `374_comunicados_alertas.sql` cataloga
+NOA/NOR/NOB pendentes e bounce sem alternativa no runner server-only; somente
+`status='enviado'` resolve os avisos operacionais. **Código**;
+**Teste de contrato SQL:** `comunicadosAlertasMigration.test.ts`.
+
 ## Índice por rota e ação
 
 ### Entrega PR 579 — Escala e Atracação por terminal (2026-08-24)
@@ -111,6 +137,7 @@ as divergências permanecem no documento vivo do módulo indicado.
 | `/portal/recuperar-senha` | Consumir token e trocar senha | `src/pages/PortalResetPassword.tsx` | Edge Function `portal-password-reset` | Token de uso único validado no servidor; senha trocada via Auth Admin | Atualiza credencial e volta ao login sem sessão automática | **Código**, **Teste** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/portal/ativar` | Inspecionar e ativar convite | `src/pages/PortalAtivacao.tsx` | Edge Function `portal-invite-activate` | `portal_invites` por hash de token; Supabase Auth criado na ativação | Consome token atomicamente e retorna ao login sem sessão automática | **Código**; runtime não executado | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/portal` | Fila e revisão individual do provisionamento | `src/pages/ClientesPortal.tsx`, `PortalReviewPanel` | `usePortalProvisioning`, `portalProvisioning.ts` | `customer_portal_accounts`, convites, contatos e alertas | Filtro inicial aguardando análise; ações individuais; deep-link por cliente | **Código**, **Teste** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
+| `/clientes/comunicacao` | Conferir, simular/enviar e consultar histórico de Comunicados | `src/pages/ClientesComunicacao.tsx` | `useCustomerCommunications`, `customerCommunications.ts`, `customerCommunicationDispatches.ts` | `customer_communications`, `customer_communication_bls`, `customer_communication_attempts`; Edge `send-customer-communication`; migrations `373`/`374` | Cache de conferência/histórico invalidado após dispatch; banner permanente quando a chave global está desligada; histórico chega à Ficha e aos B/Ls vinculados | **Código**, **Teste**, **Teste de contrato SQL** | [Clientes](modules/clientes.md#anatomia-das-telas) |
 | `/clientes/portal/inspecao/:customerId/*` | Inspecionar o Portal de um Cliente em modo somente leitura | `PortalReviewPanel`, `PortalLayout`, páginas do Portal | `PortalScope`, `callPortalRpc`, hooks de billing/operação/perfil/notificações | `portal_open_inspection`; núcleos `_portal_*_core`; invólucros `portal_inspect_*`; `portal_inspection_events` | Base path e caches incluem o Cliente; escritas bloqueadas; saída retorna à origem | Usuário interno inativo, Cliente inválido, RPC negada ou falha de overview | **Código:** ADR 0045; **Teste de contrato SQL:** paridade/grants; **Teste:** bloqueio e contenção |
 | `/clientes/portal/inspecao/:customerId/billing` | Consultar faturas em Modo Inspeção | `PortalBilling` | `usePortalBilling` / `PortalScope` | `portal_inspect_list_invoices`, `portal_inspect_*` | Cache inclui `customerId`; mutações desabilitadas | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/portal/inspecao/:customerId/operacao` | Consultar BLs e containers em Modo Inspeção | `PortalOperacao` | `usePortalOperation` / `PortalScope` | `portal_inspect_list_operation_bls` | Leitura compartilhada; nenhuma escrita | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
@@ -405,6 +432,7 @@ loops, não apenas por regex de `CREATE POLICY`.
 | Função | Chamador | Autenticação própria | Recursos privilegiados | Efeitos externos | Evidência |
 |---|---|---|---|---|---|
 | `alerts-detector` | `pg_cron` via `pg_net`, job `alerts-foundation-detectors` a cada 15 minutos | `POST` + Bearer comparado em tempo constante com `ALERTS_DETECTOR_SECRET`; `verify_jwt=false` | Cliente Supabase `service_role` chama `run_alert_detectors`, que executa os detectores históricos com contexto interno | Recalcula pendências ADR, revisão B/L, Portal, PIX e operação de viagem; não é chamado pelo browser. O detector de faturas vencidas saiu do runner na migration `348` (ADR 0055) | **Código:** `supabase/functions/alerts-detector/index.ts`; migrations `319`, `332`; **Teste de contrato SQL:** `alertsFoundationMigration.test.ts`, `unifiedAlertsRunnerMigration.test.ts` |
+| `send-customer-communication` | Frontend interno autorizado | `verify_jwt=false`; valida Bearer por Supabase Auth e perfil interno ativo; CORS compartilhado | Cliente Supabase `service_role`; RPC `create_customer_communication_atomic` | Confere contato, natureza, preferência e supressões; grava Comunicado/tentativa; em chave desligada registra `simulado` sem chamar Resend; quando ligada envia via `_shared/email.ts` | **Código:** `supabase/functions/send-customer-communication/index.ts`, `src/services/customerCommunicationDispatches.ts`; **Teste de contrato SQL:** `sendCustomerCommunicationFunction.test.ts` |
 
 ### RPCs da integração dos Blocos 1–5
 

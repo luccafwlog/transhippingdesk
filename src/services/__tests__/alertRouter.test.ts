@@ -54,6 +54,23 @@ describe('alertEntityLink & alertEntityLinkLabel — roteador de destino compart
     expect(alertEntityLinkLabel({ type: 'voyage_terminal_date_pending', entity_type: 'voyage_escala_terminal' })).toBe('Abrir Viagem')
   })
 
+  it('roteia pendências de Comunicados para a conferência e bounce para Contatos', () => {
+    expect(alertEntityLink({
+      type: 'comunicado_noa_pendente',
+      entity_type: 'voyage_pod_schedule',
+      entity_id: '100::BRSSZ',
+      destination: '/clientes/comunicacao',
+    })).toBe('/clientes/comunicacao')
+    expect(alertEntityLinkLabel({ type: 'comunicado_nob_pendente', entity_type: 'voyage_escala_terminal' })).toBe('Abrir Comunicados')
+    expect(alertEntityLink({
+      type: 'cliente_contato_bounced_sem_alternativa',
+      entity_type: 'customer',
+      entity_id: '42',
+      metadata: { customer_cnpj: '12.345.678/0001-95' },
+    })).toBe('/clientes/12.345.678%2F0001-95?tab=contatos')
+    expect(alertEntityLinkLabel({ type: 'cliente_contato_bounced_sem_alternativa', entity_type: 'customer' })).toBe('Abrir Cliente')
+  })
+
   it('roteia agency_departure_report terminalizado e legado com query params', () => {
     const linkLegacy = alertEntityLink({
       type: 'agency_report_department_pending',

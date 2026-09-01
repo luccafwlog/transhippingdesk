@@ -28,7 +28,8 @@ describe('webhook de email para Portal e Comunicados', () => {
   it('aplica cascata, alerta sem alternativa e trava anti-loop', () => {
     expect(webhook).toContain("kind: BOUNCE_NOTIFICATION_KIND")
     expect(webhook).toContain("permanentBounce && portalAttempt?.kind !== BOUNCE_NOTIFICATION_KIND")
-    expect(webhook).toContain("type: 'cliente_contato_bounced_sem_alternativa'")
+    expect(webhook).toContain("p_type: 'cliente_contato_bounced_sem_alternativa'")
+    expect(webhook).toContain("admin.rpc('upsert_alert_item'")
     expect(webhook).toContain('resolveBounceCascade({')
     expect(webhook).toContain('idempotencyKey: `${BOUNCE_NOTIFICATION_KIND}:')
   })

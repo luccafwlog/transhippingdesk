@@ -2,7 +2,7 @@ import { useEffect, useState, type ChangeEvent, type MouseEvent as ReactMouseEve
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
-import { Download, Plus, Upload } from 'lucide-react'
+import { Download, Mail, Plus, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -48,7 +48,7 @@ export function Clientes() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const confirm = useConfirm()
-  const { user, effectiveRole, profile } = useAuth()
+  const { user, effectiveRole, profile, can } = useAuth()
   const canEditCustomers = Boolean(profile || user)
   const [deleting, setDeleting] = useState(false)
   const [actionsMenu, setActionsMenu] = useState<CustomerActionsMenu | null>(null)
@@ -382,11 +382,17 @@ export function Clientes() {
               <Download size={16} />
               Exportar base
             </Button>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus size={16} />
-              Novo Cliente
-            </Button>
-          </div>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus size={16} />
+            Novo Cliente
+          </Button>
+          {can('customer_communications') ? (
+            <Link to="/clientes/comunicacao" className="app-btn app-btn--secondary">
+              <Mail size={16} />
+              Comunicação
+            </Link>
+          ) : null}
+        </div>
         }
       />
 

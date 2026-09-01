@@ -4,6 +4,7 @@ import { isCustomerReconciliationResolved } from './customerReconciliation'
 import { formatBRL } from '../lib/utils'
 import { classifyDbError } from '../lib/errors'
 import { accountSituationLabel, provisioningDecisionLabel } from '../lib/portalProvisioningViewModel'
+import { fetchCustomerCommunicationHistory, customerCommunicationKindLabel, customerCommunicationStatusLabel, type CustomerCommunicationHistoryItem } from './customerCommunications'
 
 export type FichaLocalInvoiceRow = {
   id: number
@@ -39,7 +40,7 @@ export function buildConsolidatedBalance(
 }
 
 export type CustomerTimelineEvent = {
-  kind: 'cadastro_audit' | 'portal_event' | 'contact_created' | 'local_invoice_issued' | 'local_payment' | 'demurrage_invoice_issued' | 'demurrage_invoice_paid' | 'bl_created'
+  kind: 'cadastro_audit' | 'portal_event' | 'contact_created' | 'local_invoice_issued' | 'local_payment' | 'demurrage_invoice_issued' | 'demurrage_invoice_paid' | 'bl_created' | 'communication'
   sourceId: string
   at: string
   label: string
@@ -55,6 +56,7 @@ type TimelineSources = {
   payments: Array<{ id: number; amount_brl: number; paid_at: string | null; invoice: { id: number; invoice_number: string | null } | null }>
   demurrageInvoices: Array<{ id: number; doc_number: string; billed_at: string | null; paid_at: string | null; status: string | null }>
   bls: Array<{ id: string; created_at: string | null }>
+  communications?: CustomerCommunicationHistoryItem[]
 }
 
 export function buildCustomerTimeline(sources: TimelineSources): CustomerTimelineEvent[] {
@@ -69,6 +71,14 @@ export function buildCustomerTimeline(sources: TimelineSources): CustomerTimelin
       ...(row.paid_at ? [{ kind: 'demurrage_invoice_paid' as const, sourceId: `${row.id}:paid`, at: row.paid_at, label: `Demurrage paga: ${row.doc_number}`, detail: null, link: '/demurrage' }] : []),
     ]),
     ...sources.bls.filter((row) => row.created_at).map((row) => ({ kind: 'bl_created' as const, sourceId: row.id, at: row.created_at!, label: `B/L vinculado: ${row.id}`, detail: null, link: `/manifestos/${row.id}` })),
+    ...(sources.communications ?? []).map((row) => ({
+      kind: 'communication' as const,
+      sourceId: String(row.id),
+      at: row.created_at,
+      label: `${customerCommunicationKindLabel(row.kind)}: ${customerCommunicationStatusLabel(row.status)}`,
+      detail: `${row.attempts.length} tentativa(s)${row.anchor_port ? ` · ${row.anchor_port}` : ''}${row.attachments.length ? ` · ${row.attachments.length} anexo(s)` : ''}`,
+      link: `/clientes/comunicacao?tab=historico&communication=${encodeURIComponent(String(row.id))}`,
+    })),
   ]
   return events.sort((a, b) => b.at.localeCompare(a.at))
 }
@@ -157,12 +167,13 @@ export async function fetchCustomerRunningDemurrage(customerId: number) {
 }
 
 export async function fetchCustomerTimelineSources(customerId: number, contacts: Array<Pick<CustomerContact, 'id' | 'name' | 'created_at'>>, bls: Array<{ id: string; created_at: string | null }>) {
-  const [auditLogs, portalEvents, localInvoices, payments, demurrage] = await Promise.all([
+  const [auditLogs, portalEvents, localInvoices, payments, demurrage, communications] = await Promise.all([
     supabase.from('audit_logs').select('id, field_name, old_value, new_value, changed_at, justification, changed_by').eq('entity_type', 'customer').eq('entity_id', String(customerId)).order('changed_at', { ascending: false }).range(0, 99),
     supabase.from('portal_provisioning_events').select('id, new_decision, new_situation, reason, created_at').eq('customer_id', customerId).order('created_at', { ascending: false }).range(0, 99),
     supabase.from('invoices').select('id, invoice_number, issued_at, status').eq('customer_id', customerId).order('issued_at', { ascending: false }).range(0, 99),
     supabase.from('payments').select('id, amount_brl, paid_at, invoice:invoices!inner(id, invoice_number, customer_id)').eq('invoice.customer_id', customerId).order('paid_at', { ascending: false }).range(0, 99),
     supabase.from('demurrage_invoices').select('id, doc_number, billed_at, paid_at, status').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(0, 99),
+    fetchCustomerCommunicationHistory(customerId),
   ])
   for (const result of [auditLogs, portalEvents]) if (result.error) throw result.error
   const localRows = localInvoices.error && classifyDbError(localInvoices.error).kind !== 'permissao' ? (() => { throw localInvoices.error })() : (localInvoices.data ?? [])
@@ -177,5 +188,6 @@ export async function fetchCustomerTimelineSources(customerId: number, contacts:
     payments: (paymentRows ?? []) as unknown as TimelineSources['payments'],
     demurrageInvoices: demurrageRows,
     bls,
+    communications,
   })
 }

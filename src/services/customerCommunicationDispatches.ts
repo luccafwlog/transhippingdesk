@@ -1,0 +1,100 @@
+import {
+  assertValidCommunicationAttachments,
+  type CommunicationAttachment,
+  type CustomerCommunicationKind,
+} from './customerCommunicationTemplates'
+import { getCustomerCommunicationNature } from './customerCommunications'
+import { supabase } from './supabase'
+
+export type CustomerCommunicationDispatchAttachment = CommunicationAttachment & {
+  contentBase64: string
+}
+
+export type CustomerCommunicationDispatchInput = {
+  customerId: number
+  kind: CustomerCommunicationKind
+  nature?: string
+  recipient: string
+  subject: string
+  html: string
+  text: string
+  blIds?: readonly string[]
+  anchorVoyageId?: number | null
+  anchorPort?: string | null
+  anchorAtracacaoId?: string | null
+  anchorInvoiceId?: number | null
+  attemptDiscriminator?: number
+  dispatchId?: string | null
+  vesselName?: string | null
+  voyageNumber?: string | null
+  terminalName?: string | null
+  attachments?: readonly CustomerCommunicationDispatchAttachment[]
+}
+
+export type CustomerCommunicationDispatchResult = {
+  communicationId: number
+  attemptId?: number
+  status: 'enviado' | 'simulado' | 'falha'
+  suppressed?: boolean
+  message?: string
+}
+
+function makeIdempotencyKey(input: CustomerCommunicationDispatchInput): string {
+  const anchor = [
+    input.anchorVoyageId ?? '',
+    input.anchorPort?.trim().toUpperCase() ?? '',
+    input.anchorAtracacaoId ?? '',
+    input.anchorInvoiceId ?? '',
+  ].join(':')
+  return `comunicado:${input.kind}:${input.customerId}:${anchor}:${input.dispatchId ?? ''}:${input.attemptDiscriminator ?? 0}:${input.recipient.trim().toLowerCase()}`
+}
+
+export function customerCommunicationDispatchPayload(input: CustomerCommunicationDispatchInput) {
+  const nature = input.nature ?? getCustomerCommunicationNature(input.kind)
+  assertValidCommunicationAttachments(input.kind, input.attachments)
+  return {
+    customer_id: input.customerId,
+    kind: input.kind,
+    nature,
+    recipient: input.recipient.trim().toLowerCase(),
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
+    bl_ids: [...(input.blIds ?? [])],
+    anchor_voyage_id: input.anchorVoyageId ?? null,
+    anchor_port: input.anchorPort?.trim().toUpperCase() || null,
+    anchor_atracacao_id: input.anchorAtracacaoId ?? null,
+    anchor_invoice_id: input.anchorInvoiceId ?? null,
+    attempt_discriminator: input.attemptDiscriminator ?? 0,
+    dispatch_id: input.dispatchId ?? null,
+    vessel_name: input.vesselName ?? null,
+    voyage_number: input.voyageNumber ?? null,
+    terminal_name: input.terminalName ?? null,
+    idempotency_key: makeIdempotencyKey(input),
+    attachments: (input.attachments ?? []).map((attachment) => ({
+      filename: attachment.filename,
+      content_type: attachment.contentType,
+      size: attachment.size,
+      content_base64: attachment.contentBase64,
+    })),
+  }
+}
+
+export async function dispatchCustomerCommunication(input: CustomerCommunicationDispatchInput): Promise<CustomerCommunicationDispatchResult> {
+  const { data, error } = await supabase.functions.invoke('send-customer-communication', {
+    body: customerCommunicationDispatchPayload(input),
+  })
+  if (error) throw error
+  const result = data as CustomerCommunicationDispatchResult & { error?: string }
+  if (result?.error) throw new Error(result.error)
+  return result
+}
+
+export async function dispatchCustomerCommunications(
+  inputs: readonly CustomerCommunicationDispatchInput[],
+): Promise<CustomerCommunicationDispatchResult[]> {
+  const results: CustomerCommunicationDispatchResult[] = []
+  // Mantém uma tentativa por cliente e evita rajadas paralelas no provider.
+  for (const input of inputs) results.push(await dispatchCustomerCommunication(input))
+  return results
+}

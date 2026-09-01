@@ -98,6 +98,8 @@ export type VoyageEscalaSchedule = {
 export type VoyageTerminalScaleState = {
   voyageId: number
   port: string
+  /** UUID da linha em voyage_escala_terminal_state. */
+  stateId?: string | null
   terminalId: string | null
   terminalCode?: string | null
   terminalEtb: string | null
@@ -109,6 +111,8 @@ export type VoyageTerminalScaleState = {
 }
 
 export type VoyageAtracacao = {
+  /** UUID da linha em voyage_escala_terminal_state, usado como âncora do NOB. */
+  stateId?: string | null
   terminalId: string | null
   terminalCode?: string | null
   etb?: string | null
@@ -251,7 +255,7 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(
   }
   for (const voyageChunk of chunkArray(voyageIds, 25)) {
     const { data, error } = await (supabase.from as unknown as (table: string) => TerminalStateQuery)('voyage_escala_terminal_state')
-      .select('voyage_id, port, terminal_id, terminal_etb, terminal_atb, terminal_etd, terminal_atd, terminal_rtw, revision')
+      .select('id, voyage_id, port, terminal_id, terminal_etb, terminal_atb, terminal_etd, terminal_atd, terminal_rtw, revision')
       .in('voyage_id', voyageChunk)
     if (error) throw error
 
@@ -261,6 +265,7 @@ export async function listVoyageTerminalScaleStatesByVoyageIds(
       states.push({
         voyageId: row.voyage_id,
         port: row.port,
+        stateId: typeof row.id === 'string' ? row.id : null,
         terminalId: typeof row.terminal_id === 'string' ? row.terminal_id : null,
         terminalCode: null, // preenchido por hydrateTerminalCodes abaixo.
         terminalEtb: typeof row.terminal_etb === 'string' ? row.terminal_etb : null,
@@ -432,6 +437,7 @@ export function projectVoyageEscalaSchedules({
   for (const escala of escalasByKey.values()) {
     const atracacoes = terminalStatesByKey.get(buildEscalaKey(escala.voyageId, escala.port)) ?? []
     escala.atracacoes = sortAtracacoes(atracacoes.map((state) => ({
+      stateId: state.stateId ?? null,
       terminalId: state.terminalId,
       terminalCode: state.terminalCode,
       etb: state.terminalEtb,
