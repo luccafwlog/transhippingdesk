@@ -135,7 +135,7 @@ const terminalScaleBase = {
   ],
   tbcFronts: [],
   terminals: [
-    { terminalId: 't-norte', atb: '2026-03-02', atd: null, restow: null },
+    { terminalId: 't-norte', atb: '2026-03-02T08:00:00Z', atd: null, restow: null },
     { terminalId: 't-sul', atb: null, atd: null, restow: 2 },
   ],
   activeTerminals: [
@@ -618,5 +618,73 @@ describe('EscalaModal', () => {
     expect(screen.getByRole('alert').textContent).toContain('ADR fechado')
     expect(screen.getByText(/terminal T-SUL/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Reabrir ADR' })).toBeTruthy()
+  })
+
+  it('rejeita ATA com data preenchida e hora vazia', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    renderEscala(escalaBase, onSaved)
+
+    await user.type(screen.getByLabelText('ATA'), '2026-03-05')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('hora do ATA é obrigatória')
+  })
+
+  it('permite ATA com data e hora preenchidas', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    renderEscala(escalaBase, onSaved)
+
+    await user.type(screen.getByLabelText('ATA'), '2026-03-05')
+    await user.type(screen.getByLabelText('ATA Hora'), '14:30')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      ata: '2026-03-05T14:30:00',
+    }))
+  })
+
+  it('permite ETA com ou sem hora preenchida', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    renderEscala(escalaBase, onSaved)
+
+    await user.clear(screen.getByLabelText('ETA'))
+    await user.type(screen.getByLabelText('ETA'), '2026-03-10')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      eta: '2026-03-10',
+    }))
+
+    onSaved.mockClear()
+    await user.type(screen.getByLabelText('ETA Hora'), '10:00')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({
+      eta: '2026-03-10T10:00:00',
+    }))
+  })
+
+  it('rejeita ATB de terminal com data preenchida e hora vazia', async () => {
+    const user = userEvent.setup()
+    const onSaved = vi.fn().mockResolvedValue(undefined)
+    renderEscala(terminalEscala({
+      terminalScale: {
+        ...terminalScaleBase,
+        terminals: [
+          { terminalId: 't-norte', atb: null, atd: null, restow: null },
+          { terminalId: 't-sul', atb: null, atd: null, restow: null },
+        ],
+      },
+    }), onSaved)
+
+    await user.type(screen.getByLabelText('ATB T-NORTE'), '2026-03-04')
+    await user.click(screen.getByRole('button', { name: 'Salvar escala' }))
+
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toContain('hora do ATB é obrigatória')
   })
 })
