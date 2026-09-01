@@ -261,6 +261,7 @@ export function TaxasLocais() {
             totalPages={totalPages}
             onPageChange={(page) => updateFilter('page', page)}
             onSelectInvoice={(invoiceId) => setSelectedInvoiceId(invoiceId)}
+            showCommunication
           />
         </>
       ) : null}

@@ -43,7 +43,7 @@ export type InvoiceFilters = {
 // navio/viagem e POD do BL, alem das datas de pagamento.
 type InvoiceListBlSnapshot = {
   pod: string | null
-  voyage?: { voyage_number: string | null; vessel?: { name: string | null } | null } | null
+  voyage?: { id?: number | null; voyage_number: string | null; vessel?: { name: string | null } | null } | null
 }
 
 // Apenas os campos de invoices efetivamente buscados em INVOICE_LIST_SELECT.
@@ -136,8 +136,8 @@ const INVOICE_LIST_SELECT = `
   balance_brl,
   created_at,
   customer:customers(id,name,cnpj_cpf),
-  invoice_bls(id,bl_id,subtotal_brl,subtotal_usd,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
-  invoice_receivable_links(id,bl_id,subtotal_brl,bl:bls(pod,voyage:voyages(voyage_number,vessel:vessels(name)))),
+  invoice_bls(id,bl_id,subtotal_brl,subtotal_usd,bl:bls(pod,voyage:voyages(id,voyage_number,vessel:vessels(name)))),
+  invoice_receivable_links(id,bl_id,subtotal_brl,bl:bls(pod,voyage:voyages(id,voyage_number,vessel:vessels(name)))),
   payments(paid_at)
 `
 
@@ -299,6 +299,29 @@ export type InvoiceListBl = {
   pod: string | null
   voyage_number: string | null
   vessel_name: string | null
+}
+
+export type InvoiceCommunicationContext = {
+  customerId: number
+  voyageId: number | null
+  voyageNumber: string | null
+  vesselName: string | null
+  pod: string | null
+}
+
+/** Contexto mínimo para a coluna de status do comunicado financeiro. */
+export function getInvoiceCommunicationContext(row: InvoiceListRow): InvoiceCommunicationContext {
+  const direct = row.invoice_bls ?? []
+  const links = row.invoice_receivable_links ?? []
+  const source = direct.length > 0 ? direct : links
+  const first = source.find((link) => Boolean(link.bl_id?.trim()))
+  return {
+    customerId: row.customer_id,
+    voyageId: first?.bl?.voyage?.id ?? null,
+    voyageNumber: first?.bl?.voyage?.voyage_number ?? null,
+    vesselName: first?.bl?.voyage?.vessel?.name ?? null,
+    pod: first?.bl?.pod ?? null,
+  }
 }
 
 // BLs vinculados a uma fatura, abstraindo a origem (invoice_bls vs receivable_links).
