@@ -7,6 +7,7 @@ import { Field, Input } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { useCustomerDemurrageAgreements } from '../../hooks/useCustomerDemurrageAgreements'
+import { selectAgreementForDischargeDate } from '../../services/demurrage/customerDemurrageAgreements'
 import { saveBlDemurrageConfig } from '../../services/blDemurrageConfig'
 import { calculateDemurrage, ensureDemurrageRatesLoaded } from '../../services/demurrage/demurrageRates'
 import { updateContainerReturnDate } from '../../services/demurrage/demurrageContainers'
@@ -21,10 +22,14 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
   const { user } = useAuth()
   const { showToast } = useToast()
 
-  const { data: customerAgreements } = useCustomerDemurrageAgreements({
-    customerId: bl.customer_id ?? undefined,
-    activeOnly: true,
-  })
+  // Sem cliente vinculado nao ha acordo a aplicar. O `enabled` e o que impede
+  // a consulta de voltar com os acordos de TODOS os clientes (o filtro por
+  // cliente so entra quando ha customerId) e o `.find()` abaixo casar, pela
+  // data, o acordo negociado de outro cliente com este B/L.
+  const { data: customerAgreements } = useCustomerDemurrageAgreements(
+    { customerId: bl.customer_id ?? undefined, activeOnly: true },
+    bl.customer_id != null,
+  )
 
   // --- Config form state ---
   const [freeTime, setFreeTime] = useState<string>(
@@ -190,9 +195,10 @@ export function BlDemurrageSection({ bl }: { bl: BLDetail }) {
                   let demError = ratesError
                   if (container.discharge_date && returnDateVal && ratesReady) {
                     try {
-                      const matchingAgreement = (customerAgreements ?? []).find(
-                        (a) => container.discharge_date! >= a.valid_from && (!a.valid_to || container.discharge_date! <= a.valid_to),
-                      ) ?? null
+                      const matchingAgreement = selectAgreementForDischargeDate(
+                        customerAgreements ?? [],
+                        container.discharge_date,
+                      )
                       demCalc = calculateDemurrage(
                         container.type,
                         container.discharge_date,

@@ -9,10 +9,18 @@ import {
 } from '../services/demurrage/customerDemurrageAgreements'
 import type { CustomerDemurrageAgreementFormInput } from '../types/customerDemurrageAgreements'
 
-export function useCustomerDemurrageAgreements(filters?: CustomerDemurrageAgreementFilters) {
+// `enabled` existe porque "sem customerId" e um filtro legitimo — a aba de
+// acordos lista todos de proposito. Quem pergunta pelos acordos DE UM cliente
+// precisa nao consultar quando nao ha cliente: sem o guard, a lista volta com
+// os acordos de todo mundo e o chamador aplica o de outro cliente.
+export function useCustomerDemurrageAgreements(
+  filters?: CustomerDemurrageAgreementFilters,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.demurrage.customerAgreements(filters),
     queryFn: () => listCustomerDemurrageAgreements(filters),
+    enabled,
   })
 }
 

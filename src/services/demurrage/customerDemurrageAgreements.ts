@@ -147,3 +147,19 @@ export async function toggleCustomerDemurrageAgreementActive(id: number, active:
     throw error
   }
 }
+
+// Qual acordo vale para uma data de descarga. A escolha e por container (cada
+// um tem sua data), nao por cliente: guardar "o acordo do cliente" antes de
+// olhar a data faz um acordo vencido mascarar o vigente e a cobranca cair na
+// tabela padrao. Espera a lista ja ordenada por vigencia decrescente, de modo
+// que o mais recente vence quando dois periodos se sobrepoem.
+export function selectAgreementForDischargeDate<
+  T extends { valid_from: string; valid_to?: string | null },
+>(agreements: T[], dischargeDate: string | null | undefined): T | null {
+  if (!dischargeDate) return null
+  return (
+    agreements.find(
+      (a) => dischargeDate >= a.valid_from && (!a.valid_to || dischargeDate <= a.valid_to),
+    ) ?? null
+  )
+}
