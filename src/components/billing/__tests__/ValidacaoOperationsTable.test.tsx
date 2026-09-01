@@ -183,6 +183,18 @@ describe('ValidacaoOperationsTable', () => {
 })
 
 describe('links de resolução da pendência', () => {
+  it('aponta o número do B/L na tabela para a ficha do B/L', () => {
+    renderTable({ rows: [row] })
+    const link = screen.getByRole('link', { name: 'BL-001' })
+    expect(link.getAttribute('href')).toBe('/manifestos/BL-001')
+  })
+
+  it('aponta o número do B/L de Granito para /granito', () => {
+    renderTable({ rows: [{ ...row, id: 'GR-001', cargo_mode: 'granito' }] })
+    const link = screen.getByRole('link', { name: 'GR-001' })
+    expect(link.getAttribute('href')).toBe('/granito')
+  })
+
   it('aponta o cliente não vinculado para a Revisão, no B/L certo', () => {
     renderTable({ rows: [{ ...row, customer: null, customer_reconciliation_status: 'pending' }], expandedBlId: 'BL-001' })
     const link = screen.getByRole('link', { name: /Vincular cliente na Revisão/ })

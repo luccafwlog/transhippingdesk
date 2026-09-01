@@ -83,7 +83,14 @@ export function CodAdjustmentsPanel() {
                 const isManualDocument = row.action === 'complementary_invoice' || row.action === 'cancel_and_reissue' || row.action === 'manual_charge_review'
                 return (
                   <tr key={row.id}>
-                    <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.bl_id}</td>
+                    <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">
+                      <Link
+                        className="hover:underline"
+                        to={`/manifestos/${encodeURIComponent(row.bl_id)}`}
+                      >
+                        {row.bl_id}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">
                       <Badge tone={isManualDocument ? 'slate' : 'yellow'}>{actionLabel(row.action)}</Badge>
                       {row.manual_review_required ? <div className="mt-1 text-xs text-slate-400">Revisão manual obrigatória</div> : null}
