@@ -53,8 +53,6 @@ function renderTable(overrides: Partial<React.ComponentProps<typeof ValidacaoOpe
     onToggleRow: vi.fn(),
     onToggleExpandedRow: vi.fn(),
     onIssueSingleInvoice: vi.fn(),
-    onApproveQueueItem: vi.fn(),
-    onRejectQueueItem: vi.fn(),
   }
 
   render(
@@ -67,8 +65,6 @@ function renderTable(overrides: Partial<React.ComponentProps<typeof ValidacaoOpe
         areAllRowsSelected={false}
         expandedBlId={null}
         reconciliationQueue={[]}
-        approvePending={false}
-        rejectPending={false}
         {...callbacks}
         {...overrides}
       />
@@ -110,25 +106,33 @@ describe('ValidacaoOperationsTable', () => {
     expect(onToggleExpandedRow).toHaveBeenCalledWith('BL-001')
   })
 
-  it('delega a aprovação da reconciliação com os IDs da fila', async () => {
-    const user = userEvent.setup()
-    const { onApproveQueueItem } = renderTable({
+  // ADR 0061 / issue #639: a Validacao exibe a conciliacao e aponta para a
+  // Revisao; nao decide. Os botoes Aprovar/Rejeitar sairam daqui.
+  it('não decide a conciliação: sem Aprovar/Rejeitar, aponta para a Revisão no B/L certo', () => {
+    renderTable({
       rows: [{ ...row, customer_reconciliation_status: 'pending' }],
       expandedBlId: 'BL-001',
       reconciliationQueue: [{
         id: 42,
         bl_id: 'BL-001',
         customer_id: 7,
-        current_customer_name: 'Cliente sugerido',
+        current_customer_name: 'ACME LOGISTICA LTDA',
         cnpj_cpf: '00.000.000/0001-00',
         manifest_customer_name: 'Cliente manifesto',
         detection_type: 'document',
       }],
     })
 
-    await user.click(screen.getByRole('button', { name: 'Aprovar' }))
-
-    expect(onApproveQueueItem).toHaveBeenCalledWith(42, 7)
+    expect(screen.queryByRole('button', { name: 'Aprovar' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Rejeitar' })).toBeNull()
+    // os dados da conciliacao continuam a vista, que e o que a fila precisa mostrar
+    expect(screen.getByText('Cliente manifesto')).toBeTruthy()
+    expect(screen.getByText('ACME LOGISTICA LTDA')).toBeTruthy()
+    const links = screen.getAllByRole('link', { name: /Vincular cliente na Revisão/ })
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) {
+      expect(link.getAttribute('href')).toBe('/revisao?bl=BL-001')
+    }
   })
 
   it('não repete o motivo na coluna quando a linha está expandida e rotula estados finais sem alarme', () => {
@@ -169,8 +173,8 @@ describe('ValidacaoOperationsTable', () => {
     })
 
     expect(screen.getByText('07.415.554/0009-56')).toBeTruthy()
-    expect(screen.getByText('Nenhum cliente sugerido — cadastre o cliente para aprovar.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Aprovar' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByText('Nenhum cliente sugerido — cadastre o cliente na Revisão.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Aprovar' })).toBeNull()
   })
 })
 

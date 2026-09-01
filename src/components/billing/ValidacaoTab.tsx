@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useToast } from '../ui/Toast'
-import { useBatchCalculateLocalCharges, useCustomerReconciliationQueue, useApproveCustomerReconciliation, useRejectCustomerReconciliation, useLocalChargeOperations } from '../../hooks/useLocalCharges'
+import { useBatchCalculateLocalCharges, useCustomerReconciliationQueue, useLocalChargeOperations } from '../../hooks/useLocalCharges'
 import { queryKeys } from '../../services/queryKeys'
 import { createInvoiceFromBls } from '../../services/billing'
 import { runGraniteBatch } from '../../services/graniteBillingWorkflow'
@@ -23,8 +23,6 @@ export function ValidacaoTab({ userId, initialBlockCode, initialBlSearch }: { us
   const operationsRows = useMemo(() => operationsResult?.rows ?? [], [operationsResult])
   const batchCalculateMutation = useBatchCalculateLocalCharges()
   const { data: reconciliationQueue } = useCustomerReconciliationQueue('pending', 50)
-  const approveReconciliationMutation = useApproveCustomerReconciliation()
-  const rejectReconciliationMutation = useRejectCustomerReconciliation()
 
   const displayedRows = useMemo(() => {
     return (operationsRows ?? []).filter((row) => {
@@ -92,11 +90,9 @@ export function ValidacaoTab({ userId, initialBlockCode, initialBlSearch }: { us
     try { await createInvoiceFromBls({ blIds: [row.id], customerId: row.customer.id, issueNow: true, actorId: userId }); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.charges.operations() }), queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all() }), queryClient.invalidateQueries({ queryKey: queryKeys.bls.all() }), queryClient.invalidateQueries({ queryKey: queryKeys.bls.summary() })]); showToast(`Fatura emitida para ${row.id}.`, 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao emitir fatura individual.', 'error') }
   }
   async function handleRecalculateRow(row: LocalChargeOperationalRow) { await runBatchOperation('recalculate', [row.id]) }
-  async function handleApproveQueueItem(queueId: number, customerId?: number | null) { if (!customerId) return showToast('Não há cliente vinculado para aprovação automática.', 'error'); try { await approveReconciliationMutation.mutateAsync({ queueId, customerId, actorId: userId }); showToast('Reconciliação aprovada.', 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao aprovar reconciliação.', 'error') } }
-  async function handleRejectQueueItem(queueId: number) { try { await rejectReconciliationMutation.mutateAsync({ queueId, actorId: userId }); showToast('Reconciliação rejeitada.', 'success') } catch (error) { showToast(error instanceof Error ? error.message : 'Falha ao rejeitar reconciliação.', 'error') } }
 
   return <>
     <ValidacaoControls filters={opsFilters} blockedCount={displayedRows.length} truncated={Boolean(operationsResult?.truncated)} selectedCount={selectedOpsRows.length} operationsLoading={operationsLoading} calculatePending={batchCalculateMutation.isPending} exporting={exportingOps} exportingConference={exportingConference} onUpdateFilter={updateOpsFilter} onRunBatchOperation={(action) => void runBatchOperation(action)} onExport={() => void handleExportOperations()} onExportConference={() => void handleExportConference()} />
-    <ValidacaoOperationsTable rows={displayedRows} isLoading={operationsLoading} hasError={Boolean(operationsError)} selectedRowIds={selectedOpsRows} areAllRowsSelected={areAllOpsRowsSelected} expandedBlId={expandedBlId} reconciliationQueue={reconciliationQueue ?? []} approvePending={approveReconciliationMutation.isPending} rejectPending={rejectReconciliationMutation.isPending} onToggleAllRows={toggleAllOpsRows} onToggleRow={toggleOpsRow} onToggleExpandedRow={(id) => setExpandedBlId((current) => current === id ? null : id)} onIssueSingleInvoice={(row) => void handleIssueSingleInvoice(row)} onRecalculateRow={(row) => void handleRecalculateRow(row)} onApproveQueueItem={(id, customerId) => void handleApproveQueueItem(id, customerId)} onRejectQueueItem={(id) => void handleRejectQueueItem(id)} />
+    <ValidacaoOperationsTable rows={displayedRows} isLoading={operationsLoading} hasError={Boolean(operationsError)} selectedRowIds={selectedOpsRows} areAllRowsSelected={areAllOpsRowsSelected} expandedBlId={expandedBlId} reconciliationQueue={reconciliationQueue ?? []} onToggleAllRows={toggleAllOpsRows} onToggleRow={toggleOpsRow} onToggleExpandedRow={(id) => setExpandedBlId((current) => current === id ? null : id)} onIssueSingleInvoice={(row) => void handleIssueSingleInvoice(row)} onRecalculateRow={(row) => void handleRecalculateRow(row)} />
   </>
 }
