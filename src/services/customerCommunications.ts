@@ -293,6 +293,8 @@ export function isInstitutionalCustomerCommunicable(
 
 function communicationNatureForKind(kind: CustomerCommunicationKind, nature?: CustomerCommunicationNature): CustomerCommunicationNature {
   if (kind === 'aviso_chegada_noa' || kind === 'aviso_prontidao_nor' || kind === 'aviso_atracacao_nob') return 'avisos_operacionais'
+  if (kind === 'ce_mercante_taxas') return 'documentacao'
+  if (kind === 'cobranca_demurrage') return 'demurrage'
   if (kind === 'institucional') return 'avisos_gerais'
   return nature ?? 'avisos_gerais'
 }
@@ -764,6 +766,8 @@ export function customerCommunicationKindLabel(kind: string): string {
   if (kind === 'aviso_chegada_noa') return 'NOA · Aviso de Chegada'
   if (kind === 'aviso_prontidao_nor') return 'NOR · Prontidão de Descarga'
   if (kind === 'aviso_atracacao_nob') return 'NOB · Atracação e Operação'
+  if (kind === 'ce_mercante_taxas') return 'CE Mercante · Taxas Locais'
+  if (kind === 'cobranca_demurrage') return 'Cobrança de Demurrage'
   if (kind === 'institucional') return 'Institucional'
   if (kind === 'livre') return 'Comunicado livre'
   return kind

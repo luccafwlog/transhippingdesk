@@ -5,9 +5,6 @@
 
 project_id = "Transhipping_Desk"
 
-[functions.notify-invoice-issued]
-verify_jwt = false
-
 [functions.alerts-detector]
 verify_jwt = false
 

@@ -2,6 +2,8 @@ export const CUSTOMER_COMMUNICATION_KINDS = [
   'aviso_chegada_noa',
   'aviso_prontidao_nor',
   'aviso_atracacao_nob',
+  'ce_mercante_taxas',
+  'cobranca_demurrage',
   'institucional',
   'livre',
 ] as const
@@ -22,6 +24,20 @@ export type CustomerCommunicationBlScope = {
   terminalStateId?: string | null
 }
 
+export type CustomerCommunicationCeMercanteRow = {
+  blId: string
+  ceMercante: string
+  totalBrl: number
+}
+
+export type CustomerCommunicationDemurrageData = {
+  docNumber: string
+  totalUsd: number
+  totalBrl: number
+  roe: number
+  roeReferenceDate: string
+}
+
 export type CustomerCommunicationTemplateInput = {
   customerId: number
   customerName: string
@@ -35,6 +51,15 @@ export type CustomerCommunicationTemplateInput = {
   bls: readonly CustomerCommunicationBlScope[]
   subject?: string
   body?: string
+  portalUrl?: string | null
+  ceMercanteRows?: readonly CustomerCommunicationCeMercanteRow[]
+  totalBrl?: number | null
+  demurrage?: CustomerCommunicationDemurrageData
+  demurrageDocNumber?: string | null
+  totalUsd?: number | null
+  currentTotalBrl?: number | null
+  roe?: number | null
+  roeReferenceDate?: string | null
 }
 
 export type RenderedCustomerCommunication = {
@@ -72,6 +97,7 @@ export const COMMUNICATION_ATTACHMENT_ALLOWED_TYPES = [
 const COMMUNICATION_ATTACHMENT_ALLOWED_TYPE_SET = new Set<string>(COMMUNICATION_ATTACHMENT_ALLOWED_TYPES)
 const FORBIDDEN_ATTACHMENT_KINDS = new Set(['ce_mercante_taxas', 'cobranca_demurrage'])
 const BRASILIA_TIME_ZONE = 'America/Sao_Paulo'
+export const CUSTOMER_PORTAL_BILLING_URL = 'https://portal.transhippingdesk.com.br/portal/billing'
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -161,6 +187,120 @@ function layout(title: string, bodyHtml: string): string {
 
 function textLayout(title: string, body: string): string {
   return `Transhipping Desk\n${title}\n\n${body}\n\nMensagem operacional enviada pelo Transhipping Desk. Em caso de dúvida, responda a este e-mail para falar com a equipe.`
+}
+
+function formatBrl(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+}
+
+function formatUsd(value: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+}
+
+function assertCustomerFinanceScope(input: CustomerCommunicationTemplateInput): void {
+  if (!Number.isInteger(input.customerId) || input.customerId <= 0) throw new Error('Cliente inválido para o comunicado.')
+  if (!input.customerName.trim()) throw new Error('Nome do cliente ausente.')
+  if (!input.vesselName.trim()) throw new Error('Navio ausente.')
+  if (!input.voyageNumber.trim()) throw new Error('Viagem ausente.')
+}
+
+function customerPortalBillingUrl(input: CustomerCommunicationTemplateInput): string {
+  return input.portalUrl?.trim() || CUSTOMER_PORTAL_BILLING_URL
+}
+
+export function renderCeMercanteTaxasTemplate(input: CustomerCommunicationTemplateInput): RenderedCustomerCommunication {
+  assertCustomerFinanceScope(input)
+  const rows = input.ceMercanteRows ?? []
+  if (!rows.length) throw new Error('O resumo precisa de ao menos um CE Mercante.')
+  if (rows.some((row) => !row.blId.trim() || !row.ceMercante.trim() || !Number.isFinite(row.totalBrl) || row.totalBrl < 0)) {
+    throw new Error('B/L, CE Mercante e valor BRL são obrigatórios no resumo.')
+  }
+
+  const totalBrl = input.totalBrl ?? rows.reduce((sum, row) => sum + row.totalBrl, 0)
+  if (!Number.isFinite(totalBrl) || totalBrl < 0) throw new Error('Total BRL inválido no resumo de taxas.')
+  const vessel = clean(input.vesselName)
+  const voyage = clean(input.voyageNumber)
+  const customer = clean(input.customerName)
+  const subject = `CE Mercante Disponível e Resumo de Taxas Locais — ${vessel} / ${voyage}`
+  const portalUrl = customerPortalBillingUrl(input)
+  const ceList = rows.map((row) => row.ceMercante.trim()).join(', ')
+  const bodyText = [
+    `Olá, ${customer}.`,
+    '',
+    `Os CEs Mercantes ${ceList} já estão disponíveis para agilizar o desembaraço e o registro da DI/DUIMP pelo despachante/importador.`,
+    '',
+    'Resumo da viagem:',
+    ...rows.map((row) => `[${row.blId.trim()}] [${row.ceMercante.trim()}] [${formatBrl(row.totalBrl)}]`),
+    `Total da viagem: ${formatBrl(totalBrl)}`,
+    '',
+    `Consulte as faturas e as formas de pagamento no Portal do Cliente: ${portalUrl}`,
+  ].join('\n')
+  const bodyHtml = [
+    `<p>Olá, ${escapeHtml(customer)}.</p>`,
+    `<p style="padding:14px 16px;border-left:4px solid #0f766e;background:#ecfdf5"><strong>CE Mercante disponível:</strong> ${escapeHtml(ceList)}. Os números estão prontos para agilizar o desembaraço e o registro da DI/DUIMP pelo despachante/importador.</p>`,
+    '<p><strong>Resumo da viagem</strong></p>',
+    '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px;border-bottom:1px solid #dbe3ef">B/L</th><th style="text-align:left;padding:8px;border-bottom:1px solid #dbe3ef">CE Mercante</th><th style="text-align:right;padding:8px;border-bottom:1px solid #dbe3ef">Valor BRL</th></tr></thead><tbody>',
+    ...rows.map((row) => `<tr><td style="padding:8px;border-bottom:1px solid #eef2f7">${escapeHtml(row.blId.trim())}</td><td style="padding:8px;border-bottom:1px solid #eef2f7"><strong>${escapeHtml(row.ceMercante.trim())}</strong></td><td style="padding:8px;text-align:right;border-bottom:1px solid #eef2f7">${escapeHtml(formatBrl(row.totalBrl))}</td></tr>`),
+    `</tbody><tfoot><tr><td colspan="2" style="padding:10px 8px;font-weight:bold">Total da viagem</td><td style="padding:10px 8px;text-align:right;font-weight:bold">${escapeHtml(formatBrl(totalBrl))}</td></tr></tfoot></table>`,
+    `<p><a href="${escapeHtml(portalUrl)}">Consultar faturas e formas de pagamento no Portal do Cliente</a></p>`,
+  ].join('')
+  const blIds = rows.map((row) => row.blId.trim())
+  return {
+    kind: 'ce_mercante_taxas',
+    subject,
+    html: layout(subject, bodyHtml),
+    text: textLayout(subject, bodyText),
+    customerId: input.customerId,
+    blIds,
+    terminalId: input.terminalId ?? null,
+  }
+}
+
+export function renderDemurrageTemplate(input: CustomerCommunicationTemplateInput): RenderedCustomerCommunication {
+  assertCustomerFinanceScope(input)
+  if (!input.bls.length) throw new Error('A cobrança de Demurrage precisa de um B/L vinculado.')
+  const data = input.demurrage ?? {
+    docNumber: input.demurrageDocNumber ?? '',
+    totalUsd: input.totalUsd ?? NaN,
+    totalBrl: input.currentTotalBrl ?? NaN,
+    roe: input.roe ?? NaN,
+    roeReferenceDate: input.roeReferenceDate ?? '',
+  }
+  if (!data.docNumber.trim() || !Number.isFinite(data.totalUsd) || data.totalUsd <= 0 || !Number.isFinite(data.totalBrl) || data.totalBrl < 0 || !Number.isFinite(data.roe) || data.roe <= 0 || !data.roeReferenceDate.trim()) {
+    throw new Error('Dados incompletos para a cobrança de Demurrage.')
+  }
+  const customer = clean(input.customerName)
+  const vessel = clean(input.vesselName)
+  const voyage = clean(input.voyageNumber)
+  const subject = `Cobrança de Demurrage — ${data.docNumber.trim()} — ${vessel} / ${voyage}`
+  const portalUrl = customerPortalBillingUrl(input)
+  const referenceDate = formatDateOnly(data.roeReferenceDate.trim())
+  const bodyText = [
+    `Olá, ${customer}.`,
+    '',
+    `A cobrança de Demurrage ${data.docNumber.trim()} está disponível para o B/L ${input.bls[0]?.id.trim()}.`,
+    `Valor da cobrança: ${formatUsd(data.totalUsd)}.`,
+    `Valor informativo em reais: ${formatBrl(data.totalBrl)}, calculado pelo ROE ${data.roe.toFixed(4)} com referência em ${referenceDate}.`,
+    'O valor em reais será recalculado no dia do pagamento.',
+    '',
+    `Consulte os detalhes no Portal do Cliente: ${portalUrl}`,
+  ].join('\n')
+  const bodyHtml = [
+    `<p>Olá, ${escapeHtml(customer)}.</p>`,
+    `<p>A cobrança de Demurrage <strong>${escapeHtml(data.docNumber.trim())}</strong> está disponível para o B/L <strong>${escapeHtml(input.bls[0]?.id.trim() ?? '')}</strong>.</p>`,
+    `<p><strong>Valor da cobrança:</strong> ${escapeHtml(formatUsd(data.totalUsd))}<br><strong>Valor informativo em reais:</strong> ${escapeHtml(formatBrl(data.totalBrl))}<br>ROE ${escapeHtml(data.roe.toFixed(4))}, referência ${escapeHtml(referenceDate)}.</p>`,
+    '<p><strong>O valor em reais será recalculado no dia do pagamento.</strong></p>',
+    `<p><a href="${escapeHtml(portalUrl)}">Consultar detalhes no Portal do Cliente</a></p>`,
+  ].join('')
+  return {
+    kind: 'cobranca_demurrage',
+    subject,
+    html: layout(subject, bodyHtml),
+    text: textLayout(subject, bodyText),
+    customerId: input.customerId,
+    blIds: input.bls.map((bl) => bl.id.trim()),
+    terminalId: input.terminalId ?? null,
+  }
 }
 
 function renderMilestoneContent(
@@ -256,6 +396,8 @@ export function renderCustomerCommunicationTemplate(
     case 'aviso_chegada_noa': return renderNoaTemplate(input)
     case 'aviso_prontidao_nor': return renderNorTemplate(input)
     case 'aviso_atracacao_nob': return renderNobTemplate(input)
+    case 'ce_mercante_taxas': return renderCeMercanteTaxasTemplate(input)
+    case 'cobranca_demurrage': return renderDemurrageTemplate(input)
     case 'institucional': return renderInstitutionalTemplate(input, 'institucional')
     case 'livre': return renderInstitutionalTemplate(input, 'livre')
   }
@@ -264,6 +406,8 @@ export function renderCustomerCommunicationTemplate(
 export const renderNoa = renderNoaTemplate
 export const renderNor = renderNorTemplate
 export const renderNob = renderNobTemplate
+export const renderCeMercanteTaxas = renderCeMercanteTaxasTemplate
+export const renderCobrancaDemurrage = renderDemurrageTemplate
 
 export function validateCommunicationAttachments(
   kind: string,

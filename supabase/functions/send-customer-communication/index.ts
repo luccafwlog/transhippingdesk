@@ -11,6 +11,8 @@ const ALLOWED_KINDS = new Set<CustomerCommunicationKind>([
   'aviso_chegada_noa',
   'aviso_prontidao_nor',
   'aviso_atracacao_nob',
+  'ce_mercante_taxas',
+  'cobranca_demurrage',
   'institucional',
   'livre',
 ])
@@ -67,6 +69,8 @@ function parsePayload(value: unknown): DispatchPayload {
 
 function natureForKind(kind: string, nature: string): boolean {
   if (kind === 'aviso_chegada_noa' || kind === 'aviso_prontidao_nor' || kind === 'aviso_atracacao_nob') return nature === 'avisos_operacionais'
+  if (kind === 'ce_mercante_taxas') return nature === 'documentacao'
+  if (kind === 'cobranca_demurrage') return nature === 'demurrage'
   if (kind === 'institucional') return nature === 'avisos_gerais'
   return ['avisos_gerais', 'avisos_operacionais', 'documentacao', 'demurrage'].includes(nature)
 }

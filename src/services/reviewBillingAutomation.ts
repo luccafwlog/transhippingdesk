@@ -7,6 +7,7 @@ import { logOperationalEvent } from './operationalEvents'
 import { createAlert, resolveAlertItem } from './alerts'
 import { supabase } from './supabase'
 import { isCustomerReconciliationResolved } from './customerReconciliation'
+import { dispatchCeMercanteTaxasCommunication } from './customerFinanceCommunications'
 
 export type ReviewBillingAutomationResult =
   | { status: 'invoiced'; invoiceResult: unknown }
@@ -306,7 +307,7 @@ export async function tryAutoIssueInvoice({
 export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string | null) {
   const { data, error } = await supabase
     .from('bls')
-    .select('id, customer_id, customer_reconciliation_status, cargo_mode, financial_status')
+    .select('id, voyage_id, customer_id, customer_reconciliation_status, cargo_mode, financial_status')
     .eq('id', blId)
     .single()
   if (error) {
@@ -321,6 +322,7 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
 
   const bl = data as {
     id: string
+    voyage_id?: number | null
     customer_id: number | null
     customer_reconciliation_status: string | null
     cargo_mode: string | null
@@ -341,6 +343,17 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
       entityId: bl.id,
       context: { source: 'ce_auto_billing', financial_status: bl.financial_status },
     })
+    if (bl.voyage_id != null) {
+      void dispatchCeMercanteTaxasCommunication(bl.voyage_id, bl.customer_id).catch((error) => {
+        void logOperationalEvent({
+          code: 'customer_finance_communication_failed',
+          message: error instanceof Error ? error.message : 'Falha ao disparar comunicado financeiro automático.',
+          changedBy: actorId,
+          entityId: bl.id,
+          context: { source: 'ce_auto_billing', voyage_id: bl.voyage_id },
+        })
+      })
+    }
     return null
   }
 
@@ -359,6 +372,17 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
       changedBy: actorId,
       entityId: bl.id,
       context: { source: 'ce_auto_billing' },
+    })
+  }
+  if (result.status === 'invoiced' && bl.voyage_id != null) {
+    void dispatchCeMercanteTaxasCommunication(bl.voyage_id, bl.customer_id).catch((error) => {
+      void logOperationalEvent({
+        code: 'customer_finance_communication_failed',
+        message: error instanceof Error ? error.message : 'Falha ao disparar comunicado financeiro automático.',
+        changedBy: actorId,
+        entityId: bl.id,
+        context: { source: 'ce_auto_billing', voyage_id: bl.voyage_id },
+      })
     })
   }
   return result

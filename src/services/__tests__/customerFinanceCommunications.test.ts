@@ -1,0 +1,117 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { mockFrom, mockRpc, mockDispatch } = vi.hoisted(() => ({
+  mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
+  mockDispatch: vi.fn(),
+}))
+
+vi.mock('../supabase', () => ({ supabase: { from: mockFrom, rpc: mockRpc } }))
+vi.mock('../customerCommunicationDispatches', () => ({ dispatchCustomerCommunication: mockDispatch }))
+
+import {
+  dispatchCeMercanteTaxasCommunication,
+  fetchCustomerVoyageCommunicationStatus,
+} from '../customerFinanceCommunications'
+
+function queryResult(data: unknown, error: unknown = null) {
+  const chain: Record<string, unknown> = {}
+  for (const method of ['select', 'eq', 'in', 'order', 'limit']) {
+    chain[method] = vi.fn(() => chain)
+  }
+  chain.overrideTypes = vi.fn(async () => ({ data, error }))
+  chain.then = (resolve: (value: { data: unknown; error: unknown }) => unknown) => Promise.resolve({ data, error }).then(resolve)
+  return chain
+}
+
+const ready = {
+  voyage_id: 7,
+  customer_id: 99,
+  ready: true,
+  reason_code: 'ready',
+  bl_count: 2,
+  blocked_bl_count: 0,
+  reasons: [],
+  bls: [
+    { bl_id: 'BL-1', ce_mercante: '123456789012345', financial_status: 'invoiced', cargo_mode: 'container', review_pendencies: [], blocked_reasons: [] },
+    { bl_id: 'BL-2', ce_mercante: '987654321098765', financial_status: 'paid', cargo_mode: 'container', review_pendencies: [], blocked_reasons: [] },
+  ],
+}
+
+function configureQueries(history: unknown[] = []) {
+  mockRpc.mockResolvedValue({ data: ready, error: null })
+  mockFrom.mockImplementation((table: string) => {
+    if (table === 'customer_communications') return queryResult(history)
+    if (table === 'bls') return queryResult([
+      {
+        id: 'BL-1', voyage_id: 7, customer_id: 99, ce_mercante: '123456789012345', financial_status: 'invoiced', pod: 'BRSSZ',
+        customer: { id: 99, name: 'Cliente 99', cnpj_cpf: '123' },
+        voyage: { id: 7, voyage_number: 'V7', eta: '2026-09-01T12:00:00Z', vessel: { name: 'Navio 7' } },
+      },
+      {
+        id: 'BL-2', voyage_id: 7, customer_id: 99, ce_mercante: '987654321098765', financial_status: 'paid', pod: 'BRSSZ',
+        customer: { id: 99, name: 'Cliente 99', cnpj_cpf: '123' },
+        voyage: { id: 7, voyage_number: 'V7', eta: '2026-09-01T12:00:00Z', vessel: { name: 'Navio 7' } },
+      },
+    ])
+    if (table === 'invoice_bls') return queryResult([
+      { bl_id: 'BL-1', subtotal_brl: 100, invoice: { id: 10, status: 'issued' } },
+      { bl_id: 'BL-2', subtotal_brl: 50, invoice: { id: 11, status: 'paid' } },
+    ])
+    if (table === 'customer_contacts') return queryResult([{
+      id: 1, customer_id: 99, name: 'Contato', email: 'financeiro@example.com', phone: null, purpose: 'faturamento', is_primary: true, created_at: null,
+    }])
+    if (table === 'customer_contact_preferences') return queryResult([{ contact_id: 1, nature: 'documentacao', enabled: true, source: 'interno', created_at: '' }])
+    if (table === 'customer_communication_suppressions' || table === 'portal_suppressed_emails') return queryResult([])
+    throw new Error(`tabela inesperada: ${table}`)
+  })
+}
+
+describe('automação de comunicados financeiros', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    configureQueries()
+    mockDispatch.mockResolvedValue({ communicationId: 12, status: 'simulado' })
+  })
+
+  it('não envia enquanto a prontidão do cliente está bloqueada', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { ...ready, ready: false, reason_code: 'ce_mercante_ausente', reasons: ['ce_mercante_ausente'], blocked_bl_count: 1 },
+      error: null,
+    })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('bloqueado')
+    expect(result.reason).toBe('CE Mercante ausente')
+    expect(mockDispatch).not.toHaveBeenCalled()
+  })
+
+  it('dispara uma linha agrupada por viagem e usa a natureza de documentação', async () => {
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result).toMatchObject({ status: 'simulado', simulatedCount: 1, attemptDiscriminator: 0 })
+    expect(mockDispatch).toHaveBeenCalledTimes(1)
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'ce_mercante_taxas',
+      nature: 'documentacao',
+      anchorVoyageId: 7,
+      blIds: ['BL-1', 'BL-2'],
+      attachments: [],
+    }))
+    expect(mockDispatch.mock.calls[0]?.[0].text).toContain('Total da viagem')
+  })
+
+  it('incrementa o discriminador somente no reenvio assistido', async () => {
+    configureQueries([{ id: 12, status: 'enviado', attempt_discriminator: 0, created_at: '2026-09-01T10:00:00Z' }])
+    const status = await fetchCustomerVoyageCommunicationStatus(7, 99)
+    expect(status.latest).toMatchObject({ id: 12, attemptDiscriminator: 0 })
+    expect(status.nextManualAttemptDiscriminator).toBe(1)
+
+    await dispatchCeMercanteTaxasCommunication(7, 99)
+    expect(mockDispatch).not.toHaveBeenCalled()
+
+    await dispatchCeMercanteTaxasCommunication(7, 99, { forceRetry: true })
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ attemptDiscriminator: 1 }))
+  })
+})
