@@ -282,12 +282,16 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (!email || (status !== 'bounce' && status !== 'complaint')) return new Response(null, { status: 200 })
 
   const permanentBounce = status === 'bounce' && event.data.bounce?.type?.toLowerCase() === 'permanent'
-  if (permanentBounce) {
-    await recordPortalSuppression(admin, email, 'bounce_permanente')
-  } else if (status === 'complaint' && portalAttempt) {
-    await recordPortalSuppression(admin, email, 'complaint')
-  } else if (status === 'complaint' && communicationAttempt) {
-    await recordCommunicationComplaint(admin, email)
+  try {
+    if (permanentBounce) {
+      await recordPortalSuppression(admin, email, 'bounce_permanente')
+    } else if (status === 'complaint' && portalAttempt) {
+      await recordPortalSuppression(admin, email, 'complaint')
+    } else if (status === 'complaint' && communicationAttempt) {
+      await recordCommunicationComplaint(admin, email)
+    }
+  } catch (error) {
+    console.error('[portal-email-webhook] falha ao registrar supressão', email, error)
   }
 
   let affected: PortalAccount[] = []
@@ -299,16 +303,6 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
       .ilike('recovery_email', email)
     if (error) return new Response(null, { status: 500 })
     affected = (data ?? []) as PortalAccount[]
-
-    if (portalAttempt.account_id && !affected.some((account) => account.id === portalAttempt.account_id)) {
-      const { data: accountById, error: accountError } = await admin
-        .from('customer_portal_accounts')
-        .select('id, customer_id, account_situation')
-        .eq('id', portalAttempt.account_id)
-        .maybeSingle()
-      if (accountError) return new Response(null, { status: 500 })
-      if (accountById) affected.push(accountById as PortalAccount)
-    }
   }
 
   if (portalAttempt && isPortalRecoveryAttempt) {
@@ -342,6 +336,15 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
 
   if (permanentBounce && portalAttempt?.kind !== BOUNCE_NOTIFICATION_KIND) {
     const customerIds = affected.map((account) => account.customer_id)
+    if (portalAttempt?.account_id && customerIds.length === 0) {
+      const { data: accountById, error: accountError } = await admin
+        .from('customer_portal_accounts')
+        .select('customer_id')
+        .eq('id', portalAttempt.account_id)
+        .maybeSingle()
+      if (accountError) console.error('[portal-email-webhook] falha ao consultar conta por id', portalAttempt.account_id, accountError)
+      if (accountById?.customer_id) customerIds.push(Number(accountById.customer_id))
+    }
     if (communicationAttempt) {
       const { data: communication, error } = await admin
         .from('customer_communications')

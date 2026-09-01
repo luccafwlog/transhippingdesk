@@ -24,6 +24,7 @@ export type ActiveAlertType =
   | 'portal_falha_envio'
   | 'portal_email_suprimido'
   | 'portal_abuso_login'
+  | 'cliente_contato_bounced_sem_alternativa'
   | 'agency_report_department_pending'
   | 'agency_report_deadline_missed'
   | 'review_customer_unlinked'
@@ -59,6 +60,7 @@ export const TYPE_LABELS: Record<string, string> = {
   portal_falha_envio: 'Portal do Cliente — falha de envio',
   portal_email_suprimido: 'Portal do Cliente — email suprimido',
   portal_abuso_login: 'Portal do Cliente — abuso de login',
+  cliente_contato_bounced_sem_alternativa: 'Cliente sem contato alternativo',
   agency_report_department_pending: 'ADR — departamento pendente',
   agency_report_deadline_missed: 'ADR — prazo vencido',
   review_customer_unlinked: 'Revisão de B/L — cliente não vinculado',

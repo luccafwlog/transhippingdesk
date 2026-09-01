@@ -14,13 +14,15 @@ describe('webhook de email para Portal e Comunicados', () => {
     expect(webhook).not.toContain('ignoreDuplicates')
   })
 
-  it('separa complaint por canal e compartilha somente bounce permanente', () => {
+  it('separa complaint por canal e compartilha somente bounce permanente sem abortar em caso de erro transiente', () => {
     expect(webhook).toContain("const permanentBounce = status === 'bounce' && event.data.bounce?.type?.toLowerCase() === 'permanent'")
     expect(webhook).toContain("recordPortalSuppression(admin, email, 'bounce_permanente')")
     expect(webhook).toContain("recordPortalSuppression(admin, email, 'complaint')")
     expect(webhook).toContain('recordCommunicationComplaint(admin, email)')
     expect(webhook).toContain("const { data: existing, error: lookupError } = await admin")
     expect(webhook).toContain("if (existing) return")
+    expect(webhook).toMatch(/try\s*\{\s*if\s*\(permanentBounce\)/)
+    expect(webhook).toContain(".ilike('recovery_email', email)")
   })
 
   it('aplica cascata, alerta sem alternativa e trava anti-loop', () => {

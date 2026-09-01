@@ -334,8 +334,25 @@ CREATE POLICY customer_contact_preferences_internal_read
 DROP POLICY IF EXISTS customer_contact_preferences_edit ON public.customer_contact_preferences;
 CREATE POLICY customer_contact_preferences_edit
   ON public.customer_contact_preferences FOR UPDATE TO authenticated
-  USING (public.is_active_user())
-  WITH CHECK (public.is_active_user() AND source = 'interno');
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.user_profiles
+      WHERE id = auth.uid()
+        AND active = true
+        AND role IN ('admin', 'administrativo', 'operator', 'documentacao', 'equipamentos')
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.user_profiles
+      WHERE id = auth.uid()
+        AND active = true
+        AND role IN ('admin', 'administrativo', 'operator', 'documentacao', 'equipamentos')
+    )
+    AND source = 'interno'
+  );
 
 DROP POLICY IF EXISTS app_settings_communications_read ON public.app_settings;
 CREATE POLICY app_settings_communications_read
@@ -359,6 +376,25 @@ CREATE POLICY app_settings_administrativo_update
   USING (public._portal_actor_role() = 'administrativo')
   WITH CHECK (public._portal_actor_role() = 'administrativo');
 
+-- Registra o alerta de contato sem alternativa no catálogo para que a emissão
+-- pelo webhook crie alert_items com severidade, setor e destino corretos.
+INSERT INTO public.alert_type_catalog (
+  type, severity, responsible_department, audience_departments, default_destination
+)
+VALUES (
+  'cliente_contato_bounced_sem_alternativa',
+  'critical',
+  'documentacao',
+  ARRAY['documentacao', 'administrativo'],
+  '/clientes'
+)
+ON CONFLICT (type) DO UPDATE SET
+  severity = EXCLUDED.severity,
+  responsible_department = EXCLUDED.responsible_department,
+  audience_departments = EXCLUDED.audience_departments,
+  default_destination = EXCLUDED.default_destination,
+  active = true;
+
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.customer_communications FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.customer_communication_bls FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.customer_communication_attempts FROM authenticated;
@@ -373,3 +409,4 @@ GRANT ALL ON TABLE public.customer_communication_attempts TO service_role;
 GRANT ALL ON TABLE public.customer_communication_suppressions TO service_role;
 GRANT ALL ON TABLE public.customer_contact_preferences TO service_role;
 GRANT ALL ON TABLE public.app_settings TO service_role;
+

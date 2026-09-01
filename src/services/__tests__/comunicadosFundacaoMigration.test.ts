@@ -42,4 +42,10 @@ describe('migration 372 — fundação de Comunicados', () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.set_communications_enabled[\s\S]*IF v_role IS DISTINCT FROM 'administrativo'[\s\S]*42501/i)
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.set_communications_enabled[\s\S]*INSERT INTO public\.audit_logs/i)
   })
+
+  it('restringe a edição de preferências aos perfis autorizados no banco e registra o alerta no catálogo', () => {
+    expect(sql).toMatch(/CREATE POLICY\s+customer_contact_preferences_edit[\s\S]*role IN \('admin', 'administrativo', 'operator', 'documentacao', 'equipamentos'\)/i)
+    expect(sql).toMatch(/INSERT INTO public\.alert_type_catalog[\s\S]*cliente_contato_bounced_sem_alternativa[\s\S]*critical[\s\S]*documentacao/i)
+  })
 })
+
