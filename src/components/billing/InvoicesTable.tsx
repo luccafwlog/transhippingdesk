@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card, EmptyState, InlineError } from '../ui/Card'
@@ -60,7 +61,7 @@ export function InvoicesTable({
                 <td className="px-4 py-3">
                   <div className="app-table__cell-stack">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-[#58a6ff]">{formatBlIds(bls)}</span>
+                      <span className="font-semibold text-[#58a6ff]">{renderBlLinks(bls)}</span>
                       <Badge tone={consolidated ? 'blue' : 'slate'}>{bls.length} B/L{bls.length === 1 ? '' : 's'}</Badge>
                     </div>
                     {consolidated ? <div className="app-table__cell-meta">Consolidada · {bls.length} BLs agrupados</div> : null}
@@ -120,11 +121,26 @@ function renderInvoiceStatus(status: string | null) {
   return <Badge tone={invoiceStatusTone(status)}>{invoiceStatusLabel(status)}</Badge>
 }
 
-function formatBlIds(bls: InvoiceListBl[]) {
-  const ids = bls.map((bl) => bl.bl_id)
-  if (ids.length === 0) return 'Sem B/L'
-  if (ids.length <= 2) return ids.join(' • ')
-  return `${ids.slice(0, 2).join(' • ')} +${ids.length - 2}`
+function renderBlLinks(bls: InvoiceListBl[]) {
+  if (bls.length === 0) return 'Sem B/L'
+  const visible = bls.slice(0, 2)
+  const remaining = bls.length - 2
+  return (
+    <>
+      {visible.map((bl, index) => (
+        <span key={bl.bl_id}>
+          {index > 0 ? ' • ' : null}
+          <Link
+            className="hover:underline"
+            to={`/manifestos/${encodeURIComponent(bl.bl_id)}`}
+          >
+            {bl.bl_id}
+          </Link>
+        </span>
+      ))}
+      {remaining > 0 ? ` +${remaining}` : null}
+    </>
+  )
 }
 
 function formatVesselVoyage(bls: InvoiceListBl[]) {

@@ -109,7 +109,14 @@ export function ValidacaoOperationsTable({
                         {selectedRowIds.includes(row.id) ? <CheckSquare size={14} /> : <Square size={14} />}
                       </button>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.id}</td>
+                    <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">
+                      <Link
+                        className="hover:underline"
+                        to={row.cargo_mode === 'granito' ? '/granito' : `/manifestos/${encodeURIComponent(row.id)}`}
+                      >
+                        {row.id}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3"><div className="max-w-[360px] whitespace-normal"><Badge tone={blockTone(block.code)}>{block.label}</Badge>{isExpanded ? null : <div className="mt-1 text-xs text-[var(--app-muted)]">{block.detail}</div>}</div></td>
                     <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                     <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
