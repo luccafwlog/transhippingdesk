@@ -160,6 +160,51 @@ describe('ValidacaoOperationsTable', () => {
   })
 })
 
+describe('links de resolução da pendência', () => {
+  it('aponta o cliente não vinculado para a Revisão, no B/L certo', () => {
+    renderTable({ rows: [{ ...row, customer: null, customer_reconciliation_status: 'pending' }], expandedBlId: 'BL-001' })
+    const link = screen.getByRole('link', { name: /Vincular cliente na Revisão/ })
+    expect(link.getAttribute('href')).toBe('/revisao?bl=BL-001')
+  })
+
+  it('aponta o CE Mercante para a ficha do B/L', () => {
+    renderTable({ rows: [{ ...row, ce_mercante: null }], expandedBlId: 'BL-001' })
+    const link = screen.getByRole('link', { name: /Cadastrar CE Mercante/ })
+    expect(link.getAttribute('href')).toBe('/manifestos/BL-001')
+  })
+
+  it('aponta o portal para a ficha do cliente e nomeia o bloqueio', () => {
+    renderTable({
+      rows: [{
+        ...row,
+        ce_mercante: '122605051526081',
+        review_status: 'pending_review',
+        billing_hold_reason: 'B/L possui pendencias no gate de revisao: Acesso ao portal nao provisionado',
+        customer: { id: 1, name: 'Cliente', cnpj_cpf: '11222333000144' },
+      }],
+      expandedBlId: 'BL-001',
+    })
+    expect(screen.getByText('Portal não provisionado')).toBeTruthy()
+    const link = screen.getByRole('link', { name: /Provisionar portal/ })
+    expect(link.getAttribute('href')).toBe('/clientes/11222333000144')
+  })
+
+  it('não oferece link de portal sem CNPJ do cliente para endereçar a ficha', () => {
+    renderTable({
+      rows: [{
+        ...row,
+        ce_mercante: '122605051526081',
+        review_status: 'pending_review',
+        billing_hold_reason: 'B/L possui pendencias no gate de revisao: Acesso ao portal nao provisionado',
+        customer: { id: 1, name: 'Cliente', cnpj_cpf: null },
+      }],
+      expandedBlId: 'BL-001',
+    })
+    expect(screen.getByText('Portal não provisionado')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /Provisionar portal/ })).toBeNull()
+  })
+})
+
 describe('detalhes da expansão', () => {
   it('rotula o último evento pelo campo auditado com data e hora', () => {
     expect(describeLastEvent({ last_event_at: '2026-08-31T14:05:00Z', last_event_field: 'ncm_codes' }))

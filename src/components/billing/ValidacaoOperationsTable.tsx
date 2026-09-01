@@ -116,7 +116,7 @@ export function ValidacaoOperationsTable({
                       </button>
                     </td>
                     <td className="px-4 py-3 font-semibold text-[var(--app-blue-btn)]">{row.id}</td>
-                    <td className="px-4 py-3"><div className="max-w-[360px] whitespace-normal"><Badge tone={block.code === 'aguardando_ce' ? 'slate' : block.code === 'sem_cliente' ? 'yellow' : block.code === 'calculo_incompleto' ? 'red' : 'blue'}>{block.label}</Badge>{isExpanded ? null : <div className="mt-1 text-xs text-[var(--app-muted)]">{block.detail}</div>}</div></td>
+                    <td className="px-4 py-3"><div className="max-w-[360px] whitespace-normal"><Badge tone={blockTone(block.code)}>{block.label}</Badge>{isExpanded ? null : <div className="mt-1 text-xs text-[var(--app-muted)]">{block.detail}</div>}</div></td>
                     <td className="px-4 py-3">{row.cargo_mode === 'carga_solta' ? 'Carga Solta' : row.cargo_mode === 'granito' ? 'Granito' : 'Container'}</td>
                     <td className="px-4 py-3">{row.voyage?.vessel?.name ?? '-'} / {row.voyage?.voyage_number ?? '-'}</td>
                     <td className="px-4 py-3">{renderChargeStatus(row.charge_status, row.financial_status, row.cargo_mode)}</td>
@@ -157,6 +157,7 @@ export function ValidacaoOperationsTable({
                                 <div className="mt-0.5">{block.detail}</div>
                               </div>
                             ) : null}
+                            <BlockResolutionLink blId={row.id} code={block.code} customerCnpj={row.customer?.cnpj_cpf ?? null} />
                             <div className="app-metric-tile__label">Detalhes</div>
                             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                               <div>
@@ -281,6 +282,44 @@ export function ValidacaoOperationsTable({
       </div>
     </Card>
   )
+}
+
+// Cada bloqueio tem uma tela onde se resolve. Sem o link, a fila diz o que falta
+// e deixa o operador procurar: cliente e CE ficam no B/L e na Revisao, portal
+// mora no cadastro do cliente.
+function BlockResolutionLink({ blId, code, customerCnpj }: { blId: string; code: string; customerCnpj: string | null }) {
+  if (code === 'sem_cliente') {
+    return (
+      <Link className="app-table__action" to={`/revisao?bl=${encodeURIComponent(blId)}`}>
+        Vincular cliente na Revisão →
+      </Link>
+    )
+  }
+  if (code === 'aguardando_ce') {
+    return (
+      <Link className="app-table__action" to={`/manifestos/${encodeURIComponent(blId)}`}>
+        Cadastrar CE Mercante na ficha do B/L →
+      </Link>
+    )
+  }
+  if (code === 'portal_nao_provisionado') {
+    // O link aparece para todo perfil: conhecer o bloqueio nao e o mesmo que
+    // poder resolve-lo, e a tela de destino aplica a propria permissao.
+    if (!customerCnpj) return null
+    return (
+      <Link className="app-table__action" to={`/clientes/${encodeURIComponent(customerCnpj)}`}>
+        Provisionar portal na ficha do cliente →
+      </Link>
+    )
+  }
+  return null
+}
+
+function blockTone(code: string) {
+  if (code === 'aguardando_ce') return 'slate' as const
+  if (code === 'sem_cliente' || code === 'portal_nao_provisionado') return 'yellow' as const
+  if (code === 'calculo_incompleto') return 'red' as const
+  return 'blue' as const
 }
 
 function ReviewRequiredReasons({ blId, holdReason }: { blId: string; holdReason: string | null }) {

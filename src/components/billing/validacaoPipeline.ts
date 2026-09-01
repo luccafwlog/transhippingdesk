@@ -19,6 +19,29 @@ export function isPendingBillingReview(row: {
   )
 }
 
+// O gate de faturamento (ADR 0054, migrations 337/367) recusa a promoção a
+// `ready_for_billing` gravando as pendências canônicas em `billing_hold_reason`.
+// A da conta de Portal chega como texto igual ao das outras, e sem separá-la o
+// operador via "Cálculo incompleto" para um cálculo que está completo.
+const PORTAL_PENDENCY = /acesso ao portal nao provisionado/i
+const GATE_HOLD_PREFIX = /pendencias no gate de revisao:\s*(.*)$/i
+
+export function parseGateHoldReasons(holdReason: string | null | undefined) {
+  const match = (holdReason ?? '').match(GATE_HOLD_PREFIX)
+  if (!match?.[1]) return []
+  return match[1].split(',').map((reason) => reason.trim()).filter(Boolean)
+}
+
+// Portal é o único bloqueio que não se resolve no B/L — mora no cadastro do
+// cliente e vale para todos os B/Ls dele. Por isso é o último da precedência:
+// só responde pelo B/L quando é a única pendência aberta.
+function isPortalOnlyPendency(row: { billing_hold_reason: string | null; notes: string | null }) {
+  const gateReasons = parseGateHoldReasons(row.billing_hold_reason)
+  const noteReasons = extractReviewReasons(row.notes)
+  const reasons = gateReasons.length > 0 ? gateReasons : noteReasons
+  return reasons.length > 0 && reasons.every((reason) => PORTAL_PENDENCY.test(reason))
+}
+
 export function getBillingBlockReason(row: {
   charge_status: string | null
   financial_status: string | null
@@ -66,7 +89,14 @@ export function getBillingBlock(row: {
       detail: row.billing_hold_reason ?? row.customer_reconciliation_notes ?? 'Cliente não vinculado.',
     }
   }
-  const hasCalculationIssue = row.review_status === 'pending_review' || row.totals.review_required_count > 0 || row.totals.line_count === 0 || Number(row.totals.total_brl ?? 0) <= 0
+  const portalOnly = isPortalOnlyPendency(row)
+  // `pending_review` causado só pelo Portal não é problema de cálculo: as taxas
+  // estão calculadas e conferíveis, e o que falta é o cliente poder ver a fatura.
+  const hasCalculationIssue =
+    (row.review_status === 'pending_review' && !portalOnly) ||
+    row.totals.review_required_count > 0 ||
+    row.totals.line_count === 0 ||
+    Number(row.totals.total_brl ?? 0) <= 0
   if (hasCalculationIssue) {
     const reasons = extractReviewReasons(row.notes)
     return {
@@ -75,12 +105,19 @@ export function getBillingBlock(row: {
       detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Há linhas de taxa com revisão pendente.' : 'Sem linhas de taxa calculadas.'),
     }
   }
-  if (row.billing_hold_reason) {
+  if (row.billing_hold_reason && !portalOnly) {
     return { code: 'calculo_incompleto', label: 'Cálculo incompleto', detail: row.billing_hold_reason }
   }
   const mode = row.cargo_mode ?? 'container'
   if (!row.ce_mercante?.trim() && (mode === 'container' || mode === '' || mode === 'granito')) {
     return { code: 'aguardando_ce', label: 'Aguardando CE Mercante', detail: 'Aguardando cadastro do CE Mercante para emitir a fatura.' }
+  }
+  if (portalOnly) {
+    return {
+      code: 'portal_nao_provisionado',
+      label: 'Portal não provisionado',
+      detail: 'Cliente sem acesso provisionado ao portal: a fatura não pode ser disponibilizada a quem deve pagá-la.',
+    }
   }
   return { code: 'pronto', label: 'Pronto para emitir', detail: 'Pronto para emissão individual.' }
 }
