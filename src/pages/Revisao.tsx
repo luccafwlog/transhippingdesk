@@ -39,9 +39,23 @@ import { useReviewCustomerGroup } from '../hooks/useReviewCustomerGroup'
 
 type RecalcNotice = { id: string; label: string; source: 'bl' | 'granite' }
 
+// Endereçamento da fila por URL. `?bl=` existe para quem chega de outra tela
+// apontando um B/L específico (a Validação, ADR 0061): o filtro da fila já casa
+// por `item.id`, então o alvo entra como termo de busca e o grupo dele abre.
+// Sem isso o operador cai na fila inteira para procurar à mão.
+function readQueueTarget(params: URLSearchParams) {
+  return (
+    params.get('cliente') ||
+    params.get('busca') ||
+    params.get('q') ||
+    params.get('bl') ||
+    null
+  )
+}
+
 export function Revisao() {
   const [searchParams] = useSearchParams()
-  const initialCliente = searchParams.get('cliente') || searchParams.get('busca') || searchParams.get('q') || ''
+  const initialCliente = readQueueTarget(searchParams) ?? ''
   const initialReason = searchParams.get('motivo') || searchParams.get('reason') || null
 
   const { data, isLoading, error, graniteUnavailable } = useReviewQueue()
@@ -218,7 +232,7 @@ export function Revisao() {
   const groups = useMemo(() => groupReviewItems(filteredData), [filteredData])
 
   const visibleExpandedGroups = useMemo(() => {
-    const targetCliente = searchParams.get('cliente') || searchParams.get('busca') || searchParams.get('q')
+    const targetCliente = readQueueTarget(searchParams)
     if (targetCliente && groups.length > 0) {
       const q = targetCliente.toLowerCase().trim()
       const matchingKeys = groups

@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ValidacaoOperationsTable } from '../ValidacaoOperationsTable'
+import { calloutTitle, describeLastEvent } from '../validacaoDetalhes'
 import type { LocalChargeOperationalRow } from '../../../services/charges/chargeOperationsService'
 
 afterEach(cleanup)
@@ -114,5 +115,114 @@ describe('ValidacaoOperationsTable', () => {
     await user.click(screen.getByRole('button', { name: 'Aprovar' }))
 
     expect(onApproveQueueItem).toHaveBeenCalledWith(42, 7)
+  })
+
+  it('não repete o motivo na coluna quando a linha está expandida e rotula estados finais sem alarme', () => {
+    renderTable({
+      rows: [{ ...row, ce_mercante: '122605051526081' }],
+      expandedBlId: 'BL-001',
+    })
+
+    // O detalhe aparece uma única vez (no destaque da expansão), não também na coluna Motivo.
+    expect(screen.getAllByText('Pronto para emissão individual.')).toHaveLength(1)
+    expect(screen.getByText('Situação da fatura')).toBeTruthy()
+    expect(screen.queryByText('Por que não fatura?')).toBeNull()
+  })
+
+  it('mantém o destaque de bloqueio para B/L sem cliente vinculado', () => {
+    renderTable({
+      rows: [{ ...row, customer: null, customer_reconciliation_status: 'pending' }],
+      expandedBlId: 'BL-001',
+    })
+
+    expect(screen.getByText('Por que não fatura?')).toBeTruthy()
+    expect(screen.getByText('Nenhum cliente vinculado a este B/L.')).toBeTruthy()
+  })
+
+  it('explica a conciliação sem cliente sugerido e formata o CNPJ do manifesto', () => {
+    renderTable({
+      rows: [{ ...row, customer_reconciliation_status: 'pending' }],
+      expandedBlId: 'BL-001',
+      reconciliationQueue: [{
+        id: 42,
+        bl_id: 'BL-001',
+        customer_id: null,
+        current_customer_name: null,
+        cnpj_cpf: '07415554000956',
+        manifest_customer_name: 'AC COMERCIAL IMPORTADORA E EXPORTADORA LTDA',
+        detection_type: null,
+      }],
+    })
+
+    expect(screen.getByText('07.415.554/0009-56')).toBeTruthy()
+    expect(screen.getByText('Nenhum cliente sugerido — cadastre o cliente para aprovar.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Aprovar' }).hasAttribute('disabled')).toBe(true)
+  })
+})
+
+describe('links de resolução da pendência', () => {
+  it('aponta o cliente não vinculado para a Revisão, no B/L certo', () => {
+    renderTable({ rows: [{ ...row, customer: null, customer_reconciliation_status: 'pending' }], expandedBlId: 'BL-001' })
+    const link = screen.getByRole('link', { name: /Vincular cliente na Revisão/ })
+    expect(link.getAttribute('href')).toBe('/revisao?bl=BL-001')
+  })
+
+  it('aponta o CE Mercante para a ficha do B/L', () => {
+    renderTable({ rows: [{ ...row, ce_mercante: null }], expandedBlId: 'BL-001' })
+    const link = screen.getByRole('link', { name: /Cadastrar CE Mercante/ })
+    expect(link.getAttribute('href')).toBe('/manifestos/BL-001')
+  })
+
+  it('aponta o portal para a ficha do cliente e nomeia o bloqueio', () => {
+    renderTable({
+      rows: [{
+        ...row,
+        ce_mercante: '122605051526081',
+        review_status: 'pending_review',
+        notes: 'Pendencias de importacao: Acesso ao portal nao provisionado',
+        customer: { id: 1, name: 'Cliente', cnpj_cpf: '11222333000144' },
+      }],
+      expandedBlId: 'BL-001',
+    })
+    expect(screen.getByText('Portal não provisionado')).toBeTruthy()
+    const link = screen.getByRole('link', { name: /Provisionar portal/ })
+    expect(link.getAttribute('href')).toBe('/clientes/11222333000144')
+  })
+
+  it('não oferece link de portal sem CNPJ do cliente para endereçar a ficha', () => {
+    renderTable({
+      rows: [{
+        ...row,
+        ce_mercante: '122605051526081',
+        review_status: 'pending_review',
+        notes: 'Pendencias de importacao: Acesso ao portal nao provisionado',
+        customer: { id: 1, name: 'Cliente', cnpj_cpf: null },
+      }],
+      expandedBlId: 'BL-001',
+    })
+    expect(screen.getByText('Portal não provisionado')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /Provisionar portal/ })).toBeNull()
+  })
+})
+
+describe('detalhes da expansão', () => {
+  it('rotula o último evento pelo campo auditado com data e hora', () => {
+    expect(describeLastEvent({ last_event_at: '2026-08-31T14:05:00Z', last_event_field: 'ncm_codes' }))
+      .toContain('Códigos NCM')
+    expect(describeLastEvent({ last_event_at: '2026-08-31T14:05:00Z', last_event_field: 'ncm_codes' }))
+      .toMatch(/31\/08\/2026/)
+    // Campo fora do mapa continua legível em vez de virar "-".
+    expect(describeLastEvent({ last_event_at: '2026-08-31T14:05:00Z', last_event_field: 'terminal_dates' }))
+      .toContain('terminal dates')
+    expect(describeLastEvent({ last_event_at: null, last_event_field: null })).toBe('Nenhum evento registrado.')
+  })
+
+  it('usa o título de bloqueio apenas para códigos que impedem a emissão', () => {
+    expect(calloutTitle('sem_cliente')).toBe('Por que não fatura?')
+    expect(calloutTitle('calculo_incompleto')).toBe('Por que não fatura?')
+    expect(calloutTitle('aguardando_ce')).toBe('Por que não fatura?')
+    expect(calloutTitle('pronto')).toBe('Situação da fatura')
+    expect(calloutTitle('faturado')).toBe('Situação da fatura')
+    expect(calloutTitle('operacao_granito')).toBe('Escopo da operação')
   })
 })

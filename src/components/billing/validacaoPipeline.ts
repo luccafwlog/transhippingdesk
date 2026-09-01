@@ -19,6 +19,24 @@ export function isPendingBillingReview(row: {
   )
 }
 
+// O gate de faturamento (ADR 0054, migrations 337/367/368) recusa a promoção a
+// `ready_for_billing`, mas a recusa é uma exceção: o `UPDATE` de
+// `billing_hold_reason` que a antecedia morria no rollback da mesma transação
+// (por isso a 368 o removeu). O estado vivo das pendências canônicas é o que a
+// `save_bl_review` grava em `notes`, e é dele que esta tela lê.
+const PORTAL_PENDENCY = /acesso ao portal nao provisionado/i
+
+// Portal é o único bloqueio que não se resolve no B/L — mora no cadastro do
+// cliente e vale para todos os B/Ls dele. Por isso é o último da precedência:
+// só responde pelo B/L quando é a única pendência aberta.
+function isPortalOnlyPendency(row: { billing_hold_reason: string | null; notes: string | null }) {
+  // `billing_hold_reason` gravado é hold próprio do B/L (reconciliação de
+  // cliente, sem linhas faturáveis): nunca é "só o portal".
+  if ((row.billing_hold_reason ?? '').trim()) return false
+  const reasons = extractReviewReasons(row.notes)
+  return reasons.length > 0 && reasons.every((reason) => PORTAL_PENDENCY.test(reason))
+}
+
 export function getBillingBlockReason(row: {
   charge_status: string | null
   financial_status: string | null
@@ -57,22 +75,29 @@ export function getBillingBlock(row: {
       detail: 'Granito fornece conferência de quantidades e não participa da emissão de invoices.',
     }
   }
-  if (row.financial_status === 'invoiced') return { code: 'faturado', label: 'Faturado', detail: 'Fatura ja emitida.' }
+  if (row.financial_status === 'invoiced') return { code: 'faturado', label: 'Faturado', detail: 'Fatura já emitida.' }
   if (row.charge_status === 'exempt') return { code: 'isento', label: 'Isento', detail: row.charge_exemption_reason ?? 'B/L isento de taxas locais.' }
   if (!row.customer?.id || !isCustomerReconciliationResolved(row.customer_reconciliation_status)) {
     return {
       code: 'sem_cliente',
       label: 'Sem cliente vinculado',
-      detail: row.billing_hold_reason ?? row.customer_reconciliation_notes ?? 'Cliente nao vinculado.',
+      detail: row.billing_hold_reason ?? row.customer_reconciliation_notes ?? 'Cliente não vinculado.',
     }
   }
-  const hasCalculationIssue = row.review_status === 'pending_review' || row.totals.review_required_count > 0 || row.totals.line_count === 0 || Number(row.totals.total_brl ?? 0) <= 0
+  const portalOnly = isPortalOnlyPendency(row)
+  // `pending_review` causado só pelo Portal não é problema de cálculo: as taxas
+  // estão calculadas e conferíveis, e o que falta é o cliente poder ver a fatura.
+  const hasCalculationIssue =
+    (row.review_status === 'pending_review' && !portalOnly) ||
+    row.totals.review_required_count > 0 ||
+    row.totals.line_count === 0 ||
+    Number(row.totals.total_brl ?? 0) <= 0
   if (hasCalculationIssue) {
     const reasons = extractReviewReasons(row.notes)
     return {
       code: 'calculo_incompleto',
       label: 'Cálculo incompleto',
-      detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Ha linhas de taxa com revisao pendente.' : 'Sem linhas de taxa calculadas.'),
+      detail: row.billing_hold_reason ?? (reasons.length ? `Revisão pendente: ${reasons.join(', ')}` : row.totals.review_required_count > 0 ? 'Há linhas de taxa com revisão pendente.' : 'Sem linhas de taxa calculadas.'),
     }
   }
   if (row.billing_hold_reason) {
@@ -81,6 +106,13 @@ export function getBillingBlock(row: {
   const mode = row.cargo_mode ?? 'container'
   if (!row.ce_mercante?.trim() && (mode === 'container' || mode === '' || mode === 'granito')) {
     return { code: 'aguardando_ce', label: 'Aguardando CE Mercante', detail: 'Aguardando cadastro do CE Mercante para emitir a fatura.' }
+  }
+  if (portalOnly) {
+    return {
+      code: 'portal_nao_provisionado',
+      label: 'Portal não provisionado',
+      detail: 'Cliente sem acesso provisionado ao portal: a fatura não pode ser disponibilizada a quem deve pagá-la.',
+    }
   }
   return { code: 'pronto', label: 'Pronto para emitir', detail: 'Pronto para emissão individual.' }
 }

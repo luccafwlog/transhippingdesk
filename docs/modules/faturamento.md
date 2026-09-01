@@ -53,6 +53,47 @@ foi removido junto com a coluna `invoices.due_date`.
   `src/components/billing/ValidacaoControls.tsx` contém filtros, pipeline e
   ações em lote; `src/components/billing/ValidacaoOperationsTable.tsx` renderiza
   seleção, detalhes, conciliação e emissão individual.
+- **Bloqueio por Portal não provisionado (ADR 0054, issue 638):** o gate
+  server-side é o produtor canônico `compute_bl_review_pendencies` — a migration
+  `337` devolveu a pendência `Acesso ao portal nao provisionado` e a `367`
+  endureceu o critério para o texto da ADR (conta ativa, `account_situation =
+  'ativo'`, vinculada ao usuário de autenticação, com e-mail de recuperação
+  presente, com `recovery_email_status = 'ok'` e fora de
+  `portal_suppressed_emails`). A migration `368` fechou o resto: o critério
+  virou a função única `customer_portal_access_ready`, consumida também pelo
+  alerta consolidado `reconcile_customer_bl_review_alerts` (que, com a cópia
+  frouxa da `364`, resolvia justamente os alertas das contas que a emissão
+  passou a recusar); `recompute_bl_review_status` recalcula
+  `review_status`/`notes` de um B/L e passou a ser chamada pelos triggers de
+  `customer_portal_accounts`/`customer_contacts` — é assim que provisionar o
+  portal libera os B/Ls do cliente sem intervenção manual — e pelo backfill que
+  alinhou os B/Ls já existentes ao critério novo. B/L faturado não é
+  recomputado. A fronteira que promove `ready_for_billing` recusa levantando
+  exceção; o `UPDATE` de `billing_hold_reason` que a antecedia morria no
+  rollback da mesma transação e saiu na `368` — o estado vivo das pendências é
+  `notes`, escrito pela `save_bl_review`, e é dele que a Validação lê. O cálculo
+  não é afetado. Na Validação o
+  motivo deixou de aparecer como “Cálculo incompleto”: `getBillingBlock` ganhou o
+  código `portal_nao_provisionado`, atrás de cliente, cálculo e CE Mercante na
+  precedência, porque é o único bloqueio que se resolve no cadastro do cliente e
+  não no B/L. Ele só responde pelo B/L quando é a **única** pendência aberta.
+- **Detalhe expandido da linha (issue 583):** o destaque no topo da expansão usa
+  o código do bloqueio (`getBillingBlock`) para escolher título e tom
+  (`src/components/billing/validacaoDetalhes.ts`): só quem impede a emissão
+  (`sem_cliente`, `calculo_incompleto`, `aguardando_ce`) aparece em âmbar como
+  “Por que não fatura?”; estados finais (`pronto`, `faturado`, `isento`) e
+  Granito ficam neutros como “Situação da fatura”/“Escopo da operação”. O mesmo
+  motivo deixa de repetir na coluna Motivo enquanto a linha está expandida. A
+  expansão mostra ainda cliente vinculado com CNPJ formatado, CE Mercante,
+  subtotal (BRL e USD quando houver), e o último evento auditado com o campo
+  humanizado e data/hora (`describeLastEvent`); a conciliação pendente formata o
+  CNPJ do manifesto e explica quando não há cliente sugerido para aprovar. Cada
+  bloqueio aponta para onde se resolve: cliente para `/revisao?bl=<id>` — a
+  Revisão lê `bl` junto de `cliente`/`busca`/`q`, filtrando a fila e abrindo o
+  grupo daquele B/L (ADR 0061) —, CE
+  Mercante para a ficha do B/L e portal para a ficha do cliente — este último
+  visível a todos os perfis, já que conhecer o bloqueio não exige a permissão
+  `portal_provisioning` que a tela de destino aplica.
 - **Etapa 12 do plano de faturamento (ADR 0038):** a aba Pendências foi
   removida — era subconjunto literal da Validação (mesma fonte
   `useLocalChargeOperations`, mesmo limite 1200, só `chargeStatus=review_required`
@@ -247,6 +288,8 @@ Os testes não foram executados nesta cartografia, por instrução do coordenado
 - `src/components/billing/__tests__/ManualChargeFormFields.test.tsx`
 - `src/components/billing/__tests__/PendenciasTable.test.tsx`
 - `src/components/billing/__tests__/ValidacaoOperationsTable.test.tsx`
+- `src/components/billing/__tests__/validacaoFunnel.test.ts`
+- `src/services/__tests__/portalGateCriterioMigration.test.ts`
 
 Esses arquivos sustentam filtros, emissão, RPCs de pagamento/cancelamento,
 seleção de consolidadas, helpers de status, paginação de exportação e estados

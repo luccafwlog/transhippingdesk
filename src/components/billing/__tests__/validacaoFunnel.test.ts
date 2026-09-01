@@ -12,6 +12,60 @@ describe('billing blocks', () => {
   it('mantem o detalhe na API legada', () => expect(getBillingBlockReason({ ...base, review_status: 'pending_review', notes: 'Pendencias de importacao: Portal' })).toContain('Revis'))
   it('separa faturado e isento', () => { expect(getBillingBlock({ ...base, financial_status: 'invoiced' }).code).toBe('faturado'); expect(getBillingBlock({ ...base, charge_status: 'exempt' }).code).toBe('isento') })
 })
+
+// Gate de Portal (ADR 0054, migrations 337/367/368): a pendencia canonica vive
+// em `notes`, escrita pela save_bl_review. O `billing_hold_reason` do gate
+// nunca chegou ao disco — o UPDATE morria no rollback da excecao, e a 368 o
+// removeu. Antes disto a pendencia aparecia como "Calculo incompleto", rotulo
+// errado para um calculo que esta completo.
+describe('bloqueio por portal não provisionado', () => {
+  const withCe = { ...base, ce_mercante: '122605051526081' }
+  const portalNotes = 'Pendencias de importacao: Acesso ao portal nao provisionado'
+
+  it('nomeia o motivo quando o portal é a única pendência', () => {
+    const block = getBillingBlock({ ...withCe, review_status: 'pending_review', notes: portalNotes })
+    expect(block.code).toBe('portal_nao_provisionado')
+    expect(block.label).toBe('Portal não provisionado')
+  })
+
+  it('não trata como problema de cálculo: totais e linhas seguem íntegros', () => {
+    const block = getBillingBlock({ ...withCe, review_status: 'pending_review', notes: portalNotes })
+    expect(block.code).not.toBe('calculo_incompleto')
+  })
+
+  it('cede a vez a pendências que não são do portal', () => {
+    const block = getBillingBlock({
+      ...withCe,
+      review_status: 'pending_review',
+      notes: 'Pendencias de importacao: Cliente sem e-mail cadastrado, Acesso ao portal nao provisionado',
+    })
+    expect(block.code).toBe('calculo_incompleto')
+  })
+
+  // Regressao: um hold proprio do B/L (gravado pela save_bl_review) com notas de
+  // portal era lido como "so o portal", escondia o hold real e rotulava errado.
+  it('não confunde hold próprio do B/L com pendência de portal', () => {
+    const hold = 'B/L sem linhas faturaveis. Recalcule as taxas antes de faturar.'
+    const block = getBillingBlock({ ...withCe, review_status: 'pending_review', notes: portalNotes, billing_hold_reason: hold })
+    expect(block.code).toBe('calculo_incompleto')
+    expect(block.detail).toBe(hold)
+  })
+
+  it('fica atrás do CE Mercante na precedência', () => {
+    const block = getBillingBlock({ ...base, ce_mercante: null, review_status: 'pending_review', notes: portalNotes })
+    expect(block.code).toBe('aguardando_ce')
+  })
+
+  it('fica atrás do cliente não vinculado', () => {
+    const block = getBillingBlock({ ...withCe, customer: null, review_status: 'pending_review', notes: portalNotes })
+    expect(block.code).toBe('sem_cliente')
+  })
+
+  it('não bloqueia quem tem cálculo com linhas em revisão de verdade', () => {
+    const block = getBillingBlock({ ...withCe, review_status: 'pending_review', notes: portalNotes, totals: { total_brl: 100, line_count: 2, review_required_count: 1 } })
+    expect(block.code).toBe('calculo_incompleto')
+  })
+})
 describe('legacy predicates', () => {
   it('reconhece revisão pendente', () => expect(isPendingBillingReview(base)).toBe(true))
   it('trava financeiros faturados', () => expect(isBlLockedForRecalc('invoiced')).toBe(true))
