@@ -2,7 +2,7 @@ import { AGENCY_REPORT_SECTIONS, AGENCY_REPORT_SECTION_LABELS, type AgencyReport
 import { ENTITY_TYPE_LABELS, TYPE_LABELS, type ActiveAlertType } from './alerts'
 
 export type AlertRuleDomain = 'Operação' | 'Revisão' | 'Financeiro' | 'Portal'
-export type AlertRuleDepartment = 'documentacao' | 'equipamentos' | 'operacoes'
+export type AlertRuleDepartment = 'documentacao' | 'equipamentos' | 'operacoes' | 'administrativo'
 export type AlertRuleSeverity = 'critical' | 'normal'
 
 // O manual só documenta regras vivas: um tipo sem produtor sai desta lista na
@@ -55,12 +55,13 @@ type AlertRuleDraft = Omit<AlertRule, 'label' | 'notifiedDepartments' | 'respons
 }
 
 export const ALERT_RULE_DEPARTMENTS: AlertRuleDepartment[] = ['documentacao', 'equipamentos', 'operacoes']
-const DEPARTMENT_ORDER: AlertRuleDepartment[] = ALERT_RULE_DEPARTMENTS
+const DEPARTMENT_ORDER: AlertRuleDepartment[] = [...ALERT_RULE_DEPARTMENTS, 'administrativo']
 
 export const ALERT_RULE_DEPARTMENT_LABELS: Record<AlertRuleDepartment, string> = {
   documentacao: 'Documentação',
   equipamentos: 'Equipamentos',
   operacoes: 'Operações',
+  administrativo: 'Administrativo',
 }
 
 const temporaryDismissal = 'Pode ser dispensado temporariamente na fila, com motivo obrigatório e data futura de revisão. A dispensa não corrige a origem nem libera um bloqueio.'
@@ -316,7 +317,8 @@ const ALERT_RULES_BASE = [
     type: 'cliente_contato_bounced_sem_alternativa',
     domain: 'Portal',
     responsible: 'documentacao',
-    catalogAudience: ['documentacao'],
+    responsibleDepartments: ['documentacao', 'administrativo'],
+    catalogAudience: ['documentacao', 'administrativo'],
     entityType: 'customer',
     severity: 'critical',
     summary: 'O cliente perdeu todos os contatos válidos após bounce permanente e não possui endereço alternativo.',
@@ -474,6 +476,54 @@ const ALERT_RULES_BASE = [
     resolution: 'Abra a viagem e vincule os manifestos de Granito/Vazios da exportação, ou corrija o planejamento de exportação da escala.',
     destination: '/viagens',
     destinationLabel: 'Abrir Viagens',
+    afterResolution: derivedResolution,
+    dismissal: temporaryDismissal,
+  },
+  {
+    type: 'comunicado_noa_pendente',
+    domain: 'Operação',
+    responsible: 'documentacao',
+    catalogAudience: ['documentacao'],
+    entityType: 'voyage_pod_schedule',
+    severity: 'normal',
+    summary: 'Uma escala entrou na janela do NOA e ainda não recebeu o aviso ao cliente.',
+    trigger: 'O ETA da escala está entre cinco dias antes e o instante anterior à chegada, sem NOA enviado para a escala.',
+    timing: 'Começa cinco dias antes do ETA e é reavaliado pelo runner de alertas até o ETA passar ou o NOA ser enviado.',
+    resolution: 'Abra Comunicados, confira os B/Ls e os contatos elegíveis e envie o NOA ao cliente correto.',
+    destination: '/clientes/comunicacao',
+    destinationLabel: 'Abrir Comunicados',
+    afterResolution: derivedResolution,
+    dismissal: temporaryDismissal,
+  },
+  {
+    type: 'comunicado_nor_pendente',
+    domain: 'Operação',
+    responsible: 'documentacao',
+    catalogAudience: ['documentacao'],
+    entityType: 'voyage_pod_schedule',
+    severity: 'normal',
+    summary: 'Uma escala tem ATA recente e ainda não recebeu o aviso de prontidão ao cliente.',
+    trigger: 'A ATA da escala foi informada nos últimos trinta dias, sem NOR enviado para a escala.',
+    timing: 'Começa quando a ATA entra e permanece por trinta dias, ou até o NOR ser enviado.',
+    resolution: 'Abra Comunicados, confira os B/Ls e os contatos elegíveis e envie o NOR ao cliente correto.',
+    destination: '/clientes/comunicacao',
+    destinationLabel: 'Abrir Comunicados',
+    afterResolution: derivedResolution,
+    dismissal: temporaryDismissal,
+  },
+  {
+    type: 'comunicado_nob_pendente',
+    domain: 'Operação',
+    responsible: 'documentacao',
+    catalogAudience: ['documentacao'],
+    entityType: 'voyage_escala_terminal',
+    severity: 'normal',
+    summary: 'Uma atracação tem ATB recente e ainda não recebeu o aviso de atracação ao cliente.',
+    trigger: 'O ATB da atracação foi informado nos últimos trinta dias, sem NOB enviado para aquela atracação.',
+    timing: 'Começa quando o ATB entra e permanece por trinta dias, ou até o NOB ser enviado.',
+    resolution: 'Abra Comunicados, confira os B/Ls daquele terminal e envie o NOB ao cliente correto.',
+    destination: '/clientes/comunicacao',
+    destinationLabel: 'Abrir Comunicados',
     afterResolution: derivedResolution,
     dismissal: temporaryDismissal,
   },

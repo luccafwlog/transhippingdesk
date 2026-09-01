@@ -60,22 +60,54 @@ export function formatDate(value?: string | null) {
   }).format(new Date(value))
 }
 
+export function splitIsoDateTime(value?: string | null): { date: string; time: string } {
+  if (!value) return { date: '', time: '' }
+  const trimmed = value.trim()
+  if (!trimmed) return { date: '', time: '' }
+
+  const dateOnlyMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})$/)
+  if (dateOnlyMatch) return { date: dateOnlyMatch[1], time: '' }
+
+  const dateTimeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})/)
+  if (dateTimeMatch) return { date: dateTimeMatch[1], time: dateTimeMatch[2] }
+
+  const parsed = new Date(trimmed)
+  if (!Number.isNaN(parsed.getTime())) {
+    const year = parsed.getFullYear()
+    const month = String(parsed.getMonth() + 1).padStart(2, '0')
+    const day = String(parsed.getDate()).padStart(2, '0')
+    const hours = String(parsed.getHours()).padStart(2, '0')
+    const mins = String(parsed.getMinutes()).padStart(2, '0')
+    return { date: `${year}-${month}-${day}`, time: `${hours}:${mins}` }
+  }
+
+  return { date: trimmed.slice(0, 10), time: '' }
+}
+
+export function combineIsoDateTime(date: string, time?: string | null): string | null {
+  const cleanDate = date.trim()
+  if (!cleanDate) return null
+  const cleanTime = (time ?? '').trim()
+  if (!cleanTime) return cleanDate
+  return `${cleanDate}T${cleanTime}:00`
+}
+
+export function formatDateTimeBR(value?: string | null): string {
+  if (!value) return '-'
+  const { date, time } = splitIsoDateTime(value)
+  if (!date) return '-'
+  const formattedDate = formatDate(date)
+  if (!time) return formattedDate
+  return `${formattedDate} às ${time}`
+}
+
 // Timestamps de auditoria só são conferíveis com a hora: dois eventos no mesmo
 // dia ficam indistinguíveis quando a UI mostra apenas a data.
 export function formatDateTime(value?: string | null) {
   if (!value) return '-'
   if (isDateOnly(value)) return formatDate(value)
 
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return '-'
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(parsed)
+  return formatDateTimeBR(value)
 }
 
 export function isDateOnly(value: string) {

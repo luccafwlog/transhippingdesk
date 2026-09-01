@@ -161,13 +161,28 @@ async function openNoAlternativeAlert(
   customerId: number,
 ): Promise<void> {
   try {
-    const alert = {
-      type: 'cliente_contato_bounced_sem_alternativa',
-      entityType: 'customer',
-      entityId: String(customerId),
-      message: 'Cliente sem contato alternativo válido após bounce permanente; atualize o cadastro.',
-    }
-    await openAlertOnce(admin, alert)
+    const { data: customer, error: customerError } = await admin
+      .from('customers')
+      .select('cnpj_cpf')
+      .eq('id', customerId)
+      .maybeSingle()
+    if (customerError) throw customerError
+
+    const { error } = await admin.rpc('upsert_alert_item', {
+      p_type: 'cliente_contato_bounced_sem_alternativa',
+      p_entity_type: 'customer',
+      p_entity_id: String(customerId),
+      p_message: 'Cliente sem contato alternativo válido após bounce permanente; atualize o cadastro.',
+      p_source: 'portal_email_webhook',
+      p_department: 'documentacao',
+      p_metadata: {
+        customer_id: customerId,
+        customer_cnpj: customer?.cnpj_cpf ?? null,
+        reason: 'all_contacts_bounced_or_suppressed',
+      },
+      p_destination: '/clientes',
+    })
+    if (error) throw error
   } catch (error) {
     console.error('[portal-email-webhook] falha ao abrir alerta de contato sem alternativa', customerId, error)
   }

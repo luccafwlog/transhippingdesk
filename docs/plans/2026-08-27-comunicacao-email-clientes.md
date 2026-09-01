@@ -20,9 +20,9 @@ perguntas ao produto obrigaram a corrigir nela.
 | Bloco | Escopo | PR / Migration | Status |
 |---|---|---|---|
 | **Bloco 1 — Fundação** | T1 a T7 (Mecânica `_shared/email.ts`, Migration 372, RBAC, Ficha, Webhook + Cascata de Bounce) | [PR #645](https://github.com/luccafwlog/transhippingdesk/pull/645) / `372_comunicados_fundacao.sql` | **DONE** (2026-09-01) |
-| **Bloco 2 — Avisos Operacionais** | T8 a T11 (Gatilhos NOA/NOR/NOB, modal com hora, preview e disparo) | — | TODO |
-| **Bloco 3 — CE Mercante e Demurrage** | T12 a T16 (Régua semanal, disparo no CE Mercante, alerta e histórico) | — | TODO |
-| **Bloco 4 — Disparo Livre, Cleanup e Gate Final** | T17 a T20 (Disparo livre, remoção de `notify-invoice-issued`, consolidação) | — | TODO |
+| **Bloco 2 — Avisos Operacionais** | T8 a T15 (rota, recorte, conferência, NOA/NOR/NOB, anexos, dispatch, alertas e histórico) | branch `codex/comunicacao-email-clientes-bloco-2` / migrations `373`–`374` | **IN PROGRESS** (2026-09-01) |
+| **Bloco 3 — Financeiro** | T16 a T20 (Régua semanal, CE Mercante, Demurrage, estado e encerramento) | — | TODO |
+| **Bloco 4 — Consolidação posterior** | Escopo posterior ao Bloco 3 | — | TODO |
 
 ## Problema
 
@@ -705,7 +705,7 @@ PIX (invariante 6), e essa é a única proibição que sobra. A validação é p
 anexo em qualquer outro modelo que venha a existir nelas.
 
 Editor livre; institucional salvável como modelo reutilizável. Migration
-`362_comunicados_anexos.sql` para bucket, policies e a tabela de modelos salvos.
+`373_comunicados_anexos.sql` para bucket, policies e a tabela de modelos salvos.
 
 **Check:** teste de contrato SQL das policies do bucket; teste de validação
 rejeitando o 4º arquivo e a soma acima de 10 MB; teste afirmando que um resumo de
@@ -779,7 +779,7 @@ Roteamento e severidade:
   severidade `alta`, destino `/clientes/:cnpj?tab=contatos`.
 
 Fechamento **pela origem**, como manda a ADR 0053 — não há fechamento manual —, com
-dispensa temporária no padrão do catálogo. Migration `363_comunicado_alertas.sql`,
+dispensa temporária no padrão do catálogo. Migration `374_comunicados_alertas.sql`,
 com o produtor no runner unificado (`332_unified_alerts_runner.sql`).
 
 Escala **omitida** não gera NOA nem NOR pendente: o navio não atraca lá. A migration
@@ -1002,5 +1002,5 @@ migrations ou ADRs citadas.
 | Bloco | Status |
 |---|---|
 | 1 — Fundação (T1–T7) | DONE |
-| 2 — Disparo manual (T8–T15) | TODO |
+| 2 — Disparo manual (T8–T15) | IN PROGRESS |
 | 3 — Financeiro (T16–T20) | TODO |

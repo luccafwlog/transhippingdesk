@@ -36,23 +36,29 @@ O frontend é uma SPA estática. A segurança real não depende do roteador: tab
 views e funções do Supabase aplicam escopo e autorização por RLS, grants e
 validações dentro das RPCs.
 
-### Fundação de Comunicados ao Cliente
+### Comunicados ao Cliente
 
 A migration `372_comunicados_fundacao.sql` criou a trilha de Comunicados sem
 histórico retroativo: `customer_communications`, seus vínculos B/L e tentativas,
 as quatro preferências por contato e as supressões específicas do canal. As
 âncoras do comunicado são snapshots e não têm FK para escala, atracação ou
-invoice. A chave global vive no singleton `app_settings`, nasce desligada e só
-é alterada pela RPC `set_communications_enabled(boolean)`, que exige o perfil
-Administrativo e registra a mudança em `audit_logs`.
+invoice. As migrations `373_comunicados_anexos.sql` e
+`374_comunicados_alertas.sql` acrescentam templates, bucket privado, validação
+de anexos e os detectores de NOA/NOR/NOB e bounce sem alternativa. A chave global
+vive no singleton `app_settings`, nasce desligada e só é alterada pela RPC
+`set_communications_enabled(boolean)`, que exige o perfil Administrativo e
+registra a mudança em `audit_logs`.
 
 O mapeamento `kind` → `nature` é explícito; `customer_contact_preferences` é
 preenchida para contatos existentes e por trigger para novos contatos, sem
 reutilizar `customer_contacts.purpose`. A tela de Cadastro de Contatos grava
 essas preferências com `source='interno'`, sob a permissão
 `customer_communications`, e
-desabilita a edição para os demais papéis. O envio global continua desligado;
-esta etapa não adiciona rota nem dispara comunicado real.
+desabilita a edição para os demais papéis. O envio global continua desligado. A
+rota interna `/clientes/comunicacao`, protegida por
+`customer_communications`, faz a conferência por cliente e registra simulações;
+a Edge Function `send-customer-communication` só chama o Resend quando a chave
+global estiver ligada.
 
 `portal-email-webhook` resolve o `provider_message_id` tanto em
 `portal_email_attempts` quanto em `customer_communication_attempts` e aponta
@@ -503,6 +509,9 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
 - `portal-account-suspend`: suspensão/reativação de conta do Portal;
 - `portal-email-webhook`: eventos de entrega do Resend para Portal e
   Comunicados, supressões por canal e cascata de bounce permanente;
+- `send-customer-communication`: confere contato, natureza, preferências e
+  supressões; grava o Comunicado e a tentativa atomicamente e envia ou registra
+  simulação;
 - `portal-daily-digest`: resumo diário interno;
 - `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage;
 - `notify-invoice-issued`: implementada para enviar email via Resend na
@@ -598,6 +607,7 @@ segregados e evidências brutas do consignatário/carga permanecem disponíveis.
 O convite do Portal é opcional, enviado para o mesmo e-mail informado após o
 commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 | `/clientes` | Clientes |
+| `/clientes/comunicacao` | Conferência, simulação/envio e histórico de Comunicados ao Cliente |
 | `/clientes/:cnpj` | Ficha do cliente (hub em abas via `?tab=`) |
 | `/clientes/portal/inspecao/:customerId/*` | Inspeção interna somente leitura do Portal, fora do `AppLayout`, sob `ProtectedRoute` |
 | `/clientes/portal/inspecao/:customerId/billing` | Faturas do Cliente em Modo Inspeção |

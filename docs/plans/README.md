@@ -23,6 +23,12 @@ Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma lin
 > isolamento de naturezas, RLS e permissão RBAC `customer_communications`, webhook com cascata de bounce
 > e preferências de recebimento na Ficha do Cliente.
 
+> **Nota de execução do Bloco 2 (branch `codex/comunicacao-email-clientes-bloco-2`).**
+> T8–T15 foram implementadas localmente com as migrations `373_comunicados_anexos.sql`
+> e `374_comunicados_alertas.sql`, a rota de conferência/histórico, renderizadores
+> NOA/NOR/NOB, dispatch simulado e os detectores de alertas. O plano permanece
+> **IN PROGRESS** até os gates e a validação remota; os Blocos 3–4 continuam TODO.
+
 ### Sincronização de 2026-08-20
 
 O plano de 2026-08-11 foi ressincronizado com as decisões posteriores a ele —

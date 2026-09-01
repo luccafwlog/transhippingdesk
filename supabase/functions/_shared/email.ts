@@ -3,6 +3,12 @@ export type EmailSuppression = {
   reason?: string
 }
 
+export type EmailAttachment = {
+  filename: string
+  content: string
+  contentType?: string
+}
+
 export type EmailAttemptUpdate = {
   providerMessageId?: string | null
   retryCount: number
@@ -16,6 +22,7 @@ export type SendEmailInput = {
   subject: string
   html: string
   text: string
+  attachments?: readonly EmailAttachment[]
   idempotencyKey: string
   resendApiKey?: string | null
   from?: string | null
@@ -80,6 +87,13 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean }>
         subject: input.subject,
         html: input.html,
         text: input.text,
+        ...(input.attachments?.length
+          ? { attachments: input.attachments.map((attachment) => ({
+              filename: attachment.filename,
+              content: attachment.content,
+              ...(attachment.contentType ? { content_type: attachment.contentType } : {}),
+            })) }
+          : {}),
       }),
     })
 

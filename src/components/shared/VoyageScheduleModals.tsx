@@ -10,7 +10,7 @@ import {
   type EditableVoyagePodCeStatus,
   type VoyagePodCeStatus,
 } from '../../services/voyageRouteSchedules'
-import { formatDate } from '../../lib/utils'
+import { formatDateTimeBR, splitIsoDateTime, combineIsoDateTime } from '../../lib/utils'
 import { normalizePortCode } from '../../services/portCode'
 import { normalizeDischargePorts } from '../../services/voyageExportSchedules'
 import type {
@@ -225,12 +225,61 @@ function frontKey(front: Pick<OperationFront, 'sentido' | 'modalidade'>) {
   return `${front.sentido}:${front.modalidade}`
 }
 
-function dateInputValue(value: string | null | undefined) {
-  return value ? value.slice(0, 10) : ''
+export type TerminalDatesDraft = {
+  etbDate: string
+  etbTime: string
+  atbDate: string
+  atbTime: string
+  etdDate: string
+  etdTime: string
+  atdDate: string
+  atdTime: string
+  restow: string
 }
 
-function sameDateValue(left: string | null | undefined, right: string | null | undefined) {
-  return dateInputValue(left) === dateInputValue(right)
+function emptyTerminalDatesDraft(): TerminalDatesDraft {
+  return {
+    etbDate: '',
+    etbTime: '',
+    atbDate: '',
+    atbTime: '',
+    etdDate: '',
+    etdTime: '',
+    atdDate: '',
+    atdTime: '',
+    restow: '',
+  }
+}
+
+function terminalToDatesDraft(terminal?: {
+  etb?: string | null
+  atb?: string | null
+  etd?: string | null
+  atd?: string | null
+  restow?: number | null
+} | null): TerminalDatesDraft {
+  const etb = splitIsoDateTime(terminal?.etb)
+  const atb = splitIsoDateTime(terminal?.atb)
+  const etd = splitIsoDateTime(terminal?.etd)
+  const atd = splitIsoDateTime(terminal?.atd)
+  return {
+    etbDate: etb.date,
+    etbTime: etb.time,
+    atbDate: atb.date,
+    atbTime: atb.time,
+    etdDate: etd.date,
+    etdTime: etd.time,
+    atdDate: atd.date,
+    atdTime: atd.time,
+    restow: terminal?.restow == null ? '' : String(terminal.restow),
+  }
+}
+
+function sameDateTimeValue(left: string | null | undefined, right: string | null | undefined) {
+  if (!left && !right) return true
+  const l = splitIsoDateTime(left)
+  const r = splitIsoDateTime(right)
+  return l.date === r.date && l.time === r.time
 }
 
 function mergeTerminalOptions(active: TerminalOption[], historical: TerminalOption[]) {
@@ -245,12 +294,14 @@ function mergeTerminalOptions(active: TerminalOption[], historical: TerminalOpti
 function orderTerminalIds(
   scale: TerminalScaleState,
   fronts: Record<string, string>,
-  dates: Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>,
+  dates: Record<string, TerminalDatesDraft>,
   terminalById: Map<string, TerminalOption>,
 ) {
   const ids = new Set(scale.terminals.flatMap((terminal) => terminal.terminalId ? [terminal.terminalId] : []))
   const tbcDates = dates.__tbc__
-  const hasTbcData = Boolean(tbcDates?.etb || tbcDates?.atb || tbcDates?.etd || tbcDates?.atd || tbcDates?.restow)
+  const hasTbcData = Boolean(
+    tbcDates?.etbDate || tbcDates?.atbDate || tbcDates?.etdDate || tbcDates?.atdDate || tbcDates?.restow,
+  )
   if (scale.terminals.some((terminal) => terminal.terminalId === null && (
     terminal.etb || terminal.atb || terminal.etd || terminal.atd || terminal.restow !== null
   )) || hasTbcData) ids.add('__tbc__')
@@ -258,8 +309,8 @@ function orderTerminalIds(
   return sortAtracacoes([...ids].map((terminalId) => ({
     terminalId,
     terminalCode: terminalById.get(terminalId)?.code ?? terminalId,
-    etb: dates[terminalId]?.etb || null,
-    atb: dates[terminalId]?.atb || null,
+    etb: combineIsoDateTime(dates[terminalId]?.etbDate ?? '', dates[terminalId]?.etbTime ?? ''),
+    atb: combineIsoDateTime(dates[terminalId]?.atbDate ?? '', dates[terminalId]?.atbTime ?? ''),
   }))).map((terminal) => terminal.terminalId as string)
 }
 
@@ -303,7 +354,7 @@ function buildTerminalPayload({
 }: {
   terminalScale: EscalaModalTerminalScale | null
   terminalFronts: Record<string, string>
-  terminalDates: Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>
+  terminalDates: Record<string, TerminalDatesDraft>
   terminalStateChanged: boolean
   justification: string
   exportExpectation: Record<string, unknown>
@@ -337,24 +388,44 @@ function buildTerminalPayload({
   )
   const terminals: NonNullable<EscalaModalPayload['terminalState']>['terminals'] = []
   for (const terminalId of terminalIds) {
-    const draft = terminalDates[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
-    if (draft.atd && (!draft.atb || draft.atd < draft.atb)) {
-      const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
+    const draft = terminalDates[terminalId] ?? emptyTerminalDatesDraft()
+    const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
+
+    if (draft.atbDate && !draft.atbTime.trim()) {
+      return { error: `A hora do ATB é obrigatória quando a data estiver preenchida para o terminal ${code}.` }
+    }
+
+    const etb = combineIsoDateTime(draft.etbDate, draft.etbTime)
+    const atb = combineIsoDateTime(draft.atbDate, draft.atbTime)
+    const etd = combineIsoDateTime(draft.etdDate, draft.etdTime)
+    const atd = combineIsoDateTime(draft.atdDate, draft.atdTime)
+
+    if (atd && (!atb || atd < atb)) {
       return { error: `Informe o ATB antes do ATD do terminal ${code}; o ATD não pode ser anterior ao ATB.` }
     }
     const restow = draft.restow.trim() ? Number(draft.restow) : null
     if (restow !== null && (!Number.isInteger(restow) || restow < 0)) {
       return { error: `Restow inválido para o terminal ${terminalId}.` }
     }
-    if (draft.etd && (!draft.etb || draft.etd < draft.etb)) {
-      const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
+    if (etd && (!etb || etd < etb)) {
       return { error: `Informe o ETB antes do ETD do terminal ${code}; o ETD não pode ser anterior ao ETB.` }
     }
-    terminals.push({ terminalId, etb: draft.etb || null, atb: draft.atb || null, etd: draft.etd || null, atd: draft.atd || null, restow })
+    terminals.push({ terminalId, etb, atb, etd, atd, restow })
   }
   if (fronts.some((front) => !front.terminalId)) {
-    const draft = terminalDates.__tbc__ ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
-    terminals.push({ terminalId: null, etb: draft.etb || null, atb: draft.atb || null, etd: draft.etd || null, atd: draft.atd || null, restow: draft.restow.trim() ? Number(draft.restow) : null })
+    const draft = terminalDates.__tbc__ ?? emptyTerminalDatesDraft()
+    const etb = combineIsoDateTime(draft.etbDate, draft.etbTime)
+    const atb = combineIsoDateTime(draft.atbDate, draft.atbTime)
+    const etd = combineIsoDateTime(draft.etdDate, draft.etdTime)
+    const atd = combineIsoDateTime(draft.atdDate, draft.atdTime)
+    terminals.push({
+      terminalId: null,
+      etb,
+      atb,
+      etd,
+      atd,
+      restow: draft.restow.trim() ? Number(draft.restow) : null,
+    })
   }
 
   const submittedFronts = fronts
@@ -365,8 +436,8 @@ function buildTerminalPayload({
     .sort()
   const realizedDateChanged = terminals.some((terminal) => {
     const previous = terminalScale.terminals.find((candidate) => candidate.terminalId === terminal.terminalId)
-    return (previous?.atb != null && !sameDateValue(previous.atb, terminal.atb))
-      || (previous?.atd != null && !sameDateValue(previous.atd, terminal.atd))
+    return (previous?.atb != null && !sameDateTimeValue(previous.atb, terminal.atb))
+      || (previous?.atd != null && !sameDateTimeValue(previous.atd, terminal.atd))
   })
   const terminalizedStateChanged = terminalStateChanged
     || JSON.stringify(submittedFronts) !== JSON.stringify(persistedFronts)
@@ -405,12 +476,12 @@ function TerminalFrontEditor({
 }: {
   scale: EscalaModalTerminalScale
   terminalFronts: Record<string, string>
-  terminalDates: Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>
+  terminalDates: Record<string, TerminalDatesDraft>
   terminalOptions: TerminalOption[]
   terminalById: Map<string, TerminalOption>
   terminalIds: string[]
   onTerminalChange: (front: OperationFront, terminalId: string) => void
-  onDateChange: (terminalId: string, field: 'etb' | 'atb' | 'etd' | 'atd' | 'restow', value: string) => void
+  onDateChange: (terminalId: string, field: keyof TerminalDatesDraft, value: string) => void
   justification: string
   onJustificationChange: (value: string) => void
   showJustification: boolean
@@ -486,7 +557,7 @@ function TerminalFrontEditor({
         {terminalIds.length === 0 ? <p className="app-escala-section__description">Nenhum terminal atribuído ainda. A chegada ETA/ATA permanece na escala.</p> : null}
         {terminalIds.map((terminalId) => {
           const option = terminalId === '__tbc__' ? undefined : terminalById.get(terminalId)
-          const draft = terminalDates[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
+          const draft = terminalDates[terminalId] ?? emptyTerminalDatesDraft()
           const code = terminalId === '__tbc__' ? 'TBC' : option?.code ?? terminalId
           return (
             <div
@@ -501,10 +572,30 @@ function TerminalFrontEditor({
                 {code}
                 {option?.active === false ? <div className="app-escala-operation-row__meta app-escala-operation-row__meta--pending">Terminal inativo · histórico</div> : null}
               </div>
-              <Field label={`ETB ${code}`}><Input type="date" value={draft.etb} onChange={(event) => onDateChange(terminalId, 'etb', event.target.value)} /></Field>
-              <Field label={`ATB ${code}`}><Input type="date" value={draft.atb} onChange={(event) => onDateChange(terminalId, 'atb', event.target.value)} /></Field>
-              <Field label={`ETD ${code}`}><Input type="date" value={draft.etd} onChange={(event) => onDateChange(terminalId, 'etd', event.target.value)} /></Field>
-              <Field label={`ATD ${code}`}><Input type="date" value={draft.atd} onChange={(event) => onDateChange(terminalId, 'atd', event.target.value)} /></Field>
+              <Field label={`ETB ${code}`}>
+                <div className="flex gap-1">
+                  <Input type="date" aria-label={`ETB ${code}`} value={draft.etbDate} onChange={(event) => onDateChange(terminalId, 'etbDate', event.target.value)} />
+                  <Input type="time" aria-label={`ETB ${code} Hora`} value={draft.etbTime} onChange={(event) => onDateChange(terminalId, 'etbTime', event.target.value)} />
+                </div>
+              </Field>
+              <Field label={`ATB ${code}`}>
+                <div className="flex gap-1">
+                  <Input type="date" aria-label={`ATB ${code}`} value={draft.atbDate} onChange={(event) => onDateChange(terminalId, 'atbDate', event.target.value)} />
+                  <Input type="time" aria-label={`ATB ${code} Hora`} value={draft.atbTime} onChange={(event) => onDateChange(terminalId, 'atbTime', event.target.value)} />
+                </div>
+              </Field>
+              <Field label={`ETD ${code}`}>
+                <div className="flex gap-1">
+                  <Input type="date" aria-label={`ETD ${code}`} value={draft.etdDate} onChange={(event) => onDateChange(terminalId, 'etdDate', event.target.value)} />
+                  <Input type="time" aria-label={`ETD ${code} Hora`} value={draft.etdTime} onChange={(event) => onDateChange(terminalId, 'etdTime', event.target.value)} />
+                </div>
+              </Field>
+              <Field label={`ATD ${code}`}>
+                <div className="flex gap-1">
+                  <Input type="date" aria-label={`ATD ${code}`} value={draft.atdDate} onChange={(event) => onDateChange(terminalId, 'atdDate', event.target.value)} />
+                  <Input type="time" aria-label={`ATD ${code} Hora`} value={draft.atdTime} onChange={(event) => onDateChange(terminalId, 'atdTime', event.target.value)} />
+                </div>
+              </Field>
               <Field label={`Restow ${code}`}><Input type="number" min="0" step="1" value={draft.restow} onChange={(event) => onDateChange(terminalId, 'restow', event.target.value)} /></Field>
             </div>
           )
@@ -549,8 +640,10 @@ export function EscalaModal({
   onReopenAdr?: (blocker: ClosedAdrBlocker) => void
 }) {
   const [port, setPort] = useState('')
-  const [eta, setEta] = useState('')
-  const [ata, setAta] = useState('')
+  const [etaDate, setEtaDate] = useState('')
+  const [etaTime, setEtaTime] = useState('')
+  const [ataDate, setAtaDate] = useState('')
+  const [ataTime, setAtaTime] = useState('')
   const [ceStatus, setCeStatus] = useState<EditableVoyagePodCeStatus>('waiting')
   const [linked, setLinked] = useState<'true' | 'false'>('false')
   const [escalaNumber, setEscalaNumber] = useState('')
@@ -564,7 +657,7 @@ export function EscalaModal({
   const [portError, setPortError] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [terminalFronts, setTerminalFronts] = useState<Record<string, string>>({})
-  const [terminalDates, setTerminalDates] = useState<Record<string, { etb: string; atb: string; etd: string; atd: string; restow: string }>>({})
+  const [terminalDates, setTerminalDates] = useState<Record<string, TerminalDatesDraft>>({})
   const [justification, setJustification] = useState('')
   const [terminalError, setTerminalError] = useState<string | null>(null)
   const [closedBlockers, setClosedBlockers] = useState<ClosedAdrBlocker[]>([])
@@ -620,8 +713,12 @@ export function EscalaModal({
     setTouchedTerminalFronts(new Set())
     setTouchedTerminalDates(new Set())
     setPort(escala.port ?? '')
-    setEta(escala.eta ?? '')
-    setAta(escala.ata ?? '')
+    const etaParsed = splitIsoDateTime(escala.eta)
+    const ataParsed = splitIsoDateTime(escala.ata)
+    setEtaDate(etaParsed.date)
+    setEtaTime(etaParsed.time)
+    setAtaDate(ataParsed.date)
+    setAtaTime(ataParsed.time)
     setCeStatus(getEditableVoyagePodCeStatus(escala.ceStatus))
     setLinked(escala.linked ? 'true' : 'false')
     setEscalaNumber(escala.escalaNumber ?? '')
@@ -642,13 +739,7 @@ export function EscalaModal({
       (state?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
     ))
     setTerminalDates(Object.fromEntries(
-      (state?.terminals ?? []).map((terminal) => [terminal.terminalId ?? '__tbc__', {
-        etb: dateInputValue(terminal.etb),
-        atb: dateInputValue(terminal.atb),
-        etd: dateInputValue(terminal.etd),
-        atd: dateInputValue(terminal.atd),
-        restow: terminal.restow == null ? '' : String(terminal.restow),
-      }]),
+      (state?.terminals ?? []).map((terminal) => [terminal.terminalId ?? '__tbc__', terminalToDatesDraft(terminal)]),
     ))
   } else if (open && escala && terminalScaleSourceKey !== prevTerminalScaleSourceKey) {
     const wasLoading = prevTerminalScaleSourceKey?.startsWith('loading|') ?? false
@@ -662,13 +753,12 @@ export function EscalaModal({
       const hydratedDates = { ...terminalDates }
       for (const terminal of terminalScale.terminals) {
         const terminalKey = terminal.terminalId ?? '__tbc__'
-        const current = hydratedDates[terminalKey] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }
+        const current = hydratedDates[terminalKey] ?? emptyTerminalDatesDraft()
+        const scaleDraft = terminalToDatesDraft(terminal)
         const next = { ...current }
-        for (const field of ['etb', 'atb', 'etd', 'atd', 'restow'] as const) {
+        for (const field of ['etbDate', 'etbTime', 'atbDate', 'atbTime', 'etdDate', 'etdTime', 'atdDate', 'atdTime', 'restow'] as const) {
           if (!touchedTerminalDates.has(`${terminalKey}:${field}`)) {
-            next[field] = field === 'restow'
-              ? (terminal.restow == null ? '' : String(terminal.restow))
-              : dateInputValue(terminal[field])
+            next[field] = scaleDraft[field]
           }
         }
         hydratedDates[terminalKey] = next
@@ -691,13 +781,7 @@ export function EscalaModal({
     (terminalScale?.fronts ?? []).map((front) => [frontKey(front), front.terminalId ?? '']),
   )
   const initialTerminalDates = Object.fromEntries(
-    (terminalScale?.terminals ?? []).map((terminal) => [terminal.terminalId ?? '__tbc__', {
-      etb: dateInputValue(terminal.etb),
-      atb: dateInputValue(terminal.atb),
-      etd: dateInputValue(terminal.etd),
-      atd: dateInputValue(terminal.atd),
-      restow: terminal.restow == null ? '' : String(terminal.restow),
-    }]),
+    (terminalScale?.terminals ?? []).map((terminal) => [terminal.terminalId ?? '__tbc__', terminalToDatesDraft(terminal)]),
   )
   const terminalStateChanged = terminalScale
     ? !sameDraft(terminalFronts, initialTerminalFronts) || !sameDraft(terminalDates, initialTerminalDates)
@@ -766,18 +850,18 @@ export function EscalaModal({
     if (nextTerminalId) {
       setTerminalDates((current) => current[nextTerminalId] ? current : {
         ...current,
-        [nextTerminalId]: { etb: '', atb: '', etd: '', atd: '', restow: '' },
+        [nextTerminalId]: emptyTerminalDatesDraft(),
       })
     }
     setTerminalError(null)
     setClosedBlockers([])
   }
 
-  function handleTerminalDateChange(terminalId: string, field: 'etb' | 'atb' | 'etd' | 'atd' | 'restow', value: string) {
+  function handleTerminalDateChange(terminalId: string, field: keyof TerminalDatesDraft, value: string) {
     setTouchedTerminalDates((current) => new Set(current).add(`${terminalId}:${field}`))
     setTerminalDates((current) => ({
       ...current,
-      [terminalId]: { ...(current[terminalId] ?? { etb: '', atb: '', etd: '', atd: '', restow: '' }), [field]: value },
+      [terminalId]: { ...(current[terminalId] ?? emptyTerminalDatesDraft()), [field]: value },
     }))
     setTerminalError(null)
     setClosedBlockers([])
@@ -797,6 +881,12 @@ export function EscalaModal({
       return
     }
     setPortError(null)
+
+    if (ataDate && !ataTime.trim()) {
+      setTerminalError('A hora do ATA é obrigatória quando a data estiver preenchida.')
+      return
+    }
+
     const isLegacyUnclassifiedExport = Boolean(
       escala.exportExistingId && escala.temExportacao && !escala.hasGranite && !escala.hasEmpty,
     )
@@ -844,8 +934,8 @@ export function EscalaModal({
         voyageId: escala.voyageId,
         port: normalizedPort,
         temImportacao,
-        eta: eta || null,
-        ata: ata || null,
+        eta: combineIsoDateTime(etaDate, etaTime),
+        ata: combineIsoDateTime(ataDate, ataTime),
         ceStatus,
         linked: linked === 'true',
         escalaNumber: escalaNumber.trim() || null,
@@ -923,13 +1013,19 @@ export function EscalaModal({
             </div>
             <div className="app-escala-field-grid app-escala-field-grid--three">
               <Field label="ETA">
-              <Input type="date" value={eta} onChange={(event) => setEta(event.target.value)} />
+                <div className="flex gap-1">
+                  <Input type="date" aria-label="ETA" value={etaDate} onChange={(event) => setEtaDate(event.target.value)} />
+                  <Input type="time" aria-label="ETA Hora" value={etaTime} onChange={(event) => setEtaTime(event.target.value)} />
+                </div>
               </Field>
               <Field label="ATA">
-              <Input type="date" value={ata} onChange={(event) => setAta(event.target.value)} />
+                <div className="flex gap-1">
+                  <Input type="date" aria-label="ATA" value={ataDate} onChange={(event) => setAtaDate(event.target.value)} />
+                  <Input type="time" aria-label="ATA Hora" value={ataTime} onChange={(event) => setAtaTime(event.target.value)} />
+                </div>
               </Field>
               <Field label="ATD derivado" hint={derivedTerminalAtdHint}>
-              <Input value={derivedTerminalAtd ? formatDate(derivedTerminalAtd) : '—'} readOnly aria-readonly="true" aria-label="ATD derivado" />
+                <Input value={derivedTerminalAtd ? formatDateTimeBR(derivedTerminalAtd) : '—'} readOnly aria-readonly="true" aria-label="ATD derivado" />
               </Field>
             </div>
           </section>
@@ -1079,6 +1175,8 @@ export function EscalaModal({
                 onReopenAdr={onReopenAdr}
                 focusTerminalId={escala.focusTerminalId}
               />
+            ) : terminalError ? (
+              <p role="alert" className="text-xs text-red-300 px-4 py-2">{terminalError}</p>
             ) : null}
           </div>
 

@@ -1,10 +1,10 @@
 # Clientes
 
-> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/clientes`, `/clientes/:cnpj`
+> **Status:** ativo · **Atualizado:** 2026-09-01 · **Rotas:** `/clientes`, `/clientes/:cnpj`, `/clientes/comunicacao`
 
 ## Propósito e escopo
 
-O módulo mantém o cadastro mestre de clientes, seus contatos, o vínculo com B/Ls e invoices e o provisionamento administrativo da Conta de Portal. As rotas são internas, montadas sob `ProtectedRoute` e `AppLayout` em `src/App.tsx`; seleção/exclusão em massa e gestão do Portal aparecem somente para admin, mas a fronteira efetiva continua nas policies e RPCs do Supabase.
+O módulo mantém o cadastro mestre de clientes, seus contatos, o vínculo com B/Ls e invoices, o provisionamento administrativo da Conta de Portal e a comunicação operacional por e-mail. As rotas são internas, montadas sob `ProtectedRoute` e `AppLayout` em `src/App.tsx`; seleção/exclusão em massa e gestão do Portal aparecem somente para admin, enquanto Comunicados exigem a permissão `customer_communications`. A fronteira efetiva continua nas policies, RPCs e Edge Functions do Supabase.
 
 `clientes.md` é dono do ciclo cadastral e do adaptador interno de provisionamento. Autenticação, sessão e autosserviço externos pertencem a [Portal do Cliente](portal-cliente.md); reconciliação manual e gate de faturamento pertencem a [Operação e suporte](operacao-suporte.md).
 
@@ -17,7 +17,7 @@ cliente. Match por nome nunca preenche `customer_id` ou `client_id`: fica em
 as colunas de sugestão. O backfill preserva faturados e decisões manuais; suas
 consultas de impacto devem ser executadas em somente-leitura antes da aplicação.
 
-Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/components/customers/CustomerTable.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/components/customers/ImportBaseModal.tsx`, `src/components/customers/customerCreateForm.ts`, `src/pages/ClienteFicha.tsx`, `src/components/clientes/FichaTabs.tsx`, `src/components/clientes/fichaTabConfig.ts`, `src/components/clientes/VisaoGeralTab.tsx`, `src/components/clientes/CadastroContatosTab.tsx`, `src/components/clientes/OperacionalTab.tsx`, `src/components/clientes/FinanceiroTab.tsx`, `src/components/clientes/HistoricoTab.tsx`, `src/hooks/useCustomers.ts`, `src/hooks/useCustomerFicha.ts`, `src/services/customers.ts`, `src/services/customerFicha.ts`, `src/services/portalProvisioning.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts` e `supabase/migrations/129_review_gate_hardening.sql`.
+Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/pages/ClientesComunicacao.tsx`, `src/components/customers/CustomerTable.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/components/customers/ImportBaseModal.tsx`, `src/components/customers/customerCreateForm.ts`, `src/pages/ClienteFicha.tsx`, `src/components/clientes/FichaTabs.tsx`, `src/components/clientes/fichaTabConfig.ts`, `src/components/clientes/VisaoGeralTab.tsx`, `src/components/clientes/CadastroContatosTab.tsx`, `src/components/clientes/OperacionalTab.tsx`, `src/components/clientes/FinanceiroTab.tsx`, `src/components/clientes/HistoricoTab.tsx`, `src/components/bl/BlHistoricoTab.tsx`, `src/hooks/useCustomers.ts`, `src/hooks/useCustomerFicha.ts`, `src/hooks/useCustomerCommunications.ts`, `src/services/customers.ts`, `src/services/customerFicha.ts`, `src/services/customerCommunications.ts`, `src/services/customerCommunicationDispatches.ts`, `src/services/customerCommunicationTemplates.ts`, `src/services/portalProvisioning.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts`, `supabase/functions/send-customer-communication/index.ts`, `supabase/migrations/373_comunicados_anexos.sql` e `supabase/migrations/374_comunicados_alertas.sql`.
 
 ## Anatomia das telas
 
@@ -42,11 +42,19 @@ A consulta usa paginação no Supabase apenas no caso simples. Filtros dependent
 - **Cadastro & Contatos** (`CadastroContatosTab`): mestre editável com justificativa obrigatória e auditoria; contatos com finalidade e indicador principal; painel de provisionamento do Portal embutido.
 - **Operacional** (`OperacionalTab`): reconciliação de cliente pendente e histórico de B/Ls vinculados.
 - **Financeiro** (`FinanceiroTab`): invoices locais, invoices de demurrage, recebíveis (ledger local, lido via RPC `get_customer_receivables`), pagamentos, overrides de tarifa e B/Ls com cobrança manual — cada tabela distingue carregando/erro/restrito/vazio.
-- **Histórico** (`HistoricoTab`): timeline completa (auditoria de cadastro, eventos do Portal, contato criado, invoice emitida, pagamento local recebido, demurrage emitida/paga, B/L vinculado), ordenada da mais recente para a mais antiga.
+- **Histórico** (`HistoricoTab`): timeline completa (auditoria de cadastro, eventos do Portal, contato criado, invoice emitida, pagamento local recebido, demurrage emitida/paga, B/L vinculado e Comunicado simulado/enviado/falho), ordenada da mais recente para a mais antiga.
 
 Loading com skeleton e um estado único para documento ausente, inválido, não encontrado ou erro de consulta cobrem a página inteira, antes de qualquer aba montar.
 
 `useCustomerDetail` carrega `customers`, `customer_contacts` e `bls`, e pagina `invoices` até esgotar (não trunca em uma janela fixa — o saldo pendente é um agregado exato). O provisionamento é consultado e alterado na fila `/clientes/portal`.
+
+### `/clientes/comunicacao`
+
+`src/pages/ClientesComunicacao.tsx` mantém as abas de disparo e histórico. O modo **Carga** exige ao menos um filtro operacional (navio, viagem, escala, POD ou POL); CNPJ é restrição adicional. O modo **Institucional** seleciona o Cliente Comunicável por CNPJ e por B/L com ETA desde doze meses atrás, sem limite superior para datas futuras. A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita para reenvios.
+
+O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend.
+
+O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`.
 
 ## Catálogo de ações
 
@@ -56,6 +64,7 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 | `/clientes` — paginar e ordenar | Resultado carregado | `CustomerTable`, botões de cabeçalho e paginação | `toggleSort`, `sortCustomerRows`; ordenação não padrão força varredura e paginação client-side | Somente leitura | Atualiza `filters.sortKey`, `sortDirection` ou `page`; nova chave de query | Custo cresce com o conjunto quando filtro/ordenação exige processamento local | **Teste:** `src/lib/__tests__/customerTableViewModel.test.ts`; **Código:** `src/components/customers/CustomerTable.tsx`, `src/hooks/useCustomers.ts` |
 | `/clientes` — selecionar linhas | Admin; linhas na página | Checkboxes em `CustomerTable` e `BulkActionsBar` | `useRowSelection` recebe um escopo formado pelos filtros, ordenação e página; “selecionar todos” atua nos IDs visíveis | Nenhuma | Seleção é limpa ao trocar o escopo ou após exclusão | Não mantém IDs invisíveis de outra página/filtro | **Código:** `src/pages/Clientes.tsx`, `src/components/customers/CustomerTable.tsx`, `src/hooks/useRowSelection.ts` · **Teste:** `src/hooks/__tests__/useRowSelection.test.tsx` |
 | `/clientes` — abrir ficha/Taxas Locais | Linha existente | Links “Ficha” e ícone financeiro em `CustomerTable` | React Router; `buildCustomerBillingUrl` | Nenhuma | Navega para `/clientes/{cnpj_cpf}` ou `/taxas-locais?tab=invoices&customer=...` | Rota de ficha falha se a chave não coincidir exatamente | **Teste:** `src/lib/__tests__/customerTableViewModel.test.ts`; **Código:** `src/components/customers/CustomerTable.tsx` |
+| `/clientes/comunicacao` — conferir e disparar Comunicado | `customer_communications`; carga com filtro operacional ou modo institucional | `ClientesComunicacao`, filtros e confirmação | `useCustomerCommunicationConference` → agrupamento/elegibilidade → `useDispatchCustomerCommunication` em sequência | RPC `create_customer_communication_atomic`; `customer_communications`, vínculos B/L, tentativas; Edge `send-customer-communication` | Invalida conferência, históricos da ficha e do B/L; mantém banner de simulação com chave global desligada | Contato inexistente, preferência desabilitada, complaint/bounce, natureza ausente, anexo inválido ou erro do provedor | **Teste:** `src/services/__tests__/customerCommunications.test.ts`, `src/services/__tests__/customerCommunicationTemplates.test.ts`; **Código:** `src/pages/ClientesComunicacao.tsx`, `src/services/customerCommunicationDispatches.ts` |
 | `/clientes` — criar cliente | CNPJ com 14 posições alfanuméricas; razão social com 2+ caracteres; contatos parcialmente preenchidos precisam de nome | `CreateCustomerModal`, `handleCreateCustomer` | Zod → `createCustomer` → RPC `create_customer_with_contacts`; colagem/digitação normalizada para maiúsculas sem pontuação e validada pelo módulo 11 | Cliente e contatos são inseridos na mesma transação; a migration `293_cnpj_alfanumerico` canonicaliza e valida o identificador, e o trigger do Portal cria a fila sem convite ou email | Invalida `['customers']` e `['customer-lookup']`; navega à ficha | Duplicidade, CNPJ inválido, contato inválido ou erro de banco revertem toda a criação | **Código:** `src/pages/Clientes.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/services/customers.ts`, `supabase/migrations/293_cnpj_alfanumerico.sql` |
 | `/clientes` — importar planilha | `.xlsx`, `.xls` ou `.csv` dentro do limite; cabeçalho CNPJ e Razão Social | `ImportBaseModal`, `handleBaseFile`/`handleImportBase` | `assertUploadSize` → import dinâmico de `@e965/xlsx` → `parseCustomerBaseRows` → `importCustomerBaseRows`; CNPJ pontuado é normalizado e validado | UPSERT `customers`; INSERT de novos `customer_contacts`; UPDATE de `bls.customer_id` | Preview com linhas válidas/ignoradas; invalida `['customers']`, `['customer-lookup']`, `['bls']` | Arquivo grande, aba/cabeçalho inválido, CNPJ/nome ausente ou inválido ou falha em qualquer escrita | **Teste:** limite em `src/services/__tests__/uploadLimits.test.ts`; **Código:** `src/components/customers/ImportBaseModal.tsx`, `src/services/customerBase.ts` |
 | `/clientes` — exportar conjunto filtrado | Consulta disponível | `handleExportBase` | Busca todos os clientes por nome, aplica filtros client-side e `exportCustomerBaseWorkbook` | Leitura de `customers`, `customer_contacts`, `bls`, invoices; download XLSX local | Não altera cache; exporta todas as páginas filtradas, não só a página corrente | Toast genérico; veja divergência sobre busca/ordenação/email | **Código:** `src/pages/Clientes.tsx`, `src/services/exports.ts` |
@@ -84,10 +93,15 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 | `['customer-ficha', 'pending-reconciliation', customerId]` | `useCustomerPendingReconciliation` | Abas Visão Geral/Operacional; só `matched_name` (documento exato resolve sozinho — `isCustomerReconciliationResolved`). |
 | `['customer-ficha', 'running-demurrage', customerId]` | `useCustomerRunningDemurrage` | Aba Visão Geral; paginado até esgotar. |
 | `['customer-ficha', 'timeline', customerId]` | `useCustomerTimeline` | Abas Visão Geral/Histórico; invalidada também por mutações de contato (`CadastroContatosTab`), não só por `['customer-detail', cnpj]`. |
+| `['customer-communications', 'conference', filters, kind, nature]` | `useCustomerCommunicationConference` | Só habilitada após “Conferir”; escopo inclui modo e todos os filtros, tipo e natureza. |
+| `['customer-communications', 'history', customerId?]` | `useCustomerCommunicationHistory` | Histórico da rota ou da ficha; atualizado após cada dispatch. |
+| `['customer-communications', 'bl', blId]` | `useBlCommunicationHistory` | Histórico de Comunicados vinculados ao B/L; atualizado após dispatch. |
 | Filtros, seleção, modais e formulários | Estado local das páginas | Não persistem na URL, exceto a própria rota da ficha e a aba ativa (`?tab=`). |
 | `customers.cnpj_cpf` | Identidade cadastral | UNIQUE e NOT NULL desde `supabase/migrations/001_schema.sql`; a migration `293` persiste 14 caracteres `A-Z0-9` em maiúsculas, sem pontuação. |
 | `customer_contacts` | Contatos do cliente | Finalidade aceita: `geral`, `operacional`, `faturamento`, `financeiro`. |
 | `customer_portal_accounts` | Conta técnica do Portal | Relaciona cliente a `auth.users` por `auth_user_id`; `active` não substitui o vínculo Auth. |
+| `customer_communications` | Trilha de Comunicados | Âncoras e snapshots preservam o contexto do envio; comunicado institucional não possui vínculo B/L. Status `simulado` não encerra alerta operacional. |
+| `customer_communication_templates` | Modelos server-side | Um modelo ativo por tipo; leitura autenticada, escrita somente por `service_role`. |
 
 O saldo da lista não usa `customers.pending_balance`: `fetchIssuedInvoiceBalanceByCustomer` percorre invoices `issued`. A ficha aplica a mesma noção sobre as invoices que conseguiu ler. Dados de matching ficam em quatro mapas em memória, carregados em páginas de 1.000 registros por `loadCustomerMaps`.
 
@@ -101,10 +115,12 @@ O saldo da lista não usa `customers.pending_balance`: `fetchIssuedInvoiceBalanc
 6. **Conta ativa funcional:** `active=true` requer `auth_user_id` e email técnico. A sequência canônica é convite aprovado → ativação pelo cliente → identidade técnica vinculada → login por CNPJ.
 7. **Edge Functions:** convite, ativação, recuperação e suspensão são fronteiras server-side; o navegador nunca conhece o email técnico e não escolhe a conta diretamente.
 8. **Hard delete:** a UI é admin-only, RLS de `customers`/`customer_contacts` reserva DELETE a admin (`supabase/migrations/010_rls_by_role.sql`) e o service bloqueia qualquer cliente com B/L, invoice local, invoice de demurrage, recebível ou lote. Contatos e overrides são removidos antes do mestre; exclusão em massa pode prosseguir parcialmente.
+9. **Comunicação por cliente:** cada B/L candidato pertence ao cliente selecionado; NOA/NOR/NOB também exigem a âncora operacional compatível, e institucional rejeita IDs de B/L. Contato, preferência, complaint e bounce são reavaliados na Edge Function, não apenas na UI.
+10. **Idempotência e reenvio:** a criação atômica usa tipo, cliente, natureza, âncoras e discriminador; simulação e envio ocupam status distintos, e a confirmação de reenvio incrementa apenas o discriminador daquela trilha.
 
 ## Testes e validação
 
-Os testes abaixo foram inspecionados, mas não executados nesta cartografia, conforme coordenação do Plano 04.
+Os testes históricos abaixo foram inspecionados na cartografia; os contratos do Bloco 2 aparecem ao final e devem ser mantidos junto das migrations 373/374.
 
 | Evidência | Tipo | O que sustenta | Limite |
 |---|---|---|---|
@@ -115,6 +131,11 @@ Os testes abaixo foram inspecionados, mas não executados nesta cartografia, con
 | `src/lib/__tests__/customerTableViewModel.test.ts` | **Teste** unitário | Ordenação, chips, contato principal e URL de faturamento | Não cobre interação completa da página. |
 | `src/services/__tests__/uploadLimits.test.ts` | **Teste** unitário | Rejeição de planilha acima do limite antes de `arrayBuffer` | Não cobre parsing/importação de fixture válida. |
 | `src/services/__tests__/reviewGateHardeningMigration.test.ts` | **Teste de contrato SQL** | Presença textual do gate `active + auth_user_id` e rejeição de ativação inválida | Regex/conteúdo de migration; não executa PostgreSQL nem confirma migration aplicada. |
+| `src/services/__tests__/customerCommunicationTemplates.test.ts` | **Teste** unitário | Render pt-BR, assunto bilíngue, data de Brasília, isolamento e limites/bloqueios de anexos | Não envia e-mail real nem executa Storage. |
+| `src/services/__tests__/customerCommunications.test.ts` | **Teste** unitário | Filtros de carga, CNPJ, Cliente Comunicável, agrupamento, exclusões e discriminador de reenvio | Não confirma RLS nem dados remotos reais. |
+| `src/services/__tests__/sendCustomerCommunicationFunction.test.ts` | **Teste de contrato** | Auth/permissão, natureza, preferência, supressões, RPC atômica e simulação sem Resend | Contrato textual da Function; não prova deploy ou envio externo. |
+| `src/services/__tests__/comunicadosAnexosMigration.test.ts` | **Teste de contrato SQL** | Bucket privado, limites/MIME, RLS de Storage/templates e RPC atômica | Não executa PostgreSQL nem confirma migration aplicada. |
+| `src/services/__tests__/comunicadosAlertasMigration.test.ts` | **Teste de contrato SQL** | Catálogo e detectores NOA/NOR/NOB/bounce, janelas e runner server-only | Não executa o scheduler remoto. |
 
 **Runtime não executado.** Validação futura precisa registrar ambiente e dados controlados para: criar cliente e contatos; importar XLSX/CSV com duplicatas, erros e B/L retroativo; editar mestre e conferir `audit_logs`; provisionar/criar/resetar/desativar usuário Auth real; tentar ativação sem `auth_user_id`; excluir lote misto e conferir bloqueios, RLS, cascatas/SET NULL e auditoria.
 

@@ -33,6 +33,7 @@ const BlDetalhe = lazyPage(() => import('./pages/BlDetalhe'), 'BlDetalhe')
 const Revisao = lazyPage(() => import('./pages/Revisao'), 'Revisao')
 const Clientes = lazyPage(() => import('./pages/Clientes'), 'Clientes')
 const ClientesPortal = lazyPage(() => import('./pages/ClientesPortal'), 'ClientesPortal')
+const ClientesComunicacao = lazyPage(() => import('./pages/ClientesComunicacao'), 'ClientesComunicacao')
 const ClienteFicha = lazyPage(() => import('./pages/ClienteFicha'), 'ClienteFicha')
 const TaxasLocais = lazyPage(() => import('./pages/TaxasLocais'), 'TaxasLocais')
 const TaxasLocaisTabelas = lazyPage(() => import('./pages/TaxasLocaisTabelas'), 'TaxasLocaisTabelas')
@@ -107,7 +108,7 @@ const routePreloads: RoutePreloadTable = [
   ['/painel', Painel.preload], ['/viagens/:voyageId', Viagens.preload], ['/viagens', Viagens.preload],
   ['/manifestos/:blId', BlDetalhe.preload], ['/manifestos', Manifestos.preload], ['/containers', Containers.preload],
   ['/carga-solta', CargaSolta.preload], ['/veiculos', Veiculos.preload], ['/revisao', Revisao.preload],
-  ['/clientes/portal', ClientesPortal.preload], ['/clientes/:cnpj', ClienteFicha.preload], ['/clientes', Clientes.preload],
+  ['/clientes/comunicacao', ClientesComunicacao.preload], ['/clientes/portal', ClientesPortal.preload], ['/clientes/:cnpj', ClienteFicha.preload], ['/clientes', Clientes.preload],
   ['/taxas-locais/tabelas', TaxasLocaisTabelas.preload], ['/taxas-locais', TaxasLocais.preload],
   ['/faturamento', TaxasLocais.preload], ['/alertas/regras', AlertasRegras.preload], ['/alertas', Alertas.preload],
   ['/relatorios', Relatorios.preload], ['/demurrage', Demurrage.preload], ['/reconciliacao', Reconciliacao.preload],
@@ -176,6 +177,9 @@ export default function App() {
           <Route path="/revisao" element={withSuspense(<Revisao />)} />
           <Route path="/clientes" element={withSuspense(<Clientes />)} />
           <Route path="/clientes/portal" element={withSuspense(<ClientesPortal />)} />
+          <Route element={<ProtectedRoute permission="customer_communications" />}>
+            <Route path="/clientes/comunicacao" element={withSuspense(<ClientesComunicacao />)} />
+          </Route>
           <Route path="/clientes/:cnpj" element={withSuspense(<ClienteFicha />)} />
           <Route path="/taxas-locais/tabelas" element={withSuspense(<TaxasLocaisTabelas />)} />
           <Route path="/taxas-locais" element={<TaxasLocaisRoute />} />

@@ -25,6 +25,9 @@ export type ActiveAlertType =
   | 'portal_email_suprimido'
   | 'portal_abuso_login'
   | 'cliente_contato_bounced_sem_alternativa'
+  | 'comunicado_noa_pendente'
+  | 'comunicado_nor_pendente'
+  | 'comunicado_nob_pendente'
   | 'agency_report_department_pending'
   | 'agency_report_deadline_missed'
   | 'review_customer_unlinked'
@@ -61,6 +64,9 @@ export const TYPE_LABELS: Record<string, string> = {
   portal_email_suprimido: 'Portal do Cliente — email suprimido',
   portal_abuso_login: 'Portal do Cliente — abuso de login',
   cliente_contato_bounced_sem_alternativa: 'Cliente sem contato alternativo',
+  comunicado_noa_pendente: 'Comunicado NOA pendente',
+  comunicado_nor_pendente: 'Comunicado NOR pendente',
+  comunicado_nob_pendente: 'Comunicado NOB pendente',
   agency_report_department_pending: 'ADR — departamento pendente',
   agency_report_deadline_missed: 'ADR — prazo vencido',
   review_customer_unlinked: 'Revisão de B/L — cliente não vinculado',
@@ -91,7 +97,7 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   pix_transaction: 'Transação PIX',
 }
 
-export type AlertAudience = 'documentacao' | 'equipamentos' | 'operacoes'
+export type AlertAudience = 'documentacao' | 'equipamentos' | 'operacoes' | 'administrativo'
 export type AlertEventUnit = 'bl' | 'invoice' | 'pix_transaction' | 'demurrage_invoice'
 
 export const FINANCIAL_ALERT_EVENTS = {
@@ -250,6 +256,14 @@ export function alertEntityLink(alert: {
     return '/taxas-locais'
   }
 
+  if (
+    effectiveType === 'comunicado_noa_pendente'
+    || effectiveType === 'comunicado_nor_pendente'
+    || effectiveType === 'comunicado_nob_pendente'
+  ) {
+    return alert.destination ?? '/clientes/comunicacao'
+  }
+
   if (alert.entity_type === 'pix_transaction') return '/reconciliacao'
   if (effectiveType === 'portal_dispute_opened' && alert.entity_type === 'demurrage_invoice') {
     const disputeId = alert.metadata?.dispute_id
@@ -278,6 +292,13 @@ export function alertEntityLink(alert: {
   }
   if (effectiveType === 'review_granite_customer_unlinked') {
     return '/granito'
+  }
+  if (effectiveType === 'cliente_contato_bounced_sem_alternativa' && alert.entity_type === 'customer') {
+    const customerCnpj = alert.metadata?.customer_cnpj
+    if (typeof customerCnpj === 'string' && customerCnpj.trim()) {
+      return `/clientes/${encodeURIComponent(customerCnpj.trim())}?tab=contatos`
+    }
+    return alert.destination ?? '/clientes'
   }
   if (effectiveType.startsWith('review_')) {
     return alert.entity_id
@@ -330,6 +351,12 @@ export function alertEntityLinkLabel(alert: {
   entity_type: string | null
 }): string {
   const effectiveType = getEffectiveAlertType(alert)
+  if (
+    effectiveType === 'comunicado_noa_pendente'
+    || effectiveType === 'comunicado_nor_pendente'
+    || effectiveType === 'comunicado_nob_pendente'
+  ) return 'Abrir Comunicados'
+  if (effectiveType === 'cliente_contato_bounced_sem_alternativa') return 'Abrir Cliente'
   if (effectiveType.startsWith('voyage_baplie_')) return 'Abrir Baplie'
   if (alert.entity_type === 'bl' && (effectiveType === 'billing_calculation_blocked' || effectiveType === 'billing_auto_issue_failed')) {
     return 'Taxas Locais'
