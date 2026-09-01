@@ -4850,6 +4850,10 @@ export type Database = {
             }
             Returns: string[]
           }
+      customer_local_charges_communication_readiness: {
+        Args: { p_customer_id: number; p_voyage_id: number }
+        Returns: Json
+      }
       confirm_demurrage_pix_matches: {
         Args: { p_matches: Json }
         Returns: number
