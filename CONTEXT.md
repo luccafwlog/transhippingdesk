@@ -706,13 +706,14 @@ ADR 0057.
 
 **CE Mercante**
 Conhecimento Eletrônico registrado por B/L no sistema Mercante, nos sentidos de
-importação e exportação. Sua ausência pode bloquear a visibilidade de dados e
-documentos no Portal do Cliente. Seu cadastro é o confirmador do cálculo e o
-gatilho da emissão de Taxas Locais para B/Ls de container, carga solta e Granito:
-nada é faturado nesses modos antes do CE Mercante existir. A relação CE × B/L
-é 1:1: um número de CE não pode ser usado por mais de um B/L. Embarque de
-Vazios é a exceção operacional: não emite CE porque é módulo de custo pago pela
-agência ao depot, sem invoice ou recebível de cliente.
+importação e exportação. Seu cadastro é o confirmador do cálculo e dispara três
+efeitos automáticos imediatos: (1) a emissão das faturas de Taxas Locais dos B/Ls,
+(2) a disponibilização do B/L e das faturas no Portal do Cliente, e (3) o envio
+automático do Comunicado de CE Mercante e Taxas Locais para o cliente assim que
+todos os seus B/Ls na viagem atingem a prontidão. A relação CE × B/L é 1:1: um
+número de CE não pode ser usado por mais de um B/L. Embarque de Vazios é a exceção
+operacional: não emite CE porque é módulo de custo pago pela agência ao depot,
+sem invoice ou recebível de cliente.
 
 **CE Master**
 Conhecimento agrupador por rota da viagem (POL/POD). Quando existe batch de
@@ -1575,21 +1576,29 @@ justamente para que Modelo novo entre apontando para Natureza existente sem
 mudar a preferência de ninguém.
 
 **Modelo de Comunicado**
-Texto pré-definido que um Comunicado usa. Aviso de Chegada, Aviso de Atracação
-e os dois comunicados financeiros são fixos e versionados no código; o
-institucional e o livre são escritos pelo usuário interno, e o institucional
-pode ser salvo para reuso. Todo modelo renderiza por Cliente, com as variáveis
-da carga do próprio destinatário.
+Texto pré-definido que um Comunicado usa. Aviso de Chegada (NOA), Aviso de Prontidão
+(NOR), Aviso de Atracação (NOB) e os dois comunicados financeiros são fixos e
+versionados no código; o institucional e o livre são escritos pelo usuário interno,
+e o institucional pode ser salvo para reuso. Todo modelo renderiza por Cliente,
+com as variáveis da carga do próprio destinatário.
 
 **Aviso de Chegada (NOA)**
 Comunicado que antecipa a chegada da embarcação. É sempre por Escala e comunica
-o **ETA** da Escala, saindo antes da chegada — não o ATA, que é a chegada já
-consumada e esvazia a função do aviso. Uma viagem com vários portos tem vários
-ETAs e vários avisos. `NOA` é sinônimo de mercado do mesmo conceito.
+o **ETA** da Escala (com data e hora opcional), saindo 5 dias antes da previsão
+de chegada — não o ATA, que é a chegada já consumada e esvazia a função do aviso.
+Uma viagem com vários portos tem vários ETAs e vários avisos. `NOA` (*Notice of Arrival*)
+é a denominação de mercado.
 
-**Aviso de Atracação (NOR)**
-Comunicado que informa a atracação da embarcação no terminal. É sempre por
-Atracação, ancorado no ATB. `NOR` é sinônimo de mercado do mesmo conceito.
+**Aviso de Prontidão (NOR)**
+Comunicado que informa a prontidão e a chegada efetiva da embarcação ao porto
+(ou área de fundeio). É sempre por Escala e ancora no **ATA** da Escala, exigindo
+data e hora obrigatórias. `NOR` (*Notice of Readiness*) é a denominação de mercado.
+
+**Aviso de Atracação (NOB)**
+Comunicado que informa a atracação efetiva da embarcação no terminal portuário
+(berço). É sempre por Atracação e ancora no **ATB** da Atracação, exigindo data e
+hora obrigatórias. Uma Escala com múltiplos terminais gera um NOB para cada
+atracação realizada. `NOB` (*Notice of Berthing*) é a denominação de mercado.
 
 **Disparo de Comunicado**
 Operação de enviar um Comunicado a um Recorte de Destinatários. Passa
@@ -1623,19 +1632,32 @@ limita só o passado, e B/L de viagem futura conta. Restringe o alcance do comun
 que não nasce de um recorte de carga.
 
 **Prontidão de Comunicação de Taxas**
-Condição, avaliada por Cliente, para comunicar o resumo de faturas de taxas
-locais de uma viagem: todos os B/Ls daquele Cliente na viagem têm CE Mercante
-preenchido e nenhuma pendência de revisão. Cliente sem prontidão fica bloqueado
-e visível; os demais Clientes da viagem não são segurados por ele. É condição
-distinta do gate de revisão do B/L, que deliberadamente não exige CE Mercante.
+Condição, avaliada por Cliente e Viagem, para o disparo automático do Comunicado
+de CE Mercante e Taxas Locais: todos os B/Ls daquele Cliente na viagem têm CE
+Mercante preenchido, nenhuma pendência de revisão operacional aberta e faturamento
+concluído (`financial_status` em `invoiced` ou `paid`). O atingimento dessa condição
+dispara o e-mail automaticamente. Cliente sem prontidão fica bloqueado e visível
+na tela de faturamento; os demais clientes da viagem não são segurados por ele.
+É condição distinta do gate de revisão do B/L, que deliberadamente não exige CE
+Mercante.
 
 **Régua de Cobrança**
 Sequência automática de Comunicados de cobrança de uma fatura de Demurrage.
-Começa no primeiro faturamento, repete em intervalo configurável, para quando a
-fatura é paga ou quando atinge o teto de envios, e fica pausada enquanto houver
-Disputa de Demurrage aberta — o fechamento da disputa retoma a régua. Cada
-cobrança da sequência é numerada, e é esse número que distingue uma cobrança da
+Começa no primeiro faturamento (`first_billed_at`), repete semanalmente a cada
+7 dias enquanto a fatura não for paga (`paid_at IS NULL`), e fica pausada
+enquanto houver Disputa de Demurrage aberta ou caso o cliente fique sem contatos
+válidos (todos suprimidos) — o encerramento da disputa ou regularização cadastral
+retoma a contagem. Não possui teto de envios: cobra continuamente até a liquidação.
+Cada cobrança da sequência é numerada, e é esse número que distingue uma cobrança da
 anterior sobre a mesma fatura.
+
+**Tratamento de Bounce em Cascata**
+Mecanismo de contingência disparado quando uma tentativa de envio retorna bounce
+permanente. O sistema suprime o endereço e envia um e-mail transacional automático
+ao contato principal do cliente informando o erro. Se o próprio contato principal
+sofreu o bounce, o aviso é enviado a um contato alternativo cadastrado; não
+havendo nenhum contato válido restante, a régua de cobrança pausa e um alerta interno
+de severidade alta é gerado para a equipe providenciar a regularização cadastral.
 
 **Chave de envio de Comunicados**
 Controle único que habilita ou silencia todo o canal de Comunicado. Nasce
