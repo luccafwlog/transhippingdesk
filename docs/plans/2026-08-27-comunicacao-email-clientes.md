@@ -41,13 +41,14 @@ Fixado depois da rodada de perguntas ao produto — é o que mais mudou em rela�
 
 | Comunicado | Natureza | Âncora | Chave no banco | Data que comunica | Quando dispara |
 |---|---|---|---|---|---|
-| Aviso de Chegada (NOA) | Avisos operacionais | Escala | `(voyage_id, port)` — a Escala **não tem chave substituta** | **ETA** da Escala | **ETA − 5 dias** |
-| Aviso de Atracação (NOR) | Avisos operacionais | Atracação | `voyage_escala_terminal_state.id` | **ATB** da Atracação | Dia da atracação, quando o ATB entra |
-| Resumo de taxas locais | Documentação | Viagem | `voyages.id` | — | Manual, após a Prontidão |
-| Cobrança de Demurrage | Demurrage | Fatura | `demurrage_invoices.id` | — | `first_billed_at`, depois a cada 5 dias |
+| Aviso de Chegada (NOA) | Avisos operacionais | Escala | `(voyage_id, port)` — a Escala **não tem chave substituta** | **ETA** da Escala (hora opcional) | **ETA − 5 dias** |
+| Aviso de Prontidão (NOR) | Avisos operacionais | Escala | `(voyage_id, port)` — a Escala **não tem chave substituta** | **ATA** da Escala (hora obrigatória) | Quando o ATA entra |
+| Aviso de Atracação (NOB) | Avisos operacionais | Atracação | `voyage_escala_terminal_state.id` | **ATB** da Atracação (hora obrigatória) | Quando o ATB entra |
+| CE Mercante e Taxas Locais | Documentação | Viagem | `voyages.id` | — | Automático, ao atingir a Prontidão (vinculação de CE Mercante) |
+| Cobrança de Demurrage | Demurrage | Fatura | `demurrage_invoices.id` | — | `first_billed_at`, depois a cada 7 dias até pagar |
 | Institucional / livre | Avisos gerais | Disparo | id do próprio disparo | — | Manual |
 
-Os dois avisos operacionais saem em **inglês**; todo o resto em **pt-BR**.
+Todos os comunicados saem em **pt-BR**, com os três avisos operacionais trazendo **assunto bilíngue padronizado** (`Notice of Arrival / Aviso de Chegada`, `Notice of Readiness / Aviso de Prontidão`, `Notice of Berthing / Aviso de Atracação`).
 
 ## Correções à spec
 
@@ -81,20 +82,19 @@ antes da spec. **Evidência: Código.**
 A única perda real é de **roteamento**, não de visibilidade: a função morta
 mirava `admin`, `administrativo` e `documentacao`, e o alerta tem
 `audience_departments = ['documentacao']`. Todos os perfis internos continuam
-**vendo** o alerta na fila (leitura interna é global — ADR 0044/0046). A T17
-amplia a audiência para `['documentacao','administrativo']`.
 
-### C2 — NOR é ancorado na Atracação, não na Escala
+### C2 — NOB é ancorado na Atracação (ATB); NOR e NOA ancoram na Escala (ATA e ETA)
 
-A decisão 6 da spec tem por título "Aviso de Chegada e Aviso de Atracação são
-**por escala**", mas o glossário registra Aviso de Atracação como "sempre por
-Atracação". O `CONTEXT.md` é inequívoco: a Escala é dona de ETA e ATA; a
-Atracação é dona de ETB, ATB, ETD e ATD. Uma Escala com dois terminais tem
-**duas** Atracações e dois ATBs — ancorar o NOR na Escala colapsaria os dois num
-comunicado só.
+O `CONTEXT.md` é inequívoco: a Escala é dona de ETA e ATA; a Atracação é dona de
+ETB, ATB, ETD e ATD. Uma Escala com dois terminais tem **duas** Atracações e dois
+ATBs — o NOB (*Notice of Berthing* / Aviso de Atracação) ancora na Atracação
+(`voyage_escala_terminal_state.id`) para que cada atracação gere o seu comunicado.
+Já o NOR (*Notice of Readiness* / Aviso de Prontidão) informa a chegada ao porto
+(fundeio/chegada oficial) e ancora na Escala `(voyage_id, port)`, no **ATA**. O NOA
+(*Notice of Arrival* / Aviso de Chegada) também ancora na Escala, no **ETA**.
 
-**Decisão:** NOA ancora na Escala `(voyage_id, port)`; NOR ancora na Atracação
-(`voyage_escala_terminal_state.id`).
+**Decisão:** NOA e NOR ancoram na Escala `(voyage_id, port)`; NOB ancora na
+Atracação (`voyage_escala_terminal_state.id`).
 
 ### C3 — A Escala não tem chave substituta
 
@@ -102,46 +102,41 @@ A Escala não é tabela: é o par `(Viagem, porto)` projetado de
 `voyages.pod_schedule_snapshot` (JSONB por porto, desde
 `046_voyage_schedule_snapshot_trigger.sql`). Não há `escala_id` a referenciar.
 
-**Consequência:** a âncora do NOA é a coluna par `(voyage_id, port)`, gravada
-como valor — sem FK, pelo motivo que a T2 registra — e com o `port` validado por
-CHECK de não-vazio. É a mesma identidade
-que o `CONTEXT.md` atribui à Escala e que `voyage_escala_terminal_state` usa.
-Nos alertas da T14 o par reusa o `entity_type = 'voyage_pod_schedule'` já
-existente (migration `342`), sem inventar entidade nova. **Evidência: Código.**
+**Consequência:** a âncora do NOA e do NOR é a coluna par `(voyage_id, port)`,
+gravada como valor — sem FK, pelo motivo que a T2 registra — e com o `port` validado
+por CHECK de não-vazio. É a mesma identidade que o `CONTEXT.md` atribui à Escala e
+que `voyage_escala_terminal_state` usa. Nos alertas da T14 o par reusa o
+`entity_type = 'voyage_pod_schedule'` já existente (migration `342`), sem inventar
+entidade nova. **Evidência: Código.**
 
-### C4 — O NOA comunica o ETA, não o ATA, e sai antes da chegada
+### C4 — O trio operacional: NOA no ETA − 5 dias, NOR no ATA e NOB no ATB
 
-A spec e a primeira versão deste plano diziam "Chegada é ATA da Escala". Está
-errado. Confirmado com o produto:
+A spec e a primeira versão deste plano confundiam os avisos operacionais.
+Confirmado com o produto:
 
-> NOA = Notice of Arrival, enviado **5 dias antes do ETA**, informando o ETA.
-> NOR = Notice of Readiness, enviado **no dia da atracação**, informando data e
-> hora da atracação.
+> 1. **NOA** = *Notice of Arrival* / Aviso de Chegada, enviado **5 dias antes do ETA**, informando o ETA.
+> 2. **NOR** = *Notice of Readiness* / Aviso de Prontidão, enviado **no momento do ATA**, informando data e hora oficial de chegada ao porto.
+> 3. **NOB** = *Notice of Berthing* / Aviso de Atracação, enviado **no momento do ATB**, informando data e hora de atracação no terminal.
 
-O NOA é **antecipatório**. O ATA é a chegada consumada — quando ele existe, o
-navio já chegou e o aviso perdeu a função. A variável do NOA é o **ETA da
-Escala**, e o gatilho é uma contagem regressiva contra data futura, não uma
-reação a dado que entrou. Só o NOR é reativo, ao ATB.
-
-Isso troca a fonte de dados do template (`pod_schedule_snapshot[port].eta`, não
-`.ata`) e é o que motiva os alertas da T14: sem eles, ninguém é avisado de que
-faltam cinco dias para um ETA.
+O NOA é **antecipatório** (contagem regressiva contra data futura). O NOR e o NOB
+são **reativos** à entrada do dado real (ATA e ATB, respectivamente).
 
 **ETA que muda depois do NOA enviado: o sistema não faz nada.** Decisão do
 produto. O NOA informa o ETA vigente no disparo e encerra. O reenvio manual
 continua possível pelo caminho de confirmação da T10 — que incrementa o
 discriminador —, mas ninguém é cobrado a fazê-lo.
 
-### C5 — NOA e NOR aceitam anexo
+### C5 — NOA, NOR e NOB aceitam anexo
 
-A decisão 5 da spec marca "Anexo: Não" para NOA e NOR, e a decisão 12 restringe
-anexo ao institucional e ao livre. O produto decidiu o contrário para os dois
-avisos operacionais.
+A decisão 5 da spec marca "Anexo: Não" para os avisos operacionais, e a decisão 12
+restringe anexo ao institucional e ao livre. O produto decidiu o contrário para
+os três comunicados operacionais (permitindo envio de SOF, carta do armador, NOR
+assinado pelo comandante, etc.).
 
 **Isso não fere o invariante 6**, que proíbe anexo e PIX no **resumo de taxas
 locais e na cobrança de Demurrage** — esses dois seguem sem anexo, sem PIX e sem
 exceção. A restrição existe para manter esse par longe do padrão que golpes de
-boleto imitam, e NOA e NOR não se parecem com boleto nenhum.
+boleto imitam, e NOA, NOR e NOB não se parecem com boleto nenhum.
 
 **Consequência:** os únicos comunicados que continuam proibidos de anexar são
 aqueles dois. As decisões 5 e 12 da spec são corrigidas.
@@ -211,6 +206,64 @@ de faturamento desde a `020`, e é o que as telas de faturamento já leem.
 
 A spec recebe a condição 3 na decisão 7, com nota editorial.
 
+### C9 — Entrada de Data e Hora para Escalas e Atracações
+
+Até então, os modais de Escala e Terminal (`VoyageScheduleModals.tsx`) ofereciam apenas
+input de data (`<Input type="date">`), salvando strings `AAAA-MM-DD`. Para atender
+à precisão exigida no NOR (ATA) e no NOB (ATB), a interface passa a contar com dois
+campos separados `[ Data ]` e `[ Hora ]`:
+- **ATA e ATB:** Hora **obrigatória** quando a data for preenchida.
+- **ETA e ETB:** Hora **opcional** (permite informar previsão com horário quando
+  disponível).
+
+A persistência em `pod_schedule_snapshot` (JSONB) e `voyage_escala_terminal_state`
+(`TIMESTAMPTZ`) suporta timestamps ISO completos, mantendo compatibilidade
+retroativa com registros legados (strings de data pura são lidas e formatadas com
+fallback seguro).
+
+### C10 — Régua de Demurrage semanal (7 dias) e contínua sem teto
+
+A spec e a primeira versão deste plano previam disparo a cada 5 dias com teto de
+6 envios (25 dias). Atualizado conforme alinhamento de produto:
+- **Intervalo:** A cada **7 dias** (semanal), disparando a 1ª cobrança no
+  `first_billed_at` e as seguintes a cada 7 dias enquanto `paid_at IS NULL`.
+- **Sem teto:** Envia continuamente até a quitação (`paid_at IS NOT NULL`) ou
+  cancelamento da fatura.
+- **Configuração:** `app_settings` mantém apenas `demurrage_dunning_interval_days
+  INT NOT NULL DEFAULT 7`. A coluna `demurrage_dunning_max_sends` deixa de existir.
+
+### C11 — Tratamento de Bounce em Cascata com Notificação ao Cliente e Alerta Interno
+
+A spec tratava o bounce permanente apenas como registro em lista de supressão.
+O novo fluxo estabelece contingência em cascata pelo webhook:
+1. Ao identificar `bounce_permanente` de um endereço, suprime a caixa;
+2. Se o e-mail que falhou era de um **contato secundário**, dispara e-mail
+   automático ao **contato principal** (`is_primary = true`) avisando da falha;
+3. Se o e-mail que falhou era o **próprio contato principal**, dispara e-mail
+   ao contato alternativo cadastrado e válido;
+4. **Trava anti-loop:** O comunicado de aviso de bounce é marcado para nunca
+   tentar reenvios em caso de nova falha;
+5. **Alerta interno:** Se o cliente não possuir nenhum outro contato válido
+   restante, a régua de cobrança pausa e um alerta interno de severidade alta
+   (`cliente_contato_bounced_sem_alternativa`) é aberto na fila de trabalho.
+
+### C12 — Vinculação de CE Mercante dispara Emissão, Portal e Comunicado Automático
+
+No desenho original, o resumo de taxas locais era planejado apenas como disparo
+manual. Conforme alinhado com o produto, a vinculação do CE Mercante é o gatilho
+central da operação e dispara três efeitos automáticos imediatos:
+1. **Emissão das faturas** de Taxas Locais dos B/Ls vinculados;
+2. **Disponibilização** imediata dos B/Ls e faturas no Portal do Cliente;
+3. **Disparo automático do Comunicado de CE Mercante e Taxas Locais** (`ce_mercante_taxas`)
+   assim que todos os B/Ls daquele cliente na viagem atingem a prontidão completa.
+
+O e-mail enfatiza o lançamento e os números dos CEs Mercantes cadastrados para que
+o despachante/importador possa dar andamento na DI/DUIMP no Siscomex, listando os
+B/Ls com CE e valores em BRL e fornecendo link direto para consulta e pagamento no
+Portal do Cliente (mantendo a política de segurança: sem PIX e sem anexos).
+Reenvios posteriores de viagens já comunicadas passam a ser manuais e assistidos
+com confirmação do operador.
+
 ---
 
 # Bloco 1 — Fundação
@@ -256,8 +309,9 @@ forma silenciosa.
 Tabelas do canal:
 
 - `customer_communications` — o Comunicado. `customer_id` NOT NULL,
-  `kind` (`aviso_chegada`, `aviso_atracacao`, `resumo_taxas_locais`,
-  `cobranca_demurrage`, `institucional`, `livre`), `nature` **NOT NULL**
+  `kind` (`aviso_chegada_noa`, `aviso_prontidao_nor`, `aviso_atracacao_nob`,
+  `ce_mercante_taxas`, `cobranca_demurrage`, `institucional`, `livre`),
+  `nature` **NOT NULL**
   (`avisos_gerais`, `avisos_operacionais`, `documentacao`, `demurrage`),
   `anchor_voyage_id`,
   `anchor_port`, `anchor_atracacao_id`, `anchor_invoice_id`,
@@ -281,8 +335,7 @@ Tabelas do canal:
   já existirem.
 - `app_settings` — a primeira tabela de configuração global do projeto. Linha
   única (`CHECK (id = 1)`), com `communications_enabled BOOLEAN NOT NULL DEFAULT
-  false`, `demurrage_dunning_interval_days INT NOT NULL DEFAULT 5` e
-  `demurrage_dunning_max_sends INT NOT NULL DEFAULT 6`.
+  false` e `demurrage_dunning_interval_days INT NOT NULL DEFAULT 7`.
 
 Regras que a migration carrega:
 
@@ -315,7 +368,7 @@ Regras que a migration carrega:
   - **`attempt_discriminator`** — o reenvio confirmado (T10) e a enésima
     cobrança da Régua (T18).
 - **Mapeamento `kind` → `nature`, no banco.** Uma tabela de domínio
-  `customer_communication_kinds (kind PK, nature NOT NULL)`, semeada com as seis
+  `customer_communication_kinds (kind PK, nature NOT NULL)`, semeada com as sete
   linhas da tabela de âncoras deste plano, e `customer_communications` referencia
   o par: FK composta `(kind, nature)` contra ela. Assim um comunicado não pode
   nascer com natureza que não é a do seu modelo, e acrescentar CE Mercante ou
@@ -353,11 +406,11 @@ Sem backfill de comunicados: o canal nasce vazio.
 **Check:** teste de contrato SQL `comunicadosFundacaoMigration.test.ts` afirmando
 o `NULLS NOT DISTINCT` no índice único, a presença de `status` e `dispatch_id`
 na lista de colunas dele, que nenhuma coluna de âncora tem FK, o default `false`
-de `communications_enabled`, o `6` de `demurrage_dunning_max_sends`, o
+de `communications_enabled`, o `7` de `demurrage_dunning_interval_days`, o
 `CHECK (id = 1)` de `app_settings`, e que a policy de escrita de
 `communications_enabled` nomeia `administrativo`. Sobre a natureza: que `nature`
 é NOT NULL, que as quatro linhas de preferência nascem por contato, que o
-mapeamento tem as seis linhas de `kind`, e que inserir comunicado com natureza
+mapeamento tem as sete linhas de `kind`, e que inserir comunicado com natureza
 divergente da do seu `kind` é **rejeitado** pela FK composta.
 
 ### T3 — Permissão `customer_communications`
@@ -477,12 +530,34 @@ apontar** o evento de Comunicado. A migration `361` acrescenta
 de âncora da T2 —, e um CHECK de que no máximo uma das duas colunas está
 preenchida. Nenhuma migration nova entra por causa disto.
 
+**Tratamento de Bounce em Cascata no webhook (C11):**
+Ao identificar e gravar um `bounce_permanente`:
+1. Identificar o `customer_id` do destinatário da tentativa;
+2. Consultar `customer_contacts` desse cliente:
+   - Se o endereço em bounce for de um **contato secundário** (`is_primary = false`),
+     o webhook monta e envia um e-mail transacional automático ao **contato
+     principal** (`is_primary = true`) informando a falha de entrega daquele
+     endereço e orientando a atualização cadastral;
+   - Se o endereço em bounce for o **próprio contato principal** (`is_primary = true`),
+     o webhook procura outro contato alternativo cadastrado e não suprimido e envia
+     a notificação a ele;
+3. **Trava anti-loop:** O e-mail de aviso de bounce é emitido com identificador
+   próprio (transacional de sistema). Se esse envio subsequente também sofrer
+   bounce, ele **nunca** tenta enviar novo aviso recursivo;
+4. **Alerta interno e pausa:** Se o cliente não possuir nenhum outro contato
+   válido (todos suprimidos por bounce ou sem e-mail), o webhook não envia nada e
+   aciona a abertura do alerta `cliente_contato_bounced_sem_alternativa` (T14),
+   pausando réguas de cobrança ativas daquele cliente (T18).
+
 **Check:** teste afirmando que um `email.bounced` permanente de uma tentativa de
 Comunicado grava em `portal_suppressed_emails`, que um `email.complained` do
 mesmo grava só em `customer_communication_suppressions`, que um evento sem
 tentativa em nenhuma das duas continua devolvendo `200` sem efeito, e que um
 endereço já em `complaint` passa a `bounce_permanente` ao receber o bounce — e
-não volta a `complaint` depois disso.
+não volta a `complaint` depois disso. Teste do tratamento em cascata: bounce em
+contato secundário dispara notificação ao principal; bounce no principal dispara
+ao alternativo; cliente sem nenhum contato alternativo válido não dispara e abre
+o alerta `cliente_contato_bounced_sem_alternativa`.
 
 **Encerra o Bloco 1.** PR própria.
 
@@ -504,6 +579,31 @@ serão registrados como simulados (ADR 0059). Não é banner dispensável.
 
 **Check:** `AdminRoutingFailures.test.tsx` — perfil sem a permissão não alcança a
 rota; teste de render afirmando a faixa com a chave desligada.
+
+### T8.1 — Entrada de Data e Hora em Escalas e Terminais
+
+Conforme C9, ajustar os formulários e modais de agenda operacional:
+`src/components/shared/VoyageScheduleModals.tsx` (modais de Escala e Terminal) e
+serviços de persistência (`src/services/voyageRouteSchedules.ts`,
+`src/services/escalaTerminalAllocation.ts`):
+
+- **Interface:** Substituir inputs `<Input type="date">` puros por par `[ Data ]`
+  e `[ Hora ]` lado a lado.
+- **Validação de obrigatoriedade:**
+  - **ATA** (Escala) e **ATB** (Atracação): Hora **obrigatória** quando a data
+    estiver preenchida. O formulário rejeita salvar data real sem o respectivo
+    horário.
+  - **ETA** (Escala) e **ETB** (Atracação): Hora **opcional** (permite informar
+    previsão com ou sem horário).
+- **Serialização e compatibilidade:** Persistir timestamps ISO em
+  `pod_schedule_snapshot` e `voyage_escala_terminal_state`. O leitor e os helpers
+  de formatação (`formatDate` / `formatDateTime`) devem aceitar tanto strings de
+  data pura (`AAAA-MM-DD`, registros legados) quanto ISOs com timezone com fallback
+  seguro.
+
+**Check:** teste unitário dos modais rejeitando ATA/ATB com data preenchida e hora
+vazia; teste permitindo ETA com ou sem hora; teste de render de data/hora
+formatada em `DD/MM/AAAA às HH:mm`.
 
 ### T9 — Recorte de Destinatários
 
@@ -552,26 +652,32 @@ de operador, e nenhum reenvio manual anda a régua.
 (invariante 2); confirmar reenvio incrementa o discriminador no disparo manual, e
 um segundo disparo sem confirmação não incrementa.
 
-### T11 — Modelos NOA e NOR
+### T11 — Modelos NOA, NOR e NOB
 
 Em `supabase/functions/_shared/`, no padrão de `portalEmailTemplates.ts`: fixos
 no código, versionados em PR, renderizados **por cliente** com navio, viagem,
 escala, datas e os B/Ls do próprio destinatário.
 
-- **NOA** lê o **ETA** da Escala (`pod_schedule_snapshot[port].eta`) — não o
-  ATA (C4).
-- **NOR** lê o **ATB** da Atracação (`voyage_escala_terminal_state.terminal_atb`).
-- Os dois saem em **inglês**; todo o resto do canal em pt-BR.
+- **NOA** (*Notice of Arrival* / Aviso de Chegada): lê o **ETA** da Escala
+  (`pod_schedule_snapshot[port].eta`), com hora opcional (C4).
+- **NOR** (*Notice of Readiness* / Aviso de Prontidão): lê o **ATA** da Escala
+  (`pod_schedule_snapshot[port].ata`), com data e hora obrigatórias.
+- **NOB** (*Notice of Berthing* / Aviso de Atracação): lê o **ATB** da Atracação
+  (`voyage_escala_terminal_state.terminal_atb`), com data e hora obrigatórias, e o
+  nome do Terminal.
+- Todos os três saem em **pt-BR**, com **assunto bilíngue padronizado**:
+  - `Notice of Arrival / Aviso de Chegada — {Navio} / {Viagem} — Porto de {Porto}`
+  - `Notice of Readiness / Aviso de Prontidão — {Navio} / {Viagem} — Porto de {Porto}`
+  - `Notice of Berthing / Aviso de Atracação — {Navio} / {Viagem} — Porto de {Porto} ({Terminal})`
+- Datas e horários formatados no padrão `DD/MM/AAAA às HH:mm (horário de Brasília)`.
 
 **O texto final vem do produto.** Esta task entrega a estrutura, as variáveis, a
 renderização por cliente e os testes; a redação entra quando o produto mandar o
-material. Fazer o inverso — inventar a redação de documentos com peso
-quase-contratual e depois trocar — é o caminho para um NOA em produção com voz
-que a agência não pratica. **Esta é a última task do Bloco 2 a fechar.**
+material. **Esta é a última task do Bloco 2 a fechar.**
 
 **Check:** teste de template — NOA de uma viagem com dois portos não vaza o
-outro porto; NOR de uma escala com dois terminais gera dois comunicados
-distintos, não um; NOA renderiza o ETA e **não** referencia ATA.
+outro porto; NOB de uma escala com dois terminais gera dois comunicados
+distintos; NOR renderiza o ATA e NOB renderiza o ATB do terminal correto.
 
 ### T12 — Anexos
 
@@ -581,7 +687,7 @@ Bucket privado `customer-communications` no molde de `demurrage-disputes`
 destinatário não está autenticado e não abriria bucket privado — e é persistido
 para o histórico.
 
-**Aceitam anexo:** institucional, livre, **NOA e NOR** (C5). **Não aceitam:**
+**Aceitam anexo:** institucional, livre, **NOA, NOR e NOB** (C5). **Não aceitam:**
 resumo de taxas locais e cobrança de Demurrage — esses dois nunca levam anexo nem
 PIX (invariante 6), e essa é a única proibição que sobra. A validação é pelo
 `kind`, **não** pela natureza: `documentacao` e `demurrage` continuam aceitando
@@ -604,10 +710,9 @@ gravando em `customer_communication_attempts`.
 
 Remetente `portal@` (identidade compartilhada, ADR 0058) e **`reply-to` próprio
 do canal**, em `COMMUNICATIONS_REPLY_TO` — variável nova, distinta do
-`PORTAL_REPLY_TO`. Resposta a um NOA é conversa operacional ("o navio atrasou?",
-"meu B/L está nessa escala?"); cair no suporte do Portal, que trata acesso e
-senha, atrasa o cliente e polui a caixa errada. Documentar a variável em
-`docs/setup/deploy.md`.
+`PORTAL_REPLY_TO`. Resposta a um comunicado é conversa operacional; cair no
+suporte do Portal atrasa o cliente e polui a caixa errada. Documentar a variável
+em `docs/setup/deploy.md`.
 
 **Um e-mail por cliente, sempre** — nunca dois clientes no mesmo `to:`
 (invariante 1), inclusive no institucional. Com a chave desligada, grava
@@ -624,19 +729,21 @@ violação de constraint.
 (as duas metades do invariante 4), e que disparo sem natureza é recusado antes de
 montar a mensagem.
 
-### T14 — Alertas de NOA e NOR pendentes
+### T14 — Alertas operacionais e de falha de contato
 
-Sem isto o módulo só funciona se alguém lembrar — e o NOA esquecido é a falha
-que a issue #556 quer eliminar. O NOA em especial é uma contagem regressiva
+Sem isto o módulo só funciona se alguém lembrar — e o comunicado esquecido é a
+falha que a issue #556 quer eliminar. O NOA em especial é uma contagem regressiva
 contra data futura: ninguém "vê" que faltam cinco dias (C4).
 
-Dois tipos novos no catálogo, no padrão da migration `342` e de
+Quatro tipos no catálogo, no padrão da migration `342` e de
 `src/services/alertRulesCatalog.ts`, reusando as entidades que já existem:
 
 | Tipo | Entidade | Abre quando | Fecha quando |
 |---|---|---|---|
 | `comunicado_noa_pendente` | `voyage_pod_schedule` | `ETA − 5 dias ≤ agora < ETA` e nenhum NOA `enviado` para a Escala | NOA `enviado`, ETA ultrapassado, ou escala omitida/apagada |
-| `comunicado_nor_pendente` | `voyage_escala_terminal` | ATB informado **nos últimos 30 dias** e nenhum NOR `enviado` para a Atracação | NOR `enviado`, ou atracação apagada |
+| `comunicado_nor_pendente` | `voyage_pod_schedule` | ATA informado **nos últimos 30 dias** e nenhum NOR `enviado` para a Escala | NOR `enviado`, ou escala omitida/apagada |
+| `comunicado_nob_pendente` | `voyage_escala_terminal` | ATB informado **nos últimos 30 dias** e nenhum NOB `enviado` para a Atracação | NOB `enviado`, ou atracação apagada |
+| `cliente_contato_bounced_sem_alternativa` | `customers` | Cliente perdeu todos os contatos válidos por bounce permanente (sem endereço alternativo) | Novo contato com e-mail válido for cadastrado ou regularizado na Ficha do Cliente |
 
 **A janela do NOA tem os dois lados, e é isso que impede a enxurrada.** "`ETA −
 5 dias` alcançado", sozinho, é verdade para **toda** escala já ocorrida no
@@ -644,31 +751,37 @@ histórico: a migration `363` abriria, no primeiro run do produtor, um alerta po
 escala de todo o passado — nenhum deles fechável, porque o NOA de uma viagem de
 2024 não vai mais ser enviado. O alerta só existe enquanto o disparo ainda faz
 sentido, e por isso fecha **pela origem** quando o ETA passa: o navio chegou, e o
-aviso antecipatório perdeu a função (C4). O mesmo limite de 30 dias sobre o ATB
-guarda o `comunicado_nor_pendente` da mesma enxurrada.
+aviso antecipatório perdeu a função (C4). O mesmo limite de 30 dias sobre ATA e ATB
+guarda o `comunicado_nor_pendente` e o `comunicado_nob_pendente` da mesma enxurrada.
 
 **Só comunicado `enviado` fecha; `simulado` não fecha.** Todo o Bloco 2 roda com
 a chave global desligada (T13), e a T14 entra depois — um ensaio silenciar o
-lembrete de um NOA que nunca saiu inverteria o propósito do alerta e daria por
-resolvido justamente o esquecimento que a issue #556 quer eliminar. Pela mesma
+lembrete de um comunicado que nunca saiu inverteria o propósito do alerta e daria
+por resolvido justamente o esquecimento que a issue #556 quer eliminar. Pela mesma
 razão, comunicado `simulado` também não conta na condição de abertura: para o
 alerta, ensaio não é envio.
 
-`responsible: 'documentacao'`, severidade `normal`, destino
-`/clientes/comunicacao`. Fechamento **pela origem**, como manda a ADR 0053 —
-não há fechamento manual —, com dispensa temporária no padrão do catálogo.
-Migration `363_comunicado_alertas.sql`, com o produtor no runner unificado
-(`332_unified_alerts_runner.sql`).
+Roteamento e severidade:
+- Avisos operacionais: `responsible: 'documentacao'`, severidade `normal`,
+  destino `/clientes/comunicacao`.
+- Falha de contato sem alternativa: `responsible: ['documentacao', 'administrativo']`,
+  severidade `alta`, destino `/clientes/:cnpj?tab=contatos`.
 
-Escala **omitida** não gera NOA pendente: o navio não atraca lá. A migration
+Fechamento **pela origem**, como manda a ADR 0053 — não há fechamento manual —, com
+dispensa temporária no padrão do catálogo. Migration `363_comunicado_alertas.sql`,
+com o produtor no runner unificado (`332_unified_alerts_runner.sql`).
+
+Escala **omitida** não gera NOA nem NOR pendente: o navio não atraca lá. A migration
 `342` já trata omissão e apagamento por `audit_logs` — reusar o mesmo filtro,
 não reimplementar.
 
 **Check:** teste de contrato SQL — escala com ETA a 6 dias não abre alerta e a 5
 dias abre; escala com ETA no passado não abre, e o alerta aberto fecha quando o
 ETA passa; escala omitida nunca abre; NOA `enviado` fecha o alerta pela origem e
-um NOA `simulado` **não** fecha nem impede a abertura; atracação com ATB e sem
-NOR abre, e o NOR fecha.
+um NOA `simulado` **não** fecha nem impede a abertura; escala com ATA e sem NOR
+abre `comunicado_nor_pendente`; atracação com ATB e sem NOB abre
+`comunicado_nob_pendente`; cliente sem nenhum contato válido após bounce permanente
+abre `cliente_contato_bounced_sem_alternativa` e o cadastro de contato válido fecha.
 
 ### T15 — Superfícies de histórico
 
@@ -728,11 +841,25 @@ interno ativo é rejeitada com `42501`. Sobre a C8: cliente com um B/L em
 `financial_status = 'pending'` é bloqueado mesmo com CE Mercante e revisão
 limpas, e um B/L `cancelled` **não** bloqueia.
 
-### T17 — Resumo de taxas locais e remoção da `notify-invoice-issued`
+### T17 — Comunicado de CE Mercante e Taxas Locais e remoção da `notify-invoice-issued`
 
-Modelo fixo, em pt-BR: B/Ls com valor por B/L, total em BRL, link para o Portal.
-**Sem vencimento** (ADR 0055 / migration `348` removeram `invoices.due_date` e o
-status `overdue`), **sem PIX e sem anexo** (invariante 6).
+Modelo em pt-BR (`kind = 'ce_mercante_taxas'`, Natureza: `documentacao`):
+- **Assunto:** `CE Mercante Disponível e Resumo de Taxas Locais — {Navio} / {Viagem}`.
+- **Conteúdo:** Ênfase destacada nos números dos CEs Mercantes cadastrados para
+  agilizar o desembaraço/registro da DI/DUIMP pelo despachante/importador; listagem
+  com `[ B/L ] [ CE Mercante ] [ Valor BRL ]`, total da viagem em BRL e link
+  direto para consulta das faturas e formas de pagamento no Portal do Cliente.
+- **Invariante 6 mantido:** **Sem vencimento** (ADR 0055 / migration `348`), **sem
+  PIX e sem anexo**.
+
+Automação pós-vinculação de CE Mercante (C12):
+- A vinculação de CE Mercante dispara a emissão de faturas e disponibilização no
+  Portal. Logo em seguida, avalia a Prontidão da T16 para os clientes afetados.
+- Clientes com prontidão completa têm o comunicado `ce_mercante_taxas` disparado
+  **automaticamente** em background (respeitando a chave global e a idempotência da
+  T2).
+- Reenvios posteriores de viagens já comunicadas passam a ser manuais e
+  assistidos, com confirmação na tela `/taxas-locais` (T19).
 
 Remoção da `notify-invoice-issued`, conforme C1:
 
@@ -748,7 +875,9 @@ Remoção da `notify-invoice-issued`, conforme C1:
   conferir antes de apagar.
 
 **Check:** o teste de contrato do catálogo de alertas afirma a audiência nova;
-grep de repositório afirmando que nenhuma referência a `notify-invoice-issued`
+teste do template afirmando a ênfase no CE Mercante, lista de B/Ls e ausência de
+PIX/anexos; teste de disparo automático na conclusão da prontidão pós-vínculo de
+CE; grep de repositório afirmando que nenhuma referência a `notify-invoice-issued`
 sobrou fora do arquivo histórico de ADRs.
 
 ### T18 — Cobrança de Demurrage e Régua
@@ -762,34 +891,36 @@ Régua, em cron no padrão dos detectores de alerta:
 - Dispara em `demurrage_invoices.first_billed_at` — **não** `billed_at`, que
   muda a cada refaturamento por recálculo de PTAX e reenviaria cobrança como se
   fosse nova.
-- Repete no intervalo de `app_settings.demurrage_dunning_interval_days` (5)
-  enquanto `paid_at IS NULL`.
-- `dispute_open = true` **pausa**; o fechamento retoma (invariante 8).
-- Atingido `demurrage_dunning_max_sends` (6), para e vira pendência interna. Com
-  os valores de fábrica isso são **25 dias**, não trinta: a 1ª cobrança sai no
-  `first_billed_at` e só as cinco seguintes pagam o intervalo de 5 dias, então a
-  6ª cai no 25º dia. Quem for exibir o prazo na tela calcula
-  `(max_sends − 1) × interval_days`, nunca `max_sends × interval_days`.
-- Discriminador = número da cobrança na régua, atribuído pelo cron. É o que faz
-  a 2ª cobrança não colidir com a 1ª no índice único da T2 sobre a mesma fatura.
-  É o segundo produtor da coluna, ao lado da confirmação de reenvio da T10, e
-  nenhum dos dois anda a contagem do outro.
+- Repete no intervalo de `app_settings.demurrage_dunning_interval_days` (7 dias)
+  enquanto `paid_at IS NULL` (C10). Sem teto de envios: cobra semanalmente até a
+  liquidação.
+- **Pausas da régua:**
+  - `dispute_open = true` **pausa**; o encerramento da disputa retoma
+    (invariante 8).
+  - Cliente sem nenhum contato válido (alerta `cliente_contato_bounced_sem_alternativa`
+    ativo) **pausa**; o cadastro de novo contato válido retoma a régua (C11).
+- Discriminador = número da cobrança na régua (1ª, 2ª, 3ª...), atribuído pelo
+  cron. É o que faz a enésima cobrança não colidir com as anteriores no índice
+  único da T2 sobre a mesma fatura. É o segundo produtor da coluna, ao lado da
+  confirmação de reenvio da T10, e nenhum dos dois anda a contagem do outro.
 
-**Check:** teste do avanço da régua — fatura com disputa aberta não avança;
-disputa fechada retoma no número seguinte; atingido o teto não há 7º envio; a 6ª
-cobrança cai no 25º dia com os valores de fábrica; e a 2ª cobrança da mesma
-fatura **não** colide com a 1ª.
+**Check:** teste do avanço da régua — fatura com disputa aberta não avança; fatura
+de cliente sem contato válido não avança; regularização cadastral ou fechamento de
+disputa retoma no número seguinte; régua continua avançando além do 6º envio no
+ritmo de 7 dias; e a 2ª cobrança da mesma fatura **não** colide com a 1ª.
 
 ### T19 — Colunas de estado
 
-Em `src/pages/Demurrage.tsx`: ponto da régua e próxima data ("3ª cobrança,
-próxima em 02/09"), ou o motivo da pausa. Em `src/pages/TaxasLocais.tsx`: data do
-envio e link para o comunicado. Em ambas: o **motivo do bloqueio** quando o
-cliente não passou na Prontidão da T16 — a informação não pode se perder entre
-duas telas.
+Em `src/pages/Demurrage.tsx`: ponto da régua e próxima data ("4ª cobrança,
+próxima em 08/09"), ou o motivo da pausa ("Pausada: disputa aberta" ou "Pausada:
+cliente sem contatos válidos"). Em `src/pages/TaxasLocais.tsx`: data e hora do envio
+automático e link para o comunicado ("Enviado automaticamente em 01/09 às 10:15"),
+o **motivo do bloqueio** quando o cliente não passou na Prontidão da T16, e botão
+para *"Reenviar comunicado"* manual assistido (incrementando o discriminador).
 
-**Check:** teste de render afirmando o motivo do bloqueio na coluna, não só um
-traço.
+**Check:** teste de render afirmando o status de envio automático, motivo de
+bloqueio e botão de reenvio em Taxas Locais; teste de render de status e pausas em
+Demurrage.
 
 ### T20 — Encerramento
 
@@ -815,12 +946,14 @@ flowchart LR
   T1 --> T7
   T3[T3 Permissão] --> T8[T8 Rota]
   T4[T4 Chave global] --> T8
+  T8 --> T81[T8.1 Data e Hora]
+  T81 --> T11[T11 NOA/NOR/NOB]
   T5 --> T10
   T9[T9 Recorte] --> T10
   T10 --> T13
-  T11[T11 NOA/NOR] --> T13
+  T11 --> T13
   T12[T12 Anexos] --> T13
-  T13 --> T14[T14 Alertas NOA/NOR]
+  T13 --> T14[T14 Alertas NOA/NOR/NOB]
   T13 --> T15[T15 Históricos]
   T16[T16 Prontidão] --> T17[T17 Taxas locais]
   T13 --> T18
@@ -841,7 +974,7 @@ Duas peças concentram o risco:
 
 | Pendência | Trava | Quando |
 |---|---|---|
-| Texto do NOA e do NOR, em inglês | T11 | Produto envia; T11 é a última task do Bloco 2 a fechar |
+| Texto do NOA, NOR e NOB, em pt-BR com assunto bilíngue | T11 | Produto envia; T11 é a última task do Bloco 2 a fechar |
 | `COMMUNICATIONS_REPLY_TO` provisionada | T13 em envio real | Antes de ligar a chave, não antes do merge |
 | Decisão de ligar a chave global | — | Depois de ver a tela rodando em modo simulado |
 
