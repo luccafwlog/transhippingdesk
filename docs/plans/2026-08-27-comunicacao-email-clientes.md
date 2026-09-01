@@ -159,8 +159,8 @@ O que isso obriga neste plano: T2 (enum, backfill de quatro linhas por contato,
 mapeamento `kind`→natureza), T5 (resolução por natureza), T6 (quatro toggles) e
 T13 (a guarda de que não se envia sem natureza). Bloco 3 só muda no mapeamento.
 
-**O momento é este, e não depois.** A migration `361` ainda não existe; depois de
-aplicada, a mesma mudança é migration de dados sobre uma tabela com uma linha por
+**O momento é este, e não depois.** A migration `372` materializa a mesma mudança
+como migration de dados sobre uma tabela com uma linha por
 contato por natureza, mais reescrita do serviço e da tela.
 
 **A natureza é eixo separado do `kind`.** CE Mercante, disputa e devolução de
@@ -304,7 +304,7 @@ forma silenciosa.
 (b) que a colisão `23505` no `recordAttempt` retorna `ok` sem chamar a Resend, e
 (c) que `checkSuppression` suprimindo aborta antes de gravar tentativa.
 
-### T2 — Migration `361_comunicados_fundacao.sql`
+### T2 — Migration `372_comunicados_fundacao.sql`
 
 Tabelas do canal:
 
@@ -525,7 +525,7 @@ guarda por chamador.
 A dedup por `provider_event_id` em `portal_email_events` já é genérica e serve
 aos dois. A `attempt_id` daquela tabela referencia `portal_email_attempts` e **já
 é nulável** (migration `178`), então não falta nulidade: falta **para onde
-apontar** o evento de Comunicado. A migration `361` acrescenta
+apontar** o evento de Comunicado. A migration `372` acrescenta
 `communication_attempt_id BIGINT` a `portal_email_events`, sem FK — mesma regra
 de âncora da T2 —, e um CHECK de que no máximo uma das duas colunas está
 preenchida. Nenhuma migration nova entra por causa disto.
@@ -990,6 +990,6 @@ migrations ou ADRs citadas.
 
 | Bloco | Status |
 |---|---|
-| 1 — Fundação (T1–T7) | TODO |
+| 1 — Fundação (T1–T7) | DONE |
 | 2 — Disparo manual (T8–T15) | TODO |
 | 3 — Financeiro (T16–T20) | TODO |

@@ -141,5 +141,6 @@ export const queryKeys = {
       ['internal-notifications', 'entity-labels', page ?? null] as const,
     internalNotificationsUnreadCount: () => ['internal-notifications-unread-count'] as const,
   },
+  appSettings: () => ['app-settings'] as const,
   dashboard: () => ['dashboard'] as const,
 }

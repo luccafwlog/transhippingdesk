@@ -1,6 +1,6 @@
 # Arquitetura do Transhipping Desk
 
-Verificado contra o código, a configuração e as migrations em 2026-08-20.
+Verificado contra o código, a configuração e as migrations em 2026-09-01.
 
 Este é o mapa canônico da arquitetura atual. Termos de negócio vivem em
 [`CONTEXT.md`](../CONTEXT.md); decisões e supersessões vivem no
@@ -35,6 +35,32 @@ flowchart LR
 O frontend é uma SPA estática. A segurança real não depende do roteador: tabelas,
 views e funções do Supabase aplicam escopo e autorização por RLS, grants e
 validações dentro das RPCs.
+
+### Fundação de Comunicados ao Cliente
+
+A migration `372_comunicados_fundacao.sql` criou a trilha de Comunicados sem
+histórico retroativo: `customer_communications`, seus vínculos B/L e tentativas,
+as quatro preferências por contato e as supressões específicas do canal. As
+âncoras do comunicado são snapshots e não têm FK para escala, atracação ou
+invoice. A chave global vive no singleton `app_settings`, nasce desligada e só
+é alterada pela RPC `set_communications_enabled(boolean)`, que exige o perfil
+Administrativo e registra a mudança em `audit_logs`.
+
+O mapeamento `kind` → `nature` é explícito; `customer_contact_preferences` é
+preenchida para contatos existentes e por trigger para novos contatos, sem
+reutilizar `customer_contacts.purpose`. A tela de Cadastro de Contatos grava
+essas preferências com `source='interno'`, sob a permissão
+`customer_communications`, e
+desabilita a edição para os demais papéis. O envio global continua desligado;
+esta etapa não adiciona rota nem dispara comunicado real.
+
+`portal-email-webhook` resolve o `provider_message_id` tanto em
+`portal_email_attempts` quanto em `customer_communication_attempts` e aponta
+`portal_email_events` para uma única trilha. Complaint do canal novo fica local;
+bounce permanente entra em `portal_suppressed_emails` e pode acionar a cascata
+de notificação ao contato alternativo ou o alerta
+`cliente_contato_bounced_sem_alternativa`. A notificação da cascata usa uma
+natureza própria e não reabre a própria cascata quando sofre bounce.
 
 O hosting é um único projeto Vercel para a SPA Vite. O GitHub Integration cria
 Preview Deployments para pull requests, e a integração de branching do Supabase
@@ -475,8 +501,9 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
 - `portal-recovery-email-change`: troca do email de recuperação com
   confirmação;
 - `portal-account-suspend`: suspensão/reativação de conta do Portal;
-- `portal-email-webhook` e `portal-daily-digest`: eventos de entrega do Resend
-  e resumo diário interno;
+- `portal-email-webhook`: eventos de entrega do Resend para Portal e
+  Comunicados, supressões por canal e cascata de bounce permanente;
+- `portal-daily-digest`: resumo diário interno;
 - `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage;
 - `notify-invoice-issued`: implementada para enviar email via Resend na
   emissão de invoice, mas **não está ativa**. Não há Database Webhook
@@ -496,8 +523,11 @@ pendência geral separada do ciclo da fatura.
 
 ## Integrações externas
 
-- **Resend:** email de invoice emitida — código presente, porém **inativo**
-  (sem webhook, sem chave, sem plano atual de envio ao cliente);
+- **Resend:** email transacional do Portal e fundação do canal de Comunicados
+  passam por `supabase/functions/_shared/email.ts`; o envio global de
+  Comunicados continua desligado em `app_settings`. O email de invoice emitida
+  permanece **inativo** (sem Database Webhook configurado e sem
+  `RESEND_API_KEY` provisionado);
 - **Banco Central:** cotação PTAX;
 - **Sentry:** erros do frontend em produção;
 - **Vercel:** distribuição da SPA e Preview/Production Deployments;
@@ -608,12 +638,14 @@ tem dois hosts (cliente e inspeção) e dois modos (client e inspect), mas uma
 
 Rotas desconhecidas redirecionam para `/painel`.
 
-Emails transacionais passam por `portalEmail.ts` e seus templates, com
-idempotência, retries de falhas transitórias e supressão. As Edge Functions
-`portal-email-webhook` e `portal-daily-digest` usam `RESEND_WEBHOOK_SECRET`,
-`RESEND_API_KEY`, `PORTAL_FROM_EMAIL` e `PORTAL_REPLY_TO`; sem chave Resend o
-envio fica em dry-run. Domínio próprio verificado continua sendo gate para
-envio real.
+Emails transacionais passam pela mecânica comum de
+`supabase/functions/_shared/email.ts`; `portalEmail.ts` adapta essa mecânica às
+tentativas e supressões do Portal. Ambos preservam idempotência, retries de
+falhas transitórias e dry-run sem `RESEND_API_KEY`. `portal-email-webhook` usa
+`RESEND_WEBHOOK_SECRET`, enquanto o envio real usa `PORTAL_FROM_EMAIL` e
+`PORTAL_REPLY_TO`; domínio próprio verificado continua sendo gate para envio
+real. Complaint de Comunicado não suprime o Portal, mas bounce permanente é
+compartilhado.
 
 ### Console de provisionamento pré-piloto
 

@@ -10,7 +10,7 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
-| [Comunicação por e-mail com clientes](2026-08-27-comunicacao-email-clientes.md) | Canal de Comunicado ao Cliente: fundação, disparo manual filtrado e comunicados financeiros com Régua de Cobrança | TODO |
+| [Comunicação por e-mail com clientes](2026-08-27-comunicacao-email-clientes.md) | Canal de Comunicado ao Cliente: fundação, disparo manual filtrado e comunicados financeiros com Régua de Cobrança | IN PROGRESS |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 

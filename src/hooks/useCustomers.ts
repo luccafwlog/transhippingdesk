@@ -201,7 +201,7 @@ export function useCustomerDetail(cnpj?: string) {
         .select(
           `
           *,
-          customer_contacts(*),
+          customer_contacts(*, customer_contact_preferences(*)),
           ${BLS_OF_CUSTOMER}(id, consignee, financial_status, review_status, created_at)
         `,
         )

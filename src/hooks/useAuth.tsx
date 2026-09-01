@@ -15,6 +15,7 @@ export type Permission =
   | 'manage_users'
   | 'portal_provisioning'
   | 'settle_financial_adjustments'
+  | 'customer_communications'
 
 export function roleHasPermission(role: UserProfileRole | undefined, permission: Permission): boolean {
   if (!role) return false
@@ -23,11 +24,11 @@ export function roleHasPermission(role: UserProfileRole | undefined, permission:
     role === 'admin' ? 'administrativo' : role === 'operator' ? 'documentacao' : role
 
   switch (effectiveRole) {
-    case 'administrativo': return permission === 'admin_panel' || permission === 'manage_users' || permission === 'portal_provisioning' || permission === 'settle_financial_adjustments'
-    case 'documentacao': return permission === 'portal_provisioning'
+    case 'administrativo': return permission === 'admin_panel' || permission === 'manage_users' || permission === 'portal_provisioning' || permission === 'settle_financial_adjustments' || permission === 'customer_communications'
+    case 'documentacao': return permission === 'portal_provisioning' || permission === 'customer_communications'
     case 'financeiro': return permission === 'settle_financial_adjustments'
-    case 'operacoes':
-    case 'equipamentos': return false
+    case 'operacoes': return false
+    case 'equipamentos': return permission === 'customer_communications'
     default:
       return false
   }

@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          communications_enabled: boolean
+          created_at: string
+          demurrage_dunning_interval_days: number
+          id: number
+        }
+        Insert: {
+          communications_enabled?: boolean
+          created_at?: string
+          demurrage_dunning_interval_days?: number
+          id?: number
+        }
+        Update: {
+          communications_enabled?: boolean
+          created_at?: string
+          demurrage_dunning_interval_days?: number
+          id?: number
+        }
+        Relationships: []
+      }
       agency_departure_report_department_signoffs: {
         Row: {
           department: string
@@ -1368,6 +1389,223 @@ export type Database = {
             columns: ["carrier_id"]
             isOneToOne: false
             referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_communication_attempts: {
+        Row: {
+          communication_id: number
+          created_at: string
+          id: number
+          idempotency_key: string
+          last_error: string | null
+          provider_message_id: string | null
+          recipient_masked: string
+          retry_count: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          communication_id: number
+          created_at?: string
+          id?: number
+          idempotency_key: string
+          last_error?: string | null
+          provider_message_id?: string | null
+          recipient_masked: string
+          retry_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          communication_id?: number
+          created_at?: string
+          id?: number
+          idempotency_key?: string
+          last_error?: string | null
+          provider_message_id?: string | null
+          recipient_masked?: string
+          retry_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_communication_attempts_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "customer_communications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_communication_bls: {
+        Row: {
+          bl_id: string
+          communication_id: number
+        }
+        Insert: {
+          bl_id: string
+          communication_id: number
+        }
+        Update: {
+          bl_id?: string
+          communication_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_communication_bls_bl_id_fkey"
+            columns: ["bl_id"]
+            isOneToOne: false
+            referencedRelation: "bls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_communication_bls_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "customer_communications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_communication_kinds: {
+        Row: {
+          kind: string
+          nature: string
+        }
+        Insert: {
+          kind: string
+          nature: string
+        }
+        Update: {
+          kind?: string
+          nature?: string
+        }
+        Relationships: []
+      }
+      customer_communication_suppressions: {
+        Row: {
+          email: string
+          id: number
+          reason: string
+          suppressed_at: string
+        }
+        Insert: {
+          email: string
+          id?: number
+          reason?: string
+          suppressed_at?: string
+        }
+        Update: {
+          email?: string
+          id?: number
+          reason?: string
+          suppressed_at?: string
+        }
+        Relationships: []
+      }
+      customer_communications: {
+        Row: {
+          anchor_atracacao_id: string | null
+          anchor_invoice_id: number | null
+          anchor_port: string | null
+          anchor_voyage_id: number | null
+          attempt_discriminator: number
+          created_at: string
+          created_by: string | null
+          customer_id: number
+          dispatch_id: string | null
+          id: number
+          kind: string
+          nature: string
+          status: string
+          terminal_name: string | null
+          vessel_name: string | null
+          voyage_number: string | null
+        }
+        Insert: {
+          anchor_atracacao_id?: string | null
+          anchor_invoice_id?: number | null
+          anchor_port?: string | null
+          anchor_voyage_id?: number | null
+          attempt_discriminator?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id: number
+          dispatch_id?: string | null
+          id?: number
+          kind: string
+          nature: string
+          status?: string
+          terminal_name?: string | null
+          vessel_name?: string | null
+          voyage_number?: string | null
+        }
+        Update: {
+          anchor_atracacao_id?: string | null
+          anchor_invoice_id?: number | null
+          anchor_port?: string | null
+          anchor_voyage_id?: number | null
+          attempt_discriminator?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: number
+          dispatch_id?: string | null
+          id?: number
+          kind?: string
+          nature?: string
+          status?: string
+          terminal_name?: string | null
+          vessel_name?: string | null
+          voyage_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_communications_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_communications_kind_nature_fkey"
+            columns: ["kind", "nature"]
+            isOneToOne: false
+            referencedRelation: "customer_communication_kinds"
+            referencedColumns: ["kind", "nature"]
+          },
+        ]
+      }
+      customer_contact_preferences: {
+        Row: {
+          contact_id: number
+          created_at: string
+          enabled: boolean
+          nature: string
+          source: string
+        }
+        Insert: {
+          contact_id: number
+          created_at?: string
+          enabled?: boolean
+          nature: string
+          source?: string
+        }
+        Update: {
+          contact_id?: number
+          created_at?: string
+          enabled?: boolean
+          nature?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_contact_preferences_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "customer_contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -3224,6 +3462,7 @@ export type Database = {
       portal_email_events: {
         Row: {
           attempt_id: number | null
+          communication_attempt_id: number | null
           event_type: string
           id: number
           provider_event_id: string
@@ -3231,6 +3470,7 @@ export type Database = {
         }
         Insert: {
           attempt_id?: number | null
+          communication_attempt_id?: number | null
           event_type: string
           id?: number
           provider_event_id: string
@@ -3238,6 +3478,7 @@ export type Database = {
         }
         Update: {
           attempt_id?: number | null
+          communication_attempt_id?: number | null
           event_type?: string
           id?: number
           provider_event_id?: string
@@ -5442,6 +5683,10 @@ export type Database = {
         Args: { p_active: boolean; p_actor?: string; p_customer_id: number }
         Returns: Json
       }
+      set_communications_enabled: {
+        Args: { p_enabled: boolean }
+        Returns: boolean
+      }
       set_import_batch_ce_master: {
         Args: { p_batch_id: number; p_ce_master: string; p_changed_by: string }
         Returns: undefined
@@ -5809,6 +6054,34 @@ export type AuditLog = Tables<'audit_logs'>
 export type Alert = Tables<'alerts'>
 export type Customer = Tables<'customers'>
 export type CustomerContact = Tables<'customer_contacts'>
+export type CustomerCommunicationNature =
+  | 'avisos_gerais'
+  | 'avisos_operacionais'
+  | 'documentacao'
+  | 'demurrage'
+export type CustomerCommunicationKind =
+  | 'aviso_chegada_noa'
+  | 'aviso_prontidao_nor'
+  | 'aviso_atracacao_nob'
+  | 'ce_mercante_taxas'
+  | 'cobranca_demurrage'
+  | 'institucional'
+  | 'livre'
+export type CustomerCommunicationStatus = 'enviado' | 'simulado' | 'falha'
+export type CustomerCommunicationAttemptStatus =
+  | 'aceito'
+  | 'entregue'
+  | 'bounce'
+  | 'complaint'
+  | 'falha_transitoria'
+  | 'falha_permanente'
+export type CustomerCommunicationKindMapping = Tables<'customer_communication_kinds'>
+export type CustomerCommunication = Tables<'customer_communications'>
+export type CustomerCommunicationBl = Tables<'customer_communication_bls'>
+export type CustomerCommunicationAttempt = Tables<'customer_communication_attempts'>
+export type CustomerCommunicationSuppression = Tables<'customer_communication_suppressions'>
+export type CustomerContactPreference = Tables<'customer_contact_preferences'>
+export type AppSettings = Tables<'app_settings'>
 export type CustomerPortalAccount = Tables<'customer_portal_accounts'>
 export type PortalInvite = Tables<'portal_invites'>
 export type PortalProvisioningEvent = Tables<'portal_provisioning_events'>
@@ -6068,7 +6341,9 @@ export type CustomerListItem = Customer & {
 }
 
 export type CustomerDetail = Customer & {
-  customer_contacts?: CustomerContact[] | null
+  customer_contacts?: Array<CustomerContact & {
+    customer_contact_preferences?: CustomerContactPreference[] | null
+  }> | null
   bls?: Pick<BL, 'id' | 'consignee' | 'financial_status' | 'review_status' | 'created_at'>[] | null
   invoices?: Pick<Invoice, 'id' | 'invoice_number' | 'issued_at' | 'total_brl' | 'balance_brl' | 'status'>[] | null
   invoices_access_denied?: boolean
