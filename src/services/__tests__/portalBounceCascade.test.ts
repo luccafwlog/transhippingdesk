@@ -48,7 +48,28 @@ describe('cascata de bounce permanente', () => {
     expect(result.shouldOpenAlert).toBe(true)
   })
 
-  it('abre alerta quando o contato que originou o envio já não existe', () => {
+  it('avisa contato válido quando o email em bounce não estava na lista de contatos', () => {
+    const result = resolveBounceCascade({
+      contacts: [primary, alternate],
+      bouncedEmail: 'externo@example.com',
+    })
+
+    expect(result.notificationRecipient).toEqual(primary)
+    expect(result.shouldOpenAlert).toBe(false)
+  })
+
+  it('avisa outro contato secundário quando o secundário falha e o principal já estava suprimido', () => {
+    const result = resolveBounceCascade({
+      contacts: [primary, secondary, alternate],
+      bouncedEmail: secondary.email!,
+      sharedBounceEmails: [primary.email!],
+    })
+
+    expect(result.notificationRecipient).toEqual(alternate)
+    expect(result.shouldOpenAlert).toBe(false)
+  })
+
+  it('abre alerta quando o contato que originou o envio já não existe e não há contatos na lista', () => {
     const result = resolveBounceCascade({
       contacts: [],
       bouncedEmail: 'removido@example.com',
@@ -58,3 +79,4 @@ describe('cascata de bounce permanente', () => {
     expect(result.shouldOpenAlert).toBe(true)
   })
 })
+

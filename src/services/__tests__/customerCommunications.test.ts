@@ -74,6 +74,14 @@ describe('resolução pura de destinatários de Comunicados', () => {
     })).toBeNull()
     expect(getEmailSuppressionReason('cliente@example.com', {
       channel: 'portal',
+      sharedSuppressions: [complaint],
+    })).toBe('complaint')
+    expect(getEmailSuppressionReason('cliente@example.com', {
+      channel: 'comunicados',
+      sharedSuppressions: [complaint],
+    })).toBeNull()
+    expect(getEmailSuppressionReason('cliente@example.com', {
+      channel: 'portal',
       sharedSuppressions: [bounce],
     })).toBe('bounce_permanente')
     expect(getEmailSuppressionReason('cliente@example.com', {

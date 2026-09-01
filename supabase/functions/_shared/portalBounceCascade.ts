@@ -25,29 +25,33 @@ export function resolveBounceCascade(input: {
     contact.email !== null && normalizeEmail(contact.email) === bouncedEmail,
   ) ?? null
 
-  // A Portal recovery address may not have originated from customer_contacts.
-  // Without a matching contact there is no safe way to choose a recipient or
-  // claim that the customer lost its last contact. An empty contact list is
-  // different: it proves there is no valid alternative at all.
-  if (!bouncedContact) {
-    return { bouncedContact: null, notificationRecipient: null, shouldOpenAlert: input.contacts.length === 0 }
-  }
-
   const bouncedEmails = new Set((input.sharedBounceEmails ?? []).map(normalizeEmail))
   const portalSuppressedEmails = new Set((input.portalSuppressedEmails ?? []).map(normalizeEmail))
   const isValidAlternative = (contact: BounceContact) =>
-    contact.id !== bouncedContact.id &&
+    (bouncedContact ? contact.id !== bouncedContact.id : true) &&
     contact.email !== null &&
+    contact.email.trim() !== '' &&
     normalizeEmail(contact.email) !== bouncedEmail &&
     !bouncedEmails.has(normalizeEmail(contact.email)) &&
     !portalSuppressedEmails.has(normalizeEmail(contact.email))
 
+  if (!bouncedContact) {
+    const fallback = input.contacts.find((contact) => contact.is_primary && isValidAlternative(contact)) ??
+      input.contacts.find(isValidAlternative) ?? null
+    return {
+      bouncedContact: null,
+      notificationRecipient: fallback,
+      shouldOpenAlert: fallback === null,
+    }
+  }
+
   if (!bouncedContact.is_primary) {
     const primary = input.contacts.find((contact) => contact.is_primary && isValidAlternative(contact)) ?? null
+    const fallback = primary ?? input.contacts.find((contact) => !contact.is_primary && isValidAlternative(contact)) ?? null
     return {
       bouncedContact,
-      notificationRecipient: primary,
-      shouldOpenAlert: primary === null,
+      notificationRecipient: fallback,
+      shouldOpenAlert: fallback === null,
     }
   }
 
@@ -61,3 +65,4 @@ export function resolveBounceCascade(input: {
     shouldOpenAlert: alternate === null,
   }
 }
+

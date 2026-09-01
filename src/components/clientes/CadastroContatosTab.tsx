@@ -45,6 +45,7 @@ function ContactPreferences({
   canEdit: boolean
 }) {
   const updatePreference = useUpdateCustomerContactPreference()
+  const { showToast } = useToast()
 
   return (
     <div className="mt-3 rounded-lg border border-[#30363d] bg-[#111820] p-3">
@@ -58,12 +59,19 @@ function ContactPreferences({
                 type="checkbox"
                 checked={enabled}
                 disabled={!canEdit || updatePreference.isPending}
-                onChange={(event) => updatePreference.mutate({
-                  customerId,
-                  contactId: contact.id,
-                  nature,
-                  enabled: event.currentTarget.checked,
-                })}
+                onChange={(event) => {
+                  const checked = event.currentTarget.checked
+                  updatePreference.mutate({
+                    customerId,
+                    contactId: contact.id,
+                    nature,
+                    enabled: checked,
+                  }, {
+                    onError: () => {
+                      showToast('Falha ao atualizar preferência de recebimento.', 'error')
+                    },
+                  })
+                }}
               />
               {NATURE_LABELS[nature]}
             </label>

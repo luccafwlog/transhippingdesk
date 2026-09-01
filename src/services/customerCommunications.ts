@@ -78,6 +78,13 @@ export function getEmailSuppressionReason(
     return 'complaint'
   }
 
+  if (
+    input.channel === 'portal' &&
+    hasSuppression(normalized, input.sharedSuppressions, 'complaint')
+  ) {
+    return 'complaint'
+  }
+
   return null
 }
 

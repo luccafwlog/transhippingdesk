@@ -84,13 +84,28 @@ describe('CadastroContatosTab — invalidacao da timeline em mutacoes de contato
 
     await user.click(screen.getByRole('checkbox', { name: 'Demurrage' }))
 
-    expect(mocks.updatePreference).toHaveBeenCalledWith({
-      customerId: 101,
-      contactId: 5,
-      nature: 'demurrage',
-      enabled: false,
-    })
+    expect(mocks.updatePreference).toHaveBeenCalledWith(
+      {
+        customerId: 101,
+        contactId: 5,
+        nature: 'demurrage',
+        enabled: false,
+      },
+      expect.objectContaining({ onError: expect.any(Function) }),
+    )
     expect(screen.getByRole('checkbox', { name: 'Documentação' })).toHaveProperty('checked', true)
     expect((baseData as unknown as { customer_contacts: Array<{ purpose: string }> }).customer_contacts[0].purpose).toBe('geral')
+  })
+
+  it('exibe toast de erro ao falhar atualização de preferência', async () => {
+    const user = userEvent.setup()
+    mocks.updatePreference.mockImplementationOnce((_params: unknown, options?: { onError?: () => void }) => {
+      options?.onError?.()
+    })
+    render(<MemoryRouter><CadastroContatosTab data={baseData} cnpj="12345678000195" /></MemoryRouter>)
+
+    await user.click(screen.getByRole('checkbox', { name: 'Demurrage' }))
+
+    expect(mocks.showToast).toHaveBeenCalledWith('Falha ao atualizar preferência de recebimento.', 'error')
   })
 })
