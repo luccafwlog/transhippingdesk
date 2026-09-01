@@ -3,6 +3,8 @@ import {
   fetchBlCommunicationHistory,
   fetchCustomerCommunicationConference,
   fetchCustomerCommunicationHistory,
+  fetchCustomerCommunicationSavedTemplates,
+  saveCustomerCommunicationSavedTemplate,
   type CustomerCommunicationFilters,
 } from '../services/customerCommunications'
 import {
@@ -31,6 +33,21 @@ export function useCustomerCommunicationHistory(customerId?: number) {
   return useQuery({
     queryKey: queryKeys.customerCommunications.history(customerId),
     queryFn: () => fetchCustomerCommunicationHistory(customerId),
+  })
+}
+
+export function useCustomerCommunicationSavedTemplates() {
+  return useQuery({
+    queryKey: [...queryKeys.customerCommunications.all(), 'saved-templates'],
+    queryFn: fetchCustomerCommunicationSavedTemplates,
+  })
+}
+
+export function useSaveCustomerCommunicationSavedTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: saveCustomerCommunicationSavedTemplate,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...queryKeys.customerCommunications.all(), 'saved-templates'] }),
   })
 }
 

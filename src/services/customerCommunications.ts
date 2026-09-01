@@ -687,6 +687,34 @@ export type CustomerCommunicationHistoryItem = {
   attachments: CustomerCommunicationAttachmentHistory[]
 }
 
+export type CustomerCommunicationSavedTemplate = {
+  id: number
+  name: string
+  subject: string
+  body: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchCustomerCommunicationSavedTemplates(): Promise<CustomerCommunicationSavedTemplate[]> {
+  const result = await (supabase.rpc as unknown as (name: string, args?: Record<string, unknown>) => Promise<{ data: CustomerCommunicationSavedTemplate[] | null; error: unknown }>)(
+    'list_customer_communication_saved_templates',
+  )
+  if (result.error) throw result.error
+  return result.data ?? []
+}
+
+export async function saveCustomerCommunicationSavedTemplate(input: { name: string; subject: string; body: string }): Promise<number> {
+  const result = await (supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: number | null; error: unknown }>)(
+    'save_customer_communication_saved_template',
+    { p_name: input.name, p_subject: input.subject, p_body: input.body },
+  )
+  if (result.error) throw result.error
+  if (result.data == null) throw new Error('Não foi possível salvar o modelo.')
+  return result.data
+}
+
 const COMMUNICATION_HISTORY_SELECT = 'id, customer_id, kind, nature, anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator, status, dispatch_id, vessel_name, voyage_number, terminal_name, created_by, created_at, customer:customers(id, name, cnpj_cpf), attempts:customer_communication_attempts(id, recipient_masked, status, retry_count, provider_message_id, last_error, created_at, updated_at), bl_links:customer_communication_bls(bl_id), attachments:customer_communication_attachments(id, file_name, mime_type, storage_path, size_bytes, created_at)'
 
 export async function fetchCustomerCommunicationHistory(customerId?: number): Promise<CustomerCommunicationHistoryItem[]> {

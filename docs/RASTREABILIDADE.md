@@ -84,7 +84,9 @@ bloqueios, preview e confirmação explícita de reenvio. **Código**;
 confere contato, preferência, complaint/bounce e natureza, registra a operação
 por RPC atômica e mantém o dry-run quando
 `app_settings.communications_enabled=false`. A migration
-`373_comunicados_anexos.sql` cria templates e bucket privado; anexos são
+`373_comunicados_anexos.sql` cria templates e bucket privado; a migration
+`375_comunicados_bloco2_correcoes.sql` fecha a escrita direta do Storage e cria
+modelos institucionais reutilizáveis; anexos são
 limitados a três arquivos e 10 MB e não são aceitos em cobrança local ou
 demurrage. **Código**; **Teste de contrato SQL:**
 `comunicadosAnexosMigration.test.ts` e

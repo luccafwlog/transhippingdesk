@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { useAppSettings } from '../hooks/useAppSettings'
-import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useDispatchCustomerCommunication } from '../hooks/useCustomerCommunications'
+import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate } from '../hooks/useCustomerCommunications'
 import {
   DEFAULT_CUSTOMER_COMMUNICATION_FILTERS,
   CUSTOMER_COMMUNICATION_NATURES,
@@ -74,9 +74,12 @@ export function ClientesComunicacao() {
   const [dispatchMessage, setDispatchMessage] = useState<string | null>(null)
   const [dispatchError, setDispatchError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [templateName, setTemplateName] = useState('')
   const { data: settings } = useAppSettings()
   const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, enabled: conferenceRequested })
   const historyQuery = useCustomerCommunicationHistory()
+  const savedTemplatesQuery = useCustomerCommunicationSavedTemplates()
+  const saveTemplateMutation = useSaveCustomerCommunicationSavedTemplate()
   const dispatchMutation = useDispatchCustomerCommunication()
   const conference = conferenceQuery.data
   const tab: CommunicationTab = searchParams.get('tab') === 'historico' ? 'historico' : 'disparo'
@@ -135,6 +138,29 @@ export function ClientesComunicacao() {
     if (nextTab === 'historico') next.set('tab', 'historico')
     else next.delete('tab')
     setSearchParams(next, { replace: true })
+  }
+
+  function applySavedTemplate(templateId: string) {
+    const template = savedTemplatesQuery.data?.find((item) => String(item.id) === templateId)
+    if (!template) return
+    setInstitutionalSubject(template.subject)
+    setInstitutionalBody(template.body)
+    setDispatchMessage(null)
+  }
+
+  async function saveCurrentTemplate() {
+    if (!templateName.trim() || !institutionalSubject.trim() || !institutionalBody.trim()) {
+      setDispatchError('Informe nome, assunto e mensagem para salvar o modelo.')
+      return
+    }
+    setDispatchError(null)
+    try {
+      await saveTemplateMutation.mutateAsync({ name: templateName, subject: institutionalSubject, body: institutionalBody })
+      setTemplateName('')
+      setDispatchMessage('Modelo institucional salvo.')
+    } catch (error) {
+      setDispatchError(error instanceof Error ? error.message : 'Falha ao salvar o modelo.')
+    }
   }
 
   function toggleRow(key: string) {
@@ -324,6 +350,20 @@ export function ClientesComunicacao() {
                   <Field label="Mensagem" required>
                     <Textarea rows={5} value={institutionalBody} onChange={(event) => { setInstitutionalBody(event.target.value); setDispatchMessage(null) }} placeholder="Escreva a mensagem para os clientes selecionados." />
                   </Field>
+                  {kind === 'institucional' ? (
+                    <div className="flex flex-wrap items-end gap-2">
+                      <Field label="Modelo salvo">
+                        <Select defaultValue="" onChange={(event) => applySavedTemplate(event.target.value)}>
+                          <option value="">Selecionar modelo...</option>
+                          {(savedTemplatesQuery.data ?? []).map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                        </Select>
+                      </Field>
+                      <Field label="Nome do novo modelo">
+                        <Input value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Ex.: Aviso de recesso" />
+                      </Field>
+                      <Button type="button" variant="secondary" loading={saveTemplateMutation.isPending} onClick={() => void saveCurrentTemplate()}>Salvar modelo</Button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 

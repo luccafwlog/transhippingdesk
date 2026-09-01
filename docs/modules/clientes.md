@@ -52,7 +52,7 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 
 `src/pages/ClientesComunicacao.tsx` mantém as abas de disparo e histórico. O modo **Carga** exige ao menos um filtro operacional (navio, viagem, escala, POD ou POL); CNPJ é restrição adicional. O modo **Institucional** seleciona o Cliente Comunicável por CNPJ e por B/L com ETA desde doze meses atrás, sem limite superior para datas futuras. A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita para reenvios.
 
-O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend.
+O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend. Modelos institucionais reutilizáveis são salvos pela RPC `save_customer_communication_saved_template`; o bucket de anexos permanece privado e sem escrita direta pelo navegador (`supabase/migrations/375_comunicados_bloco2_correcoes.sql`).
 
 O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`.
 
@@ -101,7 +101,8 @@ O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `custom
 | `customer_contacts` | Contatos do cliente | Finalidade aceita: `geral`, `operacional`, `faturamento`, `financeiro`. |
 | `customer_portal_accounts` | Conta técnica do Portal | Relaciona cliente a `auth.users` por `auth_user_id`; `active` não substitui o vínculo Auth. |
 | `customer_communications` | Trilha de Comunicados | Âncoras e snapshots preservam o contexto do envio; comunicado institucional não possui vínculo B/L. Status `simulado` não encerra alerta operacional. |
-| `customer_communication_templates` | Modelos server-side | Um modelo ativo por tipo; leitura autenticada, escrita somente por `service_role`. |
+| `customer_communication_templates` | Modelos server-side fixos | Um modelo ativo por tipo; leitura autenticada, escrita somente por `service_role`. |
+| `customer_communication_saved_templates` | Modelos institucionais reutilizáveis | Leitura interna; criação somente pela RPC autorizada. |
 
 O saldo da lista não usa `customers.pending_balance`: `fetchIssuedInvoiceBalanceByCustomer` percorre invoices `issued`. A ficha aplica a mesma noção sobre as invoices que conseguiu ler. Dados de matching ficam em quatro mapas em memória, carregados em páginas de 1.000 registros por `loadCustomerMaps`.
 
