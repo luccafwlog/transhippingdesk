@@ -1992,6 +1992,32 @@ export type Database = {
         }
         Relationships: []
       }
+      demurrage_dunning_claims: {
+        Row: {
+          attempt_discriminator: number
+          claimed_at: string
+          demurrage_invoice_id: number
+        }
+        Insert: {
+          attempt_discriminator: number
+          claimed_at?: string
+          demurrage_invoice_id: number
+        }
+        Update: {
+          attempt_discriminator?: number
+          claimed_at?: string
+          demurrage_invoice_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demurrage_dunning_claims_demurrage_invoice_id_fkey"
+            columns: ["demurrage_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "demurrage_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demurrage_invoice_history: {
         Row: {
           created_at: string
@@ -4817,6 +4843,10 @@ export type Database = {
         Args: { p_actor?: string; p_bl_id: string; p_recalculate?: boolean }
         Returns: Json
       }
+      claim_demurrage_dunning_candidates: {
+        Args: { p_as_of?: string }
+        Returns: Json
+      }
       can_edit_customers: { Args: never; Returns: boolean }
       can_edit_depots: { Args: never; Returns: boolean }
       can_edit_voyages: { Args: never; Returns: boolean }
@@ -6116,6 +6146,7 @@ export type InvoiceGraniteBlLink = Tables<'invoice_granite_bls'>
 export type DemurrageInvoice = Omit<Tables<'demurrage_invoices'>, 'roe_source'> & {
   roe_source: RoeSource | null
 }
+export type DemurrageDunningClaim = Tables<'demurrage_dunning_claims'>
 export type DemurrageInvoiceItem = Tables<'demurrage_invoice_items'>
 export type DemurrageInvoiceHistory = Tables<'demurrage_invoice_history'>
 export type DemurrageRate = Tables<'demurrage_rates'>

@@ -16,9 +16,10 @@ type Props = { invoice: InvoiceListRow }
 function statusText(status: CustomerVoyageCommunicationStatus['latest']): string {
   if (!status) return 'Aguardando envio automático'
   const when = formatCommunicationDateTime(status.createdAt)
-  if (status.status === 'enviado') return `Enviado automaticamente em ${when}`
-  if (status.status === 'simulado') return `Registrado em simulação em ${when}`
-  if (status.status === 'falha') return `Falha no envio em ${when}`
+  const action = status.attemptDiscriminator === 0 ? 'Enviado automaticamente' : 'Reenviado manualmente'
+  if (status.status === 'enviado') return `${action} em ${when}`
+  if (status.status === 'simulado') return `${action} em simulação em ${when}`
+  if (status.status === 'falha') return `Falha no ${status.attemptDiscriminator === 0 ? 'envio automático' : 'reenvio manual'} em ${when}`
   return `Status do comunicado: ${status.status}`
 }
 
