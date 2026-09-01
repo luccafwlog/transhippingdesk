@@ -41,6 +41,21 @@ distintos para a mesma decisão, sem que a diferença seja visível a quem clica
   registro e como fonte do que a Validação exibe; o que sai é a decisão sobre ela
   a partir daquela tela.
 
+## Nota editorial — 2026-09-01
+
+A decisão está executada. A condição que ela impunha para a remoção dos botões
+foi cumprida antes dela: a migration `370` (issue #639, item 1) deu à Revisão o
+efeito completo — vincular o cliente **e** capturar o e-mail do manifesto como
+contato financeiro, pela mesma função que o Aprovar da Validação usava
+(`capture_manifest_financial_contact`), com `approved_by` registrando o revisor.
+O endereçamento por B/L (`/revisao?bl=`, item 2) saiu antes, na #640.
+
+Com isso a expansão da Validação perdeu Aprovar/Rejeitar e passou a exibir a
+conciliação com um link para a Revisão. Os wrappers de cliente das RPCs
+`approve_customer_reconciliation` e `reject_customer_reconciliation` saíram
+junto; as RPCs seguem no banco como registro e caminho do histórico, sem
+consumidor no cliente.
+
 ## Relação com decisões anteriores
 
 Estende a ADR 0006 (Revisão e reconciliação como gate financeiro), tornando

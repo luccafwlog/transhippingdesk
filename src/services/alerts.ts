@@ -262,6 +262,14 @@ export function alertEntityLink(alert: {
     return `/manifestos/${encodeURIComponent(alert.entity_id)}?tab=faturamento`
   }
   if (effectiveType === 'review_portal_not_ready') {
+    // A 364 consolidou este alerta por cliente (`entity_type = 'customer'`), e o
+    // detector resolve em varredura os legados por B/L da 337. Enquanto algum
+    // legado seguir ativo, o `entity_id` e um id de B/L: mandá-lo como
+    // `?cliente=` apontaria para um cliente inexistente. Cada forma vai para a
+    // tela onde de fato se resolve.
+    if (alert.entity_type === 'bl') {
+      return `/revisao?bl=${encodeURIComponent(alert.entity_id)}`
+    }
     return alert.entity_id
       ? `/clientes/portal?cliente=${encodeURIComponent(alert.entity_id)}`
       : '/clientes/portal'

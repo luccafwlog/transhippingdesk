@@ -882,3 +882,60 @@ async function runBatch<T>(blIds: string[], worker: (blId: string) => Promise<T>
     errors,
   }
 }
+
+export type InvoicedBlSubtotal = { totalBrl: number; totalUsd: number | null }
+
+// O que a fatura congelou para ESTE B/L. A migration 261 passou a gravar o
+// detalhamento na emissão justamente para que recálculo posterior não mude o
+// que o cliente já viu — e a regra de lá tem um caso que diverge do cálculo:
+// na consolidação, quando a soma dos itens não bate com o saldo do B/L, a
+// fatura guarda UMA linha agregada em vez do detalhamento. A conferência
+// compara com este número para não exibir um total diferente do cobrado sem
+// dizer nada.
+//
+// Duas formas, porque faturas individuais/Granito vinculam por `invoice_bls` e
+// consolidadas por `invoice_receivable_links` (esta sem coluna em USD).
+export async function getInvoicedSubtotalForBl(blId: string): Promise<InvoicedBlSubtotal | null> {
+  const id = blId.trim().toUpperCase()
+  if (!id) return null
+
+  const ativa = (status: string | null | undefined) =>
+    Boolean(status) && !['cancelled', 'obsolete'].includes(String(status))
+
+  try {
+    const { data: diretos, error: erroDiretos } = await supabase
+      .from('invoice_bls')
+      .select('subtotal_brl, subtotal_usd, invoice:invoices(status)')
+      .eq('bl_id', id)
+
+    if (erroDiretos) throw erroDiretos
+
+    const direto = (diretos ?? []).find((row) => ativa((row.invoice as { status?: string | null } | null)?.status))
+    if (direto) {
+      return { totalBrl: Number(direto.subtotal_brl ?? 0), totalUsd: Number(direto.subtotal_usd ?? 0) }
+    }
+
+    const { data: consolidados, error: erroConsolidados } = await supabase
+      .from('invoice_receivable_links')
+      .select('subtotal_brl, status, invoice:invoices(status)')
+      .eq('bl_id', id)
+
+    if (erroConsolidados) throw erroConsolidados
+
+    const consolidado = (consolidados ?? []).find(
+      (row) => row.status !== 'obsolete' && ativa((row.invoice as { status?: string | null } | null)?.status),
+    )
+    if (consolidado) {
+      // Sem coluna em USD nesta forma: o `null` diz "não sei", que é diferente
+      // de "zero" e impede um alarme falso na comparação.
+      return { totalBrl: Number(consolidado.subtotal_brl ?? 0), totalUsd: null }
+    }
+
+    return null
+  } catch (error) {
+    // Sem permissão de leitura da fatura, a conferência segue mostrando o
+    // cálculo: perder o aviso é aceitável, quebrar a tela não é.
+    if (classifyDbError(error).kind === 'permissao') return null
+    throw error
+  }
+}

@@ -101,3 +101,32 @@ export function sumChargeLines(lines: LocalChargeLine[]) {
     { totalBrl: 0, totalUsd: 0 },
   )
 }
+
+// Divergência entre o que a conferência soma (charge_calculations, congelado
+// para B/L faturado: `calculate_bl_local_charges` recusa recálculo em
+// invoiced/partially_paid/paid) e o que a fatura registrou para o B/L.
+//
+// Elas divergem num caso real: na consolidação, quando a soma dos itens não
+// bate com o saldo do B/L, a migration 261 congela UMA linha agregada. Aí a
+// tela mostra o detalhamento e a fatura cobrou outro número — e o operador que
+// abriu a conferência para conferir a fatura precisa saber disso.
+//
+// Tolerância de um centavo: os dois lados são NUMERIC(14,2) somados em pontos
+// diferentes, e igualdade exata de ponto flutuante acusaria diferença que não
+// existe.
+const TOLERANCIA_BRL = 0.01
+
+export function detectarDivergenciaComFatura(
+  calculado: { totalBrl: number; totalUsd: number },
+  faturado: { totalBrl: number; totalUsd: number | null } | null,
+) {
+  if (!faturado) return null
+
+  const difBrl = Math.abs(calculado.totalBrl - faturado.totalBrl)
+  // `null` em USD é "a fatura não registra USD nesta forma", não "zero".
+  const difUsd = faturado.totalUsd == null ? 0 : Math.abs(calculado.totalUsd - faturado.totalUsd)
+
+  if (difBrl <= TOLERANCIA_BRL && difUsd <= TOLERANCIA_BRL) return null
+
+  return { calculado, faturado }
+}

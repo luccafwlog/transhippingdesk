@@ -32,15 +32,11 @@ export function ValidacaoOperationsTable({
   areAllRowsSelected,
   expandedBlId,
   reconciliationQueue,
-  approvePending,
-  rejectPending,
   onToggleAllRows,
   onToggleRow,
   onToggleExpandedRow,
   onIssueSingleInvoice,
   onRecalculateRow,
-  onApproveQueueItem,
-  onRejectQueueItem,
 }: {
   rows: LocalChargeOperationalRow[]
   isLoading: boolean
@@ -49,15 +45,11 @@ export function ValidacaoOperationsTable({
   areAllRowsSelected: boolean
   expandedBlId: string | null
   reconciliationQueue: ReconciliationQueueItem[]
-  approvePending: boolean
-  rejectPending: boolean
   onToggleAllRows: () => void
   onToggleRow: (blId: string) => void
   onToggleExpandedRow: (blId: string) => void
   onIssueSingleInvoice: (row: LocalChargeOperationalRow) => void
   onRecalculateRow?: (row: LocalChargeOperationalRow) => void
-  onApproveQueueItem: (queueId: number, customerId?: number | null) => void
-  onRejectQueueItem: (queueId: number) => void
 }) {
   return (
     <Card className="overflow-hidden p-0">
@@ -241,7 +233,7 @@ export function ValidacaoOperationsTable({
                                   <div className="whitespace-normal text-[var(--app-text-strong)]">
                                     {queueItem.customer_id
                                       ? (queueItem.current_customer_name ?? 'Cliente sem nome cadastrado')
-                                      : 'Nenhum cliente sugerido — cadastre o cliente para aprovar.'}
+                                      : 'Nenhum cliente sugerido — cadastre o cliente na Revisão.'}
                                   </div>
                                 </div>
                                 <div>
@@ -249,25 +241,17 @@ export function ValidacaoOperationsTable({
                                   <div>{renderDetectionType(queueItem.detection_type)}</div>
                                 </div>
                               </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => onApproveQueueItem(queueItem.id, queueItem.customer_id)}
-                                  loading={approvePending}
-                                  disabled={!queueItem.customer_id || rejectPending}
-                                  title={!queueItem.customer_id ? 'Sem cliente sugerido: cadastre e vincule o cliente antes de aprovar.' : undefined}
-                                >
-                                  Aprovar
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => onRejectQueueItem(queueItem.id)}
-                                  loading={rejectPending}
-                                  disabled={approvePending}
-                                >
-                                  Rejeitar
-                                </Button>
-                              </div>
+                              {/* ADR 0061: a conciliacao tem casa unica, a Revisao. Esta fila
+                                  exibe o estado e aponta para la; nao decide. A Revisao produz
+                                  o efeito completo (vinculo + captura do contato do manifesto,
+                                  migration 370), que era o que faltava para remover os botoes
+                                  daqui sem perder capacidade. */}
+                              <Link
+                                className="app-table__action"
+                                to={`/revisao?bl=${encodeURIComponent(row.id)}`}
+                              >
+                                Vincular cliente na Revisão →
+                              </Link>
                             </div>
                           ) : reconciliationPending ? (
                             <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">

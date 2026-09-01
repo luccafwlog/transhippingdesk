@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applicationBasisLabel, groupChargeLinesByTable, sumChargeLines } from '../conferenciaCalculo'
+import { applicationBasisLabel, detectarDivergenciaComFatura, groupChargeLinesByTable, sumChargeLines } from '../conferenciaCalculo'
 import type { LocalChargeLine } from '../../../services/charges/chargeOperationsService'
 
 const base: LocalChargeLine = {
@@ -112,5 +112,37 @@ describe('base de aplicação', () => {
     expect(applicationBasisLabel('per_teu')).toBe('per teu')
     expect(applicationBasisLabel(null)).toBeNull()
     expect(applicationBasisLabel('  ')).toBeNull()
+  })
+})
+
+// A 261 congela o detalhamento na emissao; na consolidacao, quando a soma nao
+// bate com o saldo do B/L, ela guarda UMA linha agregada. E o caso em que a
+// conferencia e a fatura mostram numeros diferentes para o mesmo B/L.
+describe('divergência entre o cálculo e o que a fatura registrou', () => {
+  it('acusa quando o total do cálculo difere do congelado na fatura', () => {
+    const divergencia = detectarDivergenciaComFatura({ totalBrl: 1890, totalUsd: 0 }, { totalBrl: 1500, totalUsd: null })
+    expect(divergencia).not.toBeNull()
+    expect(divergencia?.faturado.totalBrl).toBe(1500)
+  })
+
+  it('fica calado quando os dois lados batem', () => {
+    expect(detectarDivergenciaComFatura({ totalBrl: 1890, totalUsd: 0 }, { totalBrl: 1890, totalUsd: null })).toBeNull()
+  })
+
+  // Os dois lados sao NUMERIC(14,2) somados em pontos diferentes: exigir
+  // igualdade exata acusaria diferenca que nao existe.
+  it('tolera diferença de um centavo, mas não de dois', () => {
+    expect(detectarDivergenciaComFatura({ totalBrl: 1890.01, totalUsd: 0 }, { totalBrl: 1890, totalUsd: null })).toBeNull()
+    expect(detectarDivergenciaComFatura({ totalBrl: 1890.02, totalUsd: 0 }, { totalBrl: 1890, totalUsd: null })).not.toBeNull()
+  })
+
+  // Consolidada nao tem coluna em USD: `null` e "nao sei", nao "zero".
+  it('não acusa divergência em USD quando a fatura não registra USD', () => {
+    expect(detectarDivergenciaComFatura({ totalBrl: 100, totalUsd: 40 }, { totalBrl: 100, totalUsd: null })).toBeNull()
+    expect(detectarDivergenciaComFatura({ totalBrl: 100, totalUsd: 40 }, { totalBrl: 100, totalUsd: 25 })).not.toBeNull()
+  })
+
+  it('não acusa nada quando o B/L não tem fatura', () => {
+    expect(detectarDivergenciaComFatura({ totalBrl: 1890, totalUsd: 0 }, null)).toBeNull()
   })
 })

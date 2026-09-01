@@ -93,6 +93,33 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - A planilha aceita as sete colunas operacionais; container repetido, local/condição inválidos ou datas incompatíveis recusam o lote inteiro antes da substituição. Inclusão manual cria manifesto e unidade na mesma RPC; regras de local e datas devolvem mensagem de validação segura para a tela.
 - `/vazios` é apenas redirect de compatibilidade para esta rota.
 
+## Contato do manifesto na importação
+
+O e-mail do consignatário que vem no documento do B/L é capturado como contato
+**financeiro** do cliente na própria importação, pela mesma função única que a
+Revisão e o Aprovar da Validação usam (`capture_manifest_financial_contact`,
+migration `370`). A captura acontece em `apply_bl_review_gate_after_import`
+(migration `371`), que é o pós-processamento comum aos dois caminhos de
+importação vivos — o de documento do B/L e o de carga solta.
+
+Ela roda **antes** do laço de pendências, e não dentro dele: o laço faz
+`CONTINUE` para B/L sem pendência, que é exatamente o caso do vínculo
+automático por CNPJ (`matched_document`). Esse B/L nunca chega à Revisão, então
+a importação é a única oportunidade de registrar o contato — e sem contato
+nenhum na ficha, `notify-invoice-issued` não tem para quem enviar e o aviso da
+fatura não sai.
+
+Duas notas de estado:
+
+- **Carga solta não tem e-mail para capturar.** O layout de planilha aceito
+  pelo parser de breakbulk não possui coluna de e-mail; `manifest_customer_email`
+  vai nulo porque não há valor na origem, não por descarte. Se o layout ganhar a
+  coluna, a captura passa a valer sem mudança no banco.
+- **`import_manifest_with_postprocess_transactional` está sem chamador.** Era
+  ela quem capturava o contato (via `p_contact_emails`) antes de a importação
+  migrar para o caminho do documento do B/L; segue no banco, sem consumidor no
+  aplicativo. A regressão que isso causou é o que a `371` corrige.
+
 ## Catálogo de ações
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |

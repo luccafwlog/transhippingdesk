@@ -93,6 +93,32 @@ como segunda entrada operacional. A seção permite:
 
 ### `/demurrage/taxas`
 
+### Acordo de Demurrage do cliente
+
+`customer_demurrage_agreements` (migration `366`) guarda free time e tarifas
+P1/P2 negociados por cliente, com vigência (`valid_from`/`valid_to`). Duas
+regras de leitura, ambas com uma armadilha já corrigida:
+
+- **A escolha é por data de descarga, não por cliente.** Um cliente pode ter
+  mais de um acordo ativo (o vencido e o vigente). Guardar "o acordo do cliente"
+  antes de olhar a data fazia o vencido mascarar o vigente e a cobrança cair na
+  tabela padrão. A escolha vive em `selectAgreementForDischargeDate`, usada pela
+  ficha do B/L e pelo import de datas de container, com a lista ordenada por
+  vigência decrescente para que o mais recente vença em sobreposição.
+- **Sem cliente vinculado não há acordo.** `listCustomerDemurrageAgreements` só
+  filtra por cliente quando recebe um id — "sem `customerId`" significa "todos",
+  porque a aba de acordos lista tudo de propósito. Por isso quem pergunta pelos
+  acordos **de um** cliente passa `enabled` ao hook: sem esse guard, um B/L sem
+  cliente recebia todos os acordos ativos e aplicava, pela data, o acordo
+  negociado de outro cliente.
+
+O free time do acordo move o **início** da cobrança; a faixa P1 continua sendo o
+intervalo de dias do grupo em `demurrage_rates`. Free time negociado além do fim
+da faixa P1 significa, por definição, que não há dias em P1 — a cobrança começa
+direto em P2, sem que dias livres virem P2
+([`calculateDemurrage.test.ts`](../../src/services/demurrage/__tests__/calculateDemurrage.test.ts)
+cobre os dois casos).
+
 [`src/pages/DemurrageRates.tsx`](../../src/pages/DemurrageRates.tsx) lista
 `demurrage_rates` por tipo de equipamento, free days, faixas P1/P2, vigência e
 estado ativo. Usuários ativos podem ler; a UI e a policy

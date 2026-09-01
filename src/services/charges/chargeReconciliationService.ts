@@ -31,38 +31,7 @@ export async function listCustomerReconciliationQueue(status?: '' | 'pending' | 
   return (data ?? []) as CustomerReconciliationQueueRow[]
 }
 
-export async function approveCustomerReconciliation(
-  queueId: number,
-  input?: {
-    customerId?: number | null
-    notes?: string | null
-    actorId?: string | null
-  },
-) {
-  const { data, error } = await supabase.rpc('approve_customer_reconciliation', {
-    p_queue_id: queueId,
-    ...(input?.customerId == null ? {} : { p_customer_id: input.customerId }),
-    ...(input?.notes == null ? {} : { p_notes: input.notes }),
-    ...(input?.actorId == null ? {} : { p_actor: input.actorId }),
-  })
-
-  if (error) throw error
-  return data
-}
-
-export async function rejectCustomerReconciliation(
-  queueId: number,
-  input?: {
-    notes?: string | null
-    actorId?: string | null
-  },
-) {
-  const { data, error } = await supabase.rpc('reject_customer_reconciliation', {
-    p_queue_id: queueId,
-    ...(input?.notes == null ? {} : { p_notes: input.notes }),
-    ...(input?.actorId == null ? {} : { p_actor: input.actorId }),
-  })
-
-  if (error) throw error
-  return data
-}
+// ADR 0061: a conciliacao de cliente e decidida na Revisao. Os wrappers de
+// `approve_customer_reconciliation`/`reject_customer_reconciliation` sairam com
+// os botoes da Validacao (issue #639); as RPCs seguem no banco como registro e
+// como caminho do historico, sem consumidor no cliente.

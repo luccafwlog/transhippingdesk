@@ -21,6 +21,19 @@ describe('alertEntityLink & alertEntityLinkLabel — roteador de destino compart
     expect(link).toBe('/clientes/portal?cliente=cust-456')
   })
 
+  // A 364 consolidou o alerta de portal por cliente; o detector varre os
+  // legados por B/L da 337, mas enquanto algum seguir ativo o entity_id e um
+  // id de B/L e mandá-lo como ?cliente= apontaria para cliente inexistente.
+  it('roteia review_portal_not_ready por cliente para o Portal e o legado por B/L para a Revisão', () => {
+    expect(
+      alertEntityLink({ type: 'review_portal_not_ready', entity_type: 'customer', entity_id: '42' }),
+    ).toBe('/clientes/portal?cliente=42')
+
+    expect(
+      alertEntityLink({ type: 'review_portal_not_ready', entity_type: 'bl', entity_id: 'BL12345' }),
+    ).toBe('/revisao?bl=BL12345')
+  })
+
   it('roteia voyage_pod_schedule com escala', () => {
     const link = alertEntityLink({
       type: 'voyage_schedule_date_pending',

@@ -2,6 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { asString } from '../lib/utils'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 import { supabase } from './supabase'
+import { selectAgreementForDischargeDate } from './demurrage/customerDemurrageAgreements'
 import { calculateDemurrage, ensureDemurrageRatesLoaded } from './demurrage/demurrageRates'
 import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
 
@@ -60,7 +61,15 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
   const blOverrides = new Map(bls?.map((b) => [b.id, b]) ?? [])
   const customerIds = [...new Set((bls ?? []).map((b) => b.customer_id).filter((id): id is number => typeof id === 'number'))]
-  const customerAgreements = new Map<number, import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement>()
+  // Todos os acordos ativos de cada cliente, e nao um por cliente: guardar
+  // apenas o primeiro que a consulta devolvesse podia guardar um acordo vencido
+  // (a consulta nao ordenava), e a validacao por data logo abaixo o descartaria,
+  // fazendo o import cobrar pela tabela padrao apesar de existir acordo vigente.
+  // A escolha correta depende da data de descarga de CADA container, entao ela
+  // acontece na hora de calcular, nao aqui. Ordenado por vigencia decrescente,
+  // como `findActiveAgreementForCustomer` ja fazia, para que o mais recente
+  // venca quando dois periodos se sobrepoem.
+  const customerAgreements = new Map<number, import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement[]>()
 
   if (customerIds.length > 0) {
     const { data: agreements } = await supabase
@@ -68,10 +77,12 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
       .select('*')
       .in('customer_id', customerIds)
       .eq('active', true)
+      .order('valid_from', { ascending: false })
+      .order('id', { ascending: false })
     for (const a of (agreements ?? []) as unknown as import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement[]) {
-      if (!customerAgreements.has(a.customer_id)) {
-        customerAgreements.set(a.customer_id, a)
-      }
+      const doCliente = customerAgreements.get(a.customer_id)
+      if (doCliente) doCliente.push(a)
+      else customerAgreements.set(a.customer_id, [a])
     }
   }
 
@@ -100,10 +111,8 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     if (sameDischarge && sameReturn) { unchanged += 1; continue }
 
     const bl = blOverrides.get(row.bl_id)
-    const agreement = bl?.customer_id ? customerAgreements.get(bl.customer_id) : null
-    const validAgreement = agreement && row.discharge_date >= agreement.valid_from && (!agreement.valid_to || row.discharge_date <= agreement.valid_to)
-      ? agreement
-      : null
+    const doCliente = bl?.customer_id ? (customerAgreements.get(bl.customer_id) ?? []) : []
+    const validAgreement = selectAgreementForDischargeDate(doCliente, row.discharge_date)
 
     if (!row.return_date && !demurrageRatesLoaded) {
       await ensureDemurrageRatesLoaded()
