@@ -3,11 +3,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import type { LocalChargeLine } from '../../../services/charges/chargeOperationsService'
+
+// A expansao passou a montar a conferencia de calculo, que le as linhas pelo
+// hook. O teste controla essa fonte para exercitar a tela, nao a rede.
+const chargeLinesState = { data: [] as LocalChargeLine[], isLoading: false, isError: false }
+vi.mock('../../../hooks/useLocalCharges', () => ({
+  useBlLocalChargeLines: () => chargeLinesState,
+}))
+
 import { ValidacaoOperationsTable } from '../ValidacaoOperationsTable'
 import { calloutTitle, describeLastEvent } from '../validacaoDetalhes'
 import type { LocalChargeOperationalRow } from '../../../services/charges/chargeOperationsService'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  chargeLinesState.data = []
+  chargeLinesState.isLoading = false
+  chargeLinesState.isError = false
+})
 
 const row: LocalChargeOperationalRow = {
   id: 'BL-001',
@@ -202,6 +216,77 @@ describe('links de resolução da pendência', () => {
     })
     expect(screen.getByText('Portal não provisionado')).toBeTruthy()
     expect(screen.queryByRole('link', { name: /Provisionar portal/ })).toBeNull()
+  })
+})
+
+describe('conferência de cálculo na expansão', () => {
+  const chargeLine = {
+    id: 1,
+    bl_id: 'BL-001',
+    charge_table_id: 10,
+    charge_item_id: 100,
+    charge_name: 'THC',
+    charge_table_name: 'Taxas Locais — Salvador',
+    charge_table_pod: 'BRSSA',
+    application_basis: 'per_container',
+    source: 'auto',
+    status: 'calculated',
+    quantity: 2,
+    currency: 'BRL',
+    unit_value_brl: 945,
+    unit_value_usd: null,
+    total_value_brl: 1890,
+    total_value_usd: null,
+    override_applied: false,
+    calculation_key: null,
+    notes: null,
+    review_reason: null,
+    calculated_at: null,
+  } as LocalChargeLine
+
+  // A decisao da issue #583: a expansao mostra o calculo E a tabela usada, e
+  // nasce aberta — quem expande esta ali para conferir.
+  it('nomeia a tabela usada, o porto de descarga e os itens do cálculo', () => {
+    chargeLinesState.data = [chargeLine]
+    renderTable({ expandedBlId: 'BL-001' })
+
+    expect(screen.getByText('Conferência de cálculo')).toBeTruthy()
+    expect(screen.getByText('Taxas Locais — Salvador')).toBeTruthy()
+    expect(screen.getByText('Descarga em SALVADOR')).toBeTruthy()
+    expect(screen.getByText('THC')).toBeTruthy()
+    expect(screen.getByText('por container')).toBeTruthy()
+  })
+
+  it('mostra o LOCODE traduzido no trecho do B/L', () => {
+    renderTable({ expandedBlId: 'BL-001' })
+    expect(screen.getByText('VITORIA → SALVADOR')).toBeTruthy()
+  })
+
+  it('marca como anomalia a linha automática sem tabela vinculada', () => {
+    chargeLinesState.data = [{ ...chargeLine, charge_table_id: null, charge_table_name: null, charge_table_pod: null }]
+    renderTable({ expandedBlId: 'BL-001' })
+
+    expect(screen.getByText('Sem tabela vinculada')).toBeTruthy()
+    expect(screen.getByText('Anomalia')).toBeTruthy()
+  })
+
+  it('diz que as linhas compuseram a fatura quando o B/L já está faturado', () => {
+    chargeLinesState.data = [chargeLine]
+    renderTable({ rows: [{ ...row, financial_status: 'invoiced' }], expandedBlId: 'BL-001' })
+    expect(screen.getByText('Linhas que compuseram a fatura emitida.')).toBeTruthy()
+  })
+
+  it('orienta o recálculo quando não há linha nenhuma', () => {
+    renderTable({ expandedBlId: 'BL-001' })
+    expect(screen.getByText(/Nenhuma linha de taxa calculada/)).toBeTruthy()
+  })
+
+  // Granito entrega conferencia de quantidades e nao participa da emissao:
+  // conferir tabela de cobranca ali seria inventar cobranca que nao existe.
+  it('não monta a conferência para Granito', () => {
+    chargeLinesState.data = [chargeLine]
+    renderTable({ rows: [{ ...row, cargo_mode: 'granito' }], expandedBlId: 'BL-001' })
+    expect(screen.queryByText('Conferência de cálculo')).toBeNull()
   })
 })
 

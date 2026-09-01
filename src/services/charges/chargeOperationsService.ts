@@ -5,12 +5,18 @@ import { isBlFinanciallyLocked } from '../../lib/chargeStatus'
 
 const OPERATIONAL_PAGE_SIZE = 1000
 
-type LocalChargeLine = {
+export type LocalChargeLine = {
   id: number
   bl_id: string
   charge_table_id: number | null
   charge_item_id: number | null
   charge_name: string
+  // Migration 369: a linha diz de qual tabela de cobranca veio e sob qual base
+  // foi aplicada. `charge_tables` e admin-only sob RLS, entao sem estas colunas
+  // a tela nao tem como nomear a tabela usada no calculo.
+  charge_table_name: string | null
+  charge_table_pod: string | null
+  application_basis: string | null
   source: 'auto' | 'manual' | null
   status: 'calculated' | 'review_required' | 'reviewed' | 'ready_for_billing' | 'exempt' | null
   quantity: number | null

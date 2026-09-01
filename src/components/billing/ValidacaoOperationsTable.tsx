@@ -6,9 +6,11 @@ import { Button } from '../ui/Button'
 import { Card, EmptyState, InlineError } from '../ui/Card'
 import { useBlLocalChargeLines } from '../../hooks/useLocalCharges'
 import { formatBRL, formatCnpjCpf, formatDateTime, formatUSD } from '../../lib/utils'
+import { formatPortDisplayName } from '../../lib/voyageFormat'
 import { isChargeReady } from '../../lib/chargeStatus'
 import { isCustomerReconciliationResolved } from '../../services/customerReconciliation'
 import type { LocalChargeOperationalRow } from '../../services/charges/chargeOperationsService'
+import { ConferenciaCalculo } from './ConferenciaCalculo'
 import { getBillingBlock, isBlLockedForRecalc } from './validacaoPipeline'
 import { calloutTitle, calloutTone, describeLastEvent } from './validacaoDetalhes'
 
@@ -162,7 +164,7 @@ export function ValidacaoOperationsTable({
                             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                               <div>
                                 <div className="text-[var(--app-muted)]">Trecho</div>
-                                <div className="text-[var(--app-text-strong)]">{row.pol ?? '-'} → {row.pod ?? '-'}</div>
+                                <div className="text-[var(--app-text-strong)]">{formatPortDisplayName(row.pol)} → {formatPortDisplayName(row.pod)}</div>
                               </div>
                               <div>
                                 <div className="text-[var(--app-muted)]">CE Mercante</div>
@@ -219,6 +221,9 @@ export function ValidacaoOperationsTable({
                               </Link>
                             </div>
                           </div>
+                          {row.cargo_mode === 'granito' ? null : (
+                            <ConferenciaCalculo blId={row.id} financialStatus={row.financial_status} />
+                          )}
                           {reconciliationPending && queueItem ? (
                             <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
                               <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-amber-700">Conciliação pendente</div>

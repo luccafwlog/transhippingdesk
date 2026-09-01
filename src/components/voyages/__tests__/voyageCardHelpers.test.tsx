@@ -54,7 +54,7 @@ describe('collectVoyageManifestBatchRows', () => {
       routeKey: 'CNTAC__BRVIX',
       pol: 'CNTAC',
       pod: 'BRVIX',
-      routeLabel: 'TAICANG -> BRVIX',
+      routeLabel: 'TAICANG -> VITORIA',
       modeLabel: 'CNTR',
       batchIds: [],
       etd: '2026-07-15',
@@ -89,7 +89,7 @@ describe('collectVoyageManifestBatchRows', () => {
 
     expect(rows[0]).toMatchObject({
       routeKey: 'CNTAC__BRVIX',
-      routeLabel: 'TAICANG → BRVIX → BRSSZ',
+      routeLabel: 'TAICANG → VITORIA → SANTOS',
       omission: { omittedPod: 'BRVIX', dischargePod: 'BRSSZ' },
     })
   })
@@ -286,7 +286,7 @@ describe('VoyageManifestosTab', () => {
       </MemoryRouter>,
     )
 
-    const button = screen.getByRole('button', { name: 'Informar CE Master de TAICANG -> BRVIX' })
+    const button = screen.getByRole('button', { name: 'Informar CE Master de TAICANG -> VITORIA' })
     fireEvent.click(button)
 
     expect(onEditPol).toHaveBeenCalledTimes(1)
@@ -330,10 +330,10 @@ describe('VoyageManifestosTab', () => {
 
     expect(screen.getByText('VAZIOS')).toBeTruthy()
     expect(screen.getByText('5 cntr')).toBeTruthy()
-    const link = screen.getByRole('link', { name: 'TAICANG -> BRVIX' })
+    const link = screen.getByRole('link', { name: 'TAICANG -> VITORIA' })
     expect(link.getAttribute('href')).toBe('/vazios-importacao?voyage=14&pod=BRVIX')
 
-    const button = screen.getByRole('button', { name: 'Informar CE Master de TAICANG -> BRVIX' })
+    const button = screen.getByRole('button', { name: 'Informar CE Master de TAICANG -> VITORIA' })
     fireEvent.click(button)
 
     expect(onEditPol).toHaveBeenCalledWith({
