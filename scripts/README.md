@@ -294,6 +294,31 @@ colocada em `VITE_*` ou no repositório.
 
 ---
 
+## 12. Reconstruir o schema consolidado v1.0 (`build-squash-migrations`)
+
+**O que faz:** recorta um `pg_dump` do schema `public` em
+`supabase/migrations/001_initial_schema.sql` (estrutura) e
+`supabase/migrations/002_business_logic_and_security.sql` (lógica e segurança).
+É o script que gerou o squash descrito na ADR 0062 — está aqui para tornar a
+regeneração auditável, não para uso rotineiro.
+
+**Como rodar:** o script espera um arquivo `dump_public_with_privs.sql` na pasta
+onde você o executa, e escreve o resultado em `supabase/test_001_*.sql` e
+`supabase/test_002_*.sql` para conferência antes de qualquer substituição.
+
+```
+node scripts/build-squash-migrations.mjs
+```
+
+> **Atenção — o que o dump não carrega.** O recorte é do schema `public`. Três
+> classes de objeto vivem fora dele e **não voltam** numa regeneração: os
+> defaults de privilégio (`pg_default_acl`, ADR 0047), os agendamentos
+> `pg_cron` (schema `cron`) e os buckets e policies de Storage (schema
+> `storage`). Regenerar sem reaplicar essa camada derruba, em silêncio, toda a
+> automação agendada e os anexos. Veja o item 5 da ADR 0062.
+
+---
+
 ### Resumo rápido
 
 | Ferramenta | Para quê serve |
@@ -309,3 +334,4 @@ colocada em `VITE_*` ou no repositório.
 | `no-mistakes/setup` | Ligar a proteção contra erros de Git |
 | `migracao-demurrage/dry-run` | Ensaiar a migração do Demurrage Manager (só lê) |
 | `provision-preview-admin` | Provisionar o usuário admin da branch Preview |
+| `build-squash-migrations` | Reconstruir o schema consolidado v1.0 a partir de um dump |

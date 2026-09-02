@@ -128,7 +128,7 @@ cobre os dois casos).
 estado ativo. Usuários ativos podem ler; a UI e a policy
 `admin_gerencia_demurrage_rates` reservam criar, editar, ativar/desativar e
 excluir para admin, conforme
-[`supabase/migrations/048_demurrage_rates_table.sql`](../../supabase/migrations_archive/048_demurrage_rates_table.sql).
+[`supabase/migrations_archive/048_demurrage_rates_table.sql`](../../supabase/migrations_archive/048_demurrage_rates_table.sql).
 
 ## Catálogo de ações
 
@@ -269,7 +269,7 @@ flowchart LR
   tem vencimento sob recálculo diário (ADR 0014); faturas `overdue` legadas foram
   migradas de volta a `issued`.
 - `set_container_discharge_date` em
-  [`supabase/migrations/028_demurrage_module.sql`](../../supabase/migrations_archive/028_demurrage_module.sql)
+  [`supabase/migrations_archive/028_demurrage_module.sql`](../../supabase/migrations_archive/028_demurrage_module.sql)
   é um trigger `BEFORE INSERT`: copia `voyages.ata` somente quando o container
   nasce sem descarga. Alterar a ATA depois não propaga a data.
 - A maior parte do ciclo interno usa writes diretos em tabelas por

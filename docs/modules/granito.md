@@ -13,7 +13,7 @@ As rotas são internas e ficam sob `ProtectedRoute` em
 [`src/App.tsx`](../../src/App.tsx). A UI de tarifas reserva mutações para admin;
 as tabelas operacionais aceitam leitura/inserção/update de usuário ativo e
 DELETE de admin após
-[`supabase/migrations/042_rls_module_hardening.sql`](../../supabase/migrations_archive/042_rls_module_hardening.sql).
+[`supabase/migrations_archive/042_rls_module_hardening.sql`](../../supabase/migrations_archive/042_rls_module_hardening.sql).
 A emissão usa RPC administrativa.
 
 O ownership é separado:

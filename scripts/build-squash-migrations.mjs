@@ -63,12 +63,25 @@ const logicSecurityTypes = new Set([
 const blocks001 = []
 const blocks002 = []
 
+// Tipos de bloco que o recorte descarta de propósito. Estão listados um a um,
+// e não por omissão, porque foi exatamente uma omissão que apagou o
+// `ALTER DEFAULT PRIVILEGES` da ADR 0047 na primeira geração: `DEFAULT ACL` não
+// estava em nenhum dos dois conjuntos e sumiu sem aviso.
+const descartadosDePropósito = new Set([
+  'SCHEMA',
+  'EXTENSION',
+  'SEQUENCE SET',
+  'TABLE DATA',
+])
+
+const tiposDesconhecidos = new Set()
+
 for (const b of blocks) {
   const m = b.match(/-- Name: (.*?); Type: (.*?); Schema: (.*?);/)
   if (!m) continue
   const [, name, type, schema] = m
 
-  if (type === 'SCHEMA') {
+  if (descartadosDePropósito.has(type)) {
     continue
   }
 
@@ -93,7 +106,19 @@ for (const b of blocks) {
     }
   } else if (logicSecurityTypes.has(type)) {
     blocks002.push(b)
+  } else {
+    tiposDesconhecidos.add(`${type} (ex.: ${schema}.${name})`)
   }
+}
+
+if (tiposDesconhecidos.size > 0) {
+  console.error('Tipos de bloco não classificados no dump:')
+  for (const t of [...tiposDesconhecidos].sort()) console.error(`  - ${t}`)
+  console.error(
+    '\nCada um seria descartado em silêncio. Classifique-o em schemaTypes,' +
+      '\nem logicSecurityTypes ou em descartadosDePropósito antes de gerar.',
+  )
+  process.exit(1)
 }
 
 // Canonical ports seed (required by depots and foreign keys)
