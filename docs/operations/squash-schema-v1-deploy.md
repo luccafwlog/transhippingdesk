@@ -62,17 +62,29 @@ Conectado ao projeto alvo via Supabase CLI (`supabase link --project-ref <REF>`)
 Todos os comandos abaixo levam `--linked` pelo mesmo motivo: sem ele, o reparo
 atinge o banco local, não o staging/produção.
 
+> **Pré-condição:** o alvo precisa estar com a cadeia legada integralmente
+> aplicada (até `384`, sem pendências) — confira com
+> `supabase migration list --linked` antes de continuar. Reescrever o histórico
+> sobre um banco atrasado marcaria como aplicados efeitos que nunca rodaram
+> (ex.: o runner de comunicados da `381`, os cortes de Storage da `375`).
+
 1. Marcar todas as migrações legadas (`001` a `384`) como revertidas no histórico.
-   É fundamental incluir `001` e `002` para que os nomes históricos (`schema` e `voyages`)
-   sejam substituídos pelos nomes consolidados (`initial_schema` e `business_logic_and_security`),
-   evitando divergência em `supabase migration list`:
+   É fundamental incluir `001` e `002` para que os nomes históricos (`schema` e
+   `rls`) sejam substituídos pelos nomes consolidados (`initial_schema` e
+   `business_logic_and_security`), evitando divergência em
+   `supabase migration list`:
    ```bash
    # Gera a lista de todas as versões legadas (exclui 283, que nunca existiu):
    LEGADAS=$(ls supabase/migrations_archive/*.sql | sed 's/.*\///;s/_.*//' | tr '\n' ' ')
    echo "$LEGADAS"
    supabase migration repair --linked --status reverted $LEGADAS
    ```
-   *Alternativamente, via SQL administrativo autenticado como postgres:*
+   *Alternativamente, via SQL administrativo autenticado como postgres
+   (confira antes as colunas reais com
+   `SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'supabase_migrations'
+      AND table_name = 'schema_migrations'` — o caminho via CLI é o
+   preferencial justamente por abstrair esse formato):*
    ```sql
    TRUNCATE supabase_migrations.schema_migrations;
    INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
@@ -81,13 +93,25 @@ atinge o banco local, não o staging/produção.
      ('003', 'pos_squash_objetos_fora_do_dump'),
      ('004', 'vazios_delete_baplie_grant');
    ```
+   (Esta via SQL já equivale aos itens 1 e 2 juntos; quem a usar pula
+   direto para o item 3.)
 
 2. Confirmar as 4 versões consolidadas como aplicadas (associando aos nomes locais atuais):
    ```bash
    supabase migration repair --linked --status applied 001 002 003 004
    ```
 
-3. Verificar paridade e sincronismo:
+3. Aplicar o efeito líquido novo da `004` no alvo. O reparo acima só reescreve
+   histórico — não executa SQL. `001`–`003` são equivalentes ao que um banco em
+   `384` já tem (varredura da 297, cron, Storage), mas o `GRANT` da `004` é
+   inédito em produção (ver relatório de paridade): sem este passo, o checklist
+   de privilégios da RPC BAPLIE falha:
+   ```sql
+   GRANT EXECUTE ON FUNCTION public.delete_baplie_manifest_for_voyage(bigint)
+     TO authenticated, service_role;
+   ```
+
+4. Verificar paridade e sincronismo:
    ```bash
    supabase migration list --linked
    ```
