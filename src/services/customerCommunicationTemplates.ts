@@ -181,8 +181,68 @@ function assertCommunicationScope(input: CustomerCommunicationTemplateInput, kin
   }
 }
 
-function layout(title: string, bodyHtml: string): string {
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head><body style="margin:0;background:#f4f7fb;color:#172033;font-family:Arial,Helvetica,sans-serif"><div style="max-width:680px;margin:24px auto;background:#fff;border:1px solid #dbe3ef;border-radius:12px;overflow:hidden"><header style="background:#0f2747;color:#fff;padding:22px 28px"><div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.75">Transhipping Desk</div><h1 style="margin:8px 0 0;font-size:22px;line-height:1.25">${escapeHtml(title)}</h1></header><main style="padding:28px;line-height:1.6">${bodyHtml}</main><footer style="padding:18px 28px;border-top:1px solid #e5eaf1;color:#667085;font-size:12px">Mensagem operacional enviada pelo Transhipping Desk. Em caso de dúvida, responda a este e-mail para falar com a equipe.</footer></div></body></html>`
+const BRAND_NAVY = '#152238'
+const BRAND_GOLD = '#d4882e'
+const BRAND_INK = '#1f2937'
+const BRAND_MUTED = '#6b7280'
+const BRAND_BORDER = '#e5e7eb'
+const BRAND_CARD_BG = '#ffffff'
+const BRAND_PAGE_BG = '#f1f3f6'
+const DEFAULT_PORTAL_BASE_URL = 'https://portal.transhippingdesk.com.br'
+
+function extractBasePortalUrl(url?: string | null): string {
+  const raw = url?.trim() || DEFAULT_PORTAL_BASE_URL
+  return raw.replace(/\/+$/, '').replace(/\/billing$/, '')
+}
+
+function layout(title: string, bodyHtml: string, portalUrl?: string | null): string {
+  const basePortalUrl = extractBasePortalUrl(portalUrl)
+  const logoUrl = `${basePortalUrl}/branding/tr-logo.png`
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:${BRAND_PAGE_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${BRAND_INK}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND_PAGE_BG}">
+    <tr>
+      <td align="center" style="padding:32px 16px">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${BRAND_CARD_BG};border:1px solid ${BRAND_BORDER};border-radius:12px;overflow:hidden">
+          <tr>
+            <td style="background:${BRAND_NAVY};padding:24px 32px">
+              <img src="${logoUrl}" alt="Transhipping" height="28" style="height:28px;width:auto;display:block;border:0" />
+            </td>
+          </tr>
+          <tr><td style="height:3px;line-height:3px;font-size:0;background:${BRAND_GOLD}">&nbsp;</td></tr>
+          <tr>
+            <td style="padding:32px 32px 16px">
+              <h1 style="margin:0 0 20px;font-size:21px;line-height:1.35;color:${BRAND_NAVY};font-weight:700">${escapeHtml(title)}</h1>
+              <main style="line-height:1.6;color:${BRAND_INK};font-size:15px">
+                ${bodyHtml}
+              </main>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 24px">
+              <table role="presentation" width="100%" style="border-collapse:collapse;border-top:1px solid ${BRAND_BORDER}">
+                <tr>
+                  <td style="padding-top:16px">
+                    <p style="margin:0;font-size:12.5px;line-height:1.6;color:${BRAND_MUTED}">
+                      Mensagem operacional enviada pelo Transhipping Desk. Em caso de dúvida, responda a este e-mail para falar com a equipe.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
 }
 
 function textLayout(title: string, body: string): string {
@@ -236,19 +296,19 @@ export function renderCeMercanteTaxasTemplate(input: CustomerCommunicationTempla
     `Consulte as faturas e as formas de pagamento no Portal do Cliente: ${portalUrl}`,
   ].join('\n')
   const bodyHtml = [
-    `<p>Olá, ${escapeHtml(customer)}.</p>`,
-    `<p style="padding:14px 16px;border-left:4px solid #0f766e;background:#ecfdf5"><strong>CE Mercante disponível:</strong> ${escapeHtml(ceList)}. Os números estão prontos para agilizar o desembaraço e o registro da DI/DUIMP pelo despachante/importador.</p>`,
-    '<p><strong>Resumo da viagem</strong></p>',
-    '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px;border-bottom:1px solid #dbe3ef">B/L</th><th style="text-align:left;padding:8px;border-bottom:1px solid #dbe3ef">CE Mercante</th><th style="text-align:right;padding:8px;border-bottom:1px solid #dbe3ef">Valor BRL</th></tr></thead><tbody>',
-    ...rows.map((row) => `<tr><td style="padding:8px;border-bottom:1px solid #eef2f7">${escapeHtml(row.blId.trim())}</td><td style="padding:8px;border-bottom:1px solid #eef2f7"><strong>${escapeHtml(row.ceMercante.trim())}</strong></td><td style="padding:8px;text-align:right;border-bottom:1px solid #eef2f7">${escapeHtml(formatBrl(row.totalBrl))}</td></tr>`),
-    `</tbody><tfoot><tr><td colspan="2" style="padding:10px 8px;font-weight:bold">Total da viagem</td><td style="padding:10px 8px;text-align:right;font-weight:bold">${escapeHtml(formatBrl(totalBrl))}</td></tr></tfoot></table>`,
-    `<p><a href="${escapeHtml(portalUrl)}">Consultar faturas e formas de pagamento no Portal do Cliente</a></p>`,
+    `<p style="margin:0 0 14px">Olá, ${escapeHtml(customer)}.</p>`,
+    `<p style="margin:0 0 18px;padding:14px 16px;border-left:4px solid #0f766e;background:#ecfdf5;border-radius:4px;color:#134e4a;font-size:14px"><strong>CE Mercante disponível:</strong> ${escapeHtml(ceList)}. Os números estão prontos para agilizar o desembaraço e o registro da DI/DUIMP pelo despachante/importador.</p>`,
+    '<p style="margin:0 0 8px;font-weight:600">Resumo da viagem</p>',
+    `<table style="width:100%;border-collapse:collapse;margin-bottom:20px;border:1px solid ${BRAND_BORDER};border-radius:6px;overflow:hidden"><thead><tr style="background:#f9fafb"><th style="text-align:left;padding:9px 12px;border-bottom:1px solid ${BRAND_BORDER};font-size:13px;color:${BRAND_MUTED}">B/L</th><th style="text-align:left;padding:9px 12px;border-bottom:1px solid ${BRAND_BORDER};font-size:13px;color:${BRAND_MUTED}">CE Mercante</th><th style="text-align:right;padding:9px 12px;border-bottom:1px solid ${BRAND_BORDER};font-size:13px;color:${BRAND_MUTED}">Valor BRL</th></tr></thead><tbody>`,
+    ...rows.map((row) => `<tr><td style="padding:9px 12px;border-bottom:1px solid ${BRAND_BORDER};font-size:14px">${escapeHtml(row.blId.trim())}</td><td style="padding:9px 12px;border-bottom:1px solid ${BRAND_BORDER};font-size:14px"><strong>${escapeHtml(row.ceMercante.trim())}</strong></td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid ${BRAND_BORDER};font-size:14px">${escapeHtml(formatBrl(row.totalBrl))}</td></tr>`),
+    `</tbody><tfoot><tr style="background:#f9fafb"><td colspan="2" style="padding:10px 12px;font-weight:700">Total da viagem</td><td style="padding:10px 12px;text-align:right;font-weight:700;color:${BRAND_NAVY}">${escapeHtml(formatBrl(totalBrl))}</td></tr></tfoot></table>`,
+    `<table role="presentation" width="100%" style="margin:16px 0 8px"><tr><td align="center"><a href="${escapeHtml(portalUrl)}" style="background:${BRAND_NAVY};color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-size:14px;font-weight:600">Consultar faturas e formas de pagamento no Portal do Cliente</a></td></tr></table>`,
   ].join('')
   const blIds = rows.map((row) => row.blId.trim())
   return {
     kind: 'ce_mercante_taxas',
     subject,
-    html: layout(subject, bodyHtml),
+    html: layout(subject, bodyHtml, input.portalUrl),
     text: textLayout(subject, bodyText),
     customerId: input.customerId,
     blIds,
@@ -286,16 +346,20 @@ export function renderDemurrageTemplate(input: CustomerCommunicationTemplateInpu
     `Consulte os detalhes no Portal do Cliente: ${portalUrl}`,
   ].join('\n')
   const bodyHtml = [
-    `<p>Olá, ${escapeHtml(customer)}.</p>`,
-    `<p>A cobrança de Demurrage <strong>${escapeHtml(data.docNumber.trim())}</strong> está disponível para o B/L <strong>${escapeHtml(input.bls[0]?.id.trim() ?? '')}</strong>.</p>`,
-    `<p><strong>Valor da cobrança:</strong> ${escapeHtml(formatUsd(data.totalUsd))}<br><strong>Valor informativo em reais:</strong> ${escapeHtml(formatBrl(data.totalBrl))}<br>ROE ${escapeHtml(data.roe.toFixed(4))}, referência ${escapeHtml(referenceDate)}.</p>`,
-    '<p><strong>O valor em reais será recalculado no dia do pagamento.</strong></p>',
-    `<p><a href="${escapeHtml(portalUrl)}">Consultar detalhes no Portal do Cliente</a></p>`,
+    `<p style="margin:0 0 14px">Olá, ${escapeHtml(customer)}.</p>`,
+    `<p style="margin:0 0 16px">A cobrança de Demurrage <strong>${escapeHtml(data.docNumber.trim())}</strong> está disponível para o B/L <strong>${escapeHtml(input.bls[0]?.id.trim() ?? '')}</strong>.</p>`,
+    `<table style="width:100%;border-collapse:collapse;margin:16px 0 20px;border:1px solid ${BRAND_BORDER};border-radius:6px;overflow:hidden">`,
+    `<tr><td style="padding:10px 14px;border-bottom:1px solid ${BRAND_BORDER};color:${BRAND_MUTED};width:42%;font-size:13.5px">Valor da cobrança</td><td style="padding:10px 14px;border-bottom:1px solid ${BRAND_BORDER};font-weight:700;color:${BRAND_NAVY};font-size:16px">${escapeHtml(formatUsd(data.totalUsd))}</td></tr>`,
+    `<tr><td style="padding:10px 14px;border-bottom:1px solid ${BRAND_BORDER};color:${BRAND_MUTED};font-size:13.5px">Valor informativo em reais</td><td style="padding:10px 14px;border-bottom:1px solid ${BRAND_BORDER};font-weight:600;color:${BRAND_GOLD};font-size:15px">${escapeHtml(formatBrl(data.totalBrl))}</td></tr>`,
+    `<tr><td style="padding:10px 14px;color:${BRAND_MUTED};font-size:13.5px">Cotação (ROE)</td><td style="padding:10px 14px;color:${BRAND_INK};font-size:14px">ROE ${escapeHtml(data.roe.toFixed(4))}, referência ${escapeHtml(referenceDate)}</td></tr>`,
+    '</table>',
+    `<p style="margin:0 0 20px;font-size:13px;color:${BRAND_MUTED}"><strong>Observação:</strong> O valor em reais será recalculado no dia do pagamento.</p>`,
+    `<table role="presentation" width="100%" style="margin:16px 0 8px"><tr><td align="center"><a href="${escapeHtml(portalUrl)}" style="background:${BRAND_NAVY};color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-size:14px;font-weight:600">Consultar detalhes no Portal do Cliente</a></td></tr></table>`,
   ].join('')
   return {
     kind: 'cobranca_demurrage',
     subject,
-    html: layout(subject, bodyHtml),
+    html: layout(subject, bodyHtml, input.portalUrl),
     text: textLayout(subject, bodyText),
     customerId: input.customerId,
     blIds: input.bls.map((bl) => bl.id.trim()),
@@ -313,11 +377,11 @@ function renderMilestoneContent(
   const blIds = input.bls.map((bl) => bl.id.trim())
   const customer = clean(input.customerName)
   const bodyText = `Olá, ${customer}.\n\n${sentenceText}\n\nB/Ls relacionados: ${blIds.join(', ')}.`
-  const bodyHtml = `<p>Olá, ${escapeHtml(customer)}.</p><p>${sentenceHtml}</p><p><strong>B/Ls relacionados:</strong> ${blIds.map(escapeHtml).join(', ')}</p>`
+  const bodyHtml = `<p style="margin:0 0 14px">Olá, ${escapeHtml(customer)}.</p><p style="margin:0 0 16px">${sentenceHtml}</p><p style="margin:0 0 8px;font-size:13.5px;color:${BRAND_MUTED}"><strong>B/Ls relacionados:</strong> <span style="color:${BRAND_INK}">${blIds.map(escapeHtml).join(', ')}</span></p>`
   return {
     kind,
     subject: title,
-    html: layout(title, bodyHtml),
+    html: layout(title, bodyHtml, input.portalUrl),
     text: textLayout(title, bodyText),
     customerId: input.customerId,
     blIds,
@@ -380,7 +444,7 @@ export function renderInstitutionalTemplate(input: CustomerCommunicationTemplate
   return {
     kind,
     subject,
-    html: layout(subject, `<p>Olá, ${escapeHtml(clean(input.customerName))}.</p><p>${safeBodyHtml}</p>`),
+    html: layout(subject, `<p style="margin:0 0 14px">Olá, ${escapeHtml(clean(input.customerName))}.</p><p style="margin:0">${safeBodyHtml}</p>`, input.portalUrl),
     text: textLayout(subject, bodyText),
     customerId: input.customerId,
     blIds: input.bls.map((bl) => bl.id.trim()),

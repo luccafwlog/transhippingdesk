@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook } from 'https://esm.sh/svix@1'
 import { maskEmail, sendPortalEmail } from '../_shared/portalEmail.ts'
+import { bounceNotificationTemplate } from '../_shared/portalEmailTemplates.ts'
 import { openAlertOnce } from '../_shared/portalAlerts.ts'
 import { resolveBounceCascade, type BounceContact } from '../_shared/portalBounceCascade.ts'
 
@@ -39,17 +40,6 @@ type PortalAccount = {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
-}
-
-function escapeHtml(value: string): string {
-  const entities: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  }
-  return value.replace(/[&<>"']/g, (character) => entities[character] ?? character)
 }
 
 async function recordPortalSuppression(
@@ -134,18 +124,20 @@ async function sendBounceNotification(
 
   const normalizedBouncedEmail = normalizeEmail(bouncedEmail)
   const maskedBouncedEmail = maskEmail(normalizedBouncedEmail)
-  const subject = 'Falha de entrega: atualize o cadastro do cliente'
-  const text = `O endereço ${maskedBouncedEmail} não recebeu um comunicado. Atualize o cadastro do cliente para evitar novas falhas de entrega.`
-  const html = `<p>O endereço <strong>${escapeHtml(maskedBouncedEmail)}</strong> não recebeu um comunicado.</p><p>Atualize o cadastro do cliente para evitar novas falhas de entrega.</p>`
+  const template = bounceNotificationTemplate({
+    bouncedEmailMasked: maskedBouncedEmail,
+    portalUrl: (Deno.env.get('PORTAL_URL') ?? 'https://portal.transhippingdesk.com.br').replace(/\/+$/, ''),
+    supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br',
+  })
 
   try {
     const sent = await sendPortalEmail({
       admin,
       kind: BOUNCE_NOTIFICATION_KIND,
       to: recipient.email,
-      subject,
-      html,
-      text,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
       idempotencyKey: `${BOUNCE_NOTIFICATION_KIND}:${customerId}:${normalizedBouncedEmail}:${recipient.id}`,
     })
     if (!sent.ok) {
