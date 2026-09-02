@@ -39,6 +39,10 @@ EXCECOES = {
     'is_active_non_equipamentos_user': 'predicado de RBAC usado dentro de policies (211)',
     'current_actor_role': 'resolve o papel do próprio chamador (294)',
     'audit_row_changes': 'função de trigger; roda como owner (294)',
+    'enforce_portal_invoice_bl_gate': 'função de trigger; roda como owner',
+    'enforce_portal_invoice_gate': 'função de trigger; roda como owner',
+    'suppress_normal_portal_alert_events': 'função de trigger; roda como owner',
+    'validate_depot_terminal_port': 'função de trigger; roda como owner',
     'save_granite_bl_review': 'delega à função legada guardada (286)',
     'set_voyage_route_ce_master': 'sobrecarga guardada delegada (350)',
     'portal_ship_schedule': 'vitrine pública; exceção explícita da ADR 0013/297',
@@ -218,7 +222,7 @@ def estado_final():
         # Migration 297 also closes existing functions dynamically. The
         # static replay cannot inspect pg_trigger, but RETURNS TRIGGER is the
         # same invariant used by that migration to identify trigger helpers.
-        if base == '297_default_deny_function_grants.sql':
+        if base in ('297_default_deny_function_grants.sql', '002_business_logic_and_security.sql'):
             for sig, valor in fns.items():
                 if valor['nome'] != 'portal_ship_schedule':
                     grants.setdefault(sig, set(defaults)).discard('public')

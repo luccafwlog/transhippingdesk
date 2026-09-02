@@ -31332,3 +31332,11 @@ ON CONFLICT (type) DO UPDATE SET
   audience_departments = EXCLUDED.audience_departments,
   default_destination = EXCLUDED.default_destination,
   active = true;
+
+--
+-- Revogações explícitas de privilégios em funções auxiliares de triggers
+--
+REVOKE ALL ON FUNCTION public.enforce_portal_invoice_bl_gate() FROM PUBLIC, authenticated;
+REVOKE ALL ON FUNCTION public.enforce_portal_invoice_gate() FROM PUBLIC, authenticated;
+REVOKE ALL ON FUNCTION public.suppress_normal_portal_alert_events() FROM PUBLIC, authenticated;
+REVOKE ALL ON FUNCTION public.validate_depot_terminal_port() FROM PUBLIC, authenticated;
