@@ -537,3 +537,6 @@
 - ciclo de vida de Dispute, rate limit, notificações do Portal e anexos corrigidos;
 - roteamento compartilhado, paginação e rastreabilidade atualizados;
 - planos/specs concluídos arquivados conforme `docs/CONVENCOES.md`.
+# Próxima versão
+
+- Comunicados: motor server-side de elegibilidade, runner protegido por segredo, painel de cobertura de viagens e filtros de origem/status no histórico.

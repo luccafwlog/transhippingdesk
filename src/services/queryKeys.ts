@@ -108,7 +108,7 @@ export const queryKeys = {
     conference: (filters: unknown, kind: string, nature?: string) => ['customer-communications', 'conference', filters, kind, nature ?? null] as const,
     statusRoot: () => ['customer-communications', 'status'] as const,
     status: (voyageId: number | null, customerId: number | null) => ['customer-communications', 'status', voyageId, customerId] as const,
-    history: (customerId?: number) => customerId == null
+    history: (customerId?: unknown) => customerId == null
       ? (['customer-communications', 'history'] as const)
       : (['customer-communications', 'history', customerId] as const),
     byBl: (blId: string) => ['customer-communications', 'bl', blId] as const,

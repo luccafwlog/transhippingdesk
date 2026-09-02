@@ -682,11 +682,33 @@ export type CustomerCommunicationHistoryItem = {
   voyage_number: string | null
   terminal_name: string | null
   created_by: string | null
+  origin?: 'manual' | 'automatico'
   created_at: string
   customer: { id: number; name: string; cnpj_cpf: string } | null
   attempts: CustomerCommunicationAttemptHistory[]
   bl_links: Array<{ bl_id: string }>
   attachments: CustomerCommunicationAttachmentHistory[]
+}
+
+export type CustomerCommunicationHistoryFilters = {
+  customerId?: number
+  voyageId?: number
+  vessel?: string
+  month?: string
+  kind?: string
+  status?: string | ''
+  origin?: string
+}
+
+export type VoyageCommunicationCoverageSummary = {
+  voyageId: number
+  vesselName: string
+  voyageNumber: string
+  customers: number
+  noa: { sent: number; total: number }
+  nor: { sent: number; total: number }
+  nob: { sent: number; total: number }
+  finance: { sent: number; ready: number; total: number; pending: number }
 }
 
 export type CustomerCommunicationSavedTemplate = {
@@ -717,19 +739,57 @@ export async function saveCustomerCommunicationSavedTemplate(input: { name: stri
   return result.data
 }
 
-const COMMUNICATION_HISTORY_SELECT = 'id, customer_id, kind, nature, anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator, status, dispatch_id, vessel_name, voyage_number, terminal_name, created_by, created_at, customer:customers(id, name, cnpj_cpf), attempts:customer_communication_attempts(id, recipient_masked, status, retry_count, provider_message_id, last_error, created_at, updated_at), bl_links:customer_communication_bls(bl_id), attachments:customer_communication_attachments(id, file_name, mime_type, storage_path, size_bytes, created_at)'
+const COMMUNICATION_HISTORY_SELECT = 'id, customer_id, kind, nature, anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator, status, dispatch_id, vessel_name, voyage_number, terminal_name, created_by, origin, created_at, customer:customers(id, name, cnpj_cpf), attempts:customer_communication_attempts(id, recipient_masked, status, retry_count, provider_message_id, last_error, created_at, updated_at), bl_links:customer_communication_bls(bl_id), attachments:customer_communication_attachments(id, file_name, mime_type, storage_path, size_bytes, created_at)'
 
-export async function fetchCustomerCommunicationHistory(customerId?: number): Promise<CustomerCommunicationHistoryItem[]> {
+export async function fetchCustomerCommunicationHistory(input?: number | CustomerCommunicationHistoryFilters): Promise<CustomerCommunicationHistoryItem[]> {
+  const filters = typeof input === 'number' ? { customerId: input } : (input ?? {})
   let query = supabase.from('customer_communications').select(COMMUNICATION_HISTORY_SELECT).order('created_at', { ascending: false }).limit(200)
-  if (customerId != null) query = query.eq('customer_id', customerId)
+  if (filters.customerId != null) query = query.eq('customer_id', filters.customerId)
+  if (filters.voyageId != null) query = query.eq('anchor_voyage_id', filters.voyageId)
+  if (filters.kind) query = query.eq('kind', filters.kind)
+  if (filters.status) query = query.eq('status', filters.status)
   const { data, error } = await query.overrideTypes<CustomerCommunicationHistoryItem[], { merge: false }>()
   if (error) throw error
-  return (data ?? []).map((item) => ({
+  return (data ?? []).filter((item) => {
+    if (filters.vessel && !(item.vessel_name ?? '').toUpperCase().includes(filters.vessel.toUpperCase())) return false
+    if (filters.month && !item.created_at.startsWith(filters.month)) return false
+    if (filters.origin && (item.origin ?? 'manual') !== filters.origin) return false
+    return true
+  }).map((item) => ({
     ...item,
     attempts: item.attempts ?? [],
     bl_links: item.bl_links ?? [],
     attachments: item.attachments ?? [],
   }))
+}
+
+export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: string; voyage?: string; month?: string }): Promise<VoyageCommunicationCoverageSummary[]> {
+  const [{ data: voyages, error: voyagesError }, { data: bls, error: blsError }, { data: communications, error: communicationsError }] = await Promise.all([
+    supabase.from('voyages').select('id, voyage_number, vessel:vessels(name)').order('id', { ascending: false }).limit(500).overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string } | null }>, { merge: false }>(),
+    supabase.from('bls').select('id, voyage_id, customer_id, pod, ce_mercante, financial_status').neq('financial_status', 'cancelled').overrideTypes<Array<{ id: string; voyage_id: number; customer_id: number | null; pod: string | null; ce_mercante: string | null; financial_status: string | null }>, { merge: false }>(),
+    supabase.from('customer_communications').select('kind, status, anchor_voyage_id, anchor_port, anchor_atracacao_id, created_at').overrideTypes<Array<{ kind: string; status: string; anchor_voyage_id: number | null; anchor_port: string | null; anchor_atracacao_id: string | null; created_at: string }>, { merge: false }>(),
+  ])
+  if (voyagesError) throw voyagesError
+  if (blsError) throw blsError
+  if (communicationsError) throw communicationsError
+  const comms = communications ?? []
+  return (voyages ?? []).filter((voyage) => {
+    const vesselName = voyage.vessel?.name ?? ''
+    return (!filters?.vessel || vesselName.toUpperCase().includes(filters.vessel.toUpperCase()))
+      && (!filters?.voyage || voyage.voyage_number.toUpperCase().includes(filters.voyage.toUpperCase()))
+  }).filter((voyage) => {
+    if (!filters?.month) return true
+    return (comms ?? []).some((comm) => comm.anchor_voyage_id === voyage.id && comm.created_at.startsWith(filters.month!))
+  }).map((voyage) => {
+    const rows = (bls ?? []).filter((bl) => bl.voyage_id === voyage.id && bl.customer_id != null)
+    const customers = new Set(rows.map((row) => row.customer_id!))
+    const count = (kind: string, customerId?: number) => comms.filter((comm) => comm.kind === kind && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id && (customerId == null || rows.some((row) => row.customer_id === customerId && row.pod?.toUpperCase() === comm.anchor_port?.toUpperCase()))).length
+    const total = (kind: string) => kind === 'aviso_atracacao_nob' ? rows.length : new Set(rows.map((row) => `${row.customer_id}:${row.pod?.toUpperCase()}`)).size
+    const financeRows = rows.filter((row) => Boolean(row.ce_mercante?.trim()) && ['invoiced', 'paid'].includes(row.financial_status ?? ''))
+    const financeCustomers = new Set(financeRows.map((row) => row.customer_id!))
+    const financeSent = financeRows.filter((row) => comms.some((comm) => comm.kind === 'ce_mercante_taxas' && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id && comm.anchor_port?.toUpperCase() === row.pod?.toUpperCase())).length
+    return { voyageId: voyage.id, vesselName: voyage.vessel?.name ?? '—', voyageNumber: voyage.voyage_number, customers: customers.size, noa: { sent: count('aviso_chegada_noa'), total: total('aviso_chegada_noa') }, nor: { sent: count('aviso_prontidao_nor'), total: total('aviso_prontidao_nor') }, nob: { sent: count('aviso_atracacao_nob'), total: total('aviso_atracacao_nob') }, finance: { sent: financeSent, ready: financeCustomers.size, total: customers.size, pending: customers.size - financeCustomers.size } }
+  })
 }
 
 export async function fetchBlCommunicationHistory(blId: string): Promise<CustomerCommunicationHistoryItem[]> {

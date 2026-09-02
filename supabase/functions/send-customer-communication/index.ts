@@ -44,6 +44,7 @@ type DispatchPayload = {
     size?: number
     content_base64?: string
   }>
+  origin?: 'manual' | 'automatico'
 }
 
 type ContactRow = { id: number; customer_id: number | null; email: string | null }
@@ -200,13 +201,16 @@ async function handler(req: Request): Promise<Response> {
   const jwt = req.headers.get('Authorization') ?? ''
   if (!/^Bearer\s+\S+/i.test(jwt)) return json(401, { error: 'Autenticação obrigatória.' }, origin)
 
+  const automationSecret = Deno.env.get('CUSTOMER_COMMUNICATION_AUTOMATION_SECRET')
+  const isAutomation = Boolean(automationSecret && req.headers.get('X-Communication-Automation-Secret') === automationSecret)
+
   const caller = createClient(url, anonKey, { global: { headers: { Authorization: jwt } } })
-  const { data: role, error: roleError } = await caller.rpc('portal_current_role')
-  if (roleError || !['administrativo', 'documentacao', 'equipamentos'].includes(String(role))) {
+  const { data: role, error: roleError } = isAutomation ? { data: 'automatico', error: null } : await caller.rpc('portal_current_role')
+  if (!isAutomation && (roleError || !['administrativo', 'documentacao', 'equipamentos'].includes(String(role)))) {
     return json(403, { error: 'Sem permissão para Comunicados.' }, origin)
   }
-  const { data: callerUser } = await caller.auth.getUser()
-  if (!callerUser.user) return json(401, { error: 'Sessão inválida.' }, origin)
+  const { data: callerUser } = isAutomation ? { data: { user: null } } : await caller.auth.getUser()
+  if (!isAutomation && !callerUser.user) return json(401, { error: 'Sessão inválida.' }, origin)
 
   let body: DispatchPayload
   try {
@@ -345,13 +349,17 @@ async function handler(req: Request): Promise<Response> {
     p_vessel_name: body.vessel_name ?? null,
     p_voyage_number: body.voyage_number ?? null,
     p_terminal_name: body.terminal_name ?? null,
-    p_created_by: callerUser.user.id,
+    p_created_by: callerUser.user?.id ?? null,
     p_bl_ids: effectiveBlIds,
   })
   if (createError || communicationId == null) {
     if (isUniqueViolation(createError)) return json(200, { status: 'simulado', message: 'Comunicado já registrado.' }, origin)
     console.error('customer communication atomic record failed', createError)
     return json(500, { error: 'Não foi possível registrar o comunicado.' }, origin)
+  }
+
+  if (isAutomation) {
+    await admin.from('customer_communications').update({ origin: 'automatico' }).eq('id', communicationId)
   }
 
   try {

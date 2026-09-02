@@ -8,7 +8,7 @@ import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { useAppSettings, useSetCommunicationsEnabled } from '../hooks/useAppSettings'
 import { useAuth } from '../hooks/useAuth'
-import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate } from '../hooks/useCustomerCommunications'
+import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate, useVoyageCommunicationCoverage } from '../hooks/useCustomerCommunications'
 import {
   DEFAULT_CUSTOMER_COMMUNICATION_FILTERS,
   CUSTOMER_COMMUNICATION_NATURES,
@@ -27,7 +27,7 @@ import {
 import { customerCommunicationKindLabel, customerCommunicationStatusLabel } from '../services/customerCommunications'
 import type { CustomerCommunicationNature } from '../types/database'
 
-type CommunicationTab = 'disparo' | 'historico'
+type CommunicationTab = 'cobertura' | 'disparo' | 'historico'
 
 const KIND_OPTIONS: Array<{ value: CustomerCommunicationKind; label: string }> = [
   { value: 'aviso_chegada_noa', label: 'NOA · Aviso de Chegada' },
@@ -98,6 +98,8 @@ export function ClientesComunicacao() {
   const [templateName, setTemplateName] = useState('')
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [customPreviewRow, setCustomPreviewRow] = useState<CustomerCommunicationConferenceRow | null>(null)
+  const [coverageFilters, setCoverageFilters] = useState({ vessel: '', voyage: '', month: '' })
+  const [historyFilters, setHistoryFilters] = useState({ vessel: '', month: '', kind: '', status: '', origin: '' })
   const { data: settings } = useAppSettings()
   const { effectiveRole, isAdmin } = useAuth()
   const canToggleCommunications = effectiveRole === 'administrativo' || isAdmin
@@ -106,12 +108,13 @@ export function ClientesComunicacao() {
   const customerHistoryId = Number(searchParams.get('customer'))
   const historyCustomerId = Number.isInteger(customerHistoryId) && customerHistoryId > 0 ? customerHistoryId : undefined
   const historyCommunicationId = Number(searchParams.get('communication'))
-  const historyQuery = useCustomerCommunicationHistory(historyCustomerId)
+  const historyQuery = useCustomerCommunicationHistory({ customerId: historyCustomerId, ...historyFilters })
+  const coverageQuery = useVoyageCommunicationCoverage(coverageFilters)
   const savedTemplatesQuery = useCustomerCommunicationSavedTemplates()
   const saveTemplateMutation = useSaveCustomerCommunicationSavedTemplate()
   const dispatchMutation = useDispatchCustomerCommunication()
   const conference = conferenceQuery.data
-  const tab: CommunicationTab = searchParams.get('tab') === 'historico' ? 'historico' : 'disparo'
+  const tab: CommunicationTab = searchParams.get('tab') === 'historico' ? 'historico' : searchParams.get('tab') === 'disparo' ? 'disparo' : 'cobertura'
 
   const defaultSelectedKeys = useMemo(
     () => new Set((conference?.rows ?? []).filter((row) => row.selected).map((row) => row.key)),
@@ -168,8 +171,7 @@ export function ClientesComunicacao() {
 
   function selectTab(nextTab: CommunicationTab) {
     const next = new URLSearchParams(searchParams)
-    if (nextTab === 'historico') next.set('tab', 'historico')
-    else next.delete('tab')
+    next.set('tab', nextTab)
     setSearchParams(next, { replace: true })
   }
 
@@ -361,6 +363,9 @@ export function ClientesComunicacao() {
       ) : null}
 
       <div className="mb-6 flex flex-wrap gap-2">
+        <button type="button" className={`app-tab ${tab === 'cobertura' ? 'app-tab--active' : ''}`} onClick={() => selectTab('cobertura')}>
+          <CheckCircle2 size={15} className="mr-2 inline" /> Cobertura de viagens
+        </button>
         <button
           type="button"
           className={`app-tab ${tab === 'disparo' ? 'app-tab--active' : ''}`}
@@ -377,7 +382,21 @@ export function ClientesComunicacao() {
         </button>
       </div>
 
-      {tab === 'disparo' ? (
+      {tab === 'cobertura' ? (
+        <Card>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div><h2 className="text-lg font-semibold text-[var(--app-text-strong)]">Painel de cobertura</h2><p className="text-sm text-[var(--app-muted)]">Acompanhe a régua automática e os clientes ainda pendentes por viagem.</p></div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Navio"><Input value={coverageFilters.vessel} onChange={(e) => setCoverageFilters({ ...coverageFilters, vessel: e.target.value })} placeholder="Navio" /></Field>
+              <Field label="Viagem"><Input value={coverageFilters.voyage} onChange={(e) => setCoverageFilters({ ...coverageFilters, voyage: e.target.value })} placeholder="Viagem" /></Field>
+              <Field label="Mês"><Input type="month" value={coverageFilters.month} onChange={(e) => setCoverageFilters({ ...coverageFilters, month: e.target.value })} /></Field>
+            </div>
+          </div>
+          {coverageQuery.isLoading ? <div className="mt-5 text-sm text-[var(--app-muted)]">Carregando cobertura...</div> : null}
+          {coverageQuery.isError ? <div className="mt-5"><InlineError message="Não foi possível carregar a cobertura." /></div> : null}
+          <div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-[var(--app-border)] text-xs uppercase text-[var(--app-muted)]"><th className="p-3">Viagem</th><th className="p-3">Clientes</th><th className="p-3">NOA</th><th className="p-3">NOR</th><th className="p-3">NOB</th><th className="p-3">CE / Taxas</th></tr></thead><tbody>{(coverageQuery.data ?? []).map((row) => <tr key={row.voyageId} className="border-b border-[var(--app-border)]"><td className="p-3 font-medium">{row.vesselName} · {row.voyageNumber}</td><td className="p-3">{row.customers}</td><td className="p-3"><Badge tone={row.noa.sent >= row.noa.total ? 'green' : 'yellow'}>{row.noa.sent}/{row.noa.total}</Badge></td><td className="p-3"><Badge tone={row.nor.sent >= row.nor.total ? 'green' : 'yellow'}>{row.nor.sent}/{row.nor.total}</Badge></td><td className="p-3"><Badge tone={row.nob.sent >= row.nob.total ? 'green' : 'yellow'}>{row.nob.sent}/{row.nob.total}</Badge></td><td className="p-3"><Badge tone={row.finance.pending ? 'yellow' : 'green'}>{row.finance.sent}/{row.finance.ready} enviados · {row.finance.pending} pendentes</Badge></td></tr>)}{!coverageQuery.data?.length ? <tr><td colSpan={6} className="p-8 text-center text-[var(--app-muted)]">Nenhuma viagem encontrada.</td></tr> : null}</tbody></table></div>
+        </Card>
+      ) : tab === 'disparo' ? (
         <div className="space-y-6">
           <Card>
             <div className="mb-4">
@@ -683,6 +702,13 @@ export function ClientesComunicacao() {
             </div>
             <Badge tone="blue">{historyQuery.data?.length ?? 0} registros</Badge>
           </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-5">
+            <Input placeholder="Navio" value={historyFilters.vessel} onChange={(e) => setHistoryFilters({ ...historyFilters, vessel: e.target.value })} />
+            <Input type="month" value={historyFilters.month} onChange={(e) => setHistoryFilters({ ...historyFilters, month: e.target.value })} />
+            <Select value={historyFilters.kind} onChange={(e) => setHistoryFilters({ ...historyFilters, kind: e.target.value })}><option value="">Todos os modelos</option>{KIND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>
+            <Select value={historyFilters.status} onChange={(e) => setHistoryFilters({ ...historyFilters, status: e.target.value })}><option value="">Todos os status</option><option value="enviado">Enviado</option><option value="simulado">Simulado</option><option value="falha">Falha</option></Select>
+            <Select value={historyFilters.origin} onChange={(e) => setHistoryFilters({ ...historyFilters, origin: e.target.value as '' | 'manual' | 'automatico' })}><option value="">Todas as origens</option><option value="automatico">Robô automático</option><option value="manual">Operador</option></Select>
+          </div>
           {historyQuery.isLoading ? <div className="mt-5 text-sm text-[var(--app-muted)]">Carregando histórico...</div> : null}
           {historyQuery.isError ? <div className="mt-5"><InlineError message="Não foi possível carregar o histórico." /></div> : null}
           <div className="mt-5 grid gap-3">
@@ -690,6 +716,7 @@ export function ClientesComunicacao() {
               <div key={item.id} className="app-surface rounded-xl border border-[var(--app-border)] p-4 shadow-xs">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={statusTone(item.status)}>{customerCommunicationStatusLabel(item.status)}</Badge>
+                  <Badge tone={item.origin === 'automatico' ? 'blue' : 'slate'}>{item.origin === 'automatico' ? 'Robô automático' : 'Operador'}</Badge>
                   <span className="font-semibold text-[var(--app-text-strong)]">{customerCommunicationKindLabel(item.kind)}</span>
                   <span className="text-xs text-[var(--app-muted)]">#{item.id} · tentativa {item.attempt_discriminator}</span>
                 </div>
