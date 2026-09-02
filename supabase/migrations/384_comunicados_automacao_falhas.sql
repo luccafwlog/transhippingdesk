@@ -93,7 +93,7 @@ BEGIN
           WHERE sent.customer_id = b.customer_id
             AND sent.kind = v_kind
             AND sent.nature = 'avisos_operacionais'
-            AND sent.status = 'enviado'
+            AND sent.status IN ('enviado', 'simulado')
             AND sent.anchor_voyage_id = v_voyage_id
             AND upper(btrim(sent.anchor_port)) = upper(btrim(v_port))
         )
@@ -141,7 +141,7 @@ BEGIN
       AND NOT EXISTS (
         SELECT 1 FROM public.customer_communications sent
         WHERE sent.customer_id = b.customer_id AND sent.kind = 'ce_mercante_taxas'
-          AND sent.nature = 'documentacao' AND sent.status = 'enviado'
+          AND sent.nature = 'documentacao' AND sent.status IN ('enviado', 'simulado')
           AND sent.anchor_voyage_id = b.voyage_id AND sent.attempt_discriminator = 0
       )
     GROUP BY b.voyage_id, b.customer_id, c.name, c.cnpj_cpf, v.voyage_number, vs.name, v.eta
@@ -199,6 +199,20 @@ BEGIN
   SELECT GREATEST(COALESCE(demurrage_dunning_interval_days, 7), 1) INTO v_interval_days FROM public.app_settings WHERE id = 1;
   v_interval_days := COALESCE(v_interval_days, 7);
 
+  -- Libera claims de execuções anteriores que reservaram mas não concluíram o envio após 30 minutos.
+  UPDATE public.demurrage_dunning_claims AS claim
+  SET released_at = COALESCE(p_as_of, now())
+  WHERE claim.released_at IS NULL
+    AND claim.claimed_at < COALESCE(p_as_of, now()) - interval '30 minutes'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.customer_communications AS comm
+      WHERE comm.kind = 'cobranca_demurrage'
+        AND comm.anchor_invoice_id = claim.demurrage_invoice_id
+        AND comm.attempt_discriminator = claim.attempt_discriminator
+        AND comm.status IN ('enviado', 'simulado')
+    );
+
   FOR v_invoice IN
     SELECT di.id, di.customer_id, di.bl_id, di.doc_number, di.total_usd, di.current_total_brl,
       di.current_roe, di.roe_source, di.first_billed_at,
@@ -207,8 +221,8 @@ BEGIN
       COALESCE(claims.attempt_count, 0)::INTEGER + 1 AS attempt_discriminator
     FROM public.demurrage_invoices AS di
     LEFT JOIN LATERAL (
-      SELECT count(*) FILTER (WHERE prior_claim.released_at IS NULL AND prior_claim.claimed_at >= COALESCE(p_as_of, now()) - interval '30 minutes')::INTEGER AS attempt_count,
-        max(prior_claim.claimed_at) FILTER (WHERE prior_claim.released_at IS NULL AND prior_claim.claimed_at >= COALESCE(p_as_of, now()) - interval '30 minutes') AS claimed_at
+      SELECT count(*) FILTER (WHERE prior_claim.released_at IS NULL)::INTEGER AS attempt_count,
+        max(prior_claim.claimed_at) FILTER (WHERE prior_claim.released_at IS NULL) AS claimed_at
       FROM public.demurrage_dunning_claims AS prior_claim
       WHERE prior_claim.demurrage_invoice_id = di.id
     ) AS claims ON true
@@ -236,7 +250,6 @@ BEGIN
     ON CONFLICT (demurrage_invoice_id, attempt_discriminator) DO UPDATE
       SET claimed_at = now(), released_at = NULL
       WHERE demurrage_dunning_claims.released_at IS NOT NULL
-         OR demurrage_dunning_claims.claimed_at < COALESCE(p_as_of, now()) - interval '30 minutes'
     RETURNING claimed_at INTO v_claimed_at;
     GET DIAGNOSTICS v_inserted = ROW_COUNT;
     IF v_inserted = 1 THEN

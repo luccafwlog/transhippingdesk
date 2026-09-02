@@ -98,7 +98,6 @@ async function handler(req: Request): Promise<Response> {
         if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
       } else {
         let resolvedRecipients = 0
-        let simulatedRecipients = 0
         for (const recipient of recipients) {
           try {
             const response = await fetch(`${url}/functions/v1/send-customer-communication`, {
@@ -120,7 +119,6 @@ async function handler(req: Request): Promise<Response> {
             const isDeliveredOrSimulated = response.ok && (result?.status === 'enviado' || result?.status === 'simulado')
             const isPermanentSuppression = response.status === 422 && Boolean(result?.suppressed)
             if (isDeliveredOrSimulated) count += 1
-            if (isDeliveredOrSimulated && result?.status === 'simulado') simulatedRecipients += 1
             if (isDeliveredOrSimulated || isPermanentSuppression) resolvedRecipients += 1
           } catch (dispatchError) {
             console.error('[customer-communication-auto-runner] falha de requisição', candidate.customer_id, recipient, dispatchError)
@@ -128,9 +126,7 @@ async function handler(req: Request): Promise<Response> {
         }
         // A claim covers the whole customer/port target, but delivery is per
         // recipient. Release it only when any recipient suffered a transient failure that needs a retry.
-        // A simulation must not consume the logical automatic target: after
-        // the global key is enabled, the same discriminator must be retried.
-        const shouldRelease = resolvedRecipients < recipients.length || simulatedRecipients > 0
+        const shouldRelease = resolvedRecipients < recipients.length
         if (shouldRelease) {
           if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
         }

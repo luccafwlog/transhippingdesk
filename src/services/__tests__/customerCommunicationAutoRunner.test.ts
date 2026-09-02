@@ -9,7 +9,7 @@ describe('contrato do runner automático de Comunicados', () => {
     expect(source).toContain("customer_local_charges_communication_payload")
     expect(source).toContain("result?.status === 'enviado' || result?.status === 'simulado'")
     expect(source).toContain("response.status === 422 && Boolean(result?.suppressed)")
-    expect(source).toContain('const shouldRelease = resolvedRecipients < recipients.length || simulatedRecipients > 0')
+    expect(source).toContain('const shouldRelease = resolvedRecipients < recipients.length')
     expect(source).toContain("const { error } = await admin.rpc('release_customer_communication_automation_claim'")
     expect(source).toContain("timingSafeEqual(providedSecret, secret)")
     expect(source).toContain("if (req.method !== 'POST') return json(405")
