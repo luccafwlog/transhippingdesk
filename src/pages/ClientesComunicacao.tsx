@@ -281,12 +281,14 @@ export function ClientesComunicacao() {
       />
 
       {settings?.communications_enabled === false ? (
-        <div role="status" className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-950 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <div role="status" className="app-surface mb-6 flex flex-col gap-3 rounded-xl border border-l-4 border-[var(--app-border)] border-l-amber-500 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
+              <AlertTriangle size={18} />
+            </div>
             <div>
-              <strong className="font-semibold text-amber-950 dark:text-amber-100">Modo de simulação permanente.</strong>
-              <div className="mt-0.5 text-amber-900 dark:text-amber-200">A chave global está desligada. Os comunicados serão registrados como simulados e nenhum e-mail será enviado ao Resend.</div>
+              <div className="text-sm font-bold text-[var(--app-text-strong)]">Modo de simulação permanente</div>
+              <p className="mt-0.5 text-xs text-[var(--app-muted)]">A chave global está desligada. Os comunicados serão registrados como simulados e nenhum e-mail será enviado ao Resend.</p>
             </div>
           </div>
           {canToggleCommunications ? (
@@ -305,12 +307,14 @@ export function ClientesComunicacao() {
           ) : null}
         </div>
       ) : settings?.communications_enabled === true ? (
-        <div role="status" className="mb-6 flex flex-col gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-950 dark:text-emerald-100 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <div role="status" className="app-surface mb-6 flex flex-col gap-3 rounded-xl border border-l-4 border-[var(--app-border)] border-l-emerald-500 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
+              <CheckCircle2 size={18} />
+            </div>
             <div>
-              <strong className="font-semibold text-emerald-950 dark:text-emerald-100">Canal de envio real ativo.</strong>
-              <div className="mt-0.5 text-emerald-900 dark:text-emerald-200">A chave global está ligada. E-mails reais são disparados aos contatos elegíveis via Resend.</div>
+              <div className="text-sm font-bold text-[var(--app-text-strong)]">Canal de envio real ativo</div>
+              <p className="mt-0.5 text-xs text-[var(--app-muted)]">A chave global está ligada. E-mails reais são disparados aos contatos elegíveis via Resend.</p>
             </div>
           </div>
           {canToggleCommunications ? (
