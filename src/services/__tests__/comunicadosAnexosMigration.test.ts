@@ -38,4 +38,19 @@ describe('migration 373 — anexos e templates de Comunicados', () => {
     expect(sql).toMatch(/REVOKE INSERT, UPDATE, DELETE ON TABLE public\.customer_communication_attachments FROM authenticated/i)
     expect(sql).toMatch(/CREATE POLICY customer_communication_attachments_internal_read[\s\S]*is_active_read_user/i)
   })
+
+  it('mantém o upload do bucket somente no servidor após a correção do Bloco 2', () => {
+    const correction = read('375_comunicados_bloco2_correcoes.sql')
+    expect(correction).toContain('DROP POLICY IF EXISTS customer_communications_objects_insert')
+    expect(correction).toContain('DROP POLICY IF EXISTS customer_communications_objects_update')
+    expect(correction).toContain('DROP POLICY IF EXISTS customer_communications_objects_delete')
+  })
+
+  it('expõe modelos reutilizáveis por RPC e mantém a escrita protegida', () => {
+    const correction = read('375_comunicados_bloco2_correcoes.sql')
+    expect(correction).toMatch(/CREATE TABLE IF NOT EXISTS public\.customer_communication_saved_templates/i)
+    expect(correction).toMatch(/CREATE OR REPLACE FUNCTION public\.save_customer_communication_saved_template/i)
+    expect(correction).toMatch(/REVOKE INSERT, UPDATE, DELETE ON TABLE public\.customer_communication_saved_templates FROM authenticated/i)
+    expect(correction).toMatch(/GRANT EXECUTE ON FUNCTION public\.save_customer_communication_saved_template\(TEXT, TEXT, TEXT\) TO authenticated/i)
+  })
 })

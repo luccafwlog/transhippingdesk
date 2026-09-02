@@ -28,4 +28,10 @@ describe('migration 374 — alertas de Comunicados', () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.run_alert_detectors\(\)[\s\S]*v_customer_communications := public\.detect_customer_communication_alerts\(\)/i)
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.detect_customer_communication_alerts\(\) TO service_role/i)
   })
+
+  it('mantém complaints do Portal fora da definição de contato alternativo', () => {
+    const correction = readFileSync(resolve(process.cwd(), 'supabase/migrations/375_comunicados_bloco2_correcoes.sql'), 'utf8')
+    expect(correction).toMatch(/pse\.reason = 'bounce_permanente'/i)
+    expect(correction).toMatch(/resolve_customer_contact_bounce_alert_on_change/i)
+  })
 })

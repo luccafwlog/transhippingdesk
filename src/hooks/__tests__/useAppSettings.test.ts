@@ -23,9 +23,10 @@ vi.mock('@tanstack/react-query', () => ({
 vi.mock('../../services/appSettings', () => ({
   fetchAppSettings: vi.fn(),
   setCommunicationsEnabled: vi.fn(),
+  setDemurrageDunningIntervalDays: vi.fn(),
 }))
 
-import { useAppSettings, useSetCommunicationsEnabled } from '../useAppSettings'
+import { useAppSettings, useSetCommunicationsEnabled, useSetDemurrageDunningIntervalDays } from '../useAppSettings'
 
 describe('hooks de app settings', () => {
   beforeEach(() => {
@@ -44,6 +45,14 @@ describe('hooks de app settings', () => {
 
   it('expõe a mutação com invalidação do singleton', () => {
     useSetCommunicationsEnabled()
+
+    expect(mocks.mutations).toHaveLength(1)
+    expect(mocks.mutations[0].mutationFn).toBeTypeOf('function')
+    expect(mocks.mutations[0].onSuccess).toBeTypeOf('function')
+  })
+
+  it('expõe a mutação administrativa do intervalo da régua', () => {
+    useSetDemurrageDunningIntervalDays()
 
     expect(mocks.mutations).toHaveLength(1)
     expect(mocks.mutations[0].mutationFn).toBeTypeOf('function')

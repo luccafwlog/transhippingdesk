@@ -13,6 +13,7 @@ import {
 } from '../../services/billing'
 import { invoiceStatusLabel, invoiceStatusTone } from '../../pages/faturamentoInvoiceStatus'
 import { formatBRL, formatDate } from '../../lib/utils'
+import { InvoiceCommunicationStatusCell } from './InvoiceCommunicationStatusCell'
 
 type InvoicesTableProps = {
   invoices: InvoiceListRow[]
@@ -25,6 +26,7 @@ type InvoicesTableProps = {
   totalPages: number
   onPageChange: (page: number) => void
   onSelectInvoice: (invoiceId: number) => void
+  showCommunication?: boolean
 }
 
 export function InvoicesTable({
@@ -38,6 +40,7 @@ export function InvoicesTable({
   totalPages,
   onPageChange,
   onSelectInvoice,
+  showCommunication = false,
 }: InvoicesTableProps) {
   return (
     <Card className="overflow-hidden p-0">
@@ -47,11 +50,11 @@ export function InvoicesTable({
       </div>
       {error ? <InlineError message="Erro ao carregar faturamento." /> : null}
       <div className="app-table-scroll app-table-scroll--sticky">
-        <table className="app-table app-table--compact min-w-[1200px] text-left text-sm">
-          <thead><tr><th scope="col" className="px-4 py-3">Número do BL</th><th scope="col" className="px-4 py-3">Fatura</th><th scope="col" className="px-4 py-3">Tipo</th><th scope="col" className="px-4 py-3">Navio / Viagem · POD</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Pagamento</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th><th scope="col" className="px-4 py-3">Ações</th></tr></thead>
+        <table className={`app-table app-table--compact ${showCommunication ? 'min-w-[1440px]' : 'min-w-[1200px]'} text-left text-sm`}>
+          <thead><tr><th scope="col" className="px-4 py-3">Número do BL</th><th scope="col" className="px-4 py-3">Fatura</th><th scope="col" className="px-4 py-3">Tipo</th><th scope="col" className="px-4 py-3">Navio / Viagem · POD</th><th scope="col" className="px-4 py-3">Emissão</th><th scope="col" className="px-4 py-3">Pagamento</th><th scope="col" className="px-4 py-3">Financeiro</th><th scope="col" className="px-4 py-3">Status</th>{showCommunication ? <th scope="col" className="px-4 py-3">Comunicação financeira</th> : null}<th scope="col" className="px-4 py-3">Ações</th></tr></thead>
           <tbody>
-            {isLoading ? <tr><td colSpan={9} className="p-0"><SkeletonTable rows={6} cols={9} /></td></tr> : null}
-            {!isLoading && invoices.length === 0 ? <tr><td colSpan={9} className="p-0"><EmptyState title={emptyState.title} description={emptyState.description} /></td></tr> : null}
+            {isLoading ? <tr><td colSpan={showCommunication ? 10 : 9} className="p-0"><SkeletonTable rows={6} cols={showCommunication ? 10 : 9} /></td></tr> : null}
+            {!isLoading && invoices.length === 0 ? <tr><td colSpan={showCommunication ? 10 : 9} className="p-0"><EmptyState title={emptyState.title} description={emptyState.description} /></td></tr> : null}
             {invoices.map((invoice) => {
               const bls = getInvoiceBls(invoice)
               const consolidated = isConsolidatedInvoice(invoice)
@@ -99,6 +102,7 @@ export function InvoicesTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">{renderInvoiceStatus(invoice.status)}</td>
+                {showCommunication ? <td className="px-4 py-3"><InvoiceCommunicationStatusCell invoice={invoice} /></td> : null}
                 <td className="px-4 py-3"><Button variant="secondary" onClick={() => onSelectInvoice(invoice.id)}>Detalhes</Button></td>
               </tr>
               )

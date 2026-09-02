@@ -17,7 +17,7 @@ cliente. Match por nome nunca preenche `customer_id` ou `client_id`: fica em
 as colunas de sugestão. O backfill preserva faturados e decisões manuais; suas
 consultas de impacto devem ser executadas em somente-leitura antes da aplicação.
 
-Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/pages/ClientesComunicacao.tsx`, `src/components/customers/CustomerTable.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/components/customers/ImportBaseModal.tsx`, `src/components/customers/customerCreateForm.ts`, `src/pages/ClienteFicha.tsx`, `src/components/clientes/FichaTabs.tsx`, `src/components/clientes/fichaTabConfig.ts`, `src/components/clientes/VisaoGeralTab.tsx`, `src/components/clientes/CadastroContatosTab.tsx`, `src/components/clientes/OperacionalTab.tsx`, `src/components/clientes/FinanceiroTab.tsx`, `src/components/clientes/HistoricoTab.tsx`, `src/components/bl/BlHistoricoTab.tsx`, `src/hooks/useCustomers.ts`, `src/hooks/useCustomerFicha.ts`, `src/hooks/useCustomerCommunications.ts`, `src/services/customers.ts`, `src/services/customerFicha.ts`, `src/services/customerCommunications.ts`, `src/services/customerCommunicationDispatches.ts`, `src/services/customerCommunicationTemplates.ts`, `src/services/portalProvisioning.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts`, `supabase/functions/send-customer-communication/index.ts`, `supabase/migrations/373_comunicados_anexos.sql` e `supabase/migrations/374_comunicados_alertas.sql`.
+Fontes executáveis principais: `src/pages/Clientes.tsx`, `src/pages/ClientesComunicacao.tsx`, `src/components/customers/CustomerTable.tsx`, `src/components/customers/CreateCustomerModal.tsx`, `src/components/customers/ImportBaseModal.tsx`, `src/components/customers/customerCreateForm.ts`, `src/pages/ClienteFicha.tsx`, `src/components/clientes/FichaTabs.tsx`, `src/components/clientes/fichaTabConfig.ts`, `src/components/clientes/VisaoGeralTab.tsx`, `src/components/clientes/CadastroContatosTab.tsx`, `src/components/clientes/OperacionalTab.tsx`, `src/components/clientes/FinanceiroTab.tsx`, `src/components/clientes/HistoricoTab.tsx`, `src/components/bl/BlHistoricoTab.tsx`, `src/components/billing/InvoiceCommunicationStatusCell.tsx`, `src/hooks/useCustomers.ts`, `src/hooks/useCustomerFicha.ts`, `src/hooks/useCustomerCommunications.ts`, `src/hooks/useCustomerCommunicationReadiness.ts`, `src/services/customers.ts`, `src/services/customerFicha.ts`, `src/services/customerCommunications.ts`, `src/services/customerCommunicationDispatches.ts`, `src/services/customerCommunicationTemplates.ts`, `src/services/customerFinanceCommunications.ts`, `src/services/customerCommunicationReadiness.ts`, `src/services/portalProvisioning.ts`, `src/services/customerBase.ts`, `src/services/customerReconciliation.ts`, `src/services/deleteDependencies.ts`, `src/services/deleteAudit.ts`, `src/services/exports.ts`, `supabase/functions/send-customer-communication/index.ts`, `supabase/migrations/376_customer_local_charges_communication_readiness.sql`, `supabase/migrations/377_portal_invoice_exception_audience.sql`, `supabase/migrations/373_comunicados_anexos.sql` e `supabase/migrations/374_comunicados_alertas.sql`.
 
 ## Anatomia das telas
 
@@ -50,11 +50,18 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 
 ### `/clientes/comunicacao`
 
-`src/pages/ClientesComunicacao.tsx` mantém as abas de disparo e histórico. O modo **Carga** exige ao menos um filtro operacional (navio, viagem, escala, POD ou POL); CNPJ é restrição adicional. O modo **Institucional** seleciona o Cliente Comunicável por CNPJ e por B/L com ETA desde doze meses atrás, sem limite superior para datas futuras. A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita para reenvios.
+`src/pages/ClientesComunicacao.tsx` mantém as abas de cobertura, disparo e histórico. A cobertura filtra navio, viagem e mês e mostra a matriz NOA/NOR/NOB/CE-Taxas. O modo **Carga** exige ao menos um filtro operacional (navio, viagem, escala, POD ou POL); CNPJ é restrição adicional. O modo **Institucional** seleciona o Cliente Comunicável por CNPJ e por B/L com ETA desde doze meses atrás, sem limite superior para datas futuras. A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita para reenvios. O histórico filtra navio, mês, modelo, status e origem (`Robô automático` ou `Operador`); a viagem pode ser filtrada pela ficha do cliente.
 
-O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend.
+O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend. Modelos institucionais reutilizáveis são salvos pela RPC `save_customer_communication_saved_template`; o bucket de anexos permanece privado e sem escrita direta pelo navegador (`supabase/migrations/375_comunicados_bloco2_correcoes.sql`).
 
-O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`.
+O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`. O runner `supabase/functions/customer-communication-auto-runner/index.ts`, agendado pela migration `381_customer_communications_automation.sql`, avalia NOA/NOR e `ce_mercante_taxas` em background, aplica a chave global e grava claims idempotentes; as correções de lease e prontidão estão na migration `384_comunicados_automacao_falhas.sql`.
+
+O resumo financeiro `ce_mercante_taxas` não é um disparo genérico por invoice:
+após o vínculo do CE, a prontidão é calculada por cliente/viagem e exige CE,
+revisão limpa e faturamento concluído em todos os B/Ls ativos. A Taxas Locais
+exibe o bloqueio e o último comunicado; um reenvio assistido pede confirmação e
+usa novo discriminador. A chave global continua controlando envio real versus
+simulação.
 
 ## Catálogo de ações
 
@@ -96,12 +103,14 @@ O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `custom
 | `['customer-communications', 'conference', filters, kind, nature]` | `useCustomerCommunicationConference` | Só habilitada após “Conferir”; escopo inclui modo e todos os filtros, tipo e natureza. |
 | `['customer-communications', 'history', customerId?]` | `useCustomerCommunicationHistory` | Histórico da rota ou da ficha; atualizado após cada dispatch. |
 | `['customer-communications', 'bl', blId]` | `useBlCommunicationHistory` | Histórico de Comunicados vinculados ao B/L; atualizado após dispatch. |
+| `['customer-communications', 'status', voyageId, customerId]` | `useCustomerVoyageCommunicationStatus` | Último envio, discriminador e motivo de bloqueio exibidos em Taxas Locais. |
 | Filtros, seleção, modais e formulários | Estado local das páginas | Não persistem na URL, exceto a própria rota da ficha e a aba ativa (`?tab=`). |
 | `customers.cnpj_cpf` | Identidade cadastral | UNIQUE e NOT NULL desde `supabase/migrations/001_schema.sql`; a migration `293` persiste 14 caracteres `A-Z0-9` em maiúsculas, sem pontuação. |
 | `customer_contacts` | Contatos do cliente | Finalidade aceita: `geral`, `operacional`, `faturamento`, `financeiro`. |
 | `customer_portal_accounts` | Conta técnica do Portal | Relaciona cliente a `auth.users` por `auth_user_id`; `active` não substitui o vínculo Auth. |
 | `customer_communications` | Trilha de Comunicados | Âncoras e snapshots preservam o contexto do envio; comunicado institucional não possui vínculo B/L. Status `simulado` não encerra alerta operacional. |
-| `customer_communication_templates` | Modelos server-side | Um modelo ativo por tipo; leitura autenticada, escrita somente por `service_role`. |
+| `customer_communication_templates` | Modelos server-side fixos | Um modelo ativo por tipo; leitura autenticada, escrita somente por `service_role`. |
+| `customer_communication_saved_templates` | Modelos institucionais reutilizáveis | Leitura interna; criação somente pela RPC autorizada. |
 
 O saldo da lista não usa `customers.pending_balance`: `fetchIssuedInvoiceBalanceByCustomer` percorre invoices `issued`. A ficha aplica a mesma noção sobre as invoices que conseguiu ler. Dados de matching ficam em quatro mapas em memória, carregados em páginas de 1.000 registros por `loadCustomerMaps`.
 
@@ -149,3 +158,12 @@ O cabeçalho desta página é o ponto de entrada para `/clientes/portal`, com ba
 - **Código — update e auditoria não são atômicos.** `updateCustomerWithAudit` atualiza `customers` antes de inserir `audit_logs`; falha da auditoria deixa o cadastro alterado embora a UI informe falha.
 - **Código — mensagem de migration desatualizada.** `normalizeCustomerPortalRpcError` orienta aplicar `025_billing_orchestration_portal.sql`, enquanto o contrato vigente de ativação foi endurecido por `supabase/migrations/129_review_gate_hardening.sql`.
 - `customer_rate_overrides` é apagado junto do hard delete, mas sua manutenção funcional pertence a [Taxas Locais](taxas-locais.md).
+### Cobertura e automação de Comunicados
+
+**Código:** `/clientes/comunicacao` agora expõe o painel de cobertura, o
+disparo manual e o histórico auditável. O runner `customer-communication-
+auto-runner` avalia NOA/NOR e CE Mercante em background a cada quinze minutos, respeita a
+chave global de envio e registra a origem como `automatico`; a chave de claim
+impede duplicação em execuções concorrentes. O histórico principal filtra
+navio, mês, modelo, status e origem; a viagem pode ser restringida pela ficha
+do cliente.

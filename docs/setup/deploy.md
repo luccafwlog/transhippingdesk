@@ -254,6 +254,20 @@ Function registra simulação e não exige chamada ao Resend; para envio real, o
 remetente, reply-to e `RESEND_API_KEY` precisam estar configurados. Resend não é
 migrado para Vercel Functions.
 
+A régua de Demurrage exige o segredo server-side `DEMURRAGE_DUNNING_SECRET`.
+O mesmo valor deve estar disponível como `app.settings.demurrage_dunning_secret`
+no banco, junto de `app.settings.supabase_url`, para que o `pg_cron` consiga
+chamar a Edge Function `demurrage-dunning` de hora em hora.
+
+O runner automático de NOA/NOR exige o segredo server-side
+`CUSTOMER_COMMUNICATION_AUTOMATION_SECRET`. O mesmo valor deve estar disponível
+como `app.settings.customer_communication_automation_secret` no banco, junto de
+`app.settings.supabase_url`, para que o `pg_cron` consiga chamar a Edge Function.
+Após aplicar as migrations 381 a 384, valide os jobs `demurrage-dunning` e
+`customer-communication-auto-runner`, e não exponha nenhum dos segredos no frontend.
+Claims abandonadas da automação possuem lease de 30 minutos e podem ser retomadas pelo ciclo
+seguinte; falhas de liberação aparecem como erro do runner.
+
 Migrations continuam sendo aplicadas no Supabase, em ordem e antes do deploy de
 código que dependa delas, pelo branch action da integração GitHub no Preview e
 pelo deploy de produção quando `main` recebe o merge. As migrations

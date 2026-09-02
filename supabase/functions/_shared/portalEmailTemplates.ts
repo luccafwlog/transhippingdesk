@@ -178,44 +178,6 @@ export function emailChangeAlertTemplate(i: { portalUrl: string; supportEmail: s
   }
 }
 
-export function invoiceIssuedTemplate(i: { companyName: string; cnpjMasked: string; invoiceNumber: string; totalFormatted: string; notes?: string | null; portalUrl: string; supportEmail: string }) {
-  const rows = [
-    { label: 'Fatura nº', value: i.invoiceNumber },
-    { label: 'Valor total', value: i.totalFormatted, emphasize: true },
-    ...(i.notes ? [{ label: 'Observações', value: i.notes }] : []),
-  ]
-  const text = [`Nova fatura emitida para ${i.companyName} (CNPJ ${i.cnpjMasked}).`, `Fatura nº ${i.invoiceNumber} — ${i.totalFormatted}.`, '', `Acesse o Portal para consultar e pagar: ${i.portalUrl}`].join('\n')
-  return {
-    subject: `Fatura ${i.invoiceNumber} emitida — ${i.totalFormatted}`,
-    text,
-    html: layout({
-      title: 'Nova fatura emitida',
-      identity: { companyName: i.companyName, cnpjMasked: i.cnpjMasked },
-      paragraphs: ['Uma nova fatura foi emitida e já está disponível no Portal do Cliente.'],
-      rows,
-      button: { label: 'Acessar Portal e pagar com PIX', url: i.portalUrl },
-      portalUrl: i.portalUrl,
-      supportEmail: i.supportEmail,
-    }),
-  }
-}
-
-export function invoiceCriticalPendencyTemplate(i: { companyName: string; cnpjMasked: string; invoiceNumber: string; consoleUrl: string; portalUrl: string; supportEmail: string }) {
-  const text = [`Fatura ${i.invoiceNumber} emitida para ${i.companyName} (CNPJ ${i.cnpjMasked}) sem Portal ativo ou Email de Recuperação.`, `Abra o Console de Provisionamento: ${i.consoleUrl}`].join('\n')
-  return {
-    subject: `Ação necessária: fatura ${i.invoiceNumber} sem prontidão do Portal`,
-    text,
-    html: layout({
-      title: 'Pendência crítica de provisionamento',
-      identity: { companyName: i.companyName, cnpjMasked: i.cnpjMasked },
-      paragraphs: [`A fatura ${i.invoiceNumber} foi emitida, mas o Cliente não possui Portal ativo ou Email de Recuperação cadastrado.`, 'Revise e resolva a pendência no Console de Provisionamento.'],
-      button: { label: 'Abrir Console de Provisionamento', url: i.consoleUrl },
-      portalUrl: i.portalUrl,
-      supportEmail: i.supportEmail,
-    }),
-  }
-}
-
 export function dailyDigestTemplate(i: { date: string; failures: number; activity: number; pending: number; portalUrl: string; supportEmail: string }) {
   const list = [`Falhas/supressões: ${i.failures}`, `Atividade de provisionamento: ${i.activity}`, `Ativação pendente: ${i.pending}`]
   const text = [`Resumo do Portal — ${i.date}`, '', ...list].join('\n')
@@ -231,3 +193,32 @@ export function dailyDigestTemplate(i: { date: string; failures: number; activit
     }),
   }
 }
+
+export function bounceNotificationTemplate(i: {
+  bouncedEmailMasked: string
+  portalUrl: string
+  supportEmail: string
+}) {
+  const text = [
+    `O endereço ${i.bouncedEmailMasked} não recebeu um comunicado.`,
+    '',
+    'A entrega falhou permanentemente (bounce). Atualize o cadastro do cliente para evitar novas falhas de entrega.',
+    '',
+    `Dúvidas ou suporte? Entre em contato com ${i.supportEmail}.`,
+  ].join('\n')
+  return {
+    subject: 'Falha de entrega: atualize o cadastro do cliente',
+    text,
+    html: layout({
+      title: 'Falha de entrega de comunicado',
+      paragraphs: [
+        `O endereço <strong>${escapeHtml(i.bouncedEmailMasked)}</strong> não recebeu um comunicado recente.`,
+        'A entrega falhou permanentemente (bounce). Atualize o cadastro de contatos do cliente no Portal para garantir o recebimento dos próximos comunicados e avisos operacionais.',
+      ],
+      button: { label: 'Acessar Portal do Cliente', url: `${i.portalUrl}/portal` },
+      portalUrl: i.portalUrl,
+      supportEmail: i.supportEmail,
+    }),
+  }
+}
+

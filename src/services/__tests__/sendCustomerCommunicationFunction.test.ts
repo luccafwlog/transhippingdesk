@@ -15,6 +15,7 @@ describe('Edge Function send-customer-communication', () => {
     expect(source).toContain("status = sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'")
     expect(source).toContain("replyTo: Deno.env.get('COMMUNICATIONS_REPLY_TO')")
     expect(source).not.toContain("replyTo: Deno.env.get('COMMUNICATIONS_REPLY_TO') ?? Deno.env.get('PORTAL_REPLY_TO')")
+    expect(source).toContain("timingSafeEqual(providedAutomationSecret, automationSecret)")
   })
 
   it('confere contato, preferência, bounce/complaint e grava a operação pelo RPC atômico', () => {
@@ -24,13 +25,21 @@ describe('Edge Function send-customer-communication', () => {
     expect(source).toContain("reason', 'bounce_permanente'")
     expect(source).toContain("admin.rpc('create_customer_communication_atomic'")
     expect(source).toContain("admin.from('customer_communication_attempts').insert")
+    expect(source).toContain("admin.rpc('customer_local_charges_communication_payload'")
+    expect(source).toContain('renderCeMercanteTaxasTemplate')
+    expect(source).toContain('idempotencyKey: `comunicado:${communicationId}:${attemptDiscriminator}:${recipient}`')
+    expect(source).toContain('Cobrança de Demurrage é enviada exclusivamente pela régua automática.')
+    expect(source).toContain('if (isAutomation && existingCommunicationId == null)')
+    expect(source).toContain('findExistingCommunicationId')
   })
 
-  it('persiste anexos de forma privada, limitada e idempotente antes do envio', () => {
+  it('persiste anexos de forma privada, limitada e idempotente antes do envio com compatibilidade de automação', () => {
     expect(source).toContain("from('customer_communication_attachments')")
     expect(source).toMatch(/from\('customer-communications'\)[\s\S]*\.upload\(/)
     expect(source).toMatch(/from\('customer-communications'\)[\s\S]*\.remove\(/)
     expect(source).toContain('existing.length + newAttachments.length > 3')
     expect(source).toContain('existingBytes + newBytes > 10 * 1024 * 1024')
+    expect(source).toContain('uploadedBy: string | null')
+    expect(source).toContain('callerUser.user?.id ?? null')
   })
 })

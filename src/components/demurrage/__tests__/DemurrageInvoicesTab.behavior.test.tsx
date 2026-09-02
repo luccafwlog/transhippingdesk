@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
 import { DemurrageInvoicesTab } from '../DemurrageInvoicesTab'
 
@@ -21,15 +22,20 @@ const invoice = {
 } as never
 
 it('organiza a linha em pilhas de contexto e separa a acao principal das financeiras', () => {
-  render(<DemurrageInvoicesTab
-    tab="emitidas"
-    tabLabel="Faturas"
-    invoices={[invoice]}
-    loading={false}
-    error={null}
-    onOpenDetail={vi.fn()}
-    onOpenDocument={vi.fn()}
-  />)
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <DemurrageInvoicesTab
+        tab="emitidas"
+        tabLabel="Faturas"
+        invoices={[invoice]}
+        loading={false}
+        error={null}
+        onOpenDetail={vi.fn()}
+        onOpenDocument={vi.fn()}
+      />
+    </QueryClientProvider>,
+  )
 
   expect(screen.getByTestId('demurrage-invoice-context')).toBeTruthy()
   expect(screen.getByTestId('demurrage-invoice-financial')).toBeTruthy()

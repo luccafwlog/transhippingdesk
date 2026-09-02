@@ -106,7 +106,9 @@ export const queryKeys = {
   customerCommunications: {
     all: () => ['customer-communications'] as const,
     conference: (filters: unknown, kind: string, nature?: string) => ['customer-communications', 'conference', filters, kind, nature ?? null] as const,
-    history: (customerId?: number) => customerId == null
+    statusRoot: () => ['customer-communications', 'status'] as const,
+    status: (voyageId: number | null, customerId: number | null) => ['customer-communications', 'status', voyageId, customerId] as const,
+    history: (customerId?: unknown) => customerId == null
       ? (['customer-communications', 'history'] as const)
       : (['customer-communications', 'history', customerId] as const),
     byBl: (blId: string) => ['customer-communications', 'bl', blId] as const,
@@ -127,6 +129,7 @@ export const queryKeys = {
     customerAgreements: (filters?: unknown) =>
       filters === undefined ? (['customer-demurrage-agreements'] as const) : (['customer-demurrage-agreements', filters] as const),
     invoices: (filters?: unknown) => (filters === undefined ? (['demurrage-invoices'] as const) : (['demurrage-invoices', filters] as const)),
+    dunning: (invoiceIds: number[]) => ['demurrage-invoices', 'dunning', invoiceIds.slice().sort((a, b) => a - b)] as const,
   },
   alerts: {
     all: () => ['alerts'] as const,
