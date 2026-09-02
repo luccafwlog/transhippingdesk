@@ -763,31 +763,53 @@ export async function fetchCustomerCommunicationHistory(input?: number | Custome
   }))
 }
 
+type CoveragePage<T> = { data: T[] | null; error: unknown }
+
+async function fetchCoverageRows<T>(fetchPage: (from: number, to: number) => PromiseLike<CoveragePage<T>>): Promise<T[]> {
+  const rows: T[] = []
+  const pageSize = 1000
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await fetchPage(from, from + pageSize - 1)
+    if (error) throw error
+    rows.push(...(data ?? []))
+    if (!data || data.length < pageSize) return rows
+  }
+}
+
 export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: string; voyage?: string; month?: string }): Promise<VoyageCommunicationCoverageSummary[]> {
-  const [{ data: voyages, error: voyagesError }, { data: bls, error: blsError }, { data: communications, error: communicationsError }] = await Promise.all([
-    supabase.from('voyages').select('id, voyage_number, vessel:vessels(name)').order('id', { ascending: false }).limit(500).overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string } | null }>, { merge: false }>(),
-    supabase.from('bls').select('id, voyage_id, customer_id, pod, ce_mercante, financial_status').neq('financial_status', 'cancelled').overrideTypes<Array<{ id: string; voyage_id: number; customer_id: number | null; pod: string | null; ce_mercante: string | null; financial_status: string | null }>, { merge: false }>(),
-    supabase.from('customer_communications').select('customer_id, kind, status, anchor_voyage_id, anchor_port, anchor_atracacao_id, created_at').overrideTypes<Array<{ customer_id: number | null; kind: string; status: string; anchor_voyage_id: number | null; anchor_port: string | null; anchor_atracacao_id: string | null; created_at: string }>, { merge: false }>(),
+  const [voyages, bls, communications, terminalStates] = await Promise.all([
+    fetchCoverageRows((from, to) => supabase.from('voyages').select('id, voyage_number, vessel:vessels(name)').order('id', { ascending: false }).range(from, to).overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string } | null }>, { merge: false }>()),
+    fetchCoverageRows((from, to) => supabase.from('bls').select('id, voyage_id, customer_id, pod, ce_mercante, financial_status').neq('financial_status', 'cancelled').range(from, to).overrideTypes<Array<{ id: string; voyage_id: number; customer_id: number | null; pod: string | null; ce_mercante: string | null; financial_status: string | null }>, { merge: false }>()),
+    fetchCoverageRows((from, to) => supabase.from('customer_communications').select('customer_id, kind, status, anchor_voyage_id, anchor_port, anchor_atracacao_id, created_at').range(from, to).overrideTypes<Array<{ customer_id: number | null; kind: string; status: string; anchor_voyage_id: number | null; anchor_port: string | null; anchor_atracacao_id: string | null; created_at: string }>, { merge: false }>()),
+    fetchCoverageRows((from, to) => supabase.from('voyage_escala_terminal_state').select('id, voyage_id, port, terminal_atb').not('terminal_atb', 'is', null).range(from, to).overrideTypes<Array<{ id: string; voyage_id: number; port: string; terminal_atb: string | null }>, { merge: false }>()),
   ])
-  if (voyagesError) throw voyagesError
-  if (blsError) throw blsError
-  if (communicationsError) throw communicationsError
-  const comms = communications ?? []
-  return (voyages ?? []).filter((voyage) => {
+  return voyages.filter((voyage) => {
     const vesselName = voyage.vessel?.name ?? ''
     return (!filters?.vessel || vesselName.toUpperCase().includes(filters.vessel.toUpperCase()))
       && (!filters?.voyage || voyage.voyage_number.toUpperCase().includes(filters.voyage.toUpperCase()))
   }).filter((voyage) => {
     if (!filters?.month) return true
-    return (comms ?? []).some((comm) => comm.anchor_voyage_id === voyage.id && comm.created_at.startsWith(filters.month!))
+    return communications.some((comm) => comm.anchor_voyage_id === voyage.id && comm.created_at.startsWith(filters.month!))
   }).map((voyage) => {
-    const rows = (bls ?? []).filter((bl) => bl.voyage_id === voyage.id && bl.customer_id != null)
+    const rows = bls.filter((bl) => bl.voyage_id === voyage.id && bl.customer_id != null)
     const customers = new Set(rows.map((row) => row.customer_id!))
-    const count = (kind: string, customerId?: number) => comms.filter((comm) => comm.kind === kind && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id && (customerId == null || rows.some((row) => row.customer_id === customerId && row.pod?.toUpperCase() === comm.anchor_port?.toUpperCase()))).length
-    const total = (kind: string) => kind === 'aviso_atracacao_nob' ? rows.length : new Set(rows.map((row) => `${row.customer_id}:${row.pod?.toUpperCase()}`)).size
+    const comms = communications
+    const terminalTargets = terminalStates.filter((state) => state.voyage_id === voyage.id)
+    const nobTargetKeys = new Set(rows.flatMap((row) => terminalTargets
+      .filter((state) => state.port.toUpperCase() === row.pod?.toUpperCase())
+      .map((state) => `${row.customer_id}:${state.id}`)))
+    const count = (kind: string, customerId?: number) => new Set(comms
+      .filter((comm) => comm.kind === kind && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id)
+      .filter((comm) => customerId == null || comm.customer_id === customerId)
+      .filter((comm) => customerId == null || rows.some((row) => row.customer_id === customerId && row.pod?.toUpperCase() === comm.anchor_port?.toUpperCase()))
+      .filter((comm) => kind !== 'aviso_atracacao_nob' || nobTargetKeys.has(`${comm.customer_id}:${comm.anchor_atracacao_id}`))
+      .map((comm) => `${comm.customer_id}:${comm.anchor_voyage_id}:${comm.anchor_port?.toUpperCase() ?? ''}:${comm.anchor_atracacao_id ?? ''}`)).size
+    const total = (kind: string) => kind === 'aviso_atracacao_nob' ? nobTargetKeys.size : new Set(rows.map((row) => `${row.customer_id}:${row.pod?.toUpperCase()}`)).size
     const financeRows = rows.filter((row) => Boolean(row.ce_mercante?.trim()) && ['invoiced', 'paid'].includes(row.financial_status ?? ''))
     const financeCustomers = new Set(financeRows.map((row) => row.customer_id!))
-    const financeSent = financeRows.filter((row) => comms.some((comm) => comm.kind === 'ce_mercante_taxas' && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id && (comm.customer_id === row.customer_id || (comm.anchor_port != null && comm.anchor_port.toUpperCase() === row.pod?.toUpperCase())))).length
+    const financeSent = new Set(financeRows
+      .filter((row) => comms.some((comm) => comm.kind === 'ce_mercante_taxas' && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id && comm.customer_id === row.customer_id))
+      .map((row) => row.customer_id)).size
     return { voyageId: voyage.id, vesselName: voyage.vessel?.name ?? '—', voyageNumber: voyage.voyage_number, customers: customers.size, noa: { sent: count('aviso_chegada_noa'), total: total('aviso_chegada_noa') }, nor: { sent: count('aviso_prontidao_nor'), total: total('aviso_prontidao_nor') }, nob: { sent: count('aviso_atracacao_nob'), total: total('aviso_atracacao_nob') }, finance: { sent: financeSent, ready: financeCustomers.size, total: customers.size, pending: customers.size - financeCustomers.size } }
   })
 }

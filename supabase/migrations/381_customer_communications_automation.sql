@@ -12,43 +12,11 @@ CREATE INDEX IF NOT EXISTS idx_customer_communications_origin ON public.customer
 
 CREATE TABLE IF NOT EXISTS public.customer_communication_automation_claims (
   claim_key TEXT PRIMARY KEY,
-  claimed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  released_at TIMESTAMPTZ
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-ALTER TABLE public.customer_communication_automation_claims
-  ADD COLUMN IF NOT EXISTS released_at TIMESTAMPTZ;
-CREATE INDEX IF NOT EXISTS idx_customer_communication_automation_claims_lookup
-  ON public.customer_communication_automation_claims (claim_key, released_at, claimed_at DESC);
 ALTER TABLE public.customer_communication_automation_claims ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.customer_communication_automation_claims FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.customer_communication_automation_claims TO service_role;
-
-CREATE OR REPLACE FUNCTION public.release_customer_communication_automation_claim(
-  p_claim_key TEXT
-)
-RETURNS BOOLEAN
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
-AS $function$
-BEGIN
-  IF auth.role() IS DISTINCT FROM 'service_role' THEN
-    RAISE EXCEPTION 'Executor server-only.' USING ERRCODE = '42501';
-  END IF;
-
-  IF p_claim_key IS NULL OR btrim(p_claim_key) = '' THEN
-    RAISE EXCEPTION 'Chave da claim e obrigatoria.' USING ERRCODE = '22023';
-  END IF;
-
-  UPDATE public.customer_communication_automation_claims
-  SET released_at = COALESCE(released_at, now())
-  WHERE claim_key = p_claim_key
-    AND released_at IS NULL;
-
-  RETURN FOUND;
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.release_customer_communication_automation_claim(TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.release_customer_communication_automation_claim(TEXT) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.evaluate_and_dispatch_automatic_communications(
   p_as_of TIMESTAMPTZ DEFAULT now()
@@ -57,8 +25,7 @@ RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $function$
 DECLARE
-  v_schedule RECORD;
-  v_customer_bl RECORD;
+  v_row RECORD;
   v_candidates JSONB := '[]'::JSONB;
   v_kind TEXT;
   v_milestone TIMESTAMPTZ;
@@ -74,7 +41,7 @@ BEGIN
 
   -- Escalas são auditadas como voyage_id::PORT. Ler o último valor mantém a
   -- automação compatível com o modelo histórico e com a escala terminalizada.
-  FOR v_schedule IN
+  FOR v_row IN
     WITH entities AS (
       SELECT DISTINCT entity_id
       FROM public.audit_logs
@@ -98,14 +65,14 @@ BEGIN
       AND ((NULLIF(l.eta,'')::timestamptz BETWEEN p_as_of - interval '30 days' AND p_as_of + interval '5 days')
         OR (NULLIF(l.ata,'')::timestamptz BETWEEN p_as_of - interval '30 days' AND p_as_of))
   LOOP
-    v_voyage_id := v_schedule.voyage_id;
-    v_vessel_name := v_schedule.vessel_name;
-    v_voyage_number := v_schedule.voyage_number;
-    v_port := v_schedule.port;
-    v_kind := CASE WHEN v_schedule.ata IS NOT NULL THEN 'aviso_prontidao_nor' ELSE 'aviso_chegada_noa' END;
-    v_milestone := CASE WHEN v_kind = 'aviso_prontidao_nor' THEN v_schedule.ata ELSE v_schedule.eta END;
-    IF v_kind = 'aviso_chegada_noa' AND p_as_of < v_schedule.eta - interval '5 days' THEN CONTINUE; END IF;
-    FOR v_customer_bl IN
+    v_voyage_id := v_row.voyage_id;
+    v_vessel_name := v_row.vessel_name;
+    v_voyage_number := v_row.voyage_number;
+    v_port := v_row.port;
+    v_kind := CASE WHEN v_row.ata IS NOT NULL THEN 'aviso_prontidao_nor' ELSE 'aviso_chegada_noa' END;
+    v_milestone := CASE WHEN v_kind = 'aviso_prontidao_nor' THEN v_row.ata ELSE v_row.eta END;
+    IF v_kind = 'aviso_chegada_noa' AND p_as_of < v_row.eta - interval '5 days' THEN CONTINUE; END IF;
+    FOR v_row IN
       SELECT b.customer_id, array_agg(b.id ORDER BY b.id) AS bl_ids,
         c.name AS customer_name, c.cnpj_cpf,
         array_agg(DISTINCT NULLIF(btrim(cc.email),'') ORDER BY NULLIF(btrim(cc.email),'')) FILTER (WHERE cc.email IS NOT NULL) AS emails
@@ -117,18 +84,15 @@ BEGIN
         AND NOT EXISTS (SELECT 1 FROM public.customer_contact_preferences cp WHERE cp.contact_id=cc.id AND cp.nature='avisos_operacionais' AND cp.enabled=false)
       GROUP BY b.customer_id,c.name,c.cnpj_cpf
     LOOP
-      v_key := v_kind||':'||v_customer_bl.customer_id||':'||v_voyage_id||':'||upper(v_port);
-      INSERT INTO public.customer_communication_automation_claims(claim_key)
-      VALUES(v_key)
-      ON CONFLICT (claim_key) DO UPDATE
-        SET claimed_at = now(), released_at = NULL
-        WHERE customer_communication_automation_claims.released_at IS NOT NULL;
+      v_key := v_kind||':'||v_row.customer_id||':'||v_voyage_id||':'||upper(v_port);
+      INSERT INTO public.customer_communication_automation_claims(claim_key) VALUES(v_key)
+        ON CONFLICT DO NOTHING;
       IF FOUND THEN
         v_candidates := v_candidates || jsonb_build_array(jsonb_build_object(
-          'claim_key',v_key,'kind',v_kind,'customer_id',v_customer_bl.customer_id,'customer_name',v_customer_bl.customer_name,
-          'customer_cnpj',v_customer_bl.cnpj_cpf,'voyage_id',v_voyage_id,'vessel_name',v_vessel_name,
+          'kind',v_kind,'customer_id',v_row.customer_id,'customer_name',v_row.customer_name,
+          'customer_cnpj',v_row.cnpj_cpf,'voyage_id',v_voyage_id,'vessel_name',v_vessel_name,
           'voyage_number',v_voyage_number,'port',upper(v_port),'milestone_at',v_milestone,
-          'bl_ids',to_jsonb(v_customer_bl.bl_ids),'emails',to_jsonb(v_customer_bl.emails)
+          'bl_ids',to_jsonb(v_row.bl_ids),'emails',to_jsonb(v_row.emails)
         ));
       END IF;
     END LOOP;

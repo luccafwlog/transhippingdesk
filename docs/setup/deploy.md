@@ -254,6 +254,15 @@ Function registra simulação e não exige chamada ao Resend; para envio real, o
 remetente, reply-to e `RESEND_API_KEY` precisam estar configurados. Resend não é
 migrado para Vercel Functions.
 
+O runner automático de NOA/NOR exige o segredo server-side
+`CUSTOMER_COMMUNICATION_AUTOMATION_SECRET`. O mesmo valor deve estar disponível
+como `app.settings.customer_communication_automation_secret` no banco, junto de
+`app.settings.supabase_url`, para que o `pg_cron` consiga chamar a Edge Function.
+Após aplicar as migrations 381 e 382, valide o job
+`customer-communication-auto-runner` e não exponha esse segredo no frontend.
+Claims abandonadas possuem lease de 30 minutos e podem ser retomadas pelo ciclo
+seguinte; falhas de liberação aparecem como erro do runner.
+
 Migrations continuam sendo aplicadas no Supabase, em ordem e antes do deploy de
 código que dependa delas, pelo branch action da integração GitHub no Preview e
 pelo deploy de produção quando `main` recebe o merge. As migrations

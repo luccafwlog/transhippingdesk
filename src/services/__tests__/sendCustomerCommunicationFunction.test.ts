@@ -28,6 +28,8 @@ describe('Edge Function send-customer-communication', () => {
     expect(source).toContain('renderCeMercanteTaxasTemplate')
     expect(source).toContain('idempotencyKey: `comunicado:${communicationId}:${attemptDiscriminator}:${recipient}`')
     expect(source).toContain('Cobrança de Demurrage é enviada exclusivamente pela régua automática.')
+    expect(source).toContain('if (isAutomation && existingCommunicationId == null)')
+    expect(source).toContain('findExistingCommunicationId')
   })
 
   it('persiste anexos de forma privada, limitada e idempotente antes do envio com compatibilidade de automação', () => {

@@ -30,16 +30,20 @@ function json(status: number, value: unknown): Response {
   return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-async function releaseClaimSafely(admin: ReturnType<typeof createClient>, claimKey?: string): Promise<void> {
-  if (!claimKey) return
+async function releaseClaimSafely(admin: ReturnType<typeof createClient>, claimKey?: string): Promise<boolean> {
+  if (!claimKey) return true
   try {
-    await admin.rpc('release_customer_communication_automation_claim', { p_claim_key: claimKey })
+    const { error } = await admin.rpc('release_customer_communication_automation_claim', { p_claim_key: claimKey })
+    if (error) throw error
+    return true
   } catch (error) {
     console.error('[customer-communication-auto-runner] falha ao liberar claim', claimKey, error)
+    return false
   }
 }
 
 async function handler(req: Request): Promise<Response> {
+  if (req.method !== 'POST') return json(405, { error: 'Method not allowed' })
   const secret = Deno.env.get('CUSTOMER_COMMUNICATION_AUTOMATION_SECRET') ?? ''
   const providedSecret = req.headers.get('X-Communication-Automation-Secret') ?? ''
   if (!secret || !timingSafeEqual(providedSecret, secret)) return json(401, { error: 'Não autorizado.' })
@@ -51,6 +55,7 @@ async function handler(req: Request): Promise<Response> {
   if (error) return json(500, { error: error.message })
   const candidates = (data ?? []) as Candidate[]
   const sent: Array<{ kind: string; customerId: number; emails: number }> = []
+  let releaseFailures = 0
   for (const candidate of candidates) {
     let count = 0
     try {
@@ -65,36 +70,44 @@ async function handler(req: Request): Promise<Response> {
       })
       const recipients = candidate.emails ?? []
       if (!recipients.length) {
-        await releaseClaimSafely(admin, candidate.claim_key)
-        continue
-      }
-      for (const recipient of recipients) {
-        try {
-          const response = await fetch(`${url}/functions/v1/send-customer-communication`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', 'X-Communication-Automation-Secret': secret },
-            body: JSON.stringify({
-              customer_id: candidate.customer_id, kind: candidate.kind, nature: 'avisos_operacionais', recipient,
-              subject: rendered.subject, html: rendered.html, text: rendered.text, bl_ids: candidate.bl_ids,
-              anchor_voyage_id: candidate.voyage_id, anchor_port: candidate.port, attempt_discriminator: 0,
-              vessel_name: candidate.vessel_name, voyage_number: candidate.voyage_number, origin: 'automatico',
-            }),
-          })
-          if (response.ok) count += 1
-        } catch (dispatchError) {
-          console.error('[customer-communication-auto-runner] falha de requisição', candidate.customer_id, recipient, dispatchError)
+        if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
+      } else {
+        for (const recipient of recipients) {
+          try {
+            const response = await fetch(`${url}/functions/v1/send-customer-communication`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', 'X-Communication-Automation-Secret': secret },
+              body: JSON.stringify({
+                customer_id: candidate.customer_id, kind: candidate.kind, nature: 'avisos_operacionais', recipient,
+                subject: rendered.subject, html: rendered.html, text: rendered.text, bl_ids: candidate.bl_ids,
+                anchor_voyage_id: candidate.voyage_id, anchor_port: candidate.port, attempt_discriminator: 0,
+                vessel_name: candidate.vessel_name, voyage_number: candidate.voyage_number, origin: 'automatico',
+              }),
+            })
+            let result: { status?: string } | null = null
+            try {
+              result = await response.json() as { status?: string }
+            } catch {
+              // A successful HTTP response without the contract status is not a sent e-mail.
+            }
+            if (response.ok && result?.status === 'enviado') count += 1
+          } catch (dispatchError) {
+            console.error('[customer-communication-auto-runner] falha de requisição', candidate.customer_id, recipient, dispatchError)
+          }
         }
-      }
-      if (count === 0) {
-        await releaseClaimSafely(admin, candidate.claim_key)
+        // A claim covers the whole customer/port target, but delivery is per
+        // recipient. Release it when any recipient still needs a retry.
+        if (count < recipients.length) {
+          if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
+        }
       }
     } catch (candidateError) {
       console.error('[customer-communication-auto-runner] candidato com erro', candidate.customer_id, candidateError)
-      await releaseClaimSafely(admin, candidate.claim_key)
+      if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
     }
     sent.push({ kind: candidate.kind, customerId: candidate.customer_id, emails: count })
   }
-  return json(200, { candidates: candidates.length, sent })
+  return json(releaseFailures ? 500 : 200, { candidates: candidates.length, sent, releaseFailures })
 }
 
 if (import.meta.main) Deno.serve(handler)

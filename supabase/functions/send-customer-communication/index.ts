@@ -189,6 +189,60 @@ function isUniqueViolation(error: unknown): boolean {
   return isRecord(error) && error.code === '23505'
 }
 
+type CommunicationIdentityRow = {
+  id: number
+  anchor_voyage_id: number | null
+  anchor_port: string | null
+  anchor_atracacao_id: string | null
+  anchor_invoice_id: number | null
+  dispatch_id: string | null
+}
+
+function normalizedAnchorPort(value: string | null | undefined): string | null {
+  const normalized = value?.trim() ?? ''
+  return normalized || null
+}
+
+async function findExistingCommunicationId(
+  admin: ReturnType<typeof createClient>,
+  input: {
+    customerId: number
+    kind: string
+    nature: string
+    anchorVoyageId?: number | null
+    anchorPort?: string | null
+    anchorAtracacaoId?: string | null
+    anchorInvoiceId?: number | null
+    attemptDiscriminator: number
+    dispatchId?: string | null
+  },
+): Promise<number | null> {
+  let query = admin
+    .from('customer_communications')
+    .select('id, anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id, dispatch_id')
+    .eq('customer_id', input.customerId)
+    .eq('kind', input.kind)
+    .eq('nature', input.nature)
+    .eq('attempt_discriminator', input.attemptDiscriminator)
+  query = input.anchorVoyageId == null
+    ? query.is('anchor_voyage_id', null)
+    : query.eq('anchor_voyage_id', input.anchorVoyageId)
+  const { data, error } = await query
+    .order('id', { ascending: false })
+    .limit(20)
+  if (error) throw error
+
+  const anchorPort = normalizedAnchorPort(input.anchorPort)
+  const row = ((data ?? []) as CommunicationIdentityRow[]).find((candidate) =>
+    candidate.anchor_voyage_id === (input.anchorVoyageId ?? null)
+    && candidate.anchor_port === anchorPort
+    && (candidate.anchor_atracacao_id ?? null) === (input.anchorAtracacaoId ?? null)
+    && (candidate.anchor_invoice_id ?? null) === (input.anchorInvoiceId ?? null)
+    && (candidate.dispatch_id ?? null) === (input.dispatchId ?? null),
+  )
+  return row?.id ?? null
+}
+
 async function handler(req: Request): Promise<Response> {
   const origin = req.headers.get('Origin')
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' }, origin)
@@ -336,6 +390,26 @@ async function handler(req: Request): Promise<Response> {
   if (preference?.enabled === false) return json(422, { error: 'Contato desativado para esta natureza.' }, origin)
   if (communicationSuppression || portalSuppression) return json(422, { error: 'Endereço suprimido para Comunicados.', suppressed: true }, origin)
 
+  let existingCommunicationId: number | null = null
+  if (isAutomation) {
+    try {
+      existingCommunicationId = await findExistingCommunicationId(admin, {
+        customerId,
+        kind,
+        nature,
+        anchorVoyageId: body.anchor_voyage_id,
+        anchorPort: body.anchor_port,
+        anchorAtracacaoId: body.anchor_atracacao_id,
+        anchorInvoiceId: body.anchor_invoice_id,
+        attemptDiscriminator,
+        dispatchId: body.dispatch_id,
+      })
+    } catch (error) {
+      console.error('customer communication identity lookup failed', error)
+      return json(500, { error: 'Não foi possível conferir o comunicado existente.' }, origin)
+    }
+  }
+
   const { data: communicationId, error: createError } = await admin.rpc('create_customer_communication_atomic', {
     p_customer_id: customerId,
     p_kind: kind,
@@ -358,8 +432,12 @@ async function handler(req: Request): Promise<Response> {
     return json(500, { error: 'Não foi possível registrar o comunicado.' }, origin)
   }
 
-  if (isAutomation) {
-    await admin.from('customer_communications').update({ origin: 'automatico' }).eq('id', communicationId)
+  if (isAutomation && existingCommunicationId == null) {
+    const { error: originError } = await admin.from('customer_communications').update({ origin: 'automatico' }).eq('id', communicationId)
+    if (originError) {
+      console.error('customer communication origin persistence failed', originError)
+      return json(500, { error: 'Não foi possível registrar a origem do comunicado.' }, origin)
+    }
   }
 
   try {

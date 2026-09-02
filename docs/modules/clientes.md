@@ -50,7 +50,7 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 
 ### `/clientes/comunicacao`
 
-`src/pages/ClientesComunicacao.tsx` mantém as abas de cobertura, disparo e histórico. A cobertura filtra navio, viagem e mês e mostra a matriz NOA/NOR/NOB/CE-Taxas. O modo **Carga** exige ao menos um filtro operacional (navio, viagem, escala, POD ou POL); CNPJ é restrição adicional. O modo **Institucional** seleciona o Cliente Comunicável por CNPJ e por B/L com ETA desde doze meses atrás, sem limite superior para datas futuras. A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita para reenvios. O histórico filtra viagem, navio, mês, modelo, status e origem (`Robô automático` ou `Operador`).
+`src/pages/ClientesComunicacao.tsx` mantém as abas de cobertura, disparo e histórico. A cobertura filtra navio, viagem e mês e mostra a matriz NOA/NOR/NOB/CE-Taxas. O modo **Carga** exige ao menos um filtro operacional (navio, viagem, escala, POD ou POL); CNPJ é restrição adicional. O modo **Institucional** seleciona o Cliente Comunicável por CNPJ e por B/L com ETA desde doze meses atrás, sem limite superior para datas futuras. A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita para reenvios. O histórico filtra navio, mês, modelo, status e origem (`Robô automático` ou `Operador`); a viagem pode ser filtrada pela ficha do cliente.
 
 O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend. Modelos institucionais reutilizáveis são salvos pela RPC `save_customer_communication_saved_template`; o bucket de anexos permanece privado e sem escrita direta pelo navegador (`supabase/migrations/375_comunicados_bloco2_correcoes.sql`).
 
@@ -164,5 +164,6 @@ O cabeçalho desta página é o ponto de entrada para `/clientes/portal`, com ba
 disparo manual e o histórico auditável. O runner `customer-communication-
 auto-runner` avalia NOA/NOR em background a cada quinze minutos, respeita a
 chave global de envio e registra a origem como `automatico`; a chave de claim
-impede duplicação em execuções concorrentes. O histórico permite filtrar
-viagem, navio, mês, modelo, status e origem.
+impede duplicação em execuções concorrentes. O histórico principal filtra
+navio, mês, modelo, status e origem; a viagem pode ser restringida pela ficha
+do cliente.
