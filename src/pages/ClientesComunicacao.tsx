@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, History, Mail, Paperclip, Send } from 'lucide-react'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
@@ -75,8 +75,9 @@ export function ClientesComunicacao() {
   const [dispatchError, setDispatchError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [templateName, setTemplateName] = useState('')
-  const [dunningInterval, setDunningInterval] = useState('7')
+  const [dunningIntervalInput, setDunningIntervalInput] = useState<string | null>(null)
   const { data: settings } = useAppSettings()
+  const dunningInterval = dunningIntervalInput ?? String(settings?.demurrage_dunning_interval_days ?? 7)
   const setDunningIntervalMutation = useSetDemurrageDunningIntervalDays()
   const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, enabled: conferenceRequested })
   const customerHistoryId = Number(searchParams.get('customer'))
@@ -88,12 +89,6 @@ export function ClientesComunicacao() {
   const dispatchMutation = useDispatchCustomerCommunication()
   const conference = conferenceQuery.data
   const tab: CommunicationTab = searchParams.get('tab') === 'historico' ? 'historico' : 'disparo'
-
-  useEffect(() => {
-    if (settings?.demurrage_dunning_interval_days != null) {
-      setDunningInterval(String(settings.demurrage_dunning_interval_days))
-    }
-  }, [settings?.demurrage_dunning_interval_days])
 
   const defaultSelectedKeys = useMemo(
     () => new Set((conference?.rows ?? []).filter((row) => row.selected).map((row) => row.key)),
@@ -306,7 +301,7 @@ export function ClientesComunicacao() {
             if (Number.isInteger(days) && days >= 1 && days <= 365) void setDunningIntervalMutation.mutateAsync(days)
           }}>
             <Field label="Dias">
-              <Input type="number" min={1} max={365} value={dunningInterval} onChange={(event) => setDunningInterval(event.target.value)} />
+              <Input type="number" min={1} max={365} value={dunningInterval} onChange={(event) => setDunningIntervalInput(event.target.value)} />
             </Field>
             <Button type="submit" loading={setDunningIntervalMutation.isPending}>Salvar intervalo</Button>
           </form>
