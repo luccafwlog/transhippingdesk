@@ -68,4 +68,4 @@ change. Não altera as ADRs que regem o email transacional do Portal — 0013
 (identificador de autenticação), 0048 (confirmação do Email de Recuperação em
 rota pública) e 0049 (rate limit por CNPJ) —, que continuam valendo para aquele
 canal. Especificação funcional em
-[`../spec/2026-08-27-comunicacao-email-clientes-design.md`](../spec/2026-08-27-comunicacao-email-clientes-design.md).
+[`../archive/specs/2026-08-27-comunicacao-email-clientes-design.md`](../archive/specs/2026-08-27-comunicacao-email-clientes-design.md).

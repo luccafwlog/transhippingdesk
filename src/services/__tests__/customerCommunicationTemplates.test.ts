@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   formatCommunicationDateTime,
   renderInstitutionalTemplate,
+  renderCeMercanteTaxasTemplate,
+  renderDemurrageTemplate,
   renderNoaTemplate,
   renderNobTemplate,
   renderNorTemplate,
@@ -70,6 +72,42 @@ describe('templates de Comunicados', () => {
   it('não aceita B/L em comunicado institucional', () => {
     expect(() => renderInstitutionalTemplate(input({ subject: 'Aviso', body: 'Mensagem' })))
       .toThrow('não pode conter B/Ls')
+  })
+
+  it('renderiza CE Mercante com resumo BRL, link do Portal e sem PIX/anexo', () => {
+    const rendered = renderCeMercanteTaxasTemplate(input({
+      ceMercanteRows: [
+        { blId: 'BL-10', ceMercante: '123456789012345', totalBrl: 100.5 },
+        { blId: 'BL-11', ceMercante: '987654321098765', totalBrl: 49.5 },
+      ],
+      totalBrl: 150,
+      portalUrl: 'https://portal.example/billing',
+    }))
+
+    expect(rendered.subject).toBe('CE Mercante Disponível e Resumo de Taxas Locais — Navio <A> / V001')
+    expect(rendered.html).toContain('123456789012345')
+    expect(rendered.html).toContain('BL-11')
+    expect(rendered.text).toContain('Total da viagem:')
+    expect(rendered.html).toContain('https://portal.example/billing')
+    expect(rendered.html).not.toMatch(/PIX|vencimento|anexo/i)
+  })
+
+  it('renderiza Demurrage com USD, BRL informativo, ROE e recálculo no pagamento', () => {
+    const rendered = renderDemurrageTemplate(input({
+      demurrage: {
+        docNumber: 'DEM-2026-001',
+        totalUsd: 400,
+        totalBrl: 2200,
+        roe: 5.5,
+        roeReferenceDate: '2026-09-01',
+      },
+    }))
+
+    expect(rendered.subject).toContain('Cobrança de Demurrage — DEM-2026-001')
+    expect(rendered.text).toContain('Valor da cobrança:')
+    expect(rendered.text).toContain('ROE 5.5000')
+    expect(rendered.text).toContain('O valor em reais será recalculado no dia do pagamento.')
+    expect(rendered.html).not.toMatch(/PIX|anexo/i)
   })
 })
 

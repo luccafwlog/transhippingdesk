@@ -32,7 +32,7 @@ Ficam **fora** do escopo:
   local **não tem data de vencimento praticada**. Levantado aqui, virou a issue
   [#605](https://github.com/luccafwlog/transhippingdesk/issues/605) e **já foi
   resolvido**: a migration `348`, sob a
-  [ADR 0055](../adr/0055-taxa-local-sem-vencimento-praticado.md), desagendou o
+  [ADR 0055](../../adr/0055-taxa-local-sem-vencimento-praticado.md), desagendou o
   cron `mark_overdue_invoices()`, aposentou o detector e **removeu a coluna
   `invoices.due_date` e o status `overdue`**. A comunicação de taxas locais não
   os ignora mais por decisão — eles deixaram de existir. **Evidência: Código.**
@@ -513,9 +513,9 @@ português como canônico e a sigla como sinônimo.
 
 | ADR | Decisão |
 |---|---|
-| [0058](../adr/0058-canal-de-comunicado-ao-cliente.md) | Canal de Comunicado ao Cliente, revertendo a decisão de não enviar e-mail a clientes |
-| [0059](../adr/0059-chave-global-de-envio-desligada-por-padrao.md) | Chave global de envio, desligada por padrão, sem afetar o Portal |
-| [0060](../adr/0060-primeira-permissao-do-perfil-equipamentos.md) | Primeira permissão do perfil Equipamentos |
+| [0058](../../adr/0058-canal-de-comunicado-ao-cliente.md) | Canal de Comunicado ao Cliente, revertendo a decisão de não enviar e-mail a clientes |
+| [0059](../../adr/0059-chave-global-de-envio-desligada-por-padrao.md) | Chave global de envio, desligada por padrão, sem afetar o Portal |
+| [0060](../../adr/0060-primeira-permissao-do-perfil-equipamentos.md) | Primeira permissão do perfil Equipamentos |
 
 ## Execução
 

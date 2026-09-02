@@ -1440,6 +1440,24 @@ export type Database = {
           },
         ]
       }
+      customer_communication_automation_claims: {
+        Row: {
+          claim_key: string
+          claimed_at: string
+          released_at: string | null
+        }
+        Insert: {
+          claim_key: string
+          claimed_at?: string
+          released_at?: string | null
+        }
+        Update: {
+          claim_key?: string
+          claimed_at?: string
+          released_at?: string | null
+        }
+        Relationships: []
+      }
       customer_communication_bls: {
         Row: {
           bl_id: string
@@ -1991,6 +2009,35 @@ export type Database = {
           zip?: string | null
         }
         Relationships: []
+      }
+      demurrage_dunning_claims: {
+        Row: {
+          attempt_discriminator: number
+          claimed_at: string
+          demurrage_invoice_id: number
+          released_at: string | null
+        }
+        Insert: {
+          attempt_discriminator: number
+          claimed_at?: string
+          demurrage_invoice_id: number
+          released_at?: string | null
+        }
+        Update: {
+          attempt_discriminator?: number
+          claimed_at?: string
+          demurrage_invoice_id?: number
+          released_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demurrage_dunning_claims_demurrage_invoice_id_fkey"
+            columns: ["demurrage_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "demurrage_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       demurrage_invoice_history: {
         Row: {
@@ -4817,6 +4864,38 @@ export type Database = {
         Args: { p_actor?: string; p_bl_id: string; p_recalculate?: boolean }
         Returns: Json
       }
+      claim_demurrage_dunning_candidates: {
+        Args: { p_as_of?: string; p_limit?: number }
+        Returns: Json
+      }
+      customer_local_charges_communication_payload: {
+        Args: { p_customer_id: number; p_voyage_id: number }
+        Returns: Json
+      }
+      demurrage_dunning_candidate_sendable: {
+        Args: { p_invoice_id: number }
+        Returns: boolean
+      }
+      list_demurrage_dunning_claim_statuses: {
+        Args: { p_invoice_ids: number[] }
+        Returns: {
+          attempt_count: number
+          invoice_id: number
+          last_attempt_at: string
+        }[]
+      }
+      release_demurrage_dunning_claim: {
+        Args: { p_attempt_discriminator: number; p_demurrage_invoice_id: number }
+        Returns: boolean
+      }
+      release_customer_communication_automation_claim: {
+        Args: { p_claim_key: string }
+        Returns: boolean
+      }
+      set_demurrage_dunning_interval_days: {
+        Args: { p_days: number }
+        Returns: number
+      }
       can_edit_customers: { Args: never; Returns: boolean }
       can_edit_depots: { Args: never; Returns: boolean }
       can_edit_voyages: { Args: never; Returns: boolean }
@@ -4850,6 +4929,10 @@ export type Database = {
             }
             Returns: string[]
           }
+      customer_local_charges_communication_readiness: {
+        Args: { p_customer_id: number; p_voyage_id: number }
+        Returns: Json
+      }
       confirm_demurrage_pix_matches: {
         Args: { p_matches: Json }
         Returns: number
@@ -4983,6 +5066,10 @@ export type Database = {
           p_reference_date: string
         }
         Returns: number
+      }
+      evaluate_and_dispatch_automatic_communications: {
+        Args: { p_as_of?: string }
+        Returns: Json
       }
       get_agency_report_actor_names: {
         Args: { p_port: string; p_voyage_id: number }
@@ -6080,6 +6167,7 @@ export type CustomerCommunication = Tables<'customer_communications'>
 export type CustomerCommunicationBl = Tables<'customer_communication_bls'>
 export type CustomerCommunicationAttempt = Tables<'customer_communication_attempts'>
 export type CustomerCommunicationSuppression = Tables<'customer_communication_suppressions'>
+export type CustomerCommunicationAutomationClaim = Tables<'customer_communication_automation_claims'>
 export type CustomerContactPreference = Tables<'customer_contact_preferences'>
 export type AppSettings = Tables<'app_settings'>
 export type CustomerPortalAccount = Tables<'customer_portal_accounts'>
@@ -6112,6 +6200,7 @@ export type InvoiceGraniteBlLink = Tables<'invoice_granite_bls'>
 export type DemurrageInvoice = Omit<Tables<'demurrage_invoices'>, 'roe_source'> & {
   roe_source: RoeSource | null
 }
+export type DemurrageDunningClaim = Tables<'demurrage_dunning_claims'>
 export type DemurrageInvoiceItem = Tables<'demurrage_invoice_items'>
 export type DemurrageInvoiceHistory = Tables<'demurrage_invoice_history'>
 export type DemurrageRate = Tables<'demurrage_rates'>

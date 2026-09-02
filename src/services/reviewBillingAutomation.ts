@@ -306,7 +306,7 @@ export async function tryAutoIssueInvoice({
 export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string | null) {
   const { data, error } = await supabase
     .from('bls')
-    .select('id, customer_id, customer_reconciliation_status, cargo_mode, financial_status')
+    .select('id, voyage_id, customer_id, customer_reconciliation_status, cargo_mode, financial_status')
     .eq('id', blId)
     .single()
   if (error) {
@@ -321,6 +321,7 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
 
   const bl = data as {
     id: string
+    voyage_id?: number | null
     customer_id: number | null
     customer_reconciliation_status: string | null
     cargo_mode: string | null

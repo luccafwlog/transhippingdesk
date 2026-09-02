@@ -1,8 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, withCors } from '../_shared/cors.ts'
-import { maskEmail, sendEmail, type EmailAttachment } from '../_shared/email.ts'
+import { maskEmail, sendEmail, type EmailAttachment, type EmailAttemptRecord } from '../_shared/email.ts'
 import {
   assertValidCommunicationAttachments,
+  renderCeMercanteTaxasTemplate,
   type CustomerCommunicationKind,
   type CommunicationAttachment,
 } from '../_shared/customerCommunicationTemplates.ts'
@@ -11,6 +12,8 @@ const ALLOWED_KINDS = new Set<CustomerCommunicationKind>([
   'aviso_chegada_noa',
   'aviso_prontidao_nor',
   'aviso_atracacao_nob',
+  'ce_mercante_taxas',
+  'cobranca_demurrage',
   'institucional',
   'livre',
 ])
@@ -41,6 +44,7 @@ type DispatchPayload = {
     size?: number
     content_base64?: string
   }>
+  origin?: 'manual' | 'automatico'
 }
 
 type ContactRow = { id: number; customer_id: number | null; email: string | null }
@@ -67,6 +71,8 @@ function parsePayload(value: unknown): DispatchPayload {
 
 function natureForKind(kind: string, nature: string): boolean {
   if (kind === 'aviso_chegada_noa' || kind === 'aviso_prontidao_nor' || kind === 'aviso_atracacao_nob') return nature === 'avisos_operacionais'
+  if (kind === 'ce_mercante_taxas') return nature === 'documentacao'
+  if (kind === 'cobranca_demurrage') return nature === 'demurrage'
   if (kind === 'institucional') return nature === 'avisos_gerais'
   return ['avisos_gerais', 'avisos_operacionais', 'documentacao', 'demurrage'].includes(nature)
 }
@@ -106,6 +112,12 @@ function safeStorageFileName(value: string): string {
   return safe || 'anexo'
 }
 
+function portalBillingUrl(): string {
+  const configured = (Deno.env.get('PORTAL_URL') ?? '').trim().replace(/\/+$/, '')
+  if (!configured) return 'https://portal.transhippingdesk.com.br/portal/billing'
+  return configured.endsWith('/billing') ? configured : `${configured}/billing`
+}
+
 function isAlreadyExists(error: unknown): boolean {
   if (!isRecord(error)) return false
   return error.statusCode === 409
@@ -117,7 +129,7 @@ async function persistCommunicationAttachments(
   admin: ReturnType<typeof createClient>,
   communicationId: number,
   attachments: readonly CommunicationAttachment[],
-  uploadedBy: string,
+  uploadedBy: string | null,
 ): Promise<void> {
   if (!attachments.length) return
 
@@ -177,6 +189,70 @@ function isUniqueViolation(error: unknown): boolean {
   return isRecord(error) && error.code === '23505'
 }
 
+type CommunicationIdentityRow = {
+  id: number
+  anchor_voyage_id: number | null
+  anchor_port: string | null
+  anchor_atracacao_id: string | null
+  anchor_invoice_id: number | null
+  dispatch_id: string | null
+}
+
+function normalizedAnchorPort(value: string | null | undefined): string | null {
+  const normalized = value?.trim() ?? ''
+  return normalized || null
+}
+
+async function findExistingCommunicationId(
+  admin: ReturnType<typeof createClient>,
+  input: {
+    customerId: number
+    kind: string
+    nature: string
+    anchorVoyageId?: number | null
+    anchorPort?: string | null
+    anchorAtracacaoId?: string | null
+    anchorInvoiceId?: number | null
+    attemptDiscriminator: number
+    dispatchId?: string | null
+  },
+): Promise<number | null> {
+  let query = admin
+    .from('customer_communications')
+    .select('id, anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id, dispatch_id')
+    .eq('customer_id', input.customerId)
+    .eq('kind', input.kind)
+    .eq('nature', input.nature)
+    .eq('attempt_discriminator', input.attemptDiscriminator)
+  query = input.anchorVoyageId == null
+    ? query.is('anchor_voyage_id', null)
+    : query.eq('anchor_voyage_id', input.anchorVoyageId)
+  const { data, error } = await query
+    .order('id', { ascending: false })
+    .limit(20)
+  if (error) throw error
+
+  const anchorPort = normalizedAnchorPort(input.anchorPort)
+  const row = ((data ?? []) as CommunicationIdentityRow[]).find((candidate) =>
+    candidate.anchor_voyage_id === (input.anchorVoyageId ?? null)
+    && candidate.anchor_port === anchorPort
+    && (candidate.anchor_atracacao_id ?? null) === (input.anchorAtracacaoId ?? null)
+    && (candidate.anchor_invoice_id ?? null) === (input.anchorInvoiceId ?? null)
+    && (candidate.dispatch_id ?? null) === (input.dispatchId ?? null),
+  )
+  return row?.id ?? null
+}
+
+function timingSafeEqual(leftValue: string, rightValue: string): boolean {
+  const encoder = new TextEncoder()
+  const left = encoder.encode(leftValue)
+  const right = encoder.encode(rightValue)
+  if (left.length !== right.length) return false
+  let difference = 0
+  for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index]
+  return difference === 0
+}
+
 async function handler(req: Request): Promise<Response> {
   const origin = req.headers.get('Origin')
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' }, origin)
@@ -189,13 +265,17 @@ async function handler(req: Request): Promise<Response> {
   const jwt = req.headers.get('Authorization') ?? ''
   if (!/^Bearer\s+\S+/i.test(jwt)) return json(401, { error: 'Autenticação obrigatória.' }, origin)
 
+  const automationSecret = Deno.env.get('CUSTOMER_COMMUNICATION_AUTOMATION_SECRET') ?? ''
+  const providedAutomationSecret = req.headers.get('X-Communication-Automation-Secret') ?? ''
+  const isAutomation = Boolean(automationSecret && timingSafeEqual(providedAutomationSecret, automationSecret))
+
   const caller = createClient(url, anonKey, { global: { headers: { Authorization: jwt } } })
-  const { data: role, error: roleError } = await caller.rpc('portal_current_role')
-  if (roleError || !['administrativo', 'documentacao', 'equipamentos'].includes(String(role))) {
+  const { data: role, error: roleError } = isAutomation ? { data: 'automatico', error: null } : await caller.rpc('portal_current_role')
+  if (!isAutomation && (roleError || !['administrativo', 'documentacao', 'equipamentos'].includes(String(role)))) {
     return json(403, { error: 'Sem permissão para Comunicados.' }, origin)
   }
-  const { data: callerUser } = await caller.auth.getUser()
-  if (!callerUser.user) return json(401, { error: 'Sessão inválida.' }, origin)
+  const { data: callerUser } = isAutomation ? { data: { user: null } } : await caller.auth.getUser()
+  if (!isAutomation && !callerUser.user) return json(401, { error: 'Sessão inválida.' }, origin)
 
   let body: DispatchPayload
   try {
@@ -218,7 +298,8 @@ async function handler(req: Request): Promise<Response> {
   // permitir que um payload incompleto contorne o isolamento da fundação.
   if (!nature || !natureForKind(kind, nature)) return json(422, { error: 'Natureza inválida ou ausente.' }, origin)
   if (!EMAIL_PATTERN.test(recipient)) return json(422, { error: 'Destinatário inválido.' }, origin)
-  if (!subject || !html || !text) return json(422, { error: 'Assunto e conteúdo do comunicado são obrigatórios.' }, origin)
+  if (kind !== 'ce_mercante_taxas' && (!subject || !html || !text)) return json(422, { error: 'Assunto e conteúdo do comunicado são obrigatórios.' }, origin)
+  if (kind === 'cobranca_demurrage') return json(422, { error: 'Cobrança de Demurrage é enviada exclusivamente pela régua automática.' }, origin)
   if (!Number.isInteger(attemptDiscriminator) || attemptDiscriminator < 0) return json(422, { error: 'Discriminador de tentativa inválido.' }, origin)
 
   const blIds = body.bl_ids ?? []
@@ -253,6 +334,55 @@ async function handler(req: Request): Promise<Response> {
   }
 
   const admin = createClient(url, serviceKey)
+  let canonicalPayload: { subject: string; html: string; text: string; blIds: string[] } | null = null
+  if (kind === 'ce_mercante_taxas') {
+    if (!Number.isInteger(body.anchor_voyage_id) || Number(body.anchor_voyage_id) <= 0) {
+      return json(422, { error: 'Viagem obrigatória para o comunicado financeiro.' }, origin)
+    }
+    const [{ data: readiness, error: readinessError }, { data: payload, error: payloadError }] = await Promise.all([
+      admin.rpc('customer_local_charges_communication_readiness', {
+        p_voyage_id: Number(body.anchor_voyage_id),
+        p_customer_id: customerId,
+      }),
+      admin.rpc('customer_local_charges_communication_payload', {
+        p_voyage_id: Number(body.anchor_voyage_id),
+        p_customer_id: customerId,
+      }),
+    ])
+    if (readinessError || payloadError) return json(500, { error: 'Não foi possível conferir os dados financeiros do comunicado.' }, origin)
+    if (!(readiness as { ready?: boolean } | null)?.ready) return json(422, { error: 'Prontidão financeira bloqueada para este cliente e viagem.' }, origin)
+    const row = payload as {
+      customer_name?: string
+      vessel_name?: string
+      voyage_number?: string
+      port?: string
+      milestone_at?: string
+      bls?: Array<{ bl_id?: string; ce_mercante?: string | null; total_brl?: number }>
+    } | null
+    if (!row?.customer_name || !row.vessel_name || !row.voyage_number || !Array.isArray(row.bls) || !row.bls.length) {
+      return json(422, { error: 'Dados financeiros incompletos para o comunicado.' }, origin)
+    }
+    const rendered = renderCeMercanteTaxasTemplate({
+      customerId,
+      customerName: row.customer_name,
+      vesselName: row.vessel_name,
+      voyageNumber: row.voyage_number,
+      port: row.port ?? '—',
+      milestoneAt: row.milestone_at ?? '',
+      bls: row.bls.map((bl) => ({ id: String(bl.bl_id ?? ''), customerId })),
+      portalUrl: portalBillingUrl(),
+      ceMercanteRows: row.bls.map((bl) => ({
+        blId: String(bl.bl_id ?? ''),
+        ceMercante: String(bl.ce_mercante ?? ''),
+        totalBrl: Number(bl.total_brl ?? 0),
+      })),
+    })
+    canonicalPayload = { subject: rendered.subject, html: rendered.html, text: rendered.text, blIds: rendered.blIds }
+  }
+  const effectiveSubject = canonicalPayload?.subject ?? subject
+  const effectiveHtml = canonicalPayload?.html ?? html
+  const effectiveText = canonicalPayload?.text ?? text
+  const effectiveBlIds = canonicalPayload?.blIds ?? blIds
   const { data: contacts, error: contactsError } = await admin
     .from('customer_contacts')
     .select('id, customer_id, email')
@@ -271,6 +401,26 @@ async function handler(req: Request): Promise<Response> {
   if (preference?.enabled === false) return json(422, { error: 'Contato desativado para esta natureza.' }, origin)
   if (communicationSuppression || portalSuppression) return json(422, { error: 'Endereço suprimido para Comunicados.', suppressed: true }, origin)
 
+  let existingCommunicationId: number | null = null
+  if (isAutomation) {
+    try {
+      existingCommunicationId = await findExistingCommunicationId(admin, {
+        customerId,
+        kind,
+        nature,
+        anchorVoyageId: body.anchor_voyage_id,
+        anchorPort: body.anchor_port,
+        anchorAtracacaoId: body.anchor_atracacao_id,
+        anchorInvoiceId: body.anchor_invoice_id,
+        attemptDiscriminator,
+        dispatchId: body.dispatch_id,
+      })
+    } catch (error) {
+      console.error('customer communication identity lookup failed', error)
+      return json(500, { error: 'Não foi possível conferir o comunicado existente.' }, origin)
+    }
+  }
+
   const { data: communicationId, error: createError } = await admin.rpc('create_customer_communication_atomic', {
     p_customer_id: customerId,
     p_kind: kind,
@@ -284,8 +434,8 @@ async function handler(req: Request): Promise<Response> {
     p_vessel_name: body.vessel_name ?? null,
     p_voyage_number: body.voyage_number ?? null,
     p_terminal_name: body.terminal_name ?? null,
-    p_created_by: callerUser.user.id,
-    p_bl_ids: blIds,
+    p_created_by: callerUser.user?.id ?? null,
+    p_bl_ids: effectiveBlIds,
   })
   if (createError || communicationId == null) {
     if (isUniqueViolation(createError)) return json(200, { status: 'simulado', message: 'Comunicado já registrado.' }, origin)
@@ -293,8 +443,16 @@ async function handler(req: Request): Promise<Response> {
     return json(500, { error: 'Não foi possível registrar o comunicado.' }, origin)
   }
 
+  if (isAutomation && existingCommunicationId == null) {
+    const { error: originError } = await admin.from('customer_communications').update({ origin: 'automatico' }).eq('id', communicationId)
+    if (originError) {
+      console.error('customer communication origin persistence failed', originError)
+      return json(500, { error: 'Não foi possível registrar a origem do comunicado.' }, origin)
+    }
+  }
+
   try {
-    await persistCommunicationAttachments(admin, Number(communicationId), attachments, callerUser.user.id)
+    await persistCommunicationAttachments(admin, Number(communicationId), attachments, callerUser.user?.id ?? null)
   } catch (error) {
     await admin.from('customer_communications').update({ status: 'falha' }).eq('id', communicationId)
     console.error('customer communication attachment persistence failed', error)
@@ -313,11 +471,11 @@ async function handler(req: Request): Promise<Response> {
     sent = await sendEmail({
       kind,
       to: recipient,
-      subject,
-      html,
-      text,
+      subject: effectiveSubject,
+      html: effectiveHtml,
+      text: effectiveText,
       attachments: emailAttachments,
-      idempotencyKey: String(body.idempotency_key ?? `comunicado:${communicationId}:${attemptDiscriminator}`),
+      idempotencyKey: `comunicado:${communicationId}:${attemptDiscriminator}:${recipient}`,
       resendApiKey: enabled ? resendApiKey : null,
       from: Deno.env.get('PORTAL_FROM_EMAIL'),
       replyTo: Deno.env.get('COMMUNICATIONS_REPLY_TO'),
@@ -329,15 +487,24 @@ async function handler(req: Request): Promise<Response> {
         ])
         return { suppressed: Boolean(complaint || bounce) }
       },
-      recordAttempt: async ({ kind: attemptKind, to, idempotencyKey }) => {
+      recordAttempt: async ({ kind: attemptKind, to, idempotencyKey }): Promise<EmailAttemptRecord> => {
         const { data, error } = await admin.from('customer_communication_attempts').insert({
           communication_id: communicationId,
           recipient_masked: maskEmail(to),
           status: 'aceito',
           idempotency_key: idempotencyKey,
         }).select('id').single()
+        if (error?.code === '23505') {
+          const { data: existing, error: existingError } = await admin
+            .from('customer_communication_attempts')
+            .select('id, status, provider_message_id')
+            .eq('idempotency_key', idempotencyKey)
+            .single()
+          if (existingError || !existing) throw existingError ?? error
+          return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
+        }
         if (error || !data) throw error ?? new Error(`Não foi possível registrar a tentativa ${attemptKind}.`)
-        return { id: data.id }
+        return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
       },
       updateAttempt: async (attemptId, update) => {
         const { error } = await admin.from('customer_communication_attempts').update({
@@ -356,12 +523,16 @@ async function handler(req: Request): Promise<Response> {
   }
 
   const status = sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'
-  await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  if (statusError) {
+    console.error('customer communication status persistence failed', statusError)
+    return json(500, { error: 'Não foi possível persistir o status do comunicado.' }, origin)
+  }
   const { data: attempt } = await admin
     .from('customer_communication_attempts')
     .select('id')
     .eq('communication_id', communicationId)
-    .eq('idempotency_key', String(body.idempotency_key ?? `comunicado:${communicationId}:${attemptDiscriminator}`))
+    .eq('idempotency_key', `comunicado:${communicationId}:${attemptDiscriminator}:${recipient}`)
     .maybeSingle()
   return json(sent.ok ? 200 : 502, {
     communicationId,

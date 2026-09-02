@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchAppSettings, setCommunicationsEnabled } from '../services/appSettings'
+import { fetchAppSettings, setCommunicationsEnabled, setDemurrageDunningIntervalDays } from '../services/appSettings'
 import { queryKeys } from '../services/queryKeys'
 
 export function useAppSettings(enabled = true) {
@@ -15,6 +15,17 @@ export function useSetCommunicationsEnabled() {
 
   return useMutation({
     mutationFn: (enabled: boolean) => setCommunicationsEnabled(enabled),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.appSettings() })
+    },
+  })
+}
+
+export function useSetDemurrageDunningIntervalDays() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (days: number) => setDemurrageDunningIntervalDays(days),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.appSettings() })
     },

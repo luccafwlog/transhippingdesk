@@ -68,6 +68,22 @@ de notificação ao contato alternativo ou o alerta
 `cliente_contato_bounced_sem_alternativa`. A notificação da cascata usa uma
 natureza própria e não reabre a própria cascata quando sofre bounce.
 
+Comunicados financeiros não usam o evento genérico de emissão como gatilho:
+`customer_local_charges_communication_readiness()` calcula, por cliente e
+viagem, se todos os B/Ls ativos têm CE Mercante, revisão limpa e situação
+financeira concluída. Depois do vínculo do CE, a automação de faturamento
+disponibiliza a invoice no Portal e dispara em background o resumo
+`ce_mercante_taxas` quando a prontidão está completa. A tabela de Taxas Locais
+exibe o bloqueio, o último envio e o reenvio assistido sem quebrar a
+idempotência da trilha.
+
+`cobranca_demurrage` é produzido pela Edge Function `demurrage-dunning` em
+cadência horária. A régua ancora o primeiro envio em `first_billed_at`, usa o
+intervalo de `app_settings`, não tem teto de tentativas e pausa durante disputa
+aberta, bounce sem contato alternativo ou ausência de contato válido. O valor
+em USD permanece o da cobrança; o BRL exibido no comunicado leva ROE e data de
+referência e informa que será recalculado no pagamento.
+
 O hosting é um único projeto Vercel para a SPA Vite. O GitHub Integration cria
 Preview Deployments para pull requests, e a integração de branching do Supabase
 faz cada Preview apontar para a branch Supabase automática da mesma branch Git.
@@ -512,19 +528,15 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
 - `send-customer-communication`: confere contato, natureza, preferências e
   supressões; grava o Comunicado e a tentativa atomicamente e envia ou registra
   simulação;
+- `demurrage-dunning`: acionada pelo cron com segredo próprio, reivindica as
+  cobranças vencidas sem colisão, respeita disputas, contatos e supressões e
+  delega o envio ao canal compartilhado de Comunicados;
+- `customer-communication-auto-runner`: acionada pelo cron a cada 15 minutos
+  com segredo server-side, avalia marcos de NOA e NOR, identifica cobranças
+  CE Mercante prontas, reivindica alvos via claims transacionais recuperáveis e
+  despacha os avisos operacionais e financeiros;
 - `portal-daily-digest`: resumo diário interno;
 - `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage;
-- `notify-invoice-issued`: implementada para enviar email via Resend na
-  emissão de invoice, mas **não está ativa**. Não há Database Webhook
-  configurado e o `RESEND_API_KEY` não está provisionado; a notificação ao
-  cliente acontece in-app (gatilho `trg_notify_invoice_issued`). A decisão de
-  2026-06-24 de não disparar email para clientes foi **revertida pela ADR
-  0058**, que cria o canal de Comunicado ao Cliente. Esta função **não** será
-  reativada: ela é apagada quando o comunicado financeiro do novo canal entrar
-  (spec `docs/spec/2026-08-27-comunicacao-email-clientes-design.md`). A remoção
-  precisa dar destino à **metade interna** da função — o `alerta_critico`
-  enviado a `admin`, `administrativo` e `documentacao` quando a fatura sai sem
-  Conta de Portal ativa —, que o comunicado ao cliente não substitui.
 
 O Portal não participa do gate financeiro de revisão/faturamento. As migrations
 188–190 criam alertas preventivos e exceções críticas por fatura, mantendo a
@@ -534,9 +546,9 @@ pendência geral separada do ciclo da fatura.
 
 - **Resend:** email transacional do Portal e fundação do canal de Comunicados
   passam por `supabase/functions/_shared/email.ts`; o envio global de
-  Comunicados continua desligado em `app_settings`. O email de invoice emitida
-  permanece **inativo** (sem Database Webhook configurado e sem
-  `RESEND_API_KEY` provisionado);
+  Comunicados continua desligado em `app_settings` até decisão operacional;
+  comunicados financeiros também passam por essa chave e pela trilha de
+  idempotência/supressão;
 - **Banco Central:** cotação PTAX;
 - **Sentry:** erros do frontend em produção;
 - **Vercel:** distribuição da SPA e Preview/Production Deployments;

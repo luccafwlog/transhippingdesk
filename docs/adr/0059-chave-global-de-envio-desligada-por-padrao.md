@@ -52,4 +52,4 @@ tela não existir.
 Restringir o escopo ao envio automático foi considerado e descartado: durante o
 desenvolvimento, é justamente o disparo manual que alguém aciona por engano.
 Especificação funcional em
-[`../spec/2026-08-27-comunicacao-email-clientes-design.md`](../spec/2026-08-27-comunicacao-email-clientes-design.md).
+[`../archive/specs/2026-08-27-comunicacao-email-clientes-design.md`](../archive/specs/2026-08-27-comunicacao-email-clientes-design.md).

@@ -3,8 +3,6 @@ import {
   dailyDigestTemplate,
   emailChangeAlertTemplate,
   emailChangeConfirmTemplate,
-  invoiceCriticalPendencyTemplate,
-  invoiceIssuedTemplate,
   inviteTemplate,
   recoveryTemplate,
   resendTemplate,
@@ -59,34 +57,10 @@ describe('Identidade visual dos emails do Portal', () => {
       recoveryTemplate({ companyName: 'ACME', cnpjMasked: '***', recoveryUrl: 'https://x', portalUrl, supportEmail }),
       emailChangeConfirmTemplate({ companyName: 'ACME', confirmUrl: 'https://x', portalUrl, supportEmail }),
       emailChangeAlertTemplate({ portalUrl, supportEmail }),
-      invoiceIssuedTemplate({ companyName: 'ACME', cnpjMasked: '***', invoiceNumber: 'INV-1', totalFormatted: 'R$ 1,00', portalUrl, supportEmail }),
-      invoiceCriticalPendencyTemplate({ companyName: 'ACME', cnpjMasked: '***', invoiceNumber: 'INV-1', consoleUrl: 'https://x', portalUrl, supportEmail }),
       dailyDigestTemplate({ date: '2026-01-01', failures: 0, activity: 0, pending: 0, portalUrl, supportEmail }),
     ]) {
       expect(html).toContain(`mailto:${supportEmail}`)
     }
-  })
-
-  it('template de fatura emitida mostra a tabela de valores e destaca o total', () => {
-    const { html, text } = invoiceIssuedTemplate({ companyName: 'ACME LTDA', cnpjMasked: '12.***.***/0001-90', invoiceNumber: 'INV-42', totalFormatted: 'R$ 4.250,00', notes: 'Referente ao BL-1', portalUrl, supportEmail })
-    expect(html).toContain('INV-42')
-    expect(html).toContain('R$ 4.250,00')
-    // Taxa local não tem vencimento praticado (#605): o e-mail não anuncia prazo.
-    expect(html).not.toContain('Vencimento')
-    expect(html).toContain('Referente ao BL-1')
-    expect(html).toContain(portalUrl)
-    expect(text).toContain('R$ 4.250,00')
-  })
-
-  it('template de fatura emitida omite a linha de observações quando não há notas', () => {
-    const { html } = invoiceIssuedTemplate({ companyName: 'ACME LTDA', cnpjMasked: '***', invoiceNumber: 'INV-42', totalFormatted: 'R$ 1,00', portalUrl, supportEmail })
-    expect(html).not.toContain('Observações')
-  })
-
-  it('template de pendência crítica escapa nome da empresa e leva ao console correto', () => {
-    const { html } = invoiceCriticalPendencyTemplate({ companyName: '<b>ACME</b>', cnpjMasked: '***', invoiceNumber: 'INV-9', consoleUrl: 'https://transhippingdesk.com.br/clientes/portal?cliente=1', portalUrl, supportEmail })
-    expect(html).not.toContain('<b>ACME</b>')
-    expect(html).toContain('https://transhippingdesk.com.br/clientes/portal?cliente=1')
   })
 
   it('resumo diário lista as três contagens e não tem quadro de identidade', () => {

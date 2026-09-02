@@ -46,7 +46,13 @@ As RPCs `SECURITY DEFINER` de provisionamento vigentes (`portal_set_exception`, 
 ## Edge Functions
 
 - **Convite/ativação e recuperação** — criam a identidade técnica somente na ativação do convite, sem expor email técnico ou senha ao operador; suspensão revoga as sessões do usuário.
-- **`notify-invoice-issued`** — disparada por Database Webhook quando `invoices.status → 'issued'`. Autenticação por bearer service-role (comparação *timing-safe*); re-busca a fatura no banco; **HTML escapado** antes do envio via Resend.
+- **`send-customer-communication`** — valida sessão interna, perfil ativo,
+  natureza, contato, preferência e supressões antes de registrar a tentativa;
+  a chave global desligada registra simulação e não chama o Resend.
+- **`demurrage-dunning`** — aceita somente o bearer de
+  `DEMURRAGE_DUNNING_SECRET` em comparação *timing-safe*, usa `service_role`
+  apenas no servidor e reivindica cada cobrança antes de renderizar/enviar,
+  evitando concorrência entre execuções do cron.
 
 ## Headers HTTP / CSP
 

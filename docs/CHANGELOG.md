@@ -2,6 +2,17 @@
 
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
+## 2026-09
+- **Bloco 3 — Comunicação financeira com clientes:** readiness por cliente/viagem
+  para CE Mercante e Taxas Locais, disparo automático após a prontidão, reenvio
+  assistido com histórico e resumo sem PIX/anexo; Régua de Cobrança de Demurrage
+  semanal, sem teto, ancorada em `first_billed_at`, com pausas por disputa ou
+  falta de contato válido. A coluna financeira de Taxas Locais e a coluna da
+  Régua em Demurrage expõem os estados operacionais. Migrations `376`–`383`;
+  a antiga integração de invoice emitida foi removida, o runner automático recebeu
+  lease transacional e tratamento resiliente de simulação/bounces, e a exceção de Portal
+  passou a ter audiência explícita para Documentação e Administrativo.
+
 ## 2026-08
 - **Revisão e correção da rolagem da tela Line-up TV (Issue #582):**
   correção do loop contínuo de rotação no quadro `/line-up-tv/display`. A condição
@@ -527,3 +538,6 @@
 - ciclo de vida de Dispute, rate limit, notificações do Portal e anexos corrigidos;
 - roteamento compartilhado, paginação e rastreabilidade atualizados;
 - planos/specs concluídos arquivados conforme `docs/CONVENCOES.md`.
+# Próxima versão
+
+- Comunicados: motor server-side de elegibilidade, runner protegido por segredo, painel de cobertura de viagens e filtros de origem/status no histórico.

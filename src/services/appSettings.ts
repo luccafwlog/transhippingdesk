@@ -20,3 +20,12 @@ export async function setCommunicationsEnabled(enabled: boolean): Promise<boolea
   if (error) throw error
   return data
 }
+
+export async function setDemurrageDunningIntervalDays(days: number): Promise<number> {
+  const { data, error } = await supabase.rpc('set_demurrage_dunning_interval_days', {
+    p_days: days,
+  })
+
+  if (error) throw error
+  return data
+}

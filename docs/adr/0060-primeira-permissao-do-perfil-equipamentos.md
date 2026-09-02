@@ -66,4 +66,4 @@ Demurrage.
 
 Não altera a ADR 0044 (leitura interna global) nem a 0046 (escrita interna
 global com rastro). Especificação funcional em
-[`../spec/2026-08-27-comunicacao-email-clientes-design.md`](../spec/2026-08-27-comunicacao-email-clientes-design.md).
+[`../archive/specs/2026-08-27-comunicacao-email-clientes-design.md`](../archive/specs/2026-08-27-comunicacao-email-clientes-design.md).

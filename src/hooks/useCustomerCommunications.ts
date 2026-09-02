@@ -3,6 +3,8 @@ import {
   fetchBlCommunicationHistory,
   fetchCustomerCommunicationConference,
   fetchCustomerCommunicationHistory,
+  fetchVoyageCommunicationCoverage,
+  type CustomerCommunicationHistoryFilters,
   fetchCustomerCommunicationSavedTemplates,
   saveCustomerCommunicationSavedTemplate,
   type CustomerCommunicationFilters,
@@ -29,11 +31,15 @@ export function useCustomerCommunicationConference(input: {
   })
 }
 
-export function useCustomerCommunicationHistory(customerId?: number) {
+export function useCustomerCommunicationHistory(filters?: number | CustomerCommunicationHistoryFilters) {
   return useQuery({
-    queryKey: queryKeys.customerCommunications.history(customerId),
-    queryFn: () => fetchCustomerCommunicationHistory(customerId),
+    queryKey: queryKeys.customerCommunications.history(filters),
+    queryFn: () => fetchCustomerCommunicationHistory(filters),
   })
+}
+
+export function useVoyageCommunicationCoverage(filters?: { vessel?: string; voyage?: string; month?: string }) {
+  return useQuery({ queryKey: [...queryKeys.customerCommunications.all(), 'coverage', filters], queryFn: () => fetchVoyageCommunicationCoverage(filters) })
 }
 
 export function useCustomerCommunicationSavedTemplates() {
