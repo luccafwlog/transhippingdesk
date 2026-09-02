@@ -49,6 +49,7 @@
 DO $default_deny$
 DECLARE
   r RECORD;
+  v_count INTEGER := 0;
 BEGIN
   FOR r IN
     SELECT p.oid::regprocedure AS signature,
@@ -67,7 +68,15 @@ BEGIN
     IF r.is_trigger THEN
       EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM authenticated', r.signature);
     END IF;
+    v_count := v_count + 1;
   END LOOP;
+  -- Guarda de sanidade herdada da 297: contagem zero significa que o filtro
+  -- deixou de casar (dono ou schema mudou) e a varredura virou no-op
+  -- silenciosa — falhar é melhor do que aplicar sem efeito.
+  IF v_count = 0 THEN
+    RAISE EXCEPTION 'Nenhuma função de public varrida; verifique o filtro antes de aplicar.';
+  END IF;
+  RAISE NOTICE 'Funções varridas: %', v_count;
 END;
 $default_deny$;
 

@@ -64,16 +64,20 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
 
   it('anon só recebe EXECUTE na vitrine pública de programação de navios', async () => {
     const ativas = await lerMigrationsAtivas()
-    const concessoes: string[] = []
+    const concessoesAnon: string[] = []
+    const concessoesPublic: string[] = []
     for (const sql of ativas.values()) {
       for (const match of sql.matchAll(
         /GRANT\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+([^;]+?)\s+TO\s+([^;]+);/gi,
       )) {
-        if (/\banon\b/i.test(match[2])) concessoes.push(match[1].trim())
+        if (/\banon\b/i.test(match[2])) concessoesAnon.push(match[1].trim())
+        // `anon` herda de PUBLIC: um GRANT TO PUBLIC abre anon sem citar o nome.
+        if (/(?:^|,)\s*PUBLIC\s*(?:,|;|$)/i.test(match[2])) concessoesPublic.push(match[1].trim())
       }
     }
     // ADR 0013 / achado A-02: portal_ship_schedule é a única exceção viva.
-    expect(concessoes).toEqual(['public.portal_ship_schedule()'])
+    expect(concessoesAnon).toEqual(['public.portal_ship_schedule()'])
+    expect(concessoesPublic).toEqual([])
   })
 
   it('nenhuma tabela ou sequência é concedida a anon ou a PUBLIC', async () => {

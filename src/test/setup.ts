@@ -1,6 +1,16 @@
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterEach, vi } from 'vitest'
 
+// Ponte transitória do squash v1.0 (ADR 0062, item 3): `supabase/migrations/`
+// agora contém só o schema consolidado (001–004), mas os 201 testes
+// `*Migration.test.ts` ainda auditam contratos históricos arquivo a arquivo.
+// Este mock redireciona leituras de arquivos ausentes e listagens do diretório
+// ativo para `supabase/migrations_archive/`. Custo aceito: esses testes auditam
+// arquivos mortos, não o schema aplicado — a cobertura do artefato ativo fica
+// com `verificar_guardas.py` e `consolidatedSchemaInvariants.test.ts` (que
+// escapa deste mock via `vi.importActual`). Teste novo contra o schema ativo
+// DEVE usar `vi.importActual('node:fs')`; teste histórico continua caindo aqui.
+
 type PathLike = string | Buffer | URL
 type ReaddirItem = string | Buffer | { name: string }
 

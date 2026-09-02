@@ -51,18 +51,24 @@ Se o ambiente ainda não contém dados de produção irrecuperáveis (fase atual
 Para alinhar a tabela `supabase_migrations.schema_migrations` sem destruir dados:
 
 #### Passo 1: Backup Preventivo
-Gere um dump completo antes de qualquer alteração de catálogo:
+Gere um dump completo antes de qualquer alteração de catálogo (sempre contra
+o projeto alvo linkado — sem `--linked` o CLI opera no banco local):
 ```bash
-supabase db dump --data-only -f backup_pre_squash_data.sql
+supabase db dump --linked --data-only -f backup_pre_squash_data.sql
 ```
 
 #### Passo 2: Executar Reparo no Histórico de Migrações
-Conectado ao projeto alvo via Supabase CLI (`supabase link --project-ref <REF>`):
+Conectado ao projeto alvo via Supabase CLI (`supabase link --project-ref <REF>`).
+Todos os comandos abaixo levam `--linked` pelo mesmo motivo: sem ele, o reparo
+atinge o banco local, não o staging/produção.
 
-1. Marcar as migrações obsoletas (`003` a `384`) como revertidas no histórico:
+1. Marcar as migrações obsoletas (`003` a `384`) como revertidas no histórico.
+   Não copie o `...` literalmente — expanda a lista a partir do arquivo morto:
    ```bash
-   # Script em lote via CLI ou SQL direto:
-   supabase migration repair --status reverted 003 004 005 ... 384
+   # Gera a lista exata de versões obsoletas (exclui 283, que nunca existiu):
+   OBSOLETAS=$(ls supabase/migrations_archive/*.sql | sed 's/.*\///;s/_.*//' | awk '$1 > "002"' | tr '\n' ' ')
+   echo "$OBSOLETAS"
+   supabase migration repair --linked --status reverted $OBSOLETAS
    ```
    *Alternativamente, via SQL administrativo autenticado como postgres:*
    ```sql
@@ -72,15 +78,12 @@ Conectado ao projeto alvo via Supabase CLI (`supabase link --project-ref <REF>`)
 
 2. Confirmar as versões consolidadas como aplicadas:
    ```bash
-   supabase migration repair --status applied 001
-   supabase migration repair --status applied 002
-   supabase migration repair --status applied 003
-   supabase migration repair --status applied 004
+   supabase migration repair --linked --status applied 001 002 003 004
    ```
 
 3. Verificar paridade e sincronismo:
    ```bash
-   supabase migration list
+   supabase migration list --linked
    ```
    A saída deve indicar `001`, `002`, `003` e `004` com status `Applied` tanto
    local quanto remotamente, sem nenhuma versão pendente ou órfã.

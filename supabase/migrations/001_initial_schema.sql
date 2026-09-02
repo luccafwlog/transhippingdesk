@@ -19,7 +19,7 @@ SET row_security = off;
 -- vivem em `pg_default_acl`, fora do schema — o dump que originou este arquivo
 -- não os carrega, e sem esta seção um banco novo (branch de preview, `supabase
 -- db reset`) nasceria MAIS ABERTO que produção: `anon` receberia ALL nas 106
--- tabelas e EXECUTE nas 428 funções.
+-- tabelas e EXECUTE nas 397 funções.
 --
 -- Precisa vir antes de qualquer CREATE: default privilege só vale na criação.
 -- Os GRANT explícitos da 002 restauram exatamente o ACL auditado em produção.
@@ -37,7 +37,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
 
 
 --

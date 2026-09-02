@@ -260,13 +260,17 @@ def estado_final():
             tabelas.pop(m.group(1), None)
         for m in re.finditer(r'ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY', exp, re.I):
             rls.add(m.group(1))
-        for m in re.finditer(r'DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?"?(\w+)"?\s+ON\s+(?:public\.)?"?(\w+)"?', exp, re.I):
-            policies.pop((m.group(2), m.group(1)), None)
-        for m in re.finditer(r'CREATE\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:public\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
-            policies[(m.group(2), m.group(1))] = {'corpo': ' '.join(m.group(3).split()), 'arquivo': base}
-        for m in re.finditer(r'ALTER\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:public\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
-            if (m.group(2), m.group(1)) in policies:
-                policies[(m.group(2), m.group(1))] = {'corpo': ' '.join(m.group(3).split()), 'arquivo': base}
+        for m in re.finditer(r'DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?', exp, re.I):
+            policies.pop((m.group(2) or 'public', m.group(3) or m.group(1), m.group(1)), None)
+        for m in re.finditer(r'CREATE\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
+            schema = (m.group(2) or 'public').lower()
+            tabela = m.group(3)
+            policies[(schema, tabela, m.group(1))] = {'corpo': ' '.join(m.group(4).split()), 'arquivo': base}
+        for m in re.finditer(r'ALTER\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
+            schema = (m.group(2) or 'public').lower()
+            tabela = m.group(3)
+            if (schema, tabela, m.group(1)) in policies:
+                policies[(schema, tabela, m.group(1))] = {'corpo': ' '.join(m.group(4).split()), 'arquivo': base}
 
     return tabelas, rls, policies, fns, grants
 
@@ -308,7 +312,9 @@ def main():
 
     print(f'Migrations analisadas : {len(caminhos)}')
     print(f'Tabelas               : {len(tabelas)}')
-    print(f'Policies vivas        : {len(policies)}')
+    n_public = sum(1 for (s, _t, _n) in policies if s == 'public')
+    n_storage = sum(1 for (s, _t, _n) in policies if s == 'storage')
+    print(f'Policies vivas        : {len(policies)} (public: {n_public}, storage: {n_storage})')
     print(f'Funções               : {len(fns)}')
     print()
 
@@ -318,15 +324,15 @@ def main():
         falhas.append(f'tabela sem RLS: {tabela} ({tabelas[tabela]})')
 
     permissivas = []
-    for (tabela, nome), valor in sorted(policies.items()):
+    for (schema, tabela, nome), valor in sorted(policies.items()):
         corpo = valor['corpo'].lower()
         if (re.search(r'using\s*\(\s*true\s*\)', corpo)
                 or re.search(r'with\s+check\s*\(\s*true\s*\)', corpo)
                 or re.search(r"auth\.role\(\)\s*\)?\s*=\s*'authenticated'", corpo)):
-            permissivas.append((tabela, nome, valor))
+            permissivas.append((schema, tabela, nome, valor))
     print(f'[2] Nenhuma policy permissiva viva ............. {"OK" if not permissivas else f"FALHA ({len(permissivas)})"}')
-    for tabela, nome, valor in permissivas:
-        falhas.append(f'policy permissiva: {tabela}.{nome} ({valor["arquivo"]})')
+    for schema, tabela, nome, valor in permissivas:
+        falhas.append(f'policy permissiva: {schema}.{tabela}.{nome} ({valor["arquivo"]})')
 
     expostas = []
     for sig, valor in sorted(fns.items()):
