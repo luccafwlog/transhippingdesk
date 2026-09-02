@@ -5,7 +5,7 @@ import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
-import { useAppSettings, useSetCommunicationsEnabled, useSetDemurrageDunningIntervalDays } from '../hooks/useAppSettings'
+import { useAppSettings, useSetCommunicationsEnabled } from '../hooks/useAppSettings'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate } from '../hooks/useCustomerCommunications'
 import {
@@ -76,13 +76,10 @@ export function ClientesComunicacao() {
   const [dispatchError, setDispatchError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [templateName, setTemplateName] = useState('')
-  const [dunningIntervalInput, setDunningIntervalInput] = useState<string | null>(null)
   const { data: settings } = useAppSettings()
-  const dunningInterval = dunningIntervalInput ?? String(settings?.demurrage_dunning_interval_days ?? 7)
   const { effectiveRole, isAdmin } = useAuth()
   const canToggleCommunications = effectiveRole === 'administrativo' || isAdmin
   const setCommunicationsMutation = useSetCommunicationsEnabled()
-  const setDunningIntervalMutation = useSetDemurrageDunningIntervalDays()
   const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, enabled: conferenceRequested })
   const customerHistoryId = Number(searchParams.get('customer'))
   const historyCustomerId = Number.isInteger(customerHistoryId) && customerHistoryId > 0 ? customerHistoryId : undefined
@@ -284,12 +281,12 @@ export function ClientesComunicacao() {
       />
 
       {settings?.communications_enabled === false ? (
-        <div role="status" className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+        <div role="status" className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-950 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-300" />
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
-              <strong>Modo de simulação permanente.</strong>
-              <div className="mt-1 text-amber-100/80">A chave global está desligada. Os comunicados serão registrados como simulados e nenhum e-mail será enviado ao Resend.</div>
+              <strong className="font-semibold text-amber-950 dark:text-amber-100">Modo de simulação permanente.</strong>
+              <div className="mt-0.5 text-amber-900 dark:text-amber-200">A chave global está desligada. Os comunicados serão registrados como simulados e nenhum e-mail será enviado ao Resend.</div>
             </div>
           </div>
           {canToggleCommunications ? (
@@ -308,12 +305,12 @@ export function ClientesComunicacao() {
           ) : null}
         </div>
       ) : settings?.communications_enabled === true ? (
-        <div role="status" className="mb-5 flex flex-col gap-3 rounded-xl border border-emerald-400/40 bg-emerald-400/10 p-4 text-sm text-emerald-100 sm:flex-row sm:items-center sm:justify-between">
+        <div role="status" className="mb-6 flex flex-col gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-950 dark:text-emerald-100 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-300" />
+            <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <div>
-              <strong>Canal de envio real ativo.</strong>
-              <div className="mt-1 text-emerald-100/80">A chave global está ligada. E-mails reais são disparados aos contatos elegíveis via Resend.</div>
+              <strong className="font-semibold text-emerald-950 dark:text-emerald-100">Canal de envio real ativo.</strong>
+              <div className="mt-0.5 text-emerald-900 dark:text-emerald-200">A chave global está ligada. E-mails reais são disparados aos contatos elegíveis via Resend.</div>
             </div>
           </div>
           {canToggleCommunications ? (
@@ -333,31 +330,19 @@ export function ClientesComunicacao() {
         </div>
       ) : null}
 
-      <Card className="mb-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="font-semibold text-white">Régua de Demurrage</h2>
-            <p className="mt-1 text-sm text-slate-400">Intervalo entre cobranças automáticas. A régua não possui limite de tentativas.</p>
-          </div>
-          <form className="flex items-end gap-2" onSubmit={(event) => {
-            event.preventDefault()
-            const days = Number(dunningInterval)
-            if (Number.isInteger(days) && days >= 1 && days <= 365) void setDunningIntervalMutation.mutateAsync(days)
-          }}>
-            <Field label="Dias">
-              <Input type="number" min={1} max={365} value={dunningInterval} onChange={(event) => setDunningIntervalInput(event.target.value)} />
-            </Field>
-            <Button type="submit" loading={setDunningIntervalMutation.isPending}>Salvar intervalo</Button>
-          </form>
-        </div>
-        {setDunningIntervalMutation.error ? <InlineError message="Não foi possível salvar o intervalo da régua." /> : null}
-      </Card>
-
-      <div className="mb-5 flex gap-2 border-b border-[var(--app-border)]">
-        <button type="button" className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === 'disparo' ? 'border-cyan-400 text-cyan-200' : 'border-transparent text-slate-400'}`} onClick={() => selectTab('disparo')}>
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={`app-tab ${tab === 'disparo' ? 'app-tab--active' : ''}`}
+          onClick={() => selectTab('disparo')}
+        >
           <Mail size={15} className="mr-2 inline" /> Disparo
         </button>
-        <button type="button" className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === 'historico' ? 'border-cyan-400 text-cyan-200' : 'border-transparent text-slate-400'}`} onClick={() => selectTab('historico')}>
+        <button
+          type="button"
+          className={`app-tab ${tab === 'historico' ? 'app-tab--active' : ''}`}
+          onClick={() => selectTab('historico')}
+        >
           <History size={15} className="mr-2 inline" /> Histórico
         </button>
       </div>

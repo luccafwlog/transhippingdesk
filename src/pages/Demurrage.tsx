@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, DollarSign, Upload } from 'lucide-react'
+import { AlertTriangle, DollarSign, Mail, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, PageHeader } from '../components/ui/Card'
 import { Field, Input } from '../components/ui/Input'
@@ -12,6 +12,7 @@ import { ContainerDatesImportModal } from '../components/shared/ContainerDatesIm
 import { CustomerReportModal } from '../components/demurrage/CustomerReportModal'
 import { DemurrageContainersTab } from '../components/demurrage/DemurrageContainersTab'
 import { DemurrageCustomersTab } from '../components/demurrage/DemurrageCustomersTab'
+import { DemurrageDunningSettingsModal } from '../components/demurrage/DemurrageDunningSettingsModal'
 import { DemurrageInvoicesTab } from '../components/demurrage/DemurrageInvoicesTab'
 import { DemurragePaymentReversalModal } from '../components/demurrage/DemurragePaymentReversalModal'
 import { DemurrageDisputeConversation } from '../components/demurrage/DemurrageDisputeConversation'
@@ -88,6 +89,7 @@ export function Demurrage() {
   const [disputeForm, setDisputeForm] = useState<DisputeForm>(EMPTY_DISPUTE)
   const [ptaxModalOpen, setPtaxModalOpen] = useState(false)
   const [ptaxInput, setPtaxInput] = useState('')
+  const [dunningModalOpen, setDunningModalOpen] = useState(false)
   const [expandedCustomer, setExpandedCustomer] = useState<number | null>(null)
   const [customerReportOpen, setCustomerReportOpen] = useState(false)
 
@@ -324,6 +326,7 @@ export function Demurrage() {
             <Link to="/demurrage/taxas">
               <Button variant="secondary"><DollarSign size={15} />Tarifas</Button>
             </Link>
+            <Button variant="secondary" onClick={() => setDunningModalOpen(true)}><Mail size={15} />Régua de Cobrança</Button>
             <Button variant="secondary" onClick={() => setImportOpen(true)}><Upload size={15} />Importar Datas</Button>
             <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}><DollarSign size={15} />Informar PTAX</Button>
           </>
@@ -450,6 +453,7 @@ export function Demurrage() {
         </Modal>
       )}
       {customerReportOpen && customerSummary && <CustomerReportModal open rows={customerSummary} onClose={() => setCustomerReportOpen(false)} />}
+      <DemurrageDunningSettingsModal open={dunningModalOpen} onClose={() => setDunningModalOpen(false)} />
     </>
   )
 }
