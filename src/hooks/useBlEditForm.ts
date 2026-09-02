@@ -208,16 +208,18 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
         && !stringifyValue(baselineForm?.ce_mercante).trim()
         && Boolean(stringifyValue(form.ce_mercante).trim())
       if (ceMercanteAdded) {
-        void maybeAutoBillAfterCeMercante(bl.id, user.id)
-          .then((result) => {
-            if (result?.status === 'blocked' && result.unexpected) {
-              showToast(
-                'CE Mercante salvo, mas o faturamento automático falhou. Verifique o Histórico do B/L.',
-                'error',
-              )
-            }
-          })
-          .catch(() => {})
+        try {
+          const result = await maybeAutoBillAfterCeMercante(bl.id, user.id)
+          if (result?.status === 'blocked' && result.unexpected) {
+            showToast(
+              'CE Mercante salvo, mas o faturamento automático falhou. Verifique o Histórico do B/L.',
+              'error',
+            )
+          }
+        } catch {
+          // O B/L já foi salvo; falha do complemento financeiro fica registrada
+          // no histórico sem transformar o salvamento principal em erro.
+        }
       }
 
       await Promise.all([
@@ -227,6 +229,7 @@ export function useBlEditForm(bl: BLDetail | undefined, isContainerMode: boolean
         queryClient.invalidateQueries({ queryKey: ['audit-logs', 'bl', bl.id] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.statusRoot() }),
       ])
 
       setJustification('')

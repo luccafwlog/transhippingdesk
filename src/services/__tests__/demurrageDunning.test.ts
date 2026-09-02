@@ -29,4 +29,11 @@ describe('estado da régua de Demurrage', () => {
     expect(getDemurrageDunningDisplay(invoice, { hasValidContact: false }).statusLabel).toBe('Pausada: cliente sem contatos válidos')
     expect(getDemurrageDunningDisplay({ ...invoice, paid_at: '2026-09-03' }).statusLabel).toBe('Régua encerrada: liquidada')
   })
+
+  it('preserva o dia de uma data DATE ao formatar a próxima cobrança', () => {
+    const display = getDemurrageDunningDisplay(invoice, { attemptCount: 1, intervalDays: 7 })
+
+    expect(display.nextDate).toBe('2026-09-08T12:00:00.000Z')
+    expect(display.statusLabel).toContain('08/09/2026')
+  })
 })

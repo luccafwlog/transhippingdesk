@@ -103,7 +103,6 @@ simulação.
 | `['customer-communications', 'conference', filters, kind, nature]` | `useCustomerCommunicationConference` | Só habilitada após “Conferir”; escopo inclui modo e todos os filtros, tipo e natureza. |
 | `['customer-communications', 'history', customerId?]` | `useCustomerCommunicationHistory` | Histórico da rota ou da ficha; atualizado após cada dispatch. |
 | `['customer-communications', 'bl', blId]` | `useBlCommunicationHistory` | Histórico de Comunicados vinculados ao B/L; atualizado após dispatch. |
-| `['customer-communications', 'readiness', voyageId, customerId]` | `useCustomerCommunicationReadiness` | Readiness financeira por cliente/viagem; motivos por B/L e bloqueio da comunicação de CE. |
 | `['customer-communications', 'status', voyageId, customerId]` | `useCustomerVoyageCommunicationStatus` | Último envio, discriminador e motivo de bloqueio exibidos em Taxas Locais. |
 | Filtros, seleção, modais e formulários | Estado local das páginas | Não persistem na URL, exceto a própria rota da ficha e a aba ativa (`?tab=`). |
 | `customers.cnpj_cpf` | Identidade cadastral | UNIQUE e NOT NULL desde `supabase/migrations/001_schema.sql`; a migration `293` persiste 14 caracteres `A-Z0-9` em maiúsculas, sem pontuação. |

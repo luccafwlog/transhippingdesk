@@ -40,7 +40,7 @@ const ready = {
 
 function configureQueries(
   history: unknown[] = [],
-  options: { directInvoiceRows?: unknown[]; ledgerInvoiceRows?: unknown[] } = {},
+  options: { directInvoiceRows?: unknown[]; ledgerInvoiceRows?: unknown[]; secondPod?: string } = {},
 ) {
   mockRpc.mockResolvedValue({ data: ready, error: null })
   mockFrom.mockImplementation((table: string) => {
@@ -52,7 +52,7 @@ function configureQueries(
         voyage: { id: 7, voyage_number: 'V7', eta: '2026-09-01T12:00:00Z', vessel: { name: 'Navio 7' } },
       },
       {
-        id: 'BL-2', voyage_id: 7, customer_id: 99, ce_mercante: '987654321098765', financial_status: 'paid', pod: 'BRSSZ',
+        id: 'BL-2', voyage_id: 7, customer_id: 99, ce_mercante: '987654321098765', financial_status: 'paid', pod: options.secondPod ?? 'BRSSZ',
         customer: { id: 99, name: 'Cliente 99', cnpj_cpf: '123' },
         voyage: { id: 7, voyage_number: 'V7', eta: '2026-09-01T12:00:00Z', vessel: { name: 'Navio 7' } },
       },
@@ -117,6 +117,26 @@ describe('automação de comunicados financeiros', () => {
 
     await dispatchCeMercanteTaxasCommunication(7, 99, { forceRetry: true })
     expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ attemptDiscriminator: 1 }))
+  })
+
+  it('não trata uma tentativa automática falha como comunicação concluída', async () => {
+    configureQueries([{ id: 12, status: 'falha', attempt_discriminator: 0, created_at: '2026-09-01T10:00:00Z' }])
+
+    await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ attemptDiscriminator: 1 }))
+  })
+
+  it('não usa o primeiro POD como identidade de um resumo agrupado por viagem', async () => {
+    configureQueries([], { secondPod: 'BRRIO' })
+
+    await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({
+      anchorVoyageId: 7,
+      anchorPort: null,
+      blIds: ['BL-1', 'BL-2'],
+    }))
   })
 
   it('usa links de recebíveis para invoice consolidada sem duplicar B/Ls do ledger', async () => {

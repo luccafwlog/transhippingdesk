@@ -25,10 +25,10 @@ export type DemurrageDunningStatusRow = {
   intervalDays: number
 }
 
-type DunningCommunicationRow = {
-  anchor_invoice_id: number | null
-  attempt_discriminator: number
-  created_at: string
+type DunningClaimStatusRow = {
+  invoice_id: number
+  attempt_count: number
+  last_attempt_at: string | null
 }
 
 type DunningContactRow = {
@@ -56,8 +56,13 @@ function formatDate(value: Date): string {
 }
 
 function parseDate(value: string | null | undefined): Date | null {
-  if (!value?.trim()) return null
-  const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00Z`)
+  const normalized = value?.trim()
+  if (!normalized) return null
+  // DATE fields are business dates, not UTC instants. Noon UTC remains on the
+  // same calendar day in America/Sao_Paulo and keeps the display stable.
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(normalized)
+    ? new Date(`${normalized}T12:00:00Z`)
+    : new Date(normalized)
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
@@ -117,28 +122,38 @@ export async function fetchDemurrageDunningStatuses(
   const invoiceIds = [...new Set(invoices.map((invoice) => invoice.id))]
   if (!invoiceIds.length) return new Map()
   const customerIds = [...new Set(invoices.map((invoice) => invoice.customer_id))]
-  const [communicationsResult, contactsResult, preferencesResult, communicationSuppressionsResult, portalSuppressionsResult, settingsResult] = await Promise.all([
-    supabase.from('customer_communications')
-      .select('anchor_invoice_id, attempt_discriminator, created_at')
-      .eq('kind', 'cobranca_demurrage')
-      .in('anchor_invoice_id', invoiceIds)
-      .order('created_at', { ascending: true })
-      .overrideTypes<DunningCommunicationRow[], { merge: false }>(),
+  const [claimsResult, contactsResult, settingsResult] = await Promise.all([
+    supabase.rpc('list_demurrage_dunning_claim_statuses', { p_invoice_ids: invoiceIds })
+      .overrideTypes<DunningClaimStatusRow[], { merge: false }>(),
     supabase.from('customer_contacts').select('id, customer_id, email').in('customer_id', customerIds),
-    supabase.from('customer_contact_preferences').select('contact_id, nature, enabled'),
-    supabase.from('customer_communication_suppressions').select('email, reason'),
-    supabase.from('portal_suppressed_emails').select('email, reason'),
     supabase.from('app_settings').select('demurrage_dunning_interval_days').eq('id', 1).maybeSingle(),
   ])
-  if (communicationsResult.error) throw communicationsResult.error
+  if (claimsResult.error) throw claimsResult.error
   if (contactsResult.error) throw contactsResult.error
+
+  const contacts = (contactsResult.data ?? []) as DunningContactRow[]
+  const contactIds = contacts.map((contact) => contact.id)
+  const contactEmails = [...new Set(contacts.flatMap((contact) => {
+    const email = (contact.email ?? '').trim()
+    return email ? [email, email.toLowerCase()] : []
+  }))]
+  const [preferencesResult, communicationSuppressionsResult, portalSuppressionsResult] = await Promise.all([
+    contactIds.length
+      ? supabase.from('customer_contact_preferences').select('contact_id, nature, enabled').in('contact_id', contactIds)
+      : Promise.resolve({ data: [], error: null }),
+    contactEmails.length
+      ? supabase.from('customer_communication_suppressions').select('email, reason').in('email', contactEmails)
+      : Promise.resolve({ data: [], error: null }),
+    contactEmails.length
+      ? supabase.from('portal_suppressed_emails').select('email, reason').in('email', contactEmails)
+      : Promise.resolve({ data: [], error: null }),
+  ])
   if (preferencesResult.error) throw preferencesResult.error
   if (communicationSuppressionsResult.error) throw communicationSuppressionsResult.error
   if (portalSuppressionsResult.error) throw portalSuppressionsResult.error
   if (settingsResult.error) throw settingsResult.error
   const intervalDays = Math.max(1, Number((settingsResult.data as { demurrage_dunning_interval_days?: number } | null)?.demurrage_dunning_interval_days ?? 7))
 
-  const contacts = (contactsResult.data ?? []) as DunningContactRow[]
   const preferences = (preferencesResult.data ?? []) as DunningPreferenceRow[]
   const communicationSuppressions = (communicationSuppressionsResult.data ?? []) as SuppressionRow[]
   const portalSuppressions = (portalSuppressionsResult.data ?? []) as SuppressionRow[]
@@ -152,20 +167,15 @@ export async function fetchDemurrageDunningStatuses(
   const validByCustomer = new Map<number, boolean>()
   for (const customerId of customerIds) validByCustomer.set(customerId, contacts.some((contact) => contact.customer_id === customerId && isValidContact(contact)))
 
-  const byInvoice = new Map<number, DunningCommunicationRow[]>()
-  for (const row of (communicationsResult.data ?? []) as DunningCommunicationRow[]) {
-    if (row.anchor_invoice_id == null) continue
-    const current = byInvoice.get(row.anchor_invoice_id) ?? []
-    current.push(row)
-    byInvoice.set(row.anchor_invoice_id, current)
-  }
+  const claimsByInvoice = new Map<number, DunningClaimStatusRow>(
+    ((claimsResult.data ?? []) as DunningClaimStatusRow[]).map((row) => [row.invoice_id, row]),
+  )
   return new Map(invoices.map((invoice) => {
-    const rows = byInvoice.get(invoice.id) ?? []
-    const last = rows[rows.length - 1]
+    const claim = claimsByInvoice.get(invoice.id)
     return [invoice.id, {
       invoiceId: invoice.id,
-      attemptCount: rows.length,
-      lastAttemptAt: last?.created_at ?? null,
+      attemptCount: Number(claim?.attempt_count ?? 0),
+      lastAttemptAt: claim?.last_attempt_at ?? null,
       hasValidContact: validByCustomer.get(invoice.customer_id) ?? false,
       intervalDays,
     } satisfies DemurrageDunningStatusRow]

@@ -21,6 +21,7 @@ import {
   parseCeMercanteEdiFile,
   type ParsedCeMercanteEdi,
 } from '../../services/ceMercanteEdiParser'
+import { queryKeys } from '../../services/queryKeys'
 
 const SHEET_EXTENSIONS = /\.(xlsx|xls|csv)$/i
 
@@ -207,6 +208,7 @@ export function CeMercanteImportModal({
     const invalidations = [
       queryClient.invalidateQueries({ queryKey: ['bls'] }),
       queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.statusRoot() }),
     ]
     if (target === 'granite') {
       invalidations.push(

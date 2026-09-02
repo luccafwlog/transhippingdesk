@@ -91,7 +91,9 @@ async function fetchFinanceBls(voyageId: number, customerId: number): Promise<Fi
     .eq('customer_id', customerId)
     .overrideTypes<FinanceBlRow[], { merge: false }>()
   if (error) throw error
-  return (data ?? []).filter((row) => row.financial_status !== 'cancelled')
+  return (data ?? [])
+    .filter((row) => row.financial_status !== 'cancelled')
+    .sort((left, right) => left.id.localeCompare(right.id))
 }
 
 async function fetchInvoiceBls(blIds: readonly string[]): Promise<InvoiceBlRow[]> {
@@ -139,12 +141,20 @@ async function fetchContacts(customerId: number): Promise<{
   if (contactError) throw contactError
   const contacts = (contactData ?? []) as CustomerContact[]
   const contactIds = contacts.map((contact) => contact.id)
+  const contactEmails = [...new Set(contacts.flatMap((contact) => {
+    const email = (contact.email ?? '').trim()
+    return email ? [email, email.toLowerCase()] : []
+  }))]
   const [preferencesResult, communicationSuppressionsResult, portalSuppressionsResult] = await Promise.all([
     contactIds.length
       ? supabase.from('customer_contact_preferences').select('*').in('contact_id', contactIds)
       : Promise.resolve({ data: [], error: null }),
-    supabase.from('customer_communication_suppressions').select('email, reason'),
-    supabase.from('portal_suppressed_emails').select('email, reason'),
+    contactEmails.length
+      ? supabase.from('customer_communication_suppressions').select('email, reason').in('email', contactEmails)
+      : Promise.resolve({ data: [], error: null }),
+    contactEmails.length
+      ? supabase.from('portal_suppressed_emails').select('email, reason').in('email', contactEmails)
+      : Promise.resolve({ data: [], error: null }),
   ])
   if (preferencesResult.error) throw preferencesResult.error
   if (communicationSuppressionsResult.error) throw communicationSuppressionsResult.error
@@ -170,7 +180,7 @@ async function fetchCommunicationHistory(voyageId: number, customerId: number): 
 }
 
 function nextAttempt(history: readonly CommunicationHistoryRow[]): number {
-  if (!history.length) return 0
+  if (!history.length) return 1
   return Math.max(...history.map((row) => Number(row.attempt_discriminator) || 0)) + 1
 }
 
@@ -246,7 +256,13 @@ export async function dispatchCeMercanteTaxasCommunication(
   }
 
   const history = await fetchCommunicationHistory(voyageId, customerId)
-  const hasAutomaticAttempt = history.some((row) => Number(row.attempt_discriminator) === 0)
+  const hasAutomaticAttempt = history.some((row) => (
+    Number(row.attempt_discriminator) === 0
+      && (row.status === 'enviado' || row.status === 'simulado')
+  ))
+  const automaticAttemptFailed = history.some((row) => (
+    Number(row.attempt_discriminator) === 0 && row.status === 'falha'
+  ))
   if (hasAutomaticAttempt && !options.forceRetry) {
     return {
       status: 'ignorado',
@@ -288,13 +304,13 @@ export async function dispatchCeMercanteTaxasCommunication(
       sentCount: 0,
       simulatedCount: 0,
       communicationIds: [],
-      attemptDiscriminator: options.forceRetry ? nextAttempt(history) : 0,
+      attemptDiscriminator: options.forceRetry || automaticAttemptFailed ? nextAttempt(history) : 0,
       reason: 'Cliente sem contato válido habilitado para Documentação.',
     }
   }
 
   const rendered = renderCeMercanteTaxasTemplate(templateInput)
-  const attemptDiscriminator = options.forceRetry ? nextAttempt(history) : 0
+  const attemptDiscriminator = options.forceRetry || automaticAttemptFailed ? nextAttempt(history) : 0
   const results: CustomerCommunicationDispatchResult[] = []
   for (const contact of recipients.eligible) {
     if (!contact.email?.trim()) continue
@@ -308,7 +324,10 @@ export async function dispatchCeMercanteTaxasCommunication(
       text: rendered.text,
       blIds: rendered.blIds,
       anchorVoyageId: voyageId,
-      anchorPort: bls[0]?.pod,
+      // A viagem pode ter mais de um POD. O porto não é parte da identidade
+      // deste comunicado financeiro agrupado; usar o primeiro B/L tornava a
+      // idempotência dependente da ordem arbitrária do SELECT.
+      anchorPort: null,
       attemptDiscriminator,
       vesselName: templateInput.vesselName,
       voyageNumber: templateInput.voyageNumber,
@@ -327,8 +346,4 @@ export async function dispatchCeMercanteTaxasCommunication(
     attemptDiscriminator,
     reason: results.length ? null : 'Nenhum contato válido habilitado para Documentação.',
   }
-}
-
-export function customerVoyageCommunicationReason(status: CustomerVoyageCommunicationStatus): string | null {
-  return status.blockedReason
 }

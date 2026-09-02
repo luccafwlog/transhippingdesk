@@ -11,6 +11,9 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain("renderDemurrageTemplate")
     expect(source).toContain("kind: 'cobranca_demurrage'")
     expect(source).toContain("p_anchor_invoice_id: candidate.invoice_id")
+    expect(source).toContain("admin.rpc('release_demurrage_dunning_claim'")
+    expect(source).toContain('CLAIM_BATCH_SIZE')
+    expect(source).toContain('candidate.claimed_at')
   })
 
   it('respeita a chave global, contatos/supressões e o reply-to dedicado', () => {
@@ -20,5 +23,8 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain("COMMUNICATIONS_REPLY_TO")
     expect(source).toContain('first_billed_at')
     expect(source).toContain('attempt_discriminator')
+    expect(source).toContain('claimed_at')
+    expect(source).toContain(".in('email', contactEmails)")
+    expect(source).toContain('releaseClaimSafely')
   })
 })

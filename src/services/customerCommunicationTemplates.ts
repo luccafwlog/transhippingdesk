@@ -406,8 +406,6 @@ export function renderCustomerCommunicationTemplate(
 export const renderNoa = renderNoaTemplate
 export const renderNor = renderNorTemplate
 export const renderNob = renderNobTemplate
-export const renderCeMercanteTaxas = renderCeMercanteTaxasTemplate
-export const renderCobrancaDemurrage = renderDemurrageTemplate
 
 export function validateCommunicationAttachments(
   kind: string,

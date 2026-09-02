@@ -34,6 +34,7 @@ export function DemurrageInvoicesTab({
 }: Props) {
   const invoiceIds = useMemo(() => (invoices ?? []).map((invoice) => invoice.id), [invoices])
   const canReadDunning = typeof (supabase as { from?: unknown }).from === 'function'
+    && typeof (supabase as { rpc?: unknown }).rpc === 'function'
   const dunningQuery = useQuery({
     queryKey: queryKeys.demurrage.dunning(invoiceIds),
     enabled: invoiceIds.length > 0 && canReadDunning,
@@ -66,7 +67,7 @@ export function DemurrageInvoicesTab({
                 {invoices.map((invoice) => {
                   const customer = (invoice as { customer?: { name?: string } }).customer
                   const dunningStatus = dunningStatuses.get(invoice.id)
-                  const dunning = getDemurrageDunningDisplay(invoice, dunningStatus ?? { hasValidContact: true, intervalDays: 7 })
+                  const dunning = dunningStatus ? getDemurrageDunningDisplay(invoice, dunningStatus) : undefined
                   return (
                     <tr key={invoice.id}>
                       <td className="px-4 py-3"><div className="app-table__cell-stack" data-testid="demurrage-invoice-context"><div className="font-semibold text-white">{invoice.doc_number}</div><div className="app-table__cell-value text-blue-400">{invoice.bl_id}</div></div></td>
@@ -78,7 +79,7 @@ export function DemurrageInvoicesTab({
                         )}
                       </div></td>
                       <td className="px-4 py-3"><InvoiceStatusBadge status={invoice.status} /></td>
-                      <td className="px-4 py-3"><DemurrageDunningStatus display={dunning} /></td>
+                      <td className="px-4 py-3"><DemurrageDunningStatus display={dunning} loading={dunningQuery.isLoading} error={Boolean(dunningQuery.error) || !canReadDunning} /></td>
                       <td className="px-4 py-3"><div data-testid="demurrage-invoice-primary-action" className="flex flex-nowrap items-center gap-2 whitespace-nowrap"><Button variant="secondary" onClick={() => onOpenDetail(invoice.id)}>Detalhes</Button>{tab === 'emitidas' && <Button variant="ghost" onClick={() => onOpenDocument(invoice.id, 'invoice')}>Fatura</Button>}</div>
                       </td>
                     </tr>

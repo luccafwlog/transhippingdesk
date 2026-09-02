@@ -9,6 +9,8 @@ import { supabase } from './supabase'
 import { isCustomerReconciliationResolved } from './customerReconciliation'
 import { dispatchCeMercanteTaxasCommunication } from './customerFinanceCommunications'
 
+const COMMUNICATION_DISPATCH_RETRIES = 2
+
 export type ReviewBillingAutomationResult =
   | { status: 'invoiced'; invoiceResult: unknown }
   | {
@@ -135,6 +137,41 @@ function calculationAlertMetadata(
     billing_hold_reason: bl.billing_hold_reason,
     persisted_charge_status: bl.charge_status,
     persisted_billing_hold_reason: bl.billing_hold_reason,
+  }
+}
+
+async function dispatchCustomerFinanceCommunicationWithRetry(
+  voyageId: number,
+  customerId: number,
+): Promise<void> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= COMMUNICATION_DISPATCH_RETRIES; attempt += 1) {
+    try {
+      await dispatchCeMercanteTaxasCommunication(voyageId, customerId)
+      return
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Falha ao disparar comunicado financeiro automático.')
+}
+
+async function dispatchCustomerFinanceCommunicationBestEffort(
+  voyageId: number,
+  customerId: number,
+  actorId: string | null,
+  blId: string,
+): Promise<void> {
+  try {
+    await dispatchCustomerFinanceCommunicationWithRetry(voyageId, customerId)
+  } catch (error) {
+    await logOperationalEvent({
+      code: 'customer_finance_communication_failed',
+      message: error instanceof Error ? error.message : 'Falha ao disparar comunicado financeiro automático.',
+      changedBy: actorId,
+      entityId: blId,
+      context: { source: 'ce_auto_billing', voyage_id: voyageId, retries: COMMUNICATION_DISPATCH_RETRIES },
+    })
   }
 }
 
@@ -344,15 +381,7 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
       context: { source: 'ce_auto_billing', financial_status: bl.financial_status },
     })
     if (bl.voyage_id != null) {
-      void dispatchCeMercanteTaxasCommunication(bl.voyage_id, bl.customer_id).catch((error) => {
-        void logOperationalEvent({
-          code: 'customer_finance_communication_failed',
-          message: error instanceof Error ? error.message : 'Falha ao disparar comunicado financeiro automático.',
-          changedBy: actorId,
-          entityId: bl.id,
-          context: { source: 'ce_auto_billing', voyage_id: bl.voyage_id },
-        })
-      })
+      await dispatchCustomerFinanceCommunicationBestEffort(bl.voyage_id, bl.customer_id, actorId, bl.id)
     }
     return null
   }
@@ -375,15 +404,7 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
     })
   }
   if (result.status === 'invoiced' && bl.voyage_id != null) {
-    void dispatchCeMercanteTaxasCommunication(bl.voyage_id, bl.customer_id).catch((error) => {
-      void logOperationalEvent({
-        code: 'customer_finance_communication_failed',
-        message: error instanceof Error ? error.message : 'Falha ao disparar comunicado financeiro automático.',
-        changedBy: actorId,
-        entityId: bl.id,
-        context: { source: 'ce_auto_billing', voyage_id: bl.voyage_id },
-      })
-    })
+    await dispatchCustomerFinanceCommunicationBestEffort(bl.voyage_id, bl.customer_id, actorId, bl.id)
   }
   return result
 }

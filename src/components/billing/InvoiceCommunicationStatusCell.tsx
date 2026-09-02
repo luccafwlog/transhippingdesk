@@ -42,7 +42,10 @@ export function InvoiceCommunicationStatusCell({ invoice }: Props) {
   if (statusQuery.error || !statusQuery.data) return <span className="text-amber-300">Status indisponível</span>
 
   const status = statusQuery.data
-  const canRetry = status.latest != null
+  // Um dispatch automático pode falhar antes de gravar uma linha. Enquanto a
+  // prontidão estiver liberada, a célula precisa oferecer o caminho de
+  // recuperação mesmo sem histórico.
+  const canRetry = status.readiness.ready
   function handleRetry() {
     if (!window.confirm('Confirma o reenvio assistido do comunicado de CE Mercante para este cliente?')) return
     void retryMutation.mutateAsync()

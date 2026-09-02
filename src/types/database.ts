@@ -1997,16 +1997,19 @@ export type Database = {
           attempt_discriminator: number
           claimed_at: string
           demurrage_invoice_id: number
+          released_at: string | null
         }
         Insert: {
           attempt_discriminator: number
           claimed_at?: string
           demurrage_invoice_id: number
+          released_at?: string | null
         }
         Update: {
           attempt_discriminator?: number
           claimed_at?: string
           demurrage_invoice_id?: number
+          released_at?: string | null
         }
         Relationships: [
           {
@@ -4844,8 +4847,20 @@ export type Database = {
         Returns: Json
       }
       claim_demurrage_dunning_candidates: {
-        Args: { p_as_of?: string }
+        Args: { p_as_of?: string; p_limit?: number }
         Returns: Json
+      }
+      list_demurrage_dunning_claim_statuses: {
+        Args: { p_invoice_ids: number[] }
+        Returns: {
+          attempt_count: number
+          invoice_id: number
+          last_attempt_at: string
+        }[]
+      }
+      release_demurrage_dunning_claim: {
+        Args: { p_attempt_discriminator: number; p_demurrage_invoice_id: number }
+        Returns: boolean
       }
       can_edit_customers: { Args: never; Returns: boolean }
       can_edit_depots: { Args: never; Returns: boolean }

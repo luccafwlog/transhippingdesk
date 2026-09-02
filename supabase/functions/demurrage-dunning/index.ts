@@ -12,6 +12,7 @@ type DunningCandidate = {
   current_roe: number | null
   roe_source: string | null
   first_billed_at: string
+  claimed_at: string
   roe_reference_date: string
   attempt_discriminator: number
 }
@@ -36,6 +37,8 @@ type InvoiceContext = {
     voyage: { id: number; voyage_number: string; vessel: { name: string } | null } | null
   } | null
 }
+
+const CLAIM_BATCH_SIZE = 50
 
 function timingSafeEqual(leftValue: string, rightValue: string): boolean {
   const encoder = new TextEncoder()
@@ -68,6 +71,7 @@ function asCandidates(value: unknown): DunningCandidate[] {
       && typeof item.bl_id === 'string'
       && typeof item.doc_number === 'string'
       && Number.isFinite(Number(item.total_usd))
+      && typeof item.claimed_at === 'string'
       && Number.isFinite(Number(item.attempt_discriminator))
   }).map((item) => ({
     invoice_id: Number(item.invoice_id),
@@ -79,6 +83,7 @@ function asCandidates(value: unknown): DunningCandidate[] {
     current_roe: item.current_roe == null ? null : Number(item.current_roe),
     roe_source: item.roe_source == null ? null : String(item.roe_source),
     first_billed_at: String(item.first_billed_at ?? ''),
+    claimed_at: String(item.claimed_at),
     roe_reference_date: String(item.roe_reference_date ?? ''),
     attempt_discriminator: Number(item.attempt_discriminator),
   }))
@@ -110,12 +115,20 @@ async function loadRecipients(
   if (contactsError) throw contactsError
   const contacts = (contactsData ?? []) as DunningContact[]
   const contactIds = contacts.map((contact) => contact.id)
+  const contactEmails = [...new Set(contacts.flatMap((contact) => {
+    const email = (contact.email ?? '').trim()
+    return email ? [email, email.toLowerCase()] : []
+  }))]
   const [{ data: preferencesData, error: preferencesError }, { data: communicationData, error: communicationError }, { data: portalData, error: portalError }] = await Promise.all([
     contactIds.length
       ? admin.from('customer_contact_preferences').select('contact_id, nature, enabled').in('contact_id', contactIds)
       : Promise.resolve({ data: [], error: null }),
-    admin.from('customer_communication_suppressions').select('email, reason'),
-    admin.from('portal_suppressed_emails').select('email, reason'),
+    contactEmails.length
+      ? admin.from('customer_communication_suppressions').select('email, reason').in('email', contactEmails)
+      : Promise.resolve({ data: [], error: null }),
+    contactEmails.length
+      ? admin.from('portal_suppressed_emails').select('email, reason').in('email', contactEmails)
+      : Promise.resolve({ data: [], error: null }),
   ])
   if (preferencesError) throw preferencesError
   if (communicationError) throw communicationError
@@ -223,7 +236,7 @@ async function sendCandidate(
   let simulated = false
   for (const contact of contacts) {
     const recipient = normalizeEmail(contact.email)
-    const idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${recipient}`
+    const idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${candidate.claimed_at}:${recipient}`
     try {
       const sent = await sendEmail({
         kind: 'cobranca_demurrage',
@@ -277,6 +290,28 @@ async function sendCandidate(
   return status
 }
 
+async function releaseClaim(
+  admin: ReturnType<typeof createClient>,
+  candidate: DunningCandidate,
+): Promise<void> {
+  const { error } = await admin.rpc('release_demurrage_dunning_claim', {
+    p_demurrage_invoice_id: candidate.invoice_id,
+    p_attempt_discriminator: candidate.attempt_discriminator,
+  })
+  if (error) throw error
+}
+
+async function releaseClaimSafely(
+  admin: ReturnType<typeof createClient>,
+  candidate: DunningCandidate,
+): Promise<void> {
+  try {
+    await releaseClaim(admin, candidate)
+  } catch (error) {
+    console.error('[demurrage-dunning] falha ao liberar claim', candidate.invoice_id, error)
+  }
+}
+
 async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' })
   const expectedSecret = Deno.env.get('DEMURRAGE_DUNNING_SECRET') ?? ''
@@ -289,7 +324,10 @@ async function handler(req: Request): Promise<Response> {
   const admin = createClient(url, serviceKey)
   const [{ data: settings, error: settingsError }, { data: claimed, error: claimError }] = await Promise.all([
     admin.from('app_settings').select('communications_enabled').eq('id', 1).maybeSingle(),
-    admin.rpc('claim_demurrage_dunning_candidates', { p_as_of: new Date().toISOString() }),
+    admin.rpc('claim_demurrage_dunning_candidates', {
+      p_as_of: new Date().toISOString(),
+      p_limit: CLAIM_BATCH_SIZE,
+    }),
   ])
   if (settingsError || claimError) {
     console.error('[demurrage-dunning] falha ao preparar o ciclo', settingsError ?? claimError)
@@ -306,11 +344,15 @@ async function handler(req: Request): Promise<Response> {
     try {
       const result = await sendCandidate(admin, candidate, communicationsEnabled)
       if (result === 'enviado') sent += 1
-      else if (result === 'simulado') simulated += 1
-      else if (result === 'falha') failed += 1
-      else paused += 1
+      else {
+        await releaseClaimSafely(admin, candidate)
+        if (result === 'simulado') simulated += 1
+        else if (result === 'falha') failed += 1
+        else paused += 1
+      }
     } catch (error) {
       failed += 1
+      await releaseClaimSafely(admin, candidate)
       console.error('[demurrage-dunning] candidato inválido', candidate.invoice_id, error)
     }
   }
