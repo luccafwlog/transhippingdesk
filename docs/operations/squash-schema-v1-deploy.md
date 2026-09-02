@@ -62,21 +62,27 @@ Conectado ao projeto alvo via Supabase CLI (`supabase link --project-ref <REF>`)
 Todos os comandos abaixo levam `--linked` pelo mesmo motivo: sem ele, o reparo
 atinge o banco local, não o staging/produção.
 
-1. Marcar as migrações obsoletas (`003` a `384`) como revertidas no histórico.
-   Não copie o `...` literalmente — expanda a lista a partir do arquivo morto:
+1. Marcar todas as migrações legadas (`001` a `384`) como revertidas no histórico.
+   É fundamental incluir `001` e `002` para que os nomes históricos (`schema` e `voyages`)
+   sejam substituídos pelos nomes consolidados (`initial_schema` e `business_logic_and_security`),
+   evitando divergência em `supabase migration list`:
    ```bash
-   # Gera a lista exata de versões obsoletas (exclui 283, que nunca existiu):
-   OBSOLETAS=$(ls supabase/migrations_archive/*.sql | sed 's/.*\///;s/_.*//' | awk '$1 > "002"' | tr '\n' ' ')
-   echo "$OBSOLETAS"
-   supabase migration repair --linked --status reverted $OBSOLETAS
+   # Gera a lista de todas as versões legadas (exclui 283, que nunca existiu):
+   LEGADAS=$(ls supabase/migrations_archive/*.sql | sed 's/.*\///;s/_.*//' | tr '\n' ' ')
+   echo "$LEGADAS"
+   supabase migration repair --linked --status reverted $LEGADAS
    ```
    *Alternativamente, via SQL administrativo autenticado como postgres:*
    ```sql
-   DELETE FROM supabase_migrations.schema_migrations
-   WHERE version NOT IN ('001', '002', '003', '004');
+   TRUNCATE supabase_migrations.schema_migrations;
+   INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
+     ('001', 'initial_schema'),
+     ('002', 'business_logic_and_security'),
+     ('003', 'pos_squash_objetos_fora_do_dump'),
+     ('004', 'vazios_delete_baplie_grant');
    ```
 
-2. Confirmar as versões consolidadas como aplicadas:
+2. Confirmar as 4 versões consolidadas como aplicadas (associando aos nomes locais atuais):
    ```bash
    supabase migration repair --linked --status applied 001 002 003 004
    ```

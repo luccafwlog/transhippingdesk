@@ -56,7 +56,7 @@ inócuo num banco onde nunca houve um default configurado: medido nesta data,
 plataforma, e ali o mesmo comando faz efeito — foi assim que a 297 fechou o
 achado A-06 em produção.
 
-Consequência prática: em Postgres puro quem fecha as 428 funções é a **varredura
+Consequência prática: em Postgres puro quem fecha as 397 funções é a **varredura
 de resíduo** da 003, não o `ALTER DEFAULT PRIVILEGES` da 001. As duas peças são
 necessárias e nenhuma torna a outra redundante.
 

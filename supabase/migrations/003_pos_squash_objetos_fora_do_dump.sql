@@ -36,7 +36,7 @@
 --     `ALTER DEFAULT PRIVILEGES ... REVOKE` não desfaz o EXECUTE embutido que o
 --     PostgreSQL dá a PUBLIC quando nunca houve um default configurado — o
 --     `pg_default_acl` fica vazio e `proacl` continua NULL. Ali é esta varredura
---     que fecha as 428 funções.
+--     que fecha as 397 funções.
 --
 -- Nada aqui remove os GRANT explícitos da 002: apenas PUBLIC e `anon` (e
 -- `authenticated` em função de trigger, que nunca é chamada por RPC) são
