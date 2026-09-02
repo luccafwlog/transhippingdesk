@@ -10,6 +10,8 @@ import type {
 } from './reports'
 import { getInvoiceBls, getInvoicePaymentDate, isConsolidatedInvoice, type InvoiceListRow } from './billing'
 import { invoiceStatusLabel } from '../pages/faturamentoInvoiceStatus'
+import { DEMURRAGE_INVOICE_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
+import type { DemurrageInvoiceListItem } from './demurrage/demurrageInvoices'
 import { formatDate } from '../lib/utils'
 import { arrivalDisplay } from '../lib/escalaState'
 import { sanitizeSheetRows } from '../lib/spreadsheetSafe'
@@ -337,6 +339,25 @@ export async function exportCustomerReportWorkbook(rows: CustomerReportRow[]) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Clientes')
   XLSX.writeFile(workbook, `relatorio-clientes-${makeTimestamp()}.xlsx`)
+}
+
+export async function exportDemurrageReportWorkbook(rows: DemurrageInvoiceListItem[]) {
+  const XLSX = await import('@e965/xlsx')
+  const exportRows = rows.map((row) => ({
+    Documento: row.doc_number ?? '',
+    BL: row.bl_id ?? '',
+    Cliente: row.customer?.name ?? '',
+    CNPJ: row.customer?.cnpj_cpf ?? '',
+    Emissao: row.doc_date ?? '',
+    Vencimento: row.due_date ?? '',
+    TotalUSD: Number(row.total_usd ?? 0),
+    TotalBRL: Number(row.current_total_brl ?? 0),
+    Status: statusLabel(DEMURRAGE_INVOICE_STATUS_LABELS, row.status, ''),
+  }))
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, toSheet(XLSX, exportRows), 'Demurrage')
+  XLSX.writeFile(workbook, `relatorio-demurrage-${makeTimestamp()}.xlsx`)
 }
 
 export async function exportCustomerBaseWorkbook(rows: CustomerListItem[]) {

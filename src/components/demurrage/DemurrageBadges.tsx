@@ -1,4 +1,5 @@
 import { Badge } from '../ui/Badge'
+import { DEMURRAGE_INVOICE_STATUS_LABELS, statusLabel } from '../../lib/statusLabels'
 import type { DemurrageInvoice } from '../../types/database'
 
 export function DemurrageStatusBadge({ status }: { status: string | null }) {
@@ -7,8 +8,17 @@ export function DemurrageStatusBadge({ status }: { status: string | null }) {
   return <Badge tone="green">Free time</Badge>
 }
 
+const INVOICE_TONES: Record<string, 'green' | 'slate' | 'yellow' | 'blue'> = {
+  paid: 'green',
+  cancelled: 'slate',
+  draft: 'yellow',
+  issued: 'blue',
+}
+
 export function InvoiceStatusBadge({ status }: { status: DemurrageInvoice['status'] }) {
-  if (status === 'paid') return <Badge tone="green">Pago</Badge>
-  if (status === 'cancelled') return <Badge tone="slate">Cancelado</Badge>
-  return <Badge tone="blue">Faturado</Badge>
+  return (
+    <Badge tone={INVOICE_TONES[status ?? ''] ?? 'blue'}>
+      {statusLabel(DEMURRAGE_INVOICE_STATUS_LABELS, status, 'Faturado')}
+    </Badge>
+  )
 }

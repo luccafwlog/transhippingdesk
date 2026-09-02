@@ -178,3 +178,26 @@ describe('reports receivable-backed balances', () => {
     expect(row?.totalBalance).toBe(115)
   })
 })
+
+describe('recorte de periodo', () => {
+  beforeEach(() => {
+    mockFrom.mockReset()
+  })
+
+  // issued_at/created_at sao TIMESTAMPTZ: comparar com a data crua descartaria
+  // tudo que foi emitido depois da meia-noite do ultimo dia do filtro.
+  it('inclui o ultimo dia inteiro do periodo em todas as consultas', async () => {
+    const builders: Record<string, ReturnType<typeof createBuilder>> = {}
+    mockFrom.mockImplementation((table: string) => {
+      builders[table] = createBuilder({ data: [], error: null })
+      return builders[table]
+    })
+
+    await fetchFinancialReport({ dateFrom: '2026-05-01', dateTo: '2026-05-31', status: '' })
+    expect(builders.invoices.lte).toHaveBeenCalledWith('issued_at', '2026-05-31T23:59:59.999')
+
+    await fetchCustomerReport({ dateFrom: '2026-05-01', dateTo: '2026-05-31' })
+    expect(builders.bls.lte).toHaveBeenCalledWith('created_at', '2026-05-31T23:59:59.999')
+    expect(builders.invoices.lte).toHaveBeenCalledWith('issued_at', '2026-05-31T23:59:59.999')
+  })
+})

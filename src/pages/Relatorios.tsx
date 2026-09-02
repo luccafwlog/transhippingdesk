@@ -7,9 +7,18 @@ import { MetricCard } from '../components/ui/MetricCard'
 import { TabButton } from '../components/ui/TabButton'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
+import { SkeletonTable } from '../components/ui/Skeleton'
+import { InvoiceStatusBadge } from '../components/demurrage/DemurrageBadges'
 import { useToast } from '../components/ui/Toast'
-import { formatBRL, formatCnpjCpf, formatDate } from '../lib/utils'
-import { FINANCIAL_STATUS_LABELS, INVOICE_STATUS_LABELS, REVIEW_STATUS_LABELS, statusLabel } from '../lib/statusLabels'
+import { formatBRL, formatCnpjCpf, formatDate, formatUSD } from '../lib/utils'
+import { describeActiveFilters, formatResultCount, type OperationalFilter } from '../lib/operationalState'
+import {
+  DEMURRAGE_INVOICE_STATUS_LABELS,
+  FINANCIAL_STATUS_LABELS,
+  INVOICE_STATUS_LABELS,
+  REVIEW_STATUS_LABELS,
+  statusLabel,
+} from '../lib/statusLabels'
 import {
   fetchCustomerReport,
   fetchFinancialReport,
@@ -49,6 +58,52 @@ export function Relatorios() {
   )
 }
 
+// ---------- Peças compartilhadas pelas quatro visões ----------
+
+// As quatro abas repetiam a mesma caixa âmbar para limite de linhas e acesso
+// restrito. Uma peça só mantém o mesmo peso visual em todas.
+function Notice({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
+      {children}
+    </div>
+  )
+}
+
+// O usuário precisa ler o recorte aplicado sem reconstruir os filtros de cabeça.
+// Mesma barra já usada nas tabelas de Faturamento e Demurrage.
+function TableCaption({ count, singular, plural, filters, sortNote }: {
+  count: number
+  singular: string
+  plural: string
+  filters: OperationalFilter[]
+  sortNote: string
+}) {
+  return (
+    <div className="billing-table__head flex flex-col gap-1 border-b px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <span className="font-semibold text-white">{formatResultCount(count, singular, plural)}</span>
+      <span className="text-xs">{describeActiveFilters(filters)} · {sortNote}</span>
+    </div>
+  )
+}
+
+function LimitNotice({ limit, exportIsComplete }: { limit: number; exportIsComplete: boolean }) {
+  return (
+    <Notice>
+      Limite de {limit.toLocaleString('pt-BR')} linhas atingido; os indicadores acima consideram apenas essas linhas.{' '}
+      {exportIsComplete
+        ? 'A exportação xlsx traz todas as linhas do filtro.'
+        : 'Reduza o período para obter totais completos.'}
+    </Notice>
+  )
+}
+
+function periodFilters(dateFrom: string, dateTo: string): OperationalFilter[] {
+  return [
+    { label: 'de', value: dateFrom ? formatDate(dateFrom) : '' },
+    { label: 'até', value: dateTo ? formatDate(dateTo) : '' },
+  ]
+}
 
 // ---------- Operacional ----------
 
@@ -86,8 +141,8 @@ function OperationalReportTab() {
   return (
     <>
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <Field label="Data inicial">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <Field label="Data inicial" hint="Recorte pela data de criação do B/L.">
             <Input
               type="date"
               value={filters.dateFrom}
@@ -120,7 +175,7 @@ function OperationalReportTab() {
               <option value="carga_solta">Carga Solta</option>
             </Select>
           </Field>
-          <div className="flex items-end">
+          <div className="reports-filter-action">
             <Button onClick={handleExport} loading={exporting} disabled={!data?.rows.length}>
               <FileDown size={15} />
               Exportar xlsx
@@ -141,13 +196,23 @@ function OperationalReportTab() {
         </div>
       </div>
 
-      {data?.kpis.truncated ? (
-        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
-          Limite de 2.000 linhas atingido. Ajuste o período para ver resultados mais recentes.
-        </div>
-      ) : null}
+      {data?.kpis.truncated ? <LimitNotice limit={2000} exportIsComplete /> : null}
 
       <Card className="overflow-hidden p-0">
+        <TableCaption
+          count={data?.rows.length ?? 0}
+          singular="B/L retornado"
+          plural="B/Ls retornados"
+          filters={[
+            ...periodFilters(filters.dateFrom, filters.dateTo),
+            { label: 'POD', value: filters.pod },
+            {
+              label: 'modalidade',
+              value: filters.cargoMode === 'carga_solta' ? 'Carga Solta' : filters.cargoMode ? 'Container' : '',
+            },
+          ]}
+          sortNote="Ordenado por criação (recente)"
+        />
         {error ? <InlineError message="Erro ao carregar relatório operacional." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1100px] text-left text-sm">
@@ -158,7 +223,7 @@ function OperationalReportTab() {
                 <th scope="col" className="px-4 py-3">POL</th>
                 <th scope="col" className="px-4 py-3">POD</th>
                 <th scope="col" className="px-4 py-3">Cliente</th>
-                <th scope="col" className="px-4 py-3">Containers</th>
+                <th scope="col" className="px-4 py-3 text-right">Containers</th>
                 <th scope="col" className="px-4 py-3 text-right">Peso (kg)</th>
                 <th scope="col" className="px-4 py-3 text-right">CBM</th>
                 <th scope="col" className="px-4 py-3">Revisão</th>
@@ -168,12 +233,12 @@ function OperationalReportTab() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-[var(--app-muted)]">
-                    Carregando relatório...
+                  <td colSpan={10} className="p-0">
+                    <SkeletonTable rows={6} cols={10} />
                   </td>
                 </tr>
               ) : null}
-              {!isLoading && !data?.rows.length ? (
+              {!isLoading && !error && !data?.rows.length ? (
                 <tr>
                   <td colSpan={10} className="p-0">
                     <EmptyState title="Nenhum dado encontrado." description="Ajuste o período ou os filtros aplicados." />
@@ -189,7 +254,7 @@ function OperationalReportTab() {
                   <td className="px-4 py-3">{row.pol ?? '-'}</td>
                   <td className="px-4 py-3">{row.pod ?? '-'}</td>
                   <td className="px-4 py-3 text-[var(--app-text)]">{row.customer?.name ?? '-'}</td>
-                  <td className="px-4 py-3">{(row.bl_containers ?? []).length}</td>
+                  <td className="px-4 py-3 text-right">{(row.bl_containers ?? []).length}</td>
                   <td className="px-4 py-3 text-right font-mono">
                     {Number(row.total_weight_kg ?? 0).toLocaleString('pt-BR')}
                   </td>
@@ -214,6 +279,8 @@ function OperationalReportTab() {
 
 // ---------- Financeiro ----------
 
+const FINANCIAL_STATUS_FILTER_OPTIONS = ['draft', 'issued', 'partially_paid', 'paid', 'cancelled'] as const
+
 function FinancialReportTab() {
   const { showToast } = useToast()
   const [filters, setFilters] = useState<FinancialReportFilters>({
@@ -228,6 +295,7 @@ function FinancialReportTab() {
     queryFn: () => fetchFinancialReport(filters),
     staleTime: 30_000,
   })
+  const accessDenied = Boolean(data?.accessDenied)
 
   async function handleExport() {
     setExporting(true)
@@ -246,8 +314,8 @@ function FinancialReportTab() {
   return (
     <>
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Data inicial">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="Data inicial" hint="Recorte pela data de emissão da invoice.">
             <Input
               type="date"
               value={filters.dateFrom}
@@ -269,14 +337,14 @@ function FinancialReportTab() {
               }
             >
               <option value="">Todos</option>
-              <option value="draft">Draft</option>
-              <option value="issued">Emitida</option>
-              <option value="partially_paid">Parcial</option>
-              <option value="paid">Paga</option>
-              <option value="cancelled">Cancelada</option>
+              {FINANCIAL_STATUS_FILTER_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabel(INVOICE_STATUS_LABELS, status)}
+                </option>
+              ))}
             </Select>
           </Field>
-          <div className="flex items-end">
+          <div className="reports-filter-action">
             <Button onClick={handleExport} loading={exporting} disabled={!data?.rows.length}>
               <FileDown size={15} />
               Exportar xlsx
@@ -285,77 +353,87 @@ function FinancialReportTab() {
         </div>
       </Card>
 
-      {data?.accessDenied ? (
-        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
-          Visualização financeira restrita ao perfil admin.
-        </div>
+      {accessDenied ? (
+        <Notice>
+          Visualização financeira restrita ao perfil admin. Nenhum indicador, linha ou exportação é liberado para este perfil.
+        </Notice>
       ) : null}
 
-      <div className="mb-5 flex flex-col gap-4">
-        <div>
-          <MetricCard label="Saldo em aberto" value={formatBRL(data?.kpis.totalOpen ?? 0)} tone="primary" />
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-          <MetricCard label="Invoices" value={String(data?.kpis.totalInvoices ?? 0)} />
-          <MetricCard label="Total emitido" value={formatBRL(data?.kpis.totalIssued ?? 0)} />
-          <MetricCard label="Total pago" value={formatBRL(data?.kpis.totalPaid ?? 0)} />
-          <div className="opacity-75">
-            <MetricCard label="Canceladas" value={String(data?.kpis.totalCanceled ?? 0)} />
+      {accessDenied ? null : (
+        <>
+          <div className="mb-5 flex flex-col gap-4">
+            <div>
+              <MetricCard label="Saldo em aberto" value={formatBRL(data?.kpis.totalOpen ?? 0)} tone="primary" />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+              <MetricCard label="Invoices" value={String(data?.kpis.totalInvoices ?? 0)} />
+              <MetricCard label="Total emitido" value={formatBRL(data?.kpis.totalIssued ?? 0)} />
+              <MetricCard label="Total pago" value={formatBRL(data?.kpis.totalPaid ?? 0)} />
+              <div className="opacity-75">
+                <MetricCard label="Canceladas" value={String(data?.kpis.totalCanceled ?? 0)} />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {data?.kpis.truncated ? (
-        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
-          Limite de 2.000 linhas atingido. Ajuste o período para ver resultados mais recentes.
-        </div>
-      ) : null}
+          {data?.kpis.truncated ? <LimitNotice limit={2000} exportIsComplete /> : null}
 
-      <Card className="overflow-hidden p-0">
-        {error ? <InlineError message="Erro ao carregar relatório financeiro." /> : null}
-        <div className="app-table-scroll">
-          <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
-            <thead>
-              <tr>
-                <th scope="col" className="px-4 py-3">Invoice</th>
-                <th scope="col" className="px-4 py-3">Cliente</th>
-                <th scope="col" className="px-4 py-3">Emissão</th>
-                <th scope="col" className="px-4 py-3 text-right">Total BRL</th>
-                <th scope="col" className="px-4 py-3 text-right">Saldo BRL</th>
-                <th scope="col" className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--app-muted)]">
-                    Carregando relatório...
-                  </td>
-                </tr>
-              ) : null}
-              {!isLoading && !data?.rows.length && !data?.accessDenied ? (
-                <tr>
-                  <td colSpan={7} className="p-0">
-                    <EmptyState title="Nenhum dado encontrado." description="Ajuste o período ou os filtros aplicados." />
-                  </td>
-                </tr>
-              ) : null}
-              {data?.rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.invoice_number ?? `INV-${row.id}`}</td>
-                  <td className="px-4 py-3 text-[var(--app-text)]">{row.customer?.name ?? '-'}</td>
-                  <td className="px-4 py-3 text-[var(--app-muted)]">{formatDate(row.issued_at)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-[var(--app-text-strong)]">{formatBRL(row.total_brl ?? 0)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-amber-700">{formatBRL(row.balance_brl ?? 0)}</td>
-                  <td className="px-4 py-3">
-                    <Badge tone={invoiceStatusTone(row.status)}>{statusLabel(INVOICE_STATUS_LABELS, row.status)}</Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+          <Card className="overflow-hidden p-0">
+            <TableCaption
+              count={data?.rows.length ?? 0}
+              singular="invoice retornada"
+              plural="invoices retornadas"
+              filters={[
+                ...periodFilters(filters.dateFrom, filters.dateTo),
+                { label: 'status', value: filters.status ? statusLabel(INVOICE_STATUS_LABELS, filters.status) : '' },
+              ]}
+              sortNote="Ordenado por emissão (recente)"
+            />
+            {error ? <InlineError message="Erro ao carregar relatório financeiro." /> : null}
+            <div className="app-table-scroll">
+              <table className="app-table app-table--compact min-w-[980px] text-left text-sm">
+                <thead>
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Invoice</th>
+                    <th scope="col" className="px-4 py-3">Cliente</th>
+                    <th scope="col" className="px-4 py-3">Emissão</th>
+                    <th scope="col" className="px-4 py-3 text-right">Total BRL</th>
+                    <th scope="col" className="px-4 py-3 text-right">Saldo BRL</th>
+                    <th scope="col" className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        <SkeletonTable rows={6} cols={6} />
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!isLoading && !error && !data?.rows.length ? (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        <EmptyState title="Nenhum dado encontrado." description="Ajuste o período ou os filtros aplicados." />
+                      </td>
+                    </tr>
+                  ) : null}
+                  {data?.rows.map((row) => (
+                    <tr key={row.id}>
+                      <td className="px-4 py-3 font-semibold text-[var(--app-text-strong)]">{row.invoice_number ?? `INV-${row.id}`}</td>
+                      <td className="px-4 py-3 text-[var(--app-text)]">{row.customer?.name ?? '-'}</td>
+                      <td className="px-4 py-3 text-[var(--app-muted)]">{formatDate(row.issued_at)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-[var(--app-text-strong)]">{formatBRL(row.total_brl ?? 0)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-amber-700">{formatBRL(row.balance_brl ?? 0)}</td>
+                      <td className="px-4 py-3">
+                        <Badge tone={invoiceStatusTone(row.status)}>{statusLabel(INVOICE_STATUS_LABELS, row.status)}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
     </>
   )
 }
@@ -400,7 +478,7 @@ function CustomerReportTab() {
     try {
       const { exportCustomerReportWorkbook } = await import('../services/exports')
       await exportCustomerReportWorkbook(data.rows)
-      showToast('Relatório por cliente exportado.', 'success')
+      showToast(`Relatório por cliente exportado (${data.rows.length} linhas).`, 'success')
     } catch {
       showToast('Falha ao exportar o relatório.', 'error')
     } finally {
@@ -411,8 +489,8 @@ function CustomerReportTab() {
   return (
     <>
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Data inicial">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="Data inicial" hint="B/Ls pela criação; invoices pela emissão.">
             <Input
               type="date"
               value={filters.dateFrom}
@@ -426,7 +504,7 @@ function CustomerReportTab() {
               onChange={(event) => setFilters((prev) => ({ ...prev, dateTo: event.target.value }))}
             />
           </Field>
-          <div className="flex items-end">
+          <div className="reports-filter-action">
             <Button onClick={handleExport} loading={exporting} disabled={!data?.rows.length}>
               <FileDown size={15} />
               Exportar xlsx
@@ -436,9 +514,10 @@ function CustomerReportTab() {
       </Card>
 
       {data?.invoicesAccessDenied ? (
-        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
-          Totais financeiros por cliente indisponíveis para este perfil. Exibindo apenas métricas operacionais.
-        </div>
+        <Notice>
+          Totais financeiros por cliente indisponíveis para este perfil. Exibindo apenas métricas operacionais; as colunas
+          Invoices, Emitido e Em aberto ficam zeradas, inclusive no arquivo exportado.
+        </Notice>
       ) : null}
 
       <div className="mb-5 flex flex-col gap-4">
@@ -452,13 +531,16 @@ function CustomerReportTab() {
         </div>
       </div>
 
-      {data?.kpis.truncated ? (
-        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
-          Limite de linhas atingido. Ajuste o período para resultados mais precisos.
-        </div>
-      ) : null}
+      {data?.kpis.truncated ? <LimitNotice limit={4000} exportIsComplete={false} /> : null}
 
       <Card className="overflow-hidden p-0">
+        <TableCaption
+          count={data?.rows.length ?? 0}
+          singular="cliente retornado"
+          plural="clientes retornados"
+          filters={periodFilters(filters.dateFrom, filters.dateTo)}
+          sortNote="Ordenado por faturamento"
+        />
         {error ? <InlineError message="Erro ao carregar relatório por cliente." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[1020px] text-left text-sm">
@@ -477,12 +559,12 @@ function CustomerReportTab() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[var(--app-muted)]">
-                    Carregando relatório...
+                  <td colSpan={8} className="p-0">
+                    <SkeletonTable rows={6} cols={8} />
                   </td>
                 </tr>
               ) : null}
-              {!isLoading && !data?.rows.length ? (
+              {!isLoading && !error && !data?.rows.length ? (
                 <tr>
                   <td colSpan={8} className="p-0">
                     <EmptyState title="Nenhum dado encontrado." description="Ajuste o período ou os filtros aplicados." />
@@ -513,12 +595,18 @@ function CustomerReportTab() {
   )
 }
 
+// ---------- Demurrage ----------
+
+const DEMURRAGE_STATUS_FILTER_OPTIONS = ['draft', 'issued', 'paid', 'cancelled'] as const
+
 function DemurrageReportTab() {
+  const { showToast } = useToast()
   const today = new Date().toISOString().slice(0, 10)
   const firstOfYear = today.slice(0, 4) + '-01-01'
   const [dateFrom, setDateFrom] = useState(firstOfYear)
   const [dateTo, setDateTo] = useState(today)
   const [statusFilter, setStatusFilter] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['demurrage-report', dateFrom, dateTo, statusFilter],
@@ -531,56 +619,86 @@ function DemurrageReportTab() {
   })
 
   const invoices = data ?? []
-  const totalUSD = invoices.reduce((s, inv) => s + (inv.total_usd ?? 0), 0)
-  const totalBRL = invoices.reduce((s, inv) => s + (inv.current_total_brl ?? 0), 0)
-  const paidBRL = invoices.filter((i) => i.status === 'paid').reduce((s, inv) => s + (inv.current_total_brl ?? 0), 0)
+  // Faturas canceladas continuam listadas (o operador precisa vê-las), mas somá-las
+  // inflaria os totais. Cada indicador declara no rótulo o recorte que agrega.
+  const active = invoices.filter((invoice) => invoice.status !== 'cancelled')
+  const totalUSD = active.reduce((sum, invoice) => sum + (invoice.total_usd ?? 0), 0)
+  const billedBRL = active
+    .filter((invoice) => invoice.status === 'issued' || invoice.status === 'paid')
+    .reduce((sum, invoice) => sum + (invoice.current_total_brl ?? 0), 0)
+  const paidBRL = invoices
+    .filter((invoice) => invoice.status === 'paid')
+    .reduce((sum, invoice) => sum + (invoice.current_total_brl ?? 0), 0)
 
-  function fmtUSD(v: number) {
-    return '$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  async function handleExport() {
+    if (!invoices.length) {
+      showToast('Nenhum dado para exportar.', 'info')
+      return
+    }
+    setExporting(true)
+    try {
+      const { exportDemurrageReportWorkbook } = await import('../services/exports')
+      await exportDemurrageReportWorkbook(invoices)
+      showToast(`Relatório de demurrage exportado (${invoices.length} linhas).`, 'success')
+    } catch {
+      showToast('Falha ao exportar o relatório.', 'error')
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
     <>
-      <Card className="mb-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <Field label="De">
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
+      <Card className="mb-5">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="Data inicial" hint="Recorte pela data do documento.">
+            <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
           </Field>
-          <Field label="Ate">
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+          <Field label="Data final">
+            <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
           </Field>
           <Field label="Status">
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="">Todos</option>
-              <option value="draft">Rascunho</option>
-              <option value="issued">Faturado</option>
-              <option value="paid">Pago</option>
-              <option value="cancelled">Cancelado</option>
+              {DEMURRAGE_STATUS_FILTER_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabel(DEMURRAGE_INVOICE_STATUS_LABELS, status)}
+                </option>
+              ))}
             </Select>
           </Field>
+          <div className="reports-filter-action">
+            <Button onClick={handleExport} loading={exporting} disabled={!invoices.length}>
+              <FileDown size={15} />
+              Exportar xlsx
+            </Button>
+          </div>
         </div>
       </Card>
 
-      {invoices.length > 0 && (
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
-          <div className="app-metric-tile">
-            <div className="app-metric-tile__label">Total USD</div>
-            <div className="app-metric-tile__value text-amber-700">{fmtUSD(totalUSD)}</div>
-          </div>
-          <div className="app-metric-tile">
-            <div className="app-metric-tile__label">Total BRL (emitido)</div>
-            <div className="app-metric-tile__value text-green-700">{formatBRL(totalBRL)}</div>
-          </div>
-          <div className="app-metric-tile">
-            <div className="app-metric-tile__label">Total Recebido (pago)</div>
-            <div className="app-metric-tile__value text-emerald-700">{formatBRL(paidBRL)}</div>
-          </div>
+      <div className="mb-5 flex flex-col gap-4">
+        <div>
+          <MetricCard label="Total USD (exceto canceladas)" value={formatUSD(totalUSD)} tone="primary" />
         </div>
-      )}
-
-      {error ? <InlineError message="Erro ao carregar relatório de demurrage." /> : null}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+          <MetricCard label="Faturas" value={String(invoices.length)} />
+          <MetricCard label="Faturado (BRL)" value={formatBRL(billedBRL)} />
+          <MetricCard label="Recebido (BRL)" value={formatBRL(paidBRL)} />
+        </div>
+      </div>
 
       <Card className="overflow-hidden p-0">
+        <TableCaption
+          count={invoices.length}
+          singular="fatura retornada"
+          plural="faturas retornadas"
+          filters={[
+            ...periodFilters(dateFrom, dateTo),
+            { label: 'status', value: statusFilter ? statusLabel(DEMURRAGE_INVOICE_STATUS_LABELS, statusFilter) : '' },
+          ]}
+          sortNote="Ordenado por criação (recente)"
+        />
+        {error ? <InlineError message="Erro ao carregar relatório de demurrage." /> : null}
         <div className="app-table-scroll">
           <table className="app-table app-table--compact min-w-[900px] text-left text-sm">
             <thead>
@@ -597,30 +715,31 @@ function DemurrageReportTab() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-[var(--app-muted)]">Carregando...</td></tr>
+                <tr>
+                  <td colSpan={8} className="p-0">
+                    <SkeletonTable rows={6} cols={8} />
+                  </td>
+                </tr>
               ) : null}
-              {!isLoading && !invoices.length ? (
-                <tr><td colSpan={8} className="p-0"><EmptyState title="Nenhuma invoice no período." /></td></tr>
+              {!isLoading && !error && !invoices.length ? (
+                <tr>
+                  <td colSpan={8} className="p-0">
+                    <EmptyState title="Nenhuma invoice no período." description="Ajuste o período ou o status aplicado." />
+                  </td>
+                </tr>
               ) : null}
-              {invoices.map((inv) => {
-                const customer = (inv as { customer?: { name?: string } }).customer
-                return (
-                  <tr key={inv.id}>
-                    <td className="px-4 py-2 font-mono text-xs text-[var(--app-text-strong)]">{inv.doc_number}</td>
-                    <td className="px-4 py-2 text-[var(--app-blue-btn)]">{inv.bl_id}</td>
-                    <td className="px-4 py-2">{customer?.name ?? '—'}</td>
-                    <td className="px-4 py-2 text-[var(--app-muted)]">{inv.billed_at ? formatDate(inv.billed_at) : '—'}</td>
-                    <td className="px-4 py-2 text-[var(--app-muted)]">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-amber-700">{fmtUSD(inv.total_usd ?? 0)}</td>
-                    <td className="px-4 py-2 text-right font-semibold text-green-700">{formatBRL(inv.current_total_brl ?? 0)}</td>
-                    <td className="px-4 py-2">
-                      <Badge tone={inv.status === 'paid' ? 'green' : inv.status === 'issued' ? 'blue' : inv.status === 'cancelled' ? 'slate' : 'yellow'}>
-                        {inv.status === 'paid' ? 'Pago' : inv.status === 'issued' ? 'Faturado' : inv.status === 'cancelled' ? 'Cancelado' : 'Rascunho'}
-                      </Badge>
-                    </td>
-                  </tr>
-                )
-              })}
+              {invoices.map((invoice) => (
+                <tr key={invoice.id}>
+                  <td className="px-4 py-2 font-mono text-xs text-[var(--app-text-strong)]">{invoice.doc_number}</td>
+                  <td className="px-4 py-2 text-[var(--app-blue-btn)]">{invoice.bl_id}</td>
+                  <td className="px-4 py-2">{invoice.customer?.name ?? '—'}</td>
+                  <td className="px-4 py-2 text-[var(--app-muted)]">{invoice.doc_date ? formatDate(invoice.doc_date) : '—'}</td>
+                  <td className="px-4 py-2 text-[var(--app-muted)]">{invoice.due_date ? formatDate(invoice.due_date) : '—'}</td>
+                  <td className="px-4 py-2 text-right font-mono font-semibold text-amber-700">{formatUSD(invoice.total_usd ?? 0)}</td>
+                  <td className="px-4 py-2 text-right font-mono font-semibold text-green-700">{formatBRL(invoice.current_total_brl ?? 0)}</td>
+                  <td className="px-4 py-2"><InvoiceStatusBadge status={invoice.status} /></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
