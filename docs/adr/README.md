@@ -66,6 +66,7 @@ vigentes e onde uma decisão posterior alterou parte de uma ADR anterior.
 | [0059](./0059-chave-global-de-envio-desligada-por-padrao.md) | Chave global de envio de Comunicados, desligada por padrão | aceito | Depende da 0058; a chave cobre todo o canal de Comunicado e não afeta o email transacional do Portal; disparo com a chave desligada é registrado como simulado; ligar é restrito a `administrativo` por guarda de servidor própria, não coberta pela permissão da 0060 |
 | [0060](./0060-primeira-permissao-do-perfil-equipamentos.md) | Perfil Equipamentos ganha sua primeira permissão | aceito | Cria `customer_communications` para `administrativo`, `documentacao` e `equipamentos`; exclui `financeiro` por decisão registrada; exige separar o `case` de `equipamentos` do de `operacoes` em `roleHasPermission`; recusa reaproveitar `portal_provisioning`; não altera a 0044 (leitura interna global) nem a 0046 (escrita com rastro) |
 | [0061](./0061-conciliacao-de-cliente-com-casa-unica-na-revisao.md) | Conciliação de cliente tem casa única: a Revisão | aceito | Estende a 0006; a Validação passa a exibir e apontar, e a Revisão ganha o efeito completo (vínculo + contato do manifesto) antes de os botões saírem |
+| [0062](./0062-consolidacao-migrations-schema-1-0.md) | Consolidação de Migrações: Schema Inicial v1.0 e Arquivo Morto | aceito | Atualiza a 0016 fixando o marco v1.0 e estabelecendo o arquivo morto retrocompatível |
 
 ## Convenção
 
