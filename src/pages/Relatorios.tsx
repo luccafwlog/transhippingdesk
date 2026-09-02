@@ -141,7 +141,7 @@ function OperationalReportTab() {
   return (
     <>
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Field label="Data inicial" hint="Recorte pela data de criação do B/L.">
             <Input
               type="date"
@@ -175,7 +175,7 @@ function OperationalReportTab() {
               <option value="carga_solta">Carga Solta</option>
             </Select>
           </Field>
-          <div className="flex items-end">
+          <div className="reports-filter-action">
             <Button onClick={handleExport} loading={exporting} disabled={!data?.rows.length}>
               <FileDown size={15} />
               Exportar xlsx
@@ -314,7 +314,7 @@ function FinancialReportTab() {
   return (
     <>
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Data inicial" hint="Recorte pela data de emissão da invoice.">
             <Input
               type="date"
@@ -344,7 +344,7 @@ function FinancialReportTab() {
               ))}
             </Select>
           </Field>
-          <div className="flex items-end">
+          <div className="reports-filter-action">
             <Button onClick={handleExport} loading={exporting} disabled={!data?.rows.length}>
               <FileDown size={15} />
               Exportar xlsx
@@ -489,7 +489,7 @@ function CustomerReportTab() {
   return (
     <>
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Data inicial" hint="B/Ls pela criação; invoices pela emissão.">
             <Input
               type="date"
@@ -504,7 +504,7 @@ function CustomerReportTab() {
               onChange={(event) => setFilters((prev) => ({ ...prev, dateTo: event.target.value }))}
             />
           </Field>
-          <div className="flex items-end">
+          <div className="reports-filter-action">
             <Button onClick={handleExport} loading={exporting} disabled={!data?.rows.length}>
               <FileDown size={15} />
               Exportar xlsx
@@ -650,7 +650,7 @@ function DemurrageReportTab() {
   return (
     <>
       <Card className="mb-5">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="reports-filter-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Data inicial" hint="Recorte pela data do documento.">
             <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
           </Field>
@@ -667,7 +667,7 @@ function DemurrageReportTab() {
               ))}
             </Select>
           </Field>
-          <div className="flex items-end">
+          <div className="reports-filter-action">
             <Button onClick={handleExport} loading={exporting} disabled={!invoices.length}>
               <FileDown size={15} />
               Exportar xlsx
