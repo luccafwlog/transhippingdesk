@@ -10,6 +10,30 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- ---------------------------------------------------------------------------
+-- ADR 0047 — os defaults de privilégio do schema `public` nascem fechados.
+--
+-- O Supabase mantém, por padrão, ALTER DEFAULT PRIVILEGES que concedem acesso a
+-- `anon` e `authenticated` em TODA tabela, sequência e função nova de `public`.
+-- A migration arquivada 297 inverteu esse default em produção. Esses defaults
+-- vivem em `pg_default_acl`, fora do schema — o dump que originou este arquivo
+-- não os carrega, e sem esta seção um banco novo (branch de preview, `supabase
+-- db reset`) nasceria MAIS ABERTO que produção: `anon` receberia ALL nas 106
+-- tabelas e EXECUTE nas 428 funções.
+--
+-- Precisa vir antes de qualquer CREATE: default privilege só vale na criação.
+-- Os GRANT explícitos da 002 restauram exatamente o ACL auditado em produção.
+-- ---------------------------------------------------------------------------
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON TABLES FROM PUBLIC, anon;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON SEQUENCES FROM PUBLIC, anon;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;

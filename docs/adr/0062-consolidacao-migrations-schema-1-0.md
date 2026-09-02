@@ -30,15 +30,24 @@ Com o sistema pronto para a versão 1.0 e antes de sua entrada formal em produç
    - Em `src/test/setup.ts`, foi implementado um adaptador seguro para os módulos de sistema de arquivos (`node:fs` e `fs`).
    - Quando um teste requisitar um arquivo de migração histórico em `supabase/migrations/` que não esteja presente no diretório ativo, o harness redireciona a chamada de forma transparente para `supabase/migrations_archive/`.
    - Listagens de diretório (`readdirSync`) em `supabase/migrations/` passam a responder o conjunto canônico arquivado para os testes de contrato estáticos, filtrando artefatos não-SQL e preservando a validação de mais de 2.700 testes sem necessidade de reescrever centenas de arquivos de teste.
+   - **Custo aceito, explicitamente:** com o redirecionamento, os 201 testes `*Migration.test.ts` deixam de enxergar o schema que é de fato aplicado — passam a auditar contratos históricos do arquivo morto. Isso vale inclusive para os testes escritos como invariante de futuro, que varrem a cadeia inteira (por exemplo `portalInvoiceDetailsAnonGrantInvariant.test.ts`). Enquanto esses testes não forem reescritos contra o schema v1.0, a cobertura do artefato ativo fica a cargo de dois gates dedicados:
+     - `scripts/security/verificar_guardas.py` (job `security-audit` do CI), que faz o replay de autorização sobre `supabase/migrations/`;
+     - `src/services/__tests__/consolidatedSchemaInvariants.test.ts`, que escapa do mock com `vi.importActual` e trava RLS, `search_path`, exposição a `anon` e o fechamento de defaults no diretório real.
 
 4. **Numeração das Migrações Futuras:**
    - Novas migrações pós-v1.0 continuarão a convenção sequencial de três dígitos (ADR 0016), iniciando em `003_nome_da_migration.sql`.
+
+5. **Objetos fora do recorte do dump:**
+   - As 001 e 002 nascem de um `pg_dump` do schema `public`. Três classes de objeto vivas em produção ficam estruturalmente fora desse recorte e precisam ser mantidas à mão: os defaults de privilégio (`pg_default_acl`, ADR 0047 / migration arquivada 297), os agendamentos `pg_cron` (schema `cron`) e os buckets e policies de Storage (schema `storage`).
+   - Regenerar o dump não recupera nenhuma delas. Toda regeneração precisa reaplicar essa camada explicitamente.
 
 ## Consequências
 
 - O tempo de bootstrap de novos ambientes, bancos de testes descartáveis e branches de preview do Supabase é drasticamente reduzido.
 - O histórico completo de engenharia e decisões permanece arquivado e auditável em `supabase/migrations_archive/`.
-- Nenhuma funcionalidade, tabela, trigger, política RLS ou RPC teve seu comportamento alterado; a equivalência de schema entre as 383 migrações históricas e o schema consolidado foi validada bit a bit (paridade de 100%).
+- A paridade validada é de **objetos do schema `public`**: tabelas, funções, triggers e policies conferem entre o replay das 383 migrações e o schema consolidado. Ela **não** se estende ao que vive fora de `public` — defaults de privilégio, jobs `pg_cron` e Storage —, que precisa da camada descrita no item 5 da decisão. Descrever a comparação como "paridade bit a bit de 100%" seria mais forte do que a evidência sustenta.
+- O banco já provisionado guarda em `supabase_migrations.schema_migrations` as versões `001`…`384`. Como os arquivos consolidados reaproveitam os prefixos `001` e `002`, um `supabase db push` contra esse projeto **não aplica nada**: o histórico remoto já registra essas versões. A consequência prática é dupla — o schema consolidado nunca é exercitado contra o banco existente, e `supabase migration list` passa a divergir. Antes do primeiro deploy pós-squash é preciso decidir e registrar o caminho de reparo (`supabase migration repair`), sob pena de a divergência só aparecer no dia em que uma migration nova falhar.
+- Branches de preview do Supabase e `supabase db reset` continuam criando o banco do zero: é ali, e só ali, que os arquivos consolidados são realmente executados. Toda validação do squash depende desse caminho.
 
 ## Relação com decisões anteriores
 

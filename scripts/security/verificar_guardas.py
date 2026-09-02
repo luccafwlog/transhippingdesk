@@ -21,6 +21,20 @@ import sys
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MIGRATIONS = os.path.join(RAIZ, 'supabase', 'migrations')
 
+# Varredura dinâmica da 297: revoga PUBLIC/anon de toda função de `public` e
+# `authenticated` das funções de trigger. É dynamic SQL, então o replay estático
+# não consegue expandi-la; reconhecê-la pelo texto é o que autoriza o atalho.
+VARREDURA_DEFAULT_DENY = re.compile(
+    r"REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+%s\s+FROM\s+PUBLIC,\s*anon", re.I)
+
+# ADR 0047: o Supabase concede EXECUTE a anon/authenticated em toda função nova
+# de `public` por ALTER DEFAULT PRIVILEGES próprio. Sem inverter esse default, um
+# banco novo nasce aberto e nenhum REVOKE pontual no arquivo corrige isso — os
+# defaults vivem em pg_default_acl, fora do schema, e não saem em pg_dump.
+FECHAMENTO_DEFAULT = re.compile(
+    r"ALTER\s+DEFAULT\s+PRIVILEGES[^;]*?REVOKE\s+EXECUTE\s+ON\s+FUNCTIONS\s+FROM\s+[^;]*"
+    r"PUBLIC[^;]*\banon\b[^;]*;", re.I | re.S)
+
 GUARDAS = [
     'is_active_read_user', 'is_admin(', 'is_active_user', 'current_portal_customer_id',
     '_portal_actor_role', 'portal_current_role', 'current_user_role', '_portal_inspect_guard',
@@ -39,10 +53,6 @@ EXCECOES = {
     'is_active_non_equipamentos_user': 'predicado de RBAC usado dentro de policies (211)',
     'current_actor_role': 'resolve o papel do próprio chamador (294)',
     'audit_row_changes': 'função de trigger; roda como owner (294)',
-    'enforce_portal_invoice_bl_gate': 'função de trigger; roda como owner',
-    'enforce_portal_invoice_gate': 'função de trigger; roda como owner',
-    'suppress_normal_portal_alert_events': 'função de trigger; roda como owner',
-    'validate_depot_terminal_port': 'função de trigger; roda como owner',
     'save_granite_bl_review': 'delega à função legada guardada (286)',
     'set_voyage_route_ce_master': 'sobrecarga guardada delegada (350)',
     'portal_ship_schedule': 'vitrine pública; exceção explícita da ADR 0013/297',
@@ -172,7 +182,7 @@ def estado_final():
 
     def aplicar_acl(comando, adicionar):
         match = re.search(
-            r'(?:GRANT\s+EXECUTE|REVOKE\s+(?:ALL|EXECUTE))\s+ON\s+FUNCTION\s+(.+?)\s+(?:TO|FROM)\s+([^;]+);',
+            r'(?:GRANT|REVOKE)\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+(.+?)\s+(?:TO|FROM)\s+([^;]+);',
             comando, re.I | re.S)
         if not match:
             return
@@ -222,7 +232,10 @@ def estado_final():
         # Migration 297 also closes existing functions dynamically. The
         # static replay cannot inspect pg_trigger, but RETURNS TRIGGER is the
         # same invariant used by that migration to identify trigger helpers.
-        if base in ('297_default_deny_function_grants.sql', '002_business_logic_and_security.sql'):
+        # Only assume the sweep for a file that really carries it -- assuming it
+        # for a file without the loop would fabricate revokes that no database
+        # ever applies.
+        if VARREDURA_DEFAULT_DENY.search(sql):
             for sig, valor in fns.items():
                 if valor['nome'] != 'portal_ship_schedule':
                     grants.setdefault(sig, set(defaults)).discard('public')
@@ -237,7 +250,8 @@ def estado_final():
                 fns[novo_sig] = {**fns.pop(sig), 'nome': novo}
                 grants[novo_sig] = grants.pop(sig, set(defaults))
 
-        for m in re.finditer(r'GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+.+?;|REVOKE\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+.+?;', sql, re.I | re.S):
+        for m in re.finditer(
+                r'(?:GRANT|REVOKE)\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+.+?;', sql, re.I | re.S):
             aplicar_acl(m.group(0), m.group(0).upper().startswith('GRANT'))
 
         for m in re.finditer(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?', exp, re.I):
@@ -283,10 +297,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--ci', action='store_true', help='sai com código 1 se houver falha')
     args = ap.parse_args()
+    caminhos = arquivos()
+    if not caminhos:
+        print(f'Nenhuma migration encontrada em {MIGRATIONS}.', file=sys.stderr)
+        print('O gate não tem o que verificar; isso é falha, não aprovação.', file=sys.stderr)
+        sys.exit(1)
+
     tabelas, rls, policies, fns, grants = estado_final()
     falhas = []
 
-    print(f'Migrations analisadas : {len(arquivos())}')
+    print(f'Migrations analisadas : {len(caminhos)}')
     print(f'Tabelas               : {len(tabelas)}')
     print(f'Policies vivas        : {len(policies)}')
     print(f'Funções               : {len(fns)}')
@@ -320,6 +340,16 @@ def main():
     for sig, valor in expostas:
         falhas.append(f'DEFINER sem guarda concedida a authenticated: {sig} ({valor["arquivo"]})')
         print(f'      - {sig} ({valor["arquivo"]})')
+
+    fecha_default = any(
+        FECHAMENTO_DEFAULT.search(sem_comentarios(open(c, encoding='utf-8', errors='replace').read()))
+        for c in caminhos
+    )
+    print(f'[4] Defaults de EXECUTE fechados (ADR 0047) .... {"OK" if fecha_default else "FALHA"}')
+    if not fecha_default:
+        falhas.append(
+            'nenhuma migration inverte o ALTER DEFAULT PRIVILEGES de FUNCTIONS em public: '
+            'toda função nova nasceria executável por anon/PUBLIC')
 
     print()
     if falhas:
