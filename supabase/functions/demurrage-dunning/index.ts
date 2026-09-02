@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderDemurrageTemplate } from '../_shared/customerCommunicationTemplates.ts'
-import { maskEmail, sendEmail } from '../_shared/email.ts'
+import { maskEmail, sendEmail, type EmailAttemptRecord } from '../_shared/email.ts'
 
 type DunningCandidate = {
   invoice_id: number
@@ -29,6 +29,9 @@ type InvoiceContext = {
   current_total_brl: number | null
   current_roe: number | null
   first_billed_at: string | null
+  status: string | null
+  paid_at: string | null
+  dispute_open: boolean | null
   updated_at: string | null
   customer: { id: number; name: string } | null
   bl: {
@@ -154,7 +157,7 @@ async function loadInvoice(
 ): Promise<InvoiceContext> {
   const { data, error } = await admin
     .from('demurrage_invoices')
-    .select('id, customer_id, bl_id, doc_number, total_usd, current_total_brl, current_roe, first_billed_at, updated_at, customer:customers(id, name), bl:bls(id, pod, voyage:voyages(id, voyage_number, vessel:vessels(name)))')
+    .select('id, customer_id, bl_id, doc_number, total_usd, current_total_brl, current_roe, first_billed_at, updated_at, status, paid_at, dispute_open, customer:customers(id, name), bl:bls(id, pod, voyage:voyages(id, voyage_number, vessel:vessels(name)))')
     .eq('id', invoiceId)
     .single()
   if (error) throw error
@@ -164,6 +167,15 @@ async function loadInvoice(
     customer: normalizeNested(row.customer),
     bl: normalizeNested(row.bl),
   }
+}
+
+async function revalidateInvoiceBeforeSend(
+  admin: ReturnType<typeof createClient>,
+  invoiceId: number,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc('demurrage_dunning_candidate_sendable', { p_invoice_id: invoiceId })
+  if (error) throw error
+  return data === true
 }
 
 async function createCommunication(
@@ -202,6 +214,7 @@ async function sendCandidate(
   communicationsEnabled: boolean,
 ): Promise<'enviado' | 'simulado' | 'falha' | 'pausado'> {
   const context = await loadInvoice(admin, candidate.invoice_id)
+  if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
   const contacts = await loadRecipients(admin, candidate.customer_id)
   if (!contacts.length) return 'pausado'
 
@@ -235,6 +248,7 @@ async function sendCandidate(
   let delivered = false
   let simulated = false
   for (const contact of contacts) {
+    if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
     const recipient = normalizeEmail(contact.email)
     const idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${candidate.claimed_at}:${recipient}`
     try {
@@ -256,15 +270,24 @@ async function sendCandidate(
           ])
           return { suppressed: Boolean(communicationSuppression || portalSuppression) }
         },
-        recordAttempt: async ({ idempotencyKey: attemptKey, to }) => {
+        recordAttempt: async ({ idempotencyKey: attemptKey, to }): Promise<EmailAttemptRecord> => {
           const { data, error } = await admin.from('customer_communication_attempts').insert({
             communication_id: communicationId,
             recipient_masked: maskEmail(to),
             status: 'aceito',
             idempotency_key: attemptKey,
           }).select('id').single()
+          if (error?.code === '23505') {
+            const { data: existing, error: existingError } = await admin
+              .from('customer_communication_attempts')
+              .select('id, status, provider_message_id')
+              .eq('idempotency_key', attemptKey)
+              .single()
+            if (existingError || !existing) throw existingError ?? error
+            return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
+          }
           if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
-          return { id: data.id }
+          return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
         },
         updateAttempt: async (attemptId, update) => {
           const { error } = await admin.from('customer_communication_attempts').update({
@@ -344,11 +367,12 @@ async function handler(req: Request): Promise<Response> {
     try {
       const result = await sendCandidate(admin, candidate, communicationsEnabled)
       if (result === 'enviado') sent += 1
-      else {
+      else if (result === 'falha' || result === 'pausado') {
         await releaseClaimSafely(admin, candidate)
-        if (result === 'simulado') simulated += 1
-        else if (result === 'falha') failed += 1
+        if (result === 'falha') failed += 1
         else paused += 1
+      } else {
+        simulated += 1
       }
     } catch (error) {
       failed += 1

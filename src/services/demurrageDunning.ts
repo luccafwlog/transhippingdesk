@@ -74,12 +74,14 @@ export function demurrageDunningPauseReason(invoice: Pick<DemurrageInvoice, 'pai
 }
 
 export function getDemurrageDunningDisplay(
-  invoice: Pick<DemurrageInvoice, 'id' | 'first_billed_at' | 'paid_at' | 'dispute_open'>,
+  invoice: Pick<DemurrageInvoice, 'id' | 'first_billed_at' | 'paid_at' | 'dispute_open' | 'status'>,
   input: { attempts?: readonly DemurrageDunningAttempt[]; attemptCount?: number; lastAttemptAt?: string | null; hasValidContact?: boolean; intervalDays?: number; now?: Date } = {},
 ): DemurrageDunningDisplay {
   const attempts = input.attempts ?? []
   const attemptCount = input.attemptCount ?? attempts.length
-  const pauseReason = demurrageDunningPauseReason(invoice, input.hasValidContact ?? true)
+  const pauseReason = invoice.status === 'cancelled'
+    ? 'cancelada'
+    : demurrageDunningPauseReason(invoice, input.hasValidContact ?? true)
   const firstBilledAt = parseDate(invoice.first_billed_at)
   const intervalDays = Math.max(1, Math.trunc(input.intervalDays ?? 7))
   const nextDate = firstBilledAt && !pauseReason
@@ -92,6 +94,7 @@ export function getDemurrageDunningDisplay(
 
   let statusLabel = `${nextAttemptNumber}ª cobrança`
   if (pauseReason === 'liquidada') statusLabel = 'Régua encerrada: liquidada'
+  else if (pauseReason === 'cancelada') statusLabel = 'Régua encerrada: cancelada'
   else if (pauseReason) statusLabel = `Pausada: ${pauseReason}`
   else if (nextDate) statusLabel += `, próxima em ${formatDate(nextDate)}`
   else statusLabel = 'Aguardando primeira emissão'

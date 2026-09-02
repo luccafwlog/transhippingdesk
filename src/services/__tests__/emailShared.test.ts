@@ -11,7 +11,7 @@ const baseInput = {
   from: 'portal@example.com',
   replyTo: 'suporte@example.com',
   resendApiKey: 'resend-key',
-  recordAttempt: vi.fn(async () => ({ id: 7 })),
+  recordAttempt: vi.fn(async () => ({ id: 7, status: 'falha_transitoria' as const, providerMessageId: null })),
   updateAttempt: vi.fn(async () => undefined),
   checkSuppression: vi.fn(async () => ({ suppressed: false })),
 }
@@ -51,8 +51,7 @@ describe('sendEmail', () => {
   })
 
   it('trata colisão de idempotência como sucesso sem chamar a Resend', async () => {
-    const duplicateError = Object.assign(new Error('duplicate'), { code: '23505' })
-    const recordAttempt = vi.fn().mockRejectedValue(duplicateError)
+    const recordAttempt = vi.fn(async () => ({ id: 7, status: 'aceito' as const, providerMessageId: 'provider-1', existing: true }))
     const fetchMock = vi.fn()
 
     const result = await sendEmail({ ...baseInput, recordAttempt, fetchImpl: fetchMock })
@@ -60,6 +59,32 @@ describe('sendEmail', () => {
     expect(result).toEqual({ ok: true })
     expect(fetchMock).not.toHaveBeenCalled()
     expect(baseInput.checkSuppression).toHaveBeenCalledWith('cliente@example.com')
+  })
+
+  it('não persiste tentativa quando envio real está sem configuração', async () => {
+    const recordAttempt = vi.fn()
+    const fetchMock = vi.fn()
+
+    await expect(sendEmail({
+      ...baseInput,
+      from: null,
+      recordAttempt,
+      fetchImpl: fetchMock,
+    })).rejects.toThrow('Remetente e reply-to são obrigatórios')
+
+    expect(recordAttempt).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('retenta uma tentativa existente sem confirmação do provedor', async () => {
+    const recordAttempt = vi.fn(async () => ({ id: 7, status: 'falha_transitoria' as const, providerMessageId: null, existing: true }))
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'provider-retry' }), { status: 200 }))
+
+    const result = await sendEmail({ ...baseInput, recordAttempt, fetchImpl: fetchMock })
+
+    expect(result).toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(baseInput.updateAttempt).toHaveBeenCalledWith(7, expect.objectContaining({ providerMessageId: 'provider-retry' }))
   })
 
   it('aborta antes de registrar a tentativa quando o endereço está suprimido', async () => {

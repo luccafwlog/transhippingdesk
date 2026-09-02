@@ -16,6 +16,13 @@ export type EmailAttemptUpdate = {
   lastError?: string
 }
 
+export type EmailAttemptRecord = {
+  id: string | number
+  status: EmailAttemptUpdate['status'] | 'entregue' | 'bounce' | 'complaint'
+  providerMessageId?: string | null
+  existing?: boolean
+}
+
 export type SendEmailInput = {
   kind: string
   to: string
@@ -29,7 +36,7 @@ export type SendEmailInput = {
   replyTo?: string | null
   missingConfigurationMessage?: string
   checkSuppression: (to: string) => Promise<EmailSuppression>
-  recordAttempt: (input: { kind: string; to: string; idempotencyKey: string }) => Promise<{ id: string | number }>
+  recordAttempt: (input: { kind: string; to: string; idempotencyKey: string }) => Promise<EmailAttemptRecord>
   updateAttempt: (attemptId: string | number, update: EmailAttemptUpdate) => Promise<void>
   fetchImpl?: typeof fetch
 }
@@ -46,30 +53,23 @@ export function maskEmail(email: string): string {
   return `${local[0]}***@${domainName[0]}***${dot > 0 ? domain.slice(dot) : ''}`
 }
 
-function isUniqueViolation(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
-}
-
 export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean }> {
   const suppression = await input.checkSuppression(input.to.toLowerCase())
   if (suppression.suppressed) return { ok: false }
 
-  let attempt: { id: string | number }
-  try {
-    attempt = await input.recordAttempt({ kind: input.kind, to: input.to, idempotencyKey: input.idempotencyKey })
-  } catch (error) {
-    if (isUniqueViolation(error)) return { ok: true }
-    throw error
+  if (input.resendApiKey && (!input.from || !input.replyTo)) {
+    throw new Error(input.missingConfigurationMessage ?? 'Remetente e reply-to são obrigatórios para envio real')
   }
+
+  const attempt = await input.recordAttempt({ kind: input.kind, to: input.to, idempotencyKey: input.idempotencyKey })
 
   if (!input.resendApiKey) {
     console.log(`[dry-run] ${input.kind} para ${maskEmail(input.to)} (attempt ${attempt.id})`)
     return { ok: true }
   }
 
-  if (!input.from || !input.replyTo) {
-    throw new Error(input.missingConfigurationMessage ?? 'Remetente e reply-to são obrigatórios para envio real')
-  }
+  if (attempt.existing && (attempt.providerMessageId || attempt.status === 'aceito' || attempt.status === 'entregue')) return { ok: true }
+  if (attempt.existing && ['falha_permanente', 'bounce', 'complaint'].includes(attempt.status)) return { ok: false }
 
   const fetchImpl = input.fetchImpl ?? fetch
   for (let index = 0; index < 3; index += 1) {

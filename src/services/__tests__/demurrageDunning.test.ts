@@ -6,6 +6,7 @@ const invoice = {
   first_billed_at: '2026-09-01',
   paid_at: null,
   dispute_open: false,
+  status: 'issued',
 }
 
 describe('estado da régua de Demurrage', () => {
@@ -28,6 +29,7 @@ describe('estado da régua de Demurrage', () => {
     expect(getDemurrageDunningDisplay({ ...invoice, dispute_open: true }).statusLabel).toBe('Pausada: disputa aberta')
     expect(getDemurrageDunningDisplay(invoice, { hasValidContact: false }).statusLabel).toBe('Pausada: cliente sem contatos válidos')
     expect(getDemurrageDunningDisplay({ ...invoice, paid_at: '2026-09-03' }).statusLabel).toBe('Régua encerrada: liquidada')
+    expect(getDemurrageDunningDisplay({ ...invoice, status: 'cancelled' }).statusLabel).toBe('Régua encerrada: cancelada')
   })
 
   it('preserva o dia de uma data DATE ao formatar a próxima cobrança', () => {

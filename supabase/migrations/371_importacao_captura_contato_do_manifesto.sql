@@ -9,7 +9,7 @@
 -- `import_breakbulk_manifest_transactional`, e nenhuma das duas captura. A
 -- funcao antiga segue no banco, sem chamador.
 --
--- O efeito e silencioso e caro: `notify-invoice-issued` procura contatos do
+-- O efeito e silencioso e caro: o fluxo legado procura contatos do
 -- cliente e, sem nenhum, devolve `skipped: 'no recipient emails'` — a fatura e
 -- emitida e o aviso nao sai. Como o vinculo por CNPJ (`matched_document`)
 -- fecha a fila sozinho, ninguem abre a Revisao para esse B/L e nao ha segunda

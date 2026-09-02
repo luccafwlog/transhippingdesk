@@ -26,5 +26,8 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain('claimed_at')
     expect(source).toContain(".in('email', contactEmails)")
     expect(source).toContain('releaseClaimSafely')
+    expect(source).toContain('revalidateInvoiceBeforeSend')
+    expect(source).toContain("result === 'falha' || result === 'pausado'")
+    expect(source).not.toContain("result === 'simulado') simulated")
   })
 })

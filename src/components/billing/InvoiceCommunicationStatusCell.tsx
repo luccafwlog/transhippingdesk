@@ -7,9 +7,9 @@ import {
   dispatchCeMercanteTaxasCommunication,
   type CustomerVoyageCommunicationStatus,
 } from '../../services/customerFinanceCommunications'
-import { getInvoiceCommunicationContext, type InvoiceListRow } from '../../services/billing'
+import { getInvoiceCommunicationContext, getInvoiceCommunicationContexts, type InvoiceListRow } from '../../services/billing'
 import { queryKeys } from '../../services/queryKeys'
-import { useCustomerVoyageCommunicationStatus } from '../../hooks/useCustomerCommunicationReadiness'
+import { useCustomerVoyageCommunicationStatuses } from '../../hooks/useCustomerCommunicationReadiness'
 
 type Props = { invoice: InvoiceListRow }
 
@@ -24,50 +24,45 @@ function statusText(status: CustomerVoyageCommunicationStatus['latest']): string
 }
 
 export function InvoiceCommunicationStatusCell({ invoice }: Props) {
+  const contexts = getInvoiceCommunicationContexts(invoice)
   const context = getInvoiceCommunicationContext(invoice)
-  const statusQuery = useCustomerVoyageCommunicationStatus(context.voyageId, context.customerId)
+  const statusQueries = useCustomerVoyageCommunicationStatuses(contexts)
   const queryClient = useQueryClient()
   const [retryError, setRetryError] = useState<string | null>(null)
   const retryMutation = useMutation({
-    mutationFn: () => dispatchCeMercanteTaxasCommunication(context.voyageId!, context.customerId, { forceRetry: true }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.status(context.voyageId, context.customerId) })
+    mutationFn: (retryContext: { voyageId: number; customerId: number }) => dispatchCeMercanteTaxasCommunication(retryContext.voyageId, retryContext.customerId, { forceRetry: true }),
+    onSuccess: async (_, retryContext) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.status(retryContext.voyageId, retryContext.customerId) })
       setRetryError(null)
     },
     onError: (error) => setRetryError(error instanceof Error ? error.message : 'Falha ao reenviar o comunicado.'),
   })
 
-  if (context.voyageId == null) return <span className="text-slate-500">Sem viagem vinculada</span>
-  if (statusQuery.isLoading) return <span className="text-slate-400">Verificando comunicado...</span>
-  if (statusQuery.error || !statusQuery.data) return <span className="text-amber-300">Status indisponível</span>
-
-  const status = statusQuery.data
-  // Um dispatch automático pode falhar antes de gravar uma linha. Enquanto a
-  // prontidão estiver liberada, a célula precisa oferecer o caminho de
-  // recuperação mesmo sem histórico.
-  const canRetry = status.readiness.ready
-  function handleRetry() {
-    if (!window.confirm('Confirma o reenvio assistido do comunicado de CE Mercante para este cliente?')) return
-    void retryMutation.mutateAsync()
-  }
+  if (!contexts.length || context.voyageId == null) return <span className="text-slate-500">Sem viagem vinculada</span>
 
   return (
     <div className="app-table__cell-stack min-w-[220px]" data-testid="customer-finance-communication-status">
-      {status.blockedReason ? (
-        <span className="text-amber-300">Prontidão bloqueada: {status.blockedReason}</span>
-      ) : (
-        <span className={status.latest?.status === 'enviado' ? 'text-green-400' : 'text-amber-300'}>{statusText(status.latest)}</span>
-      )}
-      {status.latest ? (
-        <Link className="text-xs text-blue-400 hover:underline" to={`/clientes/comunicacao?tab=historico&customer=${context.customerId}`}>
-          Ver comunicado
-        </Link>
-      ) : null}
-      {canRetry ? (
-        <Button type="button" variant="ghost" loading={retryMutation.isPending} onClick={handleRetry}>
-          Reenviar comunicado
-        </Button>
-      ) : null}
+      {contexts.map((voyageContext, index) => {
+        const statusQuery = statusQueries[index]
+        const status = statusQuery?.data
+        const canRetry = Boolean(status?.readiness.ready)
+        return (
+          <div key={voyageContext.voyageId} className="border-b border-[var(--app-border)] pb-2 last:border-b-0 last:pb-0">
+            <div className="text-xs font-semibold text-slate-400">{voyageContext.vesselName ?? 'Viagem'}{voyageContext.voyageNumber ? ` / ${voyageContext.voyageNumber}` : ''}</div>
+            {statusQuery?.isLoading ? <span className="text-slate-400">Verificando comunicado...</span> : null}
+            {statusQuery?.error || !status ? <span className="text-amber-300">Status indisponível</span> : null}
+            {status ? (
+              <>
+                {status.blockedReason ? <span className="text-amber-300">Prontidão bloqueada: {status.blockedReason}</span> : <span className={status.latest?.status === 'enviado' ? 'text-green-400' : 'text-amber-300'}>{statusText(status.latest)}</span>}
+                {status.latest ? <Link className="block text-xs text-blue-400 hover:underline" to={`/clientes/comunicacao?tab=historico&customer=${voyageContext.customerId}&communication=${status.latest.id}`}>Ver comunicado</Link> : null}
+                {canRetry ? <Button type="button" variant="ghost" loading={retryMutation.isPending} onClick={() => {
+                  if (window.confirm('Confirma o reenvio assistido do comunicado de CE Mercante para este cliente?')) void retryMutation.mutateAsync({ voyageId: voyageContext.voyageId!, customerId: voyageContext.customerId! })
+                }}>Reenviar comunicado</Button> : null}
+              </>
+            ) : null}
+          </div>
+        )
+      })}
       {retryError ? <span className="text-xs text-red-300">{retryError}</span> : null}
     </div>
   )

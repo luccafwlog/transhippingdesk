@@ -309,8 +309,26 @@ export type InvoiceCommunicationContext = {
   pod: string | null
 }
 
+export function getInvoiceCommunicationContexts(row: InvoiceListRow): InvoiceCommunicationContext[] {
+  const direct = row.invoice_bls ?? []
+  const links = row.invoice_receivable_links ?? []
+  const source = direct.length > 0 ? direct : links
+  const contexts = source
+    .filter((link) => link.bl?.voyage?.id != null)
+    .map((link) => ({
+      customerId: row.customer_id,
+      voyageId: link.bl?.voyage?.id ?? null,
+      voyageNumber: link.bl?.voyage?.voyage_number ?? null,
+      vesselName: link.bl?.voyage?.vessel?.name ?? null,
+      pod: link.bl?.pod ?? null,
+    }))
+  return contexts.filter((context, index) => contexts.findIndex((candidate) => candidate.voyageId === context.voyageId) === index)
+}
+
 /** Contexto mínimo para a coluna de status do comunicado financeiro. */
 export function getInvoiceCommunicationContext(row: InvoiceListRow): InvoiceCommunicationContext {
+  const contexts = getInvoiceCommunicationContexts(row)
+  if (contexts.length) return contexts[0]
   const direct = row.invoice_bls ?? []
   const links = row.invoice_receivable_links ?? []
   const source = direct.length > 0 ? direct : links

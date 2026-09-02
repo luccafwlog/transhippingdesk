@@ -1,11 +1,11 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, History, Mail, Paperclip, Send } from 'lucide-react'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
-import { useAppSettings } from '../hooks/useAppSettings'
+import { useAppSettings, useSetDemurrageDunningIntervalDays } from '../hooks/useAppSettings'
 import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate } from '../hooks/useCustomerCommunications'
 import {
   DEFAULT_CUSTOMER_COMMUNICATION_FILTERS,
@@ -75,14 +75,25 @@ export function ClientesComunicacao() {
   const [dispatchError, setDispatchError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  const [dunningInterval, setDunningInterval] = useState('7')
   const { data: settings } = useAppSettings()
+  const setDunningIntervalMutation = useSetDemurrageDunningIntervalDays()
   const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, enabled: conferenceRequested })
-  const historyQuery = useCustomerCommunicationHistory()
+  const customerHistoryId = Number(searchParams.get('customer'))
+  const historyCustomerId = Number.isInteger(customerHistoryId) && customerHistoryId > 0 ? customerHistoryId : undefined
+  const historyCommunicationId = Number(searchParams.get('communication'))
+  const historyQuery = useCustomerCommunicationHistory(historyCustomerId)
   const savedTemplatesQuery = useCustomerCommunicationSavedTemplates()
   const saveTemplateMutation = useSaveCustomerCommunicationSavedTemplate()
   const dispatchMutation = useDispatchCustomerCommunication()
   const conference = conferenceQuery.data
   const tab: CommunicationTab = searchParams.get('tab') === 'historico' ? 'historico' : 'disparo'
+
+  useEffect(() => {
+    if (settings?.demurrage_dunning_interval_days != null) {
+      setDunningInterval(String(settings.demurrage_dunning_interval_days))
+    }
+  }, [settings?.demurrage_dunning_interval_days])
 
   const defaultSelectedKeys = useMemo(
     () => new Set((conference?.rows ?? []).filter((row) => row.selected).map((row) => row.key)),
@@ -283,6 +294,26 @@ export function ClientesComunicacao() {
         </div>
       ) : null}
 
+      <Card className="mb-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-semibold text-white">Régua de Demurrage</h2>
+            <p className="mt-1 text-sm text-slate-400">Intervalo entre cobranças automáticas. A régua não possui limite de tentativas.</p>
+          </div>
+          <form className="flex items-end gap-2" onSubmit={(event) => {
+            event.preventDefault()
+            const days = Number(dunningInterval)
+            if (Number.isInteger(days) && days >= 1 && days <= 365) void setDunningIntervalMutation.mutateAsync(days)
+          }}>
+            <Field label="Dias">
+              <Input type="number" min={1} max={365} value={dunningInterval} onChange={(event) => setDunningInterval(event.target.value)} />
+            </Field>
+            <Button type="submit" loading={setDunningIntervalMutation.isPending}>Salvar intervalo</Button>
+          </form>
+        </div>
+        {setDunningIntervalMutation.error ? <InlineError message="Não foi possível salvar o intervalo da régua." /> : null}
+      </Card>
+
       <div className="mb-5 flex gap-2 border-b border-[var(--app-border)]">
         <button type="button" className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === 'disparo' ? 'border-cyan-400 text-cyan-200' : 'border-transparent text-slate-400'}`} onClick={() => selectTab('disparo')}>
           <Mail size={15} className="mr-2 inline" /> Disparo
@@ -443,7 +474,7 @@ export function ClientesComunicacao() {
           {historyQuery.isLoading ? <div className="mt-5 text-sm text-slate-400">Carregando histórico...</div> : null}
           {historyQuery.isError ? <div className="mt-5"><InlineError message="Não foi possível carregar o histórico." /></div> : null}
           <div className="mt-5 grid gap-3">
-            {historyQuery.data?.map((item) => (
+            {historyQuery.data?.filter((item) => !Number.isInteger(historyCommunicationId) || historyCommunicationId <= 0 || item.id === historyCommunicationId).map((item) => (
               <div key={item.id} className="rounded-xl border border-[var(--app-border)] bg-[#0d1117] p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={statusTone(item.status)}>{customerCommunicationStatusLabel(item.status)}</Badge>

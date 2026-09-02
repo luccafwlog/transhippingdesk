@@ -4850,6 +4850,14 @@ export type Database = {
         Args: { p_as_of?: string; p_limit?: number }
         Returns: Json
       }
+      customer_local_charges_communication_payload: {
+        Args: { p_customer_id: number; p_voyage_id: number }
+        Returns: Json
+      }
+      demurrage_dunning_candidate_sendable: {
+        Args: { p_invoice_id: number }
+        Returns: boolean
+      }
       list_demurrage_dunning_claim_statuses: {
         Args: { p_invoice_ids: number[] }
         Returns: {
@@ -4861,6 +4869,10 @@ export type Database = {
       release_demurrage_dunning_claim: {
         Args: { p_attempt_discriminator: number; p_demurrage_invoice_id: number }
         Returns: boolean
+      }
+      set_demurrage_dunning_interval_days: {
+        Args: { p_days: number }
+        Returns: number
       }
       can_edit_customers: { Args: never; Returns: boolean }
       can_edit_depots: { Args: never; Returns: boolean }

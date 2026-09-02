@@ -95,17 +95,6 @@ BEGIN
       AND di.first_billed_at IS NOT NULL
       AND di.paid_at IS NULL
       AND COALESCE(di.dispute_open, false) = false
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.alert_items AS ai
-        JOIN public.alerts AS a ON a.id = ai.alert_id
-        WHERE a.type = 'aggregate'
-          AND a.entity_type = 'customer'
-          AND a.entity_id = di.customer_id::TEXT
-          AND a.status <> 'closed'
-          AND ai.item_type = 'cliente_contato_bounced_sem_alternativa'
-          AND ai.status = 'active'
-      )
       AND EXISTS (
         SELECT 1
         FROM public.customer_contacts AS cc

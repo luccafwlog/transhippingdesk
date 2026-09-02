@@ -5,9 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const baseSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/378_demurrage_dunning_communication.sql'), 'utf8')
 const correctionSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/379_demurrage_dunning_claim_recovery.sql'), 'utf8')
+const hardeningSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/380_comunicados_financeiros_hardening.sql'), 'utf8')
 const sql = `${baseSql}\n${correctionSql}`
 
 describe('migration 378 — régua de Demurrage', () => {
+  it('protege o payload financeiro e oferece configuração administrativa do intervalo', () => {
+    expect(hardeningSql).toContain('customer_local_charges_communication_payload')
+    expect(hardeningSql).toContain('set_demurrage_dunning_interval_days')
+    expect(correctionSql).toContain("pse.reason = 'bounce_permanente'")
+    expect(hardeningSql).toContain('demurrage_dunning_candidate_sendable')
+  })
   it('usa first_billed_at, intervalo configurável e não impõe teto de cobranças', () => {
     expect(sql).toContain('first_billed_at')
     expect(sql).toContain('paid_at IS NULL')
@@ -24,10 +31,7 @@ describe('migration 378 — régua de Demurrage', () => {
 
   it('pausa por disputa e por cliente sem contatos válidos após bounce', () => {
     expect(correctionSql).toMatch(/COALESCE\(di\.dispute_open, false\) = false/i)
-    expect(correctionSql).toContain("cliente_contato_bounced_sem_alternativa")
-    expect(correctionSql).toContain("a.type = 'aggregate'")
-    expect(correctionSql).toContain("ai.item_type = 'cliente_contato_bounced_sem_alternativa'")
-    expect(correctionSql).not.toMatch(/a\.type\s*=\s*'cliente_contato_bounced_sem_alternativa'/i)
+    expect(correctionSql).not.toContain("cliente_contato_bounced_sem_alternativa")
     expect(correctionSql).toContain("pse.reason = 'bounce_permanente'")
     expect(correctionSql).toContain('customer_communication_suppressions')
   })

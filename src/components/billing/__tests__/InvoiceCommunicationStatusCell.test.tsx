@@ -9,7 +9,7 @@ const { mockUseCustomerVoyageCommunicationStatus } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../hooks/useCustomerCommunicationReadiness', () => ({
-  useCustomerVoyageCommunicationStatus: mockUseCustomerVoyageCommunicationStatus,
+  useCustomerVoyageCommunicationStatuses: () => [mockUseCustomerVoyageCommunicationStatus()],
 }))
 
 import { InvoiceCommunicationStatusCell } from '../InvoiceCommunicationStatusCell'

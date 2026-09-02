@@ -24,6 +24,10 @@ describe('Edge Function send-customer-communication', () => {
     expect(source).toContain("reason', 'bounce_permanente'")
     expect(source).toContain("admin.rpc('create_customer_communication_atomic'")
     expect(source).toContain("admin.from('customer_communication_attempts').insert")
+    expect(source).toContain("admin.rpc('customer_local_charges_communication_payload'")
+    expect(source).toContain('renderCeMercanteTaxasTemplate')
+    expect(source).toContain('idempotencyKey: `comunicado:${communicationId}:${attemptDiscriminator}:${recipient}`')
+    expect(source).toContain('Cobrança de Demurrage é enviada exclusivamente pela régua automática.')
   })
 
   it('persiste anexos de forma privada, limitada e idempotente antes do envio', () => {

@@ -1,8 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, withCors } from '../_shared/cors.ts'
-import { maskEmail, sendEmail, type EmailAttachment } from '../_shared/email.ts'
+import { maskEmail, sendEmail, type EmailAttachment, type EmailAttemptRecord } from '../_shared/email.ts'
 import {
   assertValidCommunicationAttachments,
+  renderCeMercanteTaxasTemplate,
   type CustomerCommunicationKind,
   type CommunicationAttachment,
 } from '../_shared/customerCommunicationTemplates.ts'
@@ -108,6 +109,12 @@ async function sha256Hex(value: string): Promise<string> {
 function safeStorageFileName(value: string): string {
   const safe = value.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '')
   return safe || 'anexo'
+}
+
+function portalBillingUrl(): string {
+  const configured = (Deno.env.get('PORTAL_URL') ?? '').trim().replace(/\/+$/, '')
+  if (!configured) return 'https://portal.transhippingdesk.com.br/portal/billing'
+  return configured.endsWith('/billing') ? configured : `${configured}/billing`
 }
 
 function isAlreadyExists(error: unknown): boolean {
@@ -222,7 +229,8 @@ async function handler(req: Request): Promise<Response> {
   // permitir que um payload incompleto contorne o isolamento da fundação.
   if (!nature || !natureForKind(kind, nature)) return json(422, { error: 'Natureza inválida ou ausente.' }, origin)
   if (!EMAIL_PATTERN.test(recipient)) return json(422, { error: 'Destinatário inválido.' }, origin)
-  if (!subject || !html || !text) return json(422, { error: 'Assunto e conteúdo do comunicado são obrigatórios.' }, origin)
+  if (kind !== 'ce_mercante_taxas' && (!subject || !html || !text)) return json(422, { error: 'Assunto e conteúdo do comunicado são obrigatórios.' }, origin)
+  if (kind === 'cobranca_demurrage') return json(422, { error: 'Cobrança de Demurrage é enviada exclusivamente pela régua automática.' }, origin)
   if (!Number.isInteger(attemptDiscriminator) || attemptDiscriminator < 0) return json(422, { error: 'Discriminador de tentativa inválido.' }, origin)
 
   const blIds = body.bl_ids ?? []
@@ -257,6 +265,55 @@ async function handler(req: Request): Promise<Response> {
   }
 
   const admin = createClient(url, serviceKey)
+  let canonicalPayload: { subject: string; html: string; text: string; blIds: string[] } | null = null
+  if (kind === 'ce_mercante_taxas') {
+    if (!Number.isInteger(body.anchor_voyage_id) || Number(body.anchor_voyage_id) <= 0) {
+      return json(422, { error: 'Viagem obrigatória para o comunicado financeiro.' }, origin)
+    }
+    const [{ data: readiness, error: readinessError }, { data: payload, error: payloadError }] = await Promise.all([
+      admin.rpc('customer_local_charges_communication_readiness', {
+        p_voyage_id: Number(body.anchor_voyage_id),
+        p_customer_id: customerId,
+      }),
+      admin.rpc('customer_local_charges_communication_payload', {
+        p_voyage_id: Number(body.anchor_voyage_id),
+        p_customer_id: customerId,
+      }),
+    ])
+    if (readinessError || payloadError) return json(500, { error: 'Não foi possível conferir os dados financeiros do comunicado.' }, origin)
+    if (!(readiness as { ready?: boolean } | null)?.ready) return json(422, { error: 'Prontidão financeira bloqueada para este cliente e viagem.' }, origin)
+    const row = payload as {
+      customer_name?: string
+      vessel_name?: string
+      voyage_number?: string
+      port?: string
+      milestone_at?: string
+      bls?: Array<{ bl_id?: string; ce_mercante?: string | null; total_brl?: number }>
+    } | null
+    if (!row?.customer_name || !row.vessel_name || !row.voyage_number || !Array.isArray(row.bls) || !row.bls.length) {
+      return json(422, { error: 'Dados financeiros incompletos para o comunicado.' }, origin)
+    }
+    const rendered = renderCeMercanteTaxasTemplate({
+      customerId,
+      customerName: row.customer_name,
+      vesselName: row.vessel_name,
+      voyageNumber: row.voyage_number,
+      port: row.port ?? '—',
+      milestoneAt: row.milestone_at ?? '',
+      bls: row.bls.map((bl) => ({ id: String(bl.bl_id ?? ''), customerId })),
+      portalUrl: portalBillingUrl(),
+      ceMercanteRows: row.bls.map((bl) => ({
+        blId: String(bl.bl_id ?? ''),
+        ceMercante: String(bl.ce_mercante ?? ''),
+        totalBrl: Number(bl.total_brl ?? 0),
+      })),
+    })
+    canonicalPayload = { subject: rendered.subject, html: rendered.html, text: rendered.text, blIds: rendered.blIds }
+  }
+  const effectiveSubject = canonicalPayload?.subject ?? subject
+  const effectiveHtml = canonicalPayload?.html ?? html
+  const effectiveText = canonicalPayload?.text ?? text
+  const effectiveBlIds = canonicalPayload?.blIds ?? blIds
   const { data: contacts, error: contactsError } = await admin
     .from('customer_contacts')
     .select('id, customer_id, email')
@@ -289,7 +346,7 @@ async function handler(req: Request): Promise<Response> {
     p_voyage_number: body.voyage_number ?? null,
     p_terminal_name: body.terminal_name ?? null,
     p_created_by: callerUser.user.id,
-    p_bl_ids: blIds,
+    p_bl_ids: effectiveBlIds,
   })
   if (createError || communicationId == null) {
     if (isUniqueViolation(createError)) return json(200, { status: 'simulado', message: 'Comunicado já registrado.' }, origin)
@@ -317,11 +374,11 @@ async function handler(req: Request): Promise<Response> {
     sent = await sendEmail({
       kind,
       to: recipient,
-      subject,
-      html,
-      text,
+      subject: effectiveSubject,
+      html: effectiveHtml,
+      text: effectiveText,
       attachments: emailAttachments,
-      idempotencyKey: String(body.idempotency_key ?? `comunicado:${communicationId}:${attemptDiscriminator}`),
+      idempotencyKey: `comunicado:${communicationId}:${attemptDiscriminator}:${recipient}`,
       resendApiKey: enabled ? resendApiKey : null,
       from: Deno.env.get('PORTAL_FROM_EMAIL'),
       replyTo: Deno.env.get('COMMUNICATIONS_REPLY_TO'),
@@ -333,15 +390,24 @@ async function handler(req: Request): Promise<Response> {
         ])
         return { suppressed: Boolean(complaint || bounce) }
       },
-      recordAttempt: async ({ kind: attemptKind, to, idempotencyKey }) => {
+      recordAttempt: async ({ kind: attemptKind, to, idempotencyKey }): Promise<EmailAttemptRecord> => {
         const { data, error } = await admin.from('customer_communication_attempts').insert({
           communication_id: communicationId,
           recipient_masked: maskEmail(to),
           status: 'aceito',
           idempotency_key: idempotencyKey,
         }).select('id').single()
+        if (error?.code === '23505') {
+          const { data: existing, error: existingError } = await admin
+            .from('customer_communication_attempts')
+            .select('id, status, provider_message_id')
+            .eq('idempotency_key', idempotencyKey)
+            .single()
+          if (existingError || !existing) throw existingError ?? error
+          return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
+        }
         if (error || !data) throw error ?? new Error(`Não foi possível registrar a tentativa ${attemptKind}.`)
-        return { id: data.id }
+        return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
       },
       updateAttempt: async (attemptId, update) => {
         const { error } = await admin.from('customer_communication_attempts').update({
@@ -365,7 +431,7 @@ async function handler(req: Request): Promise<Response> {
     .from('customer_communication_attempts')
     .select('id')
     .eq('communication_id', communicationId)
-    .eq('idempotency_key', String(body.idempotency_key ?? `comunicado:${communicationId}:${attemptDiscriminator}`))
+    .eq('idempotency_key', `comunicado:${communicationId}:${attemptDiscriminator}:${recipient}`)
     .maybeSingle()
   return json(sent.ok ? 200 : 502, {
     communicationId,
