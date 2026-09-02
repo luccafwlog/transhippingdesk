@@ -193,3 +193,32 @@ export function dailyDigestTemplate(i: { date: string; failures: number; activit
     }),
   }
 }
+
+export function bounceNotificationTemplate(i: {
+  bouncedEmailMasked: string
+  portalUrl: string
+  supportEmail: string
+}) {
+  const text = [
+    `O endereço ${i.bouncedEmailMasked} não recebeu um comunicado.`,
+    '',
+    'A entrega falhou permanentemente (bounce). Atualize o cadastro do cliente para evitar novas falhas de entrega.',
+    '',
+    `Dúvidas ou suporte? Entre em contato com ${i.supportEmail}.`,
+  ].join('\n')
+  return {
+    subject: 'Falha de entrega: atualize o cadastro do cliente',
+    text,
+    html: layout({
+      title: 'Falha de entrega de comunicado',
+      paragraphs: [
+        `O endereço <strong>${escapeHtml(i.bouncedEmailMasked)}</strong> não recebeu um comunicado recente.`,
+        'A entrega falhou permanentemente (bounce). Atualize o cadastro de contatos do cliente no Portal para garantir o recebimento dos próximos comunicados e avisos operacionais.',
+      ],
+      button: { label: 'Acessar Portal do Cliente', url: `${i.portalUrl}/portal` },
+      portalUrl: i.portalUrl,
+      supportEmail: i.supportEmail,
+    }),
+  }
+}
+
