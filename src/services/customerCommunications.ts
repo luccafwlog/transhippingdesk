@@ -767,7 +767,7 @@ export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: stri
   const [{ data: voyages, error: voyagesError }, { data: bls, error: blsError }, { data: communications, error: communicationsError }] = await Promise.all([
     supabase.from('voyages').select('id, voyage_number, vessel:vessels(name)').order('id', { ascending: false }).limit(500).overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string } | null }>, { merge: false }>(),
     supabase.from('bls').select('id, voyage_id, customer_id, pod, ce_mercante, financial_status').neq('financial_status', 'cancelled').overrideTypes<Array<{ id: string; voyage_id: number; customer_id: number | null; pod: string | null; ce_mercante: string | null; financial_status: string | null }>, { merge: false }>(),
-    supabase.from('customer_communications').select('kind, status, anchor_voyage_id, anchor_port, anchor_atracacao_id, created_at').overrideTypes<Array<{ kind: string; status: string; anchor_voyage_id: number | null; anchor_port: string | null; anchor_atracacao_id: string | null; created_at: string }>, { merge: false }>(),
+    supabase.from('customer_communications').select('customer_id, kind, status, anchor_voyage_id, anchor_port, anchor_atracacao_id, created_at').overrideTypes<Array<{ customer_id: number | null; kind: string; status: string; anchor_voyage_id: number | null; anchor_port: string | null; anchor_atracacao_id: string | null; created_at: string }>, { merge: false }>(),
   ])
   if (voyagesError) throw voyagesError
   if (blsError) throw blsError
@@ -787,7 +787,7 @@ export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: stri
     const total = (kind: string) => kind === 'aviso_atracacao_nob' ? rows.length : new Set(rows.map((row) => `${row.customer_id}:${row.pod?.toUpperCase()}`)).size
     const financeRows = rows.filter((row) => Boolean(row.ce_mercante?.trim()) && ['invoiced', 'paid'].includes(row.financial_status ?? ''))
     const financeCustomers = new Set(financeRows.map((row) => row.customer_id!))
-    const financeSent = financeRows.filter((row) => comms.some((comm) => comm.kind === 'ce_mercante_taxas' && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id && comm.anchor_port?.toUpperCase() === row.pod?.toUpperCase())).length
+    const financeSent = financeRows.filter((row) => comms.some((comm) => comm.kind === 'ce_mercante_taxas' && comm.status === 'enviado' && comm.anchor_voyage_id === voyage.id && (comm.customer_id === row.customer_id || (comm.anchor_port != null && comm.anchor_port.toUpperCase() === row.pod?.toUpperCase())))).length
     return { voyageId: voyage.id, vesselName: voyage.vessel?.name ?? '—', voyageNumber: voyage.voyage_number, customers: customers.size, noa: { sent: count('aviso_chegada_noa'), total: total('aviso_chegada_noa') }, nor: { sent: count('aviso_prontidao_nor'), total: total('aviso_prontidao_nor') }, nob: { sent: count('aviso_atracacao_nob'), total: total('aviso_atracacao_nob') }, finance: { sent: financeSent, ready: financeCustomers.size, total: customers.size, pending: customers.size - financeCustomers.size } }
   })
 }

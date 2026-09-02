@@ -11,7 +11,7 @@ const ignoredPaths = [
 const inspectableExtensions = new Set(['.csv', '.md', '.sql', '.toml', '.ts', '.tsx', '.xlsx'])
 
 function trackedFiles(): string[] {
-  return execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
+  return execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null' } })
     .split('\0')
     .filter((file) => file && inspectableExtensions.has(file.slice(file.lastIndexOf('.'))))
     .filter((file) => !ignoredPaths.some((prefix) => file === prefix || file.startsWith(prefix)))

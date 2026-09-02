@@ -129,7 +129,7 @@ async function persistCommunicationAttachments(
   admin: ReturnType<typeof createClient>,
   communicationId: number,
   attachments: readonly CommunicationAttachment[],
-  uploadedBy: string,
+  uploadedBy: string | null,
 ): Promise<void> {
   if (!attachments.length) return
 
@@ -363,7 +363,7 @@ async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    await persistCommunicationAttachments(admin, Number(communicationId), attachments, callerUser.user.id)
+    await persistCommunicationAttachments(admin, Number(communicationId), attachments, callerUser.user?.id ?? null)
   } catch (error) {
     await admin.from('customer_communications').update({ status: 'falha' }).eq('id', communicationId)
     console.error('customer communication attachment persistence failed', error)

@@ -32,7 +32,11 @@ export function InvoiceCommunicationStatusCell({ invoice }: Props) {
   const retryMutation = useMutation({
     mutationFn: (retryContext: { voyageId: number; customerId: number }) => dispatchCeMercanteTaxasCommunication(retryContext.voyageId, retryContext.customerId, { forceRetry: true }),
     onSuccess: async (_, retryContext) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.status(retryContext.voyageId, retryContext.customerId) })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.status(retryContext.voyageId, retryContext.customerId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.statusRoot() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.customerCommunications.all() }),
+      ])
       setRetryError(null)
     },
     onError: (error) => setRetryError(error instanceof Error ? error.message : 'Falha ao reenviar o comunicado.'),

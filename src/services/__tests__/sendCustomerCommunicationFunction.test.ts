@@ -30,11 +30,13 @@ describe('Edge Function send-customer-communication', () => {
     expect(source).toContain('Cobrança de Demurrage é enviada exclusivamente pela régua automática.')
   })
 
-  it('persiste anexos de forma privada, limitada e idempotente antes do envio', () => {
+  it('persiste anexos de forma privada, limitada e idempotente antes do envio com compatibilidade de automação', () => {
     expect(source).toContain("from('customer_communication_attachments')")
     expect(source).toMatch(/from\('customer-communications'\)[\s\S]*\.upload\(/)
     expect(source).toMatch(/from\('customer-communications'\)[\s\S]*\.remove\(/)
     expect(source).toContain('existing.length + newAttachments.length > 3')
     expect(source).toContain('existingBytes + newBytes > 10 * 1024 * 1024')
+    expect(source).toContain('uploadedBy: string | null')
+    expect(source).toContain('callerUser.user?.id ?? null')
   })
 })
