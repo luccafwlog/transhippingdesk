@@ -548,25 +548,20 @@ describe('maybeAutoBillAfterCeMercante', () => {
     expect(mockedCreateInvoice).toHaveBeenCalled()
   })
 
-  it('aguarda o resumo financeiro após faturar o B/L', async () => {
+  it('deixa o resumo financeiro para o runner server-side após faturar o B/L', async () => {
     mockBl({ voyage_id: 7 })
 
     const result = await maybeAutoBillAfterCeMercante('BL1', 'user-1')
 
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
-    expect(mockDispatchCeMercanteTaxasCommunication).toHaveBeenCalledWith(7, 99)
+    expect(mockDispatchCeMercanteTaxasCommunication).not.toHaveBeenCalled()
   })
 
-  it('repete o dispatch financeiro antes de registrar a falha operacional', async () => {
+  it('não tenta dispatch financeiro best-effort no navegador', async () => {
     mockBl({ voyage_id: 7 })
-    mockDispatchCeMercanteTaxasCommunication
-      .mockRejectedValueOnce(new Error('temporary communication outage'))
-      .mockResolvedValueOnce({ status: 'simulado' })
-
     await maybeAutoBillAfterCeMercante('BL1', 'user-1')
 
-    expect(mockDispatchCeMercanteTaxasCommunication).toHaveBeenCalledTimes(2)
-    expect(mockLogOperationalEvent).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'customer_finance_communication_failed' }))
+    expect(mockDispatchCeMercanteTaxasCommunication).not.toHaveBeenCalled()
   })
 
   it('registra falha inesperada quando a emissao lanca erro', async () => {

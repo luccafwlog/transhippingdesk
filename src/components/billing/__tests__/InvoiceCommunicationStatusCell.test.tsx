@@ -62,7 +62,7 @@ describe('InvoiceCommunicationStatusCell', () => {
     expect(screen.getByRole('button', { name: 'Reenviar comunicado' })).toBeTruthy()
   })
 
-  it('oferece reenvio quando a prontidão está liberada mesmo sem histórico', () => {
+  it('aguarda o primeiro envio automático antes de oferecer reenvio', () => {
     mockUseCustomerVoyageCommunicationStatus.mockReturnValue({
       isLoading: false,
       error: null,
@@ -81,7 +81,7 @@ describe('InvoiceCommunicationStatusCell', () => {
     )
 
     expect(screen.getByText('Aguardando envio automático')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Reenviar comunicado' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Reenviar comunicado' })).toBeNull()
   })
 
   it('exibe o motivo de bloqueio e não oferece reenvio', () => {

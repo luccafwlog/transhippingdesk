@@ -54,7 +54,7 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 
 O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend. Modelos institucionais reutilizáveis são salvos pela RPC `save_customer_communication_saved_template`; o bucket de anexos permanece privado e sem escrita direta pelo navegador (`supabase/migrations/375_comunicados_bloco2_correcoes.sql`).
 
-O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`. O runner `supabase/functions/customer-communication-auto-runner/index.ts`, agendado pela migration `381_customer_communications_automation.sql`, avalia elegibilidade em background, aplica a chave global e grava claims idempotentes.
+O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`. O runner `supabase/functions/customer-communication-auto-runner/index.ts`, agendado pela migration `381_customer_communications_automation.sql`, avalia NOA/NOR e `ce_mercante_taxas` em background, aplica a chave global e grava claims idempotentes; as correções de lease e prontidão estão na migration `384_comunicados_automacao_falhas.sql`.
 
 O resumo financeiro `ce_mercante_taxas` não é um disparo genérico por invoice:
 após o vínculo do CE, a prontidão é calculada por cliente/viagem e exige CE,
@@ -162,7 +162,7 @@ O cabeçalho desta página é o ponto de entrada para `/clientes/portal`, com ba
 
 **Código:** `/clientes/comunicacao` agora expõe o painel de cobertura, o
 disparo manual e o histórico auditável. O runner `customer-communication-
-auto-runner` avalia NOA/NOR em background a cada quinze minutos, respeita a
+auto-runner` avalia NOA/NOR e CE Mercante em background a cada quinze minutos, respeita a
 chave global de envio e registra a origem como `automatico`; a chave de claim
 impede duplicação em execuções concorrentes. O histórico principal filtra
 navio, mês, modelo, status e origem; a viagem pode ser restringida pela ficha

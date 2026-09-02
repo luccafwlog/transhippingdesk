@@ -41,6 +41,8 @@ type InvoiceContext = {
   } | null
 }
 
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
 const CLAIM_BATCH_SIZE = 50
 
 function timingSafeEqual(leftValue: string, rightValue: string): boolean {
@@ -145,7 +147,7 @@ async function loadRecipients(
 
   return contacts.filter((contact) => {
     const email = normalizeEmail(contact.email)
-    if (!email || isSuppressed(email)) return false
+    if (!EMAIL_PATTERN.test(email) || isSuppressed(email)) return false
     const preference = preferences.find((row) => row.contact_id === contact.id && row.nature === 'demurrage')
     return preference?.enabled !== false
   })
@@ -205,6 +207,11 @@ async function createCommunication(
   if (error) throw error
   const communicationId = Number(data)
   if (!Number.isInteger(communicationId) || communicationId <= 0) throw new Error('RPC não retornou o comunicado de Demurrage.')
+  const { error: originError } = await admin
+    .from('customer_communications')
+    .update({ origin: 'automatico' })
+    .eq('id', communicationId)
+  if (originError) throw originError
   return communicationId
 }
 
@@ -245,8 +252,9 @@ async function sendCandidate(
   const communicationId = await createCommunication(admin, candidate, context, vesselName, voyageNumber, null)
   const resendApiKey = communicationsEnabled ? Deno.env.get('RESEND_API_KEY') : null
   if (communicationsEnabled && !resendApiKey) throw new Error('RESEND_API_KEY não está configurada para envio real.')
-  let delivered = false
-  let simulated = false
+  let deliveredRecipients = 0
+  let simulatedRecipients = 0
+  let failedRecipients = 0
   for (const contact of contacts) {
     if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
     const recipient = normalizeEmail(contact.email)
@@ -300,16 +308,22 @@ async function sendCandidate(
         },
       })
       if (sent.ok) {
-        if (communicationsEnabled) delivered = true
-        else simulated = true
+        if (communicationsEnabled) deliveredRecipients += 1
+        else simulatedRecipients += 1
+      } else {
+        failedRecipients += 1
       }
     } catch (error) {
+      failedRecipients += 1
       console.error('[demurrage-dunning] falha no envio', candidate.invoice_id, recipient, error)
     }
   }
 
-  const status = delivered ? 'enviado' : simulated ? 'simulado' : 'falha'
-  await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const allDelivered = deliveredRecipients === contacts.length && failedRecipients === 0
+  const allSimulated = simulatedRecipients === contacts.length && failedRecipients === 0
+  const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
+  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  if (statusError) throw statusError
   return status
 }
 
@@ -327,11 +341,13 @@ async function releaseClaim(
 async function releaseClaimSafely(
   admin: ReturnType<typeof createClient>,
   candidate: DunningCandidate,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await releaseClaim(admin, candidate)
+    return true
   } catch (error) {
     console.error('[demurrage-dunning] falha ao liberar claim', candidate.invoice_id, error)
+    return false
   }
 }
 
@@ -363,12 +379,13 @@ async function handler(req: Request): Promise<Response> {
   let simulated = 0
   let failed = 0
   let paused = 0
+  let releaseFailures = 0
   for (const candidate of candidates) {
     try {
       const result = await sendCandidate(admin, candidate, communicationsEnabled)
       if (result === 'enviado') sent += 1
       else if (result === 'falha' || result === 'pausado') {
-        await releaseClaimSafely(admin, candidate)
+        if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
         if (result === 'falha') failed += 1
         else paused += 1
       } else {
@@ -376,11 +393,11 @@ async function handler(req: Request): Promise<Response> {
       }
     } catch (error) {
       failed += 1
-      await releaseClaimSafely(admin, candidate)
+      if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
       console.error('[demurrage-dunning] candidato inválido', candidate.invoice_id, error)
     }
   }
-  return json(200, { claimed: candidates.length, sent, simulated, failed, paused })
+  return json(releaseFailures ? 500 : 200, { claimed: candidates.length, sent, simulated, failed, paused, releaseFailures })
 }
 
 if (typeof Deno !== 'undefined') Deno.serve(handler)

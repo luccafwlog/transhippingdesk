@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const baseSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/378_demurrage_dunning_communication.sql'), 'utf8')
 const correctionSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/379_demurrage_dunning_claim_recovery.sql'), 'utf8')
+const leaseRecoverySql = readFileSync(resolve(process.cwd(), 'supabase/migrations/384_comunicados_automacao_falhas.sql'), 'utf8')
 const hardeningSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/380_comunicados_financeiros_hardening.sql'), 'utf8')
 const sql = `${baseSql}\n${correctionSql}`
 
@@ -15,7 +16,7 @@ describe('migration 378 — régua de Demurrage', () => {
     expect(correctionSql).toContain("pse.reason = 'bounce_permanente'")
     expect(hardeningSql).toContain('demurrage_dunning_candidate_sendable')
   })
-  it('usa first_billed_at, intervalo configurável e não impõe teto de cobranças', () => {
+  it('usa first_billed_at, intervalo configurável e recupera lease expirado', () => {
     expect(sql).toContain('first_billed_at')
     expect(sql).toContain('paid_at IS NULL')
     expect(sql).toContain('demurrage_dunning_interval_days')
@@ -27,6 +28,7 @@ describe('migration 378 — régua de Demurrage', () => {
     expect(sql).toContain('count(*) FILTER (WHERE prior_claim.released_at IS NULL)')
     expect(sql).toMatch(/attempt_discriminator\s+INTEGER[\s\S]*CHECK\s*\(attempt_discriminator\s*>\s*0\)/i)
     expect(sql).not.toMatch(/LIMIT\s+[1-6]\b/i)
+    expect(leaseRecoverySql).toContain("claimed_at < COALESCE(p_as_of, now()) - interval '30 minutes'")
   })
 
   it('pausa por disputa e por cliente sem contatos válidos após bounce', () => {

@@ -68,7 +68,10 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean }>
     return { ok: true }
   }
 
-  if (attempt.existing && (attempt.providerMessageId || attempt.status === 'aceito' || attempt.status === 'entregue')) return { ok: true }
+  // `aceito` is written before contacting the provider. It is only terminal
+  // when Resend returned a provider id; otherwise this is the crash window
+  // between persistence and the HTTP call and must be retried.
+  if (attempt.existing && (attempt.providerMessageId || attempt.status === 'entregue')) return { ok: true }
   if (attempt.existing && ['falha_permanente', 'bounce', 'complaint'].includes(attempt.status)) return { ok: false }
 
   const fetchImpl = input.fetchImpl ?? fetch

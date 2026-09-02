@@ -1,18 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockFrom } = vi.hoisted(() => ({
+const { mockFrom, mockRpc } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
+  mockRpc: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }))
 
 import { fetchVoyageCommunicationCoverage } from '../customerCommunications'
 
 function queryResult(data: unknown, error: unknown = null) {
   const chain: Record<string, unknown> = {}
-  for (const method of ['select', 'order', 'limit', 'range', 'in', 'neq', 'not', 'ilike']) {
+  for (const method of ['select', 'order', 'limit', 'range', 'in', 'neq', 'not', 'ilike', 'eq', 'gte', 'lt']) {
     chain[method] = vi.fn(() => chain)
   }
   chain.overrideTypes = vi.fn(async () => ({ data, error }))
@@ -47,10 +48,10 @@ describe('fetchVoyageCommunicationCoverage', () => {
       if (table === 'voyage_escala_terminal_state') return terminalStatesMock
       throw new Error(`Tabela inesperada: ${table}`)
     })
+    mockRpc.mockImplementation((_name: string, args: { p_customer_id: number }) => Promise.resolve({ data: { ready: args.p_customer_id === 2 }, error: null }))
 
     const result = await fetchVoyageCommunicationCoverage()
 
-    expect(voyagesMock.limit).toHaveBeenCalledWith(50)
     expect(blsMock.in).toHaveBeenCalledWith('voyage_id', [10, 20])
     expect(commsMock.in).toHaveBeenCalledWith('anchor_voyage_id', [10, 20])
     expect(terminalStatesMock.in).toHaveBeenCalledWith('voyage_id', [10, 20])

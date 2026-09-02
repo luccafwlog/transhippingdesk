@@ -523,7 +523,11 @@ async function handler(req: Request): Promise<Response> {
   }
 
   const status = sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'
-  await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  if (statusError) {
+    console.error('customer communication status persistence failed', statusError)
+    return json(500, { error: 'Não foi possível persistir o status do comunicado.' }, origin)
+  }
   const { data: attempt } = await admin
     .from('customer_communication_attempts')
     .select('id')

@@ -108,7 +108,7 @@ export function ClientesComunicacao() {
   const customerHistoryId = Number(searchParams.get('customer'))
   const historyCustomerId = Number.isInteger(customerHistoryId) && customerHistoryId > 0 ? customerHistoryId : undefined
   const historyCommunicationId = Number(searchParams.get('communication'))
-  const historyQuery = useCustomerCommunicationHistory({ customerId: historyCustomerId, ...historyFilters })
+  const historyQuery = useCustomerCommunicationHistory({ id: Number.isInteger(historyCommunicationId) && historyCommunicationId > 0 ? historyCommunicationId : undefined, customerId: historyCustomerId, ...historyFilters })
   const coverageQuery = useVoyageCommunicationCoverage(coverageFilters)
   const savedTemplatesQuery = useCustomerCommunicationSavedTemplates()
   const saveTemplateMutation = useSaveCustomerCommunicationSavedTemplate()
@@ -712,7 +712,7 @@ export function ClientesComunicacao() {
           {historyQuery.isLoading ? <div className="mt-5 text-sm text-[var(--app-muted)]">Carregando histórico...</div> : null}
           {historyQuery.isError ? <div className="mt-5"><InlineError message="Não foi possível carregar o histórico." /></div> : null}
           <div className="mt-5 grid gap-3">
-            {historyQuery.data?.filter((item) => !Number.isInteger(historyCommunicationId) || historyCommunicationId <= 0 || item.id === historyCommunicationId).map((item) => (
+            {historyQuery.data?.map((item) => (
               <div key={item.id} className="app-surface rounded-xl border border-[var(--app-border)] p-4 shadow-xs">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={statusTone(item.status)}>{customerCommunicationStatusLabel(item.status)}</Badge>
@@ -746,7 +746,7 @@ export function ClientesComunicacao() {
               </div>
             ))}
             {!historyQuery.isLoading && !historyQuery.isError && !historyQuery.data?.length ? (
-              <div className="py-8 text-center text-sm text-[var(--app-muted)]">Nenhum comunicado registrado ainda.</div>
+              <div className="py-8 text-center text-sm text-[var(--app-muted)]">{historyCommunicationId > 0 ? 'Comunicado não encontrado.' : 'Nenhum comunicado registrado ainda.'}</div>
             ) : null}
           </div>
         </Card>

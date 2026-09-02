@@ -3,7 +3,8 @@ import { renderCustomerCommunicationTemplate } from '../_shared/customerCommunic
 
 type Candidate = {
   claim_key?: string
-  kind: 'aviso_chegada_noa' | 'aviso_prontidao_nor'
+  kind: 'aviso_chegada_noa' | 'aviso_prontidao_nor' | 'ce_mercante_taxas'
+  nature?: 'avisos_operacionais' | 'documentacao'
   customer_id: number
   customer_name: string
   customer_cnpj: string
@@ -59,27 +60,52 @@ async function handler(req: Request): Promise<Response> {
   for (const candidate of candidates) {
     let count = 0
     try {
+      const payload = candidate.kind === 'ce_mercante_taxas'
+        ? await admin.rpc('customer_local_charges_communication_payload', {
+            p_voyage_id: candidate.voyage_id,
+            p_customer_id: candidate.customer_id,
+          }).then(({ data, error }) => {
+            if (error) throw error
+            return data as {
+              customer_name?: string
+              vessel_name?: string
+              voyage_number?: string
+              port?: string
+              milestone_at?: string
+              bls?: Array<{ bl_id: string; ce_mercante: string | null; total_brl: number | null }>
+            }
+          })
+        : null
+      const financeRows = payload?.bls?.map((row) => ({
+        blId: row.bl_id,
+        ceMercante: row.ce_mercante ?? '',
+        totalBrl: Number(row.total_brl ?? 0),
+      })) ?? []
       const rendered = renderCustomerCommunicationTemplate(candidate.kind, {
         customerId: candidate.customer_id,
-        customerName: candidate.customer_name,
-        vesselName: candidate.vessel_name,
-        voyageNumber: candidate.voyage_number,
-        port: candidate.port,
-        milestoneAt: candidate.milestone_at,
+        customerName: payload?.customer_name ?? candidate.customer_name,
+        vesselName: payload?.vessel_name ?? candidate.vessel_name,
+        voyageNumber: payload?.voyage_number ?? candidate.voyage_number,
+        port: payload?.port ?? candidate.port,
+        milestoneAt: payload?.milestone_at ?? candidate.milestone_at,
         bls: candidate.bl_ids.map((id) => ({ id, customerId: candidate.customer_id })),
+        portalUrl: Deno.env.get('PORTAL_URL'),
+        ceMercanteRows: financeRows,
+        totalBrl: financeRows.reduce((sum, row) => sum + row.totalBrl, 0),
       })
       const recipients = candidate.emails ?? []
       if (!recipients.length) {
         if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
       } else {
         let resolvedRecipients = 0
+        let simulatedRecipients = 0
         for (const recipient of recipients) {
           try {
             const response = await fetch(`${url}/functions/v1/send-customer-communication`, {
               method: 'POST',
               headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', 'X-Communication-Automation-Secret': secret },
               body: JSON.stringify({
-                customer_id: candidate.customer_id, kind: candidate.kind, nature: 'avisos_operacionais', recipient,
+                customer_id: candidate.customer_id, kind: candidate.kind, nature: candidate.nature ?? 'avisos_operacionais', recipient,
                 subject: rendered.subject, html: rendered.html, text: rendered.text, bl_ids: candidate.bl_ids,
                 anchor_voyage_id: candidate.voyage_id, anchor_port: candidate.port, attempt_discriminator: 0,
                 vessel_name: candidate.vessel_name, voyage_number: candidate.voyage_number, origin: 'automatico',
@@ -94,6 +120,7 @@ async function handler(req: Request): Promise<Response> {
             const isDeliveredOrSimulated = response.ok && (result?.status === 'enviado' || result?.status === 'simulado')
             const isPermanentSuppression = response.status === 422 && Boolean(result?.suppressed)
             if (isDeliveredOrSimulated) count += 1
+            if (isDeliveredOrSimulated && result?.status === 'simulado') simulatedRecipients += 1
             if (isDeliveredOrSimulated || isPermanentSuppression) resolvedRecipients += 1
           } catch (dispatchError) {
             console.error('[customer-communication-auto-runner] falha de requisição', candidate.customer_id, recipient, dispatchError)
@@ -101,7 +128,10 @@ async function handler(req: Request): Promise<Response> {
         }
         // A claim covers the whole customer/port target, but delivery is per
         // recipient. Release it only when any recipient suffered a transient failure that needs a retry.
-        if (resolvedRecipients < recipients.length) {
+        // A simulation must not consume the logical automatic target: after
+        // the global key is enabled, the same discriminator must be retried.
+        const shouldRelease = resolvedRecipients < recipients.length || simulatedRecipients > 0
+        if (shouldRelease) {
           if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
         }
       }

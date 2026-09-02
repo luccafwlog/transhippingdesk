@@ -49,7 +49,7 @@ export function InvoiceCommunicationStatusCell({ invoice }: Props) {
       {contexts.map((voyageContext, index) => {
         const statusQuery = statusQueries[index]
         const status = statusQuery?.data
-        const canRetry = Boolean(status?.readiness.ready)
+        const canRetry = Boolean(status?.readiness.ready && status.latest)
         return (
           <div key={voyageContext.voyageId} className="border-b border-[var(--app-border)] pb-2 last:border-b-0 last:pb-0">
             <div className="text-xs font-semibold text-slate-400">{voyageContext.vesselName ?? 'Viagem'}{voyageContext.voyageNumber ? ` / ${voyageContext.voyageNumber}` : ''}</div>

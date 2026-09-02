@@ -691,6 +691,7 @@ export type CustomerCommunicationHistoryItem = {
 }
 
 export type CustomerCommunicationHistoryFilters = {
+  id?: number
   customerId?: number
   voyageId?: number
   vessel?: string
@@ -743,24 +744,30 @@ const COMMUNICATION_HISTORY_SELECT = 'id, customer_id, kind, nature, anchor_voya
 
 export async function fetchCustomerCommunicationHistory(input?: number | CustomerCommunicationHistoryFilters): Promise<CustomerCommunicationHistoryItem[]> {
   const filters = typeof input === 'number' ? { customerId: input } : (input ?? {})
-  let query = supabase.from('customer_communications').select(COMMUNICATION_HISTORY_SELECT).order('created_at', { ascending: false }).limit(200)
-  if (filters.customerId != null) query = query.eq('customer_id', filters.customerId)
-  if (filters.voyageId != null) query = query.eq('anchor_voyage_id', filters.voyageId)
-  if (filters.kind) query = query.eq('kind', filters.kind)
-  if (filters.status) query = query.eq('status', filters.status)
-  const { data, error } = await query.overrideTypes<CustomerCommunicationHistoryItem[], { merge: false }>()
-  if (error) throw error
-  return (data ?? []).filter((item) => {
-    if (filters.vessel && !(item.vessel_name ?? '').toUpperCase().includes(filters.vessel.toUpperCase())) return false
-    if (filters.month && !item.created_at.startsWith(filters.month)) return false
-    if (filters.origin && (item.origin ?? 'manual') !== filters.origin) return false
-    return true
-  }).map((item) => ({
-    ...item,
-    attempts: item.attempts ?? [],
-    bl_links: item.bl_links ?? [],
-    attachments: item.attachments ?? [],
-  }))
+  const rows: CustomerCommunicationHistoryItem[] = []
+  const pageSize = 200
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase.from('customer_communications').select(COMMUNICATION_HISTORY_SELECT).order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + pageSize - 1)
+    if (filters.id != null) query = query.eq('id', filters.id)
+    if (filters.customerId != null) query = query.eq('customer_id', filters.customerId)
+    if (filters.voyageId != null) query = query.eq('anchor_voyage_id', filters.voyageId)
+    if (filters.vessel?.trim()) query = query.ilike('vessel_name', `%${filters.vessel.trim()}%`)
+    if (filters.kind) query = query.eq('kind', filters.kind)
+    if (filters.status) query = query.eq('status', filters.status)
+    if (filters.origin) {
+      query = (query as unknown as { eq: (column: string, value: string) => typeof query }).eq('origin', filters.origin)
+    }
+    if (filters.month && /^\d{4}-\d{2}$/.test(filters.month)) {
+      const start = new Date(`${filters.month}-01T00:00:00.000Z`)
+      const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1))
+      query = query.gte('created_at', start.toISOString()).lt('created_at', end.toISOString())
+    }
+    const { data, error } = await query.overrideTypes<CustomerCommunicationHistoryItem[], { merge: false }>()
+    if (error) throw error
+    rows.push(...(data ?? []))
+    if (filters.id != null || !data || data.length < pageSize) break
+  }
+  return rows.map((item) => ({ ...item, attempts: item.attempts ?? [], bl_links: item.bl_links ?? [], attachments: item.attachments ?? [] }))
 }
 
 type CoveragePage<T> = { data: T[] | null; error: unknown }
@@ -777,21 +784,11 @@ async function fetchCoverageRows<T>(fetchPage: (from: number, to: number) => Pro
 }
 
 export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: string; voyage?: string; month?: string }): Promise<VoyageCommunicationCoverageSummary[]> {
-  let voyageQuery = supabase
-    .from('voyages')
-    .select('id, voyage_number, vessel:vessels(name)')
-    .order('id', { ascending: false })
-    .limit(50)
-
-  if (filters?.voyage?.trim()) {
-    voyageQuery = voyageQuery.ilike('voyage_number', `%${filters.voyage.trim()}%`)
-  }
-
-  const { data: rawVoyages, error: voyageError } = await voyageQuery.overrideTypes<
-    Array<{ id: number; voyage_number: string; vessel: { name: string } | null }>,
-    { merge: false }
-  >()
-  if (voyageError) throw voyageError
+  const rawVoyages = await fetchCoverageRows((from, to) => {
+    let voyageQuery = supabase.from('voyages').select('id, voyage_number, vessel:vessels(name)').order('id', { ascending: false }).range(from, to)
+    if (filters?.voyage?.trim()) voyageQuery = voyageQuery.ilike('voyage_number', `%${filters.voyage.trim()}%`)
+    return voyageQuery.overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string } | null }>, { merge: false }>()
+  })
 
   let voyages = rawVoyages ?? []
   if (filters?.vessel?.trim()) {
@@ -808,15 +805,17 @@ export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: stri
         .from('bls')
         .select('id, voyage_id, customer_id, pod, ce_mercante, financial_status')
         .in('voyage_id', voyageIds)
-        .neq('financial_status', 'cancelled')
+        .order('id', { ascending: false })
         .range(from, to)
         .overrideTypes<Array<{ id: string; voyage_id: number; customer_id: number | null; pod: string | null; ce_mercante: string | null; financial_status: string | null }>, { merge: false }>(),
     ),
     fetchCoverageRows((from, to) =>
       supabase
         .from('customer_communications')
-        .select('customer_id, kind, status, anchor_voyage_id, anchor_port, anchor_atracacao_id, created_at')
+        .select('id, customer_id, kind, status, anchor_voyage_id, anchor_port, anchor_atracacao_id, created_at')
         .in('anchor_voyage_id', voyageIds)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, to)
         .overrideTypes<Array<{ customer_id: number | null; kind: string; status: string; anchor_voyage_id: number | null; anchor_port: string | null; anchor_atracacao_id: string | null; created_at: string }>, { merge: false }>(),
     ),
@@ -826,15 +825,31 @@ export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: stri
         .select('id, voyage_id, port, terminal_atb')
         .in('voyage_id', voyageIds)
         .not('terminal_atb', 'is', null)
+        .order('id', { ascending: false })
         .range(from, to)
         .overrideTypes<Array<{ id: string; voyage_id: number; port: string; terminal_atb: string | null }>, { merge: false }>(),
     ),
   ])
-  return voyages.filter((voyage) => {
-    if (!filters?.month) return true
-    return communications.some((comm) => comm.anchor_voyage_id === voyage.id && comm.created_at.startsWith(filters.month!))
-  }).map((voyage) => {
-    const rows = bls.filter((bl) => bl.voyage_id === voyage.id && bl.customer_id != null)
+  const rowsByVoyageCustomer = new Map<string, Promise<boolean>>()
+  for (const bl of bls) {
+    if (bl.customer_id == null || bl.financial_status === 'cancelled') continue
+    const key = `${bl.voyage_id}:${bl.customer_id}`
+    if (!rowsByVoyageCustomer.has(key)) {
+      rowsByVoyageCustomer.set(key, (async () => {
+        const result = await (supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: { ready?: boolean } | null; error: unknown }>)(
+          'customer_local_charges_communication_readiness',
+          { p_voyage_id: bl.voyage_id, p_customer_id: bl.customer_id },
+        )
+        if (result.error) throw result.error
+        return result.data?.ready === true
+      })())
+    }
+  }
+  const readiness = new Map<string, boolean>()
+  await Promise.all([...rowsByVoyageCustomer.entries()].map(async ([key, value]) => readiness.set(key, await value)))
+
+  return voyages.map((voyage) => {
+    const rows = bls.filter((bl) => bl.voyage_id === voyage.id && bl.customer_id != null && bl.financial_status !== 'cancelled')
     const customers = new Set(rows.map((row) => row.customer_id!))
     const comms = communications
     const terminalTargets = terminalStates.filter((state) => state.voyage_id === voyage.id)
@@ -858,7 +873,7 @@ export async function fetchVoyageCommunicationCoverage(filters?: { vessel?: stri
     }
     const financeCustomers = new Set<number>()
     for (const [cid, cBls] of customerBlMap.entries()) {
-      if (cBls.length > 0 && cBls.every((bl) => Boolean(bl.ce_mercante?.trim()) && ['invoiced', 'paid'].includes(bl.financial_status ?? ''))) {
+      if (cBls.length > 0 && readiness.get(`${voyage.id}:${cid}`) === true) {
         financeCustomers.add(cid)
       }
     }
