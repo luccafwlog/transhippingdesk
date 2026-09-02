@@ -12,7 +12,10 @@ function getArchiveFallbackPath(
   if (!/[/\\]supabase[/\\]migrations([/\\]|$)/.test(filePath) && !/^supabase[/\\]migrations([/\\]|$)/.test(filePath)) {
     return null
   }
-  const archivePath = filePath.replace(/(^|[/\\])supabase[/\\]migrations([/\\]|$)/, '$1supabase/migrations_archive$2')
+  const archivePath = filePath.replace(
+    /(^|[/\\])supabase([/\\])migrations([/\\]|$)/,
+    (_match, p1, sep, p3) => `${p1}supabase${sep}migrations_archive${p3}`,
+  )
   if (origExists(archivePath)) {
     return archivePath
   }
@@ -33,7 +36,10 @@ function mergeReaddir<T extends ReaddirItem>(
     return origReaddir(dir, options)
   }
 
-  const archiveDir = (dir as string).replace(/(^|[/\\])supabase[/\\]migrations([/\\]|$)/, '$1supabase/migrations_archive$2')
+  const archiveDir = (dir as string).replace(
+    /(^|[/\\])supabase([/\\])migrations([/\\]|$)/,
+    (_match, p1, sep, p3) => `${p1}supabase${sep}migrations_archive${p3}`,
+  )
   let mainEntries: T[] = []
   try {
     if (origExists(dir as string)) {
@@ -46,7 +52,14 @@ function mergeReaddir<T extends ReaddirItem>(
   let archiveEntries: T[] = []
   try {
     if (origExists(archiveDir)) {
-      archiveEntries = origReaddir(archiveDir, options)
+      const rawEntries = origReaddir(archiveDir, options)
+      archiveEntries = (rawEntries as unknown as Array<string | { name: string }>).filter((entry) => {
+        const name =
+          typeof entry === 'object' && entry !== null && 'name' in entry
+            ? String((entry as { name: unknown }).name)
+            : String(entry)
+        return name.endsWith('.sql')
+      }) as unknown as T[]
     }
   } catch {
     // Diretório de arquivo morto pode não existir
@@ -84,29 +97,47 @@ vi.mock('node:fs', async (importOriginal) => {
   const origStat = mod.statSync
   const origReaddir = mod.readdirSync
 
-  return {
+  const existsSync = (...args: Parameters<typeof mod.existsSync>) => {
+    if (origExists(args[0])) return true
+    return getArchiveFallbackPath(args[0], origExists) !== null
+  }
+  const readFileSync = (...args: Parameters<typeof mod.readFileSync>) => {
+    const fallback = getArchiveFallbackPath(args[0], origExists)
+    const target = (fallback ?? args[0]) as PathLike | number
+    return Reflect.apply(origRead, mod, [target, args[1]])
+  }
+  const statSync = (...args: Parameters<typeof mod.statSync>) => {
+    const fallback = getArchiveFallbackPath(args[0], origExists)
+    const target = (fallback ?? args[0]) as PathLike
+    return Reflect.apply(origStat, mod, [target, args[1]])
+  }
+  const readdirSync = (...args: Parameters<typeof mod.readdirSync>) => {
+    return mergeReaddir(
+      args[0],
+      args[1],
+      origReaddir as unknown as (d: unknown, opt?: unknown) => ReaddirItem[],
+      origExists,
+    )
+  }
+
+  const mocked = {
     ...mod,
-    existsSync: (...args: Parameters<typeof mod.existsSync>) => {
-      if (origExists(args[0])) return true
-      return getArchiveFallbackPath(args[0], origExists) !== null
-    },
-    readFileSync: (...args: Parameters<typeof mod.readFileSync>) => {
-      const fallback = getArchiveFallbackPath(args[0], origExists)
-      const target = (fallback ?? args[0]) as PathLike | number
-      return Reflect.apply(origRead, mod, [target, args[1]])
-    },
-    statSync: (...args: Parameters<typeof mod.statSync>) => {
-      const fallback = getArchiveFallbackPath(args[0], origExists)
-      const target = (fallback ?? args[0]) as PathLike
-      return Reflect.apply(origStat, mod, [target, args[1]])
-    },
-    readdirSync: (...args: Parameters<typeof mod.readdirSync>) => {
-      return mergeReaddir(
-        args[0],
-        args[1],
-        origReaddir as unknown as (d: unknown, opt?: unknown) => ReaddirItem[],
-        origExists,
-      )
+    existsSync,
+    readFileSync,
+    statSync,
+    readdirSync,
+  }
+
+  const defaultExport = ((mod as Record<string, unknown>).default as object | undefined) ?? mod
+
+  return {
+    ...mocked,
+    default: {
+      ...defaultExport,
+      existsSync,
+      readFileSync,
+      statSync,
+      readdirSync,
     },
   }
 })
@@ -118,29 +149,47 @@ vi.mock('fs', async (importOriginal) => {
   const origStat = mod.statSync
   const origReaddir = mod.readdirSync
 
-  return {
+  const existsSync = (...args: Parameters<typeof mod.existsSync>) => {
+    if (origExists(args[0])) return true
+    return getArchiveFallbackPath(args[0], origExists) !== null
+  }
+  const readFileSync = (...args: Parameters<typeof mod.readFileSync>) => {
+    const fallback = getArchiveFallbackPath(args[0], origExists)
+    const target = (fallback ?? args[0]) as PathLike | number
+    return Reflect.apply(origRead, mod, [target, args[1]])
+  }
+  const statSync = (...args: Parameters<typeof mod.statSync>) => {
+    const fallback = getArchiveFallbackPath(args[0], origExists)
+    const target = (fallback ?? args[0]) as PathLike
+    return Reflect.apply(origStat, mod, [target, args[1]])
+  }
+  const readdirSync = (...args: Parameters<typeof mod.readdirSync>) => {
+    return mergeReaddir(
+      args[0],
+      args[1],
+      origReaddir as unknown as (d: unknown, opt?: unknown) => ReaddirItem[],
+      origExists,
+    )
+  }
+
+  const mocked = {
     ...mod,
-    existsSync: (...args: Parameters<typeof mod.existsSync>) => {
-      if (origExists(args[0])) return true
-      return getArchiveFallbackPath(args[0], origExists) !== null
-    },
-    readFileSync: (...args: Parameters<typeof mod.readFileSync>) => {
-      const fallback = getArchiveFallbackPath(args[0], origExists)
-      const target = (fallback ?? args[0]) as PathLike | number
-      return Reflect.apply(origRead, mod, [target, args[1]])
-    },
-    statSync: (...args: Parameters<typeof mod.statSync>) => {
-      const fallback = getArchiveFallbackPath(args[0], origExists)
-      const target = (fallback ?? args[0]) as PathLike
-      return Reflect.apply(origStat, mod, [target, args[1]])
-    },
-    readdirSync: (...args: Parameters<typeof mod.readdirSync>) => {
-      return mergeReaddir(
-        args[0],
-        args[1],
-        origReaddir as unknown as (d: unknown, opt?: unknown) => ReaddirItem[],
-        origExists,
-      )
+    existsSync,
+    readFileSync,
+    statSync,
+    readdirSync,
+  }
+
+  const defaultExport = ((mod as Record<string, unknown>).default as object | undefined) ?? mod
+
+  return {
+    ...mocked,
+    default: {
+      ...defaultExport,
+      existsSync,
+      readFileSync,
+      statSync,
+      readdirSync,
     },
   }
 })

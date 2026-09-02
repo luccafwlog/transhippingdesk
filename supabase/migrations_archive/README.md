@@ -1,4 +1,4 @@
-﻿# Arquivo Histórico de Migrações (Pré-v1.0) — Transhipping Desk
+# Arquivo Histórico de Migrações (Pré-v1.0) — Transhipping Desk
 
 Este diretório contém a cópia fiel e imutável das **383 migrações históricas** originais do projeto Transhipping Desk, abrangendo o período de desenvolvimento que vai da migração `001_schema.sql` até a `384_comunicados_automacao_falhas.sql` (com o número `283` pulado no histórico original).
 
