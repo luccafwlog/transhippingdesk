@@ -119,4 +119,15 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
     }
     expect(semSearchPath).toEqual([])
   })
+
+  it('RPC delete_baplie_manifest_for_voyage possui grant explícito para authenticated e service_role', async () => {
+    const ativas = await lerMigrationsAtivas()
+    const tudo = [...ativas.values()].join('\n')
+    const match = tudo.match(
+      /GRANT\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+public\.delete_baplie_manifest_for_voyage\b[^;]*?\bTO\s+([^;]+);/i,
+    )
+    expect(match).not.toBeNull()
+    expect(match![1]).toMatch(/\bauthenticated\b/)
+    expect(match![1]).toMatch(/\bservice_role\b/)
+  })
 })
