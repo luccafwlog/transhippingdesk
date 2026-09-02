@@ -5,7 +5,8 @@ import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
-import { useAppSettings, useSetDemurrageDunningIntervalDays } from '../hooks/useAppSettings'
+import { useAppSettings, useSetCommunicationsEnabled, useSetDemurrageDunningIntervalDays } from '../hooks/useAppSettings'
+import { useAuth } from '../hooks/useAuth'
 import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate } from '../hooks/useCustomerCommunications'
 import {
   DEFAULT_CUSTOMER_COMMUNICATION_FILTERS,
@@ -78,6 +79,9 @@ export function ClientesComunicacao() {
   const [dunningIntervalInput, setDunningIntervalInput] = useState<string | null>(null)
   const { data: settings } = useAppSettings()
   const dunningInterval = dunningIntervalInput ?? String(settings?.demurrage_dunning_interval_days ?? 7)
+  const { effectiveRole, isAdmin } = useAuth()
+  const canToggleCommunications = effectiveRole === 'administrativo' || isAdmin
+  const setCommunicationsMutation = useSetCommunicationsEnabled()
   const setDunningIntervalMutation = useSetDemurrageDunningIntervalDays()
   const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, enabled: conferenceRequested })
   const customerHistoryId = Number(searchParams.get('customer'))
@@ -280,12 +284,52 @@ export function ClientesComunicacao() {
       />
 
       {settings?.communications_enabled === false ? (
-        <div role="status" className="mb-5 flex items-start gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-300" />
-          <div>
-            <strong>Modo de simulação permanente.</strong>
-            <div className="mt-1 text-amber-100/80">A chave global está desligada. Os comunicados serão registrados como simulados e nenhum e-mail será enviado ao Resend.</div>
+        <div role="status" className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-300" />
+            <div>
+              <strong>Modo de simulação permanente.</strong>
+              <div className="mt-1 text-amber-100/80">A chave global está desligada. Os comunicados serão registrados como simulados e nenhum e-mail será enviado ao Resend.</div>
+            </div>
           </div>
+          {canToggleCommunications ? (
+            <Button
+              type="button"
+              variant="secondary"
+              loading={setCommunicationsMutation.isPending}
+              onClick={() => {
+                if (window.confirm('Confirma a ativação da chave global de envio? Os próximos disparos de comunicados e cobranças enviarão e-mails reais aos clientes via Resend.')) {
+                  void setCommunicationsMutation.mutateAsync(true)
+                }
+              }}
+            >
+              Ativar envio real
+            </Button>
+          ) : null}
+        </div>
+      ) : settings?.communications_enabled === true ? (
+        <div role="status" className="mb-5 flex flex-col gap-3 rounded-xl border border-emerald-400/40 bg-emerald-400/10 p-4 text-sm text-emerald-100 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-300" />
+            <div>
+              <strong>Canal de envio real ativo.</strong>
+              <div className="mt-1 text-emerald-100/80">A chave global está ligada. E-mails reais são disparados aos contatos elegíveis via Resend.</div>
+            </div>
+          </div>
+          {canToggleCommunications ? (
+            <Button
+              type="button"
+              variant="secondary"
+              loading={setCommunicationsMutation.isPending}
+              onClick={() => {
+                if (window.confirm('Deseja desativar a chave global de envio e retornar ao modo de simulação?')) {
+                  void setCommunicationsMutation.mutateAsync(false)
+                }
+              }}
+            >
+              Desativar envio real
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
