@@ -35,17 +35,18 @@ Com o sistema pronto para a versão 1.0 e antes de sua entrada formal em produç
      - `src/services/__tests__/consolidatedSchemaInvariants.test.ts`, que escapa do mock com `vi.importActual` e trava RLS, `search_path`, exposição a `anon` e o fechamento de defaults no diretório real.
 
 4. **Numeração das Migrações Futuras:**
-   - Novas migrações pós-v1.0 continuarão a convenção sequencial de três dígitos (ADR 0016), iniciando em `003_nome_da_migration.sql`.
+   - Novas migrações pós-v1.0 continuarão a convenção sequencial de três dígitos (ADR 0016). A `003` já está ocupada pela camada do item 5, então a próxima migration de produto é `004_nome_da_migration.sql`.
 
 5. **Objetos fora do recorte do dump:**
    - As 001 e 002 nascem de um `pg_dump` do schema `public`. Três classes de objeto vivas em produção ficam estruturalmente fora desse recorte e precisam ser mantidas à mão: os defaults de privilégio (`pg_default_acl`, ADR 0047 / migration arquivada 297), os agendamentos `pg_cron` (schema `cron`) e os buckets e policies de Storage (schema `storage`).
    - Regenerar o dump não recupera nenhuma delas. Toda regeneração precisa reaplicar essa camada explicitamente.
+   - `supabase/migrations/003_pos_squash_objetos_fora_do_dump.sql` mantém essa camada, e `scripts/build-squash-migrations.mjs` passa a abortar diante de qualquer tipo de bloco do dump que não esteja classificado — foi um descarte silencioso desses que apagou o `ALTER DEFAULT PRIVILEGES` na primeira geração.
 
 ## Consequências
 
 - O tempo de bootstrap de novos ambientes, bancos de testes descartáveis e branches de preview do Supabase é drasticamente reduzido.
 - O histórico completo de engenharia e decisões permanece arquivado e auditável em `supabase/migrations_archive/`.
-- A paridade validada é de **objetos do schema `public`**: tabelas, funções, triggers e policies conferem entre o replay das 383 migrações e o schema consolidado. Ela **não** se estende ao que vive fora de `public` — defaults de privilégio, jobs `pg_cron` e Storage —, que precisa da camada descrita no item 5 da decisão. Descrever a comparação como "paridade bit a bit de 100%" seria mais forte do que a evidência sustenta.
+- A paridade validada é de **objetos do schema `public`**: 106 tabelas, 1.121 colunas, 397 funções do projeto (com corpos idênticos), 273 policies, 144 triggers e 307 índices conferem entre o replay das 383 migrações e o schema consolidado, medidos por consulta ao catálogo em dois bancos PostgreSQL 16 descartáveis. Evidência em [`docs/archive/reports/2026-09-02-paridade-squash-schema-v1.md`](../archive/reports/2026-09-02-paridade-squash-schema-v1.md). A paridade **não** se estende ao que vive fora de `public` — defaults de privilégio, jobs `pg_cron` e Storage —, que depende da camada descrita no item 5 da decisão. Descrever a comparação como "paridade bit a bit de 100%" seria mais forte do que a evidência sustenta.
 - O banco já provisionado guarda em `supabase_migrations.schema_migrations` as versões `001`…`384`. Como os arquivos consolidados reaproveitam os prefixos `001` e `002`, um `supabase db push` contra esse projeto **não aplica nada**: o histórico remoto já registra essas versões. A consequência prática é dupla — o schema consolidado nunca é exercitado contra o banco existente, e `supabase migration list` passa a divergir. Antes do primeiro deploy pós-squash é preciso decidir e registrar o caminho de reparo (`supabase migration repair`), sob pena de a divergência só aparecer no dia em que uma migration nova falhar.
 - Branches de preview do Supabase e `supabase db reset` continuam criando o banco do zero: é ali, e só ali, que os arquivos consolidados são realmente executados. Toda validação do squash depende desse caminho.
 
