@@ -780,7 +780,7 @@ export function ClientesComunicacao() {
               <div
                 className="prose prose-sm max-w-none text-slate-800"
                 dangerouslySetInnerHTML={{
-                  __html: activePreview.html.slice(activePreview.html.indexOf('<main'), activePreview.html.indexOf('</main>')).replace(/^<main[^>]*>/, '') || activePreview.html,
+                  __html: activePreview.html.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1] ?? activePreview.html,
                 }}
               />
             </div>

@@ -15,6 +15,7 @@ describe('Edge Function send-customer-communication', () => {
     expect(source).toContain("status = sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'")
     expect(source).toContain("replyTo: Deno.env.get('COMMUNICATIONS_REPLY_TO')")
     expect(source).not.toContain("replyTo: Deno.env.get('COMMUNICATIONS_REPLY_TO') ?? Deno.env.get('PORTAL_REPLY_TO')")
+    expect(source).toContain("timingSafeEqual(providedAutomationSecret, automationSecret)")
   })
 
   it('confere contato, preferência, bounce/complaint e grava a operação pelo RPC atômico', () => {

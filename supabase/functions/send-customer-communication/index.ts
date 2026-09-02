@@ -243,6 +243,16 @@ async function findExistingCommunicationId(
   return row?.id ?? null
 }
 
+function timingSafeEqual(leftValue: string, rightValue: string): boolean {
+  const encoder = new TextEncoder()
+  const left = encoder.encode(leftValue)
+  const right = encoder.encode(rightValue)
+  if (left.length !== right.length) return false
+  let difference = 0
+  for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index]
+  return difference === 0
+}
+
 async function handler(req: Request): Promise<Response> {
   const origin = req.headers.get('Origin')
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed' }, origin)
@@ -255,8 +265,9 @@ async function handler(req: Request): Promise<Response> {
   const jwt = req.headers.get('Authorization') ?? ''
   if (!/^Bearer\s+\S+/i.test(jwt)) return json(401, { error: 'Autenticação obrigatória.' }, origin)
 
-  const automationSecret = Deno.env.get('CUSTOMER_COMMUNICATION_AUTOMATION_SECRET')
-  const isAutomation = Boolean(automationSecret && req.headers.get('X-Communication-Automation-Secret') === automationSecret)
+  const automationSecret = Deno.env.get('CUSTOMER_COMMUNICATION_AUTOMATION_SECRET') ?? ''
+  const providedAutomationSecret = req.headers.get('X-Communication-Automation-Secret') ?? ''
+  const isAutomation = Boolean(automationSecret && timingSafeEqual(providedAutomationSecret, automationSecret))
 
   const caller = createClient(url, anonKey, { global: { headers: { Authorization: jwt } } })
   const { data: role, error: roleError } = isAutomation ? { data: 'automatico', error: null } : await caller.rpc('portal_current_role')

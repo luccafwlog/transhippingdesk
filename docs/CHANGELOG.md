@@ -8,8 +8,9 @@
   assistido com histórico e resumo sem PIX/anexo; Régua de Cobrança de Demurrage
   semanal, sem teto, ancorada em `first_billed_at`, com pausas por disputa ou
   falta de contato válido. A coluna financeira de Taxas Locais e a coluna da
-  Régua em Demurrage expõem os estados operacionais. Migrations `376`–`380`;
-  a antiga integração de invoice emitida foi removida e a exceção de Portal
+  Régua em Demurrage expõem os estados operacionais. Migrations `376`–`383`;
+  a antiga integração de invoice emitida foi removida, o runner automático recebeu
+  lease transacional e tratamento resiliente de simulação/bounces, e a exceção de Portal
   passou a ter audiência explícita para Documentação e Administrativo.
 
 ## 2026-08

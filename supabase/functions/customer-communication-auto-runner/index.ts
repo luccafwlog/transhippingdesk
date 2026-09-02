@@ -72,6 +72,7 @@ async function handler(req: Request): Promise<Response> {
       if (!recipients.length) {
         if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
       } else {
+        let resolvedRecipients = 0
         for (const recipient of recipients) {
           try {
             const response = await fetch(`${url}/functions/v1/send-customer-communication`, {
@@ -84,20 +85,23 @@ async function handler(req: Request): Promise<Response> {
                 vessel_name: candidate.vessel_name, voyage_number: candidate.voyage_number, origin: 'automatico',
               }),
             })
-            let result: { status?: string } | null = null
+            let result: { status?: string; suppressed?: boolean } | null = null
             try {
-              result = await response.json() as { status?: string }
+              result = await response.json() as { status?: string; suppressed?: boolean }
             } catch {
               // A successful HTTP response without the contract status is not a sent e-mail.
             }
-            if (response.ok && result?.status === 'enviado') count += 1
+            const isDeliveredOrSimulated = response.ok && (result?.status === 'enviado' || result?.status === 'simulado')
+            const isPermanentSuppression = response.status === 422 && Boolean(result?.suppressed)
+            if (isDeliveredOrSimulated) count += 1
+            if (isDeliveredOrSimulated || isPermanentSuppression) resolvedRecipients += 1
           } catch (dispatchError) {
             console.error('[customer-communication-auto-runner] falha de requisição', candidate.customer_id, recipient, dispatchError)
           }
         }
         // A claim covers the whole customer/port target, but delivery is per
-        // recipient. Release it when any recipient still needs a retry.
-        if (count < recipients.length) {
+        // recipient. Release it only when any recipient suffered a transient failure that needs a retry.
+        if (resolvedRecipients < recipients.length) {
           if (!await releaseClaimSafely(admin, candidate.claim_key)) releaseFailures += 1
         }
       }

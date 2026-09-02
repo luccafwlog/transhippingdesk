@@ -1440,6 +1440,24 @@ export type Database = {
           },
         ]
       }
+      customer_communication_automation_claims: {
+        Row: {
+          claim_key: string
+          claimed_at: string
+          released_at: string | null
+        }
+        Insert: {
+          claim_key: string
+          claimed_at?: string
+          released_at?: string | null
+        }
+        Update: {
+          claim_key?: string
+          claimed_at?: string
+          released_at?: string | null
+        }
+        Relationships: []
+      }
       customer_communication_bls: {
         Row: {
           bl_id: string
@@ -4870,6 +4888,10 @@ export type Database = {
         Args: { p_attempt_discriminator: number; p_demurrage_invoice_id: number }
         Returns: boolean
       }
+      release_customer_communication_automation_claim: {
+        Args: { p_claim_key: string }
+        Returns: boolean
+      }
       set_demurrage_dunning_interval_days: {
         Args: { p_days: number }
         Returns: number
@@ -5044,6 +5066,10 @@ export type Database = {
           p_reference_date: string
         }
         Returns: number
+      }
+      evaluate_and_dispatch_automatic_communications: {
+        Args: { p_as_of?: string }
+        Returns: Json
       }
       get_agency_report_actor_names: {
         Args: { p_port: string; p_voyage_id: number }
@@ -6141,6 +6167,7 @@ export type CustomerCommunication = Tables<'customer_communications'>
 export type CustomerCommunicationBl = Tables<'customer_communication_bls'>
 export type CustomerCommunicationAttempt = Tables<'customer_communication_attempts'>
 export type CustomerCommunicationSuppression = Tables<'customer_communication_suppressions'>
+export type CustomerCommunicationAutomationClaim = Tables<'customer_communication_automation_claims'>
 export type CustomerContactPreference = Tables<'customer_contact_preferences'>
 export type AppSettings = Tables<'app_settings'>
 export type CustomerPortalAccount = Tables<'customer_portal_accounts'>

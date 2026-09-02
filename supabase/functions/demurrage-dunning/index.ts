@@ -250,7 +250,7 @@ async function sendCandidate(
   for (const contact of contacts) {
     if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
     const recipient = normalizeEmail(contact.email)
-    const idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${candidate.claimed_at}:${recipient}`
+    const idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${recipient}`
     try {
       const sent = await sendEmail({
         kind: 'cobranca_demurrage',

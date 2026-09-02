@@ -531,6 +531,9 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
 - `demurrage-dunning`: acionada pelo cron com segredo próprio, reivindica as
   cobranças vencidas sem colisão, respeita disputas, contatos e supressões e
   delega o envio ao canal compartilhado de Comunicados;
+- `customer-communication-auto-runner`: acionada pelo cron a cada 15 minutos
+  com segredo server-side, avalia marcos de NOA e NOR, reivindica alvos via
+  claims transacionais recuperáveis e despacha os avisos operacionais;
 - `portal-daily-digest`: resumo diário interno;
 - `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage;
 

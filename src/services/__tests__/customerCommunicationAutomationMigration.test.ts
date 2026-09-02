@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const sql = [381, 382].map((version) => readFileSync(new URL(`../../../supabase/migrations/${version}_customer_communications_${version === 381 ? 'automation' : 'automation_reliability'}.sql`, import.meta.url), 'utf8')).join('\n')
+const sql = [
+  readFileSync(new URL('../../../supabase/migrations/381_customer_communications_automation.sql', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../../supabase/migrations/382_customer_communications_automation_reliability.sql', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../../supabase/migrations/383_comunicados_financeiros_revisao_fixes.sql', import.meta.url), 'utf8'),
+].join('\n')
 
 describe('contrato SQL da automação de Comunicados', () => {
   it('protege o runner por service_role, mantém claims idempotentes, suporta liberação e agenda o detector', () => {
@@ -17,5 +21,13 @@ describe('contrato SQL da automação de Comunicados', () => {
     expect(sql).toMatch(/released_at IS NOT NULL|claimed_at < v_as_of - interval '30 minutes'/)
     expect(sql).toMatch(/cron\.schedule\(/)
     expect(sql).toMatch(/'customer-communication-auto-runner'/)
+  })
+
+  it('migration 383 filtra supressões, evita re-execução em simulação e otimiza payload de taxas locais', () => {
+    expect(sql).toMatch(/pse\.reason = 'bounce_permanente'/)
+    expect(sql).toMatch(/FROM public\.customer_communication_suppressions ccs/)
+    expect(sql).toMatch(/sent\.status IN \('enviado', 'simulado'\)/)
+    expect(sql).toMatch(/JOIN base_bls b ON b\.bl_id = ib\.bl_id/)
+    expect(sql).toMatch(/JOIN base_bls b ON b\.bl_id = rl\.bl_id/)
   })
 })
