@@ -15,7 +15,7 @@ if [[ -z "$file_path" ]]; then
 fi
 
 case "$file_path" in
-  */src/types/database.ts|*/src/lib/pix.ts|*/supabase/migrations/*)
+  */src/types/database.ts|*/src/lib/pix.ts|*/supabase/migrations/*|*/supabase/migrations_archive/*)
     echo "BLOCKED: $file_path is in CLAUDE.md protected list (generated/spec/migrations)." >&2
     echo "If intentional, set CLAUDE_ALLOW_PROTECTED=1 and retry." >&2
     exit 2
