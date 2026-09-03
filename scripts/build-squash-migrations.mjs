@@ -46,15 +46,21 @@ SET row_security = off;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
--- Extensões: colocação alinhada à produção real, explícita (determinística).
--- O dump qualifica public.gin_trgm_ops (pg_trgm em public, como a 047 criou)
--- e as 267/366 criaram btree_gist sem schema (= public). Sem WITH SCHEMA, o
--- CREATE resolve pelo search_path do applier e uma sessão com search_path
--- diferente rearma o abort da 001 — por isso o schema é explícito aqui.
--- pgcrypto vive em extensions no Supabase e no shim do replay local (a 025
--- sem schema foi no-op sobre a extensão pré-instalada). uuid-ossp nunca
--- existiu na produção (zero ocorrências no arquivo morto; UUIDs usam
--- gen_random_uuid() do core) e não entra.
+-- Extensões: colocação best-effort com WITH SCHEMA explícito (M4 da revisão final).
+-- Em PG vanilla o dump qualifica public.gin_trgm_ops (pg_trgm criado em public
+-- pela 047, sem schema) e as 267/366 criaram btree_gist sem schema (= public no
+-- search_path vanilla). Sem WITH SCHEMA, o CREATE resolve pelo search_path do
+-- applier e uma sessão diferente rearma o abort da 001 — por isso o schema é
+-- explícito aqui.
+-- No Supabase real a plataforma pré-instala extensões em 'extensions' e o
+-- CREATE ... IF NOT EXISTS vira no-op quando a extensão já existe: a colocação
+-- efetiva segue a plataforma, não este header (Preview desta PR: btree_gist em
+-- extensions e uuid-ossp presente, embora nenhuma das 383 migrations o crie).
+-- Sem impacto prático: índices gist/trgm e constraints conferem nos dois
+-- layouts (replay A×B + Preview). uuid-ossp nunca foi criado por nenhuma
+-- migration (zero ocorrências no arquivo morto; UUIDs usam gen_random_uuid()
+-- do core) e não entra aqui — se presente, é pré-instalação da plataforma,
+-- não objeto do projeto.
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
@@ -415,10 +421,12 @@ function selfCheck() {
     console.error(`self-check FALHOU: ${msg}`)
     process.exit(1)
   }
-  // Bloqueante 1 no gerador: extensões com schema EXPLÍCITO (= determinístico,
-  // não depende do search_path do applier) e alinhado à produção — pg_trgm e
-  // btree_gist em public (047, 267, 366), pgcrypto em extensions, uuid-ossp
-  // ausente (nunca existiu em produção).
+  // Bloqueante 1 no gerador: extensões com WITH SCHEMA explícito (não depende
+  // do search_path do applier). pg_trgm e btree_gist miram public (047, 267, 366
+  // em PG vanilla); pgcrypto mira extensions. No Supabase real a plataforma pode
+  // já ter a extensão em 'extensions' e o IF NOT EXISTS vira no-op — colocação
+  // efetiva segue a plataforma, sem impacto (M4 da revisão final). uuid-ossp
+  // nunca foi criado por nenhuma migration e não entra aqui.
   for (const line of [
     'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;',
     'CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;',
@@ -427,7 +435,7 @@ function selfCheck() {
     if (!header001.includes(line)) fail(`header001 sem a linha determinística: ${line}`)
   }
   if (/CREATE EXTENSION[^;]*uuid-ossp/.test(header001)) {
-    fail('header001 cria uuid-ossp, que nunca existiu em produção.')
+    fail('header001 cria uuid-ossp, que nenhuma migration jamais criou.')
   }
   // Bloqueantes 2/3/4 nos seeds: no literal do gerador e no 002 comitado.
   checkSeeds(foundationCatalogs002, 'seed manual do gerador', fail)

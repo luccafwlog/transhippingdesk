@@ -129,7 +129,14 @@ jobs:
         # Supabase branches e `db reset` aplicam seed.sql automaticamente; sem
         # este passo, o caminho banco-novo+seed só era provado nos Previews,
         # nunca no gate da PR. Roda DEPOIS das asserções (elas são pré-seed).
+        # O próprio seed.sql já aborta se tarifas (3/24/12) ou depots (9/4/50)
+        # estiverem incompletos (B1 da revisão final: sem seed, 0/0/0).
         run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f - < supabase/seed.sql
+
+      - name: Log post-seed tariff counts
+        # Evidência B1: bootstrap exige migrations + seed; migrations sozinhas
+        # sobem sem tarifas. Só loga — a trava real está nas asserções do seed.
+        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -c "SELECT (SELECT count(*) FROM public.charge_tables) AS charge_tables, (SELECT count(*) FROM public.charge_table_items) AS charge_table_items, (SELECT count(*) FROM public.demurrage_rates) AS demurrage_rates;"
 
   # Gate único exigido pela proteção de branch: fica verde só quando todos os
   # jobs acima terminam verdes. Mantém um nome estável mesmo que os shards

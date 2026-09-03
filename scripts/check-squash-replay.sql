@@ -1,7 +1,7 @@
 -- Asserções pós-replay do schema consolidado v1.0 (PR 651 / ADR 0062).
 --
 -- Roda contra o Postgres descartável montado por scripts/setup-local-pg.sh,
--- DEPOIS das 4 migrations e ANTES do seed.sql: trava em banco real o que os
+-- DEPOIS das migrations consolidadas e ANTES do seed.sql: trava em banco real o que os
 -- gates estáticos não enxergam (a classe inteira do bloqueante 1 — SQL que não
 -- aplica — e as regressões de seed 2/3/4). Falha com EXCEPTION (exit != 0 via
 -- ON_ERROR_STOP=1). Uso no CI: job migration-replay em .github/workflows/ci.yml.
@@ -22,6 +22,11 @@ DECLARE
   v_trgm INTEGER;
   v_catalog INTEGER;
   v_ativas INTEGER;
+  v_funcs INTEGER;
+  v_policies INTEGER;
+  v_triggers INTEGER;
+  v_nosearch INTEGER;
+  v_norls INTEGER;
 BEGIN
   -- Estrutura mínima sobrevivendo ao apply (bloqueante 1 morria na 001).
   -- Piso, não igualdade: tabelas futuras somem, nunca subtraem.
@@ -58,11 +63,52 @@ BEGIN
     RAISE EXCEPTION 'agency_report_pending_baselines sem as 2 chaves de 251/271.';
   END IF;
 
+  -- Pisos estruturais (M3 da revisao final): funcoes, policies,
+  -- triggers, RLS e search_path das SECURITY DEFINER. Pisos, nao igualdades:
+  -- a 005 adiciona rls_auto_enable (398 funcoes) sem quebrar este gate.
+  SELECT COUNT(*) INTO v_funcs FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public'
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_depend d
+        WHERE d.objid = p.oid AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e'
+     );
+  IF v_funcs < 397 THEN
+    RAISE EXCEPTION 'Funcoes do projeto em public: % (piso 397).', v_funcs;
+  END IF;
+  SELECT COUNT(*) INTO v_policies FROM pg_policies WHERE schemaname = 'public';
+  IF v_policies < 273 THEN
+    RAISE EXCEPTION 'Policies RLS em public: % (piso 273).', v_policies;
+  END IF;
+  SELECT COUNT(*) INTO v_triggers FROM pg_trigger t
+    JOIN pg_class rel ON rel.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = rel.relnamespace
+   WHERE n.nspname = 'public' AND NOT t.tgisinternal;
+  IF v_triggers < 144 THEN
+    RAISE EXCEPTION 'Triggers em public: % (piso 144).', v_triggers;
+  END IF;
+  SELECT COUNT(*) INTO v_norls FROM pg_class rel
+    JOIN pg_namespace n ON n.oid = rel.relnamespace
+   WHERE n.nspname = 'public' AND rel.relkind = 'r' AND NOT rel.relrowsecurity;
+  IF v_norls <> 0 THEN
+    RAISE EXCEPTION 'Tabelas de public sem RLS: %.', v_norls;
+  END IF;
+  SELECT COUNT(*) INTO v_nosearch FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.prosecdef
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_depend d
+        WHERE d.objid = p.oid AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e'
+     )
+     AND (p.proconfig IS NULL OR NOT array_to_string(p.proconfig, chr(10)) ILIKE '%search_path%');
+  IF v_nosearch <> 0 THEN
+    RAISE EXCEPTION 'SECURITY DEFINER sem search_path: %.', v_nosearch;
+  END IF;
   -- Grant líquido novo da 004 (sem ele, o navegador recebe 42501).
   IF NOT has_function_privilege('authenticated', 'public.delete_baplie_manifest_for_voyage(bigint)', 'EXECUTE') THEN
     RAISE EXCEPTION 'GRANT da 004 ausente para authenticated em delete_baplie_manifest_for_voyage.';
   END IF;
 
-  RAISE NOTICE 'check-squash-replay OK: >=106 tabelas, 2 índices trgm, catálogo >=32/29, 2 baselines, grant 004.';
+  RAISE NOTICE 'check-squash-replay OK: >=106 tabelas, >=397 funcoes, >=273 policies, >=144 triggers, RLS total, search_path total, 2 indices trgm, catalogo >=32/29, 2 baselines, grant 004.';
 END;
 $squash_replay$;

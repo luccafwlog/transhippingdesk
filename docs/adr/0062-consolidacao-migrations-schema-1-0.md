@@ -36,7 +36,7 @@ Com o sistema pronto para a versão 1.0 e antes de sua entrada formal em produç
 
 4. **Numeração das Migrações Futuras e Correção da RPC BAPLIE:**
    - Novas migrações pós-v1.0 continuam a convenção sequencial de três dígitos (ADR 0016). A `003` está ocupada pela camada do item 5 (`003_pos_squash_objetos_fora_do_dump.sql`).
-   - A migration `004_vazios_delete_baplie_grant.sql` concede `EXECUTE` em `public.delete_baplie_manifest_for_voyage(bigint)` a `authenticated` e `service_role`, sanando a omissão histórica da migration arquivada 097 (que havia revogado de `PUBLIC`/`anon` sem conceder ao papel autenticado). A próxima migration de produto é `005_nome_da_migration.sql`.
+   - A migration `004_vazios_delete_baplie_grant.sql` concede `EXECUTE` em `public.delete_baplie_manifest_for_voyage(bigint)` a `authenticated` e `service_role`, sanando a omissão histórica da migration arquivada 097 (que havia revogado de `PUBLIC`/`anon` sem conceder ao papel autenticado). A migration `005_pg_net_jobs_rls_guard.sql` (nota nº 3) instala `pg_net`, reafirma os 4 jobs HTTP da 003 em bancos já provisionados e versiona a guarda `rls_auto_enable()`/`ensure_rls`. A próxima migration de produto é `006_nome_da_migration.sql`.
 
 5. **Objetos fora do recorte do dump:**
    - As 001 e 002 nascem de um `pg_dump` do schema `public`. Três classes de objeto vivas em produção ficam estruturalmente fora desse recorte e precisam ser mantidas à mão: os defaults de privilégio (`pg_default_acl`, ADR 0047 / migration arquivada 297), os agendamentos `pg_cron` (schema `cron`) e os buckets e policies de Storage (schema `storage`).
@@ -73,6 +73,47 @@ original) — e isso é fidelidade, não falha: o arquivo morto também não as
 declara, e o replay comparado A×B em PostgreSQL 16 confirma zero divergência
 de constraints. Ler como "com os comportamentos `ON DELETE` originais
 preservados".
+
+## Nota editorial — 2026-09-03, nº 3 (não reescreve a decisão acima)
+
+Revisão final independente da PR 651 (4 bancos reais: produção, replay do
+arquivo morto, replay consolidado e Preview). Veredito: sem regressão —
+106 tabelas, 1.121 colunas, 397 funções com corpos idênticos entre A e B,
+273 policies, 144 triggers, 307 índices e RLS em 106/106, com `alert_type_catalog` em 32/29 de conteúdo idêntico ao de produção. Ajustes assumidos aqui:
+
+- **pg_net é política nova, não restauração (A3).** Nenhuma das 383 migrations
+  jamais rodou `CREATE EXTENSION pg_net` (zero ocorrências no arquivo morto).
+  Produção tem 5 jobs e nenhum pg_net; o ambiente novo sobe com 7 (+ digest
+  condicional), ganhando `alerts-foundation-detectors`, `demurrage-dunning`
+  e `customer-communication-auto-runner`. É defensável (as Edge Functions
+  estão deployadas e ociosas sem ele), e fica explicitamente assumido como
+  decisão — o mesmo rigor que recusou endurecer revokes de tabela/sequência.
+- **Colocação de extensões: best-effort (M4).** Em PG vanilla, pg_trgm e
+  btree_gist nascem em `public` (047/267/366 sem schema); no Supabase real a
+  plataforma pré-instala extensões em `extensions` (Preview: btree_gist em
+  extensions, uuid-ossp presente sem que nenhuma migration o crie) e o
+  `CREATE ... IF NOT EXISTS` vira no-op. Sem impacto prático — índices e
+  constraints batem nos dois layouts. Ler os comentários de colocação da 001
+  como intenção, não como garantia de catálogo.
+- **Tarifas vivem no seed (B1).** `charge_tables`/`charge_table_items`/
+  `demurrage_rates` saem das migrations zerados (0/0/0) e convergem pós-seed
+  para 3/24/12, com asserções no próprio `seed.sql`. Bootstrap só com
+  migrations sobe sem tarifas — o CI aplica o seed após o replay justamente
+  para travar esse caminho.
+- **Baselines 2 × produção 0 (B2).** Divergência pré-existente (A == B): as
+  migrations criam as 2 chaves de 251/271 e produção tem 0. O gate exige as 2
+  (estado desejado: detectores sem disparo retroativo), não paridade com hoje.
+- **anon sem SELECT no ambiente novo (B3).** Produção concede SELECT a anon em
+  87/106 tabelas (default de plataforma materializado na criação); o ambiente
+  novo concede 0 — mais restrito, com as mesmas 273 policies. As 4 tabelas em
+  que o novo concede SELECT a `authenticated` sem produção conceder não têm
+  policy nenhuma: a RLS nega tudo. Sem vazamento.
+- **Preview reutiliza versões registradas (A1/A2).** O branching do Supabase só
+  aplica arquivos novos: se 001/002 mudarem após o primeiro push, a branch
+  segue híbrida até ser resetada (deletar a branch no Dashboard + novo push, ou
+  fechar/reabrir a PR) e reconferida (32/29, 2 baselines, 7 jobs, 2 buckets,
+  `pg_default_acl` fechado). A 003 só é validada em Supabase real — o replay
+  local tem stub cron no-op e nenhum schema storage.
 
 ## Consequências
 
