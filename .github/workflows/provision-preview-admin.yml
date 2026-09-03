@@ -78,13 +78,18 @@ jobs:
           exit 1
 
       - name: Load branch credentials
+        # O `-o env` do CLI emite formato dotenv (`KEY="valor"`). O $GITHUB_ENV
+        # espera `KEY=valor` cru e não remove aspas: anexar sem decodificar
+        # deixava cada credencial com aspas literais e o provisionamento
+        # quebrava em `Invalid supabaseUrl` (PR 652). O pipefail acima garante
+        # que uma falha do CLI também reprova o step.
         run: |
           set -euo pipefail
           : "${SUPABASE_ACCESS_TOKEN:?Configure o secret SUPABASE_ACCESS_TOKEN.}"
           : "${SUPABASE_PROJECT_REF:?Configure o secret SUPABASE_PROJECT_REF.}"
           : "${PR_HEAD_REF:?PR_HEAD_REF ausente}"
           supabase --experimental branches get "$PR_HEAD_REF" \
-            --project-ref "$SUPABASE_PROJECT_REF" -o env >> "$GITHUB_ENV"
+            --project-ref "$SUPABASE_PROJECT_REF" -o env | node scripts/load-branch-env.mjs
 
       - name: Provision test admin
         run: node scripts/provision-preview-admin.mjs

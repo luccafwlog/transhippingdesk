@@ -197,6 +197,39 @@ BEGIN
     RAISE EXCEPTION 'Buckets obrigatorios de Storage ausentes apos migrations.';
   END IF;
 
+  -- Contrato 007 / ADR 0063: Vault, dispatcher ops e os 4 jobs HTTP via
+  -- dispatcher. Pisos e presencas, nao igualdades: jobs futuros somem sem
+  -- quebrar este gate; o que nao pode voltar e segredo literal no comando.
+  IF to_regclass('vault.secrets') IS NULL
+     OR to_regclass('vault.decrypted_secrets') IS NULL THEN
+    RAISE EXCEPTION 'Vault ausente apos migrations (007).';
+  END IF;
+  IF to_regprocedure('ops.dispatch_edge_job(text,text,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'ops.dispatch_edge_job ausente apos migrations (007).';
+  END IF;
+  SELECT COUNT(*) INTO v_funcs FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'ops' AND p.proname = 'dispatch_edge_job' AND p.prosecdef;
+  IF v_funcs <> 0 THEN
+    RAISE EXCEPTION 'ops.dispatch_edge_job nao pode ser SECURITY DEFINER (007/ADR 0063).';
+  END IF;
+  IF has_schema_privilege('anon', 'ops', 'USAGE')
+     OR has_schema_privilege('authenticated', 'ops', 'USAGE') THEN
+    RAISE EXCEPTION 'schema ops alcancavel por anon/authenticated (007).';
+  END IF;
+  SELECT COUNT(*) INTO v_funcs FROM cron.job;
+  IF v_funcs < 8 THEN
+    RAISE EXCEPTION 'Jobs pg_cron: % (piso 8 da 007).', v_funcs;
+  END IF;
+  SELECT COUNT(*) INTO v_funcs FROM cron.job
+   WHERE jobname IN ('portal-daily-digest', 'alerts-foundation-detectors',
+                     'demurrage-dunning', 'customer-communication-auto-runner')
+     AND active
+     AND command LIKE 'SELECT ops.dispatch_edge_job(%';
+  IF v_funcs <> 4 THEN
+    RAISE EXCEPTION 'Jobs HTTP fora do dispatcher 007: % de 4.', v_funcs;
+  END IF;
+
   RAISE NOTICE 'check-squash-replay OK: estrutura, ACL/RLS, defaults futuros, RPCs service_role, catalogos, Storage e prerequisitos operacionais.';
 END;
 $squash_replay$;
