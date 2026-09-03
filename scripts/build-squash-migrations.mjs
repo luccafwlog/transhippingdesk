@@ -446,7 +446,7 @@ function selfCheck() {
     if (!committed001.includes(line)) fail(`001 comitada sem a linha determinística: ${line}`)
   }
   if (/CREATE EXTENSION[^;]*uuid-ossp/.test(committed001)) fail('001 comitada cria uuid-ossp.')
-  if (/REVOKE ALL ON ALL TABLES|REVOKE ALL ON ALL SEQUENCES/.test(committed001)) {
+  if (/REVOKE ALL ON (ALL )?TABLES|REVOKE ALL ON (ALL )?SEQUENCES/.test(committed001)) {
     fail('001 comitada com revoke de tabela/sequência: política nova, não reprodução da 297 (só funções).')
   }
   const seed002idx = committed002.indexOf('INSERT INTO public.alert_type_catalog (')
@@ -469,9 +469,10 @@ function selfCheck() {
 }
 
 // Invariantes dos bloqueantes 2/3/4 sobre um texto SQL contendo o seed do
-// catálogo. Lê LINHAS DE TUPLA (`('tipo', ..., true|false),`) em vez de regex
-// cruzando statements: reflow que junte ou quebre linhas não inverte o
-// veredito — a flag `active` é sempre a última coluna da tupla.
+// catálogo. Lê por FRAGMENTO de tupla (fronteiras `), (`), não por linha nem
+// por regex cruzando statements: nem reflow que junte tuplas nem linha
+// quebrada no meio prendem a flag à tupla errada — cada flag `active` é lida
+// dentro dos parênteses da própria tupla (última coluna).
 function checkSeeds(text, label, fail) {
   for (const needle of [
     "'portal_reprocessamento_falhou'",
@@ -485,7 +486,9 @@ function checkSeeds(text, label, fail) {
   // caractere e a guarda degrada para no-op silencioso.
   const conflictIdx = text.search(/ON CONFLICT\s*\(\s*type\s*\)/)
   if (conflictIdx === -1) fail(`${label} sem ON CONFLICT (type) no upsert do catálogo.`)
-  const upsertStmt = text.slice(conflictIdx, text.indexOf(';', conflictIdx))
+  const stmtEnd = text.indexOf(';', conflictIdx)
+  if (stmtEnd === -1) fail(`${label}: upsert do catálogo sem terminador ';'.`)
+  const upsertStmt = text.slice(conflictIdx, stmtEnd)
   if (/\bactive\b/.test(upsertStmt)) fail(`${label}: DO UPDATE do catálogo toca em active (reativa aposentados 347/348).`)
   // Tuplas do seed: tipo -> flag active declarada. Lê por FRAGMENTO de tupla
   // (fronteiras `), (`), não por linha nem por regex cruzando statements: nem
@@ -506,4 +509,3 @@ function checkSeeds(text, label, fail) {
     if (tuples.get(t) !== 'false') fail(`${label}: tipo aposentado ${t} sem active = false no seed.`)
   }
 }
-

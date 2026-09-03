@@ -125,6 +125,12 @@ jobs:
         # Mesmo padrão de scripts/setup-local-pg.sh:118 (< "$f").
         run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f - < scripts/check-squash-replay.sql
 
+      - name: Apply seed on the replayed database
+        # Supabase branches e `db reset` aplicam seed.sql automaticamente; sem
+        # este passo, o caminho banco-novo+seed só era provado nos Previews,
+        # nunca no gate da PR. Roda DEPOIS das asserções (elas são pré-seed).
+        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f - < supabase/seed.sql
+
   # Gate único exigido pela proteção de branch: fica verde só quando todos os
   # jobs acima terminam verdes. Mantém um nome estável mesmo que os shards
   # mudem de quantidade.

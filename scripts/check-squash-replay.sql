@@ -10,6 +10,9 @@
 -- PISOS e PRESENÇAS dos objetos que os bloqueantes destruíram — nunca
 -- igualdades absolutas contra o schema de hoje. A migration 005 que adicionar
 -- uma tabela, um tipo de alerta ou uma baseline não pode falhar aqui.
+-- Tripwire assumido e documentado: aposentar um 4º tipo de alerta (além do
+-- trio 347/348) derruba o piso de ativas de propósito — quem aposentar atualiza
+-- o piso e este comentário juntos.
 --
 -- Rollback: n/a (somente leitura; banco descartável).
 

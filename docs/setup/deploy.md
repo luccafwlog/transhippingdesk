@@ -296,7 +296,9 @@ reaplicar a policy da migration 170. A migration 356 aplica a mesma reconciliaç
 migrations aplicadas não devem ser reescritas fora de uma migration explícita de
 reconciliação. A exceção documentada é o squash v1.0 (PR 651 / ADR 0062), cuja
 reconciliação do histórico remoto via `supabase migration repair` está em
-`docs/operations/squash-schema-v1-deploy.md`. A migration 362 corrige a autorização do backfill da divergência
+`docs/operations/squash-schema-v1-deploy.md` (inclui o procedimento de
+reversão).
+A migration 362 corrige a autorização do backfill da divergência
 Baplie/BL e mantém as reimportações atômicas sem transições intermediárias. A
 Vercel nunca executa migrations implicitamente.
 

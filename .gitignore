@@ -44,3 +44,6 @@ artifacts/qa-display-production/inventory.json
 
 # Canvas semeado do design de /viagens (~2 MB, embute o editor; regerado por seed-canvas.mjs)
 artifacts/design-viagens/viagens-tres-direcoes.html
+
+# Saída intermediária do gerador do squash (PR 651): nunca entra no CLI nem no git
+supabase/test_*.sql

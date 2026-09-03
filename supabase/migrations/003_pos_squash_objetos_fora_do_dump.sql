@@ -108,10 +108,13 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_net') THEN
     BEGIN
-      -- pg_net é não-relocável: instala-se sempre no schema `net`. Com
-      -- WITH SCHEMA o CREATE falha, o handler abaixo rebaixa para WARNING e
-      -- os quatro jobs HTTP nunca são agendados por esse caminho.
-      EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net';
+      -- WITH SCHEMA funciona na instalação (docs oficiais do Supabase e dumps
+      -- reais: `CREATE EXTENSION ... "pg_net" WITH SCHEMA "extensions"`).
+      -- `extrelocatable = false` bloqueia só mover DEPOIS (ALTER ... SET
+      -- SCHEMA); os objetos chamáveis vivem de todo modo no schema `net`
+      -- (`net.http_post`), que é o que os gates abaixo verificam. Registrar em
+      -- `extensions` evita ainda o WARN `extension_in_public` sem benefício.
+      EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions';
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'pg_net indisponivel neste banco (%); os jobs HTTP nao serao criados.', SQLERRM;
     END;

@@ -3,15 +3,16 @@ import { describe, expect, it, vi } from 'vitest'
 
 // Por que este arquivo existe.
 //
-// Depois do squash (ADR 0062) `src/test/setup.ts` redireciona toda leitura de
-// `supabase/migrations/` para `supabase/migrations_archive/`, para que os 201
-// testes de contrato das migrations históricas continuem passando sem serem
-// reescritos. O efeito colateral é que NENHUM desses testes enxerga mais o
-// schema que de fato é aplicado: eles auditam arquivos mortos.
+// Depois do squash (ADR 0062) `src/test/setup.ts` serve a UNIÃO do diretório
+// ativo (`supabase/migrations/`, primeiro) com o arquivo morto
+// (`supabase/migrations_archive/`), para que os 201 testes de contrato das
+// migrations históricas continuem passando sem serem reescritos — e os
+// invariantes de futuro continuem enxergando o schema ativo. Os 6 testes de
+// contrato pontual histórico vivem escopados ao arquivo morto.
 //
-// Este arquivo é a contrapartida. Ele usa `vi.importActual` para escapar do
-// mock e ler o diretório real, e trava no schema ATIVO as invariantes que a
-// suíte histórica costumava garantir sobre a cadeia inteira.
+// Este arquivo é a contrapartida direta. Ele usa `vi.importActual` para
+// escapar do mock e ler o diretório real, e trava no schema ATIVO as
+// invariantes que a suíte histórica costumava garantir sobre a cadeia inteira.
 async function realFs() {
   return vi.importActual<typeof import('node:fs')>('node:fs')
 }
@@ -41,7 +42,7 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
       expect(nome).toMatch(/^\d{3}_[a-z0-9_]+\.sql$/)
     }
     // ADR 0016 no diretório ativo: ordem lexicográfica = ordem de aplicação
-    // exige prefixos únicos — um futuro 004 duplicado falha aqui, não no push.
+    // exige prefixos únicos — um futuro 005 duplicado falha aqui, não no push.
     const prefixos = nomes.map((nome) => nome.split('_')[0])
     expect(new Set(prefixos).size).toBe(prefixos.length)
   })
