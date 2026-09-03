@@ -140,14 +140,13 @@ por outro papel podem não enxergar os mesmos objetos e falhar barulhentamente.
   #### Reversão (se o reparo precisar ser desfeito)
   O reparo só reescreve `supabase_migrations.schema_migrations` — nenhum dado
   de negócio é tocado, então a volta é a operação inversa, na ordem inversa.
-  Pré-condição: o merge correspondente ter sido revertido no git. Após o
-  revert, `supabase/migrations_archive/` deixa de existir (foi criado nesta
-  PR) e os legados voltam para `supabase/migrations/` — o `list` abaixo lê
-  esse diretório; confira com o Passo 0.
-  Ressalva: o repo pós-revert só vai até a `375` — as `376`–`384` (dunning,
-  auto-runner, readiness) nasceram nesta PR junto do squash, então o rollback
-  do squash arrasta o rollback dessas features junto, e a cadeia `376`–`384`
-  só é restaurável a partir do `backup_pre_squash.sql` do Passo 1:
+  Pré-condição: o merge da PR 651 ter sido revertido no git. Após o
+  revert, os 383 legados voltam para `supabase/migrations/` — o `list` abaixo
+  lê esse diretório; confira com o Passo 0. O
+  `supabase/migrations_archive/` continua existindo (foi criado na PR 650, já
+  em `main`, e o CLI o ignora), e as `376`–`384` voltam intactas junto dos
+  demais legados — nenhuma feature é arrastada pelo rollback, pois dunning,
+  auto-runner, readiness e todo o resto já estavam em `main` antes do squash:
   ```bash
   LEGADAS=$(ls supabase/migrations/*.sql | sed 's/.*\///;s/_.*//' | tr '\n' ' ')
   supabase migration repair --linked --status applied $LEGADAS

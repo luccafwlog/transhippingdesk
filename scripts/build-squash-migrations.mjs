@@ -446,7 +446,7 @@ function selfCheck() {
     if (!committed001.includes(line)) fail(`001 comitada sem a linha determinística: ${line}`)
   }
   if (/CREATE EXTENSION[^;]*uuid-ossp/.test(committed001)) fail('001 comitada cria uuid-ossp.')
-  if (/REVOKE ALL ON (ALL )?TABLES|REVOKE ALL ON (ALL )?SEQUENCES/.test(committed001)) {
+  if (/REVOKE ALL ON (ALL )?TABLES?|REVOKE ALL ON (ALL )?SEQUENCES?/.test(committed001)) {
     fail('001 comitada com revoke de tabela/sequência: política nova, não reprodução da 297 (só funções).')
   }
   const seed002idx = committed002.indexOf('INSERT INTO public.alert_type_catalog (')

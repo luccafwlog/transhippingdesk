@@ -64,6 +64,16 @@ marcado com `ponytail:` em `src/test/setup.ts`, e a cobertura do artefato ativo
 segue nos gates citados no item 3 mais o `migration-replay` do CI
 (`scripts/check-squash-replay.sql`, replay real em PostgreSQL descartável).
 
+## Nota editorial — 2026-09-03, nº 2 (não reescreve a decisão acima)
+
+O item 1 da decisão diz "chaves estrangeiras com comportamento `ON DELETE`
+explícito". Precisão: 48 das 201 FKs da `001` não declaram ação (ex.:
+referências a `auth.users(id)` e `voyage_id` herdados da `001_schema.sql`
+original) — e isso é fidelidade, não falha: o arquivo morto também não as
+declara, e o replay comparado A×B em PostgreSQL 16 confirma zero divergência
+de constraints. Ler como "com os comportamentos `ON DELETE` originais
+preservados".
+
 ## Consequências
 
 - O tempo de bootstrap de novos ambientes, bancos de testes descartáveis e branches de preview do Supabase é drasticamente reduzido.

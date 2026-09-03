@@ -31,8 +31,8 @@ type ErrorTableEntry = ClassifiedDbError & {
   preserveMessage?: boolean
 }
 
-// 22023/P0002 sao os codigos que as RPCs do Portal (supabase/migrations/116,
-// 117) e varios RPCs internos (025, 108, 239, 242, 244, 248...) usam para
+// 22023/P0002 sao os codigos que as RPCs do Portal (supabase/migrations_archive/116_portal_fase2_notifications_disputes_profile.sql,
+// 117_portal_fase3_rate_limiting.sql) e varios RPCs internos (025, 108, 239, 242, 244, 248...) usam para
 // RAISE EXCEPTION com mensagens de negocio prontas para o usuario final
 // (ex.: "Esta fatura ja possui uma disputa em aberto.", "Depot exige entrada
 // e saida validas.") — por isso preservam a mensagem, como 42501. 23514
