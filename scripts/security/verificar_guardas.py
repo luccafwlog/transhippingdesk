@@ -264,10 +264,15 @@ def estado_final():
                 r'(?:GRANT|REVOKE)\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+.+?;', sql, re.I | re.S):
             aplicar_acl(m.group(0), m.group(0).upper().startswith('GRANT'))
 
-        # Filtros TAG de event triggers (ex.: WHEN TAG IN ('CREATE TABLE',
-        # 'CREATE TABLE AS', ...)) não são DDL: sem isso, 'CREATE TABLE AS'
-        # vira a tabela fantasma 'as', sem RLS, e o check [1] falha à toa.
-        exp_sem_tags = re.sub(r'WHEN\s+TAG\s+IN\s*\(.*?\)', 'WHEN TAG IN ()', exp, flags=re.I | re.S)
+         # Filtros de tags de event triggers (WHEN TAG/command_tag IN (...))
+         # não são DDL: sem isso, CREATE TABLE AS vira a tabela fantasma
+         # 'as', sem RLS, e o check [1] falha à toa.
+         exp_sem_tags = re.sub(
+             r'(?:WHEN\s+TAG|command_tag)\s+IN\s*\(.*?\)',
+             'DDL_TAG_FILTER()',
+             exp,
+             flags=re.I | re.S,
+         )
         for m in re.finditer(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?', exp_sem_tags, re.I):
             tabelas.setdefault(m.group(1), base)
         for m in re.finditer(r'DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?', exp, re.I):
