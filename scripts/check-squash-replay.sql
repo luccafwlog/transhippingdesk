@@ -27,6 +27,8 @@ DECLARE
   v_triggers INTEGER;
   v_nosearch INTEGER;
   v_norls INTEGER;
+  v_table TEXT;
+  v_function TEXT;
 BEGIN
   -- Estrutura mínima sobrevivendo ao apply (bloqueante 1 morria na 001).
   -- Piso, não igualdade: tabelas futuras somem, nunca subtraem.
@@ -109,6 +111,92 @@ BEGIN
     RAISE EXCEPTION 'GRANT da 004 ausente para authenticated em delete_baplie_manifest_for_voyage.';
   END IF;
 
-  RAISE NOTICE 'check-squash-replay OK: >=106 tabelas, >=397 funcoes, >=273 policies, >=144 triggers, RLS total, search_path total, 2 indices trgm, catalogo >=32/29, 2 baselines, grant 004.';
+  -- RLS nao substitui ACL: o PostgREST verifica o grant antes da policy.
+  FOREACH v_table IN ARRAY ARRAY[
+    'agency_departure_reports', 'baplie_containers', 'billing_batches',
+    'bl_transshipments', 'customer_demurrage_agreements',
+    'demurrage_invoice_history', 'demurrage_invoice_items',
+    'demurrage_invoices', 'demurrage_rates', 'portal_provisioning_events',
+    'portal_suppressed_emails', 'vazios_export_operations',
+    'voyage_export_schedules', 'voyage_omissions', 'voyage_route_ce_master'
+  ] LOOP
+    IF NOT has_table_privilege('authenticated', format('public.%I', v_table), 'SELECT') THEN
+      RAISE EXCEPTION 'authenticated sem SELECT em public.%', v_table;
+    END IF;
+  END LOOP;
+
+  FOREACH v_table IN ARRAY ARRAY[
+    'baplie_containers', 'billing_batches',
+    'customer_demurrage_agreements', 'demurrage_invoice_items',
+    'demurrage_invoices', 'demurrage_rates', 'vazios_export_operations',
+    'voyage_export_schedules', 'voyage_route_ce_master'
+  ] LOOP
+    IF NOT has_table_privilege('authenticated', format('public.%I', v_table), 'INSERT,UPDATE,DELETE') THEN
+      RAISE EXCEPTION 'authenticated sem mutacao em public.%', v_table;
+    END IF;
+  END LOOP;
+
+  -- INSERTs que usam BIGSERIAL precisam de USAGE na sequência, além do ACL
+  -- da tabela. Sem isso o primeiro insert falha em nextval() com 42501.
+  FOREACH v_table IN ARRAY ARRAY[
+    'baplie_containers_id_seq', 'billing_batches_id_seq',
+    'bl_transshipments_id_seq', 'customer_demurrage_agreements_id_seq',
+    'demurrage_invoice_history_id_seq', 'demurrage_invoice_items_id_seq',
+    'demurrage_invoices_id_seq', 'demurrage_rates_id_seq',
+    'portal_provisioning_events_id_seq', 'portal_suppressed_emails_id_seq',
+    'voyage_omissions_id_seq'
+  ] LOOP
+    IF NOT has_sequence_privilege('authenticated', format('public.%I', v_table), 'USAGE') THEN
+      RAISE EXCEPTION 'authenticated sem USAGE em public.%', v_table;
+    END IF;
+  END LOOP;
+
+  -- Defaults futuros devem nascer fechados, nao apenas as funcoes atuais.
+  EXECUTE 'CREATE FUNCTION public.__check_default_acl() RETURNS integer LANGUAGE sql AS $$ SELECT 1 $$';
+  IF has_function_privilege('anon', 'public.__check_default_acl()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.__check_default_acl()', 'EXECUTE') THEN
+    EXECUTE 'DROP FUNCTION public.__check_default_acl()';
+    RAISE EXCEPTION 'default EXECUTE de funcao futura continua aberto a anon/authenticated.';
+  END IF;
+  EXECUTE 'DROP FUNCTION public.__check_default_acl()';
+
+  FOREACH v_function IN ARRAY ARRAY[
+    'public._portal_log_event(bigint,bigint,bigint,text,text,text,text,text,text,text)',
+    'public.portal_login_check_rate_limit(text)',
+    'public.portal_login_register_failure(text)',
+    'public.portal_login_register_success(text)',
+    'public.portal_recovery_check_rate_limit(text)',
+    'public.portal_recovery_register_failure(text)'
+  ] LOOP
+    IF NOT has_function_privilege('service_role', v_function, 'EXECUTE') THEN
+      RAISE EXCEPTION 'service_role sem EXECUTE em %', v_function;
+    END IF;
+  END LOOP;
+
+  -- Um replay somente de migrations precisa entregar os catalogos que o app
+  -- consulta antes de qualquer seed de desenvolvimento.
+  IF (SELECT COUNT(*) FROM public.charge_tables) < 3
+     OR (SELECT COUNT(*) FROM public.charge_table_items) < 24
+     OR (SELECT COUNT(*) FROM public.demurrage_rates) < 12
+     OR (SELECT COUNT(*) FROM public.depots) < 9
+     OR (SELECT COUNT(*) FROM public.depot_services) < 50 THEN
+    RAISE EXCEPTION 'Catalogos operacionais incompletos apos migrations: charge_tables=%, items=%, rates=%, depots=%, services=%',
+      (SELECT COUNT(*) FROM public.charge_tables),
+      (SELECT COUNT(*) FROM public.charge_table_items),
+      (SELECT COUNT(*) FROM public.demurrage_rates),
+      (SELECT COUNT(*) FROM public.depots),
+      (SELECT COUNT(*) FROM public.depot_services);
+  END IF;
+
+  IF to_regproc('net.http_post') IS NULL OR to_regclass('cron.job') IS NULL
+     OR to_regclass('storage.buckets') IS NULL THEN
+    RAISE EXCEPTION 'Prerequisitos pg_net, pg_cron ou Storage ausentes apos migrations.';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'demurrage-disputes')
+     OR NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'customer-communications') THEN
+    RAISE EXCEPTION 'Buckets obrigatorios de Storage ausentes apos migrations.';
+  END IF;
+
+  RAISE NOTICE 'check-squash-replay OK: estrutura, ACL/RLS, defaults futuros, RPCs service_role, catalogos, Storage e prerequisitos operacionais.';
 END;
 $squash_replay$;

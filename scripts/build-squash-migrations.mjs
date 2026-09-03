@@ -40,8 +40,12 @@ SET row_security = off;
 -- divergência que o squash existe para eliminar.
 --
 -- Precisa vir antes de qualquer CREATE: default privilege só vale na criação.
--- Os GRANT explícitos da 002 restauram exatamente o ACL auditado em produção.
+-- Os GRANT explícitos da 002/006 restauram o ACL operacional sem depender de
+-- defaults implícitos do projeto Supabase.
 -- ---------------------------------------------------------------------------
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
@@ -434,6 +438,10 @@ function selfCheck() {
   ]) {
     if (!header001.includes(line)) fail(`header001 sem a linha determinística: ${line}`)
   }
+  const globalFunctionDefaultRevoke = /ALTER DEFAULT PRIVILEGES\s+FOR ROLE postgres\s+REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;/is
+  if (!globalFunctionDefaultRevoke.test(header001)) {
+    fail('header001 sem revoke global de EXECUTE para funções futuras.')
+  }
   if (/CREATE EXTENSION[^;]*uuid-ossp/.test(header001)) {
     fail('header001 cria uuid-ossp, que nenhuma migration jamais criou.')
   }
@@ -456,6 +464,9 @@ function selfCheck() {
   if (/CREATE EXTENSION[^;]*uuid-ossp/.test(committed001)) fail('001 comitada cria uuid-ossp.')
   if (/REVOKE ALL ON (ALL )?TABLES?|REVOKE ALL ON (ALL )?SEQUENCES?/.test(committed001)) {
     fail('001 comitada com revoke de tabela/sequência: política nova, não reprodução da 297 (só funções).')
+  }
+  if (!globalFunctionDefaultRevoke.test(committed001)) {
+    fail('001 comitada sem revoke global de EXECUTE para funções futuras.')
   }
   const seed002idx = committed002.indexOf('INSERT INTO public.alert_type_catalog (')
   if (seed002idx === -1) fail('bloco de seed do catálogo sumiu do 002 comitado.')

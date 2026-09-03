@@ -57,7 +57,7 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
     // pg_default_acl, fora do schema, e não sai em pg_dump: sem inverter isso
     // aqui, um banco novo nasce mais aberto do que produção.
     const fechamento = estrutura!.match(
-      /ALTER\s+DEFAULT\s+PRIVILEGES[^;]*?REVOKE\s+EXECUTE\s+ON\s+FUNCTIONS\s+FROM\s+[^;]*PUBLIC[^;]*\banon\b[^;]*;/is,
+      /ALTER\s+DEFAULT\s+PRIVILEGES\s+FOR\s+ROLE\s+postgres\s+REVOKE\s+EXECUTE\s+ON\s+FUNCTIONS\s+FROM\s+[^;]*PUBLIC[^;]*\banon\b[^;]*;/is,
     )
     expect(fechamento).not.toBeNull()
 

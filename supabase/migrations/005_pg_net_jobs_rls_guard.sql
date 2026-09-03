@@ -163,16 +163,19 @@ CREATE OR REPLACE FUNCTION public.rls_auto_enable()
 RETURNS event_trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $func_rls_auto_enable$
 DECLARE
   r RECORD;
 BEGIN
   FOR r IN
     SELECT * FROM pg_event_trigger_ddl_commands()
-    WHERE schema_name = 'public' AND object_type = 'table'
+    WHERE schema_name = 'public'
+      AND object_type = 'table'
+      AND command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
   LOOP
-    EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', r.object_identity);
+    EXECUTE format('ALTER TABLE IF EXISTS %s ENABLE ROW LEVEL SECURITY', r.object_identity);
+    RAISE LOG 'ensure_rls enabled RLS on %', r.object_identity;
   END LOOP;
 END;
 $func_rls_auto_enable$;

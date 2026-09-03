@@ -313,7 +313,7 @@ node scripts/build-squash-migrations.mjs
 Check runnable (sem dump, <1s, roda no CI): trava as invariantes que já
 quebraram o squash uma vez — `pg_trgm` em `public`, seeds manuais do catálogo
 de alertas e das baselines, e ausência de referências do 001 para funções
-definidas só no 002:
+definidas só no 002, além do revoke global de defaults de funções:
 
 ```
 node scripts/build-squash-migrations.mjs --self-check
@@ -325,6 +325,10 @@ node scripts/build-squash-migrations.mjs --self-check
 > `pg_cron` (schema `cron`) e os buckets e policies de Storage (schema
 > `storage`). Regenerar sem reaplicar essa camada derruba, em silêncio, toda a
 > automação agendada e os anexos. Veja o item 5 da ADR 0062.
+
+Após a regeneração, preserve e valide também as migrations pós-squash
+`003`–`006`; a `006` é o contrato de convergência para bancos já provisionados
+e não deve ser substituída pelo dump.
 
 ---
 

@@ -29,6 +29,9 @@ SET row_security = off;
 -- Os GRANT explícitos da 002 restauram exatamente o ACL auditado em produção.
 -- ---------------------------------------------------------------------------
 
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 

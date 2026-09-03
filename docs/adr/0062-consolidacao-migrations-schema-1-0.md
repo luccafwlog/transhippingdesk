@@ -20,7 +20,7 @@ Com o sistema pronto para a versão 1.0 e antes de sua entrada formal em produç
 1. **Substituição da cadeia em `supabase/migrations/` pelo Schema Inicial v1.0:**
    - `001_initial_schema.sql`: DDL estrutural definitivo contendo as 106 tabelas sobreviventes, sequências, tipos, chaves primárias, constraints de checagem, índices otimizados e chaves estrangeiras com comportamento `ON DELETE` explícito; inclui o catálogo canônico de portos brasileiros (`public.ports`) necessário para vínculos de terminais e escalas.
    - `002_business_logic_and_security.sql`: Lógica de negócio, funções auxiliares, triggers de manutenção de `updated_at`, funções RPCs consolidadas com `SECURITY DEFINER` e `SET search_path = public, pg_temp;`, habilitação e definição das 273 políticas RLS ativas, catálogos essenciais de sistema (`app_settings`, `customer_communication_kinds`, `customer_communication_templates`, `alert_type_catalog`) e fechamento de privilégios conforme a ADR 0047.
-   - `seed.sql`: Preservado intacto como carga canônica de faturamento (taxas locais, tarifas de Demurrage e serviços de terminais/depots com asserções de integridade).
+    - `seed.sql`: Preservado como carga canônica de reset/desenvolvimento (taxas locais, tarifas de Demurrage e serviços de terminais/depots com asserções de integridade); a migration `006` bootstrapa o mesmo catálogo quando o banco está vazio.
 
 2. **Criação do Arquivo Morto (`supabase/migrations_archive/`):**
    - Todas as 383 migrações históricas originais são preservadas integralmente em `supabase/migrations_archive/`, com paridade criptográfica (SHA-256) atestada.
@@ -36,7 +36,7 @@ Com o sistema pronto para a versão 1.0 e antes de sua entrada formal em produç
 
 4. **Numeração das Migrações Futuras e Correção da RPC BAPLIE:**
    - Novas migrações pós-v1.0 continuam a convenção sequencial de três dígitos (ADR 0016). A `003` está ocupada pela camada do item 5 (`003_pos_squash_objetos_fora_do_dump.sql`).
-   - A migration `004_vazios_delete_baplie_grant.sql` concede `EXECUTE` em `public.delete_baplie_manifest_for_voyage(bigint)` a `authenticated` e `service_role`, sanando a omissão histórica da migration arquivada 097 (que havia revogado de `PUBLIC`/`anon` sem conceder ao papel autenticado). A migration `005_pg_net_jobs_rls_guard.sql` (nota nº 3) instala `pg_net`, reafirma os 4 jobs HTTP da 003 em bancos já provisionados e versiona a guarda `rls_auto_enable()`/`ensure_rls`. A próxima migration de produto é `006_nome_da_migration.sql`.
+    - A migration `004_vazios_delete_baplie_grant.sql` concede `EXECUTE` em `public.delete_baplie_manifest_for_voyage(bigint)` a `authenticated` e `service_role`, sanando a omissão histórica da migration arquivada 097 (que havia revogado de `PUBLIC`/`anon` sem conceder ao papel autenticado). A migration `005_pg_net_jobs_rls_guard.sql` (nota nº 3) instala `pg_net`, reafirma os 4 jobs HTTP da 003 em bancos já provisionados e versiona a guarda `rls_auto_enable()`/`ensure_rls`. A `006_operational_contract_hardening.sql` fecha os ACLs de tabelas/sequências e RPCs, converge baselines e catálogos, e falha explicitamente quando os pré-requisitos externos não existem.
 
 5. **Objetos fora do recorte do dump:**
    - As 001 e 002 nascem de um `pg_dump` do schema `public`. Três classes de objeto vivas em produção ficam estruturalmente fora desse recorte e precisam ser mantidas à mão: os defaults de privilégio (`pg_default_acl`, ADR 0047 / migration arquivada 297), os agendamentos `pg_cron` (schema `cron`) e os buckets e policies de Storage (schema `storage`).
@@ -95,14 +95,10 @@ arquivo morto, replay consolidado e Preview). Veredito: sem regressão —
   `CREATE ... IF NOT EXISTS` vira no-op. Sem impacto prático — índices e
   constraints batem nos dois layouts. Ler os comentários de colocação da 001
   como intenção, não como garantia de catálogo.
-- **Tarifas vivem no seed (B1).** `charge_tables`/`charge_table_items`/
-  `demurrage_rates` saem das migrations zerados (0/0/0) e convergem pós-seed
-  para 3/24/12, com asserções no próprio `seed.sql`. Bootstrap só com
-  migrations sobe sem tarifas — o CI aplica o seed após o replay justamente
-  para travar esse caminho.
-- **Baselines 2 × produção 0 (B2).** Divergência pré-existente (A == B): as
-  migrations criam as 2 chaves de 251/271 e produção tem 0. O gate exige as 2
-  (estado desejado: detectores sem disparo retroativo), não paridade com hoje.
+- **Catálogos e baselines (B1/B2).** A `006` tornou o contrato operacional
+  executável também em bancos novos e em produção convergida: bootstrapa os
+  catálogos vazios, garante as duas baselines idempotentemente e o gate verifica
+  os pisos. O `seed.sql` permanece a carga de reset e a fonte de dados canônica.
 - **anon sem SELECT no ambiente novo (B3).** Produção concede SELECT a anon em
   87/106 tabelas (default de plataforma materializado na criação); o ambiente
   novo concede 0 — mais restrito, com as mesmas 273 policies. As 4 tabelas em
