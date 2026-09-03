@@ -204,7 +204,7 @@ BEGIN
      OR to_regclass('vault.decrypted_secrets') IS NULL THEN
     RAISE EXCEPTION 'Vault ausente apos migrations (007).';
   END IF;
-  IF to_regproc('ops.dispatch_edge_job(text,text,text,text)') IS NULL THEN
+  IF to_regprocedure('ops.dispatch_edge_job(text,text,text,text)') IS NULL THEN
     RAISE EXCEPTION 'ops.dispatch_edge_job ausente apos migrations (007).';
   END IF;
   SELECT COUNT(*) INTO v_funcs FROM pg_proc p
