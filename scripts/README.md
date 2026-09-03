@@ -292,6 +292,13 @@ O uso normal é automático pelo workflow
 está saudável. A senha vem de `PREVIEW_ADMIN_PASSWORD` e nunca deve ser
 colocada em `VITE_*` ou no repositório.
 
+> O step `Load branch credentials` do workflow não anexa a saída do CLI
+> direto ao `$GITHUB_ENV`: o `supabase branches get -o env` emite formato
+> dotenv (`KEY="valor"`) e o `$GITHUB_ENV` espera valor cru — sem decodificar,
+> cada credencial chegava com aspas literais e o provisionamento quebrava em
+> `Invalid supabaseUrl`. A decodificação mora em `load-branch-env.mjs`
+> (com regressão em `load-branch-env.test.mjs`, via `node --test`).
+
 ---
 
 ## 12. Reconstruir o schema consolidado v1.0 (`build-squash-migrations`)
@@ -347,4 +354,5 @@ e não deve ser substituída pelo dump.
 | `no-mistakes/setup` | Ligar a proteção contra erros de Git |
 | `migracao-demurrage/dry-run` | Ensaiar a migração do Demurrage Manager (só lê) |
 | `provision-preview-admin` | Provisionar o usuário admin da branch Preview |
+| `load-branch-env` | Decodificar o `-o env` do CLI para o `$GITHUB_ENV` (usado pelo provisionamento) |
 | `build-squash-migrations` | Reconstruir o schema consolidado v1.0 a partir de um dump |
