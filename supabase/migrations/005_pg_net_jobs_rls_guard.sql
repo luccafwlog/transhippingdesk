@@ -189,10 +189,11 @@ BEGIN
         ON ddl_command_end
         WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
         EXECUTE FUNCTION public.rls_auto_enable();
-    EXCEPTION WHEN insufficient_privilege THEN
-      RAISE WARNING '005: sem privilegio para CREATE EVENT TRIGGER neste banco; ensure_rls nao criado. Criar manualmente como superuser (ver runbook).';
-    EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING '005: ensure_rls nao criado (%).', SQLERRM;
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        RAISE WARNING '005: sem privilegio para CREATE EVENT TRIGGER neste banco; ensure_rls nao criado. Criar manualmente como superuser (ver runbook).';
+      WHEN OTHERS THEN
+        RAISE WARNING '005: ensure_rls nao criado (%).', SQLERRM;
     END;
   END IF;
 END;

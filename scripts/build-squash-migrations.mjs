@@ -473,7 +473,60 @@ function selfCheck() {
   if (!/ALTER TABLE public\.audit_logs ALTER COLUMN actor_role SET DEFAULT/.test(committed002)) {
     fail('diferimento do default de audit_logs sumiu do fim do 002.')
   }
+  checkSingleExceptionPerBlock(fail);
+  check003vs005Jobs(fail);
   console.log('self-check OK: extensões, seeds 2/3/4 (gerador + comitados) e guarda de refs.')
+}
+
+// Anti-regressão da 005 (PR 651, pós-merge): um bloco BEGIN com dois EXCEPTION
+// seguidos não aplica em banco nenhum — e o erro só aparecia no replay real.
+// Heurística: entre dois EXCEPTIONs não pode faltar um BEGIN/END (cada
+// EXCEPTION fecha exatamente um bloco). Roda sobre 001–005 comitados.
+function checkSingleExceptionPerBlock(fail) {
+  let files = [];
+  try {
+    files = fs
+      .readdirSync('supabase/migrations')
+      .filter((f) => f.endsWith('.sql'))
+      .sort()
+      .map((f) => ['supabase/migrations/' + f, fs.readFileSync('supabase/migrations/' + f, 'utf8')]);
+  } catch {
+    fail('rode a partir da raiz do repo (supabase/migrations/*.sql).');
+  }
+  const noComments = (sql) => sql.replace(/^\s*--.*$/gm, '');
+  for (const [name, sql] of files) {
+    const body = noComments(sql);
+    const re = /\bEXCEPTION\b(?:(?!\b(?:BEGIN|END)\b)[\s\S])*?\bEXCEPTION\b/i;
+    const m = body.match(re);
+    if (m) {
+      const line = body.slice(0, m.index).split('\n').length;
+      fail(name + ':' + line + ': dois EXCEPTION no mesmo bloco BEGIN (PL/pgSQL aceita um EXCEPTION com N WHENs). Trecho: ' + m[0].slice(0, 90).replace(/\s+/g, ' ') + '…');
+    }
+  }
+}
+
+// Anti-divergência 003↔005 (PR 651): a 005 reafirma em produção os 4 jobs HTTP
+// canônicos da 003. Os corpos cron.schedule devem ser idênticos (normalizado
+// por whitespace); a 003 continua canônica para bancos novos.
+function check003vs005Jobs(fail) {
+  let a, b;
+  try {
+    a = fs.readFileSync('supabase/migrations/003_pos_squash_objetos_fora_do_dump.sql', 'utf8');
+    b = fs.readFileSync('supabase/migrations/005_pg_net_jobs_rls_guard.sql', 'utf8');
+  } catch {
+    fail('rode a partir da raiz do repo (supabase/migrations/*.sql).');
+  }
+  const norm = (s) => s.replace(/\s+/g, ' ').trim();
+  for (const job of ['portal-daily-digest', 'alerts-foundation-detectors', 'demurrage-dunning', 'customer-communication-auto-runner']) {
+    const rx = new RegExp("PERFORM cron\\.schedule\\(\\s*'" + job + "'[\\s\\S]+?\\);");
+    const ma = a.match(rx);
+    const mb = b.match(rx);
+    if (!ma) fail('job ' + job + ' sumiu da 003 (canônica).');
+    if (!mb) fail('job ' + job + ' sumiu da 005 (reparo de produção).');
+    if (ma && mb && norm(ma[0]) !== norm(mb[0])) {
+      fail('job ' + job + ' divergiu entre 003 e 005; manter idênticos.');
+    }
+  }
 }
 
 // Invariantes dos bloqueantes 2/3/4 sobre um texto SQL contendo o seed do
