@@ -47,6 +47,23 @@ Com o sistema pronto para a versão 1.0 e antes de sua entrada formal em produç
    - O harness de `fs` em `src/test/setup.ts` foi adotado como ponte transitória para viabilizar o squash sem reescrever centenas de testes legados.
    - Como evolução planejada pré-produção, os testes que apenas afirmavam estrutura pontual histórica ("migration N contém X") serão aposentados em bloco, enquanto os que verificam invariantes de futuro serão reescritos contra o schema ativo (`supabase/migrations/`).
 
+## Nota editorial — 2026-09-03 (não reescreve a decisão acima)
+
+O item 3 descreve o harness como "listagens passam a responder o conjunto
+canônico arquivado". Esse comportamento foi supersessão ainda na PR 651:
+`src/test/setup.ts` passa a responder a UNIÃO do diretório ativo
+(`supabase/migrations/`) com o arquivo morto — ativos primeiro, sem duplicata.
+Motivo: com só-arquivo, os testes escritos como invariante de futuro (ex.
+`portalInvoiceDetailsAnonGrantInvariant.test.ts`) ficariam cegos às migrations
+novas (`005_*` em diante); a união mantém os 201 testes legados verdes e deixa
+os invariantes enxergarem o schema que é de fato aplicado. Seis testes de
+contrato pontual histórico foram escopados ao arquivo morto porque o snapshot
+concentrado falseava `.find`/spans; a unicidade de prefixos do ativo vive em
+`consolidatedSchemaInvariants.test.ts`. O custo da ponte transitória segue
+marcado com `ponytail:` em `src/test/setup.ts`, e a cobertura do artefato ativo
+segue nos gates citados no item 3 mais o `migration-replay` do CI
+(`scripts/check-squash-replay.sql`, replay real em PostgreSQL descartável).
+
 ## Consequências
 
 - O tempo de bootstrap de novos ambientes, bancos de testes descartáveis e branches de preview do Supabase é drasticamente reduzido.

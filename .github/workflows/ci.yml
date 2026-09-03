@@ -120,7 +120,10 @@ jobs:
         run: sudo scripts/setup-local-pg.sh --reset
 
       - name: Assert replayed schema invariants
-        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f scripts/check-squash-replay.sql
+        # stdin (-) em vez de -f caminho: o usuário postgres do SO não tem
+        # travessia no diretório do checkout (Permission denied com -f).
+        # Mesmo padrão de scripts/setup-local-pg.sh:118 (< "$f").
+        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f - < scripts/check-squash-replay.sql
 
   # Gate único exigido pela proteção de branch: fica verde só quando todos os
   # jobs acima terminam verdes. Mantém um nome estável mesmo que os shards

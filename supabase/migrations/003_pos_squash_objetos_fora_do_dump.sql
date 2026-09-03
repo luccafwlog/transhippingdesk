@@ -24,11 +24,12 @@
 
 
 -- ===========================================================================
--- Fechamento default-deny de privilégios (ADR 0047 / migration arquivada 297)
+-- Varredura default-deny de EXECUTE em funções (ADR 0047 / migration 297)
 -- ===========================================================================
--- A parte 1 (defaults do schema) vive na 001, porque default privilege só vale
--- no momento da criação do objeto. Esta é a parte 2 da 297: a varredura do
--- resíduo. Ela NÃO é redundante com a 001, e não deve ser removida por parecer:
+-- A parte 1 (default do schema) vive na 001, porque default privilege só vale
+-- no momento da criação do objeto. Esta é a parte 2 da 297, fiel ao original:
+-- a varredura do resíduo em FUNÇÕES. Ela NÃO é redundante com a 001, e não
+-- deve ser removida por parecer:
 --
 --   - No Supabase, a 001 fecha o default aberto da plataforma; a varredura é a
 --     rede para o caso de os objetos nascerem sob outro papel.
@@ -37,6 +38,11 @@
 --     PostgreSQL dá a PUBLIC quando nunca houve um default configurado — o
 --     `pg_default_acl` fica vazio e `proacl` continua NULL. Ali é esta varredura
 --     que fecha as 397 funções.
+--
+-- Escopo deliberadamente restrito a funções, como a 297: nenhuma migration
+-- arquivada revogou tabela ou sequência de `anon`, e revogar aqui criaria
+-- política nova que diverge produção de preview. A fronteira de tabelas é a
+-- RLS, reproduzida pela 002.
 --
 -- Nada aqui remove os GRANT explícitos da 002: apenas PUBLIC e `anon` (e
 -- `authenticated` em função de trigger, que nunca é chamada por RPC) são
@@ -79,9 +85,6 @@ BEGIN
   RAISE NOTICE 'Funções varridas: %', v_count;
 END;
 $default_deny$;
-
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon;
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon;
 
 
 -- ===========================================================================

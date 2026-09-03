@@ -263,14 +263,21 @@ O runner automático de NOA/NOR exige o segredo server-side
 `CUSTOMER_COMMUNICATION_AUTOMATION_SECRET`. O mesmo valor deve estar disponível
 como `app.settings.customer_communication_automation_secret` no banco, junto de
 `app.settings.supabase_url`, para que o `pg_cron` consiga chamar a Edge Function.
-Após aplicar as migrations 381 a 384, valide os jobs `demurrage-dunning` e
+Após aplicar as migrations, valide os jobs `demurrage-dunning` e
 `customer-communication-auto-runner`, e não exponha nenhum dos segredos no frontend.
+(As migrations `381` a `384` que criaram essa automação vivem hoje em
+`supabase/migrations_archive/`; seus efeitos estão consolidados em
+`supabase/migrations/003_pos_squash_objetos_fora_do_dump.sql` para os jobs e em
+`001`/`002` para o schema.)
 Claims abandonadas da automação possuem lease de 30 minutos e podem ser retomadas pelo ciclo
 seguinte; falhas de liberação aparecem como erro do runner.
 
 Migrations continuam sendo aplicadas no Supabase, em ordem e antes do deploy de
 código que dependa delas, pelo branch action da integração GitHub no Preview e
-pelo deploy de produção quando `main` recebe o merge. As migrations
+pelo deploy de produção quando `main` recebe o merge. As reconciliações abaixo
+vivem hoje em `supabase/migrations_archive/` (efeitos preservados nas
+migrations consolidadas `001`–`004`); a descrição histórica é mantida porque
+explica o estado atual da produção. As migrations
 `351_reconcile_branch_schema_drift.sql`,
 `352_reconcile_remaining_runtime_drift.sql` e
 `354_reconcile_import_batches_timestamp.sql` reassertam, de forma idempotente,
@@ -287,7 +294,9 @@ branches automáticas que já registraram a 352 antes dessa proteção. A migrat
 reaplicar a policy da migration 170. A migration 356 aplica a mesma reconciliação
 à versão 341, cujo nome histórico remoto também divergia do arquivo local;
 migrations aplicadas não devem ser reescritas fora de uma migration explícita de
-reconciliação. A migration 362 corrige a autorização do backfill da divergência
+reconciliação. A exceção documentada é o squash v1.0 (PR 651 / ADR 0062), cuja
+reconciliação do histórico remoto via `supabase migration repair` está em
+`docs/operations/squash-schema-v1-deploy.md`. A migration 362 corrige a autorização do backfill da divergência
 Baplie/BL e mantém as reimportações atômicas sem transições intermediárias. A
 Vercel nunca executa migrations implicitamente.
 

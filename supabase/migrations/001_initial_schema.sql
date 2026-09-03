@@ -11,35 +11,39 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 -- ---------------------------------------------------------------------------
--- ADR 0047 — os defaults de privilégio do schema `public` nascem fechados.
+-- ADR 0047 — o default de EXECUTE em funções nasce fechado.
 --
--- O Supabase mantém, por padrão, ALTER DEFAULT PRIVILEGES que concedem acesso a
--- `anon` e `authenticated` em TODA tabela, sequência e função nova de `public`.
--- A migration arquivada 297 inverteu esse default em produção. Esses defaults
--- vivem em `pg_default_acl`, fora do schema — o dump que originou este arquivo
--- não os carrega, e sem esta seção um banco novo (branch de preview, `supabase
--- db reset`) nasceria MAIS ABERTO que produção: `anon` receberia ALL nas 106
--- tabelas e EXECUTE nas 397 funções.
+-- O Supabase concede, por padrão, EXECUTE em toda função nova de `public` a
+-- `anon` e `authenticated` (somado ao EXECUTE embutido do PostgreSQL a
+-- PUBLIC). A migration arquivada 297 inverteu esse default em produção — SÓ
+-- para funções. Nenhuma migration arquivada jamais revogou privilégio de
+-- tabela ou sequência de `anon` (o único ON ALL TABLES do histórico é o GRANT
+-- a `authenticated` da 002_rls): tabelas e sequências seguem o default da
+-- plataforma e a fronteira real é a RLS, habilitada em todas as tabelas.
+-- Este arquivo reproduz exatamente isso: fecha só o default de funções.
+-- Endurecer tabelas/sequências seria política nova, e divergiria
+-- produção (com os grants da plataforma) de preview (sem eles) — a
+-- divergência que o squash existe para eliminar.
 --
 -- Precisa vir antes de qualquer CREATE: default privilege só vale na criação.
 -- Os GRANT explícitos da 002 restauram exatamente o ACL auditado em produção.
 -- ---------------------------------------------------------------------------
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE ALL ON TABLES FROM PUBLIC, anon;
-
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE ALL ON SEQUENCES FROM PUBLIC, anon;
-
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+-- Extensões: colocação alinhada à produção real, explícita (determinística).
+-- O dump qualifica public.gin_trgm_ops (pg_trgm em public, como a 047 criou)
+-- e as 267/366 criaram btree_gist sem schema (= public). Sem WITH SCHEMA, o
+-- CREATE resolve pelo search_path do applier e uma sessão com search_path
+-- diferente rearma o abort da 001 — por isso o schema é explícito aqui.
+-- pgcrypto vive em extensions no Supabase e no shim do replay local (a 025
+-- sem schema foi no-op sobre a extensão pré-instalada). uuid-ossp nunca
+-- existiu na produção (zero ocorrências no arquivo morto; UUIDs usam
+-- gen_random_uuid() do core) e não entra.
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
--- pg_trgm fica em public, como na migration arquivada 047: o dump qualifica
--- os opclasses como public.gin_trgm_ops e o apply quebra se ela for para extensions.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 
 --

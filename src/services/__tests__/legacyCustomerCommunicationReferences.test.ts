@@ -7,7 +7,6 @@ const ignoredPaths = [
   'docs/archive/',
   'docs/adr/',
   'supabase/migrations_archive/',
-  'supabase/migrations/371_importacao_captura_contato_do_manifesto.sql',
 ]
 const inspectableExtensions = new Set(['.csv', '.md', '.sql', '.toml', '.ts', '.tsx', '.xlsx'])
 

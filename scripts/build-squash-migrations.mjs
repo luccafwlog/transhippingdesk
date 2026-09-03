@@ -25,35 +25,39 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 -- ---------------------------------------------------------------------------
--- ADR 0047 — os defaults de privilégio do schema \`public\` nascem fechados.
+-- ADR 0047 — o default de EXECUTE em funções nasce fechado.
 --
--- O Supabase mantém, por padrão, ALTER DEFAULT PRIVILEGES que concedem acesso a
--- \`anon\` e \`authenticated\` em TODA tabela, sequência e função nova de \`public\`.
--- A migration arquivada 297 inverteu esse default em produção. Esses defaults
--- vivem em \`pg_default_acl\`, fora do schema — o dump que originou este arquivo
--- não os carrega, e sem esta seção um banco novo (branch de preview, \`supabase
--- db reset\`) nasceria MAIS ABERTO que produção: \`anon\` receberia ALL nas 106
--- tabelas e EXECUTE nas 397 funções.
+-- O Supabase concede, por padrão, EXECUTE em toda função nova de \`public\` a
+-- \`anon\` e \`authenticated\` (somado ao EXECUTE embutido do PostgreSQL a
+-- PUBLIC). A migration arquivada 297 inverteu esse default em produção — SÓ
+-- para funções. Nenhuma migration arquivada jamais revogou privilégio de
+-- tabela ou sequência de \`anon\` (o único ON ALL TABLES do histórico é o GRANT
+-- a \`authenticated\` da 002_rls): tabelas e sequências seguem o default da
+-- plataforma e a fronteira real é a RLS, habilitada em todas as tabelas.
+-- Este arquivo reproduz exatamente isso: fecha só o default de funções.
+-- Endurecer tabelas/sequências seria política nova, e divergiria
+-- produção (com os grants da plataforma) de preview (sem eles) — a
+-- divergência que o squash existe para eliminar.
 --
 -- Precisa vir antes de qualquer CREATE: default privilege só vale na criação.
 -- Os GRANT explícitos da 002 restauram exatamente o ACL auditado em produção.
 -- ---------------------------------------------------------------------------
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE ALL ON TABLES FROM PUBLIC, anon;
-
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE ALL ON SEQUENCES FROM PUBLIC, anon;
-
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+-- Extensões: colocação alinhada à produção real, explícita (determinística).
+-- O dump qualifica public.gin_trgm_ops (pg_trgm em public, como a 047 criou)
+-- e as 267/366 criaram btree_gist sem schema (= public). Sem WITH SCHEMA, o
+-- CREATE resolve pelo search_path do applier e uma sessão com search_path
+-- diferente rearma o abort da 001 — por isso o schema é explícito aqui.
+-- pgcrypto vive em extensions no Supabase e no shim do replay local (a 025
+-- sem schema foi no-op sobre a extensão pré-instalada). uuid-ossp nunca
+-- existiu na produção (zero ocorrências no arquivo morto; UUIDs usam
+-- gen_random_uuid() do core) e não entra.
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
--- pg_trgm fica em public, como na migration arquivada 047: o dump qualifica
--- os opclasses como public.gin_trgm_ops e o apply quebra se ela for para extensions.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 `
 
 const header002 = `-- Transhipping Desk — Schema Inicial v1.0 (Lógica de Negócio, Triggers e Segurança)
@@ -104,6 +108,7 @@ const descartadosDePropósito = new Set([
 
 const tiposDesconhecidos = new Set()
 const discardedExtensions = []
+const discardedTableData = []
 
 for (const b of blocks) {
   const m = b.match(/-- Name: (.*?); Type: (.*?); Schema: (.*?);/)
@@ -113,8 +118,12 @@ for (const b of blocks) {
   if (descartadosDePropósito.has(type)) {
     // A colocação real das extensões em produção é descartada aqui e vem do
     // cabeçalho manual header001: listar sem abortar, para a regeneração
-    // continuar auditável (pg_trgm precisa ficar em public — bloqueante da PR 651).
+    // continuar auditável (pg_trgm e btree_gist precisam ficar em public —
+    // bloqueantes da PR 651). TABLE DATA recebe o mesmo tratamento: foi a
+    // classe que apagou os seeds 2/3/4, e sem o log uma regeneração futura
+    // perde linhas de catálogo em silêncio de novo.
     if (type === 'EXTENSION') discardedExtensions.push(`${schema}.${name}`)
+    if (type === 'TABLE DATA') discardedTableData.push(`${schema}.${name}`)
     continue
   }
 
@@ -157,6 +166,13 @@ if (tiposDesconhecidos.size > 0) {
 if (discardedExtensions.length > 0) {
   console.error('EXTENSION descartadas do dump (a colocação aplicada vem do header001 manual):')
   for (const e of discardedExtensions.sort()) console.error(`  - ${e}`)
+}
+
+if (discardedTableData.length > 0) {
+  console.error(
+    'TABLE DATA descartados do dump (o dump não carrega linhas; cada um precisa de seed manual em foundationCatalogs002 ou análogo):',
+  )
+  for (const t of discardedTableData.sort()) console.error(`  - ${t}`)
 }
 
 // O split 001/002 é sintático: um DEFAULT, CHECK ou índice do 001 que chame
@@ -390,37 +406,54 @@ function assertNoForwardFunctionRefs(b001, b002) {
 
 // Check runnable (CLAUDE.md): trava sem dump as invariantes que já quebraram
 // o squash uma vez. Uso: node scripts/build-squash-migrations.mjs --self-check
+//
+// Verifica o GERADOR (literais header001/foundationCatalogs002) E os ARTEFATOS
+// comitados (supabase/migrations/001/002): editar o seed à mão no 002 sem
+// passar pelo gerador também falha aqui — não só no migration-replay.
 function selfCheck() {
   const fail = (msg) => {
     console.error(`self-check FALHOU: ${msg}`)
     process.exit(1)
   }
-  // Bloqueante 1 no gerador: pg_trgm sem schema (= public, como a 047).
-  if (!/^CREATE EXTENSION IF NOT EXISTS pg_trgm;$/m.test(header001)) {
-    fail('header001 não cria pg_trgm em public — regenerar reintroduz o abort da 001.')
-  }
-  // Bloqueantes 2/3/4 nos seeds manuais.
-  for (const needle of [
-    "'portal_reprocessamento_falhou'",
-    "'voyage_pol_schedule_atd'",
-    "'agency_report_deadline_missed'",
+  // Bloqueante 1 no gerador: extensões com schema EXPLÍCITO (= determinístico,
+  // não depende do search_path do applier) e alinhado à produção — pg_trgm e
+  // btree_gist em public (047, 267, 366), pgcrypto em extensions, uuid-ossp
+  // ausente (nunca existiu em produção).
+  for (const line of [
+    'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;',
+    'CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;',
+    'CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;',
   ]) {
-    if (!foundationCatalogs002.includes(needle)) fail(`seed manual sem ${needle}.`)
+    if (!header001.includes(line)) fail(`header001 sem a linha determinística: ${line}`)
   }
-  const alertUpsert = foundationCatalogs002.slice(foundationCatalogs002.indexOf('ON CONFLICT (type)'))
-  if (/\bactive\b/.test(alertUpsert)) fail('DO UPDATE do catálogo de alertas reativa aposentados (347/348).')
-  for (const t of ['invoice_overdue', 'invoice_payment_invalid', 'invoice_cancel_blocked']) {
-    if (!new RegExp(`\\('${t}'[^;]*?, false\\)`).test(foundationCatalogs002)) {
-      fail(`tipo aposentado ${t} sem active = false no seed.`)
-    }
+  if (/CREATE EXTENSION[^;]*uuid-ossp/.test(header001)) {
+    fail('header001 cria uuid-ossp, que nunca existiu em produção.')
   }
-  // Guarda de refs contra os arquivos comprometidos de verdade.
+  // Bloqueantes 2/3/4 nos seeds: no literal do gerador e no 002 comitado.
+  checkSeeds(foundationCatalogs002, 'seed manual do gerador', fail)
+  // Guarda de refs + seeds contra os arquivos comprometidos de verdade.
   let committed001, committed002
   try {
     committed001 = fs.readFileSync('supabase/migrations/001_initial_schema.sql', 'utf8')
     committed002 = fs.readFileSync('supabase/migrations/002_business_logic_and_security.sql', 'utf8')
   } catch {
     fail('rode a partir da raiz do repo (supabase/migrations/*.sql).')
+  }
+  for (const line of [
+    'CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;',
+    'CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;',
+  ]) {
+    if (!committed001.includes(line)) fail(`001 comitada sem a linha determinística: ${line}`)
+  }
+  if (/CREATE EXTENSION[^;]*uuid-ossp/.test(committed001)) fail('001 comitada cria uuid-ossp.')
+  if (/REVOKE ALL ON ALL TABLES|REVOKE ALL ON ALL SEQUENCES/.test(committed001)) {
+    fail('001 comitada com revoke de tabela/sequência: política nova, não reprodução da 297 (só funções).')
+  }
+  const seed002idx = committed002.indexOf('INSERT INTO public.alert_type_catalog (')
+  if (seed002idx === -1) fail('bloco de seed do catálogo sumiu do 002 comitado.')
+  checkSeeds(committed002.slice(seed002idx), '002 comitado', fail)
+  if (!committed002.includes('INSERT INTO public.agency_report_pending_baselines')) {
+    fail('seed das baselines sumiu do 002 comitado.')
   }
   const fns001 = definedFunctions(committed001)
   const only002 = [...definedFunctions(committed002)].filter((n) => !fns001.has(n))
@@ -432,6 +465,45 @@ function selfCheck() {
   if (!/ALTER TABLE public\.audit_logs ALTER COLUMN actor_role SET DEFAULT/.test(committed002)) {
     fail('diferimento do default de audit_logs sumiu do fim do 002.')
   }
-  console.log('self-check OK: pg_trgm, seeds 2/3/4 e guarda de refs.')
+  console.log('self-check OK: extensões, seeds 2/3/4 (gerador + comitados) e guarda de refs.')
+}
+
+// Invariantes dos bloqueantes 2/3/4 sobre um texto SQL contendo o seed do
+// catálogo. Lê LINHAS DE TUPLA (`('tipo', ..., true|false),`) em vez de regex
+// cruzando statements: reflow que junte ou quebre linhas não inverte o
+// veredito — a flag `active` é sempre a última coluna da tupla.
+function checkSeeds(text, label, fail) {
+  for (const needle of [
+    "'portal_reprocessamento_falhou'",
+    "'voyage_pol_schedule_atd'",
+    "'agency_report_deadline_missed'",
+  ]) {
+    if (!text.includes(needle)) fail(`${label} sem ${needle}.`)
+  }
+  // Guarda do bloqueante 3: o DO UPDATE nunca pode tocar em `active`.
+  // indexOf === -1 antes do slice: sem isso, slice(-1) devolve o último
+  // caractere e a guarda degrada para no-op silencioso.
+  const conflictIdx = text.search(/ON CONFLICT\s*\(\s*type\s*\)/)
+  if (conflictIdx === -1) fail(`${label} sem ON CONFLICT (type) no upsert do catálogo.`)
+  const upsertStmt = text.slice(conflictIdx, text.indexOf(';', conflictIdx))
+  if (/\bactive\b/.test(upsertStmt)) fail(`${label}: DO UPDATE do catálogo toca em active (reativa aposentados 347/348).`)
+  // Tuplas do seed: tipo -> flag active declarada. Lê por FRAGMENTO de tupla
+  // (fronteiras `), (`), não por linha nem por regex cruzando statements: nem
+  // reflow que junte tuplas nem linha quebrada no meio prendem a flag à tupla
+  // errada — cada flag é lida dentro dos parênteses da própria tupla.
+  const tuples = new Map()
+  for (const line of text.split('\n')) {
+    for (const frag of line.split(/\)\s*,\s*\(/)) {
+      const m = frag.match(/\(?\s*'([^']*)',.*,\s*(true|false)\s*\)?\s*,?\s*;?\s*$/)
+      if (m) tuples.set(m[1], m[2])
+    }
+  }
+  if (tuples.get('portal_reprocessamento_falhou') !== 'true') {
+    fail(`${label}: portal_reprocessamento_falhou sem tupla ativa no seed.`)
+  }
+  for (const t of ['invoice_overdue', 'invoice_payment_invalid', 'invoice_cancel_blocked']) {
+    if (!tuples.has(t)) fail(`${label}: tipo aposentado ${t} sumiu do seed.`)
+    if (tuples.get(t) !== 'false') fail(`${label}: tipo aposentado ${t} sem active = false no seed.`)
+  }
 }
 

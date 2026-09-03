@@ -31344,9 +31344,8 @@ VALUES ('voyage_pol_schedule_atd', clock_timestamp()), ('agency_report_deadline_
 ON CONFLICT (baseline_key) DO NOTHING;
 
 --
--- Revogações explícitas de privilégios em funções auxiliares de triggers
---
--- Revogações explícitas de privilégios em funções auxiliares de triggers
+-- Revogações explícitas de EXECUTE em funções auxiliares de triggers
+-- (reprodução do arquivo morto; chamadas diretas por cliente nunca usam trigger).
 --
 REVOKE ALL ON FUNCTION public.enforce_portal_invoice_bl_gate() FROM PUBLIC, authenticated;
 REVOKE ALL ON FUNCTION public.enforce_portal_invoice_gate() FROM PUBLIC, authenticated;
