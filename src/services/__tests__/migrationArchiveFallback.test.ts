@@ -74,4 +74,3 @@ describe('migrationArchiveFallback (test harness)', () => {
     expect(nodeFs.existsSync(nonexistent)).toBe(false)
   })
 })
-

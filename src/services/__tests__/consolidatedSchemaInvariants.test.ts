@@ -90,7 +90,11 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
     const vazamentos: string[] = []
     for (const sql of ativas.values()) {
       for (const match of sql.matchAll(
-        /GRANT\s+[A-Z, ]+\s+ON\s+(?:TABLE|SEQUENCE)\s+[^;]+?\s+TO\s+([^;]+);/gi,
+        // `(?:ALL\s+)?` + plural cobrem `GRANT ... ON ALL TABLES ...` — sem
+        // eles, um futuro grant amplo a anon/PUBLIC passaria na exata
+        // regressão que este teste existe para travar (o único ON ALL do
+        // histórico é o grant a `authenticated` no arquivo morto 002_rls.sql).
+        /GRANT\s+[A-Z, ]+\s+ON\s+(?:ALL\s+)?(?:TABLES?|SEQUENCES?)\s+[^;]+?\s+TO\s+([^;]+);/gi,
       )) {
         if (/\b(?:anon|PUBLIC)\b/i.test(match[1])) vazamentos.push(match[0])
       }
