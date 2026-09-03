@@ -1,7 +1,9 @@
 import fs from 'node:fs'
 
+const SELF_CHECK = process.argv.includes('--self-check')
+
 const dumpPath = 'dump_public_with_privs.sql'
-const content = fs.readFileSync(dumpPath, 'utf8')
+const content = SELF_CHECK ? '' : fs.readFileSync(dumpPath, 'utf8')
 
 // Clean \restrict, \unrestrict or psql meta commands
 const cleanedContent = content
@@ -49,7 +51,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
+-- pg_trgm fica em public, como na migration arquivada 047: o dump qualifica
+-- os opclasses como public.gin_trgm_ops e o apply quebra se ela for para extensions.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 `
 
 const header002 = `-- Transhipping Desk — Schema Inicial v1.0 (Lógica de Negócio, Triggers e Segurança)
@@ -99,6 +103,7 @@ const descartadosDePropósito = new Set([
 ])
 
 const tiposDesconhecidos = new Set()
+const discardedExtensions = []
 
 for (const b of blocks) {
   const m = b.match(/-- Name: (.*?); Type: (.*?); Schema: (.*?);/)
@@ -106,6 +111,10 @@ for (const b of blocks) {
   const [, name, type, schema] = m
 
   if (descartadosDePropósito.has(type)) {
+    // A colocação real das extensões em produção é descartada aqui e vem do
+    // cabeçalho manual header001: listar sem abortar, para a regeneração
+    // continuar auditável (pg_trgm precisa ficar em public — bloqueante da PR 651).
+    if (type === 'EXTENSION') discardedExtensions.push(`${schema}.${name}`)
     continue
   }
 
@@ -144,6 +153,17 @@ if (tiposDesconhecidos.size > 0) {
   )
   process.exit(1)
 }
+
+if (discardedExtensions.length > 0) {
+  console.error('EXTENSION descartadas do dump (a colocação aplicada vem do header001 manual):')
+  for (const e of discardedExtensions.sort()) console.error(`  - ${e}`)
+}
+
+// O split 001/002 é sintático: um DEFAULT, CHECK ou índice do 001 que chame
+// função criada só no 002 morre no apply. Hoje só o default de actor_role de
+// audit_logs é diferido de propósito (sanitizado acima e reposto no fim do
+// 002); qualquer outro caso aborta em vez de gerar schema quebrado.
+assertNoForwardFunctionRefs(blocks001, blocks002)
 
 // Canonical ports seed (required by depots and foreign keys)
 const portsSeed = `
@@ -267,46 +287,56 @@ ON CONFLICT (kind) DO UPDATE SET
 -- Catálogo de tipos de alertas e responsabilidades departamentais
 --
 INSERT INTO public.alert_type_catalog (
-  type, severity, responsible_department, audience_departments, default_destination
+  type, severity, responsible_department, audience_departments, default_destination, active
 )
 VALUES
-  ('review_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('review_customer_email_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('review_portal_not_ready', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('review_breakbulk_weight_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('review_granite_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('billing_calculation_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('billing_auto_issue_failed', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('invoice_overdue', 'normal', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('invoice_payment_invalid', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('invoice_cancel_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('pix_unreconciled', 'critical', 'documentacao', ARRAY['documentacao', 'equipamentos'], '/reconciliacao'),
-  ('portal_dispute_opened', 'normal', 'equipamentos', ARRAY['equipamentos'], '/demurrage'),
-  ('portal_pendencia_geral', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_convite_expirado', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_falha_envio', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_email_suprimido', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_abuso_login', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_excecao_critica_fatura', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/manifestos'),
-  ('voyage_bl_expected', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('voyage_baplie_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie'),
-  ('voyage_baplie_documentary_coverage', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie'),
-  ('voyage_ce_mercante_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('voyage_schedule_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens'),
-  ('voyage_terminal_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens'),
-  ('voyage_export_after_atd', 'normal', 'operacoes', ARRAY['operacoes'], '/viagens'),
-  ('agency_report_department_pending', 'normal', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('agency_report_deadline_missed', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('comunicado_noa_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao'),
-  ('comunicado_nor_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao'),
-  ('comunicado_nob_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao'),
-  ('cliente_contato_bounced_sem_alternativa', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/clientes')
+  ('review_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('review_customer_email_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('review_portal_not_ready', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('review_breakbulk_weight_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('review_granite_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('billing_calculation_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', true),
+  ('billing_auto_issue_failed', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', true),
+  ('invoice_overdue', 'normal', 'documentacao', ARRAY['documentacao'], '/taxas-locais', false),
+  ('invoice_payment_invalid', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', false),
+  ('invoice_cancel_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', false),
+  ('pix_unreconciled', 'critical', 'documentacao', ARRAY['documentacao', 'equipamentos'], '/reconciliacao', true),
+  ('portal_dispute_opened', 'normal', 'equipamentos', ARRAY['equipamentos'], '/demurrage', true),
+  ('portal_pendencia_geral', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_convite_expirado', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_falha_envio', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_reprocessamento_falhou', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_email_suprimido', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_abuso_login', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_excecao_critica_fatura', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/manifestos', true),
+  ('voyage_bl_expected', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('voyage_baplie_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie', true),
+  ('voyage_baplie_documentary_coverage', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie', true),
+  ('voyage_ce_mercante_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('voyage_schedule_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens', true),
+  ('voyage_terminal_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens', true),
+  ('voyage_export_after_atd', 'normal', 'operacoes', ARRAY['operacoes'], '/viagens', true),
+  ('agency_report_department_pending', 'normal', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('agency_report_deadline_missed', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('comunicado_noa_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao', true),
+  ('comunicado_nor_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao', true),
+  ('comunicado_nob_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao', true),
+  ('cliente_contato_bounced_sem_alternativa', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/clientes', true)
 ON CONFLICT (type) DO UPDATE SET
   severity = EXCLUDED.severity,
   responsible_department = EXCLUDED.responsible_department,
   audience_departments = EXCLUDED.audience_departments,
-  default_destination = EXCLUDED.default_destination,
-  active = true;
+  default_destination = EXCLUDED.default_destination;
+
+--
+-- Baselines de detecção do ADR (migrations arquivadas 251 e 271). TABLE DATA
+-- não sai no pg_dump, então o seed manual recria as duas linhas: sem elas, o
+-- detector de vencimento dispara retroativamente sobre o histórico inteiro e
+-- a fonte POL-ATD do detector de pendências fica desligada em silêncio.
+--
+INSERT INTO public.agency_report_pending_baselines (baseline_key, captured_at)
+VALUES ('voyage_pol_schedule_atd', clock_timestamp()), ('agency_report_deadline_missed', clock_timestamp())
+ON CONFLICT (baseline_key) DO NOTHING;
 `
 
 const alterAuditLogsDefault = `
@@ -319,9 +349,89 @@ ALTER TABLE public.audit_logs ALTER COLUMN actor_role SET DEFAULT public.current
 const sql001 = header001 + '\n\n' + blocks001.join('\n\n') + '\n\n' + portsSeed
 const sql002 = header002 + '\n\n' + blocks002.join('\n\n') + '\n\n' + alterAuditLogsDefault + '\n\n' + foundationCatalogs002
 
+if (SELF_CHECK) {
+  selfCheck()
+  process.exit(0)
+}
+
 fs.writeFileSync('supabase/test_001_initial_schema.sql', sql001, 'utf8')
 fs.writeFileSync('supabase/test_002_business_logic_and_security.sql', sql002, 'utf8')
 
 console.log('Blocks 001:', blocks001.length, 'Bytes:', sql001.length)
 console.log('Blocks 002:', blocks002.length, 'Bytes:', sql002.length)
+
+// Nomes de funções `public.nome(` definidos nos blocos (case-insensitive).
+function definedFunctions(joined) {
+  return new Set(
+    [...joined.matchAll(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?"?(\w+)"?\s*\(/gi)].map((m) =>
+      m[1].toLowerCase(),
+    ),
+  )
+}
+
+function assertNoForwardFunctionRefs(b001, b002) {
+  const joined001 = b001.join('\n')
+  const fns001 = definedFunctions(joined001)
+  const only002 = [...definedFunctions(b002.join('\n'))].filter((n) => !fns001.has(n))
+  if (only002.length === 0) return
+  const refs001 = new Set(
+    [...joined001.matchAll(/public\.([a-z_][a-z0-9_]*)\s*\(/gi)].map((m) => m[1].toLowerCase()),
+  )
+  // audit_logs.actor_role é o único diferimento intencional: sanitizado no
+  // 001 e reposto por ALTER no fim do 002 (alterAuditLogsDefault).
+  const bad = only002.filter((n) => n !== 'current_actor_role' && refs001.has(n))
+  if (bad.length > 0) {
+    console.error('Referências do 001 para funções definidas só no 002 (quebram o apply):')
+    for (const n of bad.sort()) console.error(`  - public.${n}()`)
+    console.error('Diferir via seção manual no fim do 002 ou mover a definição.')
+    process.exit(1)
+  }
+}
+
+// Check runnable (CLAUDE.md): trava sem dump as invariantes que já quebraram
+// o squash uma vez. Uso: node scripts/build-squash-migrations.mjs --self-check
+function selfCheck() {
+  const fail = (msg) => {
+    console.error(`self-check FALHOU: ${msg}`)
+    process.exit(1)
+  }
+  // Bloqueante 1 no gerador: pg_trgm sem schema (= public, como a 047).
+  if (!/^CREATE EXTENSION IF NOT EXISTS pg_trgm;$/m.test(header001)) {
+    fail('header001 não cria pg_trgm em public — regenerar reintroduz o abort da 001.')
+  }
+  // Bloqueantes 2/3/4 nos seeds manuais.
+  for (const needle of [
+    "'portal_reprocessamento_falhou'",
+    "'voyage_pol_schedule_atd'",
+    "'agency_report_deadline_missed'",
+  ]) {
+    if (!foundationCatalogs002.includes(needle)) fail(`seed manual sem ${needle}.`)
+  }
+  const alertUpsert = foundationCatalogs002.slice(foundationCatalogs002.indexOf('ON CONFLICT (type)'))
+  if (/\bactive\b/.test(alertUpsert)) fail('DO UPDATE do catálogo de alertas reativa aposentados (347/348).')
+  for (const t of ['invoice_overdue', 'invoice_payment_invalid', 'invoice_cancel_blocked']) {
+    if (!new RegExp(`\\('${t}'[^;]*?, false\\)`).test(foundationCatalogs002)) {
+      fail(`tipo aposentado ${t} sem active = false no seed.`)
+    }
+  }
+  // Guarda de refs contra os arquivos comprometidos de verdade.
+  let committed001, committed002
+  try {
+    committed001 = fs.readFileSync('supabase/migrations/001_initial_schema.sql', 'utf8')
+    committed002 = fs.readFileSync('supabase/migrations/002_business_logic_and_security.sql', 'utf8')
+  } catch {
+    fail('rode a partir da raiz do repo (supabase/migrations/*.sql).')
+  }
+  const fns001 = definedFunctions(committed001)
+  const only002 = [...definedFunctions(committed002)].filter((n) => !fns001.has(n))
+  const refs001 = new Set(
+    [...committed001.matchAll(/public\.([a-z_][a-z0-9_]*)\s*\(/gi)].map((m) => m[1].toLowerCase()),
+  )
+  const bad = only002.filter((n) => n !== 'current_actor_role' && refs001.has(n))
+  if (bad.length > 0) fail(`001 referencia funções só do 002: ${bad.sort().join(', ')}.`)
+  if (!/ALTER TABLE public\.audit_logs ALTER COLUMN actor_role SET DEFAULT/.test(committed002)) {
+    fail('diferimento do default de audit_logs sumiu do fim do 002.')
+  }
+  console.log('self-check OK: pg_trgm, seeds 2/3/4 e guarda de refs.')
+}
 

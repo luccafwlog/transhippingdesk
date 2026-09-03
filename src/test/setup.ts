@@ -1,15 +1,15 @@
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterEach, vi } from 'vitest'
 
-// Ponte transitória do squash v1.0 (ADR 0062, item 3): `supabase/migrations/`
-// agora contém só o schema consolidado (001–004), mas os 201 testes
-// `*Migration.test.ts` ainda auditam contratos históricos arquivo a arquivo.
-// Este mock redireciona leituras de arquivos ausentes e listagens do diretório
-// ativo para `supabase/migrations_archive/`. Custo aceito: esses testes auditam
-// arquivos mortos, não o schema aplicado — a cobertura do artefato ativo fica
-// com `verificar_guardas.py` e `consolidatedSchemaInvariants.test.ts` (que
-// escapa deste mock via `vi.importActual`). Teste novo contra o schema ativo
-// DEVE usar `vi.importActual('node:fs')`; teste histórico continua caindo aqui.
+// ponytail: ponte transitória do squash v1.0 — redireciona leituras de arquivos
+// ausentes e soma o arquivo morto às listagens, em vez de reescrever 201 testes
+// legados. Teto: testes históricos auditam arquivos mortos, não o schema
+// aplicado; a cobertura do artefato ativo fica com `verificar_guardas.py` e
+// `consolidatedSchemaInvariants.test.ts` (que escapa deste mock via
+// `vi.importActual`). Upgrade: aposentar os *Migration.test.ts pontuais e
+// reescrever as invariantes de futuro contra `supabase/migrations/` (ADR 0062
+// item 6), e então remover este mock. Teste novo contra o schema ativo DEVE
+// usar `vi.importActual('node:fs')`; teste histórico continua caindo aqui.
 
 type PathLike = string | Buffer | URL
 type ReaddirItem = string | Buffer | { name: string }
@@ -35,9 +35,11 @@ function getArchiveFallbackPath(
     return null
   }
 
-  if (origExists(filePath as PathLike)) return null
+  // Barato antes do caro: fora de supabase/migrations/ não há fallback,
+  // sem custar nenhum syscall a mais.
   const normalized = pathStr.replace(/\\/g, '/')
-  if (!normalized.includes('supabase/migrations/')) return null
+  if (!/(^|\/)supabase\/migrations(\/|$)/.test(normalized)) return null
+  if (origExists(filePath as PathLike)) return null
   const archivePathNormalized = normalized.replace('supabase/migrations/', 'supabase/migrations_archive/')
   const archivePath = pathStr.includes('\\')
     ? archivePathNormalized.replace(/\//g, '\\')
@@ -70,13 +72,43 @@ function mergeReaddir<T extends ReaddirItem>(
 
   if (origExists(archiveDir)) {
     const rawEntries = origReaddir(archiveDir, options)
-    return (rawEntries as unknown as Array<string | { name: string }>).filter((entry) => {
+    const archiveEntries = (rawEntries as unknown as Array<string | { name: string }>).filter((entry) => {
       const name =
         typeof entry === 'object' && entry !== null && 'name' in entry
           ? String((entry as { name: unknown }).name)
           : String(entry)
       return name.endsWith('.sql')
     }) as unknown as T[]
+
+    // União ativo + arquivo morto (ativos primeiro, sem duplicatas): as
+    // invariantes de futuro que varrem o diretório precisam enxergar um
+    // eventual 005_nova_migration.sql — só o arquivo morto as deixaria cegas.
+    let mainEntries: T[] = []
+    try {
+      if (origExists(dir as string)) {
+        mainEntries = origReaddir(dir, options)
+      }
+    } catch {
+      // Diretório principal pode ainda não ter sido recriado
+    }
+    const withTypes =
+      options && typeof options === 'object' && 'withFileTypes' in options && Boolean((options as Record<string, unknown>).withFileTypes)
+    if (withTypes) {
+      const seen = new Set<string>()
+      const merged: T[] = []
+      for (const item of [...mainEntries, ...archiveEntries]) {
+        const name =
+          typeof item === 'object' && item !== null && 'name' in item
+            ? String((item as { name: unknown }).name)
+            : String(item)
+        if (!seen.has(name)) {
+          seen.add(name)
+          merged.push(item)
+        }
+      }
+      return merged
+    }
+    return Array.from(new Set([...mainEntries, ...archiveEntries].map((entry) => String(entry)))).sort() as unknown as T[]
   }
 
   return origReaddir(dir, options)

@@ -45,7 +45,10 @@ describe('vessel schedule admin operations', () => {
   })
 
   it('has SQL contracts that archive and reorder atomically with restricted execution', () => {
-    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations')
+    // Contrato histórico (find + join): lê o arquivo morto. O snapshot
+    // consolidado (002) concentra todas as definições e falseia o `.find`
+    // e o `not.toMatch` por span entre statements.
+    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations_archive')
     const migration = fs.readdirSync(migrationsDir)
       .filter((file) => file.endsWith('.sql'))
       .map((file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8'))
@@ -65,7 +68,8 @@ describe('vessel schedule admin operations', () => {
   })
 
   it('grants table privileges required by the vessel schedule RLS policies', () => {
-    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations')
+    // Contrato histórico: lê o arquivo morto (ver nota no teste acima).
+    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations_archive')
     const sql = fs.readdirSync(migrationsDir)
       .filter((file) => file.endsWith('.sql'))
       .map((file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8'))

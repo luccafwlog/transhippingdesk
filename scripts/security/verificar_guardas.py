@@ -21,6 +21,16 @@ import sys
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MIGRATIONS = os.path.join(RAIZ, 'supabase', 'migrations')
 
+# Cache de leitura: estado_final() e o check [4] varrem os mesmos arquivos.
+_CONTEUDO: dict[str, str] = {}
+
+
+def ler(caminho: str) -> str:
+    if caminho not in _CONTEUDO:
+        with open(caminho, encoding='utf-8', errors='replace') as fh:
+            _CONTEUDO[caminho] = fh.read()
+    return _CONTEUDO[caminho]
+
 # Varredura dinâmica da 297: revoga PUBLIC/anon de toda função de `public` e
 # `authenticated` das funções de trigger. É dynamic SQL, então o replay estático
 # não consegue expandi-la; reconhecê-la pelo texto é o que autoriza o atalho.
@@ -196,7 +206,7 @@ def estado_final():
                     alvo.discard(role)
 
     for caminho in arquivos():
-        bruto = open(caminho, encoding='utf-8', errors='replace').read()
+        bruto = ler(caminho)
         base = os.path.basename(caminho)
         sql = sem_comentarios(bruto)
         exp = sql
@@ -261,7 +271,7 @@ def estado_final():
         for m in re.finditer(r'ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY', exp, re.I):
             rls.add(m.group(1))
         for m in re.finditer(r'DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?', exp, re.I):
-            policies.pop((m.group(2) or 'public', m.group(3) or m.group(1), m.group(1)), None)
+            policies.pop(((m.group(2) or 'public').lower(), m.group(3), m.group(1)), None)
         for m in re.finditer(r'CREATE\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
             schema = (m.group(2) or 'public').lower()
             tabela = m.group(3)
@@ -348,7 +358,7 @@ def main():
         print(f'      - {sig} ({valor["arquivo"]})')
 
     fecha_default = any(
-        FECHAMENTO_DEFAULT.search(sem_comentarios(open(c, encoding='utf-8', errors='replace').read()))
+        FECHAMENTO_DEFAULT.search(sem_comentarios(ler(c)))
         for c in caminhos
     )
     print(f'[4] Defaults de EXECUTE fechados (ADR 0047) .... {"OK" if fecha_default else "FALHA"}')

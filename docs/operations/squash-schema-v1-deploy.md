@@ -129,10 +129,14 @@ Após o deploy ou reparo, execute as seguintes validações:
   ```sql
   SELECT jobname, schedule, active FROM cron.job ORDER BY jobname;
   ```
-  Devem constar os 8 jobs ativos: `alerts-foundation-detectors`, `cleanup-portal-sessions`,
-  `cleanup-provision-rate-limit`, `customer-communication-auto-runner`,
-  `demurrage-dunning`, `portal-daily-digest`, `portal-mark-expired-invites`,
-  `portal-refresh-general-pendencies`.
+  Em ambiente novo são **7 jobs garantidos**: `alerts-foundation-detectors`,
+  `cleanup-portal-sessions`, `cleanup-provision-rate-limit`,
+  `customer-communication-auto-runner`, `demurrage-dunning`,
+  `portal-mark-expired-invites` e `portal-refresh-general-pendencies`.
+  O oitavo, `portal-daily-digest`, só é agendado quando os GUCs
+  `app.settings.supabase_url` e `app.settings.digest_secret` estão definidos
+  no banco (nenhuma migration do repo os define — ver 003, bloco da 185);
+  sem eles, a ausência do digest é o comportamento esperado, não falha.
 - [ ] **Buckets de Storage:**
   ```sql
   SELECT id, public, file_size_limit FROM storage.buckets WHERE id IN ('demurrage-disputes', 'customer-communications');

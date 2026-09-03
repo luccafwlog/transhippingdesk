@@ -40,6 +40,10 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
     for (const nome of nomes) {
       expect(nome).toMatch(/^\d{3}_[a-z0-9_]+\.sql$/)
     }
+    // ADR 0016 no diretório ativo: ordem lexicográfica = ordem de aplicação
+    // exige prefixos únicos — um futuro 004 duplicado falha aqui, não no push.
+    const prefixos = nomes.map((nome) => nome.split('_')[0])
+    expect(new Set(prefixos).size).toBe(prefixos.length)
   })
 
   it('fecha os defaults de EXECUTE de public antes de criar qualquer objeto (ADR 0047)', async () => {

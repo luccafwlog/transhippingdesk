@@ -310,6 +310,15 @@ onde você o executa, e escreve o resultado em `supabase/test_001_*.sql` e
 node scripts/build-squash-migrations.mjs
 ```
 
+Check runnable (sem dump, <1s, roda no CI): trava as invariantes que já
+quebraram o squash uma vez — `pg_trgm` em `public`, seeds manuais do catálogo
+de alertas e das baselines, e ausência de referências do 001 para funções
+definidas só no 002:
+
+```
+node scripts/build-squash-migrations.mjs --self-check
+```
+
 > **Atenção — o que o dump não carrega.** O recorte é do schema `public`. Três
 > classes de objeto vivem fora dele e **não voltam** numa regeneração: os
 > defaults de privilégio (`pg_default_acl`, ADR 0047), os agendamentos

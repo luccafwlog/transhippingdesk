@@ -40,6 +40,21 @@ describe('migrationArchiveFallback (test harness)', () => {
     expect(filesDefault).toEqual(filesNamed)
   })
 
+  it('a união inclui os arquivos ativos: um futuro 005 seria auditado, não invisível', () => {
+    const dir = path.resolve(process.cwd(), 'supabase/migrations')
+
+    const files = readdirSync(dir)
+    expect(files).toContain('001_initial_schema.sql')
+    expect(files).toContain('002_business_logic_and_security.sql')
+    expect(files).toContain('003_pos_squash_objetos_fora_do_dump.sql')
+    expect(files).toContain('004_vazios_delete_baplie_grant.sql')
+
+    // Leitura de arquivo ativo lê o ativo, sem fallback para o morto
+    const active = readFileSync(path.join(dir, '001_initial_schema.sql'), 'utf8')
+    expect(active).toContain('Schema Inicial v1.0')
+    expect(active).not.toContain('001_schema.sql')
+  })
+
   it('suporta opção withFileTypes em readdirSync', () => {
     const dir = path.resolve(process.cwd(), 'supabase/migrations')
     const dirents = readdirSync(dir, { withFileTypes: true })

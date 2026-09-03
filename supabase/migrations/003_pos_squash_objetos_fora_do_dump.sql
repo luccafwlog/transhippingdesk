@@ -105,7 +105,10 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_net') THEN
     BEGIN
-      EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions';
+      -- pg_net é não-relocável: instala-se sempre no schema `net`. Com
+      -- WITH SCHEMA o CREATE falha, o handler abaixo rebaixa para WARNING e
+      -- os quatro jobs HTTP nunca são agendados por esse caminho.
+      EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net';
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'pg_net indisponivel neste banco (%); os jobs HTTP nao serao criados.', SQLERRM;
     END;
@@ -180,7 +183,7 @@ DECLARE
   v_secret TEXT := current_setting('app.settings.digest_secret', true);
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron')
-     AND EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'net')
+     AND to_regproc('net.http_post') IS NOT NULL
      AND NULLIF(v_url, '') IS NOT NULL
      AND NULLIF(v_secret, '') IS NOT NULL THEN
     IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'portal-daily-digest') THEN
@@ -204,7 +207,7 @@ DECLARE
   v_secret TEXT := current_setting('app.settings.alerts_detector_secret', true);
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron')
-     AND EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'net') THEN
+     AND to_regproc('net.http_post') IS NOT NULL THEN
     IF NULLIF(v_url, '') IS NULL OR NULLIF(v_secret, '') IS NULL THEN
       RAISE WARNING 'alerts-foundation-detectors sera agendado sem URL/segredo completos; a execucao falhara visivelmente ate app.settings.* ser configurado.';
     END IF;
@@ -227,7 +230,7 @@ DECLARE
   v_secret TEXT := current_setting('app.settings.demurrage_dunning_secret', true);
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron')
-     AND EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'net') THEN
+     AND to_regproc('net.http_post') IS NOT NULL THEN
     IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'demurrage-dunning') THEN
       PERFORM cron.unschedule('demurrage-dunning');
     END IF;
@@ -250,7 +253,7 @@ DECLARE
   v_secret TEXT := current_setting('app.settings.customer_communication_automation_secret', true);
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'cron')
-     AND EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'net') THEN
+     AND to_regproc('net.http_post') IS NOT NULL THEN
     IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'customer-communication-auto-runner') THEN
       PERFORM cron.unschedule('customer-communication-auto-runner');
     END IF;

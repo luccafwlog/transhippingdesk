@@ -31292,47 +31292,59 @@ ON CONFLICT (kind) DO UPDATE SET
 -- Catálogo de tipos de alertas e responsabilidades departamentais
 --
 INSERT INTO public.alert_type_catalog (
-  type, severity, responsible_department, audience_departments, default_destination
+  type, severity, responsible_department, audience_departments, default_destination, active
 )
 VALUES
-  ('review_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('review_customer_email_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('review_portal_not_ready', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('review_breakbulk_weight_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('review_granite_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao'),
-  ('billing_calculation_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('billing_auto_issue_failed', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('invoice_overdue', 'normal', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('invoice_payment_invalid', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('invoice_cancel_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais'),
-  ('pix_unreconciled', 'critical', 'documentacao', ARRAY['documentacao', 'equipamentos'], '/reconciliacao'),
-  ('portal_dispute_opened', 'normal', 'equipamentos', ARRAY['equipamentos'], '/demurrage'),
-  ('portal_pendencia_geral', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_convite_expirado', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_falha_envio', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_email_suprimido', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_abuso_login', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal'),
-  ('portal_excecao_critica_fatura', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/manifestos'),
-  ('voyage_bl_expected', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('voyage_baplie_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie'),
-  ('voyage_baplie_documentary_coverage', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie'),
-  ('voyage_ce_mercante_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('voyage_schedule_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens'),
-  ('voyage_terminal_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens'),
-  ('voyage_export_after_atd', 'normal', 'operacoes', ARRAY['operacoes'], '/viagens'),
-  ('agency_report_department_pending', 'normal', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('agency_report_deadline_missed', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens'),
-  ('comunicado_noa_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao'),
-  ('comunicado_nor_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao'),
-  ('comunicado_nob_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao'),
-  ('cliente_contato_bounced_sem_alternativa', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/clientes')
+  ('review_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('review_customer_email_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('review_portal_not_ready', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('review_breakbulk_weight_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('review_granite_customer_unlinked', 'critical', 'documentacao', ARRAY['documentacao'], '/revisao', true),
+  ('billing_calculation_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', true),
+  ('billing_auto_issue_failed', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', true),
+  ('invoice_overdue', 'normal', 'documentacao', ARRAY['documentacao'], '/taxas-locais', false),
+  ('invoice_payment_invalid', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', false),
+  ('invoice_cancel_blocked', 'critical', 'documentacao', ARRAY['documentacao'], '/taxas-locais', false),
+  ('pix_unreconciled', 'critical', 'documentacao', ARRAY['documentacao', 'equipamentos'], '/reconciliacao', true),
+  ('portal_dispute_opened', 'normal', 'equipamentos', ARRAY['equipamentos'], '/demurrage', true),
+  ('portal_pendencia_geral', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_convite_expirado', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_falha_envio', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_reprocessamento_falhou', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_email_suprimido', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_abuso_login', 'critical', 'documentacao', ARRAY['documentacao'], '/clientes/portal', true),
+  ('portal_excecao_critica_fatura', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/manifestos', true),
+  ('voyage_bl_expected', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('voyage_baplie_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie', true),
+  ('voyage_baplie_documentary_coverage', 'critical', 'documentacao', ARRAY['documentacao'], '/baplie', true),
+  ('voyage_ce_mercante_missing', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('voyage_schedule_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens', true),
+  ('voyage_terminal_date_pending', 'normal', 'operacoes', ARRAY['operacoes', 'documentacao'], '/viagens', true),
+  ('voyage_export_after_atd', 'normal', 'operacoes', ARRAY['operacoes'], '/viagens', true),
+  ('agency_report_department_pending', 'normal', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('agency_report_deadline_missed', 'critical', 'documentacao', ARRAY['documentacao'], '/viagens', true),
+  ('comunicado_noa_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao', true),
+  ('comunicado_nor_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao', true),
+  ('comunicado_nob_pendente', 'normal', 'documentacao', ARRAY['documentacao'], '/clientes/comunicacao', true),
+  ('cliente_contato_bounced_sem_alternativa', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/clientes', true)
 ON CONFLICT (type) DO UPDATE SET
   severity = EXCLUDED.severity,
   responsible_department = EXCLUDED.responsible_department,
   audience_departments = EXCLUDED.audience_departments,
-  default_destination = EXCLUDED.default_destination,
-  active = true;
+  default_destination = EXCLUDED.default_destination;
 
+--
+-- Baselines de detecção do ADR (migrations arquivadas 251 e 271). TABLE DATA
+-- não sai no pg_dump, então o seed manual recria as duas linhas: sem elas, o
+-- detector de vencimento dispara retroativamente sobre o histórico inteiro e
+-- a fonte POL-ATD do detector de pendências fica desligada em silêncio.
+--
+INSERT INTO public.agency_report_pending_baselines (baseline_key, captured_at)
+VALUES ('voyage_pol_schedule_atd', clock_timestamp()), ('agency_report_deadline_missed', clock_timestamp())
+ON CONFLICT (baseline_key) DO NOTHING;
+
+--
+-- Revogações explícitas de privilégios em funções auxiliares de triggers
 --
 -- Revogações explícitas de privilégios em funções auxiliares de triggers
 --

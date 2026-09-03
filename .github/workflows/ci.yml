@@ -36,6 +36,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Squash generator self-check
+        run: node scripts/build-squash-migrations.mjs --self-check
+
   build:
     name: Build + Bundle size
     runs-on: ubuntu-latest
@@ -93,13 +96,39 @@ jobs:
       - name: Verify database security guards
         run: python scripts/security/verificar_guardas.py --ci
 
+  # Aplica de verdade as migrations num Postgres 16 descartável. Docs, lint,
+  # build, vitest e o replay estático leem o texto das migrations sem executar:
+  # nenhum deles pegaria um apply que aborta (classe do bloqueante da PR 651,
+  # pg_trgm fora de public) nem seeds que faltam. O Supabase Preview tampouco
+  # serve de evidência, porque só aplica arquivos novos e 001–004 reaproveitam
+  # prefixos já registrados.
+  migration-replay:
+    name: Migration replay (Postgres real)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure PostgreSQL 16 cluster
+        run: |
+          pg_lsclusters || true
+          if ! pg_lsclusters 2>/dev/null | grep -q '^16'; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-16
+          fi
+
+      - name: Replay consolidated migrations from scratch
+        run: sudo scripts/setup-local-pg.sh --reset
+
+      - name: Assert replayed schema invariants
+        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f scripts/check-squash-replay.sql
+
   # Gate único exigido pela proteção de branch: fica verde só quando todos os
   # jobs acima terminam verdes. Mantém um nome estável mesmo que os shards
   # mudem de quantidade.
   checks:
     name: checks
     runs-on: ubuntu-latest
-    needs: [quality, build, test, security-audit]
+    needs: [quality, build, test, security-audit, migration-replay]
     if: always()
     steps:
       - name: Verify all jobs succeeded
@@ -108,7 +137,9 @@ jobs:
           echo "build:   ${{ needs.build.result }}"
           echo "test:    ${{ needs.test.result }}"
           echo "security-audit: ${{ needs.security-audit.result }}"
+          echo "migration-replay: ${{ needs.migration-replay.result }}"
           [ "${{ needs.quality.result }}" = "success" ] \
             && [ "${{ needs.build.result }}" = "success" ] \
             && [ "${{ needs.test.result }}" = "success" ] \
-            && [ "${{ needs.security-audit.result }}" = "success" ]
+            && [ "${{ needs.security-audit.result }}" = "success" ] \
+            && [ "${{ needs.migration-replay.result }}" = "success" ]

@@ -37,7 +37,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
+-- pg_trgm fica em public, como na migration arquivada 047: o dump qualifica
+-- os opclasses como public.gin_trgm_ops e o apply quebra se ela for para extensions.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 
 --
