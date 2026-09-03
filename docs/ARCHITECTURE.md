@@ -148,15 +148,16 @@ por `pg_cron` + `pg_net`. O browser não dispara detectores nem cria
 notificações internas. Triggers em audit logs, no estado terminalizado e nas
 origens da divergência Baplie/B/L (`baplie_containers`, `bls`, `bl_containers`,
 statement-level, migrations `361`/`362`) também reconciliam a origem imediatamente; o
-cron é a rede de segurança. Enquanto `pg_net` não estiver instalado ou
-`app.settings.supabase_url`/`app.settings.alerts_detector_secret` não estiverem
-definidos no banco, o job **não existe** e apenas os alertas com trigger de
-origem se movem. A pendência
+cron é a rede de segurança. O job dispara por
+`ops.dispatch_edge_job('alerts-detector', 'ALERTS_DETECTOR_SECRET')`, que lê a
+base da API e o segredo do Supabase Vault; o comando agendado cita nomes, nunca
+valores (ADR 0063). A pendência
 de exportação pós-ATD fica no nível `(viagem, escala)` enquanto os manifests
 não possuírem vínculo de terminal. A agenda é instalada quando as extensões estão
-disponíveis; se `app.settings.supabase_url` ou
-`app.settings.alerts_detector_secret` faltar, a migration emite warning e o job
-continua visível, falhando de forma observável até a configuração ser corrigida.
+disponíveis; enquanto `SUPABASE_URL` ou `ALERTS_DETECTOR_SECRET` faltarem no
+cofre, o job continua visível e inerte, registrando `WARNING` a cada execução
+até a configuração ser cadastrada
+([`operations/segredos-cron.md`](operations/segredos-cron.md)).
 
 ## Fronteiras de autenticação
 

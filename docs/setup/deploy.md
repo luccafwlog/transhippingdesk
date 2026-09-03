@@ -255,16 +255,22 @@ remetente, reply-to e `RESEND_API_KEY` precisam estar configurados. Resend não 
 migrado para Vercel Functions.
 
 A régua de Demurrage exige o segredo server-side `DEMURRAGE_DUNNING_SECRET`.
-O mesmo valor deve estar disponível como `app.settings.demurrage_dunning_secret`
-no banco, junto de `app.settings.supabase_url`, para que o `pg_cron` consiga
-chamar a Edge Function `demurrage-dunning` de hora em hora.
+O mesmo valor precisa estar no Supabase Vault sob o **mesmo nome**, junto de
+`SUPABASE_URL`, para que o `pg_cron` consiga chamar a Edge Function
+`demurrage-dunning` de hora em hora.
 
 O runner automático de NOA/NOR exige o segredo server-side
-`CUSTOMER_COMMUNICATION_AUTOMATION_SECRET`. O mesmo valor deve estar disponível
-como `app.settings.customer_communication_automation_secret` no banco, junto de
-`app.settings.supabase_url`, para que o `pg_cron` consiga chamar a Edge Function.
+`CUSTOMER_COMMUNICATION_AUTOMATION_SECRET`, também espelhado no Vault com o
+mesmo nome, junto de `SUPABASE_URL`.
 Após aplicar as migrations, valide os jobs `demurrage-dunning` e
 `customer-communication-auto-runner`, e não exponha nenhum dos segredos no frontend.
+
+Os GUCs `app.settings.*` **não** são mais o mecanismo de configuração: a role
+`postgres` do Supabase não é superuser e não pode defini-los
+(`permission denied to set parameter`). O procedimento de cadastro, rotação e
+verificação está em
+[`../operations/segredos-cron.md`](../operations/segredos-cron.md) e a decisão
+na [ADR 0063](../adr/0063-configuracao-de-jobs-cron-no-vault.md).
 (As migrations `381` a `384` que criaram essa automação vivem hoje em
 `supabase/migrations_archive/`; seus efeitos estão consolidados em
 `supabase/migrations/003_pos_squash_objetos_fora_do_dump.sql` para os jobs e em
