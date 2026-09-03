@@ -249,9 +249,9 @@ async function sendCandidate(
       roeReferenceDate: candidate.roe_reference_date || dateOnly(context.updated_at || context.first_billed_at),
     },
   })
-  const communicationId = await createCommunication(admin, candidate, context, vesselName, voyageNumber, null)
   const resendApiKey = communicationsEnabled ? Deno.env.get('RESEND_API_KEY') : null
   if (communicationsEnabled && !resendApiKey) throw new Error('RESEND_API_KEY não está configurada para envio real.')
+  const communicationId = await createCommunication(admin, candidate, context, vesselName, voyageNumber, null)
   let deliveredRecipients = 0
   let simulatedRecipients = 0
   let failedRecipients = 0

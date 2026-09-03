@@ -16,7 +16,10 @@ describe('contratos SQL de Atracação', () => {
   })
 
   it('mantem os prefixos numericos de migration unicos', () => {
-    const migrationNames = readdirSync(resolve(process.cwd(), 'supabase/migrations'))
+    // Invariante histórica: o arquivo morto preserva os prefixos únicos da
+    // cadeia original. O diretório ativo tem seu próprio teste de unicidade
+    // (consolidatedSchemaInvariants), pois o squash reaproveita 001–004.
+    const migrationNames = readdirSync(resolve(process.cwd(), 'supabase/migrations_archive'))
       .filter((name) => /^\d+_.*\.sql$/.test(name))
     const prefixes = migrationNames.map((name) => name.match(/^(\d+)_/)?.[1]).filter(Boolean)
     const duplicatedPrefixes = prefixes.filter((prefix, index) => prefixes.indexOf(prefix) !== index)

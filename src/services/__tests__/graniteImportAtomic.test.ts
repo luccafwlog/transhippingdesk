@@ -90,7 +90,9 @@ describe('atomic Granite manifest import', () => {
   })
 
   it('has one SQL function that inserts the header and B/L rows transactionally', () => {
-    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations')
+    // Contrato histórico: o `.find` deve achar a migration original, não o
+    // snapshot consolidado (002), que não preserva as propriedades por arquivo.
+    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations_archive')
     const migration = fs.readdirSync(migrationsDir)
       .filter((file) => file.endsWith('.sql'))
       .map((file) => fs.readFileSync(path.join(migrationsDir, file), 'utf8'))

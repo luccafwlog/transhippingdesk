@@ -21,6 +21,30 @@ import sys
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MIGRATIONS = os.path.join(RAIZ, 'supabase', 'migrations')
 
+# Cache de leitura: estado_final() e o check [4] varrem os mesmos arquivos.
+_CONTEUDO: dict[str, str] = {}
+
+
+def ler(caminho: str) -> str:
+    if caminho not in _CONTEUDO:
+        with open(caminho, encoding='utf-8', errors='replace') as fh:
+            _CONTEUDO[caminho] = fh.read()
+    return _CONTEUDO[caminho]
+
+# Varredura dinâmica da 297: revoga PUBLIC/anon de toda função de `public` e
+# `authenticated` das funções de trigger. É dynamic SQL, então o replay estático
+# não consegue expandi-la; reconhecê-la pelo texto é o que autoriza o atalho.
+VARREDURA_DEFAULT_DENY = re.compile(
+    r"REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+%s\s+FROM\s+PUBLIC,\s*anon", re.I)
+
+# ADR 0047: o Supabase concede EXECUTE a anon/authenticated em toda função nova
+# de `public` por ALTER DEFAULT PRIVILEGES próprio. Sem inverter esse default, um
+# banco novo nasce aberto e nenhum REVOKE pontual no arquivo corrige isso — os
+# defaults vivem em pg_default_acl, fora do schema, e não saem em pg_dump.
+FECHAMENTO_DEFAULT = re.compile(
+    r"ALTER\s+DEFAULT\s+PRIVILEGES[^;]*?REVOKE\s+EXECUTE\s+ON\s+FUNCTIONS\s+FROM\s+[^;]*"
+    r"PUBLIC[^;]*\banon\b[^;]*;", re.I | re.S)
+
 GUARDAS = [
     'is_active_read_user', 'is_admin(', 'is_active_user', 'current_portal_customer_id',
     '_portal_actor_role', 'portal_current_role', 'current_user_role', '_portal_inspect_guard',
@@ -168,7 +192,7 @@ def estado_final():
 
     def aplicar_acl(comando, adicionar):
         match = re.search(
-            r'(?:GRANT\s+EXECUTE|REVOKE\s+(?:ALL|EXECUTE))\s+ON\s+FUNCTION\s+(.+?)\s+(?:TO|FROM)\s+([^;]+);',
+            r'(?:GRANT|REVOKE)\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+(.+?)\s+(?:TO|FROM)\s+([^;]+);',
             comando, re.I | re.S)
         if not match:
             return
@@ -182,7 +206,7 @@ def estado_final():
                     alvo.discard(role)
 
     for caminho in arquivos():
-        bruto = open(caminho, encoding='utf-8', errors='replace').read()
+        bruto = ler(caminho)
         base = os.path.basename(caminho)
         sql = sem_comentarios(bruto)
         exp = sql
@@ -218,7 +242,10 @@ def estado_final():
         # Migration 297 also closes existing functions dynamically. The
         # static replay cannot inspect pg_trigger, but RETURNS TRIGGER is the
         # same invariant used by that migration to identify trigger helpers.
-        if base == '297_default_deny_function_grants.sql':
+        # Only assume the sweep for a file that really carries it -- assuming it
+        # for a file without the loop would fabricate revokes that no database
+        # ever applies.
+        if VARREDURA_DEFAULT_DENY.search(sql):
             for sig, valor in fns.items():
                 if valor['nome'] != 'portal_ship_schedule':
                     grants.setdefault(sig, set(defaults)).discard('public')
@@ -233,22 +260,36 @@ def estado_final():
                 fns[novo_sig] = {**fns.pop(sig), 'nome': novo}
                 grants[novo_sig] = grants.pop(sig, set(defaults))
 
-        for m in re.finditer(r'GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+.+?;|REVOKE\s+(?:ALL|EXECUTE)\s+ON\s+FUNCTION\s+.+?;', sql, re.I | re.S):
+        for m in re.finditer(
+                r'(?:GRANT|REVOKE)\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+.+?;', sql, re.I | re.S):
             aplicar_acl(m.group(0), m.group(0).upper().startswith('GRANT'))
 
-        for m in re.finditer(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?', exp, re.I):
+        # Filtros de tags de event triggers (WHEN TAG/command_tag IN (...))
+        # não são DDL: sem isso, CREATE TABLE AS vira a tabela fantasma
+        # 'as', sem RLS, e o check [1] falha à toa.
+        exp_sem_tags = re.sub(
+            r'(?:WHEN\s+TAG|command_tag)\s+IN\s*\(.*?\)',
+            'DDL_TAG_FILTER()',
+            exp,
+            flags=re.I | re.S,
+        )
+        for m in re.finditer(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?', exp_sem_tags, re.I):
             tabelas.setdefault(m.group(1), base)
         for m in re.finditer(r'DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?', exp, re.I):
             tabelas.pop(m.group(1), None)
         for m in re.finditer(r'ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?"?(\w+)"?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY', exp, re.I):
             rls.add(m.group(1))
-        for m in re.finditer(r'DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?"?(\w+)"?\s+ON\s+(?:public\.)?"?(\w+)"?', exp, re.I):
-            policies.pop((m.group(2), m.group(1)), None)
-        for m in re.finditer(r'CREATE\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:public\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
-            policies[(m.group(2), m.group(1))] = {'corpo': ' '.join(m.group(3).split()), 'arquivo': base}
-        for m in re.finditer(r'ALTER\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:public\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
-            if (m.group(2), m.group(1)) in policies:
-                policies[(m.group(2), m.group(1))] = {'corpo': ' '.join(m.group(3).split()), 'arquivo': base}
+        for m in re.finditer(r'DROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?', exp, re.I):
+            policies.pop(((m.group(2) or 'public').lower(), m.group(3), m.group(1)), None)
+        for m in re.finditer(r'CREATE\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
+            schema = (m.group(2) or 'public').lower()
+            tabela = m.group(3)
+            policies[(schema, tabela, m.group(1))] = {'corpo': ' '.join(m.group(4).split()), 'arquivo': base}
+        for m in re.finditer(r'ALTER\s+POLICY\s+"?(\w+)"?\s+ON\s+(?:(public|storage)\.)?"?(\w+)"?(.*?)(?=;)', exp, re.S | re.I):
+            schema = (m.group(2) or 'public').lower()
+            tabela = m.group(3)
+            if (schema, tabela, m.group(1)) in policies:
+                policies[(schema, tabela, m.group(1))] = {'corpo': ' '.join(m.group(4).split()), 'arquivo': base}
 
     return tabelas, rls, policies, fns, grants
 
@@ -279,12 +320,20 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--ci', action='store_true', help='sai com código 1 se houver falha')
     args = ap.parse_args()
+    caminhos = arquivos()
+    if not caminhos:
+        print(f'Nenhuma migration encontrada em {MIGRATIONS}.', file=sys.stderr)
+        print('O gate não tem o que verificar; isso é falha, não aprovação.', file=sys.stderr)
+        sys.exit(1)
+
     tabelas, rls, policies, fns, grants = estado_final()
     falhas = []
 
-    print(f'Migrations analisadas : {len(arquivos())}')
+    print(f'Migrations analisadas : {len(caminhos)}')
     print(f'Tabelas               : {len(tabelas)}')
-    print(f'Policies vivas        : {len(policies)}')
+    n_public = sum(1 for (s, _t, _n) in policies if s == 'public')
+    n_storage = sum(1 for (s, _t, _n) in policies if s == 'storage')
+    print(f'Policies vivas        : {len(policies)} (public: {n_public}, storage: {n_storage})')
     print(f'Funções               : {len(fns)}')
     print()
 
@@ -294,15 +343,15 @@ def main():
         falhas.append(f'tabela sem RLS: {tabela} ({tabelas[tabela]})')
 
     permissivas = []
-    for (tabela, nome), valor in sorted(policies.items()):
+    for (schema, tabela, nome), valor in sorted(policies.items()):
         corpo = valor['corpo'].lower()
         if (re.search(r'using\s*\(\s*true\s*\)', corpo)
                 or re.search(r'with\s+check\s*\(\s*true\s*\)', corpo)
                 or re.search(r"auth\.role\(\)\s*\)?\s*=\s*'authenticated'", corpo)):
-            permissivas.append((tabela, nome, valor))
+            permissivas.append((schema, tabela, nome, valor))
     print(f'[2] Nenhuma policy permissiva viva ............. {"OK" if not permissivas else f"FALHA ({len(permissivas)})"}')
-    for tabela, nome, valor in permissivas:
-        falhas.append(f'policy permissiva: {tabela}.{nome} ({valor["arquivo"]})')
+    for schema, tabela, nome, valor in permissivas:
+        falhas.append(f'policy permissiva: {schema}.{tabela}.{nome} ({valor["arquivo"]})')
 
     expostas = []
     for sig, valor in sorted(fns.items()):
@@ -316,6 +365,16 @@ def main():
     for sig, valor in expostas:
         falhas.append(f'DEFINER sem guarda concedida a authenticated: {sig} ({valor["arquivo"]})')
         print(f'      - {sig} ({valor["arquivo"]})')
+
+    fecha_default = any(
+        FECHAMENTO_DEFAULT.search(sem_comentarios(ler(c)))
+        for c in caminhos
+    )
+    print(f'[4] Defaults de EXECUTE fechados (ADR 0047) .... {"OK" if fecha_default else "FALHA"}')
+    if not fecha_default:
+        falhas.append(
+            'nenhuma migration inverte o ALTER DEFAULT PRIVILEGES de FUNCTIONS em public: '
+            'toda função nova nasceria executável por anon/PUBLIC')
 
     print()
     if falhas:

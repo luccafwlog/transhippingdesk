@@ -43,7 +43,7 @@ manual e compartilha a referência cambial e o cache canônicos do recálculo de
 demurrage. CNY e o antigo contrato `useExchangeRates` não integram mais a
 aplicação; a entrada manual permanece no módulo Demurrage.
 
-Esses filtros de UI são ergonomia e navegação. A autoridade continua em policies, triggers, grants, Edge Functions e RPCs; chamadas diretas à API não podem depender de menu oculto ou redirect. Evidências: `supabase/migrations/040_portal_login_rate_limit.sql`, `supabase/migrations/077_fix_user_profile_privilege_escalation.sql`, `supabase/migrations/014_lock_down_financial_reads_and_audit_writes.sql` e as migrations específicas do gate.
+Esses filtros de UI são ergonomia e navegação. A autoridade continua em policies, triggers, grants, Edge Functions e RPCs; chamadas diretas à API não podem depender de menu oculto ou redirect. Evidências: `supabase/migrations_archive/040_portal_login_rate_limit.sql`, `supabase/migrations_archive/077_fix_user_profile_privilege_escalation.sql`, `supabase/migrations_archive/014_lock_down_financial_reads_and_audit_writes.sql` e as migrations específicas do gate.
 
 ### `/painel`
 
@@ -161,7 +161,7 @@ O display compartilha `fetchLineUpSnapshot` com o Painel, mas não compartilha a
 
 As chaves são `['admin-users']`, `['admin-audit-logs', logFilters]` e `['admin-metrics']`. `src/services/adminUsers.ts` lista `user_profiles` e atualiza `role`/`active` diretamente. A tela gerencia `administrativo`, `financeiro`, `operacoes` e `documentacao`, normalizando papéis legados `admin` e `operator` apenas para exibição/seleção.
 
-Não há lock otimista nessa atualização. A proteção efetiva para `role` e `active` é administrativa no banco, incluindo o trigger de `supabase/migrations/077_fix_user_profile_privilege_escalation.sql`.
+Não há lock otimista nessa atualização. A proteção efetiva para `role` e `active` é administrativa no banco, incluindo o trigger de `supabase/migrations_archive/077_fix_user_profile_privilege_escalation.sql`.
 
 ## Catálogo de ações
 
@@ -221,8 +221,8 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
 | Listar usuários | `ProtectedRoute adminOnly` e RLS admin | Aba Usuários | `listAllUserProfiles` | Leitura de `user_profiles` | Cache `['admin-users']` | Erro exibe `InlineError` | **Código:** `src/pages/AdminUsuarios.tsx`, `src/services/adminUsers.ts`, `src/components/layout/ProtectedRoute.tsx` |
-| Alterar role/ativo | Admin; perfil alvo | Select ou Ativar/Desativar | `updateUserProfile(id, updates)` | Update direto em `user_profiles`; trigger impede alteração sensível por não admin | Invalida `['admin-users']` | Não há optimistic lock; concorrência usa last write wins; `42501` bloqueia autor indevido | **Código:** `src/services/adminUsers.ts`, `supabase/migrations/077_fix_user_profile_privilege_escalation.sql` |
-| Filtrar/paginar audit log | Admin na rota; aba Logs | Filtros de módulo, autor/período e paginação | Query direta com count e lookup dos autores | Leitura de `audit_logs` e `user_profiles` | Cache `['admin-audit-logs', logFilters]`; páginas de 50 | Falha da query lança; UI não renderiza `InlineError` específico para logs | **Código:** `src/pages/AdminUsuarios.tsx`, `supabase/migrations/014_lock_down_financial_reads_and_audit_writes.sql` |
+| Alterar role/ativo | Admin; perfil alvo | Select ou Ativar/Desativar | `updateUserProfile(id, updates)` | Update direto em `user_profiles`; trigger impede alteração sensível por não admin | Invalida `['admin-users']` | Não há optimistic lock; concorrência usa last write wins; `42501` bloqueia autor indevido | **Código:** `src/services/adminUsers.ts`, `supabase/migrations_archive/077_fix_user_profile_privilege_escalation.sql` |
+| Filtrar/paginar audit log | Admin na rota; aba Logs | Filtros de módulo, autor/período e paginação | Query direta com count e lookup dos autores | Leitura de `audit_logs` e `user_profiles` | Cache `['admin-audit-logs', logFilters]`; páginas de 50 | Falha da query lança; UI não renderiza `InlineError` específico para logs | **Código:** `src/pages/AdminUsuarios.tsx`, `supabase/migrations_archive/014_lock_down_financial_reads_and_audit_writes.sql` |
 | Carregar métricas | Aba Métricas | Troca de aba | Três leituras paralelas | `voyages`, `audit_logs` de `pix_reconciliation`, `invoices` | Cache `['admin-metrics']`, stale 60 s | Função não verifica erros individuais; ausência/falha pode aparecer como `-` | **Código:** `src/pages/AdminUsuarios.tsx` |
 | Navegar e sair | Sessão interna ativa | Menus, marca, Header e botão Sair | `AppLayout`/`HeaderInfoBar`; `signOut` → `/login` | Supabase Auth/storage de sessão | Limpa sessão conforme `useAuth`; badges vêm de `['op-count', ...]` | Falha de autorização real deve ser resolvida por RLS/RPC, não pelo menu | **Código:** `src/components/layout/AppLayout.tsx`, `src/components/layout/HeaderInfoBar.tsx`, `src/components/layout/appLayoutNav.ts`, `src/hooks/useOperationalCounts.ts`; **Teste:** `src/components/layout/__tests__/AppLayout.test.ts` |
 
@@ -243,7 +243,7 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 
 ### Gate canônico de revisão
 
-`supabase/migrations/129_review_gate_hardening.sql` é a definição posterior do contrato:
+`supabase/migrations_archive/129_review_gate_hardening.sql` é a definição posterior do contrato:
 
 1. `customer_id` precisa existir;
 2. qualquer contato do cliente precisa ter e-mail não vazio;

@@ -449,14 +449,18 @@ resultado e evidência conforme
 
 ### Pull request
 
-`.github/workflows/ci.yml` executa quatro jobs em paralelo em pull requests e
+`.github/workflows/ci.yml` executa cinco jobs em paralelo em pull requests e
 pushes para `main`, usando Node.js 24 e instalação reproduzível própria (`npm ci
 --legacy-peer-deps`):
 
 1. `quality` — verificação documental e lint;
 2. `build` — build (`tsc` + `vite`) e orçamento de bundle;
 3. `test` — suíte Vitest dividida em 3 shards (`--shard=N/3`);
-4. `checks` — gate agregador que só fica verde quando os três terminam verdes.
+4. `security-audit` — replay estático de autorização (`verificar_guardas.py`);
+5. `migration-replay` — aplica as migrations do zero num PostgreSQL 16
+   descartável (`setup-local-pg.sh --reset`) e trava invariantes em banco real
+   (`check-squash-replay.sql`): é o único gate que executa SQL;
+6. `checks` — gate agregador que só fica verde quando os cinco terminam verdes.
 
 `checks` é o nome estável para a proteção de branch: a quantidade de shards
 pode mudar sem reconfigurar o repositório. Runs antigos do mesmo ref são

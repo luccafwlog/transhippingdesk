@@ -112,6 +112,15 @@ CREATE OR REPLACE FUNCTION cron.schedule(job_name text, schedule text, command t
 CREATE OR REPLACE FUNCTION cron.schedule(schedule text, command text)                RETURNS bigint LANGUAGE sql AS $f$ SELECT 0::bigint $f$;
 CREATE OR REPLACE FUNCTION cron.unschedule(job_name text)                            RETURNS boolean LANGUAGE sql AS $f$ SELECT true $f$;
 DO $$ BEGIN CREATE PUBLICATION supabase_realtime; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE SCHEMA IF NOT EXISTS net;
+CREATE OR REPLACE FUNCTION net.http_post(url text, body jsonb DEFAULT '{}'::jsonb, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{}'::jsonb)
+RETURNS bigint LANGUAGE sql AS $f$ SELECT 0::bigint $f$;
+CREATE SCHEMA IF NOT EXISTS storage;
+CREATE TABLE IF NOT EXISTS storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false);
+INSERT INTO storage.buckets (id, name, public) VALUES
+  ('demurrage-disputes', 'demurrage-disputes', false),
+  ('customer-communications', 'customer-communications', false)
+ON CONFLICT (id) DO NOTHING;
 SQL
 
 for f in $(ls supabase/migrations/*.sql | sort -V); do
