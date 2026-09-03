@@ -138,14 +138,19 @@ DECLARE
 BEGIN
   -- 4.1 Base da API. Nao e segredo; mora no mesmo lugar para que exista um
   -- unico caminho de leitura e uma unica rotacao.
+  -- Ignora os placeholders `*.invalid` das 003/005: em banco novo eles sao os
+  -- unicos comandos com net.http_post, e semear um deles como SUPABASE_URL
+  -- quebraria o contrato de "cofre vazio nao dispara" (o dispatcher passaria
+  -- a fazer POST contra host invalido em vez de avisar e nao disparar).
   IF NOT EXISTS (SELECT 1 FROM vault.secrets WHERE name = 'SUPABASE_URL') THEN
     SELECT substring(command from $re$url := '(https://[^']+)/functions/v1/$re$)
       INTO v_value
       FROM cron.job
      WHERE command ~ 'net\.http_post'
+       AND command NOT LIKE '%invalid%'
      ORDER BY jobname
      LIMIT 1;
-    IF v_value IS NULL THEN
+    IF v_value IS NULL OR v_value LIKE '%invalid%' THEN
       RAISE WARNING '007: nenhum job legado para derivar SUPABASE_URL; cadastre no Vault (docs/operations/segredos-cron.md).';
     ELSE
       PERFORM vault.create_secret(

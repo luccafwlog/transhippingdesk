@@ -106,11 +106,85 @@ CREATE TABLE IF NOT EXISTS cron.job (
   jobid BIGSERIAL PRIMARY KEY,
   jobname TEXT UNIQUE,
   schedule TEXT NOT NULL,
-  command TEXT NOT NULL
+  command TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true
 );
-CREATE OR REPLACE FUNCTION cron.schedule(job_name text, schedule text, command text) RETURNS bigint LANGUAGE sql AS $f$ SELECT 0::bigint $f$;
-CREATE OR REPLACE FUNCTION cron.schedule(schedule text, command text)                RETURNS bigint LANGUAGE sql AS $f$ SELECT 0::bigint $f$;
-CREATE OR REPLACE FUNCTION cron.unschedule(job_name text)                            RETURNS boolean LANGUAGE sql AS $f$ SELECT true $f$;
+-- Banco criado antes deste shim nao tem a coluna: completar sem recriar.
+ALTER TABLE cron.job ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
+-- Shim funcional (a 007 verifica linhas em cron.job): schedule insere ou
+-- atualiza por jobname e reativa; unschedule remove. O stub anterior era
+-- no-op e deixava cron.job sempre vazio.
+CREATE OR REPLACE FUNCTION cron.schedule(job_name text, schedule text, command text) RETURNS bigint
+LANGUAGE plpgsql AS $f$
+DECLARE v_id bigint;
+BEGIN
+  INSERT INTO cron.job(jobname, schedule, command, active)
+  VALUES (job_name, schedule, command, true)
+  ON CONFLICT (jobname) DO UPDATE SET schedule = EXCLUDED.schedule, command = EXCLUDED.command, active = true
+  RETURNING jobid INTO v_id;
+  RETURN v_id;
+END $f$;
+CREATE OR REPLACE FUNCTION cron.schedule(schedule text, command text) RETURNS bigint
+LANGUAGE plpgsql AS $f$
+DECLARE v_id bigint;
+BEGIN
+  INSERT INTO cron.job(jobname, schedule, command, active)
+  VALUES ('job_' || nextval('cron.job_jobid_seq'), schedule, command, true)
+  RETURNING jobid INTO v_id;
+  RETURN v_id;
+END $f$;
+CREATE OR REPLACE FUNCTION cron.unschedule(job_name text) RETURNS boolean
+LANGUAGE plpgsql AS $f$
+BEGIN
+  DELETE FROM cron.job WHERE jobname = job_name;
+  RETURN true;
+END $f$;
+CREATE OR REPLACE FUNCTION cron.unschedule(job_id bigint) RETURNS boolean
+LANGUAGE plpgsql AS $f$
+BEGIN
+  DELETE FROM cron.job WHERE jobid = job_id;
+  RETURN true;
+END $f$;
+-- Shim do Supabase Vault (extensao supabase_vault; ausente no PG vanilla).
+-- A 007 exige vault.secrets/vault.decrypted_secrets + vault.create_secret;
+-- sem isto o replay aborta em "extensao supabase_vault ausente". Sem cifra
+-- real: o shim guarda em claro, suficiente para o contrato (nomes, dispatcher
+-- e verificacao de literal). Producao/Preview usam a extensao de verdade.
+CREATE SCHEMA IF NOT EXISTS vault;
+CREATE TABLE IF NOT EXISTS vault.secrets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT UNIQUE,
+  description TEXT,
+  secret TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE OR REPLACE VIEW vault.decrypted_secrets AS
+  SELECT id, name, description, secret, secret AS decrypted_secret, created_at, updated_at
+  FROM vault.secrets;
+CREATE OR REPLACE FUNCTION vault.create_secret(new_secret text, new_name text DEFAULT '', new_description text DEFAULT '') RETURNS uuid
+LANGUAGE plpgsql AS $f$
+DECLARE v_id uuid;
+BEGIN
+  INSERT INTO vault.secrets(name, description, secret)
+  VALUES (NULLIF(new_name, ''), new_description, new_secret)
+  ON CONFLICT (name) DO NOTHING
+  RETURNING id INTO v_id;
+  IF v_id IS NULL THEN
+    SELECT id INTO v_id FROM vault.secrets WHERE name IS NOT DISTINCT FROM NULLIF(new_name, '');
+  END IF;
+  RETURN v_id;
+END $f$;
+CREATE OR REPLACE FUNCTION vault.update_secret(secret_id uuid, new_secret text DEFAULT NULL, new_name text DEFAULT NULL, new_description text DEFAULT NULL) RETURNS void
+LANGUAGE plpgsql AS $f$
+BEGIN
+  UPDATE vault.secrets
+     SET secret = COALESCE(new_secret, secret),
+         name = COALESCE(new_name, name),
+         description = COALESCE(new_description, description),
+         updated_at = now()
+   WHERE id = secret_id;
+END $f$;
 DO $$ BEGIN CREATE PUBLICATION supabase_realtime; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE SCHEMA IF NOT EXISTS net;
 CREATE OR REPLACE FUNCTION net.http_post(url text, body jsonb DEFAULT '{}'::jsonb, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{}'::jsonb)
