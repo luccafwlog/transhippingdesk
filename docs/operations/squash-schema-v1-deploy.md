@@ -121,8 +121,10 @@ por outro papel podem não enxergar os mesmos objetos e falhar barulhentamente.
      ('003', 'pos_squash_objetos_fora_do_dump'),
      ('004', 'vazios_delete_baplie_grant');
    ```
-   (Esta via SQL já equivale aos itens 1 e 2 juntos; quem a usar pula
-   direto para o item 3.)
+   (Esta via SQL equivale ao item 1 e à PRIMEIRA metade do item 2 — o reparo do
+   histórico. Ela NÃO aplica a `005`: quem a usar ainda precisa rodar o
+   `supabase db push --linked` do item 2 antes de seguir para o item 3, ou
+   produção continua sem `pg_net`, com o digest quebrado.)
 
 2. Confirmar as versões consolidadas como aplicadas (associando aos nomes locais atuais):
    ```bash
@@ -141,10 +143,27 @@ por outro papel podem não enxergar os mesmos objetos e falhar barulhentamente.
    `schema "net" does not exist` e os 3 runners seguem não agendados).
    *Alternativa manual (só se o push não atender):* rodar os blocos da 005 no
    SQL Editor como postgres — extensões, os 4 `cron.schedule` e a função +
-   event trigger, na ordem do arquivo.
+   event trigger, na ordem do arquivo. Depois de aplicar à mão, registre a
+   versão para não deixar histórico órfão:
    ```bash
-   supabase migration repair --linked --status applied 001 002 003 004
+   supabase migration repair --linked --status applied 005
    ```
+
+   > **Ao recriar o `ensure_rls` à mão, a cláusula `WHEN TAG` é obrigatória.**
+   > Se a 005 avisar `sem privilegio para CREATE EVENT TRIGGER`, crie o trigger
+   > como superuser exatamente assim:
+   >
+   > ```sql
+   > CREATE EVENT TRIGGER ensure_rls
+   >   ON ddl_command_end
+   >   WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+   >   EXECUTE FUNCTION public.rls_auto_enable();
+   > ```
+   >
+   > Sem o `WHEN TAG`, o `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` que a
+   > função executa redispara o próprio trigger. O filtro `command_tag` de
+   > dentro da função é a segunda camada que segura essa recursão — por isso
+   > nenhum dos dois pode ser removido "para simplificar".
 
   3. Aplicar o efeito líquido novo da `004` no alvo. O reparo acima só reescreve
     histórico — não executa SQL. `001`–`003` são equivalentes ao que um banco em
@@ -177,9 +196,15 @@ por outro papel podem não enxergar os mesmos objetos e falhar barulhentamente.
   ```bash
   LEGADAS=$(ls supabase/migrations/*.sql | sed 's/.*\///;s/_.*//' | tr '\n' ' ')
   supabase migration repair --linked --status applied $LEGADAS
-  supabase migration repair --linked --status reverted 001 002 003 004
+  supabase migration repair --linked --status reverted 001 002 003 004 005
   supabase migration list --linked
   ```
+  A `005` entra na lista de revertidas: sem ela, o histórico remoto fica com
+  uma versão que não existe mais no diretório local após o revert — a mesma
+  divergência "remote migration versions not found" que este runbook existe
+  para evitar. Note que reverter o HISTÓRICO da 005 não desfaz o EFEITO dela
+  (pg_net, jobs e `ensure_rls` continuam no banco); para isso, rode o bloco
+  "Rollback" do cabeçalho de `005_pg_net_jobs_rls_guard.sql`.
   A saída deve voltar a mostrar a cadeia legada como `Applied` e nenhuma
   versão consolidada. Se qualquer dado tiver sido afetado no caminho (não é
   o caso quando só o histórico foi reescrito), restaure o
@@ -200,9 +225,19 @@ Após o deploy ou reparo, execute as seguintes validações:
 - [ ] **Guarda RLS futura (M1):**
   ```sql
   SELECT pg_get_functiondef('public.rls_auto_enable()'::regprocedure);
-  SELECT evtname FROM pg_event_trigger WHERE evtname = 'ensure_rls';
+  SELECT evtname, evttags FROM pg_event_trigger WHERE evtname = 'ensure_rls';
   ```
-  A função deve existir com `SET search_path` e o trigger `ensure_rls` deve existir. Se a definição em produção divergir da 005, reconciliar antes de convergir.
+  A função deve existir com `SET search_path` e o trigger `ensure_rls` deve
+  existir **com `evttags = {"CREATE TABLE","CREATE TABLE AS","SELECT INTO"}`**
+  (trigger sem tags recursa — ver o aviso no Passo 2).
+
+  > **Compare ANTES do push, não depois.** A 005 é `CREATE OR REPLACE`: ela
+  > sobrescreve a definição viva de produção. Rode o `pg_get_functiondef` acima
+  > no alvo e confira contra o corpo em
+  > `supabase/migrations/005_pg_net_jobs_rls_guard.sql` antes de aplicar —
+  > depois do push a definição anterior não existe mais para ser comparada.
+  > Referência do estado de produção em 2026-09-03:
+  > `md5(prosrc) = 99be20677b456ea8d3be47bdd44fb369`.
 - [ ] **Jobs pg_cron Ativos:**
   ```sql
   SELECT jobname, schedule, active FROM cron.job ORDER BY jobname;
