@@ -678,13 +678,32 @@ export async function fetchCustomerCommunicationConference(input: {
   const expanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind)
   const filtered = filterCustomerCommunicationBls(expanded, input.filters)
   const customerIds = [...new Set(filtered.map((row) => row.customerId))]
-  const [{ contactsByCustomer, boxLinks }, { data: portalSuppressions, error: portalError }, { data: communicationSuppressions, error: communicationError }] = await Promise.all([
-    fetchCommunicationContacts(customerIds),
-    supabase.from('portal_suppressed_emails').select('email, reason'),
-    supabase.from('customer_communication_suppressions').select('email, reason'),
+  const { contactsByCustomer, boxLinks } = await fetchCommunicationContacts(customerIds)
+  // (ponytail: supressoes filtradas por e-mail em vez de full-scan — a tabela
+  // estoura max_rows=1000 e truncava; o last-mile filtrado na edge evita envio
+  // errado, mas a conferencia mentia. Upgrade seria RPC com filtro server-side.)
+  const contactEmails = [...new Set(
+    [...contactsByCustomer.values()].flatMap((contacts) =>
+      contacts.flatMap((c) => {
+        const email = String((c as { email?: unknown }).email ?? '').trim()
+        return email ? [email, email.toLowerCase()] : []
+      }),
+    ),
+  )]
+  async function fetchSuppressionsFiltered(table: 'portal_suppressed_emails' | 'customer_communication_suppressions') {
+    if (!contactEmails.length) return [] as Array<{ email: string; reason: string | null }>
+    const rows: Array<{ email: string; reason: string | null }> = []
+    for (let from = 0; from < contactEmails.length; from += 100) {
+      const { data, error } = await supabase.from(table).select('email, reason').in('email', contactEmails.slice(from, from + 100))
+      if (error) throw error
+      rows.push(...((data ?? []) as Array<{ email: string; reason: string | null }>))
+    }
+    return rows
+  }
+  const [portalSuppressions, communicationSuppressions] = await Promise.all([
+    fetchSuppressionsFiltered('portal_suppressed_emails'),
+    fetchSuppressionsFiltered('customer_communication_suppressions'),
   ])
-  if (portalError) throw portalError
-  if (communicationError) throw communicationError
   const history = await fetchCommunicationHistory(customerIds, input.kind)
 
   return buildCustomerCommunicationConference({

@@ -34,8 +34,8 @@ export function EmptyState({
 
 export function InlineError({ message }: { message: string }) {
   return (
-    <div className="app-inline-error">
-      <AlertCircle size={15} className="shrink-0" />
+    <div className="app-inline-error" role="alert">
+      <AlertCircle size={15} className="shrink-0" aria-hidden="true" />
       {message}
     </div>
   )

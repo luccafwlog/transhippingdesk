@@ -31,6 +31,12 @@ BEGIN
 END $$;
 
 -- Sanitizacao defensiva para evitar quebra em bases existentes com duplicidades
+-- (ponytail: reescreve o e-mail das linhas perdedoras para NULL em vez de
+-- apenas desativar; o indice unico nao filtra deactivated_at por contrato —
+-- "inclusive contra um registro inativo" — entao desativar sozinho seria no-op
+-- e a migration abortaria na criacao do indice. O historico do perdedor segue
+-- no after_snapshot dos eventos; upgrade path seria arquivar o endereco
+-- original numa coluna dedicada se a operacao pedir auditoria do valor.)
 WITH duplicates AS (
   SELECT id, ROW_NUMBER() OVER (
     PARTITION BY customer_id, NULLIF(lower(btrim(email)), '')
@@ -40,7 +46,8 @@ WITH duplicates AS (
   WHERE customer_id IS NOT NULL AND NULLIF(lower(btrim(email)), '') IS NOT NULL
 )
 UPDATE public.customer_contacts
-SET deactivated_at = COALESCE(deactivated_at, now())
+SET deactivated_at = COALESCE(deactivated_at, now()),
+    email = NULL
 WHERE id IN (SELECT id FROM duplicates WHERE rn > 1);
 
 WITH ranked_primaries AS (
@@ -69,7 +76,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS customer_contacts_one_active_primary_uidx
 -- 2. Catalogo extensivel de caixas e mapa de modelos (kinds)
 -- ===========================================================================
 
-CREATE TABLE public.customer_communication_boxes (
+CREATE TABLE IF NOT EXISTS public.customer_communication_boxes (
   code text PRIMARY KEY,
   label text NOT NULL,
   description text NOT NULL,
@@ -78,7 +85,7 @@ CREATE TABLE public.customer_communication_boxes (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.customer_communication_box_kinds (
+CREATE TABLE IF NOT EXISTS public.customer_communication_box_kinds (
   box_code text NOT NULL REFERENCES public.customer_communication_boxes(code) ON DELETE CASCADE,
   kind text NOT NULL,
   PRIMARY KEY (box_code, kind)
@@ -110,7 +117,7 @@ ON CONFLICT DO NOTHING;
 -- 3. Vinculos por contato e eventos agrupados de alteracao
 -- ===========================================================================
 
-CREATE TABLE public.customer_contact_box_links (
+CREATE TABLE IF NOT EXISTS public.customer_contact_box_links (
   contact_id bigint NOT NULL REFERENCES public.customer_contacts(id) ON DELETE CASCADE,
   box_code text NOT NULL REFERENCES public.customer_communication_boxes(code) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -120,7 +127,7 @@ CREATE TABLE public.customer_contact_box_links (
 CREATE INDEX IF NOT EXISTS customer_contact_box_links_box_code_idx
   ON public.customer_contact_box_links (box_code, contact_id);
 
-CREATE TABLE public.customer_contact_change_events (
+CREATE TABLE IF NOT EXISTS public.customer_contact_change_events (
   id bigserial PRIMARY KEY,
   action_id uuid NOT NULL DEFAULT gen_random_uuid(),
   customer_id bigint NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
@@ -162,14 +169,23 @@ GRANT SELECT ON public.customer_contact_box_links TO authenticated, service_role
 GRANT SELECT ON public.customer_contact_change_events TO authenticated, service_role;
 
 DROP POLICY IF EXISTS customer_communication_boxes_select ON public.customer_communication_boxes;
+-- (ponytail: EXISTS em vez de current_portal_customer_id() — a funcao levanta
+-- 28000 em vez de retornar NULL e o OR nao garante ordem de avaliacao; chamar
+-- a funcao aqui quebraria leituras internas sem conta Portal.)
 CREATE POLICY customer_communication_boxes_select ON public.customer_communication_boxes
   FOR SELECT TO authenticated
-  USING (public.is_active_read_user() OR public.current_portal_customer_id() IS NOT NULL);
+  USING (public.is_active_read_user() OR EXISTS (
+    SELECT 1 FROM public.customer_portal_accounts a
+    WHERE a.auth_user_id = auth.uid() AND a.active = true
+  ));
 
 DROP POLICY IF EXISTS customer_communication_box_kinds_select ON public.customer_communication_box_kinds;
 CREATE POLICY customer_communication_box_kinds_select ON public.customer_communication_box_kinds
   FOR SELECT TO authenticated
-  USING (public.is_active_read_user() OR public.current_portal_customer_id() IS NOT NULL);
+  USING (public.is_active_read_user() OR EXISTS (
+    SELECT 1 FROM public.customer_portal_accounts a
+    WHERE a.auth_user_id = auth.uid() AND a.active = true
+  ));
 
 DROP POLICY IF EXISTS customer_contact_box_links_select ON public.customer_contact_box_links;
 CREATE POLICY customer_contact_box_links_select ON public.customer_contact_box_links
@@ -185,21 +201,214 @@ CREATE POLICY customer_contact_change_events_select ON public.customer_contact_c
 
 DROP TRIGGER IF EXISTS trg_seed_customer_contact_preferences ON public.customer_contacts;
 
--- Contatos principais ativos recebem todas as caixas
+-- Substituto do seed antigo: todo INSERT direto fora das RPCs (addCustomerEmail
+-- legado, portal_update_profile, upsertCustomerContact) ganha roteamento
+-- minimo em vez de nascer inroteavel. A RPC _apply faz sync exato apos o
+-- INSERT, entao o seed e idempotente (ON CONFLICT DO NOTHING + DELETE do
+-- excedente no ramo de insercao do nucleo).
+CREATE OR REPLACE FUNCTION public.seed_customer_contact_box_links()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+  IF NEW.deactivated_at IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+  IF NULLIF(lower(btrim(COALESCE(NEW.email, ''))), '') IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF COALESCE(NEW.is_primary, false) = true THEN
+    INSERT INTO public.customer_contact_box_links (contact_id, box_code)
+    SELECT NEW.id, code FROM public.customer_communication_boxes WHERE active = true
+    ON CONFLICT DO NOTHING;
+  ELSE
+    INSERT INTO public.customer_contact_box_links (contact_id, box_code)
+    VALUES (NEW.id, 'documentacao_operacao')
+    ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.seed_customer_contact_box_links() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_seed_customer_contact_box_links ON public.customer_contacts;
+CREATE TRIGGER trg_seed_customer_contact_box_links
+  AFTER INSERT ON public.customer_contacts
+  FOR EACH ROW EXECUTE FUNCTION public.seed_customer_contact_box_links();
+
+-- updated_at: mantido por trigger (a coluna foi adicionada sem manutencao).
+CREATE OR REPLACE FUNCTION public.touch_customer_contact_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.touch_customer_contact_updated_at() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_touch_customer_contact_updated_at ON public.customer_contacts;
+CREATE TRIGGER trg_touch_customer_contact_updated_at
+  BEFORE UPDATE ON public.customer_contacts
+  FOR EACH ROW EXECUTE FUNCTION public.touch_customer_contact_updated_at();
+
+-- Contatos principais ativos COM e-mail recebem todas as caixas
 INSERT INTO public.customer_contact_box_links (contact_id, box_code)
 SELECT cc.id, ccb.code
 FROM public.customer_contacts cc
 CROSS JOIN public.customer_communication_boxes ccb
 WHERE cc.is_primary = true AND cc.deactivated_at IS NULL
+  AND cc.email_normalized IS NOT NULL
 ON CONFLICT DO NOTHING;
 
--- Contatos adicionais ativos sem vinculos recebem documentacao_operacao
+-- Contatos adicionais ativos COM e-mail e sem vinculos recebem documentacao_operacao
 INSERT INTO public.customer_contact_box_links (contact_id, box_code)
 SELECT cc.id, 'documentacao_operacao'
 FROM public.customer_contacts cc
 WHERE (cc.is_primary = false OR cc.is_primary IS NULL) AND cc.deactivated_at IS NULL
+  AND cc.email_normalized IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM public.customer_contact_box_links l WHERE l.contact_id = cc.id)
 ON CONFLICT DO NOTHING;
+
+-- Clientes sem nenhum principal ativo: o contato ativo com e-mail mais antigo
+-- assume cobertura total (evita que a virada opt-out -> opt-in cale Financeiro
+-- e Demurrage em silencio) e gera alerta para triagem humana.
+INSERT INTO public.customer_contact_box_links (contact_id, box_code)
+SELECT oldest.id, ccb.code
+FROM (
+  SELECT DISTINCT ON (cc.customer_id) cc.id, cc.customer_id
+  FROM public.customer_contacts cc
+  WHERE cc.customer_id IS NOT NULL
+    AND cc.deactivated_at IS NULL
+    AND cc.email_normalized IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM public.customer_contacts p
+      WHERE p.customer_id = cc.customer_id
+        AND p.is_primary = true AND p.deactivated_at IS NULL
+        AND p.email_normalized IS NOT NULL
+    )
+  ORDER BY cc.customer_id, cc.id ASC
+) oldest
+CROSS JOIN public.customer_communication_boxes ccb
+ON CONFLICT DO NOTHING;
+
+-- Superficie dos dois alertas registrados abaixo: sem RAISE aqui nao ha como
+-- o deploy saber quem precisa de triagem.
+SELECT public.upsert_alert_item(
+  'cliente_sem_contato_principal',
+  'customer',
+  c.id::text,
+  'Cliente sem contato principal ativo com e-mail apos migração das caixas.',
+  'sistema',
+  jsonb_build_object('customer_id', c.id),
+  '/clientes'
+)
+FROM public.customers c
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.customer_contacts cc
+  WHERE cc.customer_id = c.id AND cc.is_primary = true
+    AND cc.deactivated_at IS NULL AND cc.email_normalized IS NOT NULL
+)
+AND EXISTS (
+  SELECT 1 FROM public.customer_contacts cc
+  WHERE cc.customer_id = c.id AND cc.deactivated_at IS NULL
+);
+
+-- Gate de revisao passa a ignorar contatos desativados: sem isso, o operador
+-- liberava o B/L pela mera existencia de linha com e-mail (inclusive inativa)
+-- e o contato nunca receberia nada.
+CREATE OR REPLACE FUNCTION public.compute_bl_review_pendencies(p_customer_id bigint, p_cargo_mode text, p_bb_weight_ton numeric)
+RETURNS text[]
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+DECLARE
+  v_reasons TEXT[] := ARRAY[]::TEXT[];
+  v_has_email BOOLEAN := false;
+BEGIN
+  IF p_customer_id IS NULL THEN
+    v_reasons := array_append(v_reasons, 'Cliente nao vinculado');
+  ELSE
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.customer_contacts c
+      WHERE c.customer_id = p_customer_id
+        AND c.deactivated_at IS NULL
+        AND NULLIF(btrim(c.email), '') IS NOT NULL
+    ) INTO v_has_email;
+
+    IF NOT v_has_email THEN
+      v_reasons := array_append(v_reasons, 'Cliente sem e-mail cadastrado');
+    END IF;
+
+    IF NOT public.customer_portal_access_ready(p_customer_id) THEN
+      v_reasons := array_append(v_reasons, 'Acesso ao portal nao provisionado');
+    END IF;
+  END IF;
+
+  IF p_cargo_mode = 'carga_solta'
+     AND (p_bb_weight_ton IS NULL OR p_bb_weight_ton <= 0) THEN
+    v_reasons := array_append(v_reasons, 'Peso BB ausente');
+  END IF;
+
+  RETURN v_reasons;
+END;
+$$;
+
+-- portal_update_profile herdado inseria contato faturamento direto sem caixas.
+-- Com o trigger de seed acima o INSERT ja ganha documentacao_operacao quando
+-- houver e-mail; aqui garantimos nao criar principal sem e-mail (que quebraria
+-- o invariante "exatamente um principal ativo com e-mail" do nucleo) e
+-- vinculamos explicitamente por idempotencia.
+CREATE OR REPLACE FUNCTION public.portal_update_profile(p_contact_email text DEFAULT NULL::text, p_phone text DEFAULT NULL::text, p_address text DEFAULT NULL::text, p_city text DEFAULT NULL::text, p_state text DEFAULT NULL::text, p_zip text DEFAULT NULL::text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+DECLARE
+  v_customer_id BIGINT := public.current_portal_customer_id();
+  v_contact_id BIGINT;
+BEGIN
+  IF p_contact_email IS NOT NULL THEN
+    UPDATE public.customer_portal_accounts
+    SET contact_email = NULLIF(trim(p_contact_email), ''),
+        updated_at = now()
+    WHERE customer_id = v_customer_id;
+  END IF;
+
+  UPDATE public.customers
+  SET
+    address = COALESCE(NULLIF(trim(COALESCE(p_address, '')), ''), address),
+    city = COALESCE(NULLIF(trim(COALESCE(p_city, '')), ''), city),
+    state = COALESCE(NULLIF(trim(COALESCE(p_state, '')), ''), state),
+    zip = COALESCE(NULLIF(trim(COALESCE(p_zip, '')), ''), zip),
+    updated_at = now()
+  WHERE id = v_customer_id;
+
+  IF p_phone IS NOT NULL AND trim(p_phone) <> '' THEN
+    IF EXISTS (
+      SELECT 1 FROM public.customer_contacts
+      WHERE customer_id = v_customer_id AND purpose = 'faturamento'
+    ) THEN
+      UPDATE public.customer_contacts
+      SET phone = NULLIF(trim(p_phone), '')
+      WHERE customer_id = v_customer_id
+        AND purpose = 'faturamento';
+    ELSE
+      INSERT INTO public.customer_contacts (customer_id, name, email, phone, purpose, is_primary)
+      VALUES (v_customer_id, 'Contato principal', NULL, NULLIF(trim(p_phone), ''), 'faturamento', false)
+      RETURNING id INTO v_contact_id;
+    END IF;
+  END IF;
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
 
 -- ===========================================================================
 -- 6. Helper para projetar configuracao canônica de contatos e caixas
@@ -323,10 +532,13 @@ DECLARE
   v_existing_dup record;
   v_active_box record;
   v_box_has_recipient boolean;
+  v_box_has_linked boolean;
   v_new_id bigint;
   v_action_id uuid := gen_random_uuid();
   v_contact_box_codes text[];
   v_suppression_reason text;
+  v_suppressed_only_boxes text[] := ARRAY[]::text[];
+  v_ids_with_email bigint[] := ARRAY[]::bigint[];
 BEGIN
   IF p_customer_id IS NULL THEN
     RAISE EXCEPTION 'ID do cliente é obrigatório.' USING ERRCODE = '22023';
@@ -351,6 +563,14 @@ BEGIN
   INTO v_target_contact_ids
   FROM jsonb_array_elements(p_contacts) elem
   WHERE NULLIF(elem->>'id', '') IS NOT NULL;
+
+  -- IDs cujo payload traz e-mail (para liberacao previa do indice unico e
+  -- suporte a troca de e-mails entre contatos sem erro cru de constraint).
+  SELECT COALESCE(array_agg(NULLIF(elem->>'id', '')::bigint), ARRAY[]::bigint[])
+  INTO v_ids_with_email
+  FROM jsonb_array_elements(p_contacts) elem
+  WHERE NULLIF(elem->>'id', '') IS NOT NULL
+    AND NULLIF(lower(btrim(COALESCE(elem->>'email', ''))), '') IS NOT NULL;
 
   -- Snapshot anterior
   v_before_config := public._build_customer_contact_configuration(p_customer_id);
@@ -383,6 +603,17 @@ BEGIN
     END IF;
 
     -- Validacao de e-mail em contatos ativos ou novos
+    -- (ponytail: v_seen rastreia TODOS os e-mails do payload, inclusive de
+    -- inativos — o contrato e "inclusive contra um registro inativo". Antes,
+    -- reutilizar o e-mail de um inativo presente no payload passava na
+    -- validacao e morria no indice com "Este registro ja existe".)
+    IF v_item_email IS NOT NULL THEN
+      IF v_item_email = ANY(v_seen_emails) THEN
+        RAISE EXCEPTION 'E-mail duplicado no envio: %', v_item_email USING ERRCODE = '23505';
+      END IF;
+      v_seen_emails := array_append(v_seen_emails, v_item_email);
+    END IF;
+
     IF v_item_active OR v_item_id IS NULL THEN
       IF v_item_email IS NULL THEN
         RAISE EXCEPTION 'E-mail é obrigatório para contato ativo.' USING ERRCODE = '22023';
@@ -392,13 +623,10 @@ BEGIN
         RAISE EXCEPTION 'E-mail inválido: %', v_item_email USING ERRCODE = '22023';
       END IF;
 
-      -- Unicidade dentro do payload
-      IF v_item_email = ANY(v_seen_emails) THEN
-        RAISE EXCEPTION 'E-mail duplicado no envio: %', v_item_email USING ERRCODE = '23505';
-      END IF;
-      v_seen_emails := array_append(v_seen_emails, v_item_email);
-
       -- Unicidade contra registros existentes do mesmo cliente fora do payload
+      -- (exclui o payload inteiro para permitir troca de e-mails entre dois
+      -- contatos; duplicidade dentro do payload ja caiu no v_seen acima,
+      -- inclusive para inativos.)
       SELECT id, name, email INTO v_existing_dup
       FROM public.customer_contacts
       WHERE customer_id = p_customer_id
@@ -446,12 +674,19 @@ BEGIN
   END IF;
 
   -- -------------------------------------------------------------------------
-  -- Invariante global: nenhuma caixa ativa pode terminar sem destinatario elegivel
+  -- Invariante global: nenhuma caixa ativa pode terminar sem contato vinculado.
+  -- Dois niveis: (1) sem nenhum contato ativo vinculado => bloqueia (erro de
+  -- usuario); (2) com vinculados mas todos suprimidos/bounce => permite salvar
+  -- (caso contrario o cliente cujo unico contato sofreu bounce ficaria
+  -- insalvavel — nem o telefone poderia ser corrigido) e registra alerta
+  -- caixa_sem_destinatario para triagem. O repair() deliberadamente permite
+  -- caixa bloqueada vazia; este nucleo nao pode contradize-lo.
   -- -------------------------------------------------------------------------
   FOR v_active_box IN
     SELECT code, label FROM public.customer_communication_boxes WHERE active = true
   LOOP
     v_box_has_recipient := false;
+    v_box_has_linked := false;
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_contacts)
     LOOP
       v_item_active := COALESCE((v_item->>'active')::boolean, true);
@@ -462,7 +697,8 @@ BEGIN
         v_item_boxes := '["documentacao_operacao", "financeiro", "demurrage"]'::jsonb;
       END IF;
 
-      IF v_item_active AND v_item_email IS NOT NULL THEN
+      IF v_item_active AND v_item_email IS NOT NULL AND (v_item_boxes ? v_active_box.code) THEN
+        v_box_has_linked := true;
         -- Verificar supressao
         IF NOT EXISTS (
           SELECT 1 FROM public.portal_suppressed_emails pse
@@ -471,17 +707,17 @@ BEGIN
           SELECT 1 FROM public.customer_communication_suppressions ccs
           WHERE lower(btrim(ccs.email)) = v_item_email
         ) THEN
-          IF v_item_boxes ? v_active_box.code THEN
-            v_box_has_recipient := true;
-            EXIT;
-          END IF;
+          v_box_has_recipient := true;
+          EXIT;
         END IF;
       END IF;
     END LOOP;
 
-    IF NOT v_box_has_recipient THEN
+    IF NOT v_box_has_linked THEN
       RAISE EXCEPTION 'A caixa "%" ficaria sem nenhum destinatário ativo elegível. Vincule outro e-mail antes de remover.',
         v_active_box.label USING ERRCODE = '22023';
+    ELSIF NOT v_box_has_recipient THEN
+      v_suppressed_only_boxes := array_append(v_suppressed_only_boxes, v_active_box.code);
     END IF;
   END LOOP;
 
@@ -497,6 +733,25 @@ BEGIN
   WHERE customer_id = p_customer_id
     AND id <> ALL(v_target_contact_ids)
     AND deactivated_at IS NULL;
+
+  -- Liberacao previa para trocas atômicas sem violar indices nao-deferraveis:
+  -- (a) e-mails dos alvos com e-mail no payload vao a NULL, liberando o indice
+  -- unico para swaps; (b) primarios vao a false, liberando o indice parcial de
+  -- principal unico independente da ordem do payload.
+  -- (ponytail: O(n) com dois UPDATEs varrendo o cliente; teto aceitavel para
+  -- cadastro (<50 contatos). Upgrade seria constraint DEFERRABLE.)
+  IF cardinality(v_ids_with_email) > 0 THEN
+    UPDATE public.customer_contacts
+    SET email = NULL
+    WHERE customer_id = p_customer_id
+      AND id = ANY(v_ids_with_email);
+  END IF;
+
+  UPDATE public.customer_contacts
+  SET is_primary = false
+  WHERE customer_id = p_customer_id
+    AND id = ANY(v_target_contact_ids)
+    AND is_primary = true;
 
   -- Processar cada contato do payload
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_contacts)
@@ -557,12 +812,36 @@ BEGIN
         SELECT array_agg(value) INTO v_contact_box_codes
         FROM jsonb_array_elements_text(v_item_boxes);
 
+        -- Sync exato: o trigger de seed ja inseriu o default no INSERT acima;
+        -- remover o excedente garante que o pedido (ex.: so financeiro) nao
+        -- herde documentacao_operacao do seed.
+        DELETE FROM public.customer_contact_box_links
+        WHERE contact_id = v_new_id
+          AND box_code <> ALL(COALESCE(v_contact_box_codes, ARRAY[]::text[]));
+
         INSERT INTO public.customer_contact_box_links (contact_id, box_code)
         SELECT v_new_id, unnest(COALESCE(v_contact_box_codes, ARRAY[]::text[]))
         ON CONFLICT DO NOTHING;
       END IF;
     END IF;
   END LOOP;
+
+  -- Caixas vinculadas mas sem destinatario elegivel (todas suprimidas/bounce):
+  -- save permitido para nao travar correcoes cadastrais; superficie via alerta.
+  IF cardinality(v_suppressed_only_boxes) > 0 THEN
+    FOR v_box_code IN SELECT unnest(v_suppressed_only_boxes)
+    LOOP
+      PERFORM public.upsert_alert_item(
+        'caixa_sem_destinatario',
+        'customer',
+        p_customer_id::text,
+        'A caixa ' || v_box_code || ' possui vínculos ativos mas nenhum destinatário elegível (supressão/bounce).',
+        p_source,
+        jsonb_build_object('customer_id', p_customer_id, 'box_code', v_box_code),
+        '/clientes'
+      );
+    END LOOP;
+  END IF;
 
   -- Snapshot posterior
   v_after_config := public._build_customer_contact_configuration(p_customer_id);
@@ -604,7 +883,7 @@ GRANT EXECUTE ON FUNCTION public._apply_customer_contact_configuration(
 -- 8. Wrappers de Seguranca: Portal e Interno
 -- ===========================================================================
 
-CREATE FUNCTION public.portal_get_contact_configuration()
+CREATE OR REPLACE FUNCTION public.portal_get_contact_configuration()
 RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
@@ -620,7 +899,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION public.portal_inspect_get_contact_configuration(p_customer_id bigint)
+CREATE OR REPLACE FUNCTION public.portal_inspect_get_contact_configuration(p_customer_id bigint)
 RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
@@ -631,7 +910,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION public.portal_save_contact_configuration(p_contacts jsonb)
+CREATE OR REPLACE FUNCTION public.portal_save_contact_configuration(p_contacts jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
@@ -669,7 +948,16 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
-  IF NOT public.is_active_user() THEN
+  -- Restaura a garantia anterior (can('customer_communications')): antes, as
+  -- checkboxes de preferencia eram gated por essa permissao com fallback copy;
+  -- o editor de caixas nao pode ser mais permissivo que o modelo que substitui.
+  -- Espelha roleHasPermission(customer_communications): administrativo/admin,
+  -- documentacao/operator, equipamentos.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_profiles
+    WHERE id = auth.uid() AND active = true
+      AND role IN ('administrativo', 'admin', 'documentacao', 'operator', 'equipamentos')
+  ) THEN
     RAISE EXCEPTION 'Permissão negada para editar contatos do cliente.' USING ERRCODE = '42501';
   END IF;
 
@@ -857,12 +1145,28 @@ DECLARE
   v_relinked_boxes text[] := ARRAY[]::text[];
   v_blocked_boxes text[] := ARRAY[]::text[];
   v_has_recipient boolean;
+  v_before_config jsonb;
+  v_after_config jsonb;
+  v_unlinked_count integer := 0;
+  v_action_id uuid := gen_random_uuid();
 BEGIN
+  -- Fecha escrita cross-tenant via JWT do Portal: a funcao e SECURITY DEFINER
+  -- e recebe p_customer_id arbitrario; sem guarda, qualquer sessao
+  -- authenticated (incluindo cliente do Portal, mesmo role do interno)
+  -- poderia desvincular/revincular caixas de outro cliente e inserir eventos
+  -- source='sistema' (burlando o REVOKE INSERT em change_events).
+  -- Permite service_role (auth.uid() NULL, unico chamador real: webhook/cron).
+  IF auth.uid() IS NOT NULL AND NOT public.is_active_user() THEN
+    RAISE EXCEPTION 'Permissão negada para reparar caixas de contato.' USING ERRCODE = '42501';
+  END IF;
+
   IF p_customer_id IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'customer_id obrigatorio');
   END IF;
 
   PERFORM 1 FROM public.customers WHERE id = p_customer_id FOR UPDATE;
+
+  v_before_config := public._build_customer_contact_configuration(p_customer_id);
 
   -- Identificar caixas-alvo
   IF p_box_code IS NOT NULL THEN
@@ -878,13 +1182,17 @@ BEGIN
   END IF;
 
   -- 1. Para contatos com bounce permanente, desvincular das caixas
-  DELETE FROM public.customer_contact_box_links l
-  USING public.customer_contacts cc, public.portal_suppressed_emails pse
-  WHERE l.contact_id = cc.id
-    AND cc.customer_id = p_customer_id
-    AND cc.email_normalized = lower(btrim(pse.email))
-    AND pse.reason = 'bounce_permanente'
-    AND l.box_code = ANY(v_box_codes);
+  WITH unlinked AS (
+    DELETE FROM public.customer_contact_box_links l
+    USING public.customer_contacts cc, public.portal_suppressed_emails pse
+    WHERE l.contact_id = cc.id
+      AND cc.customer_id = p_customer_id
+      AND cc.email_normalized = lower(btrim(pse.email))
+      AND pse.reason = 'bounce_permanente'
+      AND l.box_code = ANY(v_box_codes)
+    RETURNING l.*
+  )
+  SELECT count(*)::integer INTO v_unlinked_count FROM unlinked;
 
   -- 2. Para cada caixa afetada, verificar se ficou sem destinatario ativo
   FOREACH v_box IN ARRAY v_box_codes
@@ -930,15 +1238,6 @@ BEGIN
         ON CONFLICT DO NOTHING;
 
         v_relinked_boxes := array_append(v_relinked_boxes, v_box);
-
-        INSERT INTO public.customer_contact_change_events (
-          customer_id, source, change_summary
-        )
-        VALUES (
-          p_customer_id,
-          'sistema',
-          jsonb_build_object('action', 'relink_primary_fallback', 'box_code', v_box, 'contact_id', v_primary_id)
-        );
       ELSE
         -- Tenta outro contato adicional ativo elegivel
         SELECT cc.id INTO v_substitute_id
@@ -962,15 +1261,6 @@ BEGIN
           ON CONFLICT DO NOTHING;
 
           v_relinked_boxes := array_append(v_relinked_boxes, v_box);
-
-          INSERT INTO public.customer_contact_change_events (
-            customer_id, source, change_summary
-          )
-          VALUES (
-            p_customer_id,
-            'sistema',
-            jsonb_build_object('action', 'relink_substitute_fallback', 'box_code', v_box, 'contact_id', v_substitute_id)
-          );
         ELSE
           -- Bloqueado: nenhum substituto elegivel
           v_blocked_boxes := array_append(v_blocked_boxes, v_box);
@@ -988,6 +1278,28 @@ BEGIN
     END IF;
   END LOOP;
 
+  -- Evento agrupado unico com snapshots (antes: um por caixa com snapshots
+  -- vazios; o unlink por bounce nao gerava evento algum).
+  v_after_config := public._build_customer_contact_configuration(p_customer_id);
+  IF v_unlinked_count > 0 OR cardinality(v_relinked_boxes) > 0 OR cardinality(v_blocked_boxes) > 0 THEN
+    INSERT INTO public.customer_contact_change_events (
+      action_id, customer_id, source, before_snapshot, after_snapshot, change_summary
+    )
+    VALUES (
+      v_action_id,
+      p_customer_id,
+      'sistema',
+      v_before_config->'contacts',
+      v_after_config->'contacts',
+      jsonb_build_object(
+        'action', 'bounce_fallback_repair',
+        'unlinked_count', v_unlinked_count,
+        'relinked_boxes', to_jsonb(v_relinked_boxes),
+        'blocked_boxes', to_jsonb(v_blocked_boxes)
+      )
+    );
+  END IF;
+
   RETURN jsonb_build_object(
     'success', true,
     'relinked_boxes', to_jsonb(v_relinked_boxes),
@@ -996,8 +1308,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.repair_customer_contact_box_fallbacks(bigint, text, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.repair_customer_contact_box_fallbacks(bigint, text, text) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.repair_customer_contact_box_fallbacks(bigint, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.repair_customer_contact_box_fallbacks(bigint, text, text) TO service_role;
 
 -- ===========================================================================
 -- 11. Autorizacao de destinatario para envio real: customer_communication_recipient_allowed

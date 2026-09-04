@@ -20,8 +20,9 @@ type CustomerForm = { name: string; trade_name: string; address: string; city: s
 
 export function CadastroContatosTab({ data, cnpj }: { data: Data; cnpj: string }) {
   const queryClient = useQueryClient()
-  const { user, profile } = useAuth()
+  const { user, profile, can } = useAuth()
   const canEdit = Boolean(profile || user)
+  const canEditContacts = can('customer_communications')
   const { showToast } = useToast()
   const { data: portalRow } = usePortalProvisioningForCustomer(data.id)
   const [portalOpen, setPortalOpen] = useState(false)
@@ -101,7 +102,7 @@ export function CadastroContatosTab({ data, cnpj }: { data: Data; cnpj: string }
       <Card>
         <CustomerContactConfiguration
           customerId={data.id}
-          canEdit={canEdit}
+          canEdit={canEditContacts}
           onSaved={() => {
             void queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] })
             void queryClient.invalidateQueries({ queryKey: ['customers'] })

@@ -224,4 +224,70 @@ describe('PortalContactConfiguration', () => {
     const saveButton = screen.getByRole('button', { name: 'Salvar contatos' }) as HTMLButtonElement
     expect(saveButton.disabled).toBe(true)
   })
+
+  it('modo Inspeção bloqueia a escrita mesmo com submit forçado', async () => {
+    scopeRef.mode = 'inspect'
+    scopeRef.customerId = 99
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [],
+      contacts: [
+        {
+          id: 1,
+          name: 'Inspecionado',
+          email: 'insp@cliente.com',
+          phone: null,
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao'],
+          suppression_reason: null,
+          sendable: true,
+        },
+      ],
+    })
+
+    renderComponent(true)
+    await screen.findByDisplayValue('insp@cliente.com')
+    const form = document.querySelector('form')
+    form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await waitFor(() => {
+      expect(saveContactConfig).not.toHaveBeenCalled()
+    })
+  })
+
+  it('save falha quando uma caixa ficaria sem cobertura (sem RPC)', async () => {
+    const user = userEvent.setup()
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [
+        { code: 'documentacao_operacao', label: 'Documentação e Operação', description: 'CE', sort_order: 1, active: true },
+        { code: 'financeiro', label: 'Financeiro', description: 'Fin', sort_order: 2, active: true },
+        { code: 'demurrage', label: 'Demurrage', description: 'Dem', sort_order: 3, active: true },
+      ],
+      contacts: [
+        {
+          id: 1,
+          name: 'Principal',
+          email: 'principal@cliente.com',
+          phone: null,
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao'],
+          suppression_reason: null,
+          sendable: true,
+        },
+      ],
+    })
+
+    renderComponent()
+    await screen.findByDisplayValue('principal@cliente.com')
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[0])
+    await user.click(screen.getByRole('button', { name: 'Salvar contatos' }))
+
+    expect(await screen.findByText(/não pode ficar sem nenhum contato/i)).toBeTruthy()
+    expect(saveContactConfig).not.toHaveBeenCalled()
+  })
 })

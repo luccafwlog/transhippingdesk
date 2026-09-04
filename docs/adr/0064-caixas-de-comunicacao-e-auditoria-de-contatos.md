@@ -54,9 +54,12 @@ dados válidos ou cadastrar endereços sem vinculação a qualquer categoria de 
 
 4. **Desativação Lógica (`deactivated_at`):**
    Contatos não são mais deletados fisicamente do banco de dados. Exclusões na UI
-   marcam `deactivated_at = now()`. Contatos desativados perdem seus vínculos
-   com caixas e são ignorados em todas as conferências e disparos de comunicados,
-   mas preservam histórico e integridade de tentativas passadas.
+   marcam `deactivated_at = now()`. Contatos desativados **preservam seus vínculos**
+   com caixas para histórico e são ignorados em todas as conferências e disparos
+   de comunicados, mas preservam integridade de tentativas passadas. A unicidade
+   de e-mail é **inclusiva contra registros inativos** (o índice não filtra
+   `deactivated_at`): reutilizar o e-mail de um contato inativo é rejeitado com
+   mensagem identificando o contato existente.
 
 5. **Trilha de Auditoria Agrupada (`customer_contact_change_events`):**
    Cada operação de alteração de contatos grava uma linha append-only em
@@ -67,10 +70,13 @@ dados válidos ou cadastrar endereços sem vinculação a qualquer categoria de 
 
 6. **Auto-captura e Proteção de Sobrescrita (`ensure_customer_contact_email`):**
    A captura automática de contatos a partir de manifestos ou B/Ls reutiliza
-   contatos existentes com o mesmo e-mail (reativando-os caso desativados),
-   adiciona a caixa `documentacao_operacao` (e `financeiro` se captura de taxas),
-   mas **nunca** sobrescreve o nome ou telefone do contato caso já existam no
-   cadastro, preservando os dados cadastrados pelos operadores ou pelo cliente.
+   contatos existentes com o mesmo e-mail (**sem reativar desativados e sem
+   alterar caixas existentes**), adiciona a caixa `documentacao_operacao` (e as
+   três caixas quando o contato capturado é o primeiro principal), mas **nunca**
+   sobrescreve o nome ou telefone do contato caso já existam no cadastro,
+   preservando os dados cadastrados pelos operadores ou pelo cliente. Quando o
+   e-mail reaparece para um cliente sem principal ativo, registra o alerta
+   `cliente_sem_contato_principal` para triagem humana.
 
 7. **Fallback e Reparo por Disponibilidade (`repair_customer_contact_box_fallbacks`):**
    Se um contato em bounce permanente ou desativação deixa uma caixa sem nenhum
@@ -82,9 +88,11 @@ dados válidos ou cadastrar endereços sem vinculação a qualquer categoria de 
    O front-end e os disparadores resolvem destinatários elegíveis e excluídos
    (por supressão, desativação ou ausência de cobertura de caixa) através de
    regras determinísticas (`resolveCustomerCommunicationRecipientsByBoxes`).
-   A conferência de envio compara o snapshot de destinatários calculado na
-   abertura com o momento do disparo (`assertMatchingRecipientSnapshot`) para
-   impedir envios com divergência de tela.
+   A conferência de envio compara elegibilidade por caixa no momento do disparo
+   (`customer_communication_recipient_allowed` + checagem de supressão na Edge
+   Function `send-customer-communication`); não há snapshot cruzado
+   tela-vs-disparo — a trilha `customer_communications` + tentativas é a fonte
+   de auditoria do que foi enviado.
 
 9. **Compatibilidade e Transição Segura:**
    A coluna `purpose` em `customer_contacts` e a tabela `customer_contact_preferences`

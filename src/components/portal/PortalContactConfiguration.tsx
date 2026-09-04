@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { Button } from '../ui/Button'
 import { Card, InlineError } from '../ui/Card'
 import { Field, Input } from '../ui/Input'
@@ -38,10 +38,13 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
   const [drafts, setDrafts] = useState<PortalContactDraft[]>([])
   const [localError, setLocalError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // Rascunho local nao pode ser descartado por refetch de fundo (reconnect /
+  // polling do overview): mesmo padrao do PortalProfile, que inicializa o form
+  // uma vez e nao sincroniza por cima de edicao suja.
+  const dirtyRef = useRef(false)
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (data?.contacts) {
+    if (data?.contacts && !dirtyRef.current) {
       setDrafts(
         data.contacts.map((c) => ({
           id: c.id,
@@ -58,9 +61,13 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
       )
     }
   }, [data])
-  /* eslint-enable react-hooks/set-state-in-effect */
+
+  function markDirty() {
+    dirtyRef.current = true
+  }
 
   function handleAddContact() {
+    markDirty()
     setDrafts((current) => [
       ...current,
       {
@@ -82,6 +89,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
     field: 'name' | 'email' | 'phone',
     value: string,
   ) {
+    markDirty()
     setDrafts((current) => {
       const copy = [...current]
       copy[index] = { ...copy[index], [field]: value }
@@ -91,6 +99,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
   }
 
   function handleSetPrimary(index: number) {
+    markDirty()
     setDrafts((current) => {
       return current.map((draft, i) => {
         if (i === index) {
@@ -113,14 +122,17 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
   }
 
   function handleToggleActive(index: number) {
+    const target = drafts[index]
+    if (!target) return
+    if (target.isPrimary && target.active) {
+      setLocalError(
+        'Para desativar o contato principal, selecione outro contato como principal antes.',
+      )
+      return
+    }
+    markDirty()
     setDrafts((current) => {
-      const target = current[index]
-      if (target.isPrimary && target.active) {
-        setLocalError(
-          'Para desativar o contato principal, selecione outro contato como principal antes.',
-        )
-        return current
-      }
+      if (!current[index]) return current
       const copy = [...current]
       copy[index] = { ...copy[index], active: !copy[index].active }
       return copy
@@ -128,28 +140,28 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
   }
 
   function handleToggleBox(index: number, boxCode: CommunicationBoxCode) {
-    setDrafts((current) => {
-      const target = current[index]
-      const hasBox = target.boxCodes.includes(boxCode)
-      let nextBoxCodes: string[]
-
-      if (hasBox) {
-        // Se for o contato principal, verificar se há outro contato ativo cobrindo esta caixa
-        if (target.isPrimary) {
-          const otherHasBox = current.some(
-            (d, i) => i !== index && d.active && d.boxCodes.includes(boxCode),
-          )
-          if (!otherHasBox) {
-            setLocalError(
-              'Para retirar o contato principal desta caixa, selecione outro e-mail para substituí-lo.',
-            )
-          }
-        }
-        nextBoxCodes = target.boxCodes.filter((b) => b !== boxCode)
-      } else {
-        nextBoxCodes = [...target.boxCodes, boxCode]
+    const target = drafts[index]
+    if (!target) return
+    markDirty()
+    const hasBox = target.boxCodes.includes(boxCode)
+    if (hasBox && target.isPrimary) {
+      // Se for o contato principal, verificar se há outro contato ativo cobrindo esta caixa
+      const otherHasBox = drafts.some(
+        (d, i) => i !== index && d.active && d.boxCodes.includes(boxCode),
+      )
+      if (!otherHasBox) {
+        setLocalError(
+          'Para retirar o contato principal desta caixa, selecione outro e-mail para substituí-lo.',
+        )
       }
-
+    }
+    setDrafts((current) => {
+      const currentTarget = current[index]
+      if (!currentTarget) return current
+      const currentHasBox = currentTarget.boxCodes.includes(boxCode)
+      const nextBoxCodes = currentHasBox
+        ? currentTarget.boxCodes.filter((b) => b !== boxCode)
+        : [...currentTarget.boxCodes, boxCode]
       const copy = [...current]
       copy[index] = { ...copy[index], boxCodes: nextBoxCodes }
       return copy
@@ -205,6 +217,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
     setSubmitting(true)
     try {
       await saveConfiguration.mutateAsync(drafts)
+      dirtyRef.current = false
       showToast('Contatos e recebimento atualizados com sucesso.', 'success')
     } catch (err) {
       setLocalError(errorMessage(err, 'Falha ao salvar contatos.'))

@@ -102,12 +102,14 @@ describe('customerContactConfiguration', () => {
         }
         if (table === 'portal_suppressed_emails') {
           return {
-            select: vi.fn().mockResolvedValue({ data: mockPortalSuppressions, error: null }),
+            select: vi.fn().mockReturnThis(),
+            in: vi.fn().mockResolvedValue({ data: mockPortalSuppressions, error: null }),
           }
         }
         if (table === 'customer_communication_suppressions') {
           return {
-            select: vi.fn().mockResolvedValue({ data: mockCommSuppressions, error: null }),
+            select: vi.fn().mockReturnThis(),
+            in: vi.fn().mockResolvedValue({ data: mockCommSuppressions, error: null }),
           }
         }
         throw new Error(`Tabela não mockada: ${table}`)

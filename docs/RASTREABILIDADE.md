@@ -591,9 +591,9 @@ runtime remoto ainda requer secrets e domínio verificado.
 
 | Fluxo | Código/RPC | Contrato | Evidência |
 |---|---|---|---|
-| Schema de caixas e vínculos | `008_portal_contact_boxes.sql` | 3 caixas (`documentacao_operacao`, `financeiro`, `demurrage`), matriz de kinds e links M:N | `issue609ContactBoxesMigration.test.ts` |
-| Salvamento atômico | `_apply_customer_contact_configuration` | Snapshot transacional com lock `FOR UPDATE`, 1 contato principal ativo obrigatório, desativação lógica (`deactivated_at`) | `customerContactConfiguration.test.ts`, `portalContactConfiguration.test.ts` |
-| Auditoria agrupada | `customer_contact_change_events` | Append-only com `action_id`, autor, `source`, `before_snapshot`, `after_snapshot` e `change_summary` | `customerFicha.test.ts`, timeline da Ficha |
-| Auto-captura de B/L | `ensure_customer_contact_email` | Reativa ou insere contato com e-mail, vincula a caixas e não sobrescreve nome/telefone | `customerBase.test.ts`, `customerCreateAtomic.test.ts` |
-| Fallback e reparo | `repair_customer_contact_box_fallbacks` | Vincula contato principal ativo a caixas sem cobertura após bounce ou desativação | `portalBounceCascade.test.ts`, webhook do Resend |
-| Roteamento de comunicados | `resolveCustomerCommunicationRecipientsByBoxes`, `customer_communication_recipient_allowed` | Destinatários elegíveis por caixa e deduplicação determinística por e-mail | `customerCommunicationBoxes.test.ts`, `ClientesComunicacao.test.tsx` |
+| Schema de caixas e vínculos | `008_portal_contact_boxes.sql` | 3 caixas (`documentacao_operacao`, `financeiro`, `demurrage`), matriz de kinds e links M:N | **Teste de contrato SQL:** `issue609ContactBoxesMigration.test.ts` |
+| Salvamento atômico | `_apply_customer_contact_configuration` | Snapshot transacional com lock `FOR UPDATE`, 1 contato principal ativo obrigatório, desativação lógica (`deactivated_at`) | **Teste:** `customerContactConfiguration.test.ts`; **Teste:** `PortalContactConfiguration.test.tsx` |
+| Auditoria agrupada | `customer_contact_change_events` | Append-only com `action_id`, autor, `source`, `before_snapshot`, `after_snapshot` e `change_summary` | **Teste:** `customerFicha.test.ts`, timeline da Ficha |
+| Auto-captura de B/L | `ensure_customer_contact_email` | Sem reativação: ignora e-mail existente (ativo ou inativo), insere com caixas e não sobrescreve nome/telefone | **Teste:** `customerBase.test.ts` |
+| Fallback e reparo | `repair_customer_contact_box_fallbacks` | Vincula contato principal ativo a caixas sem cobertura após bounce ou desativação | **Teste de contrato SQL:** `issue609ContactBoxesMigration.test.ts`; webhook do Resend |
+| Roteamento de comunicados | `resolveCustomerCommunicationRecipientsByBoxes`, `customer_communication_recipient_allowed` | Destinatários elegíveis por caixa e deduplicação determinística por e-mail | **Teste:** `customerCommunicationBoxes.test.ts`, `ClientesComunicacao.test.tsx` |

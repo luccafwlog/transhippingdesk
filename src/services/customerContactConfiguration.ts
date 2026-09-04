@@ -41,6 +41,14 @@ export async function fetchCustomerContactConfiguration(
 
   const contactList = contacts ?? []
   const contactIds = contactList.map((c) => c.id)
+  // (ponytail: supressoes filtradas por e-mail como em finance/dunning; full-scan
+  // truncava em max_rows=1000. Upgrade seria RPC server-side.)
+  const contactEmails = [...new Set(
+    contactList.flatMap((c) => {
+      const email = String((c as { email?: unknown }).email ?? '').trim()
+      return email ? [email, email.toLowerCase()] : []
+    }),
+  )]
 
   const [{ data: links, error: linksError }, { data: portalSuppressions }, { data: commSuppressions }] =
     await Promise.all([
@@ -50,8 +58,12 @@ export async function fetchCustomerContactConfiguration(
             .select('contact_id, box_code')
             .in('contact_id', contactIds)
         : Promise.resolve({ data: [], error: null }),
-      supabase.from('portal_suppressed_emails').select('email, reason'),
-      supabase.from('customer_communication_suppressions').select('email, reason'),
+      contactEmails.length > 0
+        ? supabase.from('portal_suppressed_emails').select('email, reason').in('email', contactEmails)
+        : Promise.resolve({ data: [], error: null }),
+      contactEmails.length > 0
+        ? supabase.from('customer_communication_suppressions').select('email, reason').in('email', contactEmails)
+        : Promise.resolve({ data: [], error: null }),
     ])
 
   if (linksError) throw linksError

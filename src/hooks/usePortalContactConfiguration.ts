@@ -18,6 +18,10 @@ export function usePortalContactConfiguration() {
     queryKey: ['portal-contact-configuration', scope.mode, scope.customerId],
     enabled: Boolean(scope.overview ?? overview),
     queryFn: () => portalGetContactConfiguration(scope),
+    // Rascunho local nao pode ser descartado por refetch de fundo; o componente
+    // so sincroniza quando nao ha edicao suja (padrao PortalProfile).
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
   })
 
   const saveConfiguration = useMutation({

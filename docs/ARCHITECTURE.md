@@ -57,7 +57,11 @@ legado de quatro naturezas operacionais pelas **Caixas de Comunicação**
 O salvamento de contatos é atômico via `_apply_customer_contact_configuration`
 (com `FOR UPDATE` pessimista do cliente), garantindo exatamente um contato
 principal ativo, unicidade de e-mail e desativação lógica (`deactivated_at`).
-Toda alteração gera registro append-only em `customer_contact_change_events`
+A edição das caixas na Ficha do Cliente exige a permissão
+`customer_communications` no frontend (`CadastroContatosTab`) e no banco
+(`internal_save_customer_contact_configuration` valida o papel
+administrativo/documentação/equipamentos); demais papéis recebem fallback
+somente leitura. Toda alteração gera registro append-only em `customer_contact_change_events`
 (com `action_id`, `source`, snapshots e diff estruturado). Capturas automáticas
 por B/L passam por `ensure_customer_contact_email` sem sobrescrever dados
 cadastrais, e caixas esvaziadas por bounce permanente ou desativação são

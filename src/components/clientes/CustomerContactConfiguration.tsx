@@ -159,27 +159,26 @@ export function CustomerContactConfiguration({
   }
 
   function handleToggleBox(index: number, boxCode: CommunicationBoxCode) {
-    setDrafts((current) => {
-      const target = current[index]
-      const hasBox = target.boxCodes.includes(boxCode)
-      let nextBoxCodes: string[]
-
-      if (hasBox) {
-        if (target.isPrimary) {
-          const otherHasBox = current.some(
-            (d, i) => i !== index && d.active && d.boxCodes.includes(boxCode),
-          )
-          if (!otherHasBox) {
-            setErrorMsg(
-              'Para retirar o contato principal desta caixa, selecione outro e-mail para substituí-lo.',
-            )
-          }
-        }
-        nextBoxCodes = target.boxCodes.filter((b) => b !== boxCode)
-      } else {
-        nextBoxCodes = [...target.boxCodes, boxCode]
+    const target = drafts[index]
+    if (!target) return
+    const hasBox = target.boxCodes.includes(boxCode)
+    if (hasBox && target.isPrimary) {
+      const otherHasBox = drafts.some(
+        (d, i) => i !== index && d.active && d.boxCodes.includes(boxCode),
+      )
+      if (!otherHasBox) {
+        setErrorMsg(
+          'Para retirar o contato principal desta caixa, selecione outro e-mail para substituí-lo.',
+        )
       }
-
+    }
+    setDrafts((current) => {
+      const currentTarget = current[index]
+      if (!currentTarget) return current
+      const currentHasBox = currentTarget.boxCodes.includes(boxCode)
+      const nextBoxCodes = currentHasBox
+        ? currentTarget.boxCodes.filter((b) => b !== boxCode)
+        : [...currentTarget.boxCodes, boxCode]
       const copy = [...current]
       copy[index] = { ...copy[index], boxCodes: nextBoxCodes }
       return copy
