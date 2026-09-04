@@ -586,3 +586,14 @@ runtime remoto ainda requer secrets e domínio verificado.
 | Importar Granito | `graniteImport`, `import_granite_manifest_transactional` | `client_id` só por documento; nome em `suggested_client_id` | testes de parser e migration 286 |
 | Revisão humana | `useReviewQueue`, `ReviewDrawer`, `saveGraniteBlReview` | Sugestão visível; confirmação explícita cria o vínculo | `Revisao.test.tsx` |
 | Faturamento e legado | gates existentes; migration 287 | Só IDs legítimos faturam; backfill preserva faturados/decisões | `backfillNameLinkedCustomersMigration.test.ts` |
+
+## Caixas de Comunicação e Auditoria de Contatos (Issue 609 / ADR 0064)
+
+| Fluxo | Código/RPC | Contrato | Evidência |
+|---|---|---|---|
+| Schema de caixas e vínculos | `008_portal_contact_boxes.sql` | 3 caixas (`documentacao_operacao`, `financeiro`, `demurrage`), matriz de kinds e links M:N | `issue609ContactBoxesMigration.test.ts` |
+| Salvamento atômico | `_apply_customer_contact_configuration` | Snapshot transacional com lock `FOR UPDATE`, 1 contato principal ativo obrigatório, desativação lógica (`deactivated_at`) | `customerContactConfiguration.test.ts`, `portalContactConfiguration.test.ts` |
+| Auditoria agrupada | `customer_contact_change_events` | Append-only com `action_id`, autor, `source`, `before_snapshot`, `after_snapshot` e `change_summary` | `customerFicha.test.ts`, timeline da Ficha |
+| Auto-captura de B/L | `ensure_customer_contact_email` | Reativa ou insere contato com e-mail, vincula a caixas e não sobrescreve nome/telefone | `customerBase.test.ts`, `customerCreateAtomic.test.ts` |
+| Fallback e reparo | `repair_customer_contact_box_fallbacks` | Vincula contato principal ativo a caixas sem cobertura após bounce ou desativação | `portalBounceCascade.test.ts`, webhook do Resend |
+| Roteamento de comunicados | `resolveCustomerCommunicationRecipientsByBoxes`, `customer_communication_recipient_allowed` | Destinatários elegíveis por caixa e deduplicação determinística por e-mail | `customerCommunicationBoxes.test.ts`, `ClientesComunicacao.test.tsx` |

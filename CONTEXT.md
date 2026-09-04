@@ -791,10 +791,11 @@ substituto e alerta a equipe.
 Endereço encontrado em um B/L e incorporado automaticamente ao cadastro do
 Cliente. Se o Cliente já tem contato principal, entra como contato adicional; se
 ainda não tem, torna-se o contato principal. Nasce ativo, com os vínculos de
-caixa definidos pela regra de captura: como adicional, Documentação e Operação;
-como principal, todas as caixas. A captura fica visível na Ficha do Cliente. Um
-endereço já desativado não é reativado nem duplicado quando reaparece em outro
-B/L; os vínculos anteriores permanecem preservados.
+caixa definidos pela regra de captura: como adicional, Documentação e Operação (ou
+Financeiro na confirmação de taxas); como principal, todas as caixas. A captura fica
+visível na Ficha do Cliente e na Linha do Tempo. Um endereço anteriormente
+desativado é reativado quando reaparece em outro B/L, recebendo as caixas
+pertinentes sem sobrescrever nome ou telefone já existentes.
 
 **Ficha do Cliente**
 Hub de consulta do Cliente em `/clientes/:cnpj`, organizado em abas (Visão
@@ -1646,12 +1647,14 @@ seleção individual de Naturezas no Portal. Um contato pode pertencer a várias
 caixas. A Ficha do Cliente e a conferência de Comunicados exibem os endereços
 agrupados por caixa.
 
-**Histórico de Autoatendimento de Contatos**
-Registro append-only, por Cliente, de uma ação feita no Portal sobre seus
-contatos e vínculos a Caixas de Comunicação. Uma ação agrupa as mudanças
-relacionadas e preserva o estado anterior e o novo, o contato afetado, a origem
-Portal, a conta que realizou a ação e o momento da alteração. É consultável pela
-equipe interna e não substitui o histórico operacional dos Comunicados.
+**Histórico de Alterações de Contatos**
+Registro append-only, por Cliente, de qualquer ação realizada sobre seus
+contatos e vínculos a Caixas de Comunicação (`customer_contact_change_events`).
+Uma ação agrupa as mudanças sob um mesmo `action_id` e preserva o estado anterior e
+o novo em snapshots completos, o resumo estruturado (`change_summary`), a origem
+(`portal`, `interno`, `bl_automatico`, `sistema`), o autor ou conta que realizou a
+ação e o momento da alteração. É consultável pela equipe interna na Linha do Tempo
+do Cliente e não substitui o histórico operacional dos Comunicados.
 
 **Vínculo do Comunicado**
 Ligação entre um Comunicado e os B/Ls que o motivaram. Um Comunicado tem um
