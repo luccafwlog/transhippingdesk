@@ -179,6 +179,12 @@ export function Clientes() {
       return
     }
 
+    const primaryContact = activeContacts.find((contact) => contact.is_primary)
+    if (!primaryContact || !primaryContact.email?.trim() || !primaryContact.email.includes('@')) {
+      showToast('O cliente precisa ter ao menos um contato principal com e-mail válido.', 'error')
+      return
+    }
+
     setSaving(true)
     try {
       const customer = await createCustomer({

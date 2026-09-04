@@ -1342,7 +1342,7 @@ CREATE OR REPLACE FUNCTION public.ensure_customer_contact_email(
   p_email text,
   p_contact_name text DEFAULT 'Contato manifesto'::text,
   p_purpose text DEFAULT 'financeiro'::text,
-  p_related_bl_id bigint DEFAULT NULL
+  p_related_bl_id text DEFAULT NULL
 )
 RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER
@@ -1384,7 +1384,7 @@ BEGIN
   )
   INTO v_has_primary;
 
-  IF FOUND THEN
+  IF v_existing.id IS NOT NULL THEN
     -- Ativo ou inativo: nao duplica, nao reativa, nao altera caixas
     IF v_existing.deactivated_at IS NOT NULL AND NOT v_has_primary THEN
       PERFORM public.upsert_alert_item(

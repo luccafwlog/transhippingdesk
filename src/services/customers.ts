@@ -14,11 +14,12 @@ type CreateCustomerContactInput = {
   name: string
   email?: string | null
   phone?: string | null
-  purpose?: NonNullable<CustomerContact['purpose']>
+  purpose?: string | null
   is_primary?: boolean
+  box_codes?: string[]
 }
 
-type CreateCustomerInput = {
+export type CreateCustomerInput = {
   cnpjCpf: string
   name: string
   tradeName?: string
@@ -53,6 +54,7 @@ export async function createCustomer(input: CreateCustomerInput) {
       phone: normalizeText(contact.phone),
       purpose: contact.purpose ?? 'geral',
       is_primary: contact.is_primary ?? false,
+      box_codes: contact.box_codes ?? (contact.is_primary ? ['documentacao_operacao', 'financeiro', 'demurrage'] : ['documentacao_operacao']),
     })),
   })
 

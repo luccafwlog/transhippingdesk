@@ -58,6 +58,7 @@ describe('atomic customer creation', () => {
         phone: null,
         purpose: 'faturamento',
         is_primary: true,
+        box_codes: ['documentacao_operacao', 'financeiro', 'demurrage'],
       }],
     })
     expect(mockFrom).not.toHaveBeenCalled()

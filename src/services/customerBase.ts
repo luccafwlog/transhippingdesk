@@ -1,7 +1,7 @@
 import { asString, onlyDigits } from '../lib/utils'
 import { canonicalizeValidCnpj } from '../lib/cnpj'
 import { assertUploadFile } from '../lib/fileGuard'
-import type { Customer, CustomerContact } from '../types/database'
+import type { Customer } from '../types/database'
 import { supabase } from './supabase'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
@@ -101,62 +101,20 @@ export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
   ;(upsertedCustomers ?? []).forEach((customer) => customersByDocument.set(customer.cnpj_cpf, customer))
 
   let contactsCreated = 0
-  const customerIds = (upsertedCustomers ?? []).map((customer) => customer.id)
+  for (const row of uniqueRows) {
+    const customer = customersByDocument.get(row.cnpj_cpf)
+    if (!customer) continue
 
-  if (customerIds.length) {
-    const { data: existingContacts, error: contactsError } = await supabase
-      .from('customer_contacts')
-      .select('customer_id, email, is_primary')
-      .in('customer_id', customerIds)
-
-    if (contactsError) throw contactsError
-
-    const emailsByCustomerId = new Map<number, Set<string>>()
-    const hasPrimaryByCustomerId = new Map<number, boolean>()
-
-    ;(existingContacts ?? []).forEach((contact) => {
-      if (!contact.customer_id) return
-
-      const currentEmails = emailsByCustomerId.get(contact.customer_id) ?? new Set<string>()
-      const normalizedEmail = normalizeEmail(contact.email)
-      if (normalizedEmail) currentEmails.add(normalizedEmail)
-      emailsByCustomerId.set(contact.customer_id, currentEmails)
-
-      if (contact.is_primary) {
-        hasPrimaryByCustomerId.set(contact.customer_id, true)
+    for (const email of row.emails) {
+      const { data: created, error: rpcError } = await supabase.rpc('ensure_customer_contact_email', {
+        p_customer_id: customer.id,
+        p_email: email,
+        p_contact_name: row.name,
+      })
+      if (rpcError) throw rpcError
+      if (created) {
+        contactsCreated += 1
       }
-    })
-
-    const contactsToInsert = uniqueRows.flatMap((row) => {
-      const customer = customersByDocument.get(row.cnpj_cpf)
-      if (!customer) return []
-
-      const existingEmails = emailsByCustomerId.get(customer.id) ?? new Set<string>()
-      let canAssignPrimary = !hasPrimaryByCustomerId.get(customer.id)
-
-      return row.emails
-        .map((email) => normalizeEmail(email))
-        .filter((email): email is string => Boolean(email))
-        .filter((email) => !existingEmails.has(email))
-        .map((email) => {
-          existingEmails.add(email)
-          const nextContact = {
-            customer_id: customer.id,
-            name: row.name,
-            email,
-            phone: null,
-            purpose: 'geral' as NonNullable<CustomerContact['purpose']>,
-            is_primary: canAssignPrimary,
-          }
-          canAssignPrimary = false
-          return nextContact
-        })
-    })
-
-    if (contactsToInsert.length) {
-      const { error: insertContactsError } = await supabase.from('customer_contacts').insert(contactsToInsert)
-      if (insertContactsError) throw insertContactsError
-      contactsCreated = contactsToInsert.length
     }
   }
 
@@ -189,7 +147,7 @@ function validateRequiredHeaders(rawHeaders: string[]) {
   }
 }
 
-function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerBase {
+export function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerBase {
   const parsedRows: CustomerBaseRow[] = []
   const rowErrors: ParsedCustomerBase['rowErrors'] = []
 
@@ -208,11 +166,17 @@ function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCustomerB
       return
     }
 
+    const emails = extractEmails(asString(mapped.email))
+    if (!emails.length) {
+      rowErrors.push({ row: index + 2, message: 'Linha sem e-mail válido.', raw: row })
+      return
+    }
+
     parsedRows.push({
       cnpj_cpf: cnpjCpf,
       name,
       trade_name: asNullableText(mapped.trade_name),
-      emails: extractEmails(asString(mapped.email)),
+      emails,
       address: asNullableText(mapped.address),
       city: asNullableText(mapped.city),
       state: normalizeState(asNullableText(mapped.state)),
