@@ -4,6 +4,7 @@ import {
   type CustomerCommunicationKind,
 } from './customerCommunicationTemplates'
 import { getCustomerCommunicationNature } from './customerCommunications'
+import type { CustomerCommunicationAudience } from './customerCommunicationBoxes'
 import { supabase } from './supabase'
 
 export type CustomerCommunicationDispatchAttachment = CommunicationAttachment & {
@@ -14,6 +15,7 @@ export type CustomerCommunicationDispatchInput = {
   customerId: number
   kind: CustomerCommunicationKind
   nature?: string
+  audience?: CustomerCommunicationAudience
   recipient: string
   subject: string
   html: string
@@ -46,16 +48,25 @@ function makeIdempotencyKey(input: CustomerCommunicationDispatchInput): string {
     input.anchorAtracacaoId ?? '',
     input.anchorInvoiceId ?? '',
   ].join(':')
-  return `comunicado:${input.kind}:${input.customerId}:${anchor}:${input.dispatchId ?? ''}:${input.attemptDiscriminator ?? 0}:${input.recipient.trim().toLowerCase()}`
+  const audienceKey = input.audience
+    ? input.audience.mode === 'caixa'
+      ? `caixa:${input.audience.boxCode}`
+      : 'todos'
+    : ''
+  return `comunicado:${input.kind}:${audienceKey}:${input.customerId}:${anchor}:${input.dispatchId ?? ''}:${input.attemptDiscriminator ?? 0}:${input.recipient.trim().toLowerCase()}`
 }
 
 export function customerCommunicationDispatchPayload(input: CustomerCommunicationDispatchInput) {
   const nature = input.nature ?? getCustomerCommunicationNature(input.kind)
   assertValidCommunicationAttachments(input.kind, input.attachments)
+  const audienceMode = input.audience?.mode ?? (input.kind === 'institucional' ? 'todos' : 'caixa')
+  const recipientBoxCode = input.audience?.mode === 'caixa' ? input.audience.boxCode : null
   return {
     customer_id: input.customerId,
     kind: input.kind,
     nature,
+    audience_mode: audienceMode,
+    recipient_box_code: recipientBoxCode,
     recipient: input.recipient.trim().toLowerCase(),
     subject: input.subject,
     html: input.html,

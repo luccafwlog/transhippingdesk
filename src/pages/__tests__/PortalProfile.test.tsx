@@ -50,12 +50,12 @@ it('shows a load error and disables editing when the profile cannot be loaded', 
 
   await waitFor(() => expect(screen.getByText('Falha ao carregar perfil. Tente novamente em instantes.')).toBeTruthy())
   expect(screen.queryByText('Perfil indisponivel')).toBeNull()
-  expect((screen.getByRole('button', { name: 'Salvar alteracoes' }) as HTMLButtonElement).disabled).toBe(true)
+  expect((screen.getByRole('button', { name: /Salvar altera/i }) as HTMLButtonElement).disabled).toBe(true)
 })
 
 it('preserva edicao local quando o overview muda depois da hidratacao', async () => {
   const user = userEvent.setup()
-  getProfile.mockResolvedValue({ contact_email: 'perfil@example.com', phone: '', address: '', city: '', state: '', zip: '' })
+  getProfile.mockResolvedValue({ contact_email: 'perfil@example.com', phone: '', address: 'Rua Antiga', city: '', state: '', zip: '' })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const { rerender } = render(
     <QueryClientProvider client={queryClient}>
@@ -63,9 +63,9 @@ it('preserva edicao local quando o overview muda depois da hidratacao', async ()
     </QueryClientProvider>,
   )
 
-  const email = await screen.findByDisplayValue('perfil@example.com')
-  await user.clear(email)
-  await user.type(email, 'editado@example.com')
+  const address = await screen.findByDisplayValue('Rua Antiga')
+  await user.clear(address)
+  await user.type(address, 'Rua Nova')
 
   auth.overview = { contact_email: 'novo-overview@example.com' }
   rerender(
@@ -74,5 +74,5 @@ it('preserva edicao local quando o overview muda depois da hidratacao', async ()
     </QueryClientProvider>,
   )
 
-  expect(screen.getByDisplayValue('editado@example.com')).toBeTruthy()
+  expect(screen.getByDisplayValue('Rua Nova')).toBeTruthy()
 })

@@ -49,6 +49,18 @@ vi.mock('../../components/ui/Toast', () => ({
 vi.mock('../../components/ui/ConfirmDialog', () => ({
   useConfirm: () => mocks.confirm,
 }))
+vi.mock('../../components/clientes/CustomerContactConfiguration', () => ({
+  CustomerContactConfiguration: ({ customerId, canEdit, onSaved }: { customerId: number; canEdit?: boolean; onSaved?: () => void }) => (
+    <div data-testid="customer-contact-configuration">
+      <span>Contatos do cliente {customerId}</span>
+      {canEdit && (
+        <button type="button" onClick={onSaved}>
+          Salvar contatos mock
+        </button>
+      )}
+    </div>
+  ),
+}))
 vi.mock('../../services/customers', () => ({
   upsertCustomerContact: mocks.upsertContact,
   deleteCustomerContact: mocks.deleteContact,
@@ -116,37 +128,18 @@ describe('ClienteFicha user behaviours', () => {
     expect(screen.getByRole('tab', { name: 'Operacional' }).getAttribute('aria-selected')).toBe('true')
   })
 
-  it('creates or edits a contact and refreshes the customer detail', async () => {
+  it('renders CustomerContactConfiguration and invalidates customer detail on save', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(screen.getByRole('button', { name: 'Editar' }))
-    const name = screen.getByLabelText('Nome do contato')
-    await user.clear(name)
-    await user.type(name, 'Financeiro')
-    await user.click(screen.getByRole('button', { name: 'Salvar contato' }))
+    expect(screen.getByTestId('customer-contact-configuration')).toBeTruthy()
+    expect(screen.getByText('Contatos do cliente 42')).toBeTruthy()
 
-    expect(mocks.upsertContact).toHaveBeenCalledWith(42, expect.objectContaining({
-      id: 7,
-      name: 'Financeiro',
-      email: 'atual@example.com',
-    }))
+    await user.click(screen.getByRole('button', { name: 'Salvar contatos mock' }))
+
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['customer-detail', '12345678000195'],
     })
-  })
-
-  it('removes a contact only after explicit confirmation', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await user.click(screen.getByRole('button', { name: 'Remover contato' }))
-
-    expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Remover contato',
-      tone: 'danger',
-    }))
-    expect(mocks.deleteContact).toHaveBeenCalledWith(7)
   })
 
   it('shows a not-found state for an unknown customer', () => {

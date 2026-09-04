@@ -8,10 +8,7 @@ Quando um plano é totalmente executado, ele é movido para
 
 ## Planos ativos
 
-| Plano | Tema | Status |
-|---|---|---|
-
-Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
+Nenhum plano ativo no momento. O plano [2026-09-03 — Issue 609: contatos e caixas de comunicação](../archive/plans/2026-09-03-issue-609-contatos-caixas-comunicacao.md) foi concluído e arquivado.
 
 ### Sincronização de 2026-09-01
 

@@ -188,7 +188,7 @@ async function handleBounceCascade(
   for (const customerId of [...new Set(customerIds)]) {
     const { data: contacts, error: contactsError } = await admin
       .from('customer_contacts')
-      .select('id, email, is_primary')
+      .select('id, email, is_primary, deactivated_at')
       .eq('customer_id', customerId)
     if (contactsError) {
       console.error('[portal-email-webhook] falha ao consultar contatos para cascata', customerId, contactsError)
@@ -361,7 +361,26 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
       if (error) return new Response(null, { status: 500 })
       if (communication?.customer_id) customerIds.push(Number(communication.customer_id))
     }
-    await handleBounceCascade(admin, customerIds, email)
+    const { data: contactsByEmail, error: contactsByEmailError } = await admin
+      .from('customer_contacts')
+      .select('customer_id')
+      .ilike('email', email)
+    if (contactsByEmailError) {
+      console.error('[portal-email-webhook] falha ao consultar contatos por email', email, contactsByEmailError)
+    } else {
+      for (const row of contactsByEmail ?? []) {
+        if (row.customer_id) customerIds.push(Number(row.customer_id))
+      }
+    }
+    const uniqueCustomerIds = [...new Set(customerIds)]
+    for (const customerId of uniqueCustomerIds) {
+      try {
+        await admin.rpc('repair_customer_contact_box_fallbacks', { p_customer_id: customerId })
+      } catch (error) {
+        console.error('[portal-email-webhook] falha ao reparar fallbacks de caixas', customerId, error)
+      }
+    }
+    await handleBounceCascade(admin, uniqueCustomerIds, email)
   }
 
   return new Response(null, { status: 200 })

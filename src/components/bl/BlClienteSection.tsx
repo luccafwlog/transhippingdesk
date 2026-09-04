@@ -53,12 +53,25 @@ export function BlClienteSection({ bl }: { bl: BLDetail }) {
     if (!bl) return
     const name = bl.manifest_customer_name?.trim()
     const cnpj = bl.manifest_customer_cnpj_cpf?.trim()
+    const email = bl.manifest_customer_email?.trim()
     if (!name || !cnpj) return
+
+    if (!email || !email.includes('@')) {
+      showToast('O cadastro do cliente exige um e-mail válido no manifesto.', 'error')
+      return
+    }
+
     setCreatingManifestCustomer(true)
     try {
-      const contacts = bl.manifest_customer_email?.trim()
-        ? [{ name: 'Contato manifesto', email: bl.manifest_customer_email.trim(), purpose: 'financeiro' as const, is_primary: true }]
-        : []
+      const contacts = [
+        {
+          name: 'Contato manifesto',
+          email,
+          purpose: 'geral' as const,
+          is_primary: true,
+          box_codes: ['documentacao_operacao', 'financeiro', 'demurrage'],
+        },
+      ]
       const customer = await createCustomer({ cnpjCpf: cnpj, name, contacts })
       await handleLinkCustomer(customer.id)
     } catch (err: unknown) {
@@ -94,14 +107,20 @@ export function BlClienteSection({ bl }: { bl: BLDetail }) {
             <InfoLine label="Email" value={bl.manifest_customer_email ?? '-'} />
           </dl>
           {!bl.customer_id && bl.manifest_customer_name && bl.manifest_customer_cnpj_cpf ? (
-            <Button
-              type="button"
-              variant="secondary"
-              loading={creatingManifestCustomer}
-              onClick={handleCreateManifestCustomer}
-            >
-              Cadastrar e vincular cliente do manifesto
-            </Button>
+            !bl.manifest_customer_email?.trim() ? (
+              <div className="rounded-lg bg-amber-950/40 border border-amber-800/40 p-2 text-xs text-amber-300">
+                O manifesto não possui e-mail. Complete o cadastro do cliente manualmente antes de vincular.
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                loading={creatingManifestCustomer}
+                onClick={handleCreateManifestCustomer}
+              >
+                Cadastrar e vincular cliente do manifesto
+              </Button>
+            )
           ) : null}
         </div>
       ) : null}

@@ -3,6 +3,16 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-09
+- **Caixas de Comunicação, Salvamento Atômico e Auditoria de Contatos (Issue 609 / ADR 0064):**
+  substituição do modelo legado de preferências (`customer_contact_preferences` e `purpose` como roteador)
+  por 3 Caixas de Comunicação oficiais (`documentacao_operacao`, `financeiro`, `demurrage`) com matriz de modelos extensível.
+  Salvamento atômico de contatos via `_apply_customer_contact_configuration` com bloqueio pessimista do cliente,
+  obrigatoriedade de exatamente um contato principal ativo com e-mail, e desativação lógica (`deactivated_at`)
+  em vez de exclusão física. Trilha de auditoria append-only agrupada por ação em `customer_contact_change_events`.
+  Auto-captura e auto-vinculação de e-mails em B/L (`ensure_customer_contact_email`) sem sobrescrever dados
+  cadastrais. Fallback e reparo de caixas esvaziadas por bounce ou desativação (`repair_customer_contact_box_fallbacks`).
+  Atualização das interfaces na Ficha do Cliente, Portal do Cliente, conferência e disparo de comunicados, régua de
+  Demurrage e webhook do Resend. Migration `008`.
 - **Bloco 3 — Comunicação financeira com clientes:** readiness por cliente/viagem
   para CE Mercante e Taxas Locais, disparo automático após a prontidão, reenvio
   assistido com histórico e resumo sem PIX/anexo; Régua de Cobrança de Demurrage

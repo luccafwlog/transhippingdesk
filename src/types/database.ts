@@ -1393,6 +1393,56 @@ export type Database = {
           },
         ]
       }
+      customer_communication_boxes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      customer_communication_box_kinds: {
+        Row: {
+          box_code: string
+          kind: string
+        }
+        Insert: {
+          box_code: string
+          kind: string
+        }
+        Update: {
+          box_code?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_communication_box_kinds_box_code_fkey"
+            columns: ["box_code"]
+            isOneToOne: false
+            referencedRelation: "customer_communication_boxes"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       customer_communication_attempts: {
         Row: {
           communication_id: number
@@ -1632,36 +1682,125 @@ export type Database = {
         Row: {
           created_at: string | null
           customer_id: number | null
+          deactivated_at: string | null
           email: string | null
           id: number
           is_primary: boolean | null
           name: string | null
           phone: string | null
           purpose: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           customer_id?: number | null
+          deactivated_at?: string | null
           email?: string | null
           id?: number
           is_primary?: boolean | null
           name?: string | null
           phone?: string | null
           purpose?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           customer_id?: number | null
+          deactivated_at?: string | null
           email?: string | null
           id?: number
           is_primary?: boolean | null
           name?: string | null
           phone?: string | null
           purpose?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "customer_contacts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_contact_box_links: {
+        Row: {
+          box_code: string
+          contact_id: number
+          created_at: string
+        }
+        Insert: {
+          box_code: string
+          contact_id: number
+          created_at?: string
+        }
+        Update: {
+          box_code?: string
+          contact_id?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_contact_box_links_box_code_fkey"
+            columns: ["box_code"]
+            isOneToOne: false
+            referencedRelation: "customer_communication_boxes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_contact_box_links_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "customer_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_contact_change_events: {
+        Row: {
+          action_id: string
+          actor_id: string | null
+          after_snapshot: Json
+          before_snapshot: Json
+          change_summary: Json
+          created_at: string
+          customer_id: number
+          id: number
+          portal_account_id: number | null
+          related_bl_id: string | null
+          source: string
+        }
+        Insert: {
+          action_id?: string
+          actor_id?: string | null
+          after_snapshot?: Json
+          before_snapshot?: Json
+          change_summary?: Json
+          created_at?: string
+          customer_id: number
+          id?: number
+          portal_account_id?: number | null
+          related_bl_id?: string | null
+          source: string
+        }
+        Update: {
+          action_id?: string
+          actor_id?: string | null
+          after_snapshot?: Json
+          before_snapshot?: Json
+          change_summary?: Json
+          created_at?: string
+          customer_id?: number
+          id?: number
+          portal_account_id?: number | null
+          related_bl_id?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_contact_change_events_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
@@ -4749,6 +4888,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      _apply_customer_contact_configuration: {
+        Args: {
+          p_actor_id?: string | null
+          p_contacts: Json
+          p_customer_id: number
+          p_justification?: string | null
+          p_portal_account_id?: number | null
+          p_related_bl_id?: number | null
+          p_source: string
+        }
+        Returns: Json
+      }
+      _build_customer_contact_configuration: {
+        Args: {
+          p_customer_id: number
+        }
+        Returns: Json
+      }
       add_agency_report_occurrence: {
         Args: {
           p_body: string
@@ -4938,9 +5095,23 @@ export type Database = {
         Returns: number
       }
       confirm_unified_pix_matches: { Args: { p_matches: Json }; Returns: Json }
+      capture_manifest_financial_contact: {
+        Args: {
+          p_customer_id: number
+          p_email: string
+          p_related_bl_id?: string | null
+        }
+        Returns: Json
+      }
+      claim_due_demurrage_dunning_invoices: {
+        Args: {
+          p_limit?: number
+        }
+        Returns: Json
+      }
       count_distinct_containers: { Args: never; Returns: number }
       create_customer_with_contacts: {
-        Args: { p_contacts?: Json; p_customer: Json }
+        Args: { p_contacts?: Json; p_created_by?: string | null; p_customer: Json }
         Returns: Json
       }
       create_demurrage_invoice_with_items: {
@@ -5035,6 +5206,16 @@ export type Database = {
       }
       current_portal_customer_id: { Args: never; Returns: number }
       current_user_role: { Args: never; Returns: string }
+      customer_communication_recipient_allowed: {
+        Args: {
+          p_audience_mode?: string | null
+          p_customer_id: number
+          p_email: string
+          p_kind: string
+          p_recipient_box_code?: string | null
+        }
+        Returns: boolean
+      }
       delete_baplie_manifest_for_voyage: {
         Args: { p_voyage_id: number }
         Returns: number
@@ -5056,6 +5237,16 @@ export type Database = {
       ensure_agency_departure_report: {
         Args: { p_port: string; p_voyage_id: number }
         Returns: string
+      }
+      ensure_customer_contact_email: {
+        Args: {
+          p_contact_name?: string
+          p_customer_id: number
+          p_email: string
+          p_purpose?: string
+          p_related_bl_id?: string | null
+        }
+        Returns: boolean
       }
       ensure_pricing_rule_version: {
         Args: {
@@ -5213,6 +5404,14 @@ export type Database = {
           p_message: string
         }
         Returns: undefined
+      }
+      internal_save_customer_contact_configuration: {
+        Args: {
+          p_contacts: Json
+          p_customer_id: number
+          p_justification?: string | null
+        }
+        Returns: Json
       }
       is_active_non_equipamentos_user: { Args: never; Returns: boolean }
       is_active_read_user: { Args: never; Returns: boolean }
@@ -5630,6 +5829,14 @@ export type Database = {
         Returns: Json
       }
       reorder_vessel_schedules: { Args: { p_order: Json }; Returns: number }
+      repair_customer_contact_box_fallbacks: {
+        Args: {
+          p_box_code?: string | null
+          p_customer_id: number
+          p_kind?: string | null
+        }
+        Returns: Json
+      }
       replace_vazios_from_baplie_transactional: {
         Args: {
           p_description: string
@@ -6163,12 +6370,16 @@ export type CustomerCommunicationAttemptStatus =
   | 'falha_transitoria'
   | 'falha_permanente'
 export type CustomerCommunicationKindMapping = Tables<'customer_communication_kinds'>
+export type CustomerCommunicationBox = Tables<'customer_communication_boxes'>
+export type CustomerCommunicationBoxKind = Tables<'customer_communication_box_kinds'>
 export type CustomerCommunication = Tables<'customer_communications'>
 export type CustomerCommunicationBl = Tables<'customer_communication_bls'>
 export type CustomerCommunicationAttempt = Tables<'customer_communication_attempts'>
 export type CustomerCommunicationSuppression = Tables<'customer_communication_suppressions'>
 export type CustomerCommunicationAutomationClaim = Tables<'customer_communication_automation_claims'>
 export type CustomerContactPreference = Tables<'customer_contact_preferences'>
+export type CustomerContactBoxLinkTable = Tables<'customer_contact_box_links'>
+export type CustomerContactChangeEvent = Tables<'customer_contact_change_events'>
 export type AppSettings = Tables<'app_settings'>
 export type CustomerPortalAccount = Tables<'customer_portal_accounts'>
 export type PortalInvite = Tables<'portal_invites'>
@@ -6426,11 +6637,18 @@ export type ContainerListItem = Pick<
 
 export type CustomerListItem = Customer & {
   bls?: Pick<BL, 'id' | 'charge_status'>[] | null
-  customer_contacts?: Pick<CustomerContact, 'id' | 'email' | 'purpose' | 'is_primary'>[] | null
+  customer_contacts?: Array<Pick<CustomerContact, 'id' | 'email' | 'purpose' | 'is_primary'> & {
+    deactivated_at?: string | null
+    origin?: string | null
+    customer_contact_box_links?: Array<{ box_code: string }> | null
+  }> | null
 }
 
 export type CustomerDetail = Customer & {
   customer_contacts?: Array<CustomerContact & {
+    deactivated_at?: string | null
+    origin?: string | null
+    customer_contact_box_links?: Array<{ box_code: string }> | null
     customer_contact_preferences?: CustomerContactPreference[] | null
   }> | null
   bls?: Pick<BL, 'id' | 'consignee' | 'financial_status' | 'review_status' | 'created_at'>[] | null

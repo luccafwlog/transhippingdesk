@@ -179,6 +179,12 @@ export function Clientes() {
       return
     }
 
+    const primaryContact = activeContacts.find((contact) => contact.is_primary)
+    if (!primaryContact || !primaryContact.email?.trim() || !primaryContact.email.includes('@')) {
+      showToast('O cliente precisa ter ao menos um contato principal com e-mail válido.', 'error')
+      return
+    }
+
     setSaving(true)
     try {
       const customer = await createCustomer({
@@ -262,7 +268,7 @@ export function Clientes() {
     try {
       let query = supabase
         .from('customers')
-        .select(`*, ${BLS_OF_CUSTOMER}(id, charge_status), customer_contacts(id, email, purpose, is_primary)`)
+        .select(`*, ${BLS_OF_CUSTOMER}(id, charge_status), customer_contacts(id, email, purpose, is_primary, deactivated_at, origin, customer_contact_box_links(box_code))`)
         .order('name', { ascending: true })
 
       if (filters.search) {

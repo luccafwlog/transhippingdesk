@@ -1,3 +1,7 @@
+import {
+  CUSTOMER_COMMUNICATION_BOXES,
+  type CommunicationBoxCode,
+} from '../../services/customerCommunicationBoxes'
 import type { CustomerContact } from '../../types/database'
 
 export type CustomerCreateErrors = Partial<{ cnpjCpf: string; name: string }>
@@ -7,8 +11,9 @@ export type CustomerContactForm = {
   name: string
   email: string
   phone: string
-  purpose: NonNullable<CustomerContact['purpose']>
+  purpose?: NonNullable<CustomerContact['purpose']>
   is_primary: boolean
+  box_codes: CommunicationBoxCode[]
 }
 
 export type CreateCustomerForm = {
@@ -23,8 +28,18 @@ export type CreateCustomerForm = {
   contacts: CustomerContactForm[]
 }
 
-export function newCustomerContact(): CustomerContactForm {
-  return { _id: crypto.randomUUID(), name: '', email: '', phone: '', purpose: 'geral', is_primary: false }
+export function newCustomerContact(isPrimary = false): CustomerContactForm {
+  return {
+    _id: crypto.randomUUID(),
+    name: '',
+    email: '',
+    phone: '',
+    purpose: 'geral',
+    is_primary: isPrimary,
+    box_codes: isPrimary
+      ? CUSTOMER_COMMUNICATION_BOXES.map((b) => b.code)
+      : ['documentacao_operacao'],
+  }
 }
 
 export const emptyCreateCustomerForm: CreateCustomerForm = {
@@ -36,5 +51,5 @@ export const emptyCreateCustomerForm: CreateCustomerForm = {
   state: '',
   zip: '',
   notes: '',
-  contacts: [newCustomerContact()],
+  contacts: [newCustomerContact(true)],
 }

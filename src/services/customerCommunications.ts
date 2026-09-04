@@ -7,6 +7,13 @@ import { canonicalizeDocument } from '../lib/cnpj'
 import { listVoyageEscalaSchedulesByVoyageIds, type VoyageEscalaSchedule } from './voyageRouteSchedules'
 import { supabase } from './supabase'
 import type { CustomerCommunicationKind, CustomerCommunicationTemplateInput } from './customerCommunicationTemplates'
+import {
+  type CustomerCommunicationAudience,
+  type CustomerContactBoxLink,
+  type CustomerCommunicationRecipient,
+  resolveCustomerCommunicationRecipientsByBoxes,
+  buildRecipientSnapshot,
+} from './customerCommunicationBoxes'
 
 export const CUSTOMER_COMMUNICATION_NATURES: readonly CustomerCommunicationNature[] = [
   'avisos_gerais',
@@ -202,18 +209,21 @@ export type CustomerCommunicationConferenceRow = {
   terminalName: string | null
   bls: CustomerCommunicationBlCandidate[]
   sourceBls: CustomerCommunicationBlCandidate[]
-  eligibleRecipients: CustomerContact[]
+  eligibleRecipients: (CustomerContact & Partial<CustomerCommunicationRecipient>)[]
   excludedRecipients: ExcludedCustomerCommunicationRecipient[]
   blocked: boolean
   selected: boolean
   nextAttemptDiscriminator: number
   renderInput: CustomerCommunicationTemplateInput
+  audience?: CustomerCommunicationAudience
+  recipientSnapshot?: string
 }
 
 export type CustomerCommunicationConference = {
   kind: CustomerCommunicationKind
   nature: CustomerCommunicationNature
   mode: CustomerCommunicationDispatchMode
+  audience?: CustomerCommunicationAudience
   rows: CustomerCommunicationConferenceRow[]
   totalCustomers: number
   totalEligibleEmails: number
@@ -373,9 +383,11 @@ export function buildCustomerCommunicationConference(input: {
   kind: CustomerCommunicationKind
   nature?: CustomerCommunicationNature
   mode: CustomerCommunicationDispatchMode
+  audience?: CustomerCommunicationAudience
   candidates: readonly CustomerCommunicationBlCandidate[]
   contactsByCustomer: ReadonlyMap<number, readonly CustomerContact[]>
-  preferences: readonly Preference[]
+  preferences?: readonly Preference[]
+  boxLinks?: readonly CustomerContactBoxLink[]
   communicationSuppressions?: readonly EmailSuppressionRow[]
   portalSuppressions?: readonly EmailSuppressionRow[]
   history?: readonly CustomerCommunicationHistoryMatch[]
@@ -398,13 +410,45 @@ export function buildCustomerCommunicationConference(input: {
     const sourceBls = candidates.slice()
     const institutional = input.kind === 'institucional'
     if (institutional && !isInstitutionalCustomerCommunicable(sourceBls, input.now)) continue
-    const recipients = resolveCustomerCommunicationRecipients({
-      contacts: [...(input.contactsByCustomer.get(first.customerId) ?? [])],
-      nature,
-      preferences: input.preferences.filter((preference) => input.contactsByCustomer.get(first.customerId)?.some((contact) => contact.id === preference.contact_id)),
-      communicationSuppressions: input.communicationSuppressions,
-      portalSuppressions: input.portalSuppressions,
+
+    const customerContacts = [...(input.contactsByCustomer.get(first.customerId) ?? [])]
+    let recipients: {
+      eligible: (CustomerContact & Partial<CustomerCommunicationRecipient>)[]
+      excluded: ExcludedCustomerCommunicationRecipient[]
+      blocked: boolean
+    }
+
+    if (input.boxLinks !== undefined) {
+      const boxResult = resolveCustomerCommunicationRecipientsByBoxes({
+        contacts: customerContacts,
+        boxLinks: input.boxLinks,
+        kind: input.kind,
+        audience: input.audience,
+        communicationSuppressions: input.communicationSuppressions,
+        portalSuppressions: input.portalSuppressions,
+      })
+      recipients = {
+        eligible: boxResult.eligible,
+        excluded: boxResult.excluded as ExcludedCustomerCommunicationRecipient[],
+        blocked: boxResult.blocked,
+      }
+    } else {
+      recipients = resolveCustomerCommunicationRecipients({
+        contacts: customerContacts,
+        nature,
+        preferences: (input.preferences ?? []).filter((preference) => customerContacts.some((contact) => contact.id === preference.contact_id)),
+        communicationSuppressions: input.communicationSuppressions,
+        portalSuppressions: input.portalSuppressions,
+      })
+    }
+
+    const recipientSnapshot = buildRecipientSnapshot({
+      customerId: first.customerId,
+      kind: input.kind,
+      audience: input.audience,
+      recipients: recipients.eligible as readonly CustomerCommunicationRecipient[],
     })
+
     const anchorRow = institutional ? { ...first, milestoneAt: null } : first
     rows.push({
       key: `${input.kind}:${candidateIdentity(first, input.kind)}`,
@@ -419,6 +463,8 @@ export function buildCustomerCommunicationConference(input: {
       excludedRecipients: recipients.excluded,
       blocked: recipients.blocked,
       selected: !recipients.blocked,
+      audience: input.audience,
+      recipientSnapshot,
       nextAttemptDiscriminator: input.kind === 'institucional' || input.kind === 'livre'
         ? nextInstitutionalAttemptDiscriminator(input.history ?? [], first.customerId, input.kind)
         : nextAttemptDiscriminator(input.history ?? [], first, input.kind),
@@ -554,13 +600,17 @@ async function fetchCommunicationBlRows(): Promise<RawCommunicationBlRow[]> {
 
 async function fetchCommunicationContacts(customerIds: readonly number[]): Promise<{
   contactsByCustomer: Map<number, CustomerContact[]>
-  preferences: CustomerContactPreference[]
+  boxLinks: CustomerContactBoxLink[]
 }> {
   const contactsByCustomer = new Map<number, CustomerContact[]>()
-  const preferences: CustomerContactPreference[] = []
+  const boxLinks: CustomerContactBoxLink[] = []
   for (let from = 0; from < customerIds.length; from += 100) {
     const ids = customerIds.slice(from, from + 100)
-    const { data: contacts, error: contactsError } = await supabase.from('customer_contacts').select('*').in('customer_id', ids)
+    const { data: contacts, error: contactsError } = await supabase
+      .from('customer_contacts')
+      .select('*')
+      .in('customer_id', ids)
+      .order('id', { ascending: true })
     if (contactsError) throw contactsError
     for (const contact of contacts ?? []) {
       if (contact.customer_id == null) continue
@@ -571,11 +621,15 @@ async function fetchCommunicationContacts(customerIds: readonly number[]): Promi
   }
   const contactIds = [...contactsByCustomer.values()].flatMap((contacts) => contacts.map((contact) => contact.id))
   for (let from = 0; from < contactIds.length; from += 100) {
-    const { data, error } = await supabase.from('customer_contact_preferences').select('*').in('contact_id', contactIds.slice(from, from + 100))
+    const ids = contactIds.slice(from, from + 100)
+    const { data, error } = await supabase
+      .from('customer_contact_box_links')
+      .select('contact_id, box_code')
+      .in('contact_id', ids)
     if (error) throw error
-    preferences.push(...(data ?? []))
+    boxLinks.push(...((data as CustomerContactBoxLink[]) ?? []))
   }
-  return { contactsByCustomer, preferences }
+  return { contactsByCustomer, boxLinks }
 }
 
 async function fetchCommunicationHistory(customerIds: readonly number[], kind: CustomerCommunicationKind): Promise<CustomerCommunicationHistoryMatch[]> {
@@ -605,6 +659,7 @@ export async function fetchCustomerCommunicationConference(input: {
   filters: CustomerCommunicationFilters
   kind: CustomerCommunicationKind
   nature?: CustomerCommunicationNature
+  audience?: CustomerCommunicationAudience
   now?: Date
 }): Promise<CustomerCommunicationConference> {
   const validation = validateCustomerCommunicationFilters(input.filters)
@@ -623,22 +678,42 @@ export async function fetchCustomerCommunicationConference(input: {
   const expanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind)
   const filtered = filterCustomerCommunicationBls(expanded, input.filters)
   const customerIds = [...new Set(filtered.map((row) => row.customerId))]
-  const [{ contactsByCustomer, preferences }, { data: portalSuppressions, error: portalError }, { data: communicationSuppressions, error: communicationError }] = await Promise.all([
-    fetchCommunicationContacts(customerIds),
-    supabase.from('portal_suppressed_emails').select('email, reason'),
-    supabase.from('customer_communication_suppressions').select('email, reason'),
+  const { contactsByCustomer, boxLinks } = await fetchCommunicationContacts(customerIds)
+  // (ponytail: supressoes filtradas por e-mail em vez de full-scan — a tabela
+  // estoura max_rows=1000 e truncava; o last-mile filtrado na edge evita envio
+  // errado, mas a conferencia mentia. Upgrade seria RPC com filtro server-side.)
+  const contactEmails = [...new Set(
+    [...contactsByCustomer.values()].flatMap((contacts) =>
+      contacts.flatMap((c) => {
+        const email = String((c as { email?: unknown }).email ?? '').trim()
+        return email ? [email, email.toLowerCase()] : []
+      }),
+    ),
+  )]
+  async function fetchSuppressionsFiltered(table: 'portal_suppressed_emails' | 'customer_communication_suppressions') {
+    if (!contactEmails.length) return [] as Array<{ email: string; reason: string | null }>
+    const rows: Array<{ email: string; reason: string | null }> = []
+    for (let from = 0; from < contactEmails.length; from += 100) {
+      const { data, error } = await supabase.from(table).select('email, reason').in('email', contactEmails.slice(from, from + 100))
+      if (error) throw error
+      rows.push(...((data ?? []) as Array<{ email: string; reason: string | null }>))
+    }
+    return rows
+  }
+  const [portalSuppressions, communicationSuppressions] = await Promise.all([
+    fetchSuppressionsFiltered('portal_suppressed_emails'),
+    fetchSuppressionsFiltered('customer_communication_suppressions'),
   ])
-  if (portalError) throw portalError
-  if (communicationError) throw communicationError
   const history = await fetchCommunicationHistory(customerIds, input.kind)
 
   return buildCustomerCommunicationConference({
     kind: input.kind,
     nature: input.nature,
     mode: input.filters.mode,
+    audience: input.audience,
     candidates: filtered,
     contactsByCustomer,
-    preferences,
+    boxLinks,
     portalSuppressions: portalSuppressions ?? [],
     communicationSuppressions: communicationSuppressions ?? [],
     history,

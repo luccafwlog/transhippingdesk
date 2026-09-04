@@ -1,0 +1,293 @@
+// @vitest-environment jsdom
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PortalContactConfiguration } from '../PortalContactConfiguration'
+
+const getContactConfig = vi.hoisted(() => vi.fn())
+const saveContactConfig = vi.hoisted(() => vi.fn())
+const auth = vi.hoisted(() => ({
+  overview: { customer_id: 10, contact_email: 'fallback@example.com' },
+  refreshOverview: vi.fn(),
+}))
+
+const scopeRef = vi.hoisted(() => ({
+  mode: 'client' as 'client' | 'inspect',
+  customerId: null as number | null,
+  overview: null,
+  basePath: '/portal',
+}))
+
+vi.mock('../../../hooks/usePortalAuth', async () => ({
+  usePortalAuth: () => auth,
+  PortalAuthContext: (await vi.importActual<typeof import('react')>('react')).createContext(auth),
+}))
+
+vi.mock('../../../hooks/usePortalScope', () => ({
+  usePortalScope: () => scopeRef,
+}))
+
+vi.mock('../../../services/portalContactConfiguration', () => ({
+  portalGetContactConfiguration: getContactConfig,
+  portalSaveContactConfiguration: saveContactConfig,
+}))
+
+vi.mock('../../../components/ui/Toast', () => ({
+  useToast: () => ({ showToast: vi.fn() }),
+}))
+
+function renderComponent(readOnly = false) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PortalContactConfiguration readOnly={readOnly} />
+    </QueryClientProvider>,
+  )
+}
+
+describe('PortalContactConfiguration', () => {
+  beforeEach(() => {
+    getContactConfig.mockReset()
+    getContactConfig.mockResolvedValue({ boxes: [], contacts: [] })
+    saveContactConfig.mockReset()
+    auth.refreshOverview.mockReset()
+    scopeRef.mode = 'client'
+    scopeRef.customerId = null
+  })
+
+  it('carrega principal, adicional, telefone, caixas e motivo de endereço bloqueado', async () => {
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [
+        { code: 'documentacao_operacao', label: 'Documentação e Operação', description: 'CE e Taxas', sort_order: 1, active: true },
+        { code: 'financeiro', label: 'Financeiro', description: 'Taxas e Demurrage', sort_order: 2, active: true },
+        { code: 'demurrage', label: 'Demurrage', description: 'Cobranças Demurrage', sort_order: 3, active: true },
+      ],
+      contacts: [
+        {
+          id: 1,
+          customer_id: 10,
+          name: 'Maria Financeiro',
+          email: 'maria@cliente.com',
+          phone: '(11) 98888-7777',
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao', 'financeiro', 'demurrage'],
+          suppression_reason: null,
+          sendable: true,
+        },
+        {
+          id: 2,
+          customer_id: 10,
+          name: 'João Operação',
+          email: 'joao@cliente.com',
+          phone: null,
+          is_primary: false,
+          active: true,
+          origin: 'bl_automatico',
+          box_codes: ['documentacao_operacao'],
+          suppression_reason: 'suprimido_bounce',
+          sendable: false,
+        },
+      ],
+    })
+
+    renderComponent()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Maria Financeiro')).toBeTruthy()
+      expect(screen.getByDisplayValue('maria@cliente.com')).toBeTruthy()
+      expect(screen.getByDisplayValue('(11) 98888-7777')).toBeTruthy()
+      expect(screen.getByDisplayValue('joao@cliente.com')).toBeTruthy()
+      expect(screen.getByText('Capturado do B/L')).toBeTruthy()
+      expect(screen.getByText(/Endereço bloqueado: Falha permanente na entrega/i)).toBeTruthy()
+    })
+  })
+
+  it('inclusão de adicional sem caixa é rejeitada no salvamento', async () => {
+    const user = userEvent.setup()
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [
+        { code: 'documentacao_operacao', label: 'Documentação e Operação', description: 'CE e Taxas', sort_order: 1, active: true },
+        { code: 'financeiro', label: 'Financeiro', description: 'Taxas e Demurrage', sort_order: 2, active: true },
+        { code: 'demurrage', label: 'Demurrage', description: 'Cobranças Demurrage', sort_order: 3, active: true },
+      ],
+      contacts: [
+        {
+          id: 1,
+          name: 'Principal',
+          email: 'principal@cliente.com',
+          phone: null,
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao', 'financeiro', 'demurrage'],
+          suppression_reason: null,
+          sendable: true,
+        },
+      ],
+    })
+
+    renderComponent()
+
+    await screen.findByDisplayValue('principal@cliente.com')
+
+    // Clica em Novo contato
+    await user.click(screen.getByRole('button', { name: '+ Novo contato' }))
+
+    // Preenche email do novo contato sem marcar caixas
+    const emailInputs = screen.getAllByPlaceholderText('email@empresa.com')
+    expect(emailInputs).toHaveLength(2)
+    await user.type(emailInputs[1], 'novo@cliente.com')
+
+    // Tenta salvar
+    await user.click(screen.getByRole('button', { name: 'Salvar contatos' }))
+
+    expect(
+      await screen.findByText(/deve estar vinculado a pelo menos uma caixa/i),
+    ).toBeTruthy()
+    expect(saveContactConfig).not.toHaveBeenCalled()
+  })
+
+  it('salva contatos enviando payload sem customer_id e com box_codes', async () => {
+    const user = userEvent.setup()
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [
+        { code: 'documentacao_operacao', label: 'Documentação e Operação', description: 'CE', sort_order: 1, active: true },
+        { code: 'financeiro', label: 'Financeiro', description: 'Fin', sort_order: 2, active: true },
+        { code: 'demurrage', label: 'Demurrage', description: 'Dem', sort_order: 3, active: true },
+      ],
+      contacts: [
+        {
+          id: 1,
+          name: 'Principal',
+          email: 'principal@cliente.com',
+          phone: '119999',
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao', 'financeiro', 'demurrage'],
+          suppression_reason: null,
+          sendable: true,
+        },
+      ],
+    })
+    saveContactConfig.mockResolvedValueOnce({ boxes: [], contacts: [] })
+
+    renderComponent()
+
+    await screen.findByDisplayValue('principal@cliente.com')
+    await user.click(screen.getByRole('button', { name: 'Salvar contatos' }))
+
+    await waitFor(() => {
+      expect(saveContactConfig).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 1,
+            email: 'principal@cliente.com',
+            isPrimary: true,
+            boxCodes: ['documentacao_operacao', 'financeiro', 'demurrage'],
+          }),
+        ]),
+        expect.any(Object),
+      )
+    })
+  })
+
+  it('modo Inspeção desabilita edição e botão de salvar', async () => {
+    scopeRef.mode = 'inspect'
+    scopeRef.customerId = 99
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [],
+      contacts: [
+        {
+          id: 1,
+          name: 'Inspecionado',
+          email: 'insp@cliente.com',
+          phone: null,
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao', 'financeiro', 'demurrage'],
+          suppression_reason: null,
+          sendable: true,
+        },
+      ],
+    })
+
+    renderComponent(true)
+
+    await screen.findByDisplayValue('insp@cliente.com')
+    expect(screen.queryByRole('button', { name: '+ Novo contato' })).toBeNull()
+    const saveButton = screen.getByRole('button', { name: 'Salvar contatos' }) as HTMLButtonElement
+    expect(saveButton.disabled).toBe(true)
+  })
+
+  it('modo Inspeção bloqueia a escrita mesmo com submit forçado', async () => {
+    scopeRef.mode = 'inspect'
+    scopeRef.customerId = 99
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [],
+      contacts: [
+        {
+          id: 1,
+          name: 'Inspecionado',
+          email: 'insp@cliente.com',
+          phone: null,
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao'],
+          suppression_reason: null,
+          sendable: true,
+        },
+      ],
+    })
+
+    renderComponent(true)
+    await screen.findByDisplayValue('insp@cliente.com')
+    const form = document.querySelector('form')
+    form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await waitFor(() => {
+      expect(saveContactConfig).not.toHaveBeenCalled()
+    })
+  })
+
+  it('save falha quando uma caixa ficaria sem cobertura (sem RPC)', async () => {
+    const user = userEvent.setup()
+    getContactConfig.mockResolvedValueOnce({
+      boxes: [
+        { code: 'documentacao_operacao', label: 'Documentação e Operação', description: 'CE', sort_order: 1, active: true },
+        { code: 'financeiro', label: 'Financeiro', description: 'Fin', sort_order: 2, active: true },
+        { code: 'demurrage', label: 'Demurrage', description: 'Dem', sort_order: 3, active: true },
+      ],
+      contacts: [
+        {
+          id: 1,
+          name: 'Principal',
+          email: 'principal@cliente.com',
+          phone: null,
+          is_primary: true,
+          active: true,
+          origin: 'portal',
+          box_codes: ['documentacao_operacao'],
+          suppression_reason: null,
+          sendable: true,
+        },
+      ],
+    })
+
+    renderComponent()
+    await screen.findByDisplayValue('principal@cliente.com')
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[0])
+    await user.click(screen.getByRole('button', { name: 'Salvar contatos' }))
+
+    expect(await screen.findByText(/não pode ficar sem nenhum contato/i)).toBeTruthy()
+    expect(saveContactConfig).not.toHaveBeenCalled()
+  })
+})

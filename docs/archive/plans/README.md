@@ -106,6 +106,12 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   embarque e suporte a multi-depot; Bloco 4: Rotas e Manifestos com grupo Mercante e ação de preenchimento; Bloco 5: ADR
   organizado por departamentos com acompanhamento de prazos; Bloco 6: barra de comando de filtros, cards em Syne e rail aprimorado).
   PRs #588, #591–#599.
+- [`2026-09-03-issue-609-contatos-caixas-comunicacao.md`](2026-09-03-issue-609-contatos-caixas-comunicacao.md)
+  — Autoatendimento do Cliente para contatos e Caixas de Comunicação (ADR 0064, Issue 609): 3 caixas oficiais
+  (`documentacao_operacao`, `financeiro`, `demurrage`), salvamento atômico (`_apply_customer_contact_configuration`),
+  desativação lógica (`deactivated_at`), captura de e-mails em B/L (`ensure_customer_contact_email`), reparo por fallback
+  (`repair_customer_contact_box_fallbacks`), auditoria append-only agrupada (`customer_contact_change_events`),
+  UI na Ficha do Cliente e Portal do Cliente, e migração de conferência e disparo de comunicados. Migration `008`.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

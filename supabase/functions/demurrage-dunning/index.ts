@@ -17,8 +17,8 @@ type DunningCandidate = {
   attempt_discriminator: number
 }
 
-type DunningContact = { id: number; customer_id: number | null; email: string | null }
-type DunningPreference = { contact_id: number; nature: string; enabled: boolean }
+type DunningContact = { id: number; customer_id: number | null; email: string | null; deactivated_at?: string | null }
+type ContactBoxLink = { contact_id: number; box_code: string }
 type Suppression = { email: string; reason?: string | null }
 type InvoiceContext = {
   id: number
@@ -115,8 +115,9 @@ async function loadRecipients(
 ): Promise<DunningContact[]> {
   const { data: contactsData, error: contactsError } = await admin
     .from('customer_contacts')
-    .select('id, customer_id, email')
+    .select('id, customer_id, email, deactivated_at')
     .eq('customer_id', customerId)
+    .is('deactivated_at', null)
   if (contactsError) throw contactsError
   const contacts = (contactsData ?? []) as DunningContact[]
   const contactIds = contacts.map((contact) => contact.id)
@@ -124,9 +125,9 @@ async function loadRecipients(
     const email = (contact.email ?? '').trim()
     return email ? [email, email.toLowerCase()] : []
   }))]
-  const [{ data: preferencesData, error: preferencesError }, { data: communicationData, error: communicationError }, { data: portalData, error: portalError }] = await Promise.all([
+  const [{ data: boxLinksData, error: boxLinksError }, { data: communicationData, error: communicationError }, { data: portalData, error: portalError }] = await Promise.all([
     contactIds.length
-      ? admin.from('customer_contact_preferences').select('contact_id, nature, enabled').in('contact_id', contactIds)
+      ? admin.from('customer_contact_box_links').select('contact_id, box_code').in('contact_id', contactIds).in('box_code', ['financeiro', 'demurrage'])
       : Promise.resolve({ data: [], error: null }),
     contactEmails.length
       ? admin.from('customer_communication_suppressions').select('email, reason').in('email', contactEmails)
@@ -135,22 +136,29 @@ async function loadRecipients(
       ? admin.from('portal_suppressed_emails').select('email, reason').in('email', contactEmails)
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (preferencesError) throw preferencesError
+  if (boxLinksError) throw boxLinksError
   if (communicationError) throw communicationError
   if (portalError) throw portalError
 
-  const preferences = (preferencesData ?? []) as DunningPreference[]
+  const boxLinks = (boxLinksData ?? []) as ContactBoxLink[]
+  const eligibleContactIds = new Set(boxLinks.map((link) => link.contact_id))
   const communicationSuppressions = (communicationData ?? []) as Suppression[]
   const portalSuppressions = (portalData ?? []) as Suppression[]
   const isSuppressed = (email: string) => communicationSuppressions.some((row) => normalizeEmail(row.email) === email)
     || portalSuppressions.some((row) => normalizeEmail(row.email) === email && row.reason === 'bounce_permanente')
 
-  return contacts.filter((contact) => {
+  const seenEmails = new Set<string>()
+  const result: DunningContact[] = []
+  for (const contact of contacts) {
+    if (contact.deactivated_at != null) continue
+    if (!eligibleContactIds.has(contact.id)) continue
     const email = normalizeEmail(contact.email)
-    if (!EMAIL_PATTERN.test(email) || isSuppressed(email)) return false
-    const preference = preferences.find((row) => row.contact_id === contact.id && row.nature === 'demurrage')
-    return preference?.enabled !== false
-  })
+    if (!EMAIL_PATTERN.test(email) || isSuppressed(email)) continue
+    if (seenEmails.has(email)) continue
+    seenEmails.add(email)
+    result.push(contact)
+  }
+  return result
 }
 
 async function loadInvoice(

@@ -8,10 +8,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   showToast: vi.fn(),
-  confirm: vi.fn(() => Promise.resolve(true)),
-  upsertCustomerContact: vi.fn(() => Promise.resolve({})),
-  deleteCustomerContact: vi.fn(() => Promise.resolve(undefined)),
-  updatePreference: vi.fn(),
+  updateCustomerWithAudit: vi.fn(() => Promise.resolve(true)),
+  lastOnSaved: null as (() => void) | null,
 }))
 
 vi.mock('@tanstack/react-query', () => ({
@@ -23,15 +21,22 @@ vi.mock('../../../hooks/useAuth', () => ({
 vi.mock('../../../hooks/usePortalProvisioning', () => ({
   usePortalProvisioningForCustomer: () => ({ data: undefined }),
 }))
-vi.mock('../../../hooks/useCustomerContactPreferences', () => ({
-  useUpdateCustomerContactPreference: () => ({ isPending: false, mutate: mocks.updatePreference }),
-}))
 vi.mock('../../ui/Toast', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
-vi.mock('../../ui/ConfirmDialog', () => ({ useConfirm: () => mocks.confirm }))
 vi.mock('../../../services/customers', () => ({
-  updateCustomerWithAudit: vi.fn(),
-  upsertCustomerContact: mocks.upsertCustomerContact,
-  deleteCustomerContact: mocks.deleteCustomerContact,
+  updateCustomerWithAudit: mocks.updateCustomerWithAudit,
+}))
+vi.mock('../CustomerContactConfiguration', () => ({
+  CustomerContactConfiguration: ({ customerId, onSaved }: { customerId: number; onSaved?: () => void }) => {
+    mocks.lastOnSaved = onSaved ?? null
+    return (
+      <div data-testid="customer-contact-configuration">
+        <span>Configuração de contatos do cliente {customerId}</span>
+        <button type="button" onClick={onSaved}>
+          Simular Salvo
+        </button>
+      </div>
+    )
+  },
 }))
 
 import { CadastroContatosTab } from '../CadastroContatosTab'
@@ -51,61 +56,47 @@ const baseData = {
 afterEach(() => {
   cleanup()
   mocks.invalidateQueries.mockClear()
-  mocks.updatePreference.mockClear()
+  mocks.showToast.mockClear()
+  mocks.lastOnSaved = null
 })
 
-describe('CadastroContatosTab — invalidacao da timeline em mutacoes de contato', () => {
-  it('invalida customer-detail e a timeline ao salvar um contato', async () => {
+describe('CadastroContatosTab', () => {
+  it('renderiza CustomerContactConfiguration e invalida customer-detail e timeline ao salvar contatos', async () => {
     const user = userEvent.setup()
-    render(<MemoryRouter><CadastroContatosTab data={baseData} cnpj="12345678000195" /></MemoryRouter>)
-
-    await user.type(screen.getByLabelText('Nome do contato'), 'Novo Contato')
-    await user.click(screen.getByRole('button', { name: 'Salvar contato' }))
-
-    expect(mocks.upsertCustomerContact).toHaveBeenCalled()
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customer-detail', '12345678000195'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customer-ficha', 'timeline', 101] })
-  })
-
-  it('invalida customer-detail e a timeline ao remover um contato', async () => {
-    const user = userEvent.setup()
-    render(<MemoryRouter><CadastroContatosTab data={baseData} cnpj="12345678000195" /></MemoryRouter>)
-
-    await user.click(screen.getByRole('button', { name: 'Remover contato' }))
-
-    expect(mocks.deleteCustomerContact).toHaveBeenCalledWith(5)
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customer-detail', '12345678000195'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customer-ficha', 'timeline', 101] })
-  })
-
-  it('altera somente a Natureza escolhida, sem reutilizar purpose', async () => {
-    const user = userEvent.setup()
-    render(<MemoryRouter><CadastroContatosTab data={baseData} cnpj="12345678000195" /></MemoryRouter>)
-
-    await user.click(screen.getByRole('checkbox', { name: 'Demurrage' }))
-
-    expect(mocks.updatePreference).toHaveBeenCalledWith(
-      {
-        customerId: 101,
-        contactId: 5,
-        nature: 'demurrage',
-        enabled: false,
-      },
-      expect.objectContaining({ onError: expect.any(Function) }),
+    render(
+      <MemoryRouter>
+        <CadastroContatosTab data={baseData} cnpj="12345678000195" />
+      </MemoryRouter>,
     )
-    expect(screen.getByRole('checkbox', { name: 'Documentação' })).toHaveProperty('checked', true)
-    expect((baseData as unknown as { customer_contacts: Array<{ purpose: string }> }).customer_contacts[0].purpose).toBe('geral')
+
+    expect(screen.getByTestId('customer-contact-configuration')).toBeTruthy()
+    expect(screen.getByText('Configuração de contatos do cliente 101')).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Simular Salvo' }))
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customer-detail', '12345678000195'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customers'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customer-ficha', 'timeline', 101] })
   })
 
-  it('exibe toast de erro ao falhar atualização de preferência', async () => {
+  it('salva cadastro do cliente com justificativa e atualiza queries', async () => {
     const user = userEvent.setup()
-    mocks.updatePreference.mockImplementationOnce((_params: unknown, options?: { onError?: () => void }) => {
-      options?.onError?.()
-    })
-    render(<MemoryRouter><CadastroContatosTab data={baseData} cnpj="12345678000195" /></MemoryRouter>)
+    render(
+      <MemoryRouter>
+        <CadastroContatosTab data={baseData} cnpj="12345678000195" />
+      </MemoryRouter>,
+    )
 
-    await user.click(screen.getByRole('checkbox', { name: 'Demurrage' }))
+    await user.type(screen.getByLabelText(/justificativa/i), 'Atualização de endereço')
+    await user.click(screen.getByRole('button', { name: 'Salvar cadastro' }))
 
-    expect(mocks.showToast).toHaveBeenCalledWith('Falha ao atualizar preferência de recebimento.', 'error')
+    expect(mocks.updateCustomerWithAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 101,
+        justification: 'Atualização de endereço',
+      }),
+    )
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['customer-detail', '12345678000195'] })
+    expect(mocks.showToast).toHaveBeenCalledWith('Cadastro do cliente atualizado.', 'success')
   })
 })

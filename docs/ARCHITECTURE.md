@@ -36,29 +36,41 @@ O frontend é uma SPA estática. A segurança real não depende do roteador: tab
 views e funções do Supabase aplicam escopo e autorização por RLS, grants e
 validações dentro das RPCs.
 
-### Comunicados ao Cliente
+### Comunicados ao Cliente e Caixas de Comunicação
 
 A migration `372_comunicados_fundacao.sql` criou a trilha de Comunicados sem
 histórico retroativo: `customer_communications`, seus vínculos B/L e tentativas,
-as quatro preferências por contato e as supressões específicas do canal. As
-âncoras do comunicado são snapshots e não têm FK para escala, atracação ou
-invoice. As migrations `373_comunicados_anexos.sql` e
-`374_comunicados_alertas.sql` acrescentam templates, bucket privado, validação
-de anexos e os detectores de NOA/NOR/NOB e bounce sem alternativa. A chave global
-vive no singleton `app_settings`, nasce desligada e só é alterada pela RPC
+e as supressões específicas do canal. As âncoras do comunicado são snapshots
+e não têm FK para escala, atracação ou invoice. A chave global vive no
+singleton `app_settings`, nasce desligada e só é alterada pela RPC
 `set_communications_enabled(boolean)`, que exige o perfil Administrativo e
 registra a mudança em `audit_logs`.
 
-O mapeamento `kind` → `nature` é explícito; `customer_contact_preferences` é
-preenchida para contatos existentes e por trigger para novos contatos, sem
-reutilizar `customer_contacts.purpose`. A tela de Cadastro de Contatos grava
-essas preferências com `source='interno'`, sob a permissão
-`customer_communications`, e
-desabilita a edição para os demais papéis. O envio global continua desligado. A
-rota interna `/clientes/comunicacao`, protegida por
-`customer_communications`, faz a conferência por cliente e registra simulações;
-a Edge Function `send-customer-communication` só chama o Resend quando a chave
-global estiver ligada.
+A migration `008_portal_contact_boxes.sql` (ADR 0064) substituiu o modelo
+legado de quatro naturezas operacionais pelas **Caixas de Comunicação**
+(`customer_communication_boxes`, `customer_communication_box_kinds`,
+`customer_contact_box_links`):
+- `documentacao_operacao`: CE e Taxas, NOA, NOR e NOB;
+- `financeiro`: CE e Taxas e Cobranças de Demurrage;
+- `demurrage`: Cobranças de Demurrage e futuros comunicados de Demurrage.
+
+O salvamento de contatos é atômico via `_apply_customer_contact_configuration`
+(com `FOR UPDATE` pessimista do cliente), garantindo exatamente um contato
+principal ativo, unicidade de e-mail e desativação lógica (`deactivated_at`).
+A edição das caixas na Ficha do Cliente exige a permissão
+`customer_communications` no frontend (`CadastroContatosTab`) e no banco
+(`internal_save_customer_contact_configuration` valida o papel
+administrativo/documentação/equipamentos); demais papéis recebem fallback
+somente leitura. Toda alteração gera registro append-only em `customer_contact_change_events`
+(com `action_id`, `source`, snapshots e diff estruturado). Capturas automáticas
+por B/L passam por `ensure_customer_contact_email` sem sobrescrever dados
+cadastrais, e caixas esvaziadas por bounce permanente ou desativação são
+reparadas por `repair_customer_contact_box_fallbacks`.
+
+A rota interna `/clientes/comunicacao`, protegida por `customer_communications`,
+faz a conferência por público/caixa (`audience`), valida snapshots de destinatários
+no pré-disparo e registra simulações; a Edge Function `send-customer-communication`
+só chama o Resend quando a chave global estiver ligada.
 
 `portal-email-webhook` resolve o `provider_message_id` tanto em
 `portal_email_attempts` quanto em `customer_communication_attempts` e aponta

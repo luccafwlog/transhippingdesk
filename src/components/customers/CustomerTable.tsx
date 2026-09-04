@@ -243,7 +243,12 @@ function CustomerTableRow({
           ) : (
             <span className="app-cell-flag app-cell-flag--warn">Sem e-mail</span>
           )}
-          {contactSummary.purposeLabel ? <span className="app-cell-flag">{contactSummary.purposeLabel}</span> : null}
+          {contactSummary.isPrimary ? <span className="app-cell-flag">Principal</span> : null}
+          {contactSummary.boxCount !== null && contactSummary.boxCount > 0 ? (
+            <span className="app-cell-flag">
+              {contactSummary.boxCount} {contactSummary.boxCount === 1 ? 'caixa' : 'caixas'}
+            </span>
+          ) : null}
         </div>
       </td>
       <td className="px-4 py-3">

@@ -17,17 +17,19 @@ import type { CustomerCommunicationKind } from '../services/customerCommunicatio
 import type { CustomerCommunicationNature } from '../types/database'
 import { queryKeys } from '../services/queryKeys'
 import { afterCustomerCommunicationDispatched } from '../services/cacheEffects'
+import type { CustomerCommunicationAudience } from '../services/customerCommunicationBoxes'
 
 export function useCustomerCommunicationConference(input: {
   filters: CustomerCommunicationFilters
   kind: CustomerCommunicationKind
   nature?: CustomerCommunicationNature
+  audience?: CustomerCommunicationAudience
   enabled?: boolean
 }) {
   return useQuery({
-    queryKey: queryKeys.customerCommunications.conference(input.filters, input.kind, input.nature),
+    queryKey: queryKeys.customerCommunications.conference(input.filters, input.kind, input.nature, input.audience),
     enabled: input.enabled ?? true,
-    queryFn: () => fetchCustomerCommunicationConference({ filters: input.filters, kind: input.kind, nature: input.nature }),
+    queryFn: () => fetchCustomerCommunicationConference({ filters: input.filters, kind: input.kind, nature: input.nature, audience: input.audience }),
   })
 }
 

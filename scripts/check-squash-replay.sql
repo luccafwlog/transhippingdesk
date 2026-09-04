@@ -82,12 +82,13 @@ BEGIN
   IF v_policies < 273 THEN
     RAISE EXCEPTION 'Policies RLS em public: % (piso 273).', v_policies;
   END IF;
+  -- A 008 aposentou trg_seed_customer_contact_preferences (144 -> 143 triggers).
   SELECT COUNT(*) INTO v_triggers FROM pg_trigger t
     JOIN pg_class rel ON rel.oid = t.tgrelid
     JOIN pg_namespace n ON n.oid = rel.relnamespace
    WHERE n.nspname = 'public' AND NOT t.tgisinternal;
-  IF v_triggers < 144 THEN
-    RAISE EXCEPTION 'Triggers em public: % (piso 144).', v_triggers;
+  IF v_triggers < 143 THEN
+    RAISE EXCEPTION 'Triggers em public: % (piso 143).', v_triggers;
   END IF;
   SELECT COUNT(*) INTO v_norls FROM pg_class rel
     JOIN pg_namespace n ON n.oid = rel.relnamespace

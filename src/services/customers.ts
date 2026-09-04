@@ -14,11 +14,12 @@ type CreateCustomerContactInput = {
   name: string
   email?: string | null
   phone?: string | null
-  purpose?: NonNullable<CustomerContact['purpose']>
+  purpose?: string | null
   is_primary?: boolean
+  box_codes?: string[]
 }
 
-type CreateCustomerInput = {
+export type CreateCustomerInput = {
   cnpjCpf: string
   name: string
   tradeName?: string
@@ -53,6 +54,7 @@ export async function createCustomer(input: CreateCustomerInput) {
       phone: normalizeText(contact.phone),
       purpose: contact.purpose ?? 'geral',
       is_primary: contact.is_primary ?? false,
+      box_codes: contact.box_codes ?? (contact.is_primary ? ['documentacao_operacao', 'financeiro', 'demurrage'] : ['documentacao_operacao']),
     })),
   })
 
@@ -111,21 +113,27 @@ export async function upsertCustomerContact(customerId: number, contact: Omit<Cu
 }
 
 // Adiciona um e-mail de contato a um cliente existente direto da fila de
-// revisao. Qualquer e-mail satisfaz a trava do gate; a classificacao
-// 'faturamento' aqui e so o default administrativo.
+// revisao. Normaliza via ensure_customer_contact_email (lower + trim) e
+// vincula a caixa documentacao_operacao, em vez de inserir direto — insercao
+// direta produzia pares A@X.com / a@x.com que quebravam o indice unico e
+// criava contatos sem roteamento para nenhuma caixa (Issue 609).
 export async function addCustomerEmail(customerId: number, email: string) {
-  const { error } = await supabase.from('customer_contacts').insert({
-    customer_id: customerId,
-    name: 'Contato faturamento',
-    email: email.trim(),
-    purpose: 'faturamento',
-    is_primary: false,
-  })
+  const normalized = email.trim().toLowerCase()
+  if (!normalized) throw new Error('Informe um e-mail válido.')
+  const { error } = await supabase.rpc('ensure_customer_contact_email', {
+    p_customer_id: customerId,
+    p_email: normalized,
+    p_contact_name: 'Contato faturamento',
+    p_purpose: 'faturamento',
+  } as never)
   if (error) throw error
 }
 
 export async function deleteCustomerContact(contactId: number) {
-  const { error } = await supabase.from('customer_contacts').delete().eq('id', contactId)
+  const { error } = await supabase
+    .from('customer_contacts')
+    .update({ deactivated_at: new Date().toISOString(), is_primary: false } as never)
+    .eq('id', contactId)
   if (error) throw error
 }
 

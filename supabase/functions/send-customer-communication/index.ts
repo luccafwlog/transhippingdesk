@@ -45,6 +45,8 @@ type DispatchPayload = {
     content_base64?: string
   }>
   origin?: 'manual' | 'automatico'
+  audience_mode?: string
+  recipient_box_code?: string | null
 }
 
 type ContactRow = { id: number; customer_id: number | null; email: string | null }
@@ -391,15 +393,26 @@ async function handler(req: Request): Promise<Response> {
   const contact = ((contacts ?? []) as ContactRow[]).find((row) => normalizeEmail(row.email ?? '') === recipient)
   if (!contact) return json(422, { error: 'Destinatário não pertence ao cliente selecionado.' }, origin)
 
-  const [{ data: preference, error: preferenceError }, { data: communicationSuppression, error: communicationSuppressionError }, { data: portalSuppression, error: portalSuppressionError }, { data: settings, error: settingsError }] = await Promise.all([
-    admin.from('customer_contact_preferences').select('enabled').eq('contact_id', contact.id).eq('nature', nature).maybeSingle(),
+  const [
+    { data: recipientAllowed, error: recipientAllowedError },
+    { data: communicationSuppression, error: communicationSuppressionError },
+    { data: portalSuppression, error: portalSuppressionError },
+    { data: settings, error: settingsError },
+  ] = await Promise.all([
+    admin.rpc('customer_communication_recipient_allowed', {
+      p_customer_id: customerId,
+      p_contact_id: contact.id,
+      p_kind: kind,
+      p_audience_mode: body.audience_mode ?? (kind === 'institucional' ? 'todos' : 'caixa'),
+      p_recipient_box_code: body.recipient_box_code ?? null,
+    }),
     admin.from('customer_communication_suppressions').select('id').eq('email', recipient).maybeSingle(),
     admin.from('portal_suppressed_emails').select('id').eq('email', recipient).eq('reason', 'bounce_permanente').maybeSingle(),
     admin.from('app_settings').select('communications_enabled').eq('id', 1).single(),
   ])
-  if (preferenceError || communicationSuppressionError || portalSuppressionError || settingsError) return json(500, { error: 'Não foi possível conferir as regras de envio.' }, origin)
-  if (preference?.enabled === false) return json(422, { error: 'Contato desativado para esta natureza.' }, origin)
+  if (recipientAllowedError || communicationSuppressionError || portalSuppressionError || settingsError) return json(500, { error: 'Não foi possível conferir as regras de envio.' }, origin)
   if (communicationSuppression || portalSuppression) return json(422, { error: 'Endereço suprimido para Comunicados.', suppressed: true }, origin)
+  if (!recipientAllowed) return json(422, { error: 'Contato desativado para esta caixa ou modelo.' }, origin)
 
   let existingCommunicationId: number | null = null
   if (isAutomation) {

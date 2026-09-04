@@ -20,7 +20,8 @@ describe('Edge Function send-customer-communication', () => {
 
   it('confere contato, preferência, bounce/complaint e grava a operação pelo RPC atômico', () => {
     expect(source).toContain("from('customer_contacts')")
-    expect(source).toContain("from('customer_contact_preferences')")
+    expect(source).toContain("admin.rpc('customer_communication_recipient_allowed'")
+    expect(source).not.toContain("customer_contact_preferences")
     expect(source).toContain("from('customer_communication_suppressions')")
     expect(source).toContain("reason', 'bounce_permanente'")
     expect(source).toContain("admin.rpc('create_customer_communication_atomic'")

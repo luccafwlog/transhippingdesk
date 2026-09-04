@@ -2,6 +2,7 @@ export type BounceContact = {
   id: number
   email: string | null
   is_primary: boolean
+  deactivated_at?: string | null
 }
 
 export type BounceCascadeDecision = {
@@ -29,6 +30,7 @@ export function resolveBounceCascade(input: {
   const portalSuppressedEmails = new Set((input.portalSuppressedEmails ?? []).map(normalizeEmail))
   const isValidAlternative = (contact: BounceContact) =>
     (bouncedContact ? contact.id !== bouncedContact.id : true) &&
+    contact.deactivated_at == null &&
     contact.email !== null &&
     contact.email.trim() !== '' &&
     normalizeEmail(contact.email) !== bouncedEmail &&
