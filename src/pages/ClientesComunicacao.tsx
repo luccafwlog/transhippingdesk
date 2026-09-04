@@ -11,12 +11,16 @@ import { useAuth } from '../hooks/useAuth'
 import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate, useVoyageCommunicationCoverage } from '../hooks/useCustomerCommunications'
 import {
   DEFAULT_CUSTOMER_COMMUNICATION_FILTERS,
-  CUSTOMER_COMMUNICATION_NATURES,
   getCustomerCommunicationNature,
+  fetchCustomerCommunicationConference,
   type CustomerCommunicationConferenceRow,
   type CustomerCommunicationConference,
   type CustomerCommunicationFilters,
 } from '../services/customerCommunications'
+import {
+  type CommunicationBoxCode,
+  type CustomerCommunicationAudience,
+} from '../services/customerCommunicationBoxes'
 import {
   assertValidCommunicationAttachments,
   renderCustomerCommunicationTemplate,
@@ -36,13 +40,6 @@ const KIND_OPTIONS: Array<{ value: CustomerCommunicationKind; label: string }> =
   { value: 'institucional', label: 'Institucional' },
   { value: 'livre', label: 'Livre · escrito no momento' },
 ]
-
-const NATURE_LABELS: Record<CustomerCommunicationNature, string> = {
-  avisos_gerais: 'Avisos gerais',
-  avisos_operacionais: 'Avisos operacionais',
-  documentacao: 'Documentação',
-  demurrage: 'Demurrage',
-}
 
 function statusTone(status: string): BadgeTone {
   if (status === 'enviado') return 'green'
@@ -100,11 +97,12 @@ export function ClientesComunicacao() {
   const [customPreviewRow, setCustomPreviewRow] = useState<CustomerCommunicationConferenceRow | null>(null)
   const [coverageFilters, setCoverageFilters] = useState({ vessel: '', voyage: '', month: '' })
   const [historyFilters, setHistoryFilters] = useState({ vessel: '', month: '', kind: '', status: '', origin: '' })
+  const [audience, setAudience] = useState<CustomerCommunicationAudience>({ mode: 'caixa', boxCode: 'documentacao_operacao' })
   const { data: settings } = useAppSettings()
   const { effectiveRole, isAdmin } = useAuth()
   const canToggleCommunications = effectiveRole === 'administrativo' || isAdmin
   const setCommunicationsMutation = useSetCommunicationsEnabled()
-  const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, enabled: conferenceRequested })
+  const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, audience, enabled: conferenceRequested })
   const customerHistoryId = Number(searchParams.get('customer'))
   const historyCustomerId = Number.isInteger(customerHistoryId) && customerHistoryId > 0 ? customerHistoryId : undefined
   const historyCommunicationId = Number(searchParams.get('communication'))
@@ -154,6 +152,13 @@ export function ClientesComunicacao() {
   function handleKindChange(nextKind: CustomerCommunicationKind) {
     setKind(nextKind)
     setNature(getCustomerCommunicationNature(nextKind))
+    if (nextKind === 'institucional') {
+      setAudience({ mode: 'todos' })
+    } else if (nextKind === 'livre') {
+      setAudience({ mode: 'todos' })
+    } else {
+      setAudience({ mode: 'caixa', boxCode: 'documentacao_operacao' })
+    }
     updateFilter('mode', nextKind === 'institucional' ? 'institucional' : 'carga')
     setConferenceRequested(false)
   }
@@ -163,9 +168,11 @@ export function ClientesComunicacao() {
     if (mode === 'institucional') {
       setKind('institucional')
       setNature('avisos_gerais')
+      setAudience({ mode: 'todos' })
     } else {
       setKind('aviso_chegada_noa')
       setNature('avisos_operacionais')
+      setAudience({ mode: 'caixa', boxCode: 'documentacao_operacao' })
     }
   }
 
@@ -254,6 +261,33 @@ export function ClientesComunicacao() {
     let sent = 0
     let simulated = 0
     try {
+      // Revalidar a lista de destinatários antes de disparar
+      try {
+        const freshConference = await fetchCustomerCommunicationConference({
+          filters,
+          kind,
+          nature,
+          audience,
+        })
+        const freshMap = new Map(freshConference.rows.map((r) => [r.key, r]))
+        let snapshotMismatch = false
+        for (const row of selectedRows) {
+          const freshRow = freshMap.get(row.key)
+          if (!freshRow || freshRow.recipientSnapshot !== row.recipientSnapshot) {
+            snapshotMismatch = true
+            break
+          }
+        }
+        if (snapshotMismatch) {
+          setResendConfirmationScope(undefined)
+          setDispatchError('A lista de destinatários mudou. Confira novamente antes de enviar.')
+          setSending(false)
+          return
+        }
+      } catch {
+        // Se a verificação de rede falhar, a validação autoritativa final fica com o backend
+      }
+
       const dispatchId = kind === 'institucional' || kind === 'livre' ? crypto.randomUUID() : null
       const dispatchAnchored = kind === 'institucional' || kind === 'livre'
       for (const row of selectedRows) {
@@ -266,6 +300,7 @@ export function ClientesComunicacao() {
             customerId: row.customerId,
             kind,
             nature,
+            audience,
             recipient: contact.email!.trim(),
             subject: rendered.subject,
             html: rendered.html,
@@ -424,21 +459,29 @@ export function ClientesComunicacao() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Natureza">
+              <Field label="Público">
                 <Select
-                  value={nature}
+                  value={
+                    kind === 'institucional'
+                      ? 'todos'
+                      : kind === 'livre'
+                        ? (audience.mode === 'caixa' ? audience.boxCode : 'todos')
+                        : 'documentacao_operacao'
+                  }
                   disabled={kind !== 'livre'}
                   onChange={(event) => {
-                    setNature(event.target.value as CustomerCommunicationNature)
+                    const val = event.target.value
+                    const nextAudience: CustomerCommunicationAudience =
+                      val === 'todos' ? { mode: 'todos' } : { mode: 'caixa', boxCode: val as CommunicationBoxCode }
+                    setAudience(nextAudience)
                     setConferenceRequested(false)
                     setDispatchMessage(null)
                   }}
                 >
-                  {CUSTOMER_COMMUNICATION_NATURES.map((value) => (
-                    <option key={value} value={value}>
-                      {NATURE_LABELS[value]}
-                    </option>
-                  ))}
+                  <option value="todos">Todos os contatos</option>
+                  <option value="documentacao_operacao">Documentação e Operação</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="demurrage">Demurrage</option>
                 </Select>
               </Field>
             </div>
@@ -618,7 +661,12 @@ export function ClientesComunicacao() {
             <Card>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">Painel de conferência</h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">Painel de conferência</h2>
+                    <Badge tone="blue">
+                      Público: {audience.mode === 'todos' ? 'Todos os contatos' : audience.boxCode === 'documentacao_operacao' ? 'Documentação e Operação' : audience.boxCode === 'financeiro' ? 'Financeiro' : 'Demurrage'}
+                    </Badge>
+                  </div>
                   <p className="mt-0.5 text-sm text-[var(--app-muted)]">
                     A seleção é mantida somente nesta conferência; desmarque os clientes que não devem receber o disparo.
                   </p>
@@ -884,8 +932,20 @@ function ConferenceRowCard({
             </div>
 
             {row.eligibleRecipients.length ? (
-              <div className="mt-1.5 text-xs text-[var(--app-muted-soft)]">
-                {row.eligibleRecipients.map((contact) => contact.email).join(', ')}
+              <div className="mt-1.5 flex flex-wrap gap-2 text-xs text-[var(--app-muted-soft)]">
+                {row.eligibleRecipients.map((contact) => {
+                  const boxCodes = (contact as { matchedBoxCodes?: string[]; boxCodes?: string[] }).matchedBoxCodes ?? (contact as { boxCodes?: string[] }).boxCodes
+                  return (
+                    <span key={contact.id} className="inline-flex items-center gap-1">
+                      <span>{contact.email}</span>
+                      {boxCodes && boxCodes.length > 0 ? (
+                        <span className="text-[10px] text-slate-400 bg-slate-800/40 px-1 py-0.5 rounded border border-[var(--app-border)]">
+                          {boxCodes.map((b) => b === 'documentacao_operacao' ? 'D&O' : b === 'financeiro' ? 'Fin' : 'Dem').join(', ')}
+                        </span>
+                      ) : null}
+                    </span>
+                  )
+                })}
               </div>
             ) : null}
           </div>

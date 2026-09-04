@@ -1,4 +1,4 @@
-import type { CustomerContact, CustomerContactPreference } from '../types/database'
+import type { CustomerContact } from '../types/database'
 import {
   CUSTOMER_PORTAL_BILLING_URL,
   renderCeMercanteTaxasTemplate,
@@ -14,7 +14,11 @@ import {
   dispatchCustomerCommunication,
   type CustomerCommunicationDispatchResult,
 } from './customerCommunicationDispatches'
-import { resolveCustomerCommunicationRecipients, type EmailSuppressionRow } from './customerCommunications'
+import { type EmailSuppressionRow } from './customerCommunications'
+import {
+  resolveCustomerCommunicationRecipientsByBoxes,
+  type CustomerContactBoxLink,
+} from './customerCommunicationBoxes'
 import { supabase } from './supabase'
 
 type FinanceBlRow = {
@@ -130,7 +134,7 @@ async function fetchInvoiceBls(blIds: readonly string[]): Promise<InvoiceBlRow[]
 
 async function fetchContacts(customerId: number): Promise<{
   contacts: CustomerContact[]
-  preferences: CustomerContactPreference[]
+  boxLinks: CustomerContactBoxLink[]
   communicationSuppressions: EmailSuppressionRow[]
   portalSuppressions: EmailSuppressionRow[]
 }> {
@@ -145,9 +149,9 @@ async function fetchContacts(customerId: number): Promise<{
     const email = (contact.email ?? '').trim()
     return email ? [email, email.toLowerCase()] : []
   }))]
-  const [preferencesResult, communicationSuppressionsResult, portalSuppressionsResult] = await Promise.all([
+  const [boxLinksResult, communicationSuppressionsResult, portalSuppressionsResult] = await Promise.all([
     contactIds.length
-      ? supabase.from('customer_contact_preferences').select('*').in('contact_id', contactIds)
+      ? supabase.from('customer_contact_box_links').select('contact_id, box_code').in('contact_id', contactIds)
       : Promise.resolve({ data: [], error: null }),
     contactEmails.length
       ? supabase.from('customer_communication_suppressions').select('email, reason').in('email', contactEmails)
@@ -156,12 +160,12 @@ async function fetchContacts(customerId: number): Promise<{
       ? supabase.from('portal_suppressed_emails').select('email, reason').in('email', contactEmails)
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (preferencesResult.error) throw preferencesResult.error
+  if (boxLinksResult.error) throw boxLinksResult.error
   if (communicationSuppressionsResult.error) throw communicationSuppressionsResult.error
   if (portalSuppressionsResult.error) throw portalSuppressionsResult.error
   return {
     contacts,
-    preferences: (preferencesResult.data ?? []) as CustomerContactPreference[],
+    boxLinks: (boxLinksResult.data ?? []) as CustomerContactBoxLink[],
     communicationSuppressions: (communicationSuppressionsResult.data ?? []) as EmailSuppressionRow[],
     portalSuppressions: (portalSuppressionsResult.data ?? []) as EmailSuppressionRow[],
   }
@@ -290,10 +294,10 @@ export async function dispatchCeMercanteTaxasCommunication(
   const invoiceBls = await fetchInvoiceBls(bls.map((bl) => bl.id))
   const templateInput = buildCeMercanteInput(bls, invoiceBls)
   const contacts = await fetchContacts(customerId)
-  const recipients = resolveCustomerCommunicationRecipients({
+  const recipients = resolveCustomerCommunicationRecipientsByBoxes({
     contacts: contacts.contacts,
-    nature: 'documentacao',
-    preferences: contacts.preferences,
+    boxLinks: contacts.boxLinks,
+    kind: 'ce_mercante_taxas',
     communicationSuppressions: contacts.communicationSuppressions,
     portalSuppressions: contacts.portalSuppressions,
   })
@@ -305,7 +309,7 @@ export async function dispatchCeMercanteTaxasCommunication(
       simulatedCount: 0,
       communicationIds: [],
       attemptDiscriminator: options.forceRetry || automaticAttemptFailed ? nextAttempt(history) : 0,
-      reason: 'Cliente sem contato válido habilitado para Documentação.',
+      reason: 'Cliente sem contato válido habilitado para Documentação e Operação ou Financeiro.',
     }
   }
 
@@ -318,6 +322,7 @@ export async function dispatchCeMercanteTaxasCommunication(
       customerId,
       kind: 'ce_mercante_taxas',
       nature: 'documentacao',
+      audience: { mode: 'caixa', boxCode: contact.matchedBoxCodes[0] ?? 'documentacao_operacao' },
       recipient: contact.email,
       subject: rendered.subject,
       html: rendered.html,

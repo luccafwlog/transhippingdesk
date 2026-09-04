@@ -78,5 +78,15 @@ describe('cascata de bounce permanente', () => {
     expect(result.notificationRecipient).toBeNull()
     expect(result.shouldOpenAlert).toBe(true)
   })
+
+  it('não escolhe contato desativado como alternativa', () => {
+    const result = resolveBounceCascade({
+      contacts: [primary, { ...alternate, deactivated_at: '2026-09-01T00:00:00Z' }],
+      bouncedEmail: primary.email!,
+    })
+
+    expect(result.notificationRecipient).toBeNull()
+    expect(result.shouldOpenAlert).toBe(true)
+  })
 })
 

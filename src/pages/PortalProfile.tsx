@@ -44,7 +44,6 @@ export function PortalProfile() {
         {profile.data ? (
           <PortalProfileForm
             profile={profile.data}
-            fallbackContactEmail={profile.fallbackContactEmail}
             updateProfile={profile.updateProfile.mutateAsync}
             loadError={loadError}
             loadFailed={profile.isError}
@@ -65,14 +64,12 @@ export function PortalProfile() {
 
 function PortalProfileForm({
   profile,
-  fallbackContactEmail,
   updateProfile,
   loadError,
   loadFailed,
   readOnly,
 }: {
   profile: PortalProfileData
-  fallbackContactEmail: string
   updateProfile: (input: {
     contactEmail?: string | null
     phone?: string | null

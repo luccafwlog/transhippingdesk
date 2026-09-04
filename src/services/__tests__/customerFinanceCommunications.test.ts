@@ -65,7 +65,7 @@ function configureQueries(
     if (table === 'customer_contacts') return queryResult([{
       id: 1, customer_id: 99, name: 'Contato', email: 'financeiro@example.com', phone: null, purpose: 'faturamento', is_primary: true, created_at: null,
     }])
-    if (table === 'customer_contact_preferences') return queryResult([{ contact_id: 1, nature: 'documentacao', enabled: true, source: 'interno', created_at: '' }])
+    if (table === 'customer_contact_box_links') return queryResult([{ contact_id: 1, box_code: 'documentacao_operacao' }])
     if (table === 'customer_communication_suppressions' || table === 'portal_suppressed_emails') return queryResult([])
     throw new Error(`tabela inesperada: ${table}`)
   })

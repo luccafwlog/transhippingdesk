@@ -105,7 +105,7 @@ export const queryKeys = {
   },
   customerCommunications: {
     all: () => ['customer-communications'] as const,
-    conference: (filters: unknown, kind: string, nature?: string) => ['customer-communications', 'conference', filters, kind, nature ?? null] as const,
+    conference: (filters: unknown, kind: string, nature?: string, audience?: unknown) => ['customer-communications', 'conference', filters, kind, nature ?? null, audience ?? null] as const,
     statusRoot: () => ['customer-communications', 'status'] as const,
     status: (voyageId: number | null, customerId: number | null) => ['customer-communications', 'status', voyageId, customerId] as const,
     history: (customerId?: unknown) => customerId == null

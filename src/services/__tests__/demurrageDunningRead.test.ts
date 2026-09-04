@@ -39,7 +39,7 @@ describe('leitura da régua de Demurrage', () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'customer_contacts') return queryResult(table, [{ id: 11, customer_id: 10, email: 'Finance@Example.com' }])
       if (table === 'app_settings') return queryResult(table, { demurrage_dunning_interval_days: 5 })
-      if (table === 'customer_contact_preferences') return queryResult(table, [{ contact_id: 11, nature: 'demurrage', enabled: true }])
+      if (table === 'customer_contact_box_links') return queryResult(table, [{ contact_id: 11, box_code: 'demurrage' }])
       if (table === 'customer_communication_suppressions' || table === 'portal_suppressed_emails') return queryResult(table, [])
       throw new Error(`tabela inesperada: ${table}`)
     })
@@ -55,7 +55,7 @@ describe('leitura da régua de Demurrage', () => {
       intervalDays: 5,
     })
     expect(mockRpc).toHaveBeenCalledWith('list_demurrage_dunning_claim_statuses', { p_invoice_ids: [1] })
-    expect(queryCalls).toContainEqual({ table: 'customer_contact_preferences', method: 'in', args: ['contact_id', [11]] })
+    expect(queryCalls).toContainEqual({ table: 'customer_contact_box_links', method: 'in', args: ['contact_id', [11]] })
     expect(queryCalls).toContainEqual({
       table: 'customer_communication_suppressions',
       method: 'in',

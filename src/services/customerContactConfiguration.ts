@@ -1,7 +1,6 @@
 import { supabase } from './supabase'
 import {
   CUSTOMER_COMMUNICATION_BOXES,
-  type CommunicationBoxCode,
 } from './customerCommunicationBoxes'
 import type {
   PortalContactBox,

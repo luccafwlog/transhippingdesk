@@ -58,11 +58,27 @@ export type ResolvedRecipients = {
   blocked: boolean
 }
 
-export type ExtendedCustomerContact = CustomerContact & {
+export type ExtendedCustomerContact = Partial<CustomerContact> & {
+  id: number
+  email?: string | null
   deactivated_at?: string | null
   active?: boolean
   origin?: string
   box_codes?: readonly string[]
+}
+
+function toCustomerContact(contact: ExtendedCustomerContact): CustomerContact {
+  return {
+    id: contact.id,
+    customer_id: contact.customer_id ?? null,
+    name: contact.name ?? null,
+    email: contact.email ?? null,
+    phone: contact.phone ?? null,
+    is_primary: contact.is_primary ?? null,
+    created_at: contact.created_at ?? null,
+    purpose: contact.purpose ?? null,
+    deactivated_at: contact.deactivated_at ?? null,
+  }
 }
 
 export function normalizeEmail(email: string | null | undefined): string {
@@ -136,14 +152,14 @@ export function resolveCustomerCommunicationRecipientsByBoxes(input: {
     const isDeactivated =
       contact.deactivated_at != null || contact.active === false
     if (isDeactivated) {
-      excluded.push({ contact, reason: 'contato_desativado' })
+      excluded.push({ contact: toCustomerContact(contact), reason: 'contato_desativado' })
       continue
     }
 
     // 2. Verificar presenca e validade do e-mail
     const emailNorm = normalizeEmail(contact.email)
     if (!emailNorm || !emailNorm.includes('@')) {
-      excluded.push({ contact, reason: 'email_ausente' })
+      excluded.push({ contact: toCustomerContact(contact), reason: 'email_ausente' })
       continue
     }
 
@@ -155,26 +171,23 @@ export function resolveCustomerCommunicationRecipientsByBoxes(input: {
     })
 
     if (suppression === 'complaint') {
-      excluded.push({ contact, reason: 'suprimido_complaint' })
+      excluded.push({ contact: toCustomerContact(contact), reason: 'suprimido_complaint' })
       continue
     }
     if (suppression === 'bounce_permanente') {
-      excluded.push({ contact, reason: 'suprimido_bounce' })
+      excluded.push({ contact: toCustomerContact(contact), reason: 'suprimido_bounce' })
       continue
     }
 
     // 4. Se nao for audiencia geral, verificar vinculo com as caixas alvo
     const contactBoxes = Array.from(contactBoxesMap.get(contact.id) ?? [])
-    let matchedBoxes: CommunicationBoxCode[] = []
+    const matchedBoxes: CommunicationBoxCode[] = isGeneralAudience
+      ? contactBoxes
+      : contactBoxes.filter((box) => targetBoxes.includes(box))
 
-    if (isGeneralAudience) {
-      matchedBoxes = contactBoxes
-    } else {
-      matchedBoxes = contactBoxes.filter((box) => targetBoxes.includes(box))
-      if (matchedBoxes.length === 0) {
-        // Nao alcancado por esta caixa / modelo
-        continue
-      }
+    if (!isGeneralAudience && matchedBoxes.length === 0) {
+      // Nao alcancado por esta caixa / modelo
+      continue
     }
 
     // 5. Deduplicacao por e-mail normalizado dentro do mesmo cliente
@@ -190,11 +203,11 @@ export function resolveCustomerCommunicationRecipientsByBoxes(input: {
       if (contact.is_primary && !existing.is_primary) {
         existing.is_primary = true
         existing.id = contact.id
-        existing.name = contact.name
+        existing.name = contact.name ?? existing.name
       }
     } else {
       eligibleMap.set(emailNorm, {
-        ...contact,
+        ...toCustomerContact(contact),
         boxCodes: contactBoxes,
         matchedBoxCodes: matchedBoxes,
       })

@@ -39,6 +39,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
   const [localError, setLocalError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (data?.contacts) {
       setDrafts(
@@ -57,6 +58,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
       )
     }
   }, [data])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleAddContact() {
     setDrafts((current) => [
@@ -231,7 +233,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
         {!isInspect && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={handleAddContact}
             className="mt-2 sm:mt-0"
           >

@@ -1,4 +1,8 @@
 import type { DemurrageInvoice } from '../types/database'
+import {
+  resolveCustomerCommunicationRecipientsByBoxes,
+  type CustomerContactBoxLink,
+} from './customerCommunicationBoxes'
 import { supabase } from './supabase'
 
 export type DemurrageDunningAttempt = {
@@ -35,12 +39,7 @@ type DunningContactRow = {
   id: number
   customer_id: number | null
   email: string | null
-}
-
-type DunningPreferenceRow = {
-  contact_id: number
-  nature: string
-  enabled: boolean
+  deactivated_at?: string | null
 }
 
 type SuppressionRow = { email: string; reason?: string | null }
@@ -114,10 +113,6 @@ export function nextDemurrageDunningAttemptNumber(attempts: readonly Pick<Demurr
   return attempts.length ? Math.max(...attempts.map((attempt) => attempt.attemptDiscriminator)) + 1 : 1
 }
 
-function normalizedEmail(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase()
-}
-
 /** Lê o ponto da régua sem expor o claim server-side à escrita do navegador. */
 export async function fetchDemurrageDunningStatuses(
   invoices: readonly Pick<DemurrageInvoice, 'id' | 'customer_id'>[],
@@ -128,7 +123,7 @@ export async function fetchDemurrageDunningStatuses(
   const [claimsResult, contactsResult, settingsResult] = await Promise.all([
     supabase.rpc('list_demurrage_dunning_claim_statuses', { p_invoice_ids: invoiceIds })
       .overrideTypes<DunningClaimStatusRow[], { merge: false }>(),
-    supabase.from('customer_contacts').select('id, customer_id, email').in('customer_id', customerIds),
+    supabase.from('customer_contacts').select('id, customer_id, email, deactivated_at').in('customer_id', customerIds),
     supabase.from('app_settings').select('demurrage_dunning_interval_days').eq('id', 1).maybeSingle(),
   ])
   if (claimsResult.error) throw claimsResult.error
@@ -140,9 +135,9 @@ export async function fetchDemurrageDunningStatuses(
     const email = (contact.email ?? '').trim()
     return email ? [email, email.toLowerCase()] : []
   }))]
-  const [preferencesResult, communicationSuppressionsResult, portalSuppressionsResult] = await Promise.all([
+  const [boxLinksResult, communicationSuppressionsResult, portalSuppressionsResult] = await Promise.all([
     contactIds.length
-      ? supabase.from('customer_contact_preferences').select('contact_id, nature, enabled').in('contact_id', contactIds)
+      ? supabase.from('customer_contact_box_links').select('contact_id, box_code').in('contact_id', contactIds).in('box_code', ['financeiro', 'demurrage'])
       : Promise.resolve({ data: [], error: null }),
     contactEmails.length
       ? supabase.from('customer_communication_suppressions').select('email, reason').in('email', contactEmails)
@@ -151,24 +146,35 @@ export async function fetchDemurrageDunningStatuses(
       ? supabase.from('portal_suppressed_emails').select('email, reason').in('email', contactEmails)
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (preferencesResult.error) throw preferencesResult.error
+  if (boxLinksResult.error) throw boxLinksResult.error
   if (communicationSuppressionsResult.error) throw communicationSuppressionsResult.error
   if (portalSuppressionsResult.error) throw portalSuppressionsResult.error
   if (settingsResult.error) throw settingsResult.error
   const intervalDays = Math.max(1, Number((settingsResult.data as { demurrage_dunning_interval_days?: number } | null)?.demurrage_dunning_interval_days ?? 7))
 
-  const preferences = (preferencesResult.data ?? []) as DunningPreferenceRow[]
+  const boxLinks = (boxLinksResult.data ?? []) as CustomerContactBoxLink[]
   const communicationSuppressions = (communicationSuppressionsResult.data ?? []) as SuppressionRow[]
   const portalSuppressions = (portalSuppressionsResult.data ?? []) as SuppressionRow[]
-  const isValidContact = (contact: DunningContactRow) => {
-    const email = normalizedEmail(contact.email)
-    if (!email) return false
-    if (communicationSuppressions.some((row) => normalizedEmail(row.email) === email)) return false
-    if (portalSuppressions.some((row) => normalizedEmail(row.email) === email && row.reason === 'bounce_permanente')) return false
-    return preferences.find((row) => row.contact_id === contact.id && row.nature === 'demurrage')?.enabled !== false
-  }
+
   const validByCustomer = new Map<number, boolean>()
-  for (const customerId of customerIds) validByCustomer.set(customerId, contacts.some((contact) => contact.customer_id === customerId && isValidContact(contact)))
+  for (const customerId of customerIds) {
+    const customerContacts = contacts.filter((contact) => contact.customer_id === customerId)
+    const resolved = resolveCustomerCommunicationRecipientsByBoxes({
+      kind: 'cobranca_demurrage',
+      contacts: customerContacts.map((contact) => ({
+        id: contact.id,
+        name: null,
+        email: contact.email,
+        phone: null,
+        is_primary: false,
+        deactivated_at: contact.deactivated_at ?? null,
+      })),
+      boxLinks,
+      portalSuppressions,
+      communicationSuppressions,
+    })
+    validByCustomer.set(customerId, !resolved.blocked && resolved.eligible.length > 0)
+  }
 
   const claimsByInvoice = new Map<number, DunningClaimStatusRow>(
     ((claimsResult.data ?? []) as DunningClaimStatusRow[]).map((row) => [row.invoice_id, row]),

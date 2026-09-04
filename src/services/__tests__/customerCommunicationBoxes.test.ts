@@ -5,11 +5,11 @@ import {
   resolveCustomerCommunicationRecipientsByBoxes,
   buildRecipientSnapshot,
   type CustomerContactBoxLink,
-  type ExtendedCustomerContact,
 } from '../customerCommunicationBoxes'
+import type { CustomerContact } from '../../types/database'
 
 describe('customerCommunicationBoxes — catálogo e resolvedor determinístico', () => {
-  const baseContact = (id: number, email: string, isPrimary = false): ExtendedCustomerContact => ({
+  const baseContact = (id: number, email: string, isPrimary = false): CustomerContact => ({
     id,
     customer_id: 10,
     name: `Contato ${id}`,
@@ -18,7 +18,7 @@ describe('customerCommunicationBoxes — catálogo e resolvedor determinístico'
     purpose: null,
     is_primary: isPrimary,
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
+    deactivated_at: null,
   })
 
   it('possui as 3 caixas oficiais e mapeamento de modelos fechado', () => {

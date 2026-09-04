@@ -1,6 +1,6 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { Button } from '../ui/Button'
-import { Card, InlineError } from '../ui/Card'
+import { InlineError } from '../ui/Card'
 import { Field, Input, Textarea } from '../ui/Input'
 import { useToast } from '../ui/Toast'
 import { useConfirm } from '../ui/ConfirmDialog'
@@ -11,7 +11,6 @@ import {
 import {
   fetchCustomerContactConfiguration,
   internalSaveCustomerContactConfiguration,
-  type CustomerContactConfiguration as ConfigData,
   type PortalContactDraft,
 } from '../../services/customerContactConfiguration'
 import { extractErrorText } from '../../lib/errors'
@@ -47,18 +46,16 @@ export function CustomerContactConfiguration({
   const confirm = useConfirm()
 
   const [loading, setLoading] = useState(true)
-  const [config, setConfig] = useState<ConfigData | null>(null)
   const [drafts, setDrafts] = useState<PortalContactDraft[]>([])
   const [justification, setJustification] = useState('')
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  async function loadConfig() {
+  const loadConfig = useCallback(async () => {
     setLoading(true)
     setErrorMsg('')
     try {
       const data = await fetchCustomerContactConfiguration(customerId)
-      setConfig(data)
       setDrafts(
         data.contacts.map((c) => ({
           id: c.id,
@@ -78,11 +75,13 @@ export function CustomerContactConfiguration({
     } finally {
       setLoading(false)
     }
-  }
+  }, [customerId])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     void loadConfig()
-  }, [customerId])
+  }, [loadConfig])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleAddContact() {
     setDrafts((current) => [

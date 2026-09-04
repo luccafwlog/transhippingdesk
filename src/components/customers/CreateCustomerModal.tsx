@@ -4,7 +4,6 @@ import { Field, Input, Select, Textarea } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import {
   CUSTOMER_COMMUNICATION_BOXES,
-  type CommunicationBoxCode,
 } from '../../services/customerCommunicationBoxes'
 import type { CreateCustomerForm, CustomerContactForm, CustomerCreateErrors } from './customerCreateForm'
 import { normalizeCnpj } from '../../lib/cnpj'
