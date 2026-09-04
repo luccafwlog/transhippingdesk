@@ -262,7 +262,7 @@ export function Clientes() {
     try {
       let query = supabase
         .from('customers')
-        .select(`*, ${BLS_OF_CUSTOMER}(id, charge_status), customer_contacts(id, email, purpose, is_primary)`)
+        .select(`*, ${BLS_OF_CUSTOMER}(id, charge_status), customer_contacts(id, email, purpose, is_primary, deactivated_at, origin, customer_contact_box_links(box_code))`)
         .order('name', { ascending: true })
 
       if (filters.search) {

@@ -39,6 +39,85 @@ describe('buildCustomerTimeline', () => {
     expect(events.find((event) => event.kind === 'local_invoice_issued')?.link).toBe('/taxas-locais?customer=101&invoice=4')
     expect(events.find((event) => event.kind === 'local_payment')?.link).toBe('/taxas-locais?customer=101&invoice=4')
   })
+
+  it('agrupa eventos de configuração de contatos por action_id e formata origem e contagem de caixas', () => {
+    const actionId1 = 'a0000000-0000-0000-0000-000000000001'
+    const actionId2 = 'a0000000-0000-0000-0000-000000000002'
+
+    const events = buildCustomerTimeline({
+      auditLogs: [],
+      portalEvents: [],
+      contacts: [],
+      customerId: 101,
+      localInvoices: [],
+      payments: [],
+      demurrageInvoices: [],
+      bls: [],
+      contactChangeEvents: [
+        {
+          id: 1,
+          action_id: actionId1,
+          source: 'portal',
+          actor_id: 'user-1',
+          portal_account_id: 5,
+          related_bl_id: null,
+          before_snapshot: [],
+          after_snapshot: [
+            { id: 10, name: 'Operação', email: 'ops@acme.com', box_codes: ['documentacao_operacao', 'financeiro'] },
+            { id: 11, name: 'Cobrança', email: 'cob@acme.com', box_codes: ['demurrage'] },
+          ],
+          change_summary: { action: 'save_contact_configuration', justification: 'Autoatendimento portal' },
+          created_at: '2026-07-10T10:00:00Z',
+        },
+        // Outro evento com o mesmo actionId1 (deve ser agrupado e aparecer uma única vez)
+        {
+          id: 2,
+          action_id: actionId1,
+          source: 'portal',
+          actor_id: 'user-1',
+          portal_account_id: 5,
+          related_bl_id: null,
+          before_snapshot: [],
+          after_snapshot: [
+            { id: 10, name: 'Operação', email: 'ops@acme.com', box_codes: ['documentacao_operacao', 'financeiro'] },
+            { id: 11, name: 'Cobrança', email: 'cob@acme.com', box_codes: ['demurrage'] },
+          ],
+          change_summary: { action: 'save_contact_configuration', justification: 'Autoatendimento portal' },
+          created_at: '2026-07-10T10:00:00Z',
+        },
+        // Evento gerado automaticamente pelo B/L
+        {
+          id: 3,
+          action_id: actionId2,
+          source: 'bl_automatico',
+          actor_id: null,
+          portal_account_id: null,
+          related_bl_id: 'BL-999',
+          before_snapshot: [],
+          after_snapshot: [
+            { id: 12, name: 'Capturado', email: 'bl@acme.com', box_codes: ['documentacao_operacao'] },
+          ],
+          change_summary: null,
+          created_at: '2026-07-09T10:00:00Z',
+        },
+      ],
+    })
+
+    const contactEvents = events.filter((e) => e.kind === 'contact_configuration_changed')
+    expect(contactEvents).toHaveLength(2)
+
+    const portalEvent = contactEvents.find((e) => e.sourceId === actionId1)!
+    expect(portalEvent.label).toBe('Contatos: alteração via Portal')
+    expect(portalEvent.detail).toContain('Autoatendimento portal')
+    expect(portalEvent.detail).toContain('2 contato(s), 3 caixa(s)')
+    expect(portalEvent.link).toBeNull()
+
+    const blEvent = contactEvents.find((e) => e.sourceId === actionId2)!
+    expect(blEvent.label).toBe('Contatos: alteração via B/L')
+    expect(blEvent.detail).toContain('B/L BL-999')
+    expect(blEvent.detail).toContain('1 contato(s), 1 caixa(s)')
+    expect(blEvent.link).toBeNull()
+  })
 })
 
 describe('fetchCustomerPendingReconciliation', () => {

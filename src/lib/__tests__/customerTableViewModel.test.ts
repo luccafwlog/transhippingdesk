@@ -24,16 +24,17 @@ describe('customerTableViewModel', () => {
     ).toBe('financeiro@acme.com')
   })
 
-  it('resume contatos com email principal e finalidade', () => {
+  it('resume contatos com email principal, flag de principal e contagem de caixas', () => {
     expect(
       summarizeContactsForDisplay([
-        { id: 1, email: 'ops@acme.com', is_primary: false, purpose: 'operacional' },
-        { id: 2, email: 'fin@acme.com', is_primary: true, purpose: 'financeiro' },
+        { id: 1, email: 'ops@acme.com', is_primary: false, customer_contact_box_links: [{ box_code: 'documentacao_operacao' }] },
+        { id: 2, email: 'fin@acme.com', is_primary: true, customer_contact_box_links: [{ box_code: 'financeiro' }, { box_code: 'demurrage' }] },
       ]),
     ).toEqual({
       count: 2,
       primaryEmail: 'fin@acme.com',
-      purposeLabel: 'Financeiro',
+      isPrimary: true,
+      boxCount: 2,
       empty: false,
     })
   })

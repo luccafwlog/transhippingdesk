@@ -41,7 +41,9 @@ export function summarizeCustomerRows(rows: CustomerListItem[]): CustomerSummary
 }
 
 function customerHasEmail(row: CustomerListItem) {
-  return (row.customer_contacts ?? []).some((contact) => String(contact.email ?? '').trim().length > 0)
+  return (row.customer_contacts ?? []).some(
+    (contact) => !contact.deactivated_at && String(contact.email ?? '').trim().length > 0,
+  )
 }
 
 export function filterCustomerRowsByClientSideFilters(rows: CustomerListItem[], filters: CustomerFilters) {
@@ -54,7 +56,7 @@ export function filterCustomerRowsByClientSideFilters(rows: CustomerListItem[], 
 
     if (contactEmail) {
       const matchesContactEmail = (row.customer_contacts ?? []).some((contact) =>
-        String(contact.email ?? '').toLowerCase().includes(contactEmail),
+        !contact.deactivated_at && String(contact.email ?? '').toLowerCase().includes(contactEmail),
       )
       if (!matchesContactEmail) return false
     }
@@ -130,7 +132,7 @@ export async function fetchCustomerRows(filters: CustomerFilters, paginate: bool
 
   let query = supabase
     .from('customers')
-    .select(`*, ${blsJoin}, customer_contacts(id, email, purpose, is_primary)`, { count: 'exact' })
+    .select(`*, ${blsJoin}, customer_contacts(id, email, purpose, is_primary, deactivated_at, origin, customer_contact_box_links(box_code))`, { count: 'exact' })
     .order('name', { ascending: true })
 
   if (filters.search) {
@@ -201,7 +203,7 @@ export function useCustomerDetail(cnpj?: string) {
         .select(
           `
           *,
-          customer_contacts(*, customer_contact_preferences(*)),
+          customer_contacts(*, customer_contact_box_links(box_code)),
           ${BLS_OF_CUSTOMER}(id, consignee, financial_status, review_status, created_at)
         `,
         )

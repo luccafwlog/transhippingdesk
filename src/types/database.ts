@@ -6426,11 +6426,18 @@ export type ContainerListItem = Pick<
 
 export type CustomerListItem = Customer & {
   bls?: Pick<BL, 'id' | 'charge_status'>[] | null
-  customer_contacts?: Pick<CustomerContact, 'id' | 'email' | 'purpose' | 'is_primary'>[] | null
+  customer_contacts?: Array<Pick<CustomerContact, 'id' | 'email' | 'purpose' | 'is_primary'> & {
+    deactivated_at?: string | null
+    origin?: string | null
+    customer_contact_box_links?: Array<{ box_code: string }> | null
+  }> | null
 }
 
 export type CustomerDetail = Customer & {
   customer_contacts?: Array<CustomerContact & {
+    deactivated_at?: string | null
+    origin?: string | null
+    customer_contact_box_links?: Array<{ box_code: string }> | null
     customer_contact_preferences?: CustomerContactPreference[] | null
   }> | null
   bls?: Pick<BL, 'id' | 'consignee' | 'financial_status' | 'review_status' | 'created_at'>[] | null

@@ -9,24 +9,28 @@ export function getPrimaryContactEmail(
   return withEmail.find((contact) => contact.is_primary)?.email ?? withEmail[0]?.email ?? null
 }
 
-const contactPurposeLabels: Record<string, string> = {
-  geral: 'Geral',
-  operacional: 'Operacional',
-  faturamento: 'Faturamento',
-  financeiro: 'Financeiro',
-}
-
 export function summarizeContactsForDisplay(
-  contacts: Array<{ id?: number; email?: string | null; is_primary?: boolean | null; purpose?: string | null }> | null | undefined,
+  contacts: Array<{
+    id?: number
+    email?: string | null
+    is_primary?: boolean | null
+    purpose?: string | null
+    deactivated_at?: string | null
+    customer_contact_box_links?: Array<{ box_code: string }> | null
+  }> | null | undefined,
 ) {
-  const count = contacts?.length ?? 0
-  const primary = (contacts ?? []).find((contact) => contact.is_primary && String(contact.email ?? '').trim())
-    ?? (contacts ?? []).find((contact) => String(contact.email ?? '').trim())
+  const activeContacts = (contacts ?? []).filter((c) => !c.deactivated_at)
+  const count = activeContacts.length
+  const primary = activeContacts.find((contact) => contact.is_primary && String(contact.email ?? '').trim())
+    ?? activeContacts.find((contact) => String(contact.email ?? '').trim())
+
+  const boxCount = primary?.customer_contact_box_links?.length ?? null
 
   return {
     count,
     primaryEmail: primary?.email ?? null,
-    purposeLabel: primary?.purpose ? contactPurposeLabels[primary.purpose] ?? primary.purpose : null,
+    isPrimary: Boolean(primary?.is_primary),
+    boxCount,
     empty: !primary?.email,
   }
 }

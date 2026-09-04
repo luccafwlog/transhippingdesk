@@ -40,18 +40,40 @@ export function buildConsolidatedBalance(
 }
 
 export type CustomerTimelineEvent = {
-  kind: 'cadastro_audit' | 'portal_event' | 'contact_created' | 'local_invoice_issued' | 'local_payment' | 'demurrage_invoice_issued' | 'demurrage_invoice_paid' | 'bl_created' | 'communication'
+  kind: 'cadastro_audit' | 'portal_event' | 'contact_created' | 'contact_configuration_changed' | 'local_invoice_issued' | 'local_payment' | 'demurrage_invoice_issued' | 'demurrage_invoice_paid' | 'bl_created' | 'communication'
   sourceId: string
   at: string
   label: string
   detail: string | null
   link: string | null
 }
+
+export type ContactChangeEventSource = {
+  id: number
+  action_id: string | null
+  source: string
+  actor_id: string | null
+  portal_account_id: number | null
+  related_bl_id: string | null
+  before_snapshot: unknown
+  after_snapshot: unknown
+  change_summary: Record<string, unknown> | null
+  created_at: string
+}
+
+function contactChangeSourceLabel(source: string): 'Portal' | 'Equipe' | 'B/L' | 'Sistema' {
+  if (source === 'portal') return 'Portal'
+  if (source === 'interno') return 'Equipe'
+  if (source === 'bl_automatico') return 'B/L'
+  return 'Sistema'
+}
+
 type TimelineSources = {
   customerId?: number
   auditLogs: Array<{ id: number; field_name: string; old_value: string | null; new_value: string | null; changed_at: string | null; justification: string | null; changed_by: string | null }>
   portalEvents: Array<{ id: number; new_decision: string | null; new_situation: string | null; reason: string | null; created_at: string }>
   contacts: Array<Pick<CustomerContact, 'id' | 'name' | 'created_at'>>
+  contactChangeEvents?: ContactChangeEventSource[]
   localInvoices: Array<{ id: number; invoice_number: string | null; issued_at: string | null; status: string | null }>
   payments: Array<{ id: number; amount_brl: number; paid_at: string | null; invoice: { id: number; invoice_number: string | null } | null }>
   demurrageInvoices: Array<{ id: number; doc_number: string; billed_at: string | null; paid_at: string | null; status: string | null }>
@@ -60,10 +82,51 @@ type TimelineSources = {
 }
 
 export function buildCustomerTimeline(sources: TimelineSources): CustomerTimelineEvent[] {
+  const contactChangeEventsByAction = new Map<string, ContactChangeEventSource>()
+  for (const event of sources.contactChangeEvents ?? []) {
+    const key = event.action_id ?? String(event.id)
+    if (!contactChangeEventsByAction.has(key)) {
+      contactChangeEventsByAction.set(key, event)
+    }
+  }
+
+  const contactEvents: CustomerTimelineEvent[] = Array.from(contactChangeEventsByAction.values()).map((row) => {
+    const origin = contactChangeSourceLabel(row.source)
+    const contacts = Array.isArray(row.after_snapshot) ? (row.after_snapshot as Array<{ box_codes?: string[] }>) : []
+    const contactCount = contacts.length
+    const boxCodes = new Set(contacts.flatMap((c) => c.box_codes ?? []))
+    const boxCount = boxCodes.size
+
+    let summaryText = ''
+    if (row.change_summary && typeof row.change_summary === 'object') {
+      if (typeof row.change_summary.justification === 'string' && row.change_summary.justification.trim()) {
+        summaryText = `${row.change_summary.justification.trim()} · `
+      } else if (row.change_summary.action === 'customer_created') {
+        summaryText = 'Cadastro inicial · '
+      }
+    }
+    if (!summaryText && row.related_bl_id) {
+      summaryText = `B/L ${row.related_bl_id} · `
+    }
+
+    const countsText = `${contactCount} contato(s), ${boxCount} caixa(s)`
+    const detail = `${summaryText}${countsText}`
+
+    return {
+      kind: 'contact_configuration_changed' as const,
+      sourceId: row.action_id ?? String(row.id),
+      at: row.created_at,
+      label: `Contatos: alteração via ${origin}`,
+      detail,
+      link: null,
+    }
+  })
+
   const events: CustomerTimelineEvent[] = [
     ...sources.auditLogs.filter((row) => row.changed_at).map((row) => ({ kind: 'cadastro_audit' as const, sourceId: String(row.id), at: row.changed_at!, label: `Cadastro alterado: ${row.field_name}`, detail: `${row.old_value ?? '—'} → ${row.new_value ?? '—'}${row.justification ? ` · ${row.justification}` : ''}`, link: null })),
     ...sources.portalEvents.map((row) => ({ kind: 'portal_event' as const, sourceId: String(row.id), at: row.created_at, label: `Portal: ${row.new_decision ? provisioningDecisionLabel(row.new_decision) : row.new_situation ? accountSituationLabel(row.new_situation) : 'evento'}`, detail: row.reason, link: null })),
     ...sources.contacts.filter((row) => row.created_at).map((row) => ({ kind: 'contact_created' as const, sourceId: String(row.id), at: row.created_at!, label: `Contato criado: ${row.name ?? '—'}`, detail: null, link: null })),
+    ...contactEvents,
     ...sources.localInvoices.filter((row) => row.issued_at).map((row) => ({ kind: 'local_invoice_issued' as const, sourceId: String(row.id), at: row.issued_at!, label: `Invoice emitida: ${row.invoice_number ?? `INV-${row.id}`}`, detail: null, link: `/taxas-locais?${sources.customerId ? `customer=${sources.customerId}&` : ''}invoice=${row.id}` })),
     ...(sources.payments ?? []).filter((row) => row.paid_at).map((row) => ({ kind: 'local_payment' as const, sourceId: String(row.id), at: row.paid_at!, label: `Pagamento recebido: ${row.invoice?.invoice_number ?? (row.invoice ? `INV-${row.invoice.id}` : '—')}`, detail: formatBRL(row.amount_brl), link: row.invoice ? `/taxas-locais?${sources.customerId ? `customer=${sources.customerId}&` : ''}invoice=${row.invoice.id}` : null })),
     ...sources.demurrageInvoices.flatMap((row) => [
@@ -167,23 +230,26 @@ export async function fetchCustomerRunningDemurrage(customerId: number) {
 }
 
 export async function fetchCustomerTimelineSources(customerId: number, contacts: Array<Pick<CustomerContact, 'id' | 'name' | 'created_at'>>, bls: Array<{ id: string; created_at: string | null }>) {
-  const [auditLogs, portalEvents, localInvoices, payments, demurrage, communications] = await Promise.all([
+  const [auditLogs, portalEvents, localInvoices, payments, demurrage, communications, contactChanges] = await Promise.all([
     supabase.from('audit_logs').select('id, field_name, old_value, new_value, changed_at, justification, changed_by').eq('entity_type', 'customer').eq('entity_id', String(customerId)).order('changed_at', { ascending: false }).range(0, 99),
     supabase.from('portal_provisioning_events').select('id, new_decision, new_situation, reason, created_at').eq('customer_id', customerId).order('created_at', { ascending: false }).range(0, 99),
     supabase.from('invoices').select('id, invoice_number, issued_at, status').eq('customer_id', customerId).order('issued_at', { ascending: false }).range(0, 99),
     supabase.from('payments').select('id, amount_brl, paid_at, invoice:invoices!inner(id, invoice_number, customer_id)').eq('invoice.customer_id', customerId).order('paid_at', { ascending: false }).range(0, 99),
     supabase.from('demurrage_invoices').select('id, doc_number, billed_at, paid_at, status').eq('customer_id', customerId).order('billed_at', { ascending: false }).range(0, 99),
     fetchCustomerCommunicationHistory(customerId),
+    supabase.from('customer_contact_change_events').select('id, action_id, source, actor_id, portal_account_id, related_bl_id, before_snapshot, after_snapshot, change_summary, created_at').eq('customer_id', customerId).order('created_at', { ascending: false }).range(0, 99),
   ])
   for (const result of [auditLogs, portalEvents]) if (result.error) throw result.error
   const localRows = localInvoices.error && classifyDbError(localInvoices.error).kind !== 'permissao' ? (() => { throw localInvoices.error })() : (localInvoices.data ?? [])
   const paymentRows = payments.error && classifyDbError(payments.error).kind !== 'permissao' ? (() => { throw payments.error })() : (payments.data ?? [])
   const demurrageRows = demurrage.error && classifyDbError(demurrage.error).kind !== 'permissao' ? (() => { throw demurrage.error })() : (demurrage.data ?? [])
+  const contactChangeRows = contactChanges.error && classifyDbError(contactChanges.error).kind !== 'permissao' ? (() => { throw contactChanges.error })() : (contactChanges.data ?? [])
   return buildCustomerTimeline({
     customerId,
     auditLogs: (auditLogs.data ?? []).filter((row) => row.changed_at).map((row) => ({ ...row, changed_at: row.changed_at! })),
     portalEvents: portalEvents.data ?? [],
     contacts,
+    contactChangeEvents: contactChangeRows as ContactChangeEventSource[],
     localInvoices: (localRows ?? []).map((row) => ({ ...row, invoice_number: row.invoice_number ?? null })),
     payments: (paymentRows ?? []) as unknown as TimelineSources['payments'],
     demurrageInvoices: demurrageRows,

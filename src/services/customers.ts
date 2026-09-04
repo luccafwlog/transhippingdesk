@@ -125,7 +125,10 @@ export async function addCustomerEmail(customerId: number, email: string) {
 }
 
 export async function deleteCustomerContact(contactId: number) {
-  const { error } = await supabase.from('customer_contacts').delete().eq('id', contactId)
+  const { error } = await supabase
+    .from('customer_contacts')
+    .update({ deactivated_at: new Date().toISOString(), is_primary: false } as never)
+    .eq('id', contactId)
   if (error) throw error
 }
 

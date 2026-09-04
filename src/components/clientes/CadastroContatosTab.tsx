@@ -1,101 +1,32 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
-import { Field, Input, Select, Textarea } from '../ui/Input'
+import { Field, Input, Textarea } from '../ui/Input'
 import { useToast } from '../ui/Toast'
-import { useConfirm } from '../ui/ConfirmDialog'
 import { useAuth } from '../../hooks/useAuth'
 import { useCustomerDetail } from '../../hooks/useCustomers'
-import { useUpdateCustomerContactPreference } from '../../hooks/useCustomerContactPreferences'
 import { usePortalProvisioningForCustomer } from '../../hooks/usePortalProvisioning'
 import { PortalReviewPanel } from '../portal/PortalReviewPanel'
 import { accountSituationLabel, provisioningDecisionLabel, recoveryEmailSourceLabel, deliveryStatusLabel } from '../../lib/portalProvisioningViewModel'
 import { formatDate } from '../../lib/utils'
-import { CUSTOMER_COMMUNICATION_NATURES } from '../../services/customerCommunications'
-import { deleteCustomerContact, updateCustomerWithAudit, upsertCustomerContact } from '../../services/customers'
+import { updateCustomerWithAudit } from '../../services/customers'
 import { queryKeys } from '../../services/queryKeys'
-import type { CustomerCommunicationNature, CustomerContact, CustomerContactPreference } from '../../types/database'
+import { CustomerContactConfiguration } from './CustomerContactConfiguration'
 
 type Data = NonNullable<ReturnType<typeof useCustomerDetail>['data']>
-type ContactWithPreferences = CustomerContact & {
-  customer_contact_preferences?: CustomerContactPreference[] | null
-}
 type CustomerForm = { name: string; trade_name: string; address: string; city: string; state: string; zip: string; notes: string }
-type ContactForm = { id?: number; name: string; email: string; phone: string; purpose: NonNullable<CustomerContact['purpose']>; is_primary: boolean }
-
-const emptyContact: ContactForm = { name: '', email: '', phone: '', purpose: 'geral', is_primary: false }
-
-const NATURE_LABELS: Record<CustomerCommunicationNature, string> = {
-  avisos_gerais: 'Avisos gerais',
-  avisos_operacionais: 'Avisos operacionais',
-  documentacao: 'Documentação',
-  demurrage: 'Demurrage',
-}
-
-function ContactPreferences({
-  customerId,
-  contact,
-  canEdit,
-}: {
-  customerId: number
-  contact: ContactWithPreferences
-  canEdit: boolean
-}) {
-  const updatePreference = useUpdateCustomerContactPreference()
-  const { showToast } = useToast()
-
-  return (
-    <div className="mt-3 rounded-lg border border-[#30363d] bg-[#111820] p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preferências de recebimento</div>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        {CUSTOMER_COMMUNICATION_NATURES.map((nature) => {
-          const enabled = contact.customer_contact_preferences?.find((preference) => preference.nature === nature)?.enabled ?? true
-          return (
-            <label key={nature} className="flex items-center gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={enabled}
-                disabled={!canEdit || updatePreference.isPending}
-                onChange={(event) => {
-                  const checked = event.currentTarget.checked
-                  updatePreference.mutate({
-                    customerId,
-                    contactId: contact.id,
-                    nature,
-                    enabled: checked,
-                  }, {
-                    onError: () => {
-                      showToast('Falha ao atualizar preferência de recebimento.', 'error')
-                    },
-                  })
-                }}
-              />
-              {NATURE_LABELS[nature]}
-            </label>
-          )
-        })}
-      </div>
-      {!canEdit ? <div className="mt-2 text-xs text-slate-500">Seu perfil não pode alterar preferências de Comunicados.</div> : null}
-    </div>
-  )
-}
 
 export function CadastroContatosTab({ data, cnpj }: { data: Data; cnpj: string }) {
   const queryClient = useQueryClient()
-  const { user, profile, can } = useAuth()
+  const { user, profile } = useAuth()
   const canEdit = Boolean(profile || user)
-  const canEditCommunicationPreferences = can('customer_communications')
   const { showToast } = useToast()
-  const confirm = useConfirm()
   const { data: portalRow } = usePortalProvisioningForCustomer(data.id)
   const [portalOpen, setPortalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [justification, setJustification] = useState('')
-  const [contactForm, setContactForm] = useState<ContactForm>(emptyContact)
-  const [contactSaving, setContactSaving] = useState(false)
   const [form, setForm] = useState<CustomerForm>({ name: data.name, trade_name: data.trade_name ?? '', address: data.address ?? '', city: data.city ?? '', state: data.state ?? '', zip: data.zip ?? '', notes: data.notes ?? '' })
   const [prevFormData, setPrevFormData] = useState<Data | null>(null)
 
@@ -130,48 +61,6 @@ export function CadastroContatosTab({ data, cnpj }: { data: Data; cnpj: string }
       showToast('Falha ao salvar o cadastro do cliente.', 'error')
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function saveContact() {
-    if (!canEdit) {
-      showToast('Edição de clientes restrita ao perfil autorizado.', 'error')
-      return
-    }
-    if (!contactForm.name.trim()) {
-      showToast('Informe o nome do contato.', 'error')
-      return
-    }
-    setContactSaving(true)
-    try {
-      await upsertCustomerContact(data.id, {
-        id: contactForm.id ?? 0,
-        name: contactForm.name,
-        email: contactForm.email || null,
-        phone: contactForm.phone || null,
-        purpose: contactForm.purpose,
-        is_primary: contactForm.is_primary,
-      })
-      await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.customerFicha.timeline(data.id) })
-      setContactForm(emptyContact)
-      showToast('Contato salvo com sucesso.', 'success')
-    } catch {
-      showToast('Falha ao salvar contato.', 'error')
-    } finally {
-      setContactSaving(false)
-    }
-  }
-
-  async function deleteContact(id: number) {
-    if (!canEdit || !(await confirm({ title: 'Remover contato', message: 'Remover este contato do cadastro do cliente?', confirmLabel: 'Remover', tone: 'danger' }))) return
-    try {
-      await deleteCustomerContact(id)
-      await queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] })
-      await queryClient.invalidateQueries({ queryKey: queryKeys.customerFicha.timeline(data.id) })
-      showToast('Contato removido.', 'success')
-    } catch {
-      showToast('Falha ao remover contato.', 'error')
     }
   }
 
@@ -210,51 +99,15 @@ export function CadastroContatosTab({ data, cnpj }: { data: Data; cnpj: string }
       </Card>
 
       <Card>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Contatos</h2>
-          <Button variant="secondary" onClick={() => setContactForm(emptyContact)} disabled={!canEdit}><Plus size={16} />Novo contato</Button>
-        </div>
-        <div className="grid gap-3">
-          {data.customer_contacts?.length ? null : <div className="text-sm text-slate-400">Nenhum contato cadastrado.</div>}
-          {data.customer_contacts?.map((contact) => (
-            <div key={contact.id} className="rounded-xl border border-[#30363d] bg-[#0d1117] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-semibold text-white">{contact.name ?? '-'}</div>
-                  <div className="text-sm text-slate-400">{contact.email ?? '-'} · {contact.phone ?? '-'}</div>
-                  <div className="text-xs uppercase text-slate-500">{contact.purpose ?? 'geral'} {contact.is_primary ? '· principal' : ''}</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" disabled={!canEdit} onClick={() => setContactForm({ id: contact.id, name: contact.name ?? '', email: contact.email ?? '', phone: contact.phone ?? '', purpose: contact.purpose ?? 'geral', is_primary: Boolean(contact.is_primary) })}>Editar</Button>
-                  <Button variant="ghost" aria-label="Remover contato" onClick={() => deleteContact(contact.id)} disabled={!canEdit}><Trash2 size={16} /></Button>
-                </div>
-              </div>
-              <ContactPreferences customerId={data.id} contact={contact} canEdit={canEditCommunicationPreferences} />
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-3 border-t border-[#30363d] pt-4">
-          <Field label="Nome do contato"><Input value={contactForm.name} onChange={(event) => setContactForm((current) => ({ ...current, name: event.target.value }))} /></Field>
-          <Field label="Email"><Input value={contactForm.email} onChange={(event) => setContactForm((current) => ({ ...current, email: event.target.value }))} /></Field>
-          <Field label="Telefone"><Input value={contactForm.phone} onChange={(event) => setContactForm((current) => ({ ...current, phone: event.target.value }))} /></Field>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Finalidade">
-              <Select value={contactForm.purpose} onChange={(event) => setContactForm((current) => ({ ...current, purpose: event.target.value as ContactForm['purpose'] }))}>
-                <option value="geral">Geral</option>
-                <option value="operacional">Operacional</option>
-                <option value="faturamento">Faturamento</option>
-                <option value="financeiro">Financeiro</option>
-              </Select>
-            </Field>
-            <Field label="Principal">
-              <Select value={contactForm.is_primary ? 'sim' : 'nao'} onChange={(event) => setContactForm((current) => ({ ...current, is_primary: event.target.value === 'sim' }))}>
-                <option value="nao">Não</option>
-                <option value="sim">Sim</option>
-              </Select>
-            </Field>
-          </div>
-          <div className="flex justify-end"><Button loading={contactSaving} onClick={saveContact} disabled={!canEdit}>Salvar contato</Button></div>
-        </div>
+        <CustomerContactConfiguration
+          customerId={data.id}
+          canEdit={canEdit}
+          onSaved={() => {
+            void queryClient.invalidateQueries({ queryKey: ['customer-detail', cnpj] })
+            void queryClient.invalidateQueries({ queryKey: ['customers'] })
+            void queryClient.invalidateQueries({ queryKey: queryKeys.customerFicha.timeline(data.id) })
+          }}
+        />
       </Card>
     </div>
   )
