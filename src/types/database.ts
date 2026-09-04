@@ -1689,6 +1689,7 @@ export type Database = {
           name: string | null
           phone: string | null
           purpose: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1700,6 +1701,7 @@ export type Database = {
           name?: string | null
           phone?: string | null
           purpose?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1711,6 +1713,7 @@ export type Database = {
           name?: string | null
           phone?: string | null
           purpose?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -1766,7 +1769,7 @@ export type Database = {
           customer_id: number
           id: number
           portal_account_id: number | null
-          related_bl_id: number | null
+          related_bl_id: string | null
           source: string
         }
         Insert: {
@@ -1779,7 +1782,7 @@ export type Database = {
           customer_id: number
           id?: number
           portal_account_id?: number | null
-          related_bl_id?: number | null
+          related_bl_id?: string | null
           source: string
         }
         Update: {
@@ -1792,7 +1795,7 @@ export type Database = {
           customer_id?: number
           id?: number
           portal_account_id?: number | null
-          related_bl_id?: number | null
+          related_bl_id?: string | null
           source?: string
         }
         Relationships: [
@@ -5237,12 +5240,13 @@ export type Database = {
       }
       ensure_customer_contact_email: {
         Args: {
+          p_contact_name?: string
           p_customer_id: number
           p_email: string
+          p_purpose?: string
           p_related_bl_id?: string | null
-          p_source?: string | null
         }
-        Returns: Json
+        Returns: boolean
       }
       ensure_pricing_rule_version: {
         Args: {

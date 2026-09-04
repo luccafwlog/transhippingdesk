@@ -12,6 +12,7 @@
 -- ===========================================================================
 
 ALTER TABLE public.customer_contacts
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
   ADD COLUMN IF NOT EXISTS email_normalized text GENERATED ALWAYS AS (
     NULLIF(lower(btrim(email)), '')
   ) STORED,
@@ -126,7 +127,7 @@ CREATE TABLE public.customer_contact_change_events (
   source text NOT NULL CHECK (source IN ('portal', 'interno', 'bl_automatico', 'sistema')),
   actor_id uuid,
   portal_account_id bigint,
-  related_bl_id bigint,
+  related_bl_id text,
   before_snapshot jsonb NOT NULL DEFAULT '[]'::jsonb,
   after_snapshot jsonb NOT NULL DEFAULT '[]'::jsonb,
   change_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -297,7 +298,7 @@ CREATE OR REPLACE FUNCTION public._apply_customer_contact_configuration(
   p_source text,
   p_actor_id uuid DEFAULT NULL,
   p_portal_account_id bigint DEFAULT NULL,
-  p_related_bl_id bigint DEFAULT NULL,
+  p_related_bl_id text DEFAULT NULL,
   p_justification text DEFAULT NULL
 )
 RETURNS jsonb
@@ -345,6 +346,12 @@ BEGIN
     RAISE EXCEPTION 'Cliente % não encontrado.', p_customer_id USING ERRCODE = '02000';
   END IF;
 
+  -- Pre-popular IDs dos contatos enviados no payload para evitar sensibilidade à ordem de validação
+  SELECT COALESCE(array_agg(NULLIF(elem->>'id', '')::bigint), ARRAY[]::bigint[])
+  INTO v_target_contact_ids
+  FROM jsonb_array_elements(p_contacts) elem
+  WHERE NULLIF(elem->>'id', '') IS NOT NULL;
+
   -- Snapshot anterior
   v_before_config := public._build_customer_contact_configuration(p_customer_id);
 
@@ -373,7 +380,6 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'Contato % não pertence ao cliente %.', v_item_id, p_customer_id USING ERRCODE = '42501';
       END IF;
-      v_target_contact_ids := array_append(v_target_contact_ids, v_item_id);
     END IF;
 
     -- Validacao de e-mail em contatos ativos ou novos
@@ -816,6 +822,20 @@ BEGIN
 END;
 $$;
 
+-- Catálogo de alertas operacionais para caixas sem destinatário e contatos inativos no B/L
+INSERT INTO public.alert_type_catalog (
+  type, severity, responsible_department, audience_departments, default_destination, active
+)
+VALUES
+  ('caixa_sem_destinatario', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/clientes', true),
+  ('cliente_sem_contato_principal', 'critical', 'documentacao', ARRAY['documentacao', 'administrativo'], '/clientes', true)
+ON CONFLICT (type) DO UPDATE SET
+  severity = EXCLUDED.severity,
+  responsible_department = EXCLUDED.responsible_department,
+  audience_departments = EXCLUDED.audience_departments,
+  default_destination = EXCLUDED.default_destination,
+  active = EXCLUDED.active;
+
 -- ===========================================================================
 -- 10. Fallback e Reparo por Disponibilidade: repair_customer_contact_box_fallbacks
 -- ===========================================================================
@@ -956,9 +976,10 @@ BEGIN
           v_blocked_boxes := array_append(v_blocked_boxes, v_box);
           PERFORM public.upsert_alert_item(
             'caixa_sem_destinatario',
-            'Caixa de comunicação sem destinatário',
+            'customer',
+            p_customer_id::text,
             'A caixa ' || v_box || ' não possui contatos ativos elegíveis.',
-            p_customer_id,
+            'sistema',
             jsonb_build_object('customer_id', p_customer_id, 'box_code', v_box),
             '/clientes'
           );
@@ -1337,6 +1358,8 @@ $$;
 -- 13. Captura automatica de B/L e mapeamento em caixas
 -- ===========================================================================
 
+DROP FUNCTION IF EXISTS public.ensure_customer_contact_email(bigint, text, text, text);
+
 CREATE OR REPLACE FUNCTION public.ensure_customer_contact_email(
   p_customer_id bigint,
   p_email text,
@@ -1354,6 +1377,10 @@ DECLARE
   v_existing record;
   v_contact_id bigint;
 BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.is_active_user() THEN
+    RAISE EXCEPTION 'Acesso negado para cadastrar contato.' USING ERRCODE = '42501';
+  END IF;
+
   IF p_customer_id IS NULL THEN
     RETURN false;
   END IF;
@@ -1389,9 +1416,10 @@ BEGIN
     IF v_existing.deactivated_at IS NOT NULL AND NOT v_has_primary THEN
       PERFORM public.upsert_alert_item(
         'cliente_sem_contato_principal',
-        'Cliente sem contato principal ativo',
+        'customer',
+        p_customer_id::text,
         'Endereço reapareceu no B/L mas cadastro permanece inativo',
-        p_customer_id,
+        'bl_automatico',
         jsonb_build_object('customer_id', p_customer_id, 'email', v_email),
         '/clientes'
       );
@@ -1438,6 +1466,9 @@ BEGIN
   RETURN true;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.ensure_customer_contact_email(bigint, text, text, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.ensure_customer_contact_email(bigint, text, text, text, text) TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.capture_manifest_financial_contact(
   p_customer_id bigint,

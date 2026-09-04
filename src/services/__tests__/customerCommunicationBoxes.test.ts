@@ -19,6 +19,7 @@ describe('customerCommunicationBoxes — catálogo e resolvedor determinístico'
     is_primary: isPrimary,
     created_at: '2026-01-01T00:00:00Z',
     deactivated_at: null,
+    updated_at: '2026-01-01T00:00:00Z',
   })
 
   it('possui as 3 caixas oficiais e mapeamento de modelos fechado', () => {

@@ -189,12 +189,14 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
       }
     }
 
-    // Checar se todas as caixas continuam cobertas
+    // Checar se todas as caixas continuam cobertas por contatos ativos e elegíveis
     for (const box of CUSTOMER_COMMUNICATION_BOXES) {
-      const hasCoverage = activeContacts.some((d) => d.boxCodes.includes(box.code))
+      const hasCoverage = activeContacts.some(
+        (d) => d.boxCodes.includes(box.code) && d.sendable !== false && !d.suppressionReason,
+      )
       if (!hasCoverage) {
         setLocalError(
-          `A caixa "${box.label}" não pode ficar sem nenhum contato vinculado.`,
+          `A caixa "${box.label}" não pode ficar sem nenhum contato ativo e elegível vinculado.`,
         )
         return
       }

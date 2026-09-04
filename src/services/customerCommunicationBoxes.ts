@@ -78,6 +78,7 @@ function toCustomerContact(contact: ExtendedCustomerContact): CustomerContact {
     created_at: contact.created_at ?? null,
     purpose: contact.purpose ?? null,
     deactivated_at: contact.deactivated_at ?? null,
+    updated_at: contact.updated_at ?? null,
   }
 }
 

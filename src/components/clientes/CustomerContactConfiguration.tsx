@@ -217,9 +217,11 @@ export function CustomerContactConfiguration({
     }
 
     for (const box of CUSTOMER_COMMUNICATION_BOXES) {
-      const hasCoverage = activeContacts.some((d) => d.boxCodes.includes(box.code))
+      const hasCoverage = activeContacts.some(
+        (d) => d.boxCodes.includes(box.code) && d.sendable !== false && !d.suppressionReason,
+      )
       if (!hasCoverage) {
-        setErrorMsg(`A caixa "${box.label}" não pode ficar sem nenhum contato vinculado.`)
+        setErrorMsg(`A caixa "${box.label}" não pode ficar sem nenhum contato ativo e elegível vinculado.`)
         return
       }
     }

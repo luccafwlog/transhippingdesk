@@ -969,6 +969,7 @@ function excludedReasonLabel(reason: string): string {
   if (reason === 'email_ausente') return 'sem e-mail'
   if (reason === 'suprimido_complaint') return 'complaint'
   if (reason === 'suprimido_bounce') return 'bounce'
+  if (reason === 'contato_desativado') return 'contato desativado'
   return reason
 }
 

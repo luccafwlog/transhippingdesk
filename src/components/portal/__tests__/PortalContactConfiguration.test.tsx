@@ -50,6 +50,7 @@ function renderComponent(readOnly = false) {
 describe('PortalContactConfiguration', () => {
   beforeEach(() => {
     getContactConfig.mockReset()
+    getContactConfig.mockResolvedValue({ boxes: [], contacts: [] })
     saveContactConfig.mockReset()
     auth.refreshOverview.mockReset()
     scopeRef.mode = 'client'

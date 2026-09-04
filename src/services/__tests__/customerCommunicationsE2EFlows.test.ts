@@ -29,6 +29,7 @@ function makeContact(overrides: Partial<CustomerContact> & { id: number; email: 
     phone: null,
     created_at: null,
     deactivated_at: null,
+    updated_at: null,
     ...overrides,
   }
 }

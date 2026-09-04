@@ -45,4 +45,14 @@ describe('issue 609 — caixas de comunicação', () => {
     expect(sql).toMatch(/CREATE( OR REPLACE)? FUNCTION public\.repair_customer_contact_box_fallbacks/i)
     expect(sql).toMatch(/CREATE( OR REPLACE)? FUNCTION public\.customer_communication_recipient_allowed/i)
   })
+
+  it('assegura integridade de tipos, catálogo de alertas e grants de contatos', () => {
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS updated_at timestamptz/i)
+    expect(sql).toMatch(/related_bl_id\s+text/i)
+    expect(sql).toMatch(/INSERT INTO public\.alert_type_catalog[\s\S]*caixa_sem_destinatario[\s\S]*cliente_sem_contato_principal/i)
+    expect(sql).toMatch(/DROP FUNCTION IF EXISTS public\.ensure_customer_contact_email\(bigint, text, text, text\)/i)
+    expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.ensure_customer_contact_email\(bigint, text, text, text, text\) TO authenticated, service_role/i)
+    expect(sql).toMatch(/upsert_alert_item\(\s*'caixa_sem_destinatario',\s*'customer'/i)
+    expect(sql).toMatch(/upsert_alert_item\(\s*'cliente_sem_contato_principal',\s*'customer'/i)
+  })
 })
