@@ -593,11 +593,11 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public._apply_customer_contact_configuration(
-  bigint, jsonb, text, uuid, bigint, bigint, text
+  bigint, jsonb, text, uuid, bigint, text, text
 ) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public._apply_customer_contact_configuration(
-  bigint, jsonb, text, uuid, bigint, bigint, text
+  bigint, jsonb, text, uuid, bigint, text, text
 ) TO service_role;
 
 -- ===========================================================================
@@ -1017,6 +1017,10 @@ AS $$
 DECLARE
   v_contact record;
 BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.is_active_read_user() THEN
+    RAISE EXCEPTION 'Acesso negado para consultar autorização de destinatário.' USING ERRCODE = '42501';
+  END IF;
+
   IF p_customer_id IS NULL OR p_contact_id IS NULL THEN
     RETURN false;
   END IF;
