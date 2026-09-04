@@ -767,8 +767,34 @@ como está e os demais campos do B/L seguem sendo corrigidos. Ver ADR 0017.
 Pessoa jurídica ou física responsável por cargas e cobranças no sistema.
 
 **Email de Contato**
-Canal de comunicação do cliente. Pode coincidir com o email técnico do Portal,
-mas os conceitos não são equivalentes.
+Canal de comunicação do Cliente. Cada Cliente tem um Email de Contato Principal,
+necessário para o cadastro, e pode ter Emails de Contato adicionais. Pode
+coincidir com o email técnico do Portal, mas os conceitos não são equivalentes.
+O Cliente pode cadastrar e alterar seus contatos no Portal; a alteração passa a
+valer imediatamente para os Comunicados. Um endereço suprimido continua
+cadastrado para rastreabilidade, mas não recebe mensagens e deve aparecer com o
+motivo da restrição. Um Cliente não pode ficar sem contato principal.
+
+**Caixa de Comunicação**
+Agrupador de roteamento escolhido no Portal para um endereço de contato. O
+Cliente pode vincular um endereço a uma ou mais caixas. As caixas não são
+exclusivas: Documentação e Operação reúne CE e Taxas, NOA, NOR e NOB;
+Financeiro reúne CE e Taxas e Cobranças de Demurrage; Demurrage reúne Cobranças
+de Demurrage e eventuais comunicações sobre Demurrage. Os pacotes são fixos
+para o Cliente, mas podem receber novos modelos de Comunicado ao longo do
+tempo. O contato principal nasce vinculado a todas as caixas; para removê-lo
+de uma caixa, outra conta de e-mail deve substituí-lo na mesma gravação. Se um
+endereço vinculado ficar indisponível, o sistema usa o contato principal como
+substituto e alerta a equipe.
+
+**E-mail Capturado do B/L**
+Endereço encontrado em um B/L e incorporado automaticamente ao cadastro do
+Cliente. Se o Cliente já tem contato principal, entra como contato adicional; se
+ainda não tem, torna-se o contato principal. Nasce ativo, com os vínculos de
+caixa definidos pela regra de captura: como adicional, Documentação e Operação;
+como principal, todas as caixas. A captura fica visível na Ficha do Cliente. Um
+endereço já desativado não é reativado nem duplicado quando reaparece em outro
+B/L; os vínculos anteriores permanecem preservados.
 
 **Ficha do Cliente**
 Hub de consulta do Cliente em `/clientes/:cnpj`, organizado em abas (Visão
@@ -1567,13 +1593,13 @@ que vale nos dois canais: a caixa não existe, e os dois saem do mesmo
 remetente.
 
 **Natureza do Comunicado**
-Classificação obrigatória de um Comunicado, em quatro valores: Avisos gerais,
-Avisos operacionais, Documentação e Demurrage. É a Natureza, e não o Modelo, que
-decide se um contato do Cliente recebe: a Preferência de Recebimento é por
-Natureza. Cada Modelo de Comunicado mapeia para exatamente uma Natureza, e
-Comunicado sem Natureza não é montado nem enviado. É eixo distinto do Modelo,
-justamente para que Modelo novo entre apontando para Natureza existente sem
-mudar a preferência de ninguém.
+Classificação técnica interna do Comunicado, em quatro valores: Avisos gerais,
+Avisos operacionais, Documentação e Demurrage. Não é uma categoria que o Cliente
+cadastra ou escolhe no Portal; o Cliente configura Caixas de Comunicação, que
+podem reunir mais de uma Natureza e compartilhar o mesmo Comunicado. Cada Modelo
+de Comunicado continua mapeado para uma Natureza; o Comunicado livre entra em
+Avisos gerais. Seu público pode ser todos os contatos ou uma Caixa de
+Comunicação específica.
 
 **Modelo de Comunicado**
 Texto pré-definido que um Comunicado usa. Aviso de Chegada (NOA), Aviso de Prontidão
@@ -1611,14 +1637,21 @@ parte dos B/Ls filtrados por navio, viagem, escala, porto de descarga e porto
 de embarque, com CNPJ restringindo o resultado. Filtro vazio nunca significa
 todos os Clientes.
 
-**Preferência de Recebimento**
-Escolha, por contato do Cliente, de quais Naturezas de Comunicado aquele
-endereço recebe. Nasce com as quatro ligadas e nunca substitui a conferência.
-Hoje é roteamento interno, decidido junto ao Cliente e não pelo destinatário; a
-escolha passa às mãos do próprio Cliente, no Portal, sem que ele possa zerar uma
-Natureza operacional ou de Demurrage. Cada preferência registra de qual das duas
-mãos veio. É conceito distinto do `purpose` do contato, que classifica a função
-do contato no cadastro.
+**Vínculo a Caixa de Comunicação**
+Relação entre um endereço de contato e uma ou mais Caixas de Comunicação. No
+autoatendimento do Portal, o Cliente administra esses vínculos, e a alteração
+passa a valer imediatamente. Todo novo contato deve ser criado já com ao menos
+uma caixa; o vínculo aplica o conjunto de Comunicados definido para a caixa, sem
+seleção individual de Naturezas no Portal. Um contato pode pertencer a várias
+caixas. A Ficha do Cliente e a conferência de Comunicados exibem os endereços
+agrupados por caixa.
+
+**Histórico de Autoatendimento de Contatos**
+Registro append-only, por Cliente, de uma ação feita no Portal sobre seus
+contatos e vínculos a Caixas de Comunicação. Uma ação agrupa as mudanças
+relacionadas e preserva o estado anterior e o novo, o contato afetado, a origem
+Portal, a conta que realizou a ação e o momento da alteração. É consultável pela
+equipe interna e não substitui o histórico operacional dos Comunicados.
 
 **Vínculo do Comunicado**
 Ligação entre um Comunicado e os B/Ls que o motivaram. Um Comunicado tem um

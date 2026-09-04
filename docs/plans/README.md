@@ -10,6 +10,7 @@ Quando um plano é totalmente executado, ele é movido para
 
 | Plano | Tema | Status |
 |---|---|---|
+| [2026-09-03 — Issue 609: contatos e caixas de comunicação](./2026-09-03-issue-609-contatos-caixas-comunicacao.md) | Autoatendimento do Cliente para e-mails, caixas, fallback e auditoria agrupada | TODO |
 
 Valores de status: TODO · IN PROGRESS · DONE · BLOCKED (com motivo em uma linha).
 
