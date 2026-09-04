@@ -25,6 +25,7 @@ export const portalWriteRpcNames = new Set([
   'portal_obsolete_consolidation',
   'portal_mark_notification_read',
   'portal_mark_all_notifications_read',
+  'portal_save_contact_configuration',
 ])
 
 export function portalPath(scope: PortalScope, suffix = '') {

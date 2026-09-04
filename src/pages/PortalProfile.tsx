@@ -9,6 +9,7 @@ import { usePortalScope } from '../hooks/usePortalScope'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
 import type { PortalProfile as PortalProfileData } from '../services/portalBilling'
 import { supabasePortal } from '../services/supabase'
+import { PortalContactConfiguration } from '../components/portal/PortalContactConfiguration'
 
 export const RECOVERY_EMAIL_RATE_LIMIT_MESSAGE =
   'Muitas tentativas com a senha atual. Este limite é o mesmo do login do Portal, então aguarde alguns minutos antes de tentar de novo — aqui e no login.'
@@ -85,8 +86,6 @@ function PortalProfileForm({
   readOnly: boolean
 }) {
   const { showToast } = useToast()
-  const [contactEmail, setContactEmail] = useState(profile.contact_email ?? fallbackContactEmail)
-  const [phone, setPhone] = useState(profile.phone ?? '')
   const [address, setAddress] = useState(profile.address ?? '')
   const [city, setCity] = useState(profile.city ?? '')
   const [state, setState] = useState(profile.state ?? '')
@@ -106,8 +105,6 @@ function PortalProfileForm({
 
     try {
       await updateProfile({
-        contactEmail: contactEmail.trim() || null,
-        phone: phone.trim() || null,
         address: address.trim() || null,
         city: city.trim() || null,
         state: state.trim() || null,
@@ -128,9 +125,6 @@ function PortalProfileForm({
     setEmailSubmitting(true)
     try {
       const { error: invokeError } = await supabasePortal.functions.invoke('portal-recovery-email-change', { body: { action: 'request', current_password: currentPassword, new_email: newRecoveryEmail.trim() } })
-      // A verificação da senha atual passou a consultar o mesmo contador do
-      // login (429). Dizer só "não foi possível" faria o cliente insistir e
-      // gastar o orçamento do próprio login sem entender o porquê.
       if ((invokeError as { context?: { status?: number } } | null)?.context?.status === 429) { setError(RECOVERY_EMAIL_RATE_LIMIT_MESSAGE); return }
       if (invokeError) throw invokeError
       showToast('Enviamos um link para confirmar o novo email.', 'success')
@@ -140,52 +134,37 @@ function PortalProfileForm({
 
   return (
     <>
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <Field label="Email de contato">
-            <Input
-              type="email"
-              value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
-              placeholder="Email para contato financeiro"
-            />
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <h2 className="text-lg font-semibold text-[var(--app-foreground)]">Dados cadastrais</h2>
+        <Field label="Endereço">
+          <Input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Rua, numero, complemento"
+          />
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Cidade">
+            <Input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Sao Paulo" />
           </Field>
-
-          <Field label="Telefone / WhatsApp">
-            <Input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="(11) 99999-9999"
-            />
+          <Field label="Estado">
+            <Input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="SP" maxLength={2} />
           </Field>
-
-          <Field label="Endereço">
-            <Input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Rua, numero, complemento"
-            />
+          <Field label="CEP">
+            <Input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="01000-000" />
           </Field>
+        </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Cidade">
-              <Input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Sao Paulo" />
-            </Field>
-            <Field label="Estado">
-              <Input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="SP" maxLength={2} />
-            </Field>
-            <Field label="CEP">
-              <Input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="01000-000" />
-            </Field>
-          </div>
+        {loadError || error ? <InlineError message={error || loadError} /> : null}
 
-          {loadError || error ? <InlineError message={error || loadError} /> : null}
+        <div className="flex justify-end">
+          <Button disabled={readOnly || loadFailed} loading={submitting} type="submit" title={readOnly ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}>Salvar alterações</Button>
+        </div>
+      </form>
 
-          <div className="flex justify-end">
-            <Button disabled={readOnly || loadFailed} loading={submitting} type="submit" title={readOnly ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}>Salvar alteracoes</Button>
-          </div>
-        </form>
+      <PortalContactConfiguration readOnly={readOnly} />
         <div className="mt-8 border-t border-[var(--app-border)] pt-5">
           <h2 className="text-lg font-semibold">Email de Recuperação</h2>
           <p className="mt-1 text-sm text-[var(--app-muted)]">O endereço atual permanece válido até a confirmação do novo.</p>

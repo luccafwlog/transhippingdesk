@@ -45,7 +45,7 @@ const ERROR_TABLE: Readonly<Record<string, ErrorTableEntry>> = {
   '42501': { kind: 'permissao', message: 'Sem permissao para esta acao. Solicite acesso administrativo.', preserveMessage: true },
   PGRST301: { kind: 'sessao_expirada', message: 'Sua sessao expirou. Entre novamente para continuar.' },
   '28000': { kind: 'sessao_expirada', message: 'Sua sessao expirou. Entre novamente para continuar.' },
-  '23505': { kind: 'conflito', message: 'Este registro ja existe.' },
+  '23505': { kind: 'conflito', message: 'Este registro ja existe.', preserveMessage: true },
   '40001': { kind: 'conflito', message: 'Conflito de concorrencia. Tente novamente.' },
   '23503': { kind: 'validacao', message: 'Registro referenciado nao existe ou ainda esta em uso.' },
   '23514': { kind: 'validacao', message: 'Dados fora das regras do cadastro.', preserveMessage: true },
