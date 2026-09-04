@@ -17,20 +17,20 @@ Estas são as decisões funcionais que a implementação deve preservar:
 | Área | Regra |
 |---|---|
 | Identidade | Cada Cliente precisa de exatamente um contato principal ativo com e-mail válido. Pode ter qualquer quantidade de contatos adicionais. O e-mail de login/recuperação do Portal continua separado e não muda quando o principal de Comunicados muda. |
-| Cadastro | E-mail é obrigatório em contato novo; nome e telefone são editáveis pelo Cliente no Portal e pela equipe na Ficha. A alteração do Cliente vale imediatamente após o commit. |
+| Cadastro | E-mail é obrigatório em contato novo; nome e telefone são editáveis pelo Cliente no Portal e pela equipe na Ficha. A alteração do Cliente vale imediatamente após o commit (dispensando double opt-in para assegurar a agilidade operacional do canal marítimo B2B, sendo os riscos de erro mitigados pela trilha de auditoria e cascata de bounce). |
 | Normalização | trim + minúsculas define igualdade. O mesmo endereço pode existir para Clientes diferentes, mas não pode aparecer duas vezes no mesmo Cliente, inclusive contra um registro inativo. A mensagem de duplicidade deve identificar o contato existente. |
 | Ciclo de vida | Remover significa desativar logicamente, nunca apagar o contato individual. A desativação preserva contato, vínculos e histórico. Reativação reutiliza o mesmo registro; a captura automática de B/L nunca reativa um registro inativo. |
 | Caixa Documentação e Operação | CE e Taxas, NOA, NOR e NOB. Código persistido: documentacao_operacao. |
 | Caixa Financeiro | CE e Taxas e Cobranças de Demurrage. Código persistido: financeiro. |
 | Caixa Demurrage | Cobranças de Demurrage e futuros modelos de Demurrage. Código persistido: demurrage. |
 | Sobreposição | Um modelo pode pertencer a mais de uma caixa. Um contato pode estar em várias caixas. Se o mesmo endereço alcançar duas caixas no mesmo Comunicado, recebe somente uma cópia. |
-| Principal | Ao nascer, o principal vem marcado nas três caixas. A UI pode propor sua retirada de uma caixa, mas o salvamento só passa se outro e-mail ativo e elegível ocupar aquela caixa na mesma operação. Quando um novo principal substitui o anterior, o novo principal recebe as três caixas e o antigo conserva seus vínculos até alteração explícita. |
+| Principal | Ao nascer, o principal vem marcado nas três caixas. A UI pode propor sua retirada de uma caixa, mas o salvamento só passa se outro e-mail ativo e elegível ocupar aquela caixa na mesma operação. Invariante global: toda caixa ativa (documentacao_operacao, financeiro, demurrage) deve terminar a transação com pelo menos um contato ativo e não suprimido vinculado; nenhuma caixa ativa pode ficar zerada. Quando um novo principal substitui o anterior, o novo principal recebe as três caixas e o antigo conserva seus vínculos até alteração explícita. |
 | Contato adicional | Deve nascer com pelo menos uma caixa escolhida. O Portal não escolhe Natureza nem tipo de contato; mostra o pacote de modelos que cada caixa recebe. |
 | Avisos gerais | Institucional e Comunicado livre no modo Todos os contatos alcançam todos os contatos ativos com e-mail elegível, sem opt-out por caixa. Supressão/bounce ainda impede o envio e exibe o motivo. |
 | Comunicado livre | O operador escolhe Todos os contatos ou exatamente uma caixa (Documentação e Operação, Financeiro ou Demurrage). Não há seleção manual de endereços individuais. |
 | Conferência | A Ficha e a conferência interna mostram os endereços agrupados por caixa, com seus vínculos e exclusões. Se a lista mudar entre conferência e envio, o envio é interrompido e exige nova conferência. |
 | B/L | Se houver principal, o e-mail capturado entra como adicional ativo em Documentação e Operação. Sem principal, torna-se principal ativo e recebe as três caixas. Se o e-mail normalizado já existir, não cria, não reativa e não altera vínculos. A captura aparece na Ficha. |
-| Indisponibilidade | Bounce permanente ou desativação remove o vínculo ativo afetado, grava uma correção agrupada e religa o principal elegível à caixa. Se o principal estiver indisponível e não houver substituto, a caixa fica bloqueada para envio e a equipe recebe alerta. Reclamação de Comunicados continua impedindo envio, mas não é tratada como reativação automática. |
+| Indisponibilidade | Bounce permanente desvincula o endereço da caixa afetada; a desativação lógica (deactivated_at) preserva as linhas de vínculo histórico, mas exclui o contato do roteamento ativo. Em ambos os casos, grava uma correção agrupada e religa o principal elegível à caixa. Se o principal estiver indisponível e não houver substituto, a caixa fica bloqueada para envio e a equipe recebe alerta. Reclamação de Comunicados continua impedindo envio, mas não é tratada como reativação automática. |
 | Auditoria | Cada salvamento do Portal gera uma ação única por Cliente, append-only, com estado anterior, estado posterior, mudanças, conta Portal, ator, origem e data. A equipe consulta isso na timeline da Ficha; não substitui o histórico dos Comunicados. |
 | Segurança | O navegador do Portal chama somente RPCs próprias; não envia customer_id e não escreve tabelas. O modo Inspeção lê por wrapper interno e bloqueia qualquer gravação. Toda RPC privilegiada fixa search_path, deriva/valida o Cliente e recebe grants explícitos. |
 | Compatibilidade | purpose e customer_contact_preferences deixam de ser fonte de roteamento. Permanecem no schema nesta entrega para permitir rollback e compatibilidade de código histórico, mas não são enviados pelo novo Portal, não são consultados pelo resolvedor e não recebem novos seeds. |
@@ -49,6 +49,8 @@ Estas são as decisões funcionais que a implementação deve preservar:
 | src/services/customerCommunications.ts:11-140, 294-303, 372-647 | Conferência resolve por customer_contact_preferences e Natureza; a estrutura deve passar a carregar vínculos, caixa-alvo e snapshot de destinatários. |
 | supabase/functions/send-customer-communication/index.ts:387-423 | Envio valida contato e preferência antiga no último momento; deve validar a caixa/audiência e a disponibilidade vigente. |
 | supabase/functions/demurrage-dunning/index.ts:117-185 e src/services/customerFinanceCommunications.ts:136-168 | Caminhos automáticos financeiro/demurrage também consultam preferências antigas; ambos devem usar o mesmo mapa caixa-modelo. |
+| supabase/migrations/002_business_logic_and_security.sql:3510-3530, 6840-6925 | find_due_customer_communication_automations e claim_due_demurrage_dunning_invoices consultam customer_contact_preferences diretamente; devem ser migradas na 008 para consultar customer_contact_box_links / customer_communication_recipient_allowed. |
+| src/pages/__tests__/ClienteFicha.behavior.test.tsx:50-150 | Testa edição e exclusão de contatos em CadastroContatosTab; precisa ser adaptada para a nova fotografia de contatos e caixas. |
 | src/services/customerFicha.ts:39-153 | Timeline hoje expõe auditoria linha a linha e criação de contato, mas não uma ação agrupada de configuração. |
 | src/services/portalScope.ts:18-28 | A allowlist de escritas do Portal precisa bloquear o novo RPC no modo Inspeção. |
 | supabase/migrations/001_initial_schema.sql–007_cron_secrets_no_vault.sql | A próxima migration local é 008_portal_contact_boxes.sql; não reutilizar nomes históricos arquivados. |
@@ -74,7 +76,7 @@ Estas são as decisões funcionais que a implementação deve preservar:
 
 - src/pages/PortalProfile.tsx, src/services/portalBilling.ts, src/hooks/usePortalProfile.ts — separar dados cadastrais de contatos; manter recuperação e compatibilidade de leitura sem mais editar contato por campo único.
 - src/services/portalScope.ts — bloquear portal_save_contact_configuration em Inspeção.
-- src/components/clientes/CadastroContatosTab.tsx, src/hooks/useCustomers.ts, src/services/customers.ts, src/pages/Clientes.tsx, src/lib/customerTableViewModel.ts — usar configuração de caixas, desativação lógica e resumo sem purpose como roteamento.
+- src/components/clientes/CadastroContatosTab.tsx, src/hooks/useCustomers.ts, src/services/customers.ts, src/pages/Clientes.tsx, src/lib/customerTableViewModel.ts, src/pages/__tests__/ClienteFicha.behavior.test.tsx — usar configuração de caixas, desativação lógica e resumo sem purpose como roteamento.
 - src/services/customerFicha.ts, src/hooks/useCustomerFicha.ts, src/components/clientes/HistoricoTab.tsx — carregar/exibir eventos agrupados de contatos e captura automática.
 - src/services/customerCommunications.ts, src/services/customerCommunicationDispatches.ts, src/hooks/useCustomerCommunications.ts, src/pages/ClientesComunicacao.tsx — resolver por caixa, audiência livre, agrupamento, snapshot e revalidação.
 - src/services/customerFinanceCommunications.ts, src/services/demurrageDunning.ts — usar Financeiro/Demurrage e deduplicação comum.
@@ -88,6 +90,7 @@ Estas são as decisões funcionais que a implementação deve preservar:
 ### Aposentar
 
 - src/services/customerContactPreferences.ts e src/hooks/useCustomerContactPreferences.ts — remover depois que a Ficha não tiver mais importadores; a tabela legada fica apenas no banco nesta entrega, sem uso no produto.
+- src/services/__tests__/customerContactPreferences.test.ts e src/hooks/__tests__/useCustomerContactPreferences.test.ts — remover junto com os arquivos correspondentes para evitar falhas de resolução de módulo nos testes.
 
 ## Plano de execução
 
@@ -114,8 +117,10 @@ describe('issue 609 — caixas de comunicação', () => {
     expect(sql).toMatch(/CREATE TABLE public\.customer_contact_box_links/i)
     expect(sql).toMatch(/CREATE TABLE public\.customer_contact_change_events/i)
     expect(sql).toMatch(/email_normalized.*GENERATED ALWAYS/i)
-    expect(sql).toMatch(/deactivated_at.*timestamp with time zone/i)
+    expect(sql).toMatch(/deactivated_at\s+(timestamptz|timestamp with time zone)/i)
     expect(sql).toMatch(/UNIQUE INDEX.*customer_contacts.*email_normalized/i)
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.find_due_customer_communication_automations/i)
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.claim_due_demurrage_dunning_invoices/i)
   })
 
   it('semeia exatamente as três caixas e os pacotes atuais', () => {
@@ -149,7 +154,7 @@ describe('issue 609 — caixas de comunicação', () => {
 
 Executar:
 
-~~~powershell
+~~~bash
 npx vitest run src/services/__tests__/issue609ContactBoxesMigration.test.ts --maxWorkers=1 --testTimeout=15000
 ~~~
 
@@ -157,7 +162,7 @@ Resultado esperado antes da migration: FAIL, porque supabase/migrations/008_port
 
 - [ ] **Step 3: Registrar o primeiro checkpoint.**
 
-~~~powershell
+~~~bash
 git add src/services/__tests__/issue609ContactBoxesMigration.test.ts
 git commit -m "test: specify issue 609 contact box contract"
 ~~~
@@ -181,6 +186,31 @@ ALTER TABLE public.customer_contacts
   ADD COLUMN origin text NOT NULL DEFAULT 'interno',
   ADD CONSTRAINT customer_contacts_origin_check
     CHECK (origin IN ('portal', 'interno', 'bl_automatico', 'sistema'));
+
+-- Sanitização defensiva para evitar quebra em bases existentes com duplicidades
+WITH duplicates AS (
+  SELECT id, ROW_NUMBER() OVER (
+    PARTITION BY customer_id, NULLIF(lower(btrim(email)), '')
+    ORDER BY is_primary DESC, id ASC
+  ) AS rn
+  FROM public.customer_contacts
+  WHERE customer_id IS NOT NULL AND NULLIF(lower(btrim(email)), '') IS NOT NULL
+)
+UPDATE public.customer_contacts
+SET deactivated_at = COALESCE(deactivated_at, now())
+WHERE id IN (SELECT id FROM duplicates WHERE rn > 1);
+
+WITH ranked_primaries AS (
+  SELECT id, ROW_NUMBER() OVER (
+    PARTITION BY customer_id
+    ORDER BY id DESC
+  ) AS rn
+  FROM public.customer_contacts
+  WHERE customer_id IS NOT NULL AND is_primary = true AND deactivated_at IS NULL
+)
+UPDATE public.customer_contacts
+SET is_primary = false
+WHERE id IN (SELECT id FROM ranked_primaries WHERE rn > 1);
 
 CREATE UNIQUE INDEX customer_contacts_customer_email_normalized_uidx
   ON public.customer_contacts (customer_id, email_normalized)
@@ -227,7 +257,7 @@ Não cadastrar institucional ou livre no mapa: eles usam audiência geral ou uma
 
 - [ ] **Step 3: Criar os vínculos por contato.**
 
-Criar customer_contact_box_links com FK para contato e catálogo, chave primária (contact_id, box_code), created_at e índices por (box_code, contact_id) e (contact_id, box_code). O vínculo deve aceitar o mesmo contato em três caixas, mas não duas vezes na mesma caixa. A exclusão em cascata só ocorre se o contato for apagado como parte da exclusão controlada do Cliente; o Portal nunca chama DELETE de contato.
+Criar customer_contact_box_links com FK para contato e catálogo, chave primária (contact_id, box_code), created_at e índice reverso por (box_code, contact_id). (A chave primária já cria o índice btree por contact_id, box_code, evitando índice redundante). O vínculo deve aceitar o mesmo contato em três caixas, mas não duas vezes na mesma caixa. A exclusão em cascata só ocorre se o contato for apagado como parte da exclusão controlada do Cliente; o Portal nunca chama DELETE de contato.
 
 - [ ] **Step 4: Criar a tabela de ação agrupada.**
 
@@ -237,15 +267,33 @@ Criar customer_contact_change_events com id, action_id uuid default gen_random_u
 
 Habilitar RLS nas quatro tabelas novas, revogar PUBLIC/anon, permitir SELECT somente a is_active_read_user() para usuários internos e não conceder INSERT, UPDATE ou DELETE de eventos a authenticated. As escritas de vínculos ocorrerão somente pelo núcleo SECURITY DEFINER; o cliente do Portal verá a projeção pelo getter, não pela tabela.
 
-- [ ] **Step 6: Desligar o seed do modelo antigo sem apagar sua tabela.**
+- [ ] **Step 6: Desligar o seed do modelo antigo e fazer backfill dos contatos existentes.**
 
-Executar DROP TRIGGER IF EXISTS trg_seed_customer_contact_preferences ON public.customer_contacts;. Não migrar preferências antigas para caixas: a decisão do produto informa que não há dados antigos em produção, e copiar Naturezas antigas recriaria a ambiguidade que foi removida.
+Executar DROP TRIGGER IF EXISTS trg_seed_customer_contact_preferences ON public.customer_contacts;. Para que clientes já existentes no banco não fiquem sem vínculos às caixas, executar backfill idempotente:
+
+~~~sql
+-- Contatos principais ativos recebem todas as caixas
+INSERT INTO public.customer_contact_box_links (contact_id, box_code)
+SELECT cc.id, ccb.code
+FROM public.customer_contacts cc
+CROSS JOIN public.customer_communication_boxes ccb
+WHERE cc.is_primary = true AND cc.deactivated_at IS NULL
+ON CONFLICT DO NOTHING;
+
+-- Contatos adicionais ativos sem vínculos recebem documentacao_operacao
+INSERT INTO public.customer_contact_box_links (contact_id, box_code)
+SELECT cc.id, 'documentacao_operacao'
+FROM public.customer_contacts cc
+WHERE (cc.is_primary = false OR cc.is_primary IS NULL) AND cc.deactivated_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM public.customer_contact_box_links l WHERE l.contact_id = cc.id)
+ON CONFLICT DO NOTHING;
+~~~
 
 - [ ] **Step 7: Rodar os testes de contrato e o replay local.**
 
 Executar:
 
-~~~powershell
+~~~bash
 npx vitest run src/services/__tests__/issue609ContactBoxesMigration.test.ts --maxWorkers=1 --testTimeout=15000
 bash scripts/setup-local-pg.sh --reset
 ~~~
@@ -254,7 +302,7 @@ Esperado: o teste termina com PASS; o replay local termina sem erro de migration
 
 - [ ] **Step 8: Registrar o checkpoint do schema.**
 
-~~~powershell
+~~~bash
 git add supabase/migrations/008_portal_contact_boxes.sql src/services/__tests__/issue609ContactBoxesMigration.test.ts
 git commit -m "feat: add customer communication box schema"
 ~~~
@@ -267,7 +315,7 @@ git commit -m "feat: add customer communication box schema"
 
 - [ ] **Step 1: Definir o payload único e o algoritmo de validação.**
 
-O núcleo privado _apply_customer_contact_configuration deve receber p_customer_id, a fotografia JSON, source, ator, conta Portal e B/L relacionado. A fotografia aceita este formato, sem customer_id por item:
+O núcleo privado `_apply_customer_contact_configuration` deve receber `p_customer_id`, a fotografia JSON, `source`, ator, conta Portal e B/L relacionado. Executar logo na abertura `PERFORM 1 FROM public.customers WHERE id = p_customer_id FOR UPDATE;` para travar concorrência e evitar race conditions entre múltiplos salvamentos ou entre Portal e Ficha. A fotografia aceita este formato, sem customer_id por item:
 
 ~~~json
 [
@@ -294,9 +342,11 @@ O núcleo privado _apply_customer_contact_configuration deve receber p_customer_
 
 Validar tudo antes de qualquer INSERT, UPDATE ou alteração de vínculo: JSON array, contato existente pertencente ao Cliente, e-mail válido em todo contato novo/ativo, unicidade normalizada contra o payload e contra o índice, caixas ativas existentes, ao menos uma caixa para cada contato ativo, exatamente um principal ativo e principal com e-mail. Se falhar, levantar erro sem persistir nada. A mensagem de duplicidade deve trazer o id/nome/e-mail já cadastrado.
 
-- [ ] **Step 2: Implementar as regras de principal e substituição.**
+- [ ] **Step 2: Implementar as regras de principal, substituição e invariante de não-zeramento de caixas.**
 
-Bloquear o salvamento quando o principal sair de uma caixa sem outro contato ativo, com e-mail não suprimido e vinculado àquela caixa na fotografia final. Se o principal mudar, tornar o novo principal vinculado às três caixas, mantendo os vínculos do principal anterior. Se um contato novo for principal, aplicar as três caixas quando box_codes vier ausente; se vier explícito, validar as retiradas com a mesma regra de substituição. Contatos inativos preservam seus vínculos e não contam como destinatários.
+Aplicar o invariante global de integridade: ao final do processamento da fotografia, **cada uma das três caixas ativas (`documentacao_operacao`, `financeiro`, `demurrage`) deve possuir ao menos um contato ativo e não suprimido vinculado**. Se qualquer caixa ativa terminar sem nenhum contato elegível (seja pela retirada do principal sem substituto, seja pela desativação ou desvinculação de contato adicional que era o único destinatário daquela caixa), a transação inteira é abortada com erro claro informando a caixa que ficaria sem cobertura.
+
+Se o principal mudar, tornar o novo principal vinculado às três caixas, mantendo os vínculos do principal anterior. Se um contato novo for principal, aplicar as três caixas quando box_codes vier ausente; se vier explícito, validar as retiradas com o mesmo invariante de não-zeramento. Contatos inativos (`deactivated_at IS NOT NULL`) preservam seus vínculos em banco, mas não contam como destinatários e são desconsiderados do cálculo de cobertura ativa.
 
 O resultado deve retornar a fotografia canônica, inclusive suppression_reason, sendable e box_codes, para que o Portal possa mostrar imediatamente o estado salvo.
 
@@ -332,22 +382,24 @@ Revogar PUBLIC, anon e authenticated do núcleo privado e conceder execução ap
 
 Recriar create_customer_with_contacts para exigir uma lista com exatamente um principal e e-mail válido. O primeiro contato principal recebe as três caixas; cada adicional precisa de box_codes não vazio. A RPC deve inserir origin='interno', criar os vínculos dentro da mesma transação e registrar um evento source='interno' quando houver configuração inicial. A ausência de e-mail deve retornar erro de validação, não criar Cliente incompleto.
 
-- [ ] **Step 6: Implementar o reparo automático por disponibilidade.**
+- [ ] **Step 6: Implementar o reparo automático por disponibilidade e atualizar produtoras em background.**
 
-Criar repair_customer_contact_box_fallbacks(p_customer_id bigint, p_kind text DEFAULT NULL, p_box_code text DEFAULT NULL) com execução restrita. Para cada caixa alcançada pelo modelo ou pela caixa-alvo:
+Criar `repair_customer_contact_box_fallbacks(p_customer_id bigint, p_kind text DEFAULT NULL, p_box_code text DEFAULT NULL)` com `SECURITY DEFINER` e `SET search_path = pg_catalog, public, pg_temp`. Para cada caixa alcançada pelo modelo ou pela caixa-alvo:
 
-1. remover o vínculo ativo de contatos com bounce permanente ou desativados;
-2. se existir principal ativo e elegível, inserir o vínculo do principal e registrar uma ação source='sistema';
-3. se o principal estiver indisponível, tentar outro contato ativo, elegível e já vinculado à caixa;
-4. se não houver substituto, não escolher endereço fora da caixa, marcar a resolução como bloqueada e chamar upsert_alert_item com a caixa no metadata e destino /clientes.
+1. Para contatos com bounce permanente (`recovery_email_status = 'bounce_permanente'`), remover o vínculo correspondente em `customer_contact_box_links`; para contatos desativados (`deactivated_at IS NOT NULL`), manter os registros de vínculo para histórico, tratando-os como inelegíveis no roteamento ativo;
+2. Se existir principal ativo e elegível não vinculado a essa caixa, inserir o vínculo do principal e registrar uma ação source='sistema';
+3. Se o principal estiver indisponível, tentar outro contato ativo, elegível e já vinculado à caixa;
+4. Se não houver substituto elegível, não escolher endereço fora da caixa, marcar a resolução como bloqueada e chamar `upsert_alert_item` com a caixa no metadata e destino `/clientes`.
 
 O reparo deve ser idempotente: repetir a mesma indisponibilidade não cria vínculos ou eventos duplicados quando o estado não mudou.
 
+Além disso, atualizar na migration 008 as funções `find_due_customer_communication_automations` e `claim_due_demurrage_dunning_invoices` (originalmente da 002) para consultarem `customer_contact_box_links` em vez da tabela legada `customer_contact_preferences`, garantindo que os agendamentos automáticos em background de NOA, NOR, NOB, CE e Demurrage continuem funcionando com os novos contatos e caixas.
+
 - [ ] **Step 7: Atualizar contrato SQL e replay.**
 
-Acrescentar ao teste de contrato asserções para portal_save_contact_configuration, portal_inspect_get_contact_configuration, current_portal_customer_id, erros de principal/caixa e repair_customer_contact_box_fallbacks. Rodar:
+Acrescentar ao teste de contrato asserções para portal_save_contact_configuration, portal_inspect_get_contact_configuration, current_portal_customer_id, erros de principal/caixa, repair_customer_contact_box_fallbacks e as atualizações de find_due_customer_communication_automations e claim_due_demurrage_dunning_invoices. Rodar:
 
-~~~powershell
+~~~bash
 npx vitest run src/services/__tests__/issue609ContactBoxesMigration.test.ts --maxWorkers=1 --testTimeout=15000
 bash scripts/setup-local-pg.sh --reset
 ~~~
@@ -424,7 +476,7 @@ Em customerCommunications.ts, substituir preferences por boxLinksByContact/boxCo
 
 - [ ] **Step 5: Rodar os testes focados.**
 
-~~~powershell
+~~~bash
 npx vitest run src/services/__tests__/customerCommunicationBoxes.test.ts src/services/__tests__/customerCommunications.test.ts src/services/__tests__/customerCommunicationsE2EFlows.test.ts --maxWorkers=1 --testTimeout=15000
 ~~~
 
@@ -498,7 +550,7 @@ Os testes devem verificar:
 
 Rodar:
 
-~~~powershell
+~~~bash
 npx vitest run src/components/portal/__tests__/PortalContactConfiguration.test.tsx src/pages/__tests__/PortalProfile.test.tsx src/services/__tests__/portalBillingMutations.test.ts --maxWorkers=1 --testTimeout=15000
 ~~~
 
@@ -523,8 +575,11 @@ Adicionar portal_save_contact_configuration a portalWriteRpcNames. Criar a asser
 - Modify: src/components/clientes/__tests__/CadastroContatosTab.test.tsx
 - Modify: src/components/clientes/__tests__/HistoricoTab.test.tsx
 - Modify: src/services/__tests__/customerFicha.test.ts
+- Modify: src/pages/__tests__/ClienteFicha.behavior.test.tsx
 - Delete: src/services/customerContactPreferences.ts
 - Delete: src/hooks/useCustomerContactPreferences.ts
+- Delete: src/services/__tests__/customerContactPreferences.test.ts
+- Delete: src/hooks/__tests__/useCustomerContactPreferences.test.ts
 
 - [ ] **Step 1: Criar leitura e escrita interna da configuração.**
 
@@ -566,8 +621,8 @@ Cobrir:
 
 Rodar:
 
-~~~powershell
-npx vitest run src/services/__tests__/customerContactConfiguration.test.ts src/components/clientes/__tests__/CadastroContatosTab.test.tsx src/components/clientes/__tests__/HistoricoTab.test.tsx src/services/__tests__/customerFicha.test.ts --maxWorkers=1 --testTimeout=15000
+~~~bash
+npx vitest run src/services/__tests__/customerContactConfiguration.test.ts src/components/clientes/__tests__/CadastroContatosTab.test.tsx src/components/clientes/__tests__/HistoricoTab.test.tsx src/services/__tests__/customerFicha.test.ts src/pages/__tests__/ClienteFicha.behavior.test.tsx --maxWorkers=1 --testTimeout=15000
 ~~~
 
 Esperado: PASS e nenhuma consulta nova a customer_contact_preferences nos arquivos de produção.
@@ -600,10 +655,6 @@ WHERE customer_id = p_customer_id
   AND email_normalized = v_email
 FOR UPDATE;
 
-IF FOUND THEN
-  RETURN false; -- ativo ou inativo: não duplica, não reativa, não altera caixas
-END IF;
-
 SELECT EXISTS (
   SELECT 1 FROM public.customer_contacts
   WHERE customer_id = p_customer_id
@@ -611,6 +662,21 @@ SELECT EXISTS (
     AND deactivated_at IS NULL
 )
 INTO v_has_primary;
+
+IF FOUND THEN
+  -- Ativo ou inativo: não duplica, não reativa, não altera caixas
+  IF v_existing.deactivated_at IS NOT NULL AND NOT v_has_primary THEN
+    PERFORM public.upsert_alert_item(
+      'cliente_sem_contato_principal',
+      'Cliente sem contato principal ativo',
+      'Endereço reapareceu no B/L mas cadastro permanece inativo',
+      p_customer_id,
+      jsonb_build_object('customer_id', p_customer_id, 'email', v_email),
+      '/clientes'
+    );
+  END IF;
+  RETURN false;
+END IF;
 
 INSERT INTO public.customer_contacts (customer_id, name, email, origin, is_primary)
 VALUES (p_customer_id, p_contact_name, v_email, 'bl_automatico', NOT v_has_primary)
@@ -641,7 +707,7 @@ Na importação, uma linha sem e-mail deve ser erro de linha e não criar Client
 
 Rodar:
 
-~~~powershell
+~~~bash
 npx vitest run src/services/__tests__/revisaoEfeitoCompletoConciliacaoMigration.test.ts src/services/__tests__/importacaoCapturaContatoMigration.test.ts src/services/__tests__/customerCreateAtomic.test.ts src/services/__tests__/ReviewCustomerOnboarding.test.tsx --maxWorkers=1 --testTimeout=15000
 ~~~
 
@@ -725,7 +791,7 @@ Substituir fixtures de preferências por fixtures de vínculos a caixas e cobrir
 
 Rodar:
 
-~~~powershell
+~~~bash
 npx vitest run src/services/__tests__/customerCommunications.test.ts src/services/__tests__/customerCommunicationsE2EFlows.test.ts src/services/__tests__/customerFinanceCommunications.test.ts src/services/__tests__/demurrageDunningRead.test.ts src/services/__tests__/sendCustomerCommunicationFunction.test.ts src/services/__tests__/portalBounceCascade.test.ts src/pages/__tests__/ClientesComunicacao.test.tsx --maxWorkers=1 --testTimeout=15000
 ~~~
 
@@ -750,8 +816,8 @@ Esperado: PASS e rg -n customer_contact_preferences src supabase/functions sem o
 
 Com o Postgres local da Task 2 disponível, executar:
 
-~~~powershell
-npx supabase gen types typescript --local | Out-File -Encoding utf8 src/types/database.ts
+~~~bash
+npx supabase gen types typescript --db-url "$DATABASE_URL" --schema public > src/types/database.ts
 ~~~
 
 Conferir que aparecem customer_communication_boxes, customer_communication_box_kinds, customer_contact_box_links, customer_contact_change_events, deactivated_at, origin e as novas RPCs. Se a geração falhar, corrigir schema/ambiente; não acrescentar tipos à mão.
@@ -762,7 +828,7 @@ Alterar portal_list_provisioning_console e seus tipos/validações para projetar
 
 - [ ] **Step 3: Escrever ADR 0064.**
 
-Registrar status aceito, contexto da simplificação de Natureza/Finalidade para caixas, decisão de catálogo extensível, principal/fallback, precedence de escolha explícita do Cliente sobre captura automática, RPC do Portal, modo Inspeção e evento append-only. Referenciar a ADR 0004/0045 quanto a RLS/RPC e a ADR 0058 quanto à separação do canal de Comunicados. Adicionar a linha ao docs/adr/README.md.
+Registrar status aceito, contexto da simplificação de Natureza/Finalidade para caixas, decisão de catálogo extensível, principal/fallback, precedência de escolha explícita do Cliente sobre captura automática, fundamentação da ativação imediata sem double opt-in (privilegiando tempestividade dos comunicados marítimos e contenção de demurrage, com risco mitigado pela cascata de bounce), RPC do Portal, modo Inspeção e evento append-only. Referenciar a ADR 0004/0045 quanto a RLS/RPC e a ADR 0058 quanto à separação do canal de Comunicados. Adicionar a linha ao docs/adr/README.md.
 
 - [ ] **Step 4: Atualizar arquitetura, rastreabilidade e glossário.**
 
@@ -780,7 +846,7 @@ Durante a implementação, manter o plano listado em docs/plans/README.md. Depoi
 
 - [ ] **Step 1: Rodar a suíte funcional em série.**
 
-~~~powershell
+~~~bash
 npm run docs:check
 npm run typecheck
 npm run lint
@@ -793,7 +859,7 @@ Esperado: cada comando termina com código 0; docs:check não acusa links/estrut
 
 - [ ] **Step 2: Executar o replay de banco descartável e os contratos de segurança.**
 
-~~~powershell
+~~~bash
 bash scripts/setup-local-pg.sh --reset
 npx vitest run src/services/__tests__/issue609ContactBoxesMigration.test.ts src/services/__tests__/portalInspectionMigration.test.ts src/services/__tests__/portalAuthenticatedBoundaryMigration.test.ts --maxWorkers=1 --testTimeout=15000
 ~~~
