@@ -8,16 +8,18 @@ import { useToast } from '../ui/Toast'
 import {
   importContainerDates,
   parseContainerDatesFile,
+  type ContainerDatesImportResult,
   type ContainerDatesImportRow,
   type ParsedContainerDatesImport,
 } from '../../services/containerDatesImport'
+import { classifyDbError } from '../../lib/errors'
 
 export function ContainerDatesImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ParsedContainerDatesImport | null>(null)
-  const [report, setReport] = useState<{ updated: number; unchanged: number; missing: number } | null>(null)
+  const [report, setReport] = useState<ContainerDatesImportResult | null>(null)
   const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -52,15 +54,17 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
         queryClient.invalidateQueries({ queryKey: ['demurrage-invoices'] }),
         queryClient.invalidateQueries({ queryKey: ['bl-detail'] }),
       ])
-      const errors = preview.rowErrors.length
+      // Erros de estrutura vem do parse; os de gravacao vem do lote parcial.
+      // Somar os dois evita fechar o modal escondendo linhas que nao entraram.
+      const errors = preview.rowErrors.length + result.errors.length
       if (errors === 0) {
         showToast(`${result.updated} container(s) atualizado(s).`, 'success')
         resetAndClose()
         return
       }
       showToast(`${result.updated} atualizacao(oes) e ${errors} erro(s).`, 'info')
-    } catch {
-      showToast('Falha ao importar datas.', 'error')
+    } catch (error) {
+      showToast(`Falha ao importar datas. Motivo: ${classifyDbError(error).message}`, 'error')
     } finally {
       setSubmitting(false)
     }
@@ -98,6 +102,29 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
               <PreviewBox label="Erros de estrutura" value={preview.rowErrors.length} variant="metric-centered" />
               {report ? <PreviewBox label="Não encontrados" value={report.missing} variant="metric-centered" /> : null}
             </div>
+
+            {report?.errors.length ? (
+              <div className="app-table-scroll max-h-40 rounded-xl border border-[var(--app-border)]">
+                <table className="app-table app-table--compact min-w-[540px] text-left text-sm">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="px-3 py-2">BL</th>
+                      <th scope="col" className="px-3 py-2">Container</th>
+                      <th scope="col" className="px-3 py-2">Falha ao gravar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.errors.map((row) => (
+                      <tr key={`${row.bl_id}-${row.container_number}`}>
+                        <td className="px-3 py-2">{row.bl_id}</td>
+                        <td className="px-3 py-2">{row.container_number || '—'}</td>
+                        <td className="px-3 py-2">{row.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
 
             <div className="app-table-scroll max-h-64 rounded-xl border border-[var(--app-border)]">
               <table className="app-table app-table--compact min-w-[540px] text-left text-sm">
