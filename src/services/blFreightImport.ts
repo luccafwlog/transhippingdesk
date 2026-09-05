@@ -8,6 +8,7 @@ import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink, type CustomerMaps } from './customerReconciliation'
 import { applyBapliePhysicalFlags } from './baplieReconciliation'
 import { calculateProvisionalLocalCharges } from './charges/chargeOperationsService'
+import { reportBestEffortFailure } from '../lib/telemetry'
 import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
@@ -500,13 +501,17 @@ export async function confirmBlFreightImport(
     // carga usado no cálculo), incluindo os B/Ls irmãos de container
     // compartilhado. Best-effort e idempotente — sem isso, container é no-op.
     void applyBapliePhysicalFlags(voyageId, changedBy)
-      .catch(() => {})
+      .catch((error: unknown) => {
+        reportBestEffortFailure('aplicar flags fisicas do Baplie apos import de B/L', error, { voyageId })
+      })
       .finally(() => {
         void calculateProvisionalLocalCharges(
           voyageId,
           payload.map((bl) => bl.id),
           changedBy,
-        ).catch(() => {})
+        ).catch((error: unknown) => {
+          reportBestEffortFailure('calcular taxas locais provisorias apos import de B/L', error, { voyageId })
+        })
       })
   }
 
