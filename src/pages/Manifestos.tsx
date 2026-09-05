@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, Trash2, Upload, MoreVertical } from 'lucide-react'
@@ -91,12 +91,9 @@ export function Manifestos() {
   } | null
   const [actionsMenu, setActionsMenu] = useState<ActionsMenuState>(null)
 
-  function close() {
-    setActionsMenu(null)
-  }
-
-  useMemo(() => {
+  useEffect(() => {
     if (!actionsMenu) return
+    const close = () => setActionsMenu(null)
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close()
     }
