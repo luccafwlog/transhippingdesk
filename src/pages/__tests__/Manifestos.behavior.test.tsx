@@ -95,3 +95,26 @@ it('aplica o POL recebido na URL junto com viagem e POD', () => {
 
   expect(useBlsMock.mock.calls.at(-1)?.[0]).toMatchObject({ voyageId: '7', pol: 'CNTAC', pod: 'BRVIX' })
 })
+
+// O menu de ações registra listeners globais enquanto está aberto. Antes deste
+// teste o registro vivia num `useMemo`, cujo retorno o React descarta: os
+// listeners vazavam a cada abertura e sobreviviam à desmontagem da página.
+it('remove os listeners globais do menu de ações ao desmontar', () => {
+  const removeSpy = vi.spyOn(window, 'removeEventListener')
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const { unmount } = render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <Manifestos />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Ações para B/L BL-001' }))
+  removeSpy.mockClear()
+  unmount()
+
+  const removed = removeSpy.mock.calls.map(([type]) => type)
+  expect(removed).toEqual(expect.arrayContaining(['scroll', 'resize', 'keydown', 'mousedown']))
+  removeSpy.mockRestore()
+})
