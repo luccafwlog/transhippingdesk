@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, CalendarDays, Download, Trash2, MoreVertical } from 'lucide-react'
@@ -66,26 +66,23 @@ export function Containers() {
   } | null
   const [actionsMenu, setActionsMenu] = useState<ActionsMenuState>(null)
 
-  function closeMenu() {
-    setActionsMenu(null)
-  }
-
-  useMemo(() => {
+  useEffect(() => {
     if (!actionsMenu) return
+    const close = () => setActionsMenu(null)
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMenu()
+      if (event.key === 'Escape') close()
     }
     const onPointer = (event: MouseEvent) => {
       const target = event.target as HTMLElement
-      if (!target.closest('[data-actions-menu]')) closeMenu()
+      if (!target.closest('[data-actions-menu]')) close()
     }
-    window.addEventListener('scroll', closeMenu, true)
-    window.addEventListener('resize', closeMenu)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
     window.addEventListener('keydown', onKey)
     window.addEventListener('mousedown', onPointer)
     return () => {
-      window.removeEventListener('scroll', closeMenu, true)
-      window.removeEventListener('resize', closeMenu)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('mousedown', onPointer)
     }
