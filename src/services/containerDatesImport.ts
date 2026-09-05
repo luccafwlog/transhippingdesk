@@ -1,4 +1,5 @@
 import { assertUploadFile } from '../lib/fileGuard'
+import { extractErrorText } from '../lib/errors'
 import { asString } from '../lib/utils'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 import { supabase } from './supabase'
@@ -40,8 +41,17 @@ export async function parseContainerDatesFile(file: File): Promise<ParsedContain
   return parseRows(rows)
 }
 
-export async function importContainerDates(rows: ContainerDatesImportRow[]) {
-  if (!rows.length) return { updated: 0, unchanged: 0, missing: 0 }
+export type ContainerDatesImportError = { bl_id: string; container_number: string; message: string }
+
+export type ContainerDatesImportResult = {
+  updated: number
+  unchanged: number
+  missing: number
+  errors: ContainerDatesImportError[]
+}
+
+export async function importContainerDates(rows: ContainerDatesImportRow[]): Promise<ContainerDatesImportResult> {
+  if (!rows.length) return { updated: 0, unchanged: 0, missing: 0, errors: [] }
 
   const blIds = Array.from(new Set(rows.map((r) => r.bl_id)))
 
@@ -95,6 +105,7 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
   let updated = 0
   let unchanged = 0
   let missing = 0
+  const errors: ContainerDatesImportError[] = []
 
   const uniqueRows = Array.from(new Map(rows.map((r) => [makeKey(r.bl_id, r.container_number), r])).values())
 
@@ -108,7 +119,15 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
 
     const sameDischarge = container.discharge_date === row.discharge_date
     const sameReturn = container.return_date === (row.return_date ?? null)
-    if (sameDischarge && sameReturn) { unchanged += 1; continue }
+    if (sameDischarge && sameReturn) {
+      unchanged += 1
+      // Uma execucao anterior interrompida no meio ja gravou a devolucao mas
+      // abortou antes de faturar. No reimport do mesmo arquivo a linha volta
+      // como inalterada; sem reenfileirar o B/L aqui a fatura de Demurrage
+      // nunca nasceria. `createInvoiceForReturnedBL` e idempotente.
+      if (container.demurrage_status === 'returned') blsToCheckForInvoice.add(row.bl_id)
+      continue
+    }
 
     const bl = blOverrides.get(row.bl_id)
     const doCliente = bl?.customer_id ? (customerAgreements.get(bl.customer_id) ?? []) : []
@@ -133,7 +152,13 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
       .update({ discharge_date: row.discharge_date, return_date: row.return_date ?? null, demurrage_status: newStatus as 'within_free_time' | 'overdue' | 'returned' })
       .eq('id', container.id)
 
-    if (updateError) throw updateError
+    if (updateError) {
+      // Cada linha e uma transacao propria: abortar no meio deixaria "meia
+      // carga" gravada e pularia o faturamento das linhas ja aplicadas.
+      // Acumular o erro mantem o lote avancando e o relatorio honesto.
+      errors.push({ bl_id: row.bl_id, container_number: row.container_number, message: extractErrorText(updateError) })
+      continue
+    }
     updated += 1
 
     if (newStatus === 'returned') blsToCheckForInvoice.add(row.bl_id)
@@ -153,11 +178,16 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]) {
     if (allReturned) {
       // Nasce 'issued' com a foto inicial (ADR 0014). Retorna null se o B/L já
       // tem fatura ativa (não sobrescreve) ou se não há demurrage devido.
-      await createInvoiceForReturnedBL(blId)
+      try {
+        await createInvoiceForReturnedBL(blId)
+      } catch (error) {
+        // Um B/L que falha ao faturar nao pode impedir o faturamento dos demais.
+        errors.push({ bl_id: blId, container_number: '', message: extractErrorText(error) })
+      }
     }
   }
 
-  return { updated, unchanged, missing }
+  return { updated, unchanged, missing, errors }
 }
 
 function resolveStatus(
