@@ -332,7 +332,6 @@ Os testes não foram executados nesta cartografia, por instrução do coordenado
 - `src/components/billing/__tests__/ConsolidatedInvoiceModal.test.tsx`
 - `src/components/billing/__tests__/ConsolidatedInvoiceSelection.test.ts`
 - `src/components/billing/__tests__/ManualChargeFormFields.test.tsx`
-- `src/components/billing/__tests__/PendenciasTable.test.tsx`
 - `src/components/billing/__tests__/ValidacaoOperationsTable.test.tsx`
 - `src/components/billing/__tests__/validacaoFunnel.test.ts`
 - `src/services/__tests__/portalGateCriterioMigration.test.ts`

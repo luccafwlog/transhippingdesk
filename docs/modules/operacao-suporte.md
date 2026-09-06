@@ -13,7 +13,7 @@ Escopo por rota:
 - `/alertas`: fila, filtros e dispensa temporária de alertas internos;
 - `/alertas/regras`: manual somente leitura das 26 regras ativas e das 2 aposentadas, com filtro por setor notificado e links para tratamento;
 - `/relatorios`: abas operacional, financeira, por cliente e demurrage, com exportação XLSX onde implementada;
-- `/line-up-tv`: compatibilidade por redirecionamento para `/painel`;
+- `/line-up-tv`: sem rota nem página dedicada — cai no catch-all interno de `src/App.tsx` e redireciona para `/painel`;
 - `/line-up-tv/display`: quadro protegido, sem o shell do `AppLayout`, para monitor/TV;
 - `/admin/usuarios`: perfis, papel, ativação, log de ações e métricas;
 - guards e shell compartilhados: `ProtectedRoute`, `AppLayout`, `HeaderInfoBar` e navegação.
@@ -133,7 +133,7 @@ Há exportação XLSX para operacional, financeiro e clientes. A aba demurrage a
 
 ### `/line-up-tv` e `/line-up-tv/display`
 
-`src/pages/LineUpTV.tsx` apenas retorna `<Navigate to="/painel" replace />`.
+`/line-up-tv` não tem rota nem página própria: o catch-all `<Route path="*" element={<Navigate to="/painel" replace />} />` de `src/App.tsx` absorve o caminho, como faz com qualquer rota interna desconhecida.
 
 `src/pages/LineUpTVDisplay.tsx` usa `['lineup-tv-display-v2']`, `staleTime` e auto-refresh de 30 segundos. Remove linhas com `atd`, tenta fullscreen na carga, mostra flash verde quando recebe novo snapshot e:
 
@@ -213,7 +213,7 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| Abrir `/line-up-tv` | Sessão interna ativa | Navegação/URL | `Navigate` com replace | Nenhuma | Redireciona para `/painel` | Guard pode redirecionar antes para login | **Código:** `src/pages/LineUpTV.tsx`, `src/App.tsx` |
+| Abrir `/line-up-tv` | Sessão interna ativa | Navegação/URL | Catch-all `<Route path="*">` com `Navigate` e `replace` | Nenhuma | Redireciona para `/painel`, como qualquer caminho interno desconhecido | Guard pode redirecionar antes para login | **Código:** `src/App.tsx` |
 | Exibir quadro TV | Sessão interna ativa; rota fora do `AppLayout` | URL/atalho do Painel | `useQuery(['lineup-tv-display-v2'])` → snapshot compartilhado | Mesmas leituras do Line-Up | Auto-refresh 30 s; filtra `atd`; carrossel desktop/cards mobile; tenta fullscreen | Fullscreen pode ser negado sem bloquear; erro de dados mostra mensagem | **Código:** `src/pages/LineUpTVDisplay.tsx`, `src/services/lineup.ts`, `src/App.tsx` |
 
 ### `/admin/usuarios` e shell
