@@ -131,7 +131,7 @@ Evidência estática localizada:
 - `src/components/shared/__tests__/VoyageScheduleModals.test.tsx`: normalização e payload dos modais POL, POD, inclusão de POD e export schedule.
 - `src/components/shared/__tests__/VoyageSectionCards.test.tsx`: navegação, estado desabilitado e componentes de métricas.
 - `src/components/shared/__tests__/VoyageCombobox.test.tsx`: filtro local, seleção obrigatória/limpável e hidratação por `selectedVoyageId`.
-- `src/components/shared/__tests__/VoyageImportActions.test.ts`: somente o resumo consolidado de manifestos CNTR; não prova persistência nem invalidações.
+- `src/components/shared/__tests__/VoyageImportActions.behavior.test.tsx`: ações de importação, abertura dos modais, escopo pela viagem, ordenação, navegação e chamada do importador; não prova persistência no banco nem invalidações de cache.
 - `src/services/__tests__/agencyDepartureReport.test.ts`: matriz de descarga, incluindo somente cheios no total de Carga descarregada, divergência Baplie × módulo, precedência OOG sobre IMO e merge de duplicatas.
 
 Os testes Vitest focados e a suíte final desta frente foram executados. Não houve validação contra Supabase ou runtime autenticado; as afirmações operacionais permanecem calibradas por código, testes locais e migrations.
