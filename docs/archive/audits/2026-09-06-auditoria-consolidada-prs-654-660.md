@@ -30,7 +30,11 @@ As conclusões de segurança também têm escopos diferentes. A conclusão da PR
 
 O achado `P1-5` da PR #654 e o `P1-01` da PR #657 são o mesmo problema de origem: `containerDatesImport` gravava uma linha por transação e podia deixar uma carga parcial sem faturamento de Demurrage. A PR #657 foi incorporada: o lote agora continua após falha de gravação, coleta `errors[]`, exibe as linhas no modal, isola falha de faturamento por B/L e reprocessa B/Ls já marcados como `returned` no reimport. Isso mitiga o cenário de faturamento perdido descrito na PR #654.
 
+Há uma precisão necessária entre os snapshots: no caminho exato mostrado no código da PR #654, `throw updateError` interrompe a função antes da segunda fase; portanto, aquela invocação não emite uma nova fatura. A formulação resumida de que a falha deixa “faturas de demurrage emitidas” é mais ampla que esse caminho específico. Para a leitura consolidada, prevalece a sequência detalhada da própria #654 e da #657: as linhas anteriores podem permanecer gravadas, o faturamento daquela execução não é alcançado e o reimport original não o recuperava.
+
 A correção não cria rollback transacional do lote. Portanto, a não atomicidade original permanece como risco residual e a recomendação de uma RPC transacional continua válida. O status consolidado é **mitigado parcialmente**, não “resolvido integralmente”.
+
+Para completar a proteção do mesmo fluxo, a implementação também não dispara faturamento de um B/L quando qualquer atualização desse B/L falhou; assim, a decisão não usa valores apenas propostos pela planilha para considerar todos os containers devolvidos. Isso continua sendo uma salvaguarda da mitigação parcial, não uma transação atômica.
 
 ### Falhas best-effort pós-importação — PR #657
 

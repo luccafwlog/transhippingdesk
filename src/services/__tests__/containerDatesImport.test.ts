@@ -117,6 +117,7 @@ describe('importContainerDates (lote parcial)', () => {
     expect(result.errors).toHaveLength(1)
     expect(result.errors[0]?.container_number).toBe('TCLU1111111')
     expect(result.errors[0]?.message).toContain('conflito de escrita')
+    expect(mockCreateInvoiceForReturnedBL).not.toHaveBeenCalled()
   })
 
   it('refatura B/L cuja devolucao ja estava gravada por uma tentativa interrompida', async () => {

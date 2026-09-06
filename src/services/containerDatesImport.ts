@@ -111,6 +111,7 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   // Track BL IDs where a container was newly set to 'returned'
   const blsToCheckForInvoice = new Set<string>()
+  const blsWithFailedUpdates = new Set<string>()
   let demurrageRatesLoaded = false
 
   for (const row of uniqueRows) {
@@ -157,6 +158,10 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
       // carga" gravada e pularia o faturamento das linhas ja aplicadas.
       // Acumular o erro mantem o lote avancando e o relatorio honesto.
       errors.push({ bl_id: row.bl_id, container_number: row.container_number, message: extractErrorText(updateError) })
+      // Nao faturar com base nos valores propostos pela planilha quando uma
+      // linha do mesmo B/L nao foi persistida. O faturamento consulta o banco
+      // e poderia emitir com apenas a parte ja retornada.
+      blsWithFailedUpdates.add(row.bl_id)
       continue
     }
     updated += 1
@@ -167,6 +172,7 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
   // For each BL that had a container newly returned, check if ALL containers are now returned
   // and auto-generate a demurrage invoice if any demurrage is owed.
   for (const blId of blsToCheckForInvoice) {
+    if (blsWithFailedUpdates.has(blId)) continue
     const blContainers = (containers as unknown as ContainerRow[]).filter((c) => c.bl_id === blId)
     const updatesForBl = new Map(uniqueRows.filter((r) => r.bl_id === blId).map((r) => [makeKey(r.bl_id, r.container_number), r]))
 
