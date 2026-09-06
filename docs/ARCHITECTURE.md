@@ -650,7 +650,7 @@ commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 | `/alertas` | Fila de alertas internos |
 | `/alertas/regras` | Manual somente leitura das regras de alertas, com setores notificados, filtros e links para as telas de resolução |
 | `/relatorios` | Relatórios e exportações |
-| `/line-up-tv` | Administração do Line Up |
+| `/line-up-tv` | Sem rota própria: cai no catch-all interno e redireciona para `/painel` |
 | `/line-up-tv/display` | Display protegido para TV |
 | `/chegadas-saidas` | Programação exibida no Portal |
 | `/admin/usuarios` | Administração de usuários: criação com senha definida pelo admin, edição de e-mail/senha, setor, ativação e auditoria |
