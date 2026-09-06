@@ -64,6 +64,41 @@ export async function provisionPreviewAdmin({ authAdmin, profiles, email, passwo
   return { id: user.id, email }
 }
 
+/**
+ * Refuses to provision the fixture against the production project.
+ *
+ * Este script cria um usuário `role = 'admin'`, `active = true`, com e-mail
+ * conhecido e senha fixa. Ele nunca deve tocar produção — mas nada nele exigia
+ * isso: a URL vinha pronta do ambiente, e um `supabase branches get` que
+ * resolvesse para o projeto pai (o branching do Supabase expõe o projeto de
+ * produção como branch persistente) provisionaria a credencial conhecida lá.
+ *
+ * O `SUPABASE_PROJECT_REF` do workflow é, por definição, o ref de produção —
+ * é ele que localiza as branches. Se o host da URL resolvida cita esse mesmo
+ * ref, a URL não é a de uma Preview Branch: aborta.
+ */
+export function assertPreviewTarget(url, productionProjectRef) {
+  const ref = (productionProjectRef ?? '').trim()
+  if (!ref) {
+    throw new Error(
+      'SUPABASE_PROJECT_REF ausente: sem o ref de produção não há como provar que o alvo é uma Preview Branch.',
+    )
+  }
+  let host
+  try {
+    host = new URL(url).host
+  } catch {
+    throw new Error(`SUPABASE_URL inválida: ${url}`)
+  }
+  if (host.split('.').includes(ref)) {
+    throw new Error(
+      `Recusado: SUPABASE_URL aponta para o projeto de produção (${ref}). ` +
+        'O admin de Preview só pode ser provisionado numa Preview Branch.',
+    )
+  }
+  return url
+}
+
 function requiredEnv(name) {
   const value = process.env[name]?.trim()
   if (!value) throw new Error(`Variável obrigatória ausente: ${name}.`)
@@ -71,7 +106,14 @@ function requiredEnv(name) {
 }
 
 async function main() {
-  const url = requiredEnv('SUPABASE_URL')
+  // Nome próprio, não `SUPABASE_PROJECT_REF`: o step anterior despeja a saída
+  // de `supabase branches get -o env` dentro de $GITHUB_ENV, e uma chave de
+  // mesmo nome vinda do CLI sobrescreveria o ref de produção — apagando
+  // justamente a referência contra a qual se compara.
+  const url = assertPreviewTarget(
+    requiredEnv('SUPABASE_URL'),
+    requiredEnv('PRODUCTION_SUPABASE_PROJECT_REF'),
+  )
   const secretKey = process.env.SUPABASE_SECRET_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
   if (!secretKey) {
     throw new Error('Credencial server-side ausente: SUPABASE_SECRET_KEY ou SUPABASE_SERVICE_ROLE_KEY.')
