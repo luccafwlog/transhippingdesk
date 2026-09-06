@@ -352,7 +352,16 @@ refaça o caminho.
 
 Devem entrar como `supabase/migrations/009_portal_revocation_and_entrypoint_guards.sql`,
 seguindo o red-green do playbook de migrations: teste de contrato primeiro,
-depois aplicação numa Preview Branch descartável.
+depois aplicação real.
+
+**Aplicar não é salto no escuro.** O job `Migration replay (Postgres real)` do
+`ci.yml` reexecuta *todas* as migrations do zero contra um PostgreSQL 16 real
+(`scripts/setup-local-pg.sh --reset`), roda `scripts/check-squash-replay.sql` e
+depois aplica `supabase/seed.sql`. Uma 009 sintaticamente inválida, com corpo de
+função quebrado ou com o `DO $verify_009$` reprovando, derruba o gate da PR
+imediatamente — sem depender de Preview Branch. A Preview continua sendo onde se
+prova o *comportamento* (recusa por `iat`, guarda por papel) com sessão real;
+o CI prova que o schema aplica.
 
 ### 1 — `portal_get_session_overview_v2`
 
@@ -453,7 +462,9 @@ $verify_009$;
   Supabase alcançável nesta sessão, então **não há evidência Runtime** para
   nenhuma afirmação deste relatório. Todo o achado é leitura estática.
 - O apêndice SQL **não foi aplicado nem testado**. Antes de virar migration
-  precisa de teste de contrato próprio e de aplicação numa Preview Branch.
+  precisa de teste de contrato próprio; a aplicação em si é coberta pelo job
+  `Migration replay (Postgres real)` do CI, e o comportamento (recusa por `iat`,
+  guarda por papel) por uma Preview Branch.
 
 ## Notas e divergências
 
