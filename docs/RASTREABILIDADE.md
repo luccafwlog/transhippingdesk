@@ -7,9 +7,10 @@ contratos executáveis do Supabase e ao documento do módulo proprietário. Ele 
 um mapa de navegação; regras completas continuam nos módulos e ADRs. A definição
 vigente é a última definição aplicável por assinatura e ordem de migration;
 snapshots e planos datados servem apenas como histórico.
-Nesta etapa foram inventariados 130 nomes literais de RPC, 62 tabelas acessadas
-diretamente pelo frontend e os diretórios de `supabase/functions` (hoje 15 Edge
-Functions além de `_shared`). O índice cobre a superfície navegável, não a
+Nesta etapa foram inventariados 130 nomes literais de RPC, 60 tabelas acessadas
+diretamente pelo frontend e 2 buckets de Storage usados pelos serviços, além
+dos diretórios de `supabase/functions` (hoje 15 Edge Functions além de
+`_shared`). O índice cobre a superfície navegável, não a
 totalidade: o schema expõe 198 funções a `authenticated`/`anon`, e 83 delas
 ainda não têm linha aqui. Parte da superfície é montada em tempo de execução —
 `callPortalRpc` deriva os nomes `portal_inspect_*` por interpolação

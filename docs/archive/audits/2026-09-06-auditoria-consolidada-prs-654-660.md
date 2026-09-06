@@ -62,7 +62,7 @@ As correções de referências inexistentes, contagens e rotas em `docs/RASTREAB
 | PR #656: achados 1–5 e 7–9 | Preservados; correção de listeners é o único item implementado |
 | PR #656: achado 6 | Corrigido e testado na PR #656 |
 | PR #657: `P1-02` e `P2-02` | Mitigados em observabilidade por `reportBestEffortFailure`; remediação estrutural continua nos limites descritos |
-| PR #657: `P2-01`, `P3-01` e `P3-03` | Pendentes, conforme o relatório de origem |
+| PR #657: `P2-01`, `P3-01`, `P3-02` e `P3-03` | Pendentes, conforme o relatório de origem |
 | PR #658: `F1` a `F17` | Achados preservados; nenhuma alteração de comportamento |
 | PR #659: achados 1–10 | Achados preservados; somente correções factuais documentais aplicadas |
 | PR #660: achado 1 | Pendente; migration proposta não aplicada |
