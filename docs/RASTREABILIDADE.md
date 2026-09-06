@@ -15,7 +15,7 @@ ainda não têm linha aqui. Parte da superfície é montada em tempo de execuç�
 `callPortalRpc` deriva os nomes `portal_inspect_*` por interpolação
 (`src/services/portalScope.ts`), então esses nomes não aparecem como literais no
 código. Levantamento e lacunas detalhadas na
-[auditoria de 2026-09-06](archive/audits/2026-09-06-auditoria-conformidade-arquitetural.md).
+[auditoria consolidada das PRs #654–#660](archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md).
 
 ## Evidência
 
