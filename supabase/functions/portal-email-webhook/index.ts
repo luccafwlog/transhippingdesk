@@ -114,6 +114,25 @@ async function loadPortalSuppressionSets(
   }
 }
 
+async function isCommunicationsEnabled(
+  admin: ReturnType<typeof createClient>,
+): Promise<boolean> {
+  // D04: aviso de bounce ao cliente submetido à chave global de Comunicados.
+  // Fail-closed: sem leitura confirmada, nenhum aviso externo. Supressão,
+  // reparo de caixas e alerta interno seguem ativos fora deste gate.
+  try {
+    const { data, error } = await admin
+      .from('app_settings')
+      .select('communications_enabled')
+      .eq('id', 1)
+      .maybeSingle()
+    if (error) return false
+    return Boolean((data as { communications_enabled?: boolean } | null)?.communications_enabled)
+  } catch {
+    return false
+  }
+}
+
 async function sendBounceNotification(
   admin: ReturnType<typeof createClient>,
   customerId: number,
@@ -121,6 +140,7 @@ async function sendBounceNotification(
   recipient: BounceContact,
 ): Promise<void> {
   if (!recipient.email) return
+  if (!await isCommunicationsEnabled(admin)) return
 
   const normalizedBouncedEmail = normalizeEmail(bouncedEmail)
   const maskedBouncedEmail = maskEmail(normalizedBouncedEmail)

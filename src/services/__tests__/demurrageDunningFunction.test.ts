@@ -31,4 +31,19 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain("result === 'falha' || result === 'pausado'")
     expect(source).not.toContain("result === 'simulado') simulated")
   })
+
+  it('S06/D11 — agrupa por cliente/ciclo com uma mensagem por destinatário', () => {
+    expect(source).toContain('groupDunningCandidatesByCustomerCycle')
+    expect(source).toContain('sendCandidateGroup')
+    expect(source).toContain('createGroupedCommunication')
+    expect(source).toContain('p_bl_ids')
+    expect(source).toContain('demurrage:group:')
+    // Sem consolidar faturas: cada identificador/valor segue individual.
+    expect(source).toContain('sem consolidação')
+    // Revalida quitação/disputa/supressão/caixa por fatura antes de compor.
+    expect(source).toContain('revalidateInvoiceBeforeSend(admin, candidate.invoice_id)')
+    // Chave global: sem envio real desligado não há RESEND, mas o grupo
+    // simulado segue registrado; grupo unitário preserva o caminho por fatura.
+    expect(source).toContain('group.length === 1')
+  })
 })

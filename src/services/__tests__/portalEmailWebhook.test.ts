@@ -33,4 +33,15 @@ describe('webhook de email para Portal e Comunicados', () => {
     expect(webhook).toContain('resolveBounceCascade({')
     expect(webhook).toContain('idempotencyKey: `${BOUNCE_NOTIFICATION_KIND}:')
   })
+
+  it('S06/D04 — aviso de bounce ao cliente respeita a chave global; supressão/reparo/alerta seguem ativos', () => {
+    expect(webhook).toContain('isCommunicationsEnabled')
+    expect(webhook).toContain("from('app_settings')")
+    expect(webhook).toContain('communications_enabled')
+    expect(webhook).toMatch(/if\s*\(!await isCommunicationsEnabled\(admin\)\) return/)
+    // Convite/reset/segurança mantêm isenção: o gate cerca só a notificação de bounce.
+    expect(webhook).toContain("recordPortalSuppression(admin, email, 'bounce_permanente')")
+    expect(webhook).toContain("admin.rpc('repair_customer_contact_box_fallbacks'")
+    expect(webhook).toContain("openNoAlternativeAlert(admin, customerId)")
+  })
 })
