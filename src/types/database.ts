@@ -5684,6 +5684,54 @@ export type Database = {
         }
         Returns: number
       }
+      operational_list_bls: {
+        Args: {
+          p_cargo_mode?: string | null
+          p_cargo_profile?: string | null
+          p_charge_status?: string | null
+          p_financial_status?: string | null
+          p_page?: number
+          p_page_size?: number
+          p_pod?: string | null
+          p_pol?: string | null
+          p_review_status?: string | null
+          p_search?: string | null
+          p_voyage_id?: number | null
+        }
+        Returns: Json
+      }
+      operational_list_bl_summary: {
+        Args: {
+          p_cargo_mode?: string | null
+          p_cargo_profile?: string | null
+          p_charge_status?: string | null
+          p_financial_status?: string | null
+          p_pod?: string | null
+          p_pol?: string | null
+          p_review_status?: string | null
+          p_search?: string | null
+          p_voyage_id?: number | null
+        }
+        Returns: Json
+      }
+      operational_list_containers: {
+        Args: {
+          p_cargo_mode?: string | null
+          p_cargo_profile?: string | null
+          p_charge_status?: string | null
+          p_container_type?: string | null
+          p_financial_status?: string | null
+          p_page?: number
+          p_page_size?: number
+          p_pod?: string | null
+          p_pol?: string | null
+          p_review_status?: string | null
+          p_search?: string | null
+          p_vehicle_container?: boolean | null
+          p_voyage_id?: number | null
+        }
+        Returns: Json
+      }
       pix_crc16_ccitt: { Args: { p_payload: string }; Returns: string }
       pix_tlv: { Args: { p_id: string; p_value: string }; Returns: string }
       portal_admin_change_cnpj: {
