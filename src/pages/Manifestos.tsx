@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, Trash2, Upload, MoreVertical } from 'lucide-react'
@@ -98,6 +98,27 @@ export function Manifestos() {
     left: number
   } | null
   const [actionsMenu, setActionsMenu] = useState<ActionsMenuState>(null)
+  const actionsTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const actionsItemRef = useRef<HTMLButtonElement | null>(null)
+
+  function openActionsMenu(id: string, button: HTMLButtonElement) {
+    actionsTriggerRef.current = button
+    const rect = button.getBoundingClientRect()
+    setActionsMenu({
+      id,
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.right + window.scrollX - 160,
+    })
+  }
+
+  useEffect(() => {
+    if (!actionsMenu) {
+      actionsTriggerRef.current?.focus()
+      actionsTriggerRef.current = null
+      return
+    }
+    actionsItemRef.current?.focus()
+  }, [actionsMenu])
 
   useEffect(() => {
     if (!actionsMenu) return
@@ -445,13 +466,15 @@ export function Manifestos() {
                           type="button"
                           className="app-btn app-btn--secondary p-1 leading-none"
                           aria-label={`Ações para B/L ${bl.id}`}
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            setActionsMenu({
-                              id: bl.id,
-                              top: rect.bottom + window.scrollY + 4,
-                              left: rect.right + window.scrollX - 160,
-                            })
+                          aria-haspopup="menu"
+                          aria-expanded={actionsMenu?.id === bl.id}
+                          aria-controls="manifestos-actions-menu"
+                          onClick={(e) => openActionsMenu(bl.id, e.currentTarget)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault()
+                              openActionsMenu(bl.id, e.currentTarget)
+                            }
                           }}
                         >
                           <MoreVertical size={15} />
@@ -482,6 +505,7 @@ export function Manifestos() {
       {actionsMenu ? (
         <div
           data-actions-menu
+          id="manifestos-actions-menu"
           className="app-floating-menu"
           role="menu"
           style={{ top: actionsMenu.top, left: actionsMenu.left }}
@@ -490,12 +514,19 @@ export function Manifestos() {
             <button
               type="button"
               role="menuitem"
+              ref={actionsItemRef}
               className="app-floating-menu__danger"
               disabled={deleting}
               onClick={() => {
                 const id = actionsMenu.id
                 setActionsMenu(null)
                 void runBlDelete([id])
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setActionsMenu(null)
+                }
               }}
             >
               <Trash2 size={14} />

@@ -118,3 +118,22 @@ it('remove os listeners globais do menu de ações ao desmontar', () => {
   expect(removed).toEqual(expect.arrayContaining(['scroll', 'resize', 'keydown', 'mousedown']))
   removeSpy.mockRestore()
 })
+
+it('abre o menu de ações pelo teclado e devolve o foco ao acionador', () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <Manifestos />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  const trigger = screen.getByRole('button', { name: 'Ações para B/L BL-001' })
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+
+  const menuItem = screen.getByRole('menuitem', { name: 'Excluir B/L' })
+  expect(document.activeElement).toBe(menuItem)
+  fireEvent.keyDown(menuItem, { key: 'Escape' })
+  expect(document.activeElement).toBe(trigger)
+})

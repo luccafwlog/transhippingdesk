@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, CalendarDays, Download, Trash2, MoreVertical } from 'lucide-react'
@@ -73,6 +73,27 @@ export function Containers() {
     left: number
   } | null
   const [actionsMenu, setActionsMenu] = useState<ActionsMenuState>(null)
+  const actionsTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const actionsItemRef = useRef<HTMLButtonElement | null>(null)
+
+  function openActionsMenu(id: number, button: HTMLButtonElement) {
+    actionsTriggerRef.current = button
+    const rect = button.getBoundingClientRect()
+    setActionsMenu({
+      id,
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.right + window.scrollX - 160,
+    })
+  }
+
+  useEffect(() => {
+    if (!actionsMenu) {
+      actionsTriggerRef.current?.focus()
+      actionsTriggerRef.current = null
+      return
+    }
+    actionsItemRef.current?.focus()
+  }, [actionsMenu])
 
   useEffect(() => {
     if (!actionsMenu) return
@@ -437,13 +458,15 @@ export function Containers() {
                           type="button"
                           className="app-btn app-btn--secondary p-1 leading-none"
                           aria-label={`Ações para container ${container.container_number}`}
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            setActionsMenu({
-                              id: container.id,
-                              top: rect.bottom + window.scrollY + 4,
-                              left: rect.right + window.scrollX - 160,
-                            })
+                          aria-haspopup="menu"
+                          aria-expanded={actionsMenu?.id === container.id}
+                          aria-controls="containers-actions-menu"
+                          onClick={(e) => openActionsMenu(container.id, e.currentTarget)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault()
+                              openActionsMenu(container.id, e.currentTarget)
+                            }
                           }}
                         >
                           <MoreVertical size={15} />
@@ -474,6 +497,7 @@ export function Containers() {
       {actionsMenu ? (
         <div
           data-actions-menu
+          id="containers-actions-menu"
           className="app-floating-menu"
           role="menu"
           style={{ top: actionsMenu.top, left: actionsMenu.left }}
@@ -482,12 +506,19 @@ export function Containers() {
             <button
               type="button"
               role="menuitem"
+              ref={actionsItemRef}
               className="app-floating-menu__danger"
               disabled={deleting}
               onClick={() => {
                 const id = actionsMenu.id
                 setActionsMenu(null)
                 void runContainerDelete([id])
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setActionsMenu(null)
+                }
               }}
             >
               <Trash2 size={14} />
