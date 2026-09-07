@@ -5053,9 +5053,6 @@ export type Database = {
         Args: { p_days: number }
         Returns: number
       }
-      can_edit_customers: { Args: never; Returns: boolean }
-      can_edit_depots: { Args: never; Returns: boolean }
-      can_edit_voyages: { Args: never; Returns: boolean }
       cancel_invoice: {
         Args: { p_actor?: string; p_invoice_id: number; p_reason: string }
         Returns: Json
@@ -5413,11 +5410,9 @@ export type Database = {
         }
         Returns: Json
       }
-      is_active_non_equipamentos_user: { Args: never; Returns: boolean }
       is_active_read_user: { Args: never; Returns: boolean }
       is_active_user: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
-      is_equipamentos_user: { Args: never; Returns: boolean }
       link_invoice_to_ledger: {
         Args: { p_invoice_id: number }
         Returns: undefined
@@ -5624,6 +5619,10 @@ export type Database = {
       }
       portal_get_profile: { Args: never; Returns: Json }
       portal_get_session_overview_v2: { Args: never; Returns: Json }
+      portal_inspect_list_disputes: {
+        Args: { p_customer_id: number }
+        Returns: Json
+      }
       portal_invoice_details: { Args: { p_invoice_id: number }; Returns: Json }
       portal_list_consolidatable_receivables: {
         Args: never
@@ -5667,10 +5666,6 @@ export type Database = {
       }
       portal_list_notifications: { Args: { p_limit?: number }; Returns: Json }
       portal_list_operation_bls: { Args: never; Returns: Json }
-      portal_list_operation_bls_without_transshipment: {
-        Args: never
-        Returns: Json
-      }
       portal_list_provisioning_console: {
         Args: { p_customer_id?: number }
         Returns: Json[]
@@ -5862,6 +5857,14 @@ export type Database = {
         Args: { p_actor?: string; p_payment_id: number; p_reason?: string }
         Returns: Json
       }
+      revert_voyage_omission: {
+        Args: {
+          p_changed_by: string
+          p_justification: string
+          p_omission_id: number
+        }
+        Returns: undefined
+      }
       run_billing_for_import_batch: {
         Args: { p_actor?: string; p_batch_id: number; p_recalculate?: boolean }
         Returns: Json
@@ -5974,7 +5977,12 @@ export type Database = {
         Returns: undefined
       }
       settle_cod_adjustment: {
-        Args: { p_adjustment_id: number; p_actor?: string }
+        Args: {
+          p_actor?: string
+          p_adjustment_id: number
+          p_resulting_document_id?: number
+          p_resulting_document_type?: string
+        }
         Returns: Json
       }
       set_customer_portal_account_active: {
