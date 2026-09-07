@@ -19,6 +19,7 @@ import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { usePageFilters } from '../hooks/usePageFilters'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { checkBlDependencies, deleteBls } from '../services/bls'
 import { formatBlockedSummary } from '../services/deleteDependencies'
 import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions } from '../hooks/useBls'
@@ -55,8 +56,14 @@ export function Manifestos() {
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
-  const { data, isLoading, error } = useBls(filters)
-  const { data: summary, isLoading: isSummaryLoading } = useBlSummary(filters)
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const queryFilters = useMemo(() => ({
+    ...filters,
+    search: debouncedSearch,
+    page: debouncedSearch === filters.search ? filters.page : 1,
+  }), [debouncedSearch, filters])
+  const { data, isLoading, error } = useBls(queryFilters)
+  const { data: summary, isLoading: isSummaryLoading } = useBlSummary(queryFilters)
   const { data: portOptions } = usePortOptions()
   const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
   const { data: invoiceLinksByBl } = useInvoiceLinks(blIdsOnPage)

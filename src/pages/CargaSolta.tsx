@@ -19,6 +19,7 @@ import { FileImportModal } from '../components/shared/FileImportModal'
 import { useAuth } from '../hooks/useAuth'
 import { fetchAllBls, type BlFilters, useBls, usePortOptions } from '../hooks/useBls'
 import { usePageFilters } from '../hooks/usePageFilters'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
@@ -52,13 +53,19 @@ export function CargaSolta() {
   const [exporting, setExporting] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
 
-  const { data, isLoading, error } = useBls(filters)
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const queryFilters = useMemo(() => ({
+    ...filters,
+    search: debouncedSearch,
+    page: debouncedSearch === filters.search ? filters.page : 1,
+  }), [debouncedSearch, filters])
+  const { data, isLoading, error } = useBls(queryFilters)
   const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
   const { data: invoiceLinksByBl } = useInvoiceLinks(blIdsOnPage)
   const [summaryRows, setSummaryRows] = useState<BLListItem[]>([])
   const summaryFilters = useMemo(
     () => ({
-      search: filters.search,
+      search: debouncedSearch,
       voyageId: filters.voyageId,
       cargoMode: filters.cargoMode,
       pol: filters.pol,
@@ -71,7 +78,7 @@ export function CargaSolta() {
       pageSize: 1000,
     }),
     [
-      filters.search,
+      debouncedSearch,
       filters.voyageId,
       filters.cargoMode,
       filters.pol,

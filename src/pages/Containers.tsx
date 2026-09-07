@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, CalendarDays, Download, Trash2, MoreVertical } from 'lucide-react'
@@ -13,6 +13,7 @@ import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { usePageFilters } from '../hooks/usePageFilters'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { CargoProfileBadge, ChargeStatusBadge } from '../components/shared/OperationalBadges'
@@ -49,7 +50,13 @@ export function Containers() {
   })
   const [exporting, setExporting] = useState(false)
   const [datesImportOpen, setDatesImportOpen] = useState(false)
-  const { data, isLoading, error } = useContainers(filters)
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const queryFilters = useMemo(() => ({
+    ...filters,
+    search: debouncedSearch,
+    page: debouncedSearch === filters.search ? filters.page : 1,
+  }), [debouncedSearch, filters])
+  const { data, isLoading, error } = useContainers(queryFilters)
   const { data: portOptions } = usePortOptions()
   const { data: typeOptions } = useContainerTypeOptions()
 
