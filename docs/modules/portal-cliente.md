@@ -160,13 +160,16 @@ conta não ativa.
 
 #### Arquitetura núcleo + invólucro
 
-As nove leituras escopadas por Cliente usam `_portal_<x>_core(customer_id, ...)`
+As leituras escopadas por Cliente usam `_portal_<x>_core(customer_id, ...)`
 como fonte única. A RPC do cliente mantém a assinatura e chama o núcleo com
 `current_portal_customer_id()`; `portal_inspect_<x>(customer_id, ...)` chama o
 mesmo núcleo após `_portal_inspect_guard`. O núcleo não é executável
 externamente; os invólucros de inspeção revogam `PUBLIC`/`anon` e concedem
 somente a `authenticated`. Isso evita assinaturas opcionais novas e o risco de
-`ALTER DEFAULT PRIVILEGES` reabrir `EXECUTE` para `anon`.
+`ALTER DEFAULT PRIVILEGES` reabrir `EXECUTE` para `anon`. `portal_list_disputes`
+segue o mesmo par desde `013_portal_disputes_inspection.sql`, e o par
+cliente/inspeção deriva do mapa literal `src/services/portalRpcContracts.ts`
+(usado pelo dispatcher, pelo teste de completude e pelo índice).
 
 `portal_get_session_overview_v2` fica fora desse par porque grava
 `last_login_at`; `portal_open_inspection` devolve seu overview sem essa escrita.
@@ -405,7 +408,7 @@ Não há teste focado para `PortalLogin`, `PortalProtectedRoute`, `PortalConsoli
 - **Código — links de notificação não navegam.** `portal_list_notifications` retorna `link`, mas `NotificationBell` apenas marca a linha como lida.
 - **Código — falha de perfil é silenciosa na carga.** `PortalProfile` ignora erro de `portal_get_profile`, podendo exibir campos vazios como se fossem dados reais.
 - **Código — falha do cronograma vira vazio.** `listVesselSchedules` registra no console e retorna `[]`, sem distinguir indisponibilidade de ausência de navios.
-- `portal_list_disputes()` existe em `supabase/migrations_archive/116_portal_fase2_notifications_disputes_profile.sql`, mas não tem consumidor no frontend atual.
+- `portal_list_disputes()` é consumida por `portalListDisputes` (`src/services/portalBilling.ts` via `usePortalDisputes`) e tem par de inspeção `portal_inspect_list_disputes` desde `013_portal_disputes_inspection.sql`.
 - [ADR 0001](../adr/0001-portal-login-supabase-auth.md) continua válida para Supabase Auth e fim do token legado, mas foi parcialmente superada pela [ADR 0013](../adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md) quanto aos identificadores aceitos.
 A operação interna do Portal está disponível em `/clientes/portal`, com fila
 inicial em “Aguardando análise”, prioridade visual, candidatos de email e

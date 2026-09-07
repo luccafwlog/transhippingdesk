@@ -76,3 +76,12 @@ permanece fora do alcance de Operações, que já o mantém desabilitado na tela
 Estende a [ADR 0044](./0044-leitura-interna-global-departamento-restringe-escrita.md)
 quanto à leitura interna e preserva as regras de autenticação da
 [ADR 0013](./0013-portal-auth-identificador-resolvido-e-excecao-anon.md).
+
+## Nota editorial — S11 (2026-09-07)
+
+`portal_list_disputes()` era a única leitura fora do padrão (sem núcleo nem
+invólucro de inspeção; falha `PGRST202` na aba de faturamento da Inspeção). A
+migration `013_portal_disputes_inspection.sql` extraiu
+`_portal_list_disputes_core(bigint)` e criou os dois invólucros, sem alterar a
+decisão acima. Paridade provada em
+`src/integration/portalInspectionParity.local-pg.test.ts`.
