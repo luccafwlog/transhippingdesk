@@ -5731,6 +5731,10 @@ export type Database = {
         Args: { p_demurrage_invoice_id: number; p_reason: string }
         Returns: Json
       }
+      portal_open_inspection: {
+        Args: { p_customer_id: number; p_origin?: string }
+        Returns: Json
+      }
       portal_recovery_check_rate_limit: {
         Args: { p_login: string }
         Returns: boolean

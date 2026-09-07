@@ -12,10 +12,10 @@ diretamente pelo frontend e 2 buckets de Storage usados pelos serviços, além
 dos diretórios de `supabase/functions` (hoje 15 Edge Functions além de
 `_shared`). O índice cobre a superfície navegável, não a
 totalidade: o schema expõe 198 funções a `authenticated`/`anon`, e 83 delas
-ainda não têm linha aqui. Parte da superfície é montada em tempo de execução —
-`callPortalRpc` deriva os nomes `portal_inspect_*` por interpolação
-(`src/services/portalScope.ts`), então esses nomes não aparecem como literais no
-código. Levantamento e lacunas detalhadas na
+ainda não têm linha aqui. O par cliente/inspeção deriva do mapa literal
+`src/services/portalRpcContracts.ts` (dispatcher em `src/services/portalScope.ts`,
+teste de completude e índice), então os nomes `portal_inspect_*` têm fonte única
+no código. Levantamento e lacunas detalhadas na
 [auditoria consolidada das PRs #654–#660](archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md).
 
 ## Evidência
@@ -148,7 +148,7 @@ as divergências permanecem no documento vivo do módulo indicado.
 | `/clientes/portal` | Fila e revisão individual do provisionamento | `src/pages/ClientesPortal.tsx`, `PortalReviewPanel` | `usePortalProvisioning`, `portalProvisioning.ts` | `customer_portal_accounts`, convites, contatos e alertas | Filtro inicial aguardando análise; ações individuais; deep-link por cliente | **Código**, **Teste** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/comunicacao` | Conferir, simular/enviar e consultar histórico de Comunicados | `src/pages/ClientesComunicacao.tsx` | `useCustomerCommunications`, `customerCommunications.ts`, `customerCommunicationDispatches.ts` | `customer_communications`, `customer_communication_bls`, `customer_communication_attempts`; Edge `send-customer-communication`; migrations `373`/`374` | Cache de conferência/histórico invalidado após dispatch; banner permanente quando a chave global está desligada; histórico chega à Ficha e aos B/Ls vinculados | **Código**, **Teste**, **Teste de contrato SQL** | [Clientes](modules/clientes.md#anatomia-das-telas) |
 | `/clientes/portal/inspecao/:customerId/*` | Inspecionar o Portal de um Cliente em modo somente leitura | `PortalReviewPanel`, `PortalLayout`, páginas do Portal | `PortalScope`, `callPortalRpc`, hooks de billing/operação/perfil/notificações | `portal_open_inspection`; núcleos `_portal_*_core`; invólucros `portal_inspect_*`; `portal_inspection_events` | Base path e caches incluem o Cliente; escritas bloqueadas; saída retorna à origem | Usuário interno inativo, Cliente inválido, RPC negada ou falha de overview | **Código:** ADR 0045; **Teste de contrato SQL:** paridade/grants; **Teste:** bloqueio e contenção |
-| `/clientes/portal/inspecao/:customerId/billing` | Consultar faturas em Modo Inspeção | `PortalBilling` | `usePortalBilling` / `PortalScope` | `portal_inspect_list_invoices`, `portal_inspect_*` | Cache inclui `customerId`; mutações desabilitadas | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
+| `/clientes/portal/inspecao/:customerId/billing` | Consultar faturas e disputas em Modo Inspeção | `PortalBilling` | `usePortalBilling` / `usePortalDisputes` / `PortalScope` | `portal_inspect_list_invoices`, `portal_inspect_list_disputes`, `portal_inspect_*` | Cache inclui `customerId`; mutações desabilitadas | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/portal/inspecao/:customerId/operacao` | Consultar BLs e containers em Modo Inspeção | `PortalOperacao` | `usePortalOperation` / `PortalScope` | `portal_inspect_list_operation_bls` | Leitura compartilhada; nenhuma escrita | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/portal/inspecao/:customerId/perfil` | Consultar perfil em Modo Inspeção | `PortalProfile` | `usePortalProfile` / `PortalScope` | `portal_inspect_get_profile` | Campos e ações permanecem visíveis; gravações bloqueadas | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `billing` | Subrota de faturas da Inspeção | `PortalBilling` | `PortalScope` | `portal_inspect_*` | Mantém o cliente na inspeção | **Código** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
