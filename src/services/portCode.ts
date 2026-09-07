@@ -56,22 +56,38 @@ const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
 ]
 
 export function normalizePortCode(value: string | null | undefined) {
-  const normalized = (value ?? '').trim().toUpperCase()
-  if (!normalized) return null
+  return resolvePortCode(value).code
+}
 
-  if (normalized === 'BRVIT') return 'BRVIX'
+/** Normaliza sem inventar LOCODE: devolve o código e se foi reconhecido. */
+export function resolvePortCode(value: string | null | undefined): { code: string | null; recognized: boolean } {
+  const normalized = (value ?? '').trim().toUpperCase()
+  if (!normalized) return { code: null, recognized: false }
+
+  if (normalized === 'BRVIT') return { code: 'BRVIX', recognized: true }
   const text = normalizeText(normalized)
   const match = PORT_NAME_TO_LOCODE
     .map(([name, code]) => ({ code, index: text.indexOf(normalizeText(name)) }))
     .filter((item) => item.index >= 0)
     .sort((left, right) => left.index - right.index)[0]
-  if (match) return match.code
+  if (match) return { code: match.code, recognized: true }
 
-  if (/^[A-Z]{5}$/.test(normalized)) return normalized
+  if (/^[A-Z]{5}$/.test(normalized)) {
+    const known = new Set(PORT_NAME_TO_LOCODE.map(([, code]) => code))
+    known.add('BRVIX')
+    known.add('BRVIT')
+    // 5 letras desconhecidas: devolve o texto mas sinaliza não reconhecido,
+    // nunca inventa que é LOCODE válido.
+    return { code: normalized, recognized: known.has(normalized) }
+  }
   const embeddedLocode = normalized.match(/\b(?:BR|CN|HK)[A-Z0-9]{3}\b/)?.[0]
-  if (embeddedLocode) return embeddedLocode === 'BRVIT' ? 'BRVIX' : embeddedLocode
+  if (embeddedLocode) {
+    const code = embeddedLocode === 'BRVIT' ? 'BRVIX' : embeddedLocode
+    const known = new Set(PORT_NAME_TO_LOCODE.map(([, code]) => code))
+    return { code, recognized: known.has(code) || code === 'BRVIX' }
+  }
 
-  return normalized
+  return { code: normalized, recognized: false }
 }
 
 /** Todas as formas persistidas historicamente para o mesmo porto. */
