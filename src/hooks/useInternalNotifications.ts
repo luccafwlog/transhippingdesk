@@ -64,6 +64,35 @@ export function useMarkInternalNotificationRead() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: markInternalNotificationRead,
+    onMutate: async (notificationId: number) => {
+      await queryClient.cancelQueries({ queryKey: INTERNAL_NOTIFICATIONS_QUERY_KEY })
+      await queryClient.cancelQueries({ queryKey: INTERNAL_NOTIFICATIONS_COUNT_QUERY_KEY })
+      const previousLists = queryClient.getQueriesData({ queryKey: INTERNAL_NOTIFICATIONS_QUERY_KEY })
+      const previousCount = queryClient.getQueryData(INTERNAL_NOTIFICATIONS_COUNT_QUERY_KEY)
+      const readAt = new Date().toISOString()
+      queryClient.setQueriesData(
+        { queryKey: INTERNAL_NOTIFICATIONS_QUERY_KEY },
+        (old: unknown) =>
+          Array.isArray(old)
+            ? old.map((item) =>
+                (item as InternalNotification).id === notificationId
+                  ? { ...(item as InternalNotification), read_at: (item as InternalNotification).read_at ?? readAt }
+                  : item,
+              )
+            : old,
+      )
+      queryClient.setQueryData(INTERNAL_NOTIFICATIONS_COUNT_QUERY_KEY, (count: unknown) =>
+        typeof count === 'number' ? Math.max(0, count - 1) : count,
+      )
+      return { previousLists, previousCount }
+    },
+    onError: (_error, _notificationId, context) => {
+      // Restaura o estado otimista (item + contador) para permitir retry.
+      for (const [key, data] of context?.previousLists ?? []) {
+        queryClient.setQueryData(key, data)
+      }
+      queryClient.setQueryData(INTERNAL_NOTIFICATIONS_COUNT_QUERY_KEY, context?.previousCount)
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: INTERNAL_NOTIFICATIONS_QUERY_KEY })
       void queryClient.invalidateQueries({ queryKey: INTERNAL_NOTIFICATIONS_COUNT_QUERY_KEY })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InternalNotification } from '../../../services/alerts'
@@ -56,6 +56,7 @@ const mockFallbackNotification: InternalNotification = {
 
 const mutateMarkReadMock = vi.fn().mockResolvedValue(undefined)
 const mutateMarkAllReadMock = vi.fn().mockResolvedValue(1)
+const showToastMock = vi.fn()
 
 // O sino recebe so a chave surrogate em `entity_id`; os rotulos chegam por uma
 // consulta separada, exatamente como na fila de /alertas.
@@ -79,6 +80,10 @@ vi.mock('../../../hooks/useInternalNotifications', () => ({
     mutateAsync: mutateMarkAllReadMock,
     isPending: false,
   }),
+}))
+
+vi.mock('../../ui/Toast', () => ({
+  useToast: () => ({ showToast: showToastMock }),
 }))
 
 import { InternalNotificationBell } from '../InternalNotificationBell'
@@ -185,6 +190,43 @@ describe('InternalNotificationBell', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByText('Notificações internas')).toBeNull()
+  })
+
+  it('falha ao marcar como lida avisa e permite retry sem duplicar', async () => {
+    mutateMarkReadMock.mockRejectedValueOnce(new Error('rede'))
+    render(
+      <MemoryRouter>
+        <InternalNotificationBell />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByLabelText('Notificações internas (3 não lidas)'))
+    fireEvent.click(screen.getByText('Fatura 123 vencida há 5 dias.'))
+
+    expect(mutateMarkReadMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith(expect.stringMatching(/marcar como lida/i), 'error'))
+
+    // O clique fecha o menu por desenho; reabrir mostra o item ainda não
+    // lido e único: retry não duplica a notificação.
+    fireEvent.click(screen.getByLabelText('Notificações internas (3 não lidas)'))
+    expect(screen.getAllByText('Fatura vencida')).toHaveLength(1)
+    fireEvent.click(screen.getByText('Fatura 123 vencida há 5 dias.'))
+    expect(mutateMarkReadMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('falha ao marcar todas como lidas avisa sem engolir o erro', async () => {
+    mutateMarkAllReadMock.mockRejectedValueOnce(new Error('rede'))
+    render(
+      <MemoryRouter>
+        <InternalNotificationBell />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByLabelText('Notificações internas (3 não lidas)'))
+    fireEvent.click(screen.getByText('Marcar todas como lidas'))
+
+    expect(mutateMarkAllReadMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith(expect.stringMatching(/todas como lidas/i), 'error'))
   })
 
   it('fecha o menu ao clicar fora', () => {
