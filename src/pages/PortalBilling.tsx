@@ -30,6 +30,7 @@ import {
 import { usePortalDisputes } from '../hooks/usePortalDisputes'
 import { buildInvoiceFileBaseName } from '../components/shared/invoiceFormat'
 import { exportPortalDemurrageWorkbook, exportPortalLocalInvoicesWorkbook } from '../services/exports'
+import { portalListDemurrageInvoicesForExport, portalListInvoicesForExport } from '../services/portalBilling'
 import { EMPTY_PORTAL_BILLING_FILTERS, type PortalBillingFilters } from '../lib/portalBillingFilters'
 import { formatBRL } from '../lib/utils'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
@@ -41,7 +42,8 @@ const BILLING_PAGE_SIZE = 25
 
 export function PortalBilling() {
   const { overview: authOverview } = usePortalAuth()
-  const { overview } = usePortalScope()
+  const portalScope = usePortalScope()
+  const { overview } = portalScope
   const effectiveOverview = overview ?? authOverview
   const { showToast } = useToast()
   const confirm = useConfirm()
@@ -67,6 +69,7 @@ export function PortalBilling() {
   const [printOpen, setPrintOpen] = useState(false)
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [demurragePrintOpen, setDemurragePrintOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [localFilters, setLocalFilters] = useState<Filters>(EMPTY_PORTAL_BILLING_FILTERS)
   const [demFilters, setDemFilters] = useState<Filters>(EMPTY_PORTAL_BILLING_FILTERS)
   const [localPage, setLocalPage] = useState(0)
@@ -93,12 +96,21 @@ export function PortalBilling() {
     setDemPage(0)
   }
 
-  function handleExport() {
-    if (tab === 'demurrage') {
-      void exportPortalDemurrageWorkbook(demurrageInvoices)
-      return
+  async function handleExport() {
+    setExporting(true)
+    try {
+      if (tab === 'demurrage') {
+        const rows = await portalListDemurrageInvoicesForExport(demFilters, portalScope)
+        await exportPortalDemurrageWorkbook(rows)
+        return
+      }
+      const rows = await portalListInvoicesForExport(localFilters, portalScope)
+      await exportPortalLocalInvoicesWorkbook(rows)
+    } catch (error) {
+      showToast(portalErrorMessage(error, 'Falha ao exportar as faturas.'), 'error')
+    } finally {
+      setExporting(false)
     }
-    void exportPortalLocalInvoicesWorkbook(localInvoices)
   }
 
   async function handleObsolete() {
@@ -132,7 +144,7 @@ export function PortalBilling() {
         description="Consulte suas faturas, pague via PIX e consolide B/Ls em aberto."
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={handleExport}>
+            <Button variant="ghost" loading={exporting} onClick={() => void handleExport()}>
               <Download size={16} />
               Exportar Excel
             </Button>

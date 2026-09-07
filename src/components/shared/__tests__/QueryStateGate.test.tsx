@@ -80,4 +80,18 @@ describe('QueryStateGate', () => {
     fireEvent.click(screen.getByText('Tentar novamente'))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
+
+  it('erro online com cache mostra falha e conserva a última leitura', () => {
+    const onRetry = vi.fn()
+    render(
+      <QueryStateGate isLoading={false} isError hasData onRetry={onRetry} errorMessage="Atualização falhou.">
+        <div>Linha antiga</div>
+      </QueryStateGate>,
+    )
+
+    expect(screen.getByRole('alert')).toBeTruthy()
+    expect(screen.getByText('Linha antiga')).toBeTruthy()
+    fireEvent.click(screen.getByText('Tentar novamente'))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
 })

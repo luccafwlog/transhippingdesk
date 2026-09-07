@@ -44,6 +44,15 @@ export function QueryStateGate({
           <div role="status" className="app-offline-banner">
             Você está offline. Exibindo dados salvos — a leitura retoma ao reconectar.
           </div>
+        ) : isError ? (
+          <div role="alert" className="app-panel app-panel--padded">
+            <p className="text-sm font-semibold text-[var(--app-text-strong)]">{errorMessage}</p>
+            {onRetry ? (
+              <button type="button" className="app-btn app-btn--secondary app-btn--sm mt-3" onClick={onRetry}>
+                Tentar novamente
+              </button>
+            ) : null}
+          </div>
         ) : null}
         {children}
       </>

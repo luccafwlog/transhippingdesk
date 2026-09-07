@@ -67,6 +67,14 @@ const demurrageInvoices: PortalDemurrageInvoice[] = [
 
 const exportLocal = vi.fn()
 const exportDemurrage = vi.fn()
+const portalExport = vi.hoisted(() => ({
+  local: vi.fn(),
+  demurrage: vi.fn(),
+}))
+portalExport.local.mockImplementation((filters: { bl?: string }) => Promise.resolve(
+  filters?.bl ? localInvoices.filter((invoice) => invoice.bls.includes(filters.bl!)) : localInvoices,
+))
+portalExport.demurrage.mockResolvedValue(demurrageInvoices)
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -150,6 +158,11 @@ vi.mock('../../services/exports', () => ({
   exportPortalDemurrageWorkbook: (...args: unknown[]) => exportDemurrage(...args),
 }))
 
+vi.mock('../../services/portalBilling', () => ({
+  portalListInvoicesForExport: (...args: unknown[]) => portalExport.local(...args),
+  portalListDemurrageInvoicesForExport: (...args: unknown[]) => portalExport.demurrage(...args),
+}))
+
 import { PortalBilling } from '../PortalBilling'
 
 function renderBilling() {
@@ -164,6 +177,10 @@ afterEach(() => {
   cleanup()
   exportLocal.mockClear()
   exportDemurrage.mockClear()
+  portalExport.local.mockReset().mockImplementation((filters: { bl?: string }) => Promise.resolve(
+    filters?.bl ? localInvoices.filter((invoice) => invoice.bls.includes(filters.bl!)) : localInvoices,
+  ))
+  portalExport.demurrage.mockReset().mockResolvedValue(demurrageInvoices)
   mocks.confirm.mockReset()
   mocks.obsolete.mockReset()
   mocks.detail = null

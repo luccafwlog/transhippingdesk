@@ -113,6 +113,31 @@ export async function portalListInvoicesPage(
   }
 }
 
+const PORTAL_EXPORT_PAGE_SIZE = 100
+
+async function collectPortalPages<TRow, TPage extends { rows: TRow[]; totalCount: number }>(
+  firstPage: TPage,
+  loadPage: (page: number) => Promise<TPage>,
+): Promise<TRow[]> {
+  const rows = [...firstPage.rows]
+  const totalPages = Math.ceil(firstPage.totalCount / PORTAL_EXPORT_PAGE_SIZE)
+  for (let page = 1; page < totalPages; page += 1) {
+    const nextPage = await loadPage(page)
+    rows.push(...nextPage.rows)
+    if (nextPage.rows.length === 0) break
+  }
+  return rows
+}
+
+export async function portalListInvoicesForExport(
+  filters: PortalBillingFilters,
+  scope: PortalScope = clientPortalScope,
+): Promise<PortalInvoiceSummary[]> {
+  const loadPage = (page: number) => portalListInvoicesPage(filters, page, PORTAL_EXPORT_PAGE_SIZE, scope)
+  const firstPage = await loadPage(0)
+  return collectPortalPages(firstPage, loadPage)
+}
+
 export async function portalInvoiceDetails(invoiceId: number, scope: PortalScope = clientPortalScope) {
   const data = await callPortalRpc<unknown>(scope, 'portal_invoice_details', { p_invoice_id: invoiceId })
 
@@ -214,6 +239,15 @@ export async function portalListDemurrageInvoicesPage(
     vesselOptions: payload.vessel_options ?? [],
     pods: payload.pods ?? [],
   }
+}
+
+export async function portalListDemurrageInvoicesForExport(
+  filters: PortalBillingFilters,
+  scope: PortalScope = clientPortalScope,
+): Promise<PortalDemurrageInvoice[]> {
+  const loadPage = (page: number) => portalListDemurrageInvoicesPage(filters, page, PORTAL_EXPORT_PAGE_SIZE, scope)
+  const firstPage = await loadPage(0)
+  return collectPortalPages(firstPage, loadPage)
 }
 
 export async function portalGetDemurrageInvoiceDetail(invoiceId: number, scope: PortalScope = clientPortalScope): Promise<PortalDemurrageInvoiceDetail> {
