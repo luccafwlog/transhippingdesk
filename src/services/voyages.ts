@@ -166,10 +166,10 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
     if (byImo?.length > 1) {
       throw new Error(`Navio com IMO ${normalizedImo} ambíguo: mais de um cadastro. Corrija antes de importar.`)
     }
-    if (byImo?.[0]) {
+    if (byImo?.[0] && byImo[0].imo === normalizedImo) {
       const vessel = byImo[0]
       const updates: { name?: string; carrier_id?: number } = {}
-      if (vessel.name !== canonical) updates.name = canonical
+      if (vessel.name && vessel.name !== canonical) updates.name = canonical
       if (vessel.carrier_id !== carrierId) updates.carrier_id = carrierId
       if (Object.keys(updates).length > 0) {
         const { error: updateError } = await supabase.from('vessels').update(updates).eq('id', vessel.id)
