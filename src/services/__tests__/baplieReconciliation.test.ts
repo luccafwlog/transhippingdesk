@@ -271,21 +271,21 @@ describe('reconcileBaplieWithManifest', () => {
     expect(mockRpc).toHaveBeenCalledWith('get_voyage_first_brazilian_eta', { p_voyage_id: 1 })
   })
 
-  it('audita flags Baplie com old_value real e new_value aplicado', async () => {
+  it('aplica flags Baplie pelo RPC atomico server-side', async () => {
     installReconcileMocks({
       bls: [{ id: 'BL1' }],
       baplie: [{ container_number: 'ABCD1234567', status: 'full', is_imo: true, imo_class: '3', un_number: '1203', is_oog: true }],
       containers: [{ id: 10, bl_id: 'BL1', container_number: 'ABCD1234567', is_imo: false, imo_class: null, un_number: null, is_oog: false }],
     })
+    mockRpc.mockImplementation(async (name: string) => name === 'apply_baplie_physical_flags_atomic'
+      ? { data: { applied: 1, updated_ids: [10] }, error: null }
+      : { data: null, error: null })
 
     await expect(applyBapliePhysicalFlags(1, 'u1')).resolves.toBe(1)
-    const audit = mutationCalls.find((call) => call.table === 'audit_logs' && call.method === 'insert')
-    expect(audit?.payload).toMatchObject({
-      entity_type: 'bl_container',
-      entity_id: '10',
-      field_name: 'baplie_physical_flags',
-      old_value: JSON.stringify({ is_imo: false, imo_class: null, un_number: null, is_oog: false }),
-      new_value: JSON.stringify({ is_imo: true, imo_class: '3', un_number: '1203', is_oog: true }),
+    expect(mockRpc).toHaveBeenCalledWith('apply_baplie_physical_flags_atomic', {
+      p_voyage_id: 1,
+      p_changes: null,
+      p_changed_by: 'u1',
     })
   })
 

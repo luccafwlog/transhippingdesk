@@ -32,6 +32,9 @@ verify_jwt = false
 [functions.customer-communication-auto-runner]
 verify_jwt = false
 
+[functions.import-effects-runner]
+verify_jwt = false
+
 [functions.portal-login]
 verify_jwt = false
 

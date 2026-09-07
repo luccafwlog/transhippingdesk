@@ -5042,6 +5042,34 @@ export type Database = {
         Args: { p_as_of?: string; p_limit?: number }
         Returns: Json
       }
+      claim_import_effects: {
+        Args: { p_lease_seconds?: number; p_limit?: number; p_worker_id: string }
+        Returns: Json[]
+      }
+      complete_import_effect: {
+        Args: {
+          p_effect_id: number
+          p_error_code?: string | null
+          p_error_message?: string | null
+          p_result?: Json | null
+          p_retry_at?: string | null
+          p_status: string
+          p_worker_id: string
+        }
+        Returns: Json
+      }
+      enqueue_import_effect: {
+        Args: {
+          p_created_by: string
+          p_depends_on_effect_id?: number | null
+          p_effect_kind: string
+          p_entity_id: string
+          p_source_action_id: string
+          p_source_revision?: number
+          p_source_snapshot?: Json
+        }
+        Returns: Json
+      }
       customer_local_charges_communication_payload: {
         Args: { p_customer_id: number; p_voyage_id: number }
         Returns: Json
@@ -5058,6 +5086,10 @@ export type Database = {
           last_attempt_at: string
         }[]
       }
+      list_import_effects: {
+        Args: { p_entity_id?: string | null; p_limit?: number; p_status?: string | null }
+        Returns: Json[]
+      }
       release_demurrage_dunning_claim: {
         Args: { p_attempt_discriminator: number; p_demurrage_invoice_id: number }
         Returns: boolean
@@ -5065,6 +5097,10 @@ export type Database = {
       release_customer_communication_automation_claim: {
         Args: { p_claim_key: string }
         Returns: boolean
+      }
+      retry_import_effect: {
+        Args: { p_effect_id: number; p_justification: string }
+        Returns: Json
       }
       set_demurrage_dunning_interval_days: {
         Args: { p_days: number }

@@ -501,17 +501,16 @@ export async function confirmBlFreightImport(
     // carga usado no cálculo), incluindo os B/Ls irmãos de container
     // compartilhado. Best-effort e idempotente — sem isso, container é no-op.
     void applyBapliePhysicalFlags(voyageId, changedBy)
+      .then(() => calculateProvisionalLocalCharges(
+        voyageId,
+        payload.map((bl) => bl.id),
+        changedBy,
+      ))
       .catch((error: unknown) => {
-        reportBestEffortFailure('aplicar flags fisicas do Baplie apos import de B/L', error, { voyageId })
-      })
-      .finally(() => {
-        void calculateProvisionalLocalCharges(
-          voyageId,
-          payload.map((bl) => bl.id),
-          changedBy,
-        ).catch((error: unknown) => {
-          reportBestEffortFailure('calcular taxas locais provisorias apos import de B/L', error, { voyageId })
-        })
+        // A falha das flags bloqueia o calculo dependente; o outbox persistido
+        // pelo RPC de origem fica disponivel para retomada sem executar uma
+        // etapa financeira sobre um conjunto fisico obsoleto.
+        reportBestEffortFailure('aplicar flags/calcular taxas provisorias apos import de B/L', error, { voyageId })
       })
   }
 
