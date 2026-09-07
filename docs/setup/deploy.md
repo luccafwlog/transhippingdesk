@@ -105,6 +105,15 @@ executa scripts modificados pela PR com secrets disponíveis. Depois de aguardar
 o check `Supabase Preview`, obtém as credenciais da branch com o Supabase CLI e
 roda [`scripts/provision-preview-admin.mjs`](../../scripts/provision-preview-admin.mjs).
 
+A decisão de prontidão vive em
+[`scripts/preview-readiness.mjs`](../../scripts/preview-readiness.mjs)
+(`decidePreviewReadiness`, coberta por
+`src/services/__tests__/previewReadiness.test.ts`): PR fechada ou SHA superado
+conclui como `obsolete` sem carregar credenciais nem provisionar; `skipped`
+com a PR aberta é `investigate` — diagnóstico sem segredo, nunca sucesso; o
+provisionamento só ocorre em `ready` (check verde no SHA exato, branch pronta
+e SHA/estado revalidados), sem fallback para produção.
+
 O script usa a Auth Admin API server-side para criar ou atualizar, de forma
 idempotente, o usuário `qa-admin@example.test`, confirmar seu e-mail e fazer
 upsert de `public.user_profiles` com `role = 'admin'` e `active = true`. A senha
