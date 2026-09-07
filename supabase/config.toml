@@ -48,7 +48,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.recalc-demurrage-ptax]
-verify_jwt = true
+verify_jwt = false
 
 [api]
 enabled = true

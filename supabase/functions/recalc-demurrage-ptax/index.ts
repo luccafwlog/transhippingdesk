@@ -39,6 +39,32 @@ function fmtBcbDate(d: Date): string {
 
 type BcbQuote = { cotacaoVenda: number; dataHoraCotacao: string }
 
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500
+}
+
+async function waitBeforeRetry(attempt: number): Promise<void> {
+  const baseMs = Math.min(2_000, 250 * 2 ** attempt)
+  const jitterMs = Math.floor(Math.random() * 100)
+  await new Promise((resolve) => setTimeout(resolve, baseMs + jitterMs))
+}
+
+async function fetchWithRetry(url: string, attempts = 3): Promise<Response> {
+  let lastError: unknown = new Error('request failed')
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(12_000) })
+      if (response.ok || !isRetryableStatus(response.status) || attempt === attempts - 1) return response
+      lastError = new Error(`HTTP ${response.status}`)
+    } catch (error) {
+      lastError = error
+      if (attempt === attempts - 1) throw error
+    }
+    await waitBeforeRetry(attempt)
+  }
+  throw lastError
+}
+
 async function fetchLatestPtax(): Promise<BcbQuote> {
   const today = new Date()
   const from = new Date(today)
@@ -49,12 +75,22 @@ async function fetchLatestPtax(): Promise<BcbQuote> {
     `?@dataInicial=%27${fmtBcbDate(from)}%27&@dataFinalCotacao=%27${fmtBcbDate(today)}%27` +
     `&$top=1&$orderby=dataHoraCotacao%20desc&$format=json&$select=cotacaoVenda,dataHoraCotacao`
 
-  const resp = await fetch(url, { signal: AbortSignal.timeout(12000) })
+  const resp = await fetchWithRetry(url)
   if (!resp.ok) throw new Error(`BCB HTTP ${resp.status}`)
   const json = await resp.json()
   const row = json?.value?.[0]
   if (!row || !row.cotacaoVenda) throw new Error('Periodo vazio no BCB (API com problema).')
-  return { cotacaoVenda: Number(row.cotacaoVenda), dataHoraCotacao: String(row.dataHoraCotacao) }
+  const cotacaoVenda = Number(row.cotacaoVenda)
+  const dataHoraCotacao = String(row.dataHoraCotacao ?? '')
+  if (!Number.isFinite(cotacaoVenda) || cotacaoVenda <= 0 || cotacaoVenda > 1000) {
+    throw new Error('PTAX invalida retornada pelo BCB.')
+  }
+  const quoteDate = dataHoraCotacao.slice(0, 10)
+  const parsedQuoteDate = new Date(`${quoteDate}T00:00:00Z`)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(quoteDate) || Number.isNaN(parsedQuoteDate.getTime())) {
+    throw new Error('Data de cotacao invalida retornada pelo BCB.')
+  }
+  return { cotacaoVenda: Number(cotacaoVenda.toFixed(4)), dataHoraCotacao }
 }
 
 Deno.serve(async (req: Request) => {
@@ -69,7 +105,8 @@ Deno.serve(async (req: Request) => {
     })
   }
 
-  if (!serviceRoleKey) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+  if (!serviceRoleKey || !supabaseUrl) {
     return new Response(JSON.stringify({ error: 'internal_configuration_error' }), { status: 500 })
   }
 
@@ -84,8 +121,24 @@ Deno.serve(async (req: Request) => {
     })
   }
 
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceRoleKey)
+  const supabase = createClient(supabaseUrl, serviceRoleKey)
   const quoteDate = quote.dataHoraCotacao.slice(0, 10) // dataHoraCotacao = "YYYY-MM-DD HH:mm:ss.SSS"
+  const roe = Number((quote.cotacaoVenda * 1.065).toFixed(4))
+
+  const { error: referenceError } = await supabase.rpc('save_exchange_rate_reference_v2', {
+    p_ptax: quote.cotacaoVenda,
+    p_roe: roe,
+    p_effective_date: quoteDate,
+    p_source: 'bcb_live',
+    p_quote_date: quoteDate,
+  })
+  if (referenceError) {
+    console.error('recalc-demurrage-ptax: referencia cambial falhou', referenceError)
+    return new Response(JSON.stringify({ error: 'reference_failed' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
 
   const { data, error } = await supabase.rpc('recalculate_demurrage_invoices', {
     p_ptax: quote.cotacaoVenda,
@@ -100,7 +153,7 @@ Deno.serve(async (req: Request) => {
     })
   }
 
-  return new Response(JSON.stringify({ ok: true, ptax: quote.cotacaoVenda, quote_date: quoteDate, result: data }), {
+  return new Response(JSON.stringify({ ok: true, ptax: quote.cotacaoVenda, roe, quote_date: quoteDate, result: data }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   })

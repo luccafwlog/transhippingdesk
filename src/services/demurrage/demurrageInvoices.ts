@@ -107,7 +107,7 @@ async function createDemurrageInvoiceWithItems(input: {
 /** ROE vigente para a foto inicial: override manual do B/L ou PTAX ao vivo do BCB. */
 async function resolveCurrentRoe(roeManual: boolean, manualRoe: number | null): Promise<{ currentRoe: number; roeSource: RoeSource }> {
   if (roeManual && manualRoe && manualRoe > 0) return { currentRoe: manualRoe, roeSource: 'manual' }
-  const { roe, source } = await fetchROE()
+  const { roe, source } = await fetchROE({ ensurePersistence: true })
   return { currentRoe: roe, roeSource: source }
 }
 

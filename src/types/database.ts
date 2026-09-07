@@ -5996,6 +5996,16 @@ export type Database = {
         Args: { p_effective_date: string; p_ptax: number; p_roe: number }
         Returns: undefined
       }
+      save_exchange_rate_reference_v2: {
+        Args: {
+          p_effective_date: string
+          p_ptax?: number | null
+          p_quote_date?: string | null
+          p_roe: number
+          p_source: string
+        }
+        Returns: Json
+      }
       save_granite_bl_review: {
         Args: {
           p_changed_by: string
