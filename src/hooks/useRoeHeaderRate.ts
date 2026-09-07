@@ -7,7 +7,7 @@ export function useRoeHeaderRate() {
   const queryClient = useQueryClient()
   const query = useQuery({
     queryKey: QUERY_KEY,
-    queryFn: fetchROE,
+    queryFn: () => fetchROE(),
     staleTime: 60 * 60 * 1000,
     retry: 1,
   })

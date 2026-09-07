@@ -34,5 +34,6 @@ describe('customerCommunicationReadiness', () => {
     expect(result.ready).toBe(false)
     expect(result.bls[0]?.cargo_mode).toBe('container')
     expect(customerCommunicationReadinessReasonLabel(result.reason_code)).toBe('Faturamento ainda não concluído')
+    expect(customerCommunicationReadinessReasonLabel('peso_bb_ausente')).toBe('Peso de carga solta ausente')
   })
 })

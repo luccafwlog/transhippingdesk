@@ -19,7 +19,7 @@ const detail = {
     pix_payload: pixPayload,
   },
   bls: [{ bl_id: 'BL-9', vessel_name: 'GREEN', voyage_number: '14N', pol: 'CNSHA', pod: 'BRVIX' }],
-  items: [{ id: 31, bl_id: 'BL-9', description: 'Taxa manual', quantity: 1, unit_value_brl: 100, total_value_brl: 100 }],
+  items: [{ id: 31, bl_id: 'BL-9', description: 'Taxa manual', quantity: 0.142857, unit_value_brl: 100, total_value_brl: 100, snapshot_payload: { shared_quantity_label: '1/7' } }],
   payments: [{ paid_at: '2026-06-25' }],
 } as never
 
@@ -32,6 +32,8 @@ it('imprime recibo de taxas locais sem PIX e com o mesmo conteúdo da fatura', (
   expect(screen.getByText(/Cliente Local/)).toBeTruthy()
   expect(screen.getByText('Pago em 25/06/2026')).toBeTruthy()
   expect(screen.getByText('Taxa manual')).toBeTruthy()
+  expect(screen.getByText('1/7')).toBeTruthy()
+  expect(screen.queryByText('0.142857')).toBeNull()
   expect(screen.queryByText('PAGAMENTO VIA PIX')).toBeNull()
   expect(screen.queryByText(pixPayload)).toBeNull()
 })

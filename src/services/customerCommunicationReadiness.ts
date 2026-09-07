@@ -67,6 +67,7 @@ export async function fetchCustomerLocalChargesCommunicationReadiness(
 export function customerCommunicationReadinessReasonLabel(reason: string): string {
   if (reason === 'ce_mercante_ausente') return 'CE Mercante ausente'
   if (reason === 'revisao_pendente') return 'Revisão do B/L pendente'
+  if (reason === 'peso_bb_ausente') return 'Peso de carga solta ausente'
   if (reason === 'faturamento_pendente') return 'Faturamento ainda não concluído'
   if (reason === 'no_bls') return 'Nenhum B/L ativo para este cliente na viagem'
   return reason || 'Prontidão financeira incompleta'
