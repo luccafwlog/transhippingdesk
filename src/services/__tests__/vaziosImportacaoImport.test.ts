@@ -14,9 +14,21 @@ describe('parseVaziosImportacaoBuffer', () => {
     expect(manifest.rowErrors).toEqual([])
     expect(manifest.containers).toEqual([
       { rowNumber: 2, container_number: 'MSCU1234567', container_type: '40HC', tare_kg: 3800, pol: 'CNTAC', pod: 'BRVIX' },
-      // toNumber('') retorna 0 — comportamento corrente congelado aqui.
-      { rowNumber: 3, container_number: 'TGHU7654321', container_type: null, tare_kg: 0, pol: 'CNSHA', pod: 'BRSSZ' },
+      // Ausência não é tara zero: preservamos a diferença entre empty e value 0.
+      { rowNumber: 3, container_number: 'TGHU7654321', container_type: null, tare_kg: null, pol: 'CNSHA', pod: 'BRSSZ' },
     ])
+  })
+
+  it('não transforma texto inválido ou expoente em tara zero', async () => {
+    const buffer = jsonToBuffer([
+      { Container: 'MSCU1234567', 'Tare (kg)': '1e3' },
+      { Container: 'TGHU7654321', 'Tare (kg)': '12abc' },
+    ])
+
+    const manifest = await parseVaziosImportacaoBuffer(buffer)
+
+    expect(manifest.containers.map((container) => container.tare_kg)).toEqual([null, null])
+    expect(manifest.rowErrors).toHaveLength(2)
   })
 
   it('mapeia cabecalhos em ingles (POL / POD)', async () => {

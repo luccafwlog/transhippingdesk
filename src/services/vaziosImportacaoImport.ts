@@ -1,7 +1,8 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { supabase } from './supabase'
-import { escapeFilterTerm, toNumber } from '../lib/utils'
+import { escapeFilterTerm } from '../lib/utils'
+import { parseImportNumber } from '../lib/importNumber'
 import type { VaziosImportacaoContainerListItem, VaziosImportacaoManifest } from '../types/database'
 
 const HEADER_MAP: Record<string, string> = {
@@ -70,9 +71,13 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
       rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
     }
 
-    const taraRaw = String(mapped['tare_kg'] ?? '').trim().replace(/[^\d.,]/g, '')
-    const normalizedTara = /^\d{1,3}\.\d{3}$/.test(taraRaw) ? taraRaw.replace('.', '') : taraRaw
-    const tare_kg = toNumber(normalizedTara) ?? 0
+    const parsedTare = parseImportNumber(mapped['tare_kg'], 'pt-BR')
+    const tare_kg = parsedTare.kind === 'value' ? Number(parsedTare.decimal) : null
+    if (parsedTare.kind !== 'empty' && (parsedTare.kind !== 'value' || !Number.isFinite(tare_kg))) {
+      rowErrors.add(rowNumber, `Container ${containerNumber}: tara inválida (${parsedTare.kind === 'invalid' ? parsedTare.reason : 'não finita'}).`, row)
+    } else if (tare_kg !== null && tare_kg < 0) {
+      rowErrors.add(rowNumber, `Container ${containerNumber}: tara não pode ser negativa.`, row)
+    }
     const pol = String(mapped['pol'] ?? '').trim() || null
     const pod = String(mapped['pod'] ?? '').trim() || null
 
