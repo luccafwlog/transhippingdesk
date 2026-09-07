@@ -1,6 +1,6 @@
 ---
 name: react-query-pattern
-description: Use when adding or changing Supabase data access, TanStack React Query hooks, cache keys, invalidation, mutations, reusable remote state, or page-to-service calls in Transhipping Desk.
+description: "Change Transhipping Desk remote-state ownership, query keys or mutation invalidation."
 ---
 
 # React Query and Data Access

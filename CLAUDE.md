@@ -2,11 +2,13 @@
 
 ## Sources of truth
 
-Read the relevant source before changing domain behavior, authentication,
-security boundaries, billing, imports, routes, or database schema.
+Read the sections relevant to the change. A typo or isolated edit does not
+require a repository map or the full documentation set. Before changing domain
+behavior, authentication, security boundaries, billing, imports, routes, or
+database schema, consult the corresponding source below.
 
-- `CONTEXT.md` — domain language.
-- `docs/ARCHITECTURE.md` — current architecture and routes.
+- `CONTEXT.md` — terminology and business rules for the affected domain.
+- `docs/ARCHITECTURE.md` — affected layers, contracts and routes.
 - `docs/RASTREABILIDADE.md` — traces every route/action to components, hooks,
   services, RPCs, and tests.
 - `docs/adr/README.md` — indexes accepted and superseded decisions.
@@ -18,6 +20,24 @@ Dated audits, specs, and plans are historical snapshots, not current truth. When
 a historical document differs from current behavior, the executable repository
 is authoritative: correct the living document and preserve the historical
 record.
+
+## Task scope and completion
+
+Carry an implementation request through the requested changes, relevant
+validation, fixes caused by the change, and living documentation updates.
+A first draft or a plan is not completion when implementation was requested.
+Ask when a missing business decision or authorization actually blocks progress;
+continue independent work and resolve routine local choices directly.
+
+Use skills when their specific workflow helps the task or the user names one.
+Read only relevant supporting references; overlapping skills are alternatives,
+not a mandatory chain. Repository skills live in `skills/`; their maintenance
+and installation are described in `skills/README.md`.
+
+Local edits and checks needed for the request can proceed without repeated
+approval. This does not authorize production mutations, sending messages,
+publishing, or bypassing the protections below. Honor any authorization already
+given for the specific action and environment.
 
 ## Conventions
 
@@ -62,10 +82,14 @@ planos e specs"):
 
 ## Verification
 
-Run the narrowest relevant checks while working. Before completion, run
-`npm run docs:check`, `npm run lint`, `npm test`, and `npm run build` when the
-change can affect them. `npm run docs:check` is required after changing
-Markdown, routes, ADRs, or playbooks.
+Choose checks by impact using `WORKFLOW.md` §11. Markdown-only changes need
+`npm run docs:check` and `git diff --check`; application changes need the
+relevant lint, tests and build gates. Keep successful results for unchanged
+code; rerun affected checks after fixes or new evidence, not for each status
+message. Report what ran and any unverified behavior.
+
+Do not treat all tests as production-isolated: Supabase integration tests
+require an explicitly controlled environment (see `WORKFLOW.md` §11).
 
 After creating a pull request, monitor it ONLY until CI finishes for the pushed
 commit: stay subscribed, fix CI failures and push, and once every check

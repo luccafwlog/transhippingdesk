@@ -219,7 +219,7 @@ não edite migrations aplicadas.
 4. confira os ADRs de segurança e domínio relevantes;
 5. defina rollback ou reversão operacional.
 
-Use o playbook `.claude/skills/supabase-migration.skill`.
+Use o playbook [`skills/supabase-migration/SKILL.md`](./skills/supabase-migration/SKILL.md).
 
 ### Validar em banco descartável (local)
 
@@ -319,7 +319,7 @@ Há fluxos legados que importam `supabase` diretamente. Ao tocar neles:
 
 ## 7. Importações e planilhas
 
-Use `.claude/skills/import-parser.skill`.
+Use [`skills/import-parser/SKILL.md`](./skills/import-parser/SKILL.md).
 
 Regras mínimas:
 
@@ -387,11 +387,19 @@ no navegador.
 
 Não adicione biblioteca de PDF sem requisito explícito que o diálogo de
 impressão não consiga atender. Use o playbook
-`.claude/skills/invoice-pdf.skill`.
+[`skills/invoice-pdf/SKILL.md`](./skills/invoice-pdf/SKILL.md).
 
 ## 11. Testes e validação
 
 ### Gate local
+
+Escolha os checks pelo impacto da alteração. Para mudanças somente em Markdown
+ou instruções de agentes, rode `npm run docs:check` e `git diff --check`; se uma
+skill tiver scripts alterados, valide também esses scripts. Não rode a suíte da
+aplicação apenas por uma mudança de prosa.
+
+Para mudanças de aplicação ou configuração que possam afetar esses contratos,
+o gate completo é:
 
 ```powershell
 npm run docs:check
@@ -401,7 +409,9 @@ npm test
 npm run build
 ```
 
-Execute também o teste focado durante o ciclo red-green.
+Execute testes focados durante a implementação. Após corrigir falhas, repita os
+checks afetados; resultados de código e ambiente inalterados continuam válidos.
+Os gates do CI permanecem obrigatórios conforme a seção 12.
 
 ### Isolamento entre arquivos de teste
 

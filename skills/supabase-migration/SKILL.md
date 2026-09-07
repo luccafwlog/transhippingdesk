@@ -1,6 +1,6 @@
 ---
 name: supabase-migration
-description: Use when creating or reviewing a Transhipping Desk Supabase migration involving tables, columns, indexes, constraints, foreign keys, RLS, grants, views, functions, triggers, RPCs, enums, or generated database types.
+description: "Create or review a Transhipping Desk database migration and its app contract."
 ---
 
 # Supabase Migration Playbook

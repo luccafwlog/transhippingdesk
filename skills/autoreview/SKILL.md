@@ -1,8 +1,6 @@
 ---
 name: autoreview
-description: >
-  Auto Review closeout. Codex review is the default when no engine is set and
-  is the recommended reviewer.
+description: "Run a structured code review with the requested engine for a local, commit or branch diff."
 ---
 
 # Auto Review
@@ -14,7 +12,7 @@ Codex review is the default when no engine is set. It usually delivers the best 
 Use when:
 
 - user asks for Codex review / Claude review / autoreview / second-model review
-- after non-trivial code edits, before final/commit/ship
+- when the risk of a code change warrants an independent structured review
 - reviewing a local branch or PR branch after fixes
 
 ## Contract
@@ -24,7 +22,7 @@ Use when:
 - Read dependency docs/source/types when the finding depends on external behavior.
 - Reject unrealistic edge cases, speculative risks, broad rewrites, and fixes that over-complicate the codebase.
 - Prefer small fixes at the right ownership boundary; no refactor unless it clearly improves the bug class.
-- Keep going until structured review returns no accepted/actionable findings.
+- Resolve accepted findings within scope; repeat review only after material fixes or to resolve an open concern. Stop when no actionable findings remain.
 - If a review-triggered fix changes code, rerun focused tests and rerun the structured review helper.
 - For security-audit suppression changes, verify accepted findings remain auditable: suppressed findings stay in structured output, active output keeps an unsuppressible suppression notice, and aggregate findings cannot hide unrelated active risk.
 - Never switch or override the requested review engine/model. If the review hits model capacity, retry the same command a few times with the same engine/model.
