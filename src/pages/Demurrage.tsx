@@ -28,7 +28,7 @@ import {
   getInvoiceDetail,
   listDemurrageInvoices,
   markInvoicePaid,
-  recomputeDiscountedBrl,
+  applyDemurrageDiscount,
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import {
@@ -246,15 +246,14 @@ export function Demurrage() {
       const validation = demurrageDiscountSchema.safeParse(form)
       if (!validation.success) throw new Error(formatValidationError(validation.error, 'Desconto invalido.'))
       const discount = validation.data
-      await updateDemurrageInvoice(id, {
-        discount_type: discount.discount_type,
-        discount_value: discount.discount_value,
-        discount_mode: discount.discount_mode,
-        discount_justification: discount.discount_justification,
-        discount_approver: discount.discount_approver,
+      await applyDemurrageDiscount({
+        invoiceId: id,
+        discountType: discount.discount_type,
+        discountValue: discount.discount_value,
+        discountMode: discount.discount_mode,
+        justification: discount.discount_justification,
+        approver: discount.discount_approver,
       })
-      // Reflete o desconto (USD) no BRL e no QR já, sem esperar o recálculo diário.
-      await recomputeDiscountedBrl(id)
     },
     onSuccess: () => {
       invalidateInvoices()

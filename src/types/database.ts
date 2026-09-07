@@ -5092,6 +5092,37 @@ export type Database = {
         Returns: number
       }
       confirm_unified_pix_matches: { Args: { p_matches: Json }; Returns: Json }
+      register_demurrage_payment: {
+        Args: {
+          p_invoice_id: number
+          p_paid_at: string
+          p_pix_txid?: string | null
+          p_ptax_used?: number | null
+          p_request_id: string
+          p_total_brl?: number | null
+        }
+        Returns: Json
+      }
+      apply_demurrage_discount: {
+        Args: {
+          p_discount_approver?: string | null
+          p_discount_justification?: string | null
+          p_discount_mode: string | null
+          p_discount_type?: string | null
+          p_discount_value: number | null
+          p_invoice_id: number
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      cancel_demurrage_invoice: {
+        Args: { p_invoice_id: number; p_reason: string; p_request_id: string }
+        Returns: Json
+      }
+      reopen_demurrage_invoice: {
+        Args: { p_invoice_id: number; p_reason: string; p_request_id: string }
+        Returns: Json
+      }
       capture_manifest_financial_contact: {
         Args: {
           p_customer_id: number

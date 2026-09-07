@@ -79,6 +79,13 @@ export const demurrageDiscountSchema = z.object({
       message: 'Percentual de desconto deve ficar entre 0 e 100.',
     })
   }
+  if (value.discount_value != null && value.discount_value > 0 && !value.discount_justification) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['discount_justification'],
+      message: 'Justificativa obrigatoria para aplicar desconto.',
+    })
+  }
 })
 
 export const demurrageDatesSchema = z.object({

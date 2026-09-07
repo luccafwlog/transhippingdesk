@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   markPaid: vi.fn(),
   cancelInvoice: vi.fn(),
   updateInvoice: vi.fn(),
-  recomputeDiscountedBrl: vi.fn(),
+  applyDiscount: vi.fn(),
   fetchKpis: vi.fn(),
   fetchLatestRecalcDate: vi.fn(),
   fetchCustomerSummary: vi.fn(),
@@ -46,7 +46,7 @@ vi.mock('../../services/demurrage/demurrageInvoices', () => ({
   markInvoicePaid: mocks.markPaid,
   cancelDemurrageInvoice: mocks.cancelInvoice,
   updateDemurrageInvoice: mocks.updateInvoice,
-  recomputeDiscountedBrl: mocks.recomputeDiscountedBrl,
+  applyDemurrageDiscount: mocks.applyDiscount,
 }))
 vi.mock('../../services/demurrage/demurrageKpis', () => ({
   DEMURRAGE_ROE_MARKUP: 1.065,
@@ -224,7 +224,7 @@ describe('Demurrage page behaviours', () => {
     mocks.markPaid.mockResolvedValue(undefined)
     mocks.cancelInvoice.mockResolvedValue(undefined)
     mocks.updateInvoice.mockResolvedValue(undefined)
-    mocks.recomputeDiscountedBrl.mockResolvedValue(undefined)
+    mocks.applyDiscount.mockResolvedValue(undefined)
     mocks.fetchKpis.mockResolvedValue({ overdueContainers: 1, draftInvoicesTotalUsd: 0, issuedInvoicesTotalBrl: 2200 })
     mocks.fetchLatestRecalcDate.mockResolvedValue('2026-07-17')
     mocks.fetchCustomerSummary.mockResolvedValue(customerSummary)
@@ -310,14 +310,14 @@ describe('Demurrage page behaviours', () => {
     await user.type(within(discountDialog).getByLabelText('Justificativa'), 'Acordo comercial')
     await user.type(within(discountDialog).getByLabelText('Aprovador'), 'Diretoria')
     await user.click(within(discountDialog).getByRole('button', { name: 'Salvar' }))
-    await waitFor(() => expect(mocks.updateInvoice).toHaveBeenCalledWith(21, {
-      discount_type: 'comercial',
-      discount_value: 10,
-      discount_mode: 'percent',
-      discount_justification: 'Acordo comercial',
-      discount_approver: 'Diretoria',
+    await waitFor(() => expect(mocks.applyDiscount).toHaveBeenCalledWith({
+      invoiceId: 21,
+      discountType: 'comercial',
+      discountValue: 10,
+      discountMode: 'percent',
+      justification: 'Acordo comercial',
+      approver: 'Diretoria',
     }))
-    expect(mocks.recomputeDiscountedBrl).toHaveBeenCalledWith(21)
     expect(screen.queryByRole('dialog', { name: 'Desconto' })).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Detalhes' }))

@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { ensureDemurrageRatesLoaded, calculateDemurrage } from './demurrageRates'
+import { ensureDemurrageRatesFresh, calculateDemurrage } from './demurrageRates'
 import { buildTransshippingPixPayload } from '../../lib/pix'
 import { extractErrorText } from '../../lib/errors'
 import { fetchROE } from './demurrageKpis'
@@ -127,7 +127,7 @@ async function hasActiveInvoiceForBL(blId: string): Promise<boolean> {
 }
 
 export async function createInvoiceForBL(blId: string): Promise<number> {
-  await ensureDemurrageRatesLoaded()
+  await ensureDemurrageRatesFresh()
 
   const { data: bl, error: blErr } = await supabase
     .from('bls')
@@ -210,7 +210,7 @@ export async function createInvoiceForBL(blId: string): Promise<number> {
 }
 
 export async function createInvoiceForReturnedBL(blId: string): Promise<number | null> {
-  await ensureDemurrageRatesLoaded()
+  await ensureDemurrageRatesFresh()
 
   const { data: bl, error: blErr } = await supabase
     .from('bls')
@@ -316,15 +316,14 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
     frozenTotalBrl = parseFloat((discountedUsd * roe).toFixed(2))
   }
 
-  const pix_payload = frozenTotalBrl && inv.doc_number ? buildTransshippingPixPayload(frozenTotalBrl, inv.doc_number) : undefined
-
-  const { error } = await supabase.from('demurrage_invoices').update({
-    status: 'paid',
-    paid_at: paidAt,
-    current_roe: frozenRoe,
-    current_total_brl: frozenTotalBrl,
-    ...(pix_payload ? { pix_payload } : {}),
-  }).eq('id', invoiceId)
+  const { error } = await supabase.rpc('register_demurrage_payment', {
+    p_request_id: crypto.randomUUID(),
+    p_invoice_id: invoiceId,
+    p_paid_at: paidAt,
+    p_pix_txid: null,
+    p_total_brl: frozenTotalBrl,
+    p_ptax_used: frozenRoe != null ? Number((frozenRoe / 1.065).toFixed(4)) : null,
+  })
   if (error) throw error
 }
 
@@ -343,27 +342,33 @@ export async function recomputeDiscountedBrl(invoiceId: number): Promise<void> {
   if (fetchErr) throw fetchErr
   if (inv.status !== 'issued' || inv.paid_at != null || inv.current_roe == null) return
 
-  const discountedUsd = applyDemurrageUsdDiscount(inv.total_usd ?? 0, inv.discount_mode, inv.discount_value)
-  const totalBrl = parseFloat((discountedUsd * inv.current_roe).toFixed(2))
-  const pix_payload = inv.doc_number ? buildTransshippingPixPayload(totalBrl, inv.doc_number) : undefined
-
-  const { error } = await supabase.from('demurrage_invoices').update({
-    current_total_brl: totalBrl,
-    ...(pix_payload ? { pix_payload } : {}),
-  }).eq('id', invoiceId)
+  const { error } = await supabase.rpc('apply_demurrage_discount', {
+    p_request_id: crypto.randomUUID(),
+    p_invoice_id: invoiceId,
+    p_discount_mode: inv.discount_mode,
+    p_discount_value: inv.discount_value,
+    p_discount_type: null,
+    p_discount_justification: 'Recalculo do valor apos alteracao de desconto.',
+    p_discount_approver: null,
+  })
   if (error) throw error
 }
 
 export async function unmarkInvoicePaid(invoiceId: number): Promise<void> {
-  const { error } = await supabase.from('demurrage_invoices').update({
-    status: 'issued',
-    paid_at: null,
-  }).eq('id', invoiceId)
+  const { error } = await supabase.rpc('reopen_demurrage_invoice', {
+    p_request_id: crypto.randomUUID(),
+    p_invoice_id: invoiceId,
+    p_reason: 'Reabertura manual da baixa de Demurrage.',
+  })
   if (error) throw error
 }
 
 export async function cancelDemurrageInvoice(invoiceId: number): Promise<void> {
-  const { error } = await supabase.from('demurrage_invoices').update({ status: 'cancelled' }).eq('id', invoiceId)
+  const { error } = await supabase.rpc('cancel_demurrage_invoice', {
+    p_request_id: crypto.randomUUID(),
+    p_invoice_id: invoiceId,
+    p_reason: 'Cancelamento confirmado pelo operador.',
+  })
   if (error) throw error
 }
 
@@ -412,7 +417,27 @@ export async function getInvoiceDetail(invoiceId: number) {
   }
 }
 
-export async function updateDemurrageInvoice(invoiceId: number, patch: Partial<Pick<DemurrageInvoice, 'discount_type' | 'discount_value' | 'discount_mode' | 'discount_justification' | 'discount_approver' | 'dispute_open' | 'dispute_subject' | 'dispute_reason' | 'dispute_status' | 'dispute_notes' | 'notes' | 'due_date' | 'roe' | 'roe_manual'>>): Promise<void> {
+export async function applyDemurrageDiscount(input: {
+  invoiceId: number
+  discountType: DemurrageInvoice['discount_type']
+  discountValue: number | null
+  discountMode: DemurrageInvoice['discount_mode']
+  justification: string | null
+  approver: string | null
+}): Promise<void> {
+  const { error } = await supabase.rpc('apply_demurrage_discount', {
+    p_request_id: crypto.randomUUID(),
+    p_invoice_id: input.invoiceId,
+    p_discount_mode: input.discountMode,
+    p_discount_value: input.discountValue,
+    p_discount_type: input.discountType,
+    p_discount_justification: input.justification,
+    p_discount_approver: input.approver,
+  })
+  if (error) throw error
+}
+
+export async function updateDemurrageInvoice(invoiceId: number, patch: Partial<Pick<DemurrageInvoice, 'dispute_open' | 'dispute_subject' | 'dispute_reason' | 'dispute_status' | 'dispute_notes' | 'notes' | 'due_date' | 'roe' | 'roe_manual'>>): Promise<void> {
   const { error } = await supabase.from('demurrage_invoices').update(patch).eq('id', invoiceId)
   if (error) throw error
 }

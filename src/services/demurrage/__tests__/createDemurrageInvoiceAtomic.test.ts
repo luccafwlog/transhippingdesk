@@ -13,6 +13,7 @@ vi.mock('../../supabase', () => ({
 }))
 vi.mock('../demurrageRates', () => ({
   ensureDemurrageRatesLoaded: mocks.ensureRates,
+  ensureDemurrageRatesFresh: mocks.ensureRates,
   calculateDemurrage: mocks.calculate,
 }))
 vi.mock('../demurrageKpis', () => ({
