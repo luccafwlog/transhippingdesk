@@ -12,9 +12,10 @@ type FakeContainer = {
   demurrage_status: string | null
 }
 
-const { mockFrom, mockUpdateEq, mockCreateInvoiceForReturnedBL, mockEnsureRates, state } = vi.hoisted(() => ({
+const { mockFrom, mockRpc, mockGetUser, mockCreateInvoiceForReturnedBL, mockEnsureRates, state } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
-  mockUpdateEq: vi.fn(),
+  mockRpc: vi.fn(),
+  mockGetUser: vi.fn(),
   mockCreateInvoiceForReturnedBL: vi.fn(),
   mockEnsureRates: vi.fn(),
   state: { containers: [] as unknown[] },
@@ -29,7 +30,7 @@ mockFrom.mockImplementation((table: string) => {
   if (table === 'bl_containers') {
     return {
       select: () => ({ in: () => Promise.resolve({ data: state.containers, error: null }) }),
-      update: () => ({ eq: mockUpdateEq }),
+      update: () => ({ eq: vi.fn() }),
     }
   }
   if (table === 'bls') {
@@ -40,7 +41,7 @@ mockFrom.mockImplementation((table: string) => {
   }
 })
 
-vi.mock('../supabase', () => ({ supabase: { from: mockFrom } }))
+vi.mock('../supabase', () => ({ supabase: { from: mockFrom, rpc: mockRpc, auth: { getUser: mockGetUser } } }))
 vi.mock('../demurrage/demurrageInvoices', () => ({ createInvoiceForReturnedBL: mockCreateInvoiceForReturnedBL }))
 vi.mock('../demurrage/demurrageRates', () => ({
   ensureDemurrageRatesLoaded: mockEnsureRates,
@@ -88,33 +89,30 @@ describe('containerDatesImport', () => {
   })
 })
 
-// Regressao do lote parcial: cada linha e uma transacao propria. Antes, a
-// primeira falha de gravacao lancava e abortava o import, deixando as linhas
-// ja gravadas sem passar pelo faturamento de Demurrage — e o reimport do mesmo
-// arquivo as classificava como "inalteradas", de modo que a fatura nunca nascia.
+// Regressao do lote parcial: cada B/L agora e uma unidade atomica. Uma falha
+// em qualquer container nao deixa linhas irmas gravadas nem dispara fatura.
 describe('importContainerDates (lote parcial)', () => {
   beforeEach(() => {
-    mockUpdateEq.mockReset()
+    mockRpc.mockReset()
+    mockGetUser.mockResolvedValue({ data: { user: { id: '00000000-0000-0000-0000-000000000401' } }, error: null })
     mockCreateInvoiceForReturnedBL.mockReset()
     mockCreateInvoiceForReturnedBL.mockResolvedValue(null)
   })
 
-  it('nao aborta o lote quando uma linha falha ao gravar', async () => {
+  it('desfaz o B/L inteiro quando o RPC atomico falha', async () => {
     setContainers([
       { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', container_type: 'DRY', discharge_date: null, return_date: null, demurrage_status: null },
       { id: 2, bl_id: 'BL001', container_number: 'TCLU2222222', container_type: 'DRY', discharge_date: null, return_date: null, demurrage_status: null },
     ])
-    mockUpdateEq
-      .mockResolvedValueOnce({ error: { message: 'conflito de escrita' } })
-      .mockResolvedValueOnce({ error: null })
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'conflito de escrita' } })
 
     const result = await importContainerDates([
       { bl_id: 'BL001', container_number: 'TCLU1111111', discharge_date: '2026-01-10', return_date: '2026-01-20' },
       { bl_id: 'BL001', container_number: 'TCLU2222222', discharge_date: '2026-01-10', return_date: '2026-01-20' },
     ])
 
-    expect(result.updated).toBe(1)
-    expect(result.errors).toHaveLength(1)
+    expect(result.updated).toBe(0)
+    expect(result.errors).toHaveLength(2)
     expect(result.errors[0]?.container_number).toBe('TCLU1111111')
     expect(result.errors[0]?.message).toContain('conflito de escrita')
     expect(mockCreateInvoiceForReturnedBL).not.toHaveBeenCalled()
@@ -124,6 +122,7 @@ describe('importContainerDates (lote parcial)', () => {
     setContainers([
       { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', container_type: 'DRY', discharge_date: '2026-01-10', return_date: '2026-01-20', demurrage_status: 'returned' },
     ])
+    mockRpc.mockResolvedValue({ data: { updated_ids: [], unchanged_ids: [1], billing_state: 'ready_for_billing' }, error: null })
 
     const result = await importContainerDates([
       { bl_id: 'BL001', container_number: 'TCLU1111111', discharge_date: '2026-01-10', return_date: '2026-01-20' },

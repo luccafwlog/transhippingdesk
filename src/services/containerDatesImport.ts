@@ -3,8 +3,6 @@ import { extractErrorText } from '../lib/errors'
 import { asString } from '../lib/utils'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 import { supabase } from './supabase'
-import { selectAgreementForDischargeDate } from './demurrage/customerDemurrageAgreements'
-import { calculateDemurrage, ensureDemurrageRatesLoaded } from './demurrage/demurrageRates'
 import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
 
 const headerMap = {
@@ -62,40 +60,6 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   if (fetchError) throw fetchError
 
-  const { data: bls, error: blsError } = await supabase
-    .from('bls')
-    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd')
-    .in('id', blIds)
-
-  if (blsError) throw blsError
-
-  const blOverrides = new Map(bls?.map((b) => [b.id, b]) ?? [])
-  const customerIds = [...new Set((bls ?? []).map((b) => b.customer_id).filter((id): id is number => typeof id === 'number'))]
-  // Todos os acordos ativos de cada cliente, e nao um por cliente: guardar
-  // apenas o primeiro que a consulta devolvesse podia guardar um acordo vencido
-  // (a consulta nao ordenava), e a validacao por data logo abaixo o descartaria,
-  // fazendo o import cobrar pela tabela padrao apesar de existir acordo vigente.
-  // A escolha correta depende da data de descarga de CADA container, entao ela
-  // acontece na hora de calcular, nao aqui. Ordenado por vigencia decrescente,
-  // como `findActiveAgreementForCustomer` ja fazia, para que o mais recente
-  // venca quando dois periodos se sobrepoem.
-  const customerAgreements = new Map<number, import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement[]>()
-
-  if (customerIds.length > 0) {
-    const { data: agreements } = await supabase
-      .from('customer_demurrage_agreements')
-      .select('*')
-      .in('customer_id', customerIds)
-      .eq('active', true)
-      .order('valid_from', { ascending: false })
-      .order('id', { ascending: false })
-    for (const a of (agreements ?? []) as unknown as import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement[]) {
-      const doCliente = customerAgreements.get(a.customer_id)
-      if (doCliente) doCliente.push(a)
-      else customerAgreements.set(a.customer_id, [a])
-    }
-  }
-
   type ContainerRow = { id: number; bl_id: string | null; container_number: string; container_type: string | null; discharge_date: string | null; return_date: string | null; demurrage_status: string | null }
   const containersByKey = new Map<string, ContainerRow>()
   for (const c of (containers as unknown as ContainerRow[]) ?? []) {
@@ -109,64 +73,59 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   const uniqueRows = Array.from(new Map(rows.map((r) => [makeKey(r.bl_id, r.container_number), r])).values())
 
-  // Track BL IDs where a container was newly set to 'returned'
+  // O RPC aplica cada B/L inteiro como unidade; um erro não deixa linhas
+  // parcialmente gravadas e o lote continua com os demais B/Ls.
   const blsToCheckForInvoice = new Set<string>()
   const blsWithFailedUpdates = new Set<string>()
-  let demurrageRatesLoaded = false
-
+  const rowsByBl = new Map<string, ContainerDatesImportRow[]>()
   for (const row of uniqueRows) {
-    const container = containersByKey.get(makeKey(row.bl_id, row.container_number))
-    if (!container) { missing += 1; continue }
+    if (!containersByKey.has(makeKey(row.bl_id, row.container_number))) {
+      missing += 1
+      continue
+    }
+    const rowsForBl = rowsByBl.get(row.bl_id) ?? []
+    rowsForBl.push(row)
+    rowsByBl.set(row.bl_id, rowsForBl)
+  }
 
-    const sameDischarge = container.discharge_date === row.discharge_date
-    const sameReturn = container.return_date === (row.return_date ?? null)
-    if (sameDischarge && sameReturn) {
-      unchanged += 1
-      // Uma execucao anterior interrompida no meio ja gravou a devolucao mas
-      // abortou antes de faturar. No reimport do mesmo arquivo a linha volta
-      // como inalterada; sem reenfileirar o B/L aqui a fatura de Demurrage
-      // nunca nasceria. `createInvoiceForReturnedBL` e idempotente.
-      if (container.demurrage_status === 'returned') blsToCheckForInvoice.add(row.bl_id)
+  let actorId: string | null = null
+  if (rowsByBl.size > 0) {
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError) throw authError
+    actorId = authData.user?.id ?? null
+    if (!actorId) throw new Error('Sessao expirada. Entre novamente antes de importar datas.')
+  }
+
+  for (const [blId, rowsForBl] of rowsByBl) {
+    const payload = rowsForBl.map((row) => {
+      const current = containersByKey.get(makeKey(row.bl_id, row.container_number))!
+      return {
+        container_number: row.container_number,
+        discharge_date: row.discharge_date,
+        return_date: row.return_date,
+        expected_discharge_date: current.discharge_date,
+        expected_return_date: current.return_date,
+      }
+    })
+
+    const { data: applied, error: applyError } = await supabase.rpc('apply_container_dates_atomic', {
+      p_request_id: crypto.randomUUID(),
+      p_bl_id: blId,
+      p_rows: payload,
+      p_changed_by: actorId!,
+    })
+
+    if (applyError) {
+      const message = extractErrorText(applyError)
+      rowsForBl.forEach((row) => errors.push({ bl_id: row.bl_id, container_number: row.container_number, message }))
+      blsWithFailedUpdates.add(blId)
       continue
     }
 
-    const bl = blOverrides.get(row.bl_id)
-    const doCliente = bl?.customer_id ? (customerAgreements.get(bl.customer_id) ?? []) : []
-    const validAgreement = selectAgreementForDischargeDate(doCliente, row.discharge_date)
-
-    if (!row.return_date && !demurrageRatesLoaded) {
-      await ensureDemurrageRatesLoaded()
-      demurrageRatesLoaded = true
-    }
-    const newStatus = resolveStatus(
-      row.discharge_date,
-      row.return_date,
-      container.container_type,
-      bl?.free_time_override ?? null,
-      bl?.demurrage_rate_override_p1_usd ?? null,
-      bl?.demurrage_rate_override_p2_usd ?? null,
-      validAgreement,
-    )
-
-    const { error: updateError } = await supabase
-      .from('bl_containers')
-      .update({ discharge_date: row.discharge_date, return_date: row.return_date ?? null, demurrage_status: newStatus as 'within_free_time' | 'overdue' | 'returned' })
-      .eq('id', container.id)
-
-    if (updateError) {
-      // Cada linha e uma transacao propria: abortar no meio deixaria "meia
-      // carga" gravada e pularia o faturamento das linhas ja aplicadas.
-      // Acumular o erro mantem o lote avancando e o relatorio honesto.
-      errors.push({ bl_id: row.bl_id, container_number: row.container_number, message: extractErrorText(updateError) })
-      // Nao faturar com base nos valores propostos pela planilha quando uma
-      // linha do mesmo B/L nao foi persistida. O faturamento consulta o banco
-      // e poderia emitir com apenas a parte ja retornada.
-      blsWithFailedUpdates.add(row.bl_id)
-      continue
-    }
-    updated += 1
-
-    if (newStatus === 'returned') blsToCheckForInvoice.add(row.bl_id)
+    const result = (applied ?? {}) as { updated_ids?: unknown[]; unchanged_ids?: unknown[]; billing_state?: string }
+    updated += Array.isArray(result.updated_ids) ? result.updated_ids.length : 0
+    unchanged += Array.isArray(result.unchanged_ids) ? result.unchanged_ids.length : 0
+    if (result.billing_state === 'ready_for_billing') blsToCheckForInvoice.add(blId)
   }
 
   // For each BL that had a container newly returned, check if ALL containers are now returned
@@ -194,21 +153,6 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
   }
 
   return { updated, unchanged, missing, errors }
-}
-
-function resolveStatus(
-  dischargeDate: string,
-  returnDate: string | null,
-  containerType: string | null,
-  freeTimeOverride: number | null,
-  ov1: number | null,
-  ov2: number | null,
-  customerAgreement?: { free_days?: number | null; p1_usd?: number | null; p2_usd?: number | null } | null,
-): string {
-  if (returnDate) return 'returned'
-  const today = new Date().toISOString().slice(0, 10)
-  const result = calculateDemurrage(containerType, dischargeDate, today, freeTimeOverride, ov1, ov2, customerAgreement)
-  return result.total_usd > 0 ? 'overdue' : 'within_free_time'
 }
 
 function parseRows(objectRows: Record<string, unknown>[]): ParsedContainerDatesImport {

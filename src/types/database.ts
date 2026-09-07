@@ -4906,6 +4906,23 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_container_dates_atomic: {
+        Args: {
+          p_bl_id: string
+          p_changed_by: string
+          p_request_id: string
+          p_rows: Json
+        }
+        Returns: Json
+      }
+      apply_baplie_physical_flags_atomic: {
+        Args: {
+          p_changes?: Json | null
+          p_changed_by: string
+          p_voyage_id: number
+        }
+        Returns: Json
+      }
       add_agency_report_occurrence: {
         Args: {
           p_body: string
