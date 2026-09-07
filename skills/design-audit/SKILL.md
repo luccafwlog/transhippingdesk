@@ -1,12 +1,6 @@
 ---
 name: design-audit
-description: >
-  Full-site UI/UX audit playbook for Transhipping Desk: boot the real app
-  against a local Supabase-compatible stack, screenshot every page (desktop +
-  mobile), audit like a senior design lead, prioritize P0-P3, apply safe small
-  fixes, and write the report to docs/design-audit/. Use after every release,
-  or when the user asks for a design review, UI audit, screenshot pass, or
-  "rerun the design audit".
+description: "Audit Transhipping Desk UI across pages with screenshots and prioritized findings."
 ---
 
 # Design Audit Playbook

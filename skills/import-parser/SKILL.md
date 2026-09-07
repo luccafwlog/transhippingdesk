@@ -1,6 +1,6 @@
 ---
 name: import-parser
-description: Use when adding or changing CSV, XLSX, EDI, EDIFACT, fixed-width, carrier, manifesto, Baplie, vehicle, container, customer, CE Mercante, Granito, or Vazios import behavior in Transhipping Desk.
+description: "Add or change Transhipping Desk file parsing and import persistence."
 ---
 
 # Import Parser Playbook

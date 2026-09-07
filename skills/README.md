@@ -1,6 +1,6 @@
 # Agent Skills
 
-A unified collection of 50 agent skills following the [agentskills.io](https://agentskills.io) specification. Each skill enforces disciplined practices — planning, testing, verification, or specialized workflows.
+A unified collection of 50 agent skills following the [agentskills.io](https://agentskills.io) specification. Skills provide task-specific guidance for planning, implementation and specialist workflows.
 
 Each skill is a directory containing a `SKILL.md` file (with YAML frontmatter) plus optional supporting files (prompts, references, scripts, tests).
 
@@ -17,7 +17,7 @@ Every skill below is tagged with where it comes from:
 
 ## Mattpocock Skills (mattpocock/skills @ release/v1.2)
 
-These are vendored from https://github.com/mattpocock/skills/tree/release/v1.2. Local folder names occasionally differ from the upstream slug (noted below) to avoid clashing with a pre-existing local name; content otherwise tracks upstream. `mattpocock/skills`'s own `code-review` skill was **intentionally not vendored** — it shares its name with this project's built-in `/code-review` skill, and vendoring it would shadow that built-in.
+These are vendored from https://github.com/mattpocock/skills/tree/release/v1.2. Local folder names occasionally differ from the upstream slug (noted below) to avoid clashing with a pre-existing local name; content is locally adapted; it is not an exact upstream mirror. `mattpocock/skills`'s own `code-review` skill was **intentionally not vendored** — it shares its name with this project's built-in `/code-review` skill, and vendoring it would shadow that built-in.
 
 | Skill | Upstream path | Description |
 |-------|----------------|-------------|
@@ -43,26 +43,49 @@ These are vendored from https://github.com/mattpocock/skills/tree/release/v1.2. 
 | **triage** | `skills/engineering/triage` | Move issues and external PRs through a state machine of triage roles — categorise, verify, grill if needed, write agent-ready briefs. |
 | **wait-what** | `skills/productivity/wait-what` | Corrective for a message that didn't land — re-pitches the last message in ASD-STE100 Simplified Technical English using the `CONTEXT.md` vocabulary. |
 
-Note: `tdd` overlaps in purpose with the Superpowers `test-driven-development` skill below — both are vendored under their upstream names; which one triggers depends on your phrasing. `wayfinder`'s Research ticket type invokes `/research` (above); its Prototype ticket type invokes `/prototype` (above).
+`tdd` and `test-driven-development` are alternative references for test-first
+work; use one appropriate to the request. Likewise choose between general
+frontend design, focused polish and a full design audit rather than loading all.
+
+## Local adaptation and discovery
+
+The guidance is maintained for capable agents across models, following
+[Eric Provencher's article on skills and prompts](https://x.com/pvncher/status/2095991462416490862).
+Descriptions identify specific tasks; entrypoints retain constraints and route
+to supporting material only when needed. `AGENTS.md` points to `CLAUDE.md`, whose
+source map is contextual. Implementation requests continue through validation
+without mandatory design, test-boundary or delivery menus.
+
+Preserve concrete production, migration and file protections. Editing a skill
+is not permission to change external services or global agent configuration.
+Do not bulk-load this catalog or install additional overlapping skills merely
+because they exist. Existing invocation metadata is preserved.
+
+The `emil-design-eng` and `ui-ux-pro-max` entrypoints route to topic references.
+The UI/UX copy has no upstream search script or database; its written guidance
+is usable directly. Historical provenance below remains attached to each source.
+
+See the [instruction audit](../docs/archive/audits/2026-09-06-instrucoes-agentes-skills.md)
+for the changes, structural checks and remaining installation limits.
 
 ## Superpowers (Core Engineering Skills)
 
 | Skill | Description |
 |-------|-------------|
-| **brainstorming** | Turn ideas into designs through collaborative dialogue. Mandatory design/approval gate before implementation. |
+| **brainstorming** | Turn ideas into designs through collaborative dialogue. Resolve material choices without a mandatory gate for clear implementation requests. |
 | **dispatching-parallel-agents** | Dispatch independent agents for parallel investigation of unrelated problems. |
-| **executing-plans** | Load and execute a written implementation plan in a separate session with review checkpoints. |
-| **finishing-a-development-branch** | Guide branch completion: verify tests, detect environment, present merge/PR/keep/discard options. |
+| **executing-plans** | Execute an existing plan through validation and completion. |
+| **finishing-a-development-branch** | Carry out the requested integration or cleanup and preserve workspace ownership. |
 | **receiving-code-review** | Handle code review feedback with technical rigor — verify before implementing, no performative agreement. |
-| **requesting-code-review** | Dispatch code reviewer subagents at key checkpoints (after tasks, before merge). |
-| **subagent-driven-development** | Execute plans by dispatching a fresh subagent per task, with two-stage review. |
-| **systematic-debugging** | 4-phase debugging: Root Cause Investigation, Pattern Analysis, Hypothesis Testing, Implementation. |
-| **test-driven-development** | Strict TDD: Red-Green-Refactor cycle, iron law of "no code without failing test first". |
+| **requesting-code-review** | Arrange a focused independent review when requested or warranted by risk. |
+| **subagent-driven-development** | Coordinate authorized subagents with independent task ownership. |
+| **systematic-debugging** | Trace the reported failure with reproducible evidence and focused probes. |
+| **test-driven-development** | Test-first behavior and regression reproduction without deleting existing work. |
 | **using-git-worktrees** | Detect existing isolation, prefer native worktree tools, fall back to git worktree. |
-| **using-superpowers** | Meta-skill: how to discover and invoke skills, instruction priority, rationalization prevention. |
-| **verification-before-completion** | "No completion claims without fresh verification evidence" — run command, read output, then claim. |
-| **writing-plans** | Write comprehensive implementation plans for engineers with zero codebase context. |
-| **writing-skills** | Meta-skill: how to create new skills using TDD (RED-GREEN-REFACTOR for documentation). |
+| **using-superpowers** | Help select relevant guidance when workflow choice is unclear. |
+| **verification-before-completion** | Match completion claims to evidence; reuse results for unchanged code. |
+| **writing-plans** | Write outcome-based plans for substantial coordination or handoff. |
+| **writing-skills** | Maintain concise descriptions, scoped guidance and progressive references. |
 
 ## Project & Domain Skills
 
@@ -79,7 +102,7 @@ Note: `tdd` overlaps in purpose with the Superpowers `test-driven-development` s
 | Skill | Description |
 |-------|-------------|
 | **frontend-design** | Create distinctive, production-grade frontend interfaces with high design quality. Avoids generic AI aesthetics. |
-| **ui-ux-pro-max** | UI/UX design intelligence: 50+ styles, 161 color palettes, 57 font pairings, 99 UX guidelines, 25 chart types across 10 stacks. |
+| **ui-ux-pro-max** | Written UI/UX criteria, routed by accessibility, layout, flows and review. |
 
 ## Code Quality & Review Skills
 
@@ -104,146 +127,9 @@ Note: `tdd` overlaps in purpose with the Superpowers `test-driven-development` s
 
 ## Structure
 
-```
-skills/
-├── README.md
-├── ask-matt/
-│   └── SKILL.md
-├── autoreview/
-│   └── SKILL.md
-├── brainstorming/
-│   ├── SKILL.md
-│   ├── visual-companion.md
-│   ├── spec-document-reviewer-prompt.md
-│   └── scripts/
-├── caveman/
-│   └── SKILL.md
-├── codebase-design/
-│   ├── SKILL.md
-│   ├── DEEPENING.md
-│   └── DESIGN-IT-TWICE.md
-├── design-audit/
-│   └── SKILL.md
-├── diagnosing-bugs/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── hitl-loop.template.sh
-├── dispatching-parallel-agents/
-│   └── SKILL.md
-├── domain-modeling/
-│   ├── SKILL.md
-│   ├── ADR-FORMAT.md
-│   └── CONTEXT-FORMAT.md
-├── executing-plans/
-│   └── SKILL.md
-├── finishing-a-development-branch/
-│   └── SKILL.md
-├── frontend-design/
-│   ├── SKILL.md
-│   └── LICENSE.txt
-├── grill-me/
-│   └── SKILL.md
-├── grill-me-with-docs/
-│   └── SKILL.md
-├── grilling/
-│   └── SKILL.md
-├── handoff/
-│   └── SKILL.md
-├── implement/
-│   └── SKILL.md
-├── import-parser/
-│   └── SKILL.md
-├── improve/
-│   ├── SKILL.md
-│   └── references/
-│       ├── audit-playbook.md
-│       ├── plan-template.md
-│       └── closing-the-loop.md
-├── improve-codebase-architecture/
-│   ├── SKILL.md
-│   └── HTML-REPORT.md
-├── invoice-pdf/
-│   └── SKILL.md
-├── loop-me/
-│   └── SKILL.md
-├── make-interfaces-feel-better/
-│   └── SKILL.md
-├── prototype/
-│   ├── SKILL.md
-│   ├── LOGIC.md
-│   └── UI.md
-├── react-query-pattern/
-│   └── SKILL.md
-├── receiving-code-review/
-│   └── SKILL.md
-├── requesting-code-review/
-│   ├── SKILL.md
-│   └── code-reviewer.md
-├── research/
-│   └── SKILL.md
-├── resolving-merge-conflicts/
-│   └── SKILL.md
-├── security-audit-penetration-testing/
-│   └── SKILL.md
-├── setup-matt-pocock-skills/
-│   ├── SKILL.md
-│   ├── domain.md
-│   ├── issue-tracker-github.md
-│   ├── issue-tracker-gitlab.md
-│   ├── issue-tracker-local.md
-│   └── triage-labels.md
-├── subagent-driven-development/
-│   ├── SKILL.md
-│   ├── implementer-prompt.md
-│   ├── spec-reviewer-prompt.md
-│   └── code-quality-reviewer-prompt.md
-├── supabase-migration/
-│   └── SKILL.md
-├── systematic-debugging/
-│   ├── SKILL.md
-│   ├── root-cause-tracing.md
-│   ├── defense-in-depth.md
-│   ├── condition-based-waiting.md
-│   ├── condition-based-waiting-example.ts
-│   ├── find-polluter.sh
-│   └── test-*.md
-├── tdd/
-│   ├── SKILL.md
-│   ├── mocking.md
-│   └── tests.md
-├── test-driven-development/
-│   ├── SKILL.md
-│   └── testing-anti-patterns.md
-├── thermo-nuclear-code-quality-review/
-│   └── SKILL.md
-├── to-spec/
-│   └── SKILL.md
-├── to-tickets/
-│   └── SKILL.md
-├── triage/
-│   ├── SKILL.md
-│   ├── AGENT-BRIEF.md
-│   └── OUT-OF-SCOPE.md
-├── ui-ux-pro-max/
-│   └── SKILL.md
-├── using-git-worktrees/
-│   └── SKILL.md
-├── using-superpowers/
-│   ├── SKILL.md
-│   └── references/
-├── verification-before-completion/
-│   └── SKILL.md
-├── wayfinder/
-│   └── SKILL.md
-├── writing-plans/
-│   ├── SKILL.md
-│   └── plan-document-reviewer-prompt.md
-└── writing-skills/
-    ├── SKILL.md
-    ├── anthropic-best-practices.md
-    ├── persuasion-principles.md
-    └── examples/
-```
+Each `skills/<name>/SKILL.md` is the discovery entrypoint. Optional `references/`,
+prompts and scripts are linked from the owning skill. Inspect that directory
+when the selected task needs its supporting files.
 
 ## Usage
 
@@ -279,7 +165,13 @@ worktree setup script (all OS tabs — Node is cross-platform):
 node scripts/skills/install-skills.mjs
 ```
 
-Codex then discovers every skill from `~/.codex/skills/` at session start.
+The installer replaces matching global skill directories for Claude Code,
+Codex and Antigravity (`~/.gemini/config/skills/`). Run it deliberately when you
+want to synchronize these copies; it is not needed to validate a repository edit.
+Existing sessions keep their already loaded catalog. New Codex sessions discover
+the installed skills from `~/.codex/skills/`. The installer does not manage
+`~/.agents/skills/` or copies supplied by plugins; overlaps there need separate
+user-level maintenance.
 In Codex/T3, use `/skills` to open the skill picker; Codex does not expose each
 skill as a separate `/skill-name` command in the main slash catalog.
 

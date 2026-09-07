@@ -1,6 +1,6 @@
 ---
 name: invoice-pdf
-description: Use when adding or changing printable local-charge or Demurrage invoice documents, browser print behavior, invoice layout, fiscal formatting, operational references, totals, or PIX QR rendering in Transhipping Desk.
+description: "Change Transhipping Desk invoice content, formatting or browser print layout."
 ---
 
 # Printable Invoice Documents

@@ -1,6 +1,6 @@
 ---
 name: Security Audit & Penetration Testing
-description: Complete security audit and penetration testing framework with 6 phases, from discovery to final reporting with automated penetration tests and remediation validation.
+description: "Perform a scoped security audit or authorized penetration test."
 trigger_phrases:
   - security audit
   - penetration test
@@ -8,7 +8,7 @@ trigger_phrases:
   - vulnerability scan
   - security check
   - verifique vulnerabilidades
-  - faça uma auditoria
+  - faça uma auditoria de segurança
   - teste de penetração
 version: "1.0"
 category: Security

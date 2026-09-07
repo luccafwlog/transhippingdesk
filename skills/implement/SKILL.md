@@ -1,15 +1,16 @@
 ---
 name: implement
-description: "Implement a piece of work based on a spec or set of tickets."
+description: "Implement an agreed spec or set of tickets through verification."
 disable-model-invocation: true
 ---
 
-Implement the work described by the user in the spec or tickets.
+# Implement
 
-Use /tdd where possible, at pre-agreed seams.
+Implement the requested spec or tickets using the current repository contracts.
+Choose tests at public interfaces; use test-first development when appropriate
+or requested. Run checks according to `WORKFLOW.md`, fix regressions caused by
+the change, and update living documentation.
 
-Run typechecking regularly, single test files regularly, and the full test suite once at the end.
-
-Once done, use /code-review to review the work.
-
-Commit your work to the current branch.
+Continue until acceptance criteria are met or a concrete decision/access blocker
+requires input. Review the diff before reporting completion. Commit or deliver
+through a PR when requested; otherwise leave the reviewable workspace changes.
