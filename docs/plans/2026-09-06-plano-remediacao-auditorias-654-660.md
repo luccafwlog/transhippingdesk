@@ -21,7 +21,7 @@ As entregas foram feitas em commits pequenos sobre o worktree isolado, preservan
 - **S01–S02:** guards de RPC/entrada, revogação e validação de Preview já existentes foram preservados e cobertos por catálogo/testes (`2d23d2e6`, `e1120960`).
 - **S03–S10:** foram aplicadas as correções de parsing numérico, identidade/roteamento, importações atômicas, efeitos recuperáveis, ledger local, procedência de ROE/PTAX e contratos de billing (`ef84e845` até `cb01ee05`, conforme o log da branch).
 - **S11–S12:** a paridade de Inspeção ganhou os wrappers de billing paginado da migration `021`, com filtros, contagem, limites e isolamento; as listas operacionais usam projeções paginadas existentes e o Painel oferece janela incremental de viagens (`a851fbf4`, `b1444146`).
-- **S13:** buscas operacionais têm debounce, as três listas principais distinguem offline sem cache de lista vazia, quatro confirmações nativas usam `ConfirmDialog`, e as tabelas principais têm caption acessível (`87a4d520`, `b417109d`, `b1444146`).
+- **S13:** buscas operacionais têm debounce, as três listas principais distinguem offline sem cache de lista vazia, quatro confirmações nativas usam `ConfirmDialog`, e as tabelas/menus principais têm caption, semântica de menu e foco de teclado (`87a4d520`, `b417109d`, `b1444146`, `c58330eb`).
 - **S14:** o checker executado de RPC passou a validar o catálogo ativo; documentação viva e rastreabilidade foram atualizadas (`1ff9e1bd`, `b1444146`).
 
 Validação desta execução: `npm test` (553 arquivos, 2.926 testes aprovados), typecheck, lint, build, `npm run docs:check`, `npm run rpc:check` (164 RPCs) e os contratos locais diretamente afetados após reset do Postgres. O replay local agregado ainda possui falhas históricas de fixtures/limpeza fora deste lote; elas estão registradas no relatório da execução e não foram marcadas como resolvidas.
@@ -99,18 +99,18 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 
 | ID / seção original | Classificação | Evidência atual e trabalho residual | Destino |
 |---|---|---|---|
-| Achado 1 / §1.1 / §3.3 — buscas e resumo de B/L | Pendente | `src/hooks/useBls.ts` combina busca imediata em listas com resumo que materializa B/Ls/containers. | S12/S13 |
-| Achado 2 / §1.2 — `useContainers` | Pendente | Hook em `useBls.ts` pagina depois de buscar todas as linhas; opções distintas também varrem tabelas. | S12 |
+| Achado 1 / §1.1 / §3.3 — buscas e resumo de B/L | Mitigado parcialmente | Migration `020_operational_read_pages.sql` e `operationalLists.ts` limitam a resposta de B/L e o resumo quando o cliente usa RPC; fallback legado ainda materializa linhas. | S12/S13 |
+| Achado 2 / §1.2 — `useContainers` | Mitigado parcialmente | A rota RPC de `020` pagina containers e calcula agregados no servidor; fallback em `useBls.ts` ainda busca o conjunto completo. | S12 |
 | Achado 3 / §1.3 — `useVoyages` | Pendente | Hook em `useBls.ts` agrega embeds e segunda fase de consultas; separar resumo e detalhe sem N+1. | S12 |
 | Achado 4 / §1.4 — ausência de memoização | Precisa de investigação | Ausência de `React.memo` não prova lentidão. Medir commits e props; memoizar somente hotspot demonstrado. | S12/S13 |
-| Achado 5 / §1.5 — Line Up TV | Pendente | `lineup.ts` monta snapshot em cadeia e TV repete a cada 30 s; preservar limite de exibição e reduzir custo da leitura. | S12 |
+| Achado 5 / §1.5 — Line Up TV | Mitigado parcialmente | `Painel` consulta janela inicial de 60 viagens, informa o total e oferece “Carregar mais” até 500; a montagem de agregados por janela e o refresh da TV ainda exigem medição. | S12 |
 | Achado 6 / §2 — listeners | Já corrigido | `src/pages/Containers.tsx` e `src/pages/Manifestos.tsx` usam `useEffect` e cleanup nos menus de ações. Não planejar nova troca de lifecycle. | Só regressão existente |
 | §3.1 — retry/cache existentes | Aceito | Preservar configuração compartilhada e persistência de preferências já funcionais; não substituir TanStack Query. | Regressão S13 |
-| Achado 7 / §3.2 — offline como vazio | Pendente | Ausência de tratamento de `fetchStatus='paused'`/offline nas superfícies auditadas. | S13 |
+| Achado 7 / §3.2 — offline como vazio | Mitigado parcialmente | `QueryStateGate` cobre Manifestos, Containers e Carga Solta, distinguindo query pausada sem cache de dados salvos; outras superfícies ainda precisam da mesma integração. | S13 |
 | §4 — virtualização | Aceito | Paginação de 20–100 linhas não justifica virtualizar tudo. Investigar somente lista real >300 linhas ou profiler mostrando custo. | §8 |
-| §5.1 — confirmações e modal sujo | Pendente | Restam quatro chamadas nativas: duas em ClientesComunicacao, uma em InvoiceCommunicationStatusCell e `confirm` sem `window` em ChegadasSaidas. Proteger fechamento de formulário alterado. | S13 |
+| §5.1 — confirmações e modal sujo | Mitigado parcialmente | As quatro confirmações nativas auditadas agora usam `ConfirmDialog` com efeito descrito; proteção de formulário sujo e foco manual ainda não foram ampliados. | S13 |
 | Achado 8 / §5.2 — contraste | Pendente | Tokens de texto secundário e cores de status precisam medição em ambos os temas; contagem histórica de 78 usos não é gate. | S13 |
-| Achado 9 / §5.3 — teclado/tabelas | Pendente | Faltam semântica de ordenação/caption e operação por teclado nas tabelas/menus auditados. | S13 |
+| Achado 9 / §5.3 — teclado/tabelas | Mitigado parcialmente | Tabelas principais receberam `caption` e `scope`; menus e linhas expansíveis ainda precisam de operação por teclado/foco de retorno. | S13 |
 
 ### 2.4 PR #657 — transações, erros e sessão
 
@@ -123,7 +123,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | P2-02 — observabilidade | Já corrigido | Falhas de flags Baplie e taxas provisórias têm telemetria. | Preservar |
 | P2-02 — ordenação/retry | Pendente | Cauda usa execução separada; `.finally` pode calcular após falha de flags. Dependência precisa ser persistida. | S05, S04 auditoria |
 | P3-01 | Pendente | `omit_voyage_escala` faz EXISTS antes do INSERT; unique já evita duplicata. Corrigir mensagem da corrida, sem alegar duplicação persistida. | S04 |
-| P3-02 | Pendente | Sino descarta erro de marcar lida; observabilidade global não dá feedback nem restaura otimista. | S13 |
+| P3-02 | Mitigado parcialmente | `useMarkInternalNotificationRead` restaura item/contador no erro e o sino exibe toast com retry; permanece validação manual de estados de rede. | S13 |
 | P3-03 | Precisa de investigação | `useAuth` limpa perfil ao falhar hidratação; hidratação depende da identidade, não acontece indiscriminadamente a cada refresh. Reproduzir falha inicial/troca de usuário e distinguir inativo/revogado. | S13 |
 | §§2–4 sem achado | Aceito | Não abrir refatoração genérica de RLS, cache, tradução de erros ou duplo clique; manter regressões dos contratos já protegidos. | §6 |
 
@@ -165,16 +165,16 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | 5 / §2.3 | Pendente | `portal_list_operation_bls_legacy()` chama nome inexistente e não tem consumidor vivo conhecido. Remover após prova de dependências; não restaurar função fantasma. | S14 |
 | 6 / §2.4 | Precisa de investigação | 14 candidatas sem uso no inventário histórico; confirmar catálogo, dependências SQL/dinâmicas, triggers/jobs e consumidores externos atuais antes de DROP. | S14 |
 | 7 / §§1.1–1.2 — fatos documentais | Já corrigido | Contagens/path/rota catch-all e testes citados foram corrigidos; #661 refinou `.from` para 60 tabelas + 2 buckets. Não repetir essas edições. | Preservar |
-| 7 / §§1.3–1.4 — cobertura e prevenção | Pendente | Índice continua incompleto; RPCs dinâmicas não são cobertas por inventário literal. Checker não valida inverso/arquivo citado. | S11/S14 |
+| 7 / §§1.3–1.4 — cobertura e prevenção | Mitigado parcialmente | `check-rpc-catalog.mjs` e o mapa literal de Portal conferem RPCs ativas e wrappers de Inspeção; inventário inverso de rotas/arquivos e jobs ainda é residual. | S11/S14 |
 | 8 / §4.3 | Pendente | Flags e evento de intenção usam duas chamadas; autor é fornecido pelo cliente e resultado do INSERT não é checado. Trigger genérico pode registrar mudança de linha: não afirmar ausência absoluta de qualquer auditoria. | S04 |
 | 9 / §2.6 — quatro nullable | Precisa de investigação | Confirmar escrita externa/uso documental, sobretudo `bls.consignee_address`; remoção não é urgente nem automaticamente segura pela ausência em TS. | S14 |
 | 9 / §2.6 — duas write-only | Aceito | Manter `ended_vessels.ended_at` e `portal_email_events.received_at`; esta última será útil ao inbox. | §8 |
 | 10 / §3.1 — cast obsoleto | Pendente | `notify2_block`/`consignee_phone` já existem nos tipos; limpar cast/comentário em BlOperacionalTab. | S11 |
 | 10 / §3.1 — projeção de escalas | Pendente | EmbarqueVazios e agencyDepartureReport repetem união normalizada após entrega da projeção. Convergir no serviço existente. | S12 |
 | §3.2 — supressões | Mitigado parcialmente | Filtro por emails do cliente evita full-scan global atual. RPC filtrada/paginada é necessária ao ultrapassar teto por cliente, não prova de falha atual. | S06 diagnóstico, S12 condicional |
-| §3.2 — B/Ls | Pendente | Mesmo custo de #656 §1.1. | S12 |
-| §3.2 — Painel 60 viagens | Pendente | Histórico fica implicitamente limitado; declarar janela/paginar no Painel. TV pode continuar com limite visual 60. | S12 |
-| §3.2 — PortalBillingTabs | Pendente | Duas paginações locais; migrar ambas com paridade cliente/inspeção. | S11/S12 |
+| §3.2 — B/Ls | Mitigado parcialmente | `operational_list_bls`, `operational_list_containers` e `operational_list_bl_summary` têm filtros/limites server-side; fallback e listas derivadas ainda requerem convergência. | S12 |
+| §3.2 — Painel 60 viagens | Mitigado parcialmente | Painel expõe janela inicial e “Carregar mais” com total; TV ainda mantém snapshot limitado e a cadeia de agregados não foi reestruturada. | S12 |
+| §3.2 — PortalBillingTabs | Mitigado parcialmente | Taxas Locais e Demurrage usam páginas de 25, contagem, filtros e wrappers de Inspeção na migration `021`; exportação permanece limitada à página carregada. | S11/S12 |
 | §3.3 — tetos distantes | Aceito | N+1 transbordos, alertas por página, ATD sequencial, Vault por disparo e ZIP sem Zip64 ficam condicionados a medição; lookup portos/layout COSCO recebem validação S03, sem substituição ampla. | §8 |
 | §3.4 — ponte de testes do squash | Mitigado parcialmente | `src/test/setup.ts` combina ativo+archive, não lê exclusivamente archive; testes históricos não demonstram schema final. Ampliar execução de catálogo e invariantes ativas. | S01/S14 |
 | §3.4 — `voyage_pod_schedule` | Aceito | ADRs 0027 e 0035 adiam explicitamente `port_calls`; literal histórico não é descumprimento que autorize migração ampla. | §8 |
