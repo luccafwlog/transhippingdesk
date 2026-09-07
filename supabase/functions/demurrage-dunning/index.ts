@@ -223,6 +223,198 @@ async function createCommunication(
   return communicationId
 }
 
+function groupDunningCandidatesByCustomerCycle(candidates: DunningCandidate[]): DunningCandidate[][] {
+  // D11: uma mensagem por cliente/ciclo (customer_id + attempt_discriminator).
+  // Preserva cada fatura (sem consolidar valores); o grupo congela a composição
+  // da tentativa e deduplica por cliente/ciclo/destinatário no envio.
+  const groups = new Map<string, DunningCandidate[]>()
+  for (const candidate of candidates) {
+    const key = `${candidate.customer_id}:${candidate.attempt_discriminator}`
+    const list = groups.get(key) ?? []
+    if (!list.some((item) => item.invoice_id === candidate.invoice_id)) list.push(candidate)
+    groups.set(key, list)
+  }
+  return [...groups.values()].map((list) => list.sort((a, b) => a.invoice_id - b.invoice_id))
+}
+
+async function createGroupedCommunication(
+  admin: ReturnType<typeof createClient>,
+  group: DunningCandidate[],
+  context: InvoiceContext,
+  vesselName: string,
+  voyageNumber: string,
+): Promise<number> {
+  const first = group[0]!
+  const { data, error } = await admin.rpc('create_customer_communication_atomic', {
+    p_customer_id: first.customer_id,
+    p_kind: 'cobranca_demurrage',
+    p_nature: 'demurrage',
+    p_anchor_voyage_id: context.bl?.voyage?.id ?? null,
+    p_anchor_port: context.bl?.pod ?? null,
+    p_anchor_atracacao_id: null,
+    p_anchor_invoice_id: first.invoice_id,
+    p_attempt_discriminator: first.attempt_discriminator,
+    p_dispatch_id: null,
+    p_vessel_name: vesselName,
+    p_voyage_number: voyageNumber,
+    p_terminal_name: null,
+    p_created_by: null,
+    p_bl_ids: [...new Set(group.map((item) => item.bl_id))],
+  })
+  if (error) throw error
+  const communicationId = Number(data)
+  if (!Number.isInteger(communicationId) || communicationId <= 0) throw new Error('RPC não retornou o comunicado de Demurrage.')
+  const { error: originError } = await admin
+    .from('customer_communications')
+    .update({ origin: 'automatico' })
+    .eq('id', communicationId)
+  if (originError) throw originError
+  return communicationId
+}
+
+async function sendCandidateGroup(
+  admin: ReturnType<typeof createClient>,
+  group: DunningCandidate[],
+  communicationsEnabled: boolean,
+): Promise<'enviado' | 'simulado' | 'falha' | 'pausado'> {
+  const first = group[0]!
+  // Revalida quitação/disputa/supressão/caixa por fatura antes de compor o grupo.
+  const sendable: DunningCandidate[] = []
+  for (const candidate of group) {
+    if (await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) sendable.push(candidate)
+  }
+  if (!sendable.length) return 'pausado'
+  const contacts = await loadRecipients(admin, first.customer_id)
+  if (!contacts.length) return 'pausado'
+
+  const contexts = new Map<number, InvoiceContext>()
+  for (const candidate of sendable) {
+    contexts.set(candidate.invoice_id, await loadInvoice(admin, candidate.invoice_id))
+  }
+  const anchor = contexts.get(first.invoice_id) ?? contexts.get(sendable[0]!.invoice_id)!
+  const vesselName = anchor.bl?.voyage?.vessel?.name ?? ''
+  const voyageNumber = anchor.bl?.voyage?.voyage_number ?? ''
+  const firstRoe = Number(first.current_roe ?? anchor.current_roe ?? 0)
+  if (!anchor.customer?.name || !vesselName || !voyageNumber || firstRoe <= 0) {
+    throw new Error('Dados incompletos para o comunicado de Demurrage.')
+  }
+  // Valida o template canônico na primeira fatura e lista todas sem consolidar.
+  const firstTotalBrl = Number(first.current_total_brl ?? anchor.current_total_brl ?? (first.total_usd * firstRoe))
+  renderDemurrageTemplate({
+    customerId: first.customer_id,
+    customerName: anchor.customer.name,
+    vesselName,
+    voyageNumber,
+    port: anchor.bl?.pod ?? '—',
+    milestoneAt: first.first_billed_at,
+    bls: [{ id: first.bl_id, customerId: first.customer_id }],
+    portalUrl: portalBillingUrl(),
+    demurrage: {
+      docNumber: first.doc_number,
+      totalUsd: first.total_usd,
+      totalBrl: firstTotalBrl,
+      roe: firstRoe,
+      roeReferenceDate: first.roe_reference_date || dateOnly(anchor.updated_at || anchor.first_billed_at),
+    },
+  })
+  const lines = sendable.map((candidate) => {
+    const context = contexts.get(candidate.invoice_id)!
+    const roe = Number(candidate.current_roe ?? context.current_roe ?? firstRoe)
+    const totalBrl = Number(candidate.current_total_brl ?? context.current_total_brl ?? (candidate.total_usd * roe))
+    return { candidate, totalBrl, roe }
+  })
+  const totalUsd = lines.reduce((sum, line) => sum + line.candidate.total_usd, 0)
+  const subject = sendable.length === 1
+    ? `Cobrança de Demurrage — ${sendable[0]!.doc_number} — ${vesselName} / ${voyageNumber}`
+    : `Cobrança de Demurrage — ${sendable.length} faturas — ${vesselName} / ${voyageNumber}`
+  const textList = lines.map((line) => `• ${line.candidate.doc_number} (B/L ${line.candidate.bl_id}): USD ${line.candidate.total_usd.toFixed(2)} / BRL ${line.totalBrl.toFixed(2)}`).join('\n')
+  const htmlList = lines.map((line) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${line.candidate.doc_number} <span style="color:#6b7280">(${line.candidate.bl_id})</span></td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right">USD ${line.candidate.total_usd.toFixed(2)} · BRL ${line.totalBrl.toFixed(2)}</td></tr>`).join('')
+  const portalUrl = portalBillingUrl()
+  const template = {
+    subject,
+    html: `<p>Olá, ${anchor.customer!.name}.</p><p>${sendable.length} cobrança(s) de Demurrage disponíveis (total USD ${totalUsd.toFixed(2)} — valores por fatura, sem consolidação):</p><table style="width:100%;border-collapse:collapse">${htmlList}</table><p><a href="${portalUrl}">Consultar detalhes no Portal do Cliente</a></p>`,
+    text: `Olá, ${anchor.customer!.name}.\n\n${sendable.length} cobrança(s) de Demurrage disponíveis:\n${textList}\n\nConsulte os detalhes no Portal do Cliente: ${portalUrl}`,
+  }
+  const resendApiKey = communicationsEnabled ? Deno.env.get('RESEND_API_KEY') : null
+  if (communicationsEnabled && !resendApiKey) throw new Error('RESEND_API_KEY não está configurada para envio real.')
+  const communicationId = await createGroupedCommunication(admin, sendable, anchor, vesselName, voyageNumber)
+  let deliveredRecipients = 0
+  let simulatedRecipients = 0
+  let failedRecipients = 0
+  for (const contact of contacts) {
+    for (const candidate of sendable) {
+      if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
+    }
+    const recipient = normalizeEmail(contact.email)
+    const idempotencyKey = `demurrage:group:${first.customer_id}:${first.attempt_discriminator}:${recipient}`
+    try {
+      const sent = await sendEmail({
+        kind: 'cobranca_demurrage',
+        to: recipient,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        idempotencyKey,
+        resendApiKey,
+        from: Deno.env.get('PORTAL_FROM_EMAIL'),
+        replyTo: Deno.env.get('COMMUNICATIONS_REPLY_TO'),
+        missingConfigurationMessage: 'PORTAL_FROM_EMAIL e COMMUNICATIONS_REPLY_TO são obrigatórios para envio real',
+        checkSuppression: async (to) => {
+          const [{ data: communicationSuppression }, { data: portalSuppression }] = await Promise.all([
+            admin.from('customer_communication_suppressions').select('id').eq('email', to).maybeSingle(),
+            admin.from('portal_suppressed_emails').select('id').eq('email', to).eq('reason', 'bounce_permanente').maybeSingle(),
+          ])
+          return { suppressed: Boolean(communicationSuppression || portalSuppression) }
+        },
+        recordAttempt: async ({ idempotencyKey: attemptKey, to }): Promise<EmailAttemptRecord> => {
+          const { data, error } = await admin.from('customer_communication_attempts').insert({
+            communication_id: communicationId,
+            recipient_masked: maskEmail(to),
+            status: 'aceito',
+            idempotency_key: attemptKey,
+          }).select('id').single()
+          if (error?.code === '23505') {
+            const { data: existing, error: existingError } = await admin
+              .from('customer_communication_attempts')
+              .select('id, status, provider_message_id')
+              .eq('idempotency_key', attemptKey)
+              .single()
+            if (existingError || !existing) throw existingError ?? error
+            return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
+          }
+          if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
+          return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
+        },
+        updateAttempt: async (attemptId, update) => {
+          const { error } = await admin.from('customer_communication_attempts').update({
+            provider_message_id: update.providerMessageId,
+            retry_count: update.retryCount,
+            status: update.status,
+            last_error: update.lastError,
+          }).eq('id', attemptId)
+          if (error) throw error
+        },
+      })
+      if (sent.ok) {
+        if (communicationsEnabled) deliveredRecipients += 1
+        else simulatedRecipients += 1
+      } else {
+        failedRecipients += 1
+      }
+    } catch (error) {
+      failedRecipients += 1
+      console.error('[demurrage-dunning] falha no envio em grupo', first.customer_id, first.attempt_discriminator, recipient, error)
+    }
+  }
+
+  const allDelivered = deliveredRecipients === contacts.length && failedRecipients === 0
+  const allSimulated = simulatedRecipients === contacts.length && failedRecipients === 0
+  const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
+  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  if (statusError) throw statusError
+  return status
+}
+
 async function sendCandidate(
   admin: ReturnType<typeof createClient>,
   candidate: DunningCandidate,
@@ -383,17 +575,41 @@ async function handler(req: Request): Promise<Response> {
 
   const communicationsEnabled = Boolean((settings as { communications_enabled?: boolean } | null)?.communications_enabled)
   const candidates = asCandidates(claimed)
+  const groups = groupDunningCandidatesByCustomerCycle(candidates)
   let sent = 0
   let simulated = 0
   let failed = 0
   let paused = 0
   let releaseFailures = 0
-  for (const candidate of candidates) {
+  for (const group of groups) {
+    // Grupo unitário preserva o caminho por fatura (idempotência por invoice);
+    // grupo D11 envia uma mensagem por cliente/ciclo a cada destinatário.
+    if (group.length === 1) {
+      const candidate = group[0]!
+      try {
+        const result = await sendCandidate(admin, candidate, communicationsEnabled)
+        if (result === 'enviado') sent += 1
+        else if (result === 'falha' || result === 'pausado') {
+          if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
+          if (result === 'falha') failed += 1
+          else paused += 1
+        } else {
+          simulated += 1
+        }
+      } catch (error) {
+        failed += 1
+        if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
+        console.error('[demurrage-dunning] candidato inválido', candidate.invoice_id, error)
+      }
+      continue
+    }
     try {
-      const result = await sendCandidate(admin, candidate, communicationsEnabled)
+      const result = await sendCandidateGroup(admin, group, communicationsEnabled)
       if (result === 'enviado') sent += 1
       else if (result === 'falha' || result === 'pausado') {
-        if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
+        for (const candidate of group) {
+          if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
+        }
         if (result === 'falha') failed += 1
         else paused += 1
       } else {
@@ -401,8 +617,10 @@ async function handler(req: Request): Promise<Response> {
       }
     } catch (error) {
       failed += 1
-      if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
-      console.error('[demurrage-dunning] candidato inválido', candidate.invoice_id, error)
+      for (const candidate of group) {
+        if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
+      }
+      console.error('[demurrage-dunning] grupo inválido', group[0]?.customer_id, group[0]?.attempt_discriminator, error)
     }
   }
   return json(releaseFailures ? 500 : 200, { claimed: candidates.length, sent, simulated, failed, paused, releaseFailures })

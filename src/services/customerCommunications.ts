@@ -99,6 +99,8 @@ export function getEmailSuppressionReason(
   return null
 }
 
+// ponytail: roteador legado por preferences (tabela preservada para rollback);
+// produção usa caixas via resolveCustomerCommunicationRecipientsByBoxes.
 export function resolveCustomerCommunicationRecipients(input: {
   contacts: readonly CustomerContact[]
   nature: CustomerCommunicationNature
@@ -144,6 +146,31 @@ export function resolveCustomerCommunicationRecipients(input: {
   }
 
   return { eligible, excluded, blocked: eligible.length === 0 }
+}
+
+export type DemurrageDunningGroupableCandidate = {
+  invoice_id: number
+  customer_id: number
+  attempt_discriminator: number
+}
+
+// D11: agrupa faturas elegíveis por cliente/ciclo (customer_id +
+// attempt_discriminator) para uma mensagem por cliente/ciclo/destinatário.
+// Preserva cada fatura (sem consolidar valores); dedup por invoice_id.
+// Espelha groupDunningCandidatesByCustomerCycle da Edge demurrage-dunning.
+export function groupDemurrageDunningByCustomerCycle<T extends DemurrageDunningGroupableCandidate>(
+  candidates: readonly T[],
+): T[][] {
+  const groups = new Map<string, T[]>()
+  for (const candidate of candidates) {
+    const key = `${candidate.customer_id}:${candidate.attempt_discriminator}`
+    const list = groups.get(key) ?? []
+    if (!list.some((item) => item.invoice_id === candidate.invoice_id)) list.push(candidate)
+    groups.set(key, list)
+  }
+  return [...groups.values()].map((list) =>
+    list.sort((a, b) => a.invoice_id - b.invoice_id),
+  )
 }
 
 export type CustomerCommunicationDispatchMode = 'carga' | 'institucional'

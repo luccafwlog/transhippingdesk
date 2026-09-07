@@ -6,6 +6,7 @@ import {
   buildRecipientSnapshot,
   type CustomerContactBoxLink,
 } from '../customerCommunicationBoxes'
+import { groupDemurrageDunningByCustomerCycle } from '../customerCommunications'
 import type { CustomerContact } from '../../types/database'
 
 describe('customerCommunicationBoxes — catálogo e resolvedor determinístico', () => {
@@ -153,5 +154,81 @@ describe('customerCommunicationBoxes — catálogo e resolvedor determinístico'
       recipients: [{ ...c1, boxCodes: ['documentacao_operacao'], matchedBoxCodes: ['documentacao_operacao'] }],
     })
     expect(snap1).toBe(snap2)
+  })
+
+  it('S06 — Demurrage: principal suprimido + alternativo só-operacional não envia', () => {
+    const principal = baseContact(1, 'principal@cliente.com', true)
+    const operacional = baseContact(2, 'operacional@cliente.com', false)
+    const boxLinks: CustomerContactBoxLink[] = [
+      { contact_id: 1, box_code: 'demurrage' },
+      { contact_id: 1, box_code: 'financeiro' },
+      { contact_id: 2, box_code: 'documentacao_operacao' },
+    ]
+
+    const res = resolveCustomerCommunicationRecipientsByBoxes({
+      contacts: [principal, operacional],
+      boxLinks,
+      kind: 'cobranca_demurrage',
+      communicationSuppressions: [],
+      portalSuppressions: [{ email: 'principal@cliente.com', reason: 'bounce_permanente' }],
+    })
+
+    expect(res.eligible).toHaveLength(0)
+    expect(res.blocked).toBe(true)
+    expect(res.excluded.find((e) => e.contact.id === 1)?.reason).toBe('suprimido_bounce')
+  })
+
+  it('S06 — Demurrage: principal elegível permanece alcançável (fallback auditado no SQL)', () => {
+    const principal = baseContact(1, 'principal@cliente.com', true)
+    const operacional = baseContact(2, 'operacional@cliente.com', false)
+    const boxLinks: CustomerContactBoxLink[] = [
+      { contact_id: 1, box_code: 'demurrage' },
+      { contact_id: 2, box_code: 'documentacao_operacao' },
+    ]
+
+    const res = resolveCustomerCommunicationRecipientsByBoxes({
+      contacts: [principal, operacional],
+      boxLinks,
+      kind: 'cobranca_demurrage',
+    })
+
+    expect(res.blocked).toBe(false)
+    expect(res.eligible).toHaveLength(1)
+    expect(res.eligible[0].email).toBe('principal@cliente.com')
+  })
+
+  it('S06/D11 — 12 faturas do mesmo cliente/ciclo com 3 contatos geram 3 entregas', () => {
+    const candidates = Array.from({ length: 12 }, (_, index) => ({
+      invoice_id: 7000 + index,
+      customer_id: 70,
+      attempt_discriminator: 1,
+    }))
+    const groups = groupDemurrageDunningByCustomerCycle(candidates)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toHaveLength(12)
+
+    const contacts = [
+      baseContact(1, 'a@cliente.com', true),
+      baseContact(2, 'b@cliente.com', false),
+      baseContact(3, 'c@cliente.com', false),
+    ]
+    const boxLinks: CustomerContactBoxLink[] = [
+      { contact_id: 1, box_code: 'demurrage' },
+      { contact_id: 2, box_code: 'financeiro' },
+      { contact_id: 3, box_code: 'demurrage' },
+    ]
+    const res = resolveCustomerCommunicationRecipientsByBoxes({
+      contacts,
+      boxLinks,
+      kind: 'cobranca_demurrage',
+    })
+    expect(res.eligible).toHaveLength(3)
+
+    // Uma mensagem por cliente/ciclo a cada destinatário: 1 grupo × 3
+    // destinatários = 3 entregas com as 12 faturas (sem consolidar valores),
+    // em vez de 12 × 3 = 36.
+    expect(groups.length * res.eligible.length).toBe(3)
+    const invoiceIds = groups.flatMap((group) => group.map((item) => item.invoice_id))
+    expect(new Set(invoiceIds).size).toBe(12)
   })
 })
