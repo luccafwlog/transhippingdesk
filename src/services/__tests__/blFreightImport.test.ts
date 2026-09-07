@@ -651,9 +651,10 @@ describe('blFreightImport', () => {
       result: { bls_received: 1 },
       refusedCustomerRelinks: [],
     })
-    expect(mockRpc).toHaveBeenCalledWith('import_bl_freight_transactional', {
+    expect(mockRpc).toHaveBeenCalledWith('import_bl_freight_with_metadata', {
       p_bls: [preview.rows[0]?.payload],
       p_changed_by: 'user-1',
+      p_batch: { filename: 'importacao-bl.xlsx', voyage_id: 7, cargo_mode: 'container' },
     })
     expect(preview.rows[0]?.payload).toMatchObject({
       customer_id: null,
@@ -776,13 +777,13 @@ describe('blFreightImport', () => {
     }
 
     await confirmBlFreightImport(preview, 'user-1', true)
-    const sent = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
+    const sent = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_with_metadata')?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
     expect(sent.find((bl) => bl.id === 'IMPACT')?.override_billing).toBe(true)
     expect(sent.find((bl) => bl.id === 'FREE')?.override_billing).toBe(true)
 
     mockRpc.mockClear()
     await confirmBlFreightImport(preview, 'user-1', false)
-    const sentNoOverride = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
+    const sentNoOverride = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_with_metadata')?.[1]?.p_bls as Array<{ id: string; override_billing: boolean }>
     // impacting row stays un-applied; the free row still applies
     expect(sentNoOverride.find((bl) => bl.id === 'IMPACT')?.override_billing).toBe(false)
     expect(sentNoOverride.find((bl) => bl.id === 'FREE')?.override_billing).toBe(true)
@@ -952,12 +953,12 @@ describe('blFreightImport', () => {
     })
 
     await confirmBlFreightImport(preview, 'user-1', false, 'arquivo.xlsx', false)
-    const withoutConfirmation = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ relink_customer: boolean }>
+    const withoutConfirmation = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_with_metadata')?.[1]?.p_bls as Array<{ relink_customer: boolean }>
     expect(withoutConfirmation[0].relink_customer).toBe(false)
 
     mockRpc.mockClear()
     await confirmBlFreightImport(preview, 'user-1', false, 'arquivo.xlsx', true)
-    const confirmed = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_transactional')?.[1]?.p_bls as Array<{ relink_customer: boolean; customer_id: number | null }>
+    const confirmed = mockRpc.mock.calls.find(([name]) => name === 'import_bl_freight_with_metadata')?.[1]?.p_bls as Array<{ relink_customer: boolean; customer_id: number | null }>
     expect(confirmed[0]).toMatchObject({ relink_customer: true, customer_id: 43 })
   })
   it('grava o NCM declarado no documento e o mostra no diff', () => {

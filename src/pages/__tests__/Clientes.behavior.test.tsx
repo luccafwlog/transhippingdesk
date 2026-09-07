@@ -187,7 +187,7 @@ describe('Clientes page behaviours', () => {
     expect(mocks.parseCustomerBaseFile).toHaveBeenCalledWith(file)
     await user.click(within(screen.getByRole('dialog', { name: 'Importar Base de Clientes' })).getByRole('button', { name: 'Importar base' }))
 
-    await waitFor(() => expect(mocks.importCustomerBaseRows).toHaveBeenCalledWith(parsedBase.rows))
+    await waitFor(() => expect(mocks.importCustomerBaseRows).toHaveBeenCalledWith(parsedBase.rows, { changedBy: 'user-1' }))
     for (const queryKey of [['customers'], ['customer-lookup'], ['bls']]) {
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey })
     }

@@ -484,17 +484,32 @@ export async function confirmBlFreightImport(
   }
 
   // Mantém os dados extraídos do B/L para a revisão oferecer como sugestão;
-  // o cadastro e a vinculação só ocorrem após confirmação do usuário.
-  const { data, error } = await supabase.rpc('import_bl_freight_transactional', {
-    p_bls: payload,
-    p_changed_by: changedBy,
-  })
+  // o cadastro e a vinculação só ocorrem após confirmação do usuário. Quando
+  // o lote tem uma viagem, o wrapper grava B/L + batch + efeito recuperável na
+  // mesma transação. O caminho sem viagem continua avulso (ADR 0017).
+  const voyageId = payload.find((bl) => bl.voyage_id != null)?.voyage_id ?? null
+  const usesBatchContract = voyageId != null
+  const { data: rawData, error } = usesBatchContract
+    ? await supabase.rpc('import_bl_freight_with_metadata', {
+        p_bls: payload,
+        p_changed_by: changedBy,
+        p_batch: {
+          filename,
+          voyage_id: voyageId,
+          cargo_mode: 'container',
+        },
+      })
+    : await supabase.rpc('import_bl_freight_transactional', {
+        p_bls: payload,
+        p_changed_by: changedBy,
+      })
   if (error) throw error
+  const wrapped = rawData as { result?: unknown } | null
+  const data = usesBatchContract && wrapped && 'result' in wrapped ? wrapped.result : rawData
 
   // B/L nascido DEPOIS do Baplie (fluxo B/L-primário): aplica as flags físicas
   // soberanas do Baplie (IMO/OOG) aos containers recém-criados, fechando o gap
   // do #306. Best-effort e idempotente — sem Baplie, é no-op.
-  const voyageId = payload.find((bl) => bl.voyage_id != null)?.voyage_id ?? null
   if (voyageId != null) {
     // Etapa 4 do plano de faturamento (ADR 0038, achado 11): cálculo provisório
     // de taxas locais roda depois das flags do Baplie (elas definem o perfil de
@@ -515,7 +530,7 @@ export async function confirmBlFreightImport(
   }
 
   const importedIds = payload.map((bl) => bl.id)
-  if (voyageId != null && importedIds.length > 0) {
+  if (!usesBatchContract && voyageId != null && importedIds.length > 0) {
     const { data: batch, error: batchError } = await supabase
       .from('import_batches')
       .insert({

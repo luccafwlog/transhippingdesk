@@ -1,7 +1,6 @@
 import { asString, onlyDigits } from '../lib/utils'
 import { canonicalizeValidCnpj } from '../lib/cnpj'
 import { assertUploadFile } from '../lib/fileGuard'
-import type { Customer } from '../types/database'
 import { supabase } from './supabase'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
@@ -51,91 +50,45 @@ export async function parseCustomerBaseFile(file: File): Promise<ParsedCustomerB
   return parseCustomerBaseRows(rows)
 }
 
-export async function importCustomerBaseRows(rows: CustomerBaseRow[]) {
+export async function importCustomerBaseRows(rows: CustomerBaseRow[], options: { changedBy: string | null } = { changedBy: null }) {
   const uniqueRows = Array.from(new Map(rows.map((row) => [row.cnpj_cpf, row])).values())
   if (!uniqueRows.length) {
     return { imported: 0, updated: 0, contactsCreated: 0, blsLinked: 0 }
   }
-
-  const documents = uniqueRows.map((row) => row.cnpj_cpf)
-  const existingByDocument = new Map<string, Customer>()
-
-  const { data: existingCustomers, error: existingError } = await supabase
-    .from('customers')
-    .select('*')
-    .in('cnpj_cpf', documents)
-
-  if (existingError) throw existingError
-
-  ;(existingCustomers ?? []).forEach((customer) => existingByDocument.set(customer.cnpj_cpf, customer as Customer))
+  if (!options.changedBy) throw new Error('Usuário ativo obrigatório para importar a base de clientes.')
 
   let imported = 0
   let updated = 0
-
-  const payload = uniqueRows.map((row) => {
-    const existing = existingByDocument.get(row.cnpj_cpf)
-    if (existing) updated += 1
-    else imported += 1
-
-    return {
-      cnpj_cpf: row.cnpj_cpf,
-      name: row.name,
-      trade_name: chooseText(row.trade_name, existing?.trade_name),
-      address: chooseText(row.address, existing?.address),
-      city: chooseText(row.city, existing?.city),
-      state: chooseState(row.state, existing?.state),
-      zip: chooseText(row.zip, existing?.zip),
-      notes: existing?.notes ?? null,
-      pending_balance: existing?.pending_balance ?? 0,
-    }
-  })
-
-  const { data: upsertedCustomers, error: upsertError } = await supabase
-    .from('customers')
-    .upsert(payload, { onConflict: 'cnpj_cpf' })
-    .select('id, cnpj_cpf')
-
-  if (upsertError) throw upsertError
-
-  const customersByDocument = new Map<string, { id: number; cnpj_cpf: string }>()
-  ;(upsertedCustomers ?? []).forEach((customer) => customersByDocument.set(customer.cnpj_cpf, customer))
-
   let contactsCreated = 0
-  for (const row of uniqueRows) {
-    const customer = customersByDocument.get(row.cnpj_cpf)
-    if (!customer) continue
-
-    for (const email of row.emails) {
-      const { data: created, error: rpcError } = await supabase.rpc('ensure_customer_contact_email', {
-        p_customer_id: customer.id,
-        p_email: email,
-        p_contact_name: row.name,
-      })
-      if (rpcError) throw rpcError
-      if (created) {
-        contactsCreated += 1
-      }
-    }
-  }
-
-  // Retroactive BL linking: find unlinked BLs whose manifest CNPJ matches an upserted customer
   let blsLinked = 0
-  const linkResults = await Promise.all(
-    (upsertedCustomers ?? []).map((customer) =>
-      supabase
-        .from('bls')
-        .update({ customer_id: customer.id })
-        .eq('manifest_customer_cnpj_cpf', customer.cnpj_cpf)
-        .is('customer_id', null)
-        .select('id'),
-    ),
-  )
-  for (const result of linkResults) {
-    if (result.error) throw result.error
-    blsLinked += result.data?.length ?? 0
+  const errors: Array<{ cnpj_cpf: string; message: string }> = []
+
+  // Cada linha e uma unidade: falha de unicidade/contato em um cliente nao
+  // desfaz os clientes anteriores nem deixa upsert parcial no navegador.
+  for (const row of uniqueRows) {
+    const { data, error } = await supabase.rpc('apply_customer_base_row_atomic', {
+      p_cnpj: row.cnpj_cpf,
+      p_name: row.name,
+      p_trade_name: row.trade_name,
+      p_address: row.address,
+      p_city: row.city,
+      p_state: row.state,
+      p_zip: row.zip,
+      p_emails: row.emails,
+      p_changed_by: options.changedBy,
+    })
+    if (error) {
+      errors.push({ cnpj_cpf: row.cnpj_cpf, message: error.message || 'Falha ao importar cliente.' })
+      continue
+    }
+    const result = data as { created?: boolean; contacts_created?: number; bls_linked?: number } | null
+    if (result?.created) imported += 1
+    else updated += 1
+    contactsCreated += Number(result?.contacts_created ?? 0)
+    blsLinked += Number(result?.bls_linked ?? 0)
   }
 
-  return { imported, updated, contactsCreated, blsLinked }
+  return { imported, updated, contactsCreated, blsLinked, errors }
 }
 
 function validateRequiredHeaders(rawHeaders: string[]) {

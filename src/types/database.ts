@@ -4993,6 +4993,20 @@ export type Database = {
         Args: { p_bl_id: string; p_changed_by: string; p_new_ce: string }
         Returns: string
       }
+      apply_customer_base_row_atomic: {
+        Args: {
+          p_address?: string | null
+          p_changed_by: string
+          p_city?: string | null
+          p_cnpj: string
+          p_emails: Json
+          p_name: string
+          p_state?: string | null
+          p_trade_name?: string | null
+          p_zip?: string | null
+        }
+        Returns: Json
+      }
       apply_granite_ce_mercante_update: {
         Args: { p_bl_id: string; p_changed_by: string; p_new_ce: string }
         Returns: string
@@ -5406,6 +5420,10 @@ export type Database = {
       import_baplie_staging_transactional: {
         Args: { p_rows: Json; p_voyage_id: number }
         Returns: number
+      }
+      import_bl_freight_with_metadata: {
+        Args: { p_batch?: Json | null; p_bls: Json; p_changed_by: string }
+        Returns: Json
       }
       import_bl_freight_transactional: {
         Args: { p_bls: Json; p_changed_by: string }

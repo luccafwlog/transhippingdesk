@@ -245,16 +245,19 @@ export function Clientes() {
 
     setImportingBase(true)
     try {
-      const result = await importCustomerBaseRows(parsedBase.rows)
+      const result = await importCustomerBaseRows(parsedBase.rows, { changedBy: user?.id ?? null })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['customers'] }),
         queryClient.invalidateQueries({ queryKey: ['customer-lookup'] }),
         queryClient.invalidateQueries({ queryKey: ['bls'] }),
       ])
       const linkedMsg = result.blsLinked ? ` ${formatCountLabel(result.blsLinked, 'B/L vinculado', 'B/Ls vinculados')} automaticamente.` : ''
+      const failedMsg = result.errors?.length
+        ? ` ${result.errors.length} cliente(s) ficaram pendentes para correção.`
+        : ''
       showToast(
-        `Base importada: ${formatCountLabel(result.imported, 'novo', 'novos')}, ${formatCountLabel(result.updated, 'atualizado', 'atualizados')}, ${formatCountLabel(result.contactsCreated, 'contato', 'contatos')}.${linkedMsg}`,
-        'success',
+        `Base importada: ${formatCountLabel(result.imported, 'novo', 'novos')}, ${formatCountLabel(result.updated, 'atualizado', 'atualizados')}, ${formatCountLabel(result.contactsCreated, 'contato', 'contatos')}.${linkedMsg}${failedMsg}`,
+        result.errors?.length ? 'info' : 'success',
       )
       resetImportModal()
     } catch {
