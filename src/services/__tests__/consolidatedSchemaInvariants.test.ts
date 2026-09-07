@@ -143,4 +143,48 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
     expect(match![1]).toMatch(/\bauthenticated\b/)
     expect(match![1]).toMatch(/\bservice_role\b/)
   })
+
+  it('S01 fecha o helper de trigger e antecipa guardas de entrada (009)', async () => {
+    const ativas = await lerMigrationsAtivas()
+    expect([...ativas.keys()]).toContain('009_rpc_entry_security.sql')
+    const tudo = [...ativas.values()].join('\n')
+
+    // #659.2: sem GRANT explícito o helper herda EXECUTE no catálogo real;
+    // o REVOKE nominal fecha PUBLIC/anon/authenticated e nada o reabre.
+    expect(tudo).toMatch(
+      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.upsert_portal_invoice_exception\s*\(\s*bigint\s*,\s*text\s*\)\s+FROM\s+[^;]*PUBLIC[^;]*\banon\b[^;]*\bauthenticated\b[^;]*;/i,
+    )
+    expect(tudo).not.toMatch(
+      /GRANT\s+(?:ALL(?:\s+PRIVILEGES)?|EXECUTE)\s+ON\s+FUNCTION\s+public\.upsert_portal_invoice_exception\b[^;]*?\bTO\s+[^;]*(?:\banon\b|PUBLIC|authenticated)/i,
+    )
+
+    // Definição final = última reemissão no diretório ativo (a 009 vence a 002).
+    const definicaoFinal = (nome: string) => {
+      const ocorrencias = [...tudo.matchAll(
+        new RegExp(`CREATE OR REPLACE FUNCTION public\\.${nome}\\([\\s\\S]*?\\$\\$;`, 'gi'),
+      )]
+      return ocorrencias[ocorrencias.length - 1]?.[0] ?? ''
+    }
+
+    // #660.1: overview resolve identidade/revogação pelo helper antes do UPDATE.
+    const overview = definicaoFinal('portal_get_session_overview_v2')
+    expect(overview).toContain('PERFORM public.current_portal_customer_id();')
+    expect(overview.indexOf('PERFORM public.current_portal_customer_id();')).toBeLessThan(
+      overview.indexOf('last_login_at = now()'),
+    )
+
+    // #660.3: guarda de import (ator = chamador) antes de ler payload/delegar.
+    const blImport = definicaoFinal('import_bl_freight_transactional')
+    expect(blImport.indexOf('p_changed_by IS DISTINCT FROM auth.uid()')).toBeGreaterThan(-1)
+    expect(blImport.indexOf('p_changed_by IS DISTINCT FROM auth.uid()')).toBeLessThan(
+      blImport.indexOf('jsonb_array_elements'),
+    )
+
+    // #660.3: permissão do núcleo de escala antes de criar porto.
+    const escala = definicaoFinal('save_voyage_escala_terminal_state_v2')
+    expect(escala).toContain('Usuario ativo sem permissao para editar a escala.')
+    expect(escala.indexOf('Usuario ativo sem permissao para editar a escala.')).toBeLessThan(
+      escala.indexOf('INSERT INTO public.ports'),
+    )
+  })
 })

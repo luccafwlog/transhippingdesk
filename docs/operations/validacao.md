@@ -356,7 +356,11 @@ Passos:
 6. use CNPJ ou senha inválidos;
 7. ultrapasse o limite apenas em ambiente descartável;
 8. confirme mensagem genérica e rate limit;
-9. valide coexistência com uma sessão interna no mesmo navegador.
+9. valide coexistência com uma sessão interna no mesmo navegador;
+10. após revogar a credencial (`credentials_revoked_at`), confirme que o overview
+    nega com `28000` e não atualiza `last_login_at` — coberto de forma
+    automatizada por `src/integration/auditSecurityBoundaries.local-pg.test.ts`
+    (iat anterior/posterior, tolerância de 5 s, ausência e formato inválido).
 
 ### Recuperação de senha
 
