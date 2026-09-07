@@ -42,10 +42,11 @@ describeLocal('S06 — elegibilidade de comunicados e da régua (D11 + revalida�
       .join(',\n        ')
     localPsql(`
       DELETE FROM public.demurrage_dunning_claims WHERE demurrage_invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.customer_communication_dunning_invoices WHERE demurrage_invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
       DELETE FROM public.demurrage_invoices WHERE id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.customer_communications WHERE customer_id IN (${customerId}, ${otherCustomerId});
       DELETE FROM public.bls WHERE id LIKE 'S06-GRP-BL-%';
       DELETE FROM public.customer_contact_change_events WHERE customer_id IN (${customerId}, ${otherCustomerId});
-      DELETE FROM public.customer_communications WHERE customer_id IN (${customerId}, ${otherCustomerId});
       DELETE FROM public.customer_contacts WHERE customer_id IN (${customerId}, ${otherCustomerId});
       DELETE FROM public.voyages WHERE id = ${voyageId};
       DELETE FROM public.vessels WHERE id = ${vesselId};
@@ -97,10 +98,11 @@ describeLocal('S06 — elegibilidade de comunicados e da régua (D11 + revalida�
   afterAll(() => {
     localPsql(`
       DELETE FROM public.demurrage_dunning_claims WHERE demurrage_invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.customer_communication_dunning_invoices WHERE demurrage_invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
       DELETE FROM public.demurrage_invoices WHERE id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.customer_communications WHERE customer_id IN (${customerId}, ${otherCustomerId});
       DELETE FROM public.bls WHERE id LIKE 'S06-GRP-BL-%';
       DELETE FROM public.customer_contact_change_events WHERE customer_id IN (${customerId}, ${otherCustomerId});
-      DELETE FROM public.customer_communications WHERE customer_id IN (${customerId}, ${otherCustomerId});
       DELETE FROM public.customer_contacts WHERE customer_id IN (${customerId}, ${otherCustomerId});
       DELETE FROM public.voyages WHERE id = ${voyageId};
       DELETE FROM public.vessels WHERE id = ${vesselId};
@@ -132,6 +134,32 @@ describeLocal('S06 — elegibilidade de comunicados e da régua (D11 + revalida�
     for (const candidate of claimed) {
       localPsql(`SELECT public.release_demurrage_dunning_claim(${candidate.invoice_id}, ${candidate.attempt_discriminator});`)
     }
+  })
+
+  it('D11 — grupos que atravessam o limite do claim mantêm membership e idempotência exatas', () => {
+    const firstGroup = invoiceIds.slice(0, 8)
+    const secondGroup = invoiceIds.slice(8)
+    const createGroup = (ids: number[]) => localPsql(`
+      SELECT public.create_customer_dunning_group_atomic(
+        ${customerId}, 1, ARRAY[${ids.join(',')}]::bigint[], ${voyageId}, 'BRSSZ', 'Vessel S06', 'S06', NULL
+      );
+    `)
+
+    const firstCommunication = createGroup(firstGroup)
+    const firstRetry = createGroup(firstGroup)
+    const secondCommunication = createGroup(secondGroup)
+
+    expect(firstRetry).toBe(firstCommunication)
+    expect(secondCommunication).not.toBe(firstCommunication)
+    expect(localPsql(`
+      SELECT count(*) FROM public.customer_communication_dunning_groups
+      WHERE customer_id = ${customerId} AND attempt_discriminator = 1;
+    `)).toBe('2')
+    expect(localPsql(`
+      SELECT count(*) FROM public.customer_communication_dunning_invoices m
+      JOIN public.customer_communication_dunning_groups g ON g.communication_id = m.communication_id
+      WHERE g.customer_id = ${customerId} AND g.attempt_discriminator = 1;
+    `)).toBe('12')
   })
 
   it('destinatário fora do cliente não é autorizado', () => {

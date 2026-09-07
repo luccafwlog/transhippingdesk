@@ -13,7 +13,7 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain("p_anchor_invoice_id: candidate.invoice_id")
     expect(source).toContain("admin.rpc('release_demurrage_dunning_claim'")
     expect(source).toContain('CLAIM_BATCH_SIZE')
-    expect(source).toContain('idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${recipient}`')
+    expect(source).toContain('idempotencyKey = `demurrage:${communicationId}:${contact.id}:${await recipientVersion(recipient)}`')
     expect(source).not.toContain('claimed_at}:${recipient}')
   })
 
@@ -36,7 +36,9 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain('groupDunningCandidatesByCustomerCycle')
     expect(source).toContain('sendCandidateGroup')
     expect(source).toContain('createGroupedCommunication')
-    expect(source).toContain('p_bl_ids')
+    expect(source).toContain("admin.rpc('create_customer_dunning_group_atomic'")
+    expect(source).toContain('p_invoice_ids')
+    expect(source).toContain('customer_communication_recipient_allowed')
     expect(source).toContain('demurrage:group:')
     // Sem consolidar faturas: cada identificador/valor segue individual.
     expect(source).toContain('sem consolidação')

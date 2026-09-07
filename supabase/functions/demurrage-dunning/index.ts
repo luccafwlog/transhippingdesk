@@ -188,6 +188,39 @@ async function revalidateInvoiceBeforeSend(
   return data === true
 }
 
+async function currentEligibleRecipient(
+  admin: ReturnType<typeof createClient>,
+  customerId: number,
+  contactId: number,
+): Promise<string | null> {
+  const { data: contact, error: contactError } = await admin
+    .from('customer_contacts')
+    .select('id, email, customer_id, deactivated_at')
+    .eq('id', contactId)
+    .eq('customer_id', customerId)
+    .maybeSingle()
+  if (contactError) throw contactError
+  if (!contact || contact.deactivated_at != null) return null
+
+  const { data: allowed, error: allowedError } = await admin.rpc('customer_communication_recipient_allowed', {
+    p_customer_id: customerId,
+    p_contact_id: contactId,
+    p_kind: 'cobranca_demurrage',
+    p_audience_mode: 'caixa',
+    p_recipient_box_code: null,
+  })
+  if (allowedError) throw allowedError
+  if (allowed !== true) return null
+  const recipient = normalizeEmail(String(contact.email ?? ''))
+  return EMAIL_PATTERN.test(recipient) ? recipient : null
+}
+
+async function recipientVersion(email: string): Promise<string> {
+  const bytes = new TextEncoder().encode(email)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
 async function createCommunication(
   admin: ReturnType<typeof createClient>,
   candidate: DunningCandidate,
@@ -245,21 +278,15 @@ async function createGroupedCommunication(
   voyageNumber: string,
 ): Promise<number> {
   const first = group[0]!
-  const { data, error } = await admin.rpc('create_customer_communication_atomic', {
+  const { data, error } = await admin.rpc('create_customer_dunning_group_atomic', {
     p_customer_id: first.customer_id,
-    p_kind: 'cobranca_demurrage',
-    p_nature: 'demurrage',
+    p_attempt_discriminator: first.attempt_discriminator,
+    p_invoice_ids: group.map((item) => item.invoice_id),
     p_anchor_voyage_id: context.bl?.voyage?.id ?? null,
     p_anchor_port: context.bl?.pod ?? null,
-    p_anchor_atracacao_id: null,
-    p_anchor_invoice_id: first.invoice_id,
-    p_attempt_discriminator: first.attempt_discriminator,
-    p_dispatch_id: null,
     p_vessel_name: vesselName,
     p_voyage_number: voyageNumber,
     p_terminal_name: null,
-    p_created_by: null,
-    p_bl_ids: [...new Set(group.map((item) => item.bl_id))],
   })
   if (error) throw error
   const communicationId = Number(data)
@@ -281,7 +308,13 @@ async function sendCandidateGroup(
   // Revalida quitação/disputa/supressão/caixa por fatura antes de compor o grupo.
   const sendable: DunningCandidate[] = []
   for (const candidate of group) {
-    if (await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) sendable.push(candidate)
+    if (await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) {
+      sendable.push(candidate)
+    } else {
+      // A claim filtrada não pode ficar consumida só porque outra invoice do
+      // mesmo lote permaneceu elegível. O resultado da tentativa é por invoice.
+      await releaseClaim(admin, candidate)
+    }
   }
   if (!sendable.length) return 'pausado'
   const contacts = await loadRecipients(admin, first.customer_id)
@@ -341,12 +374,15 @@ async function sendCandidateGroup(
   let deliveredRecipients = 0
   let simulatedRecipients = 0
   let failedRecipients = 0
+  let eligibleRecipients = 0
   for (const contact of contacts) {
     for (const candidate of sendable) {
       if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
     }
-    const recipient = normalizeEmail(contact.email)
-    const idempotencyKey = `demurrage:group:${first.customer_id}:${first.attempt_discriminator}:${recipient}`
+    const recipient = await currentEligibleRecipient(admin, first.customer_id, contact.id)
+    if (!recipient) continue
+    eligibleRecipients += 1
+    const idempotencyKey = `demurrage:group:${communicationId}:${contact.id}:${await recipientVersion(recipient)}`
     try {
       const sent = await sendEmail({
         kind: 'cobranca_demurrage',
@@ -407,8 +443,9 @@ async function sendCandidateGroup(
     }
   }
 
-  const allDelivered = deliveredRecipients === contacts.length && failedRecipients === 0
-  const allSimulated = simulatedRecipients === contacts.length && failedRecipients === 0
+  if (eligibleRecipients === 0) return 'pausado'
+  const allDelivered = deliveredRecipients === eligibleRecipients && failedRecipients === 0
+  const allSimulated = simulatedRecipients === eligibleRecipients && failedRecipients === 0
   const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
   const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
   if (statusError) throw statusError
@@ -455,10 +492,13 @@ async function sendCandidate(
   let deliveredRecipients = 0
   let simulatedRecipients = 0
   let failedRecipients = 0
+  let eligibleRecipients = 0
   for (const contact of contacts) {
     if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
-    const recipient = normalizeEmail(contact.email)
-    const idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${recipient}`
+    const recipient = await currentEligibleRecipient(admin, candidate.customer_id, contact.id)
+    if (!recipient) continue
+    eligibleRecipients += 1
+    const idempotencyKey = `demurrage:${communicationId}:${contact.id}:${await recipientVersion(recipient)}`
     try {
       const sent = await sendEmail({
         kind: 'cobranca_demurrage',
@@ -519,8 +559,9 @@ async function sendCandidate(
     }
   }
 
-  const allDelivered = deliveredRecipients === contacts.length && failedRecipients === 0
-  const allSimulated = simulatedRecipients === contacts.length && failedRecipients === 0
+  if (eligibleRecipients === 0) return 'pausado'
+  const allDelivered = deliveredRecipients === eligibleRecipients && failedRecipients === 0
+  const allSimulated = simulatedRecipients === eligibleRecipients && failedRecipients === 0
   const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
   const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
   if (statusError) throw statusError
