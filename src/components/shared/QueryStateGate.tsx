@@ -1,18 +1,5 @@
-import { useSyncExternalStore, type ReactNode } from 'react'
-
-function subscribeOnline(listener: () => void) {
-  window.addEventListener('online', listener)
-  window.addEventListener('offline', listener)
-  return () => {
-    window.removeEventListener('online', listener)
-    window.removeEventListener('offline', listener)
-  }
-}
-
-/** Estado de rede do navegador; `getServerSnapshot` fixo para SSR. */
-export function useOnlineStatus() {
-  return useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true)
-}
+import type { ReactNode } from 'react'
+import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 
 type QueryStateGateProps = {
   /** `query.isLoading` (sem nenhum dado ainda). */
