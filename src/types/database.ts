@@ -5773,6 +5773,34 @@ export type Database = {
         Args: { p_customer_id: number }
         Returns: Json
       }
+      portal_inspect_list_demurrage_invoices_page: {
+        Args: {
+          p_bl?: string | null
+          p_customer_id: number
+          p_date_from?: string | null
+          p_date_to?: string | null
+          p_limit?: number
+          p_offset?: number
+          p_pod?: string | null
+          p_status?: string | null
+          p_vessel?: string | null
+        }
+        Returns: Json
+      }
+      portal_inspect_list_invoices_page: {
+        Args: {
+          p_bl?: string | null
+          p_customer_id: number
+          p_date_from?: string | null
+          p_date_to?: string | null
+          p_limit?: number
+          p_offset?: number
+          p_pod?: string | null
+          p_status?: string | null
+          p_vessel?: string | null
+        }
+        Returns: Json
+      }
       portal_invoice_details: { Args: { p_invoice_id: number }; Returns: Json }
       portal_list_consolidatable_receivables: {
         Args: never
@@ -5795,6 +5823,19 @@ export type Database = {
         }[]
       }
       portal_list_demurrage_invoices: { Args: never; Returns: Json }
+      portal_list_demurrage_invoices_page: {
+        Args: {
+          p_bl?: string | null
+          p_date_from?: string | null
+          p_date_to?: string | null
+          p_limit?: number
+          p_offset?: number
+          p_pod?: string | null
+          p_status?: string | null
+          p_vessel?: string | null
+        }
+        Returns: Json
+      }
       portal_list_disputes: { Args: never; Returns: Json }
       portal_list_invoices: {
         Args: never
@@ -5813,6 +5854,19 @@ export type Database = {
           vessels: string[]
           voyages: string[]
         }[]
+      }
+      portal_list_invoices_page: {
+        Args: {
+          p_bl?: string | null
+          p_date_from?: string | null
+          p_date_to?: string | null
+          p_limit?: number
+          p_offset?: number
+          p_pod?: string | null
+          p_status?: string | null
+          p_vessel?: string | null
+        }
+        Returns: Json
       }
       portal_list_notifications: { Args: { p_limit?: number }; Returns: Json }
       portal_list_operation_bls: { Args: never; Returns: Json }

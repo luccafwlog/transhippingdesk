@@ -157,6 +157,9 @@ vi.mock('../../hooks/useCustomerCommunications', () => ({
     isError: false,
   }),
 }))
+vi.mock('../../components/ui/ConfirmDialog', () => ({
+  useConfirm: () => vi.fn().mockResolvedValue(true),
+}))
 
 describe('Página ClientesComunicacao (UI e fluxos)', () => {
   beforeEach(() => {

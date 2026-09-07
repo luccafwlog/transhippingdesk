@@ -108,7 +108,30 @@ vi.mock('../../hooks/usePortalAuth', async () => ({
 vi.mock('../../hooks/usePortalBilling', () => ({
   usePortalConsolidatableReceivables: () => ({ data: [] }),
   usePortalInvoices: () => ({ data: localInvoices, isLoading: false, error: null }),
+  usePortalInvoicesPage: (filters: { bl?: string }) => {
+    const rows = filters?.bl ? localInvoices.filter((invoice) => invoice.bls.includes(filters.bl!)) : localInvoices
+    return {
+    data: {
+      rows,
+      totalCount: rows.length,
+      vesselOptions: ['NAVIO A / 001W', 'NAVIO B / 002W'],
+      pods: ['BRVIX', 'BRSSZ'],
+    },
+    isLoading: false,
+    error: null,
+    }
+  },
   usePortalDemurrageInvoices: () => ({ data: mocks.demurrageError ? undefined : demurrageInvoices, isLoading: false, error: mocks.demurrageError }),
+  usePortalDemurrageInvoicesPage: () => ({
+    data: mocks.demurrageError ? undefined : {
+      rows: demurrageInvoices,
+      totalCount: demurrageInvoices.length,
+      vesselOptions: ['NAVIO C / 003W'],
+      pods: ['BRVIX'],
+    },
+    isLoading: false,
+    error: mocks.demurrageError,
+  }),
   usePortalCurrentRoe: () => ({ data: mocks.currentRoe }),
   usePortalInvoiceDetail: () => ({ data: mocks.detail, isLoading: false, error: null }),
   usePortalDemurrageInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),

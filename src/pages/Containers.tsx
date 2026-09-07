@@ -4,10 +4,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, CalendarDays, Download, Trash2, MoreVertical } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { MetricCard } from '../components/ui/MetricCard'
-import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
+import { QueryStateGate } from '../components/shared/QueryStateGate'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
@@ -56,7 +57,7 @@ export function Containers() {
     search: debouncedSearch,
     page: debouncedSearch === filters.search ? filters.page : 1,
   }), [debouncedSearch, filters])
-  const { data, isLoading, error } = useContainers(queryFilters)
+  const { data, isLoading, error, fetchStatus, refetch } = useContainers(queryFilters)
   const { data: portOptions } = usePortOptions()
   const { data: typeOptions } = useContainerTypeOptions()
 
@@ -330,10 +331,17 @@ export function Containers() {
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        {error ? <InlineError message="Erro ao carregar containers." /> : null}
-
+        <QueryStateGate
+          isLoading={false}
+          isError={Boolean(error)}
+          isPaused={fetchStatus === 'paused'}
+          hasData={data !== undefined}
+          errorMessage="Erro ao carregar containers."
+          onRetry={() => void refetch()}
+        >
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[1060px] border-collapse text-left text-sm whitespace-nowrap">
+            <caption className="sr-only">Containers filtrados</caption>
             <thead className="bg-[#0d1117] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 {isAdmin ? (
@@ -448,6 +456,7 @@ export function Containers() {
             </tbody>
           </table>
         </div>
+        </QueryStateGate>
 
         {data && totalPages > 1 ? (
           <TableFooterPagination

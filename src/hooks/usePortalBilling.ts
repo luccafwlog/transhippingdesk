@@ -8,9 +8,12 @@ import {
   portalInvoiceDetails,
   portalListConsolidatableReceivables,
   portalListDemurrageInvoices,
+  portalListDemurrageInvoicesPage,
   portalListInvoices,
+  portalListInvoicesPage,
   portalObsoleteConsolidation,
 } from '../services/portalBilling'
+import { EMPTY_PORTAL_BILLING_FILTERS, type PortalBillingFilters } from '../lib/portalBillingFilters'
 import { queryKeys } from '../services/queryKeys'
 
 export function usePortalCurrentRoe() {
@@ -46,6 +49,18 @@ export function usePortalInvoices() {
   })
 }
 
+export function usePortalInvoicesPage(filters: PortalBillingFilters = EMPTY_PORTAL_BILLING_FILTERS, page = 0, pageSize = 25) {
+  const { isAuthenticated } = usePortalAuth()
+  const scope = usePortalScope()
+
+  return useQuery({
+    queryKey: ['portal-invoices-page', scope.mode, scope.customerId, filters, page, pageSize],
+    enabled: isAuthenticated || scope.mode === 'inspect',
+    queryFn: () => portalListInvoicesPage(filters, page, pageSize, scope),
+    placeholderData: (previous) => previous,
+  })
+}
+
 export function usePortalInvoiceDetail(invoiceId?: number | null) {
   const { isAuthenticated } = usePortalAuth()
   const scope = usePortalScope()
@@ -70,6 +85,18 @@ export function usePortalDemurrageInvoices() {
   })
 }
 
+export function usePortalDemurrageInvoicesPage(filters: PortalBillingFilters = EMPTY_PORTAL_BILLING_FILTERS, page = 0, pageSize = 25) {
+  const { isAuthenticated } = usePortalAuth()
+  const scope = usePortalScope()
+
+  return useQuery({
+    queryKey: ['portal-demurrage-invoices-page', scope.mode, scope.customerId, filters, page, pageSize],
+    enabled: isAuthenticated || scope.mode === 'inspect',
+    queryFn: () => portalListDemurrageInvoicesPage(filters, page, pageSize, scope),
+    placeholderData: (previous) => previous,
+  })
+}
+
 export function usePortalDemurrageInvoiceDetail(invoiceId?: number | null) {
   const { isAuthenticated } = usePortalAuth()
   const scope = usePortalScope()
@@ -91,6 +118,7 @@ export function usePortalCreateConsolidation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['portal-consolidatable-receivables'] }),
         queryClient.invalidateQueries({ queryKey: ['portal-invoices'] }),
+        queryClient.invalidateQueries({ queryKey: ['portal-invoices-page'] }),
       ])
       await refreshOverview()
     },
@@ -108,6 +136,7 @@ export function usePortalObsoleteConsolidation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['portal-consolidatable-receivables'] }),
         queryClient.invalidateQueries({ queryKey: ['portal-invoices'] }),
+        queryClient.invalidateQueries({ queryKey: ['portal-invoices-page'] }),
       ])
       await refreshOverview()
     },

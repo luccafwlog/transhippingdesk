@@ -22,6 +22,7 @@ export function usePortalOpenDispute() {
       portalOpenDemurrageDispute(input.demurrageInvoiceId, input.reason, scope),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portal-demurrage-invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['portal-demurrage-invoices-page'] })
       queryClient.invalidateQueries({ queryKey: ['portal-disputes'] })
     },
   })
@@ -35,6 +36,7 @@ export function usePortalAddDisputeMessage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['portal-disputes'] })
       void queryClient.invalidateQueries({ queryKey: ['portal-demurrage-invoices'] })
+      void queryClient.invalidateQueries({ queryKey: ['portal-demurrage-invoices-page'] })
     },
   })
 }

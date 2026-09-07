@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
+import { useConfirm } from '../ui/ConfirmDialog'
 import { formatCommunicationDateTime } from '../../services/customerCommunicationTemplates'
 import {
   dispatchCeMercanteTaxasCommunication,
@@ -28,6 +29,7 @@ export function InvoiceCommunicationStatusCell({ invoice }: Props) {
   const context = getInvoiceCommunicationContext(invoice)
   const statusQueries = useCustomerVoyageCommunicationStatuses(contexts)
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const [retryError, setRetryError] = useState<string | null>(null)
   const retryMutation = useMutation({
     mutationFn: (retryContext: { voyageId: number; customerId: number }) => dispatchCeMercanteTaxasCommunication(retryContext.voyageId, retryContext.customerId, { forceRetry: true }),
@@ -60,7 +62,14 @@ export function InvoiceCommunicationStatusCell({ invoice }: Props) {
                 {status.blockedReason ? <span className="text-amber-300">Prontidão bloqueada: {status.blockedReason}</span> : <span className={status.latest?.status === 'enviado' ? 'text-green-400' : 'text-amber-300'}>{statusText(status.latest)}</span>}
                 {status.latest ? <Link className="block text-xs text-blue-400 hover:underline" to={`/clientes/comunicacao?tab=historico&customer=${voyageContext.customerId}&communication=${status.latest.id}`}>Ver comunicado</Link> : null}
                 {canRetry ? <Button type="button" variant="ghost" loading={retryMutation.isPending} onClick={() => {
-                  if (window.confirm('Confirma o reenvio assistido do comunicado de CE Mercante para este cliente?')) void retryMutation.mutateAsync({ voyageId: voyageContext.voyageId!, customerId: voyageContext.customerId! })
+                  void (async () => {
+                    const confirmed = await confirm({
+                      title: 'Reenviar comunicado',
+                      message: 'Confirma o reenvio assistido do comunicado de CE Mercante para este cliente?',
+                      confirmLabel: 'Reenviar comunicado',
+                    })
+                    if (confirmed) await retryMutation.mutateAsync({ voyageId: voyageContext.voyageId!, customerId: voyageContext.customerId! })
+                  })()
                 }}>Reenviar comunicado</Button> : null}
               </>
             ) : null}

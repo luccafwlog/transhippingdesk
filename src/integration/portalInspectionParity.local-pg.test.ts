@@ -79,9 +79,10 @@ describeLocal('S11 — paridade de Inspeção das disputas', () => {
       INSERT INTO public.vessels (id, name, carrier_id) VALUES (${vesselId}, 'Vessel S11', ${carrierId}) ON CONFLICT (id) DO NOTHING;
       INSERT INTO public.voyages (id, vessel_id, voyage_number, status) VALUES (${voyageId}, ${vesselId}, 'S11-001', 'active') ON CONFLICT (id) DO NOTHING;
       INSERT INTO public.bls (id, voyage_id, customer_id, cargo_mode, pod) VALUES
-        ('${blA}', ${voyageId}, ${customerA}, 'container', 'BRVIX'),
+        ('${blA}', ${voyageId}, ${customerA}, 'container', 'BRVIX') ,
         ('${blB}', ${voyageId}, ${customerB}, 'container', 'BRSSZ')
       ON CONFLICT (id) DO UPDATE SET customer_id = EXCLUDED.customer_id;
+      UPDATE public.bls SET ce_mercante = 'CE-S11-A' WHERE id = '${blA}';
       INSERT INTO public.demurrage_invoices (doc_number, bl_id, customer_id, total_usd, status) VALUES
         ('S11-DEM-A', '${blA}', ${customerA}, 100, 'issued'),
         ('S11-DEM-B', '${blB}', ${customerB}, 200, 'issued')
@@ -122,6 +123,28 @@ describeLocal('S11 — paridade de Inspeção das disputas', () => {
     expect(psql(`SELECT has_function_privilege('authenticated', 'public.portal_list_disputes()', 'EXECUTE');`)).toBe('t')
     expect(psql(`SELECT has_function_privilege('anon', 'public.portal_inspect_list_disputes(bigint)', 'EXECUTE');`)).toBe('f')
     expect(psql(`SELECT has_function_privilege('authenticated', 'public.portal_inspect_list_disputes(bigint)', 'EXECUTE');`)).toBe('t')
+    expect(procExists('public._portal_list_invoices_page_core(bigint,integer,integer,text,text,text,text,date,date)')).toBe(true)
+    expect(procExists('public.portal_list_invoices_page(integer,integer,text,text,text,text,date,date)')).toBe(true)
+    expect(procExists('public.portal_inspect_list_invoices_page(bigint,integer,integer,text,text,text,text,date,date)')).toBe(true)
+    expect(procExists('public._portal_list_demurrage_invoices_page_core(bigint,integer,integer,text,text,text,text,date,date)')).toBe(true)
+    expect(procExists('public.portal_list_demurrage_invoices_page(integer,integer,text,text,text,text,date,date)')).toBe(true)
+    expect(procExists('public.portal_inspect_list_demurrage_invoices_page(bigint,integer,integer,text,text,text,text,date,date)')).toBe(true)
+    expect(psql(`SELECT has_function_privilege('anon', 'public.portal_list_invoices_page(integer,integer,text,text,text,text,date,date)', 'EXECUTE');`)).toBe('f')
+    expect(psql(`SELECT has_function_privilege('authenticated', 'public.portal_inspect_list_invoices_page(bigint,integer,integer,text,text,text,text,date,date)', 'EXECUTE');`)).toBe('t')
+  })
+
+  it('inspeção recebe página limitada e contagem server-side para as duas listas', () => {
+    const localPage = callAs(inspectorId, `SELECT public.portal_inspect_list_invoices_page(${customerA}, 1, 0, NULL, NULL, NULL, NULL, NULL, NULL);`)
+    expect(localPage.status, `${localPage.stdout}\n${localPage.stderr}`).toBe(0)
+    const localPayload = JSON.parse(lastJson(localPage.stdout)) as { rows: unknown[]; total_count: number }
+    expect(localPayload.rows).toHaveLength(0)
+    expect(localPayload.total_count).toBe(0)
+
+    const demurragePage = callAs(inspectorId, `SELECT public.portal_inspect_list_demurrage_invoices_page(${customerA}, 1, 0, NULL, NULL, NULL, NULL, NULL, NULL);`)
+    expect(demurragePage.status, `${demurragePage.stdout}\n${demurragePage.stderr}`).toBe(0)
+    const demurragePayload = JSON.parse(lastJson(demurragePage.stdout)) as { rows: unknown[]; total_count: number }
+    expect(demurragePayload.rows).toHaveLength(1)
+    expect(demurragePayload.total_count).toBe(1)
   })
 
   it('Portal A e Inspeção A veem os mesmos dados; B fica isolado', () => {
@@ -161,7 +184,8 @@ describeLocal('S11 — paridade de Inspeção das disputas', () => {
         expect(inspect).toBe('portal_ship_schedule')
         continue
       }
-      expect(procExists(`public.${inspect}(${inspect.includes('invoice_details') || inspect.includes('invoice_detail') ? 'bigint, bigint' : inspect.includes('list_notifications') ? 'bigint, integer' : 'bigint'})`)).toBe(true)
+      const pageSignature = inspect.includes('_page') ? 'bigint, integer, integer, text, text, text, text, date, date' : null
+      expect(procExists(`public.${inspect}(${pageSignature ?? (inspect.includes('invoice_details') || inspect.includes('invoice_detail') ? 'bigint, bigint' : inspect.includes('list_notifications') ? 'bigint, integer' : 'bigint')})`)).toBe(true)
     }
     for (const write of writes) {
       const candidate = write.startsWith('portal_') ? `public.portal_inspect_${write.slice(7)}` : `public.portal_inspect_${write}`

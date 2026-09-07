@@ -11,6 +11,9 @@ const { mockUseCustomerVoyageCommunicationStatus } = vi.hoisted(() => ({
 vi.mock('../../../hooks/useCustomerCommunicationReadiness', () => ({
   useCustomerVoyageCommunicationStatuses: () => [mockUseCustomerVoyageCommunicationStatus()],
 }))
+vi.mock('../../../components/ui/ConfirmDialog', () => ({
+  useConfirm: () => vi.fn().mockResolvedValue(true),
+}))
 
 import { InvoiceCommunicationStatusCell } from '../InvoiceCommunicationStatusCell'
 

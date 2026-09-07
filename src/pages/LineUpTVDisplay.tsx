@@ -45,7 +45,7 @@ export function LineUpTVDisplay() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['lineup-tv-display-v2'],
-    queryFn: fetchLineUpSnapshot,
+    queryFn: () => fetchLineUpSnapshot(),
     staleTime: 30_000,
     refetchInterval: 30_000,
   })

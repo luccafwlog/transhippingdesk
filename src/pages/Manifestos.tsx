@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, Trash2, Upload, MoreVertical } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { MetricCard } from '../components/ui/MetricCard'
-import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
@@ -14,6 +14,7 @@ import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
+import { QueryStateGate } from '../components/shared/QueryStateGate'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
@@ -62,7 +63,7 @@ export function Manifestos() {
     search: debouncedSearch,
     page: debouncedSearch === filters.search ? filters.page : 1,
   }), [debouncedSearch, filters])
-  const { data, isLoading, error } = useBls(queryFilters)
+  const { data, isLoading, error, fetchStatus, refetch } = useBls(queryFilters)
   const { data: summary, isLoading: isSummaryLoading } = useBlSummary(queryFilters)
   const { data: portOptions } = usePortOptions()
   const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
@@ -331,10 +332,17 @@ export function Manifestos() {
           <span className="font-semibold text-white">{formatResultCount(data?.count ?? 0, 'B/L retornado', 'B/Ls retornados')}</span>
           <span className="text-xs text-slate-400">{filterDescription}</span>
         </div>
-        {error ? <InlineError message="Erro ao carregar manifestos." /> : null}
-
+        <QueryStateGate
+          isLoading={false}
+          isError={Boolean(error)}
+          isPaused={fetchStatus === 'paused'}
+          hasData={data !== undefined}
+          errorMessage="Erro ao carregar manifestos."
+          onRetry={() => void refetch()}
+        >
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact app-table--sticky-actions min-w-[920px] text-left text-sm whitespace-nowrap">
+            <caption className="sr-only">B/Ls de container filtrados</caption>
             <thead>
               <tr>
                 {isAdmin ? (
@@ -456,6 +464,7 @@ export function Manifestos() {
             </tbody>
           </table>
         </div>
+        </QueryStateGate>
 
         {data && totalPages > 1 ? (
           <TableFooterPagination

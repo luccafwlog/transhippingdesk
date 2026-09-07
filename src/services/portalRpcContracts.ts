@@ -5,9 +5,11 @@
 export const PORTAL_READ_INSPECT_MAP = {
   portal_list_consolidatable_receivables: 'portal_inspect_list_consolidatable_receivables',
   portal_list_invoices: 'portal_inspect_list_invoices',
+  portal_list_invoices_page: 'portal_inspect_list_invoices_page',
   portal_invoice_details: 'portal_inspect_invoice_details',
   portal_get_current_roe: 'portal_inspect_get_current_roe',
   portal_list_demurrage_invoices: 'portal_inspect_list_demurrage_invoices',
+  portal_list_demurrage_invoices_page: 'portal_inspect_list_demurrage_invoices_page',
   portal_get_demurrage_invoice_detail: 'portal_inspect_get_demurrage_invoice_detail',
   portal_list_notifications: 'portal_inspect_list_notifications',
   portal_notification_unread_count: 'portal_inspect_notification_unread_count',

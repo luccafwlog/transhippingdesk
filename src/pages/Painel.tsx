@@ -28,6 +28,7 @@ export function Painel() {
   const { showToast } = useToast()
   const [filters, setFilters] = useState<LineUpFiltersState>(emptyLineUpFilters)
   const [isExporting, setIsExporting] = useState(false)
+  const [voyageWindow, setVoyageWindow] = useState(60)
   const {
     data: lineup,
     isLoading: isLineUpLoading,
@@ -35,8 +36,8 @@ export function Painel() {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ['lineup-tv-v3'],
-    queryFn: fetchLineUpSnapshot,
+    queryKey: ['lineup-tv-v3', voyageWindow],
+    queryFn: () => fetchLineUpSnapshot(voyageWindow),
     staleTime: 60_000,
     refetchInterval: 90_000,
   })
@@ -113,6 +114,11 @@ export function Painel() {
               <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
               Atualizar
             </button>
+            {lineup?.hasMore ? (
+              <button type="button" onClick={() => setVoyageWindow((current) => Math.min(current + 60, 500))} className="app-btn app-btn--secondary">
+                Carregar mais viagens
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => void handleExport()}
@@ -196,7 +202,7 @@ export function Painel() {
         onClear={() => setFilters(emptyLineUpFilters())}
         activeCount={activeFilterCount}
         visibleCount={rows.length}
-        totalCount={lineup?.rows.length ?? 0}
+        totalCount={lineup?.totalVoyages ?? lineup?.rows.length ?? 0}
         loading={isLineUpLoading}
       />
 
