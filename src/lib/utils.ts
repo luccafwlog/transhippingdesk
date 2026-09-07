@@ -173,6 +173,8 @@ export function asString(value: unknown) {
 }
 
 export function toNumber(value: unknown) {
+  // Legado fora de import: mantém strip de letras/inferência (ex.: '1e3' vira
+  // 13). Código novo de import usa parseImportNumber (src/lib/importNumber.ts).
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
   if (typeof value !== 'string') return null
   const cleaned = value
