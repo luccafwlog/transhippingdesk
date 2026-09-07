@@ -12,7 +12,19 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: planejado; nenhuma implementação autorizada nesta sessão.** Este arquivo é o único artefato produzido. Os caminhos a criar/modificar nas tarefas são destinos de execução futura, não mudanças realizadas. Nem o índice de planos nem a documentação viva são alterados agora.
+**Estado deste documento: execução parcial em `codex/remediation-takeover` (2026-09-07).** O plano continua aberto: as entregas abaixo foram aplicadas e validadas nesta branch, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+
+### 1.0 Registro de execução desta branch
+
+As entregas foram feitas em commits pequenos sobre o worktree isolado, preservando a ordem Page → Hook → Service → RPC/RLS:
+
+- **S01–S02:** guards de RPC/entrada, revogação e validação de Preview já existentes foram preservados e cobertos por catálogo/testes (`2d23d2e6`, `e1120960`).
+- **S03–S10:** foram aplicadas as correções de parsing numérico, identidade/roteamento, importações atômicas, efeitos recuperáveis, ledger local, procedência de ROE/PTAX e contratos de billing (`ef84e845` até `cb01ee05`, conforme o log da branch).
+- **S11–S12:** a paridade de Inspeção ganhou os wrappers de billing paginado da migration `021`, com filtros, contagem, limites e isolamento; as listas operacionais usam projeções paginadas existentes e o Painel oferece janela incremental de viagens (`a851fbf4`, `b1444146`).
+- **S13:** buscas operacionais têm debounce, as três listas principais distinguem offline sem cache de lista vazia, quatro confirmações nativas usam `ConfirmDialog`, e as tabelas principais têm caption acessível (`87a4d520`, `b417109d`, `b1444146`).
+- **S14:** o checker executado de RPC passou a validar o catálogo ativo; documentação viva e rastreabilidade foram atualizadas (`1ff9e1bd`, `b1444146`).
+
+Validação desta execução: `npm test` (553 arquivos, 2.926 testes aprovados), typecheck, lint, build, `npm run docs:check`, `npm run rpc:check` (164 RPCs) e os contratos locais diretamente afetados após reset do Postgres. O replay local agregado ainda possui falhas históricas de fixtures/limpeza fora deste lote; elas estão registradas no relatório da execução e não foram marcadas como resolvidas.
 
 ### 1.1 Baseline e alcance da evidência
 
