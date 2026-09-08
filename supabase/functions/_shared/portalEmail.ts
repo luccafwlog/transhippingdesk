@@ -42,8 +42,27 @@ export async function sendPortalEmail(input: SendPortalEmailInput): Promise<{ ok
         recipient_masked: maskEmail(to),
         status: 'aceito',
       }).select('id').single()
-      if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de email do Portal.')
-      return { id: data.id }
+      if (!error && data) return { id: data.id }
+
+      // A segunda execução depois de um crash precisa reaproveitar a mesma
+      // tentativa. O provider pode já ter aceito a requisição; gerar outra
+      // linha quebraria a idempotência local e perderia o vínculo do evento.
+      if (error?.code === '23505') {
+        const { data: existing, error: lookupError } = await admin
+          .from('portal_email_attempts')
+          .select('id, status, provider_message_id')
+          .eq('idempotency_key', idempotencyKey)
+          .maybeSingle()
+        if (lookupError || !existing) throw lookupError ?? new Error('Tentativa idempotente não encontrada após conflito.')
+        return {
+          id: existing.id,
+          status: existing.status,
+          providerMessageId: existing.provider_message_id,
+          existing: true,
+        }
+      }
+
+      throw error ?? new Error('Não foi possível registrar a tentativa de email do Portal.')
     },
     updateAttempt: async (attemptId, update) => {
       const { error } = await admin.from('portal_email_attempts').update({

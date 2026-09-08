@@ -32,22 +32,6 @@ beforeEach(() => {
   supabaseMocks.buildPix.mockReturnValue('pix-payload')
 })
 
-function invoiceFetchQuery(result: unknown) {
-  return {
-    select: vi.fn(() => ({
-      eq: vi.fn(() => ({
-        single: vi.fn().mockResolvedValue(result),
-      })),
-    })),
-  }
-}
-
-function invoiceUpdateQuery(result: unknown) {
-  const eq = vi.fn().mockResolvedValue(result)
-  const update = vi.fn(() => ({ eq }))
-  return { builder: { update }, update, eq }
-}
-
 type QueryResult = { data?: unknown; error?: unknown; count?: number | null }
 
 // listInvoices encadeia filtros condicionalmente; em vez de um mega-mock por
@@ -228,16 +212,11 @@ describe('createInvoiceFromBls', () => {
     expect(supabaseMocks.rpc).toHaveBeenCalledTimes(1)
   })
 
-  it('com invoice_id: persiste payload PIX apos emissao atomica com ledger', async () => {
+  it('com invoice_id: nao grava payload PIX no navegador apos emissao atomica com ledger', async () => {
     supabaseMocks.rpc.mockImplementation(async (name: string) => {
       if (name === 'create_invoice_from_bls_with_ledger') return { data: { invoice_id: 55, ok: true }, error: null }
       return { data: null, error: null }
     })
-    const update = invoiceUpdateQuery({ error: null })
-    supabaseMocks.from
-      .mockReturnValueOnce(invoiceFetchQuery({ data: { invoice_number: 'INV-55', total_brl: 100 }, error: null }))
-      .mockReturnValueOnce(update.builder)
-
     const result = await createInvoiceFromBls({
       blIds: ['BL001'],
       customerId: 7,
@@ -253,9 +232,8 @@ describe('createInvoiceFromBls', () => {
       p_issue_now: false,
       p_actor: 'user-1',
     })
-    expect(supabaseMocks.buildPix).toHaveBeenCalledWith(100, 'INV-55')
-    expect(update.update).toHaveBeenCalledWith({ pix_payload: 'pix-payload' })
-    expect(update.eq).toHaveBeenCalledWith('id', 55)
+    expect(supabaseMocks.buildPix).not.toHaveBeenCalled()
+    expect(supabaseMocks.from).not.toHaveBeenCalled()
     expect(supabaseMocks.rpc).toHaveBeenCalledTimes(1)
     expect(result).toEqual({ invoice_id: 55, ok: true })
   })

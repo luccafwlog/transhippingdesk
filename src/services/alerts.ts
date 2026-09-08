@@ -17,6 +17,8 @@ export type ActiveAlertType =
   | 'pix_unreconciled'
   | 'billing_calculation_blocked'
   | 'billing_auto_issue_failed'
+  | 'import_effect_blocked'
+  | 'demurrage_ptax_recalc_failed'
   | 'portal_pendencia_geral'
   | 'portal_excecao_critica_fatura'
   | 'portal_reprocessamento_falhou'
@@ -56,6 +58,8 @@ export const TYPE_LABELS: Record<string, string> = {
   pix_unreconciled: 'PIX sem conciliação segura',
   billing_calculation_blocked: 'Cálculo bloqueado',
   billing_auto_issue_failed: 'Falha de emissão automática',
+  import_effect_blocked: 'Efeito de importação bloqueado',
+  demurrage_ptax_recalc_failed: 'Falha na atualização da PTAX Demurrage',
   portal_pendencia_geral: 'Portal do Cliente — pendência geral',
   portal_excecao_critica_fatura: 'Portal do Cliente — exceção de fatura',
   portal_reprocessamento_falhou: 'Portal do Cliente — falha no reprocessamento',
@@ -94,15 +98,18 @@ export const ENTITY_TYPE_LABELS: Record<string, string> = {
   voyage_escala_terminal: 'Terminal da escala',
   customer: 'Cliente',
   demurrage_invoice: 'Invoice Demurrage',
+  exchange_rate_reference: 'Referência cambial',
+  import_effect: 'Efeito de importação',
   pix_transaction: 'Transação PIX',
 }
 
 export type AlertAudience = 'documentacao' | 'equipamentos' | 'operacoes' | 'administrativo'
-export type AlertEventUnit = 'bl' | 'invoice' | 'pix_transaction' | 'demurrage_invoice'
+export type AlertEventUnit = 'bl' | 'invoice' | 'pix_transaction' | 'demurrage_invoice' | 'exchange_rate_reference'
 
 export const FINANCIAL_ALERT_EVENTS = {
   billing_calculation_blocked: { audience: ['documentacao'], unit: 'bl' },
   billing_auto_issue_failed: { audience: ['documentacao'], unit: 'bl' },
+  demurrage_ptax_recalc_failed: { audience: ['documentacao'], unit: 'exchange_rate_reference' },
   pix_unreconciled: { audience: ['documentacao', 'equipamentos'], unit: 'pix_transaction' },
   portal_dispute_opened: { audience: ['equipamentos'], unit: 'demurrage_invoice' },
 } as const satisfies Record<string, { audience: readonly AlertAudience[]; unit: AlertEventUnit }>
@@ -110,6 +117,7 @@ export const FINANCIAL_ALERT_EVENTS = {
 export const FINANCIAL_ALERT_TYPES = [
   'billing_calculation_blocked',
   'billing_auto_issue_failed',
+  'demurrage_ptax_recalc_failed',
   'pix_unreconciled',
 ] as const
 
@@ -491,7 +499,7 @@ export async function resolveAlertItem(input: {
 export async function listFinancialAlerts(): Promise<AlertQueueRow[]> {
   // 'invoice' saiu da lista na 348 (#605): nenhum tipo financeiro ativo aponta
   // para faturas desde que invoice_overdue foi aposentado.
-  const financialEntityTypes = ['bl', 'pix_transaction'] as const
+  const financialEntityTypes = ['bl', 'pix_transaction', 'exchange_rate_reference'] as const
   const financialTypes = new Set<string>(FINANCIAL_ALERT_TYPES)
   const alertsByEntityType = await Promise.all(financialEntityTypes.map(async (entityType) => {
     const rows: AlertQueueRow[] = []

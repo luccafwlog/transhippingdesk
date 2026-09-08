@@ -2178,6 +2178,50 @@ export type Database = {
           },
         ]
       }
+      demurrage_calculation_snapshots: {
+        Row: {
+          calculation_version: number
+          created_at: string
+          created_by: string | null
+          demurrage_invoice_id: number
+          event_kind: string
+          id: number
+          input_hash: string
+          input_snapshot: Json
+          result_snapshot: Json
+        }
+        Insert: {
+          calculation_version?: number
+          created_at?: string
+          created_by?: string | null
+          demurrage_invoice_id: number
+          event_kind: string
+          id?: number
+          input_hash: string
+          input_snapshot: Json
+          result_snapshot: Json
+        }
+        Update: {
+          calculation_version?: number
+          created_at?: string
+          created_by?: string | null
+          demurrage_invoice_id?: number
+          event_kind?: string
+          id?: number
+          input_hash?: string
+          input_snapshot?: Json
+          result_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demurrage_calculation_snapshots_demurrage_invoice_id_fkey"
+            columns: ["demurrage_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "demurrage_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demurrage_invoice_history: {
         Row: {
           created_at: string
@@ -2185,7 +2229,7 @@ export type Database = {
           event_date: string
           id: number
           invoice_id: number
-          ptax_used: number
+          ptax_used: number | null
           roe_used: number
           source: string
           total_brl: number
@@ -2197,7 +2241,7 @@ export type Database = {
           event_date: string
           id?: number
           invoice_id: number
-          ptax_used: number
+          ptax_used: number | null
           roe_used: number
           source?: string
           total_brl: number
@@ -2209,7 +2253,7 @@ export type Database = {
           event_date?: string
           id?: number
           invoice_id?: number
-          ptax_used?: number
+          ptax_used?: number | null
           roe_used?: number
           source?: string
           total_brl?: number
@@ -5060,6 +5104,10 @@ export type Database = {
         Args: { p_lease_seconds?: number; p_limit?: number; p_worker_id: string }
         Returns: Json[]
       }
+      process_import_effect: {
+        Args: { p_effect_id: number; p_worker_id: string }
+        Returns: Json
+      }
       complete_import_effect: {
         Args: {
           p_effect_id: number
@@ -5221,6 +5269,16 @@ export type Database = {
           p_roe_manual: boolean
           p_roe_source: string
           p_total_usd: number
+        }
+        Returns: Json
+      }
+      create_demurrage_invoice_authoritative: {
+        Args: {
+          p_bl_id: string
+          p_container_ids: number[]
+          p_customer_id: number
+          p_doc_number: string
+          p_expected_updated_at?: string | null
         }
         Returns: Json
       }

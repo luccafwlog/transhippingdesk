@@ -36,7 +36,6 @@ import {
   fetchCustomerDemurrageSummary,
   fetchDemurrageKPIs,
   fetchLatestRecalcDate,
-  fetchROE,
   recalculateInvoicesManual,
 } from '../services/demurrage/demurrageKpis'
 import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
@@ -81,7 +80,6 @@ export function Demurrage() {
   // e o breakdown que a originou pode ja estar fechado quando ele abre.
   const [reversingPayment, setReversingPayment] = useState<{ id: number; docNumber: string | null } | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
-  const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
   const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null)
   const [discountInvoiceId, setDiscountInvoiceId] = useState<number | null>(null)
   const [discountForm, setDiscountForm] = useState<DiscountForm>(EMPTY_DISCOUNT)
@@ -214,15 +212,8 @@ export function Demurrage() {
     onSettled: () => setGeneratingBl(null),
   })
   const payMutation = useMutation({
-    mutationFn: async ({ id, date }: { id: number; date: string }) => {
-      const invoice = invoices?.find((item) => item.id === id)
-      let roe = invoice?.current_roe ?? null
-      if (!roe) {
-        const result = await fetchROE()
-        if (result.offline) setRoeOfflineWarning(result.cachedAt)
-        roe = result.roe
-      }
-      await markInvoicePaid(id, date, roe)
+    mutationFn: ({ id, date }: { id: number; date: string }) => {
+      return markInvoicePaid(id, date)
     },
     onSuccess: () => { invalidateInvoices(); setPayingId(null); showToast('Pagamento registrado.', 'success') },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -342,11 +333,6 @@ export function Demurrage() {
         <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <span className="flex items-center gap-2"><AlertTriangle size={16} />PTAX de hoje não obtida do BCB. Os valores em BRL podem estar desatualizados.</span>
           <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}>Informar PTAX</Button>
-        </div>
-      ) : null}
-      {roeOfflineWarning ? (
-        <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-          BCB offline — usando PTAX em cache de {new Date(roeOfflineWarning).toLocaleString('pt-BR')}. Verifique a taxa antes de emitir faturas.
         </div>
       ) : null}
       <DemurrageDisputeConversation />

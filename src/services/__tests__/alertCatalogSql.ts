@@ -21,6 +21,8 @@ const CATALOG_MIGRATIONS = [
   '372_comunicados_fundacao.sql',
   '374_comunicados_alertas.sql',
   '377_portal_invoice_exception_audience.sql',
+  '024_demurrage_ptax_alert.sql',
+  '026_import_effect_alert.sql',
 ]
 
 // Migrations que aposentam tipos. Aceitam tanto `type IN (...)` quanto

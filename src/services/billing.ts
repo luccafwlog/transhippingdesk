@@ -1,7 +1,6 @@
 import { supabase } from './supabase'
 import { z } from 'zod'
 import type { Customer, Invoice, InvoiceDocumentStatus, InvoiceItem, InvoicePayment, InvoiceSummary, InvoiceBlLink, Json } from '../types/database'
-import { buildTransshippingPixPayload } from '../lib/pix'
 import { classifyDbError } from '../lib/errors'
 import { escapeFilterTerm, sanitizeLikeTerm } from '../lib/utils'
 import { canonicalizeDocument } from '../lib/cnpj'
@@ -106,21 +105,6 @@ type BillingCustomerOption = {
   id: number
   name: string
   cnpj_cpf: string
-}
-
-async function persistPixPayload(invoiceId: number): Promise<void> {
-  const { data: inv, error: fetchError } = await supabase
-    .from('invoices')
-    .select('invoice_number, total_brl')
-    .eq('id', invoiceId)
-    .single()
-  if (fetchError || !inv?.invoice_number || !inv.total_brl || Number(inv.total_brl) <= 0) return
-  const pix_payload = buildTransshippingPixPayload(
-    parseFloat(Number(inv.total_brl).toFixed(2)),
-    inv.invoice_number,
-  )
-  const { error: updateError } = await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
-  if (updateError) reportBestEffortFailure('persistPixPayload update', updateError, { invoiceId })
 }
 
 const INVOICE_LIST_SELECT = `
@@ -662,19 +646,6 @@ function buildConsolidatedInvoiceItems(
   })
 }
 
-function shouldBackfillPixPayload(
-  invoice: InvoiceDetail['invoice'],
-): invoice is NonNullable<InvoiceDetail['invoice']> & { invoice_number: string; total_brl: number } {
-  return Boolean(
-    invoice &&
-    !invoice.pix_payload &&
-    invoice.invoice_number &&
-    invoice.total_brl &&
-    Number(invoice.total_brl) > 0 &&
-    ['issued', 'partially_paid', 'overdue', 'paid'].includes(invoice.status ?? ''),
-  )
-}
-
 async function hydrateGraniteInvoiceBls(result: InvoiceDetail, invoiceId: number): Promise<void> {
   if (result.invoice?.invoice_type !== 'granite' || result.bls.length > 0) return
 
@@ -763,18 +734,6 @@ async function hydrateConsolidatedInvoiceDetails(result: InvoiceDetail, invoiceI
   }
 }
 
-async function backfillInvoicePixPayload(result: InvoiceDetail, invoiceId: number): Promise<void> {
-  const invoice = result.invoice
-  if (!shouldBackfillPixPayload(invoice)) return
-
-  const pix_payload = buildTransshippingPixPayload(
-    parseFloat(Number(invoice.total_brl).toFixed(2)),
-    invoice.invoice_number,
-  )
-  const { error } = await supabase.from('invoices').update({ pix_payload }).eq('id', invoiceId)
-  if (!error) result.invoice = { ...invoice, pix_payload } as typeof invoice
-}
-
 export async function listInvoiceDetails(invoiceId: number) {
   const { data, error } = await supabase.rpc('list_invoice_details', {
     p_invoice_id: invoiceId,
@@ -785,7 +744,6 @@ export async function listInvoiceDetails(invoiceId: number) {
   const result = createInvoiceDetail((data ?? {}) as InvoiceDetailPayload)
   await hydrateGraniteInvoiceBls(result, invoiceId)
   await hydrateConsolidatedInvoiceDetails(result, invoiceId)
-  await backfillInvoicePixPayload(result, invoiceId)
 
   return result
 }
@@ -807,11 +765,6 @@ export async function createInvoiceFromBls(input: {
   if (error) throw error
 
   const result = (data ?? {}) as Json
-  const invoiceId = (result as { invoice_id?: number }).invoice_id
-  if (invoiceId) {
-    await persistPixPayload(invoiceId)
-  }
-
   return result
 }
 
@@ -831,11 +784,6 @@ export async function markBlReadyAndCreateInvoice(input: {
   if (error) throw error
 
   const result = (data ?? {}) as Json
-  const invoiceId = (result as { invoice_id?: number }).invoice_id
-  if (invoiceId) {
-    await persistPixPayload(invoiceId)
-  }
-
   return result
 }
 
@@ -855,11 +803,6 @@ export async function markBlsReadyAndCreateInvoice(input: {
   if (error) throw error
 
   const result = (data ?? {}) as Json
-  const invoiceId = (result as { invoice_id?: number }).invoice_id
-  if (invoiceId) {
-    await persistPixPayload(invoiceId)
-  }
-
   return result
 }
 

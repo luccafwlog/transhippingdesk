@@ -39,6 +39,11 @@ function fmtBcbDate(d: Date): string {
 
 type BcbQuote = { cotacaoVenda: number; dataHoraCotacao: string }
 
+const PTAX_FAILURE_TYPE = 'demurrage_ptax_recalc_failed'
+const PTAX_FAILURE_ENTITY_TYPE = 'exchange_rate_reference'
+const PTAX_FAILURE_ENTITY_ID = 'global'
+const PTAX_FAILURE_SOURCE = 'recalc-demurrage-ptax'
+
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500
 }
@@ -93,6 +98,53 @@ async function fetchLatestPtax(): Promise<BcbQuote> {
   return { cotacaoVenda: Number(cotacaoVenda.toFixed(4)), dataHoraCotacao }
 }
 
+function errorDetail(error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error)
+  return Array.from(detail, (character) => {
+    const code = character.charCodeAt(0)
+    return code < 0x20 || code === 0x7f ? ' ' : character
+  }).join('').slice(0, 500)
+}
+
+async function recordPtaxFailure(
+  supabase: ReturnType<typeof createClient>,
+  errorCode: string,
+  error: unknown,
+): Promise<void> {
+  try {
+    const { error: alertError } = await supabase.rpc('upsert_alert_item', {
+      p_type: PTAX_FAILURE_TYPE,
+      p_entity_type: PTAX_FAILURE_ENTITY_TYPE,
+      p_entity_id: PTAX_FAILURE_ENTITY_ID,
+      p_message: 'A atualização automática da PTAX da Demurrage falhou; o último valor válido foi preservado.',
+      p_source: PTAX_FAILURE_SOURCE,
+      p_metadata: {
+        error_code: errorCode,
+        detail: errorDetail(error),
+        observed_at: new Date().toISOString(),
+      },
+      p_destination: '/demurrage',
+    })
+    if (alertError) console.error('recalc-demurrage-ptax: alerta de falha não persistido', alertError)
+  } catch (alertError) {
+    console.error('recalc-demurrage-ptax: canal de alerta indisponível', alertError)
+  }
+}
+
+async function resolvePtaxFailure(
+  supabase: ReturnType<typeof createClient>,
+  quoteDate: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('resolve_alert_item', {
+    p_type: PTAX_FAILURE_TYPE,
+    p_entity_type: PTAX_FAILURE_ENTITY_TYPE,
+    p_entity_id: PTAX_FAILURE_ENTITY_ID,
+    p_source: PTAX_FAILURE_SOURCE,
+    p_metadata: { recovered_at: new Date().toISOString(), quote_date: quoteDate },
+  })
+  if (error) throw error
+}
+
 Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   const cronSecret = Deno.env.get('RECALC_CRON_SECRET') ?? ''
@@ -110,18 +162,20 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'internal_configuration_error' }), { status: 500 })
   }
 
+  const supabase = createClient(supabaseUrl, serviceRoleKey)
+
   let quote: BcbQuote
   try {
     quote = await fetchLatestPtax()
   } catch (error) {
     console.error('recalc-demurrage-ptax: PTAX indisponivel', error)
+    await recordPtaxFailure(supabase, 'ptax_unavailable', error)
     return new Response(JSON.stringify({ error: 'ptax_unavailable' }), {
       status: 502,
       headers: { 'content-type': 'application/json' },
     })
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey)
   const quoteDate = quote.dataHoraCotacao.slice(0, 10) // dataHoraCotacao = "YYYY-MM-DD HH:mm:ss.SSS"
   const roe = Number((quote.cotacaoVenda * 1.065).toFixed(4))
 
@@ -134,6 +188,7 @@ Deno.serve(async (req: Request) => {
   })
   if (referenceError) {
     console.error('recalc-demurrage-ptax: referencia cambial falhou', referenceError)
+    await recordPtaxFailure(supabase, 'reference_failed', referenceError)
     return new Response(JSON.stringify({ error: 'reference_failed' }), {
       status: 500,
       headers: { 'content-type': 'application/json' },
@@ -147,7 +202,19 @@ Deno.serve(async (req: Request) => {
   })
   if (error) {
     console.error('recalc-demurrage-ptax: RPC falhou', error)
+    await recordPtaxFailure(supabase, 'recalc_failed', error)
     return new Response(JSON.stringify({ error: 'recalc_failed' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+
+  try {
+    await resolvePtaxFailure(supabase, quoteDate)
+  } catch (error) {
+    console.error('recalc-demurrage-ptax: alerta de falha não resolvido', error)
+    await recordPtaxFailure(supabase, 'alert_resolution_failed', error)
+    return new Response(JSON.stringify({ error: 'alert_resolution_failed' }), {
       status: 500,
       headers: { 'content-type': 'application/json' },
     })

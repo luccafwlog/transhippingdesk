@@ -1,6 +1,6 @@
 # Segredos dos jobs `pg_cron`
 
-Como os quatro jobs HTTP do banco encontram a URL da API e o segredo da Edge
+Como os jobs HTTP do banco encontram a URL da API e o segredo da Edge
 Function que vão chamar, como rotacionar esses valores e como verificar que
 nenhum deles voltou a aparecer em texto claro.
 
@@ -29,11 +29,14 @@ por nome:
 
 | Nome no Vault | Consumidor | Espelha o Edge Function Secret |
 |---|---|---|
-| `SUPABASE_URL` | todos os quatro jobs | — (configuração, não segredo) |
+| `SUPABASE_URL` | todos os jobs | — (configuração, não segredo) |
 | `PORTAL_DIGEST_SECRET` | `portal-daily-digest` | `PORTAL_DIGEST_SECRET` |
 | `ALERTS_DETECTOR_SECRET` | `alerts-foundation-detectors` | `ALERTS_DETECTOR_SECRET` |
 | `DEMURRAGE_DUNNING_SECRET` | `demurrage-dunning` | `DEMURRAGE_DUNNING_SECRET` |
 | `CUSTOMER_COMMUNICATION_AUTOMATION_SECRET` | `customer-communication-auto-runner` | `CUSTOMER_COMMUNICATION_AUTOMATION_SECRET` |
+| `PORTAL_EMAIL_EVENTS_CRON_SECRET` | `portal-email-events-runner` | `PORTAL_EMAIL_EVENTS_CRON_SECRET` |
+| `IMPORT_EFFECTS_CRON_SECRET` | `import-effects-runner` | `IMPORT_EFFECTS_CRON_SECRET` |
+| `RECALC_CRON_SECRET` | `recalc-demurrage-ptax` | `RECALC_CRON_SECRET` |
 
 Os nomes são iguais aos dos Edge Function Secrets de propósito: o par
 banco/Function é o contrato, e rotacionar um sem o outro derruba o job.
@@ -99,24 +102,29 @@ WHERE command ~ $re$Bearer ' \|\| '[^']$re$
    OR command ~ $re$'X-Communication-Automation-Secret',\s*'[^']$re$;
 ```
 
-**Os quatro jobs HTTP passam pelo dispatcher e estão ativos** — deve retornar
-quatro linhas com `ok = true`:
+**Os jobs HTTP passam pelo dispatcher** — deve retornar sete linhas com `ok =
+true`. `recalc-demurrage-ptax` pode aparecer com `active = false` até sua
+validação externa; isso é deliberado:
 
 ```sql
 SELECT jobname, schedule, active,
        command LIKE 'SELECT ops.dispatch_edge_job(%' AS ok
 FROM cron.job
 WHERE jobname IN ('portal-daily-digest', 'alerts-foundation-detectors',
-                  'demurrage-dunning', 'customer-communication-auto-runner')
+                  'demurrage-dunning', 'customer-communication-auto-runner',
+                  'portal-email-events-runner', 'import-effects-runner',
+                  'recalc-demurrage-ptax')
 ORDER BY jobname;
 ```
 
-**O cofre tem as cinco entradas** — deve retornar `5`:
+**O cofre tem as oito entradas** — deve retornar `8`:
 
 ```sql
 SELECT count(*) FROM vault.secrets
 WHERE name IN ('SUPABASE_URL', 'PORTAL_DIGEST_SECRET', 'ALERTS_DETECTOR_SECRET',
-               'DEMURRAGE_DUNNING_SECRET', 'CUSTOMER_COMMUNICATION_AUTOMATION_SECRET');
+               'DEMURRAGE_DUNNING_SECRET', 'CUSTOMER_COMMUNICATION_AUTOMATION_SECRET',
+               'PORTAL_EMAIL_EVENTS_CRON_SECRET', 'IMPORT_EFFECTS_CRON_SECRET',
+               'RECALC_CRON_SECRET');
 ```
 
 **O cofre está fechado para o cliente** — as quatro colunas devem ser `false`:
@@ -150,7 +158,7 @@ LIMIT 8;
 ## Provisionar um banco novo
 
 Um banco criado só por migrations nasce com o cofre vazio. Depois de aplicar as
-migrations, cadastre as cinco entradas uma única vez:
+migrations, cadastre as oito entradas uma única vez:
 
 ```sql
 SELECT vault.create_secret('https://<ref>.supabase.co', 'SUPABASE_URL',
@@ -158,11 +166,14 @@ SELECT vault.create_secret('https://<ref>.supabase.co', 'SUPABASE_URL',
 SELECT vault.create_secret('<valor>', 'PORTAL_DIGEST_SECRET',
   'Espelha o Edge Function Secret de mesmo nome.');
 -- idem para ALERTS_DETECTOR_SECRET, DEMURRAGE_DUNNING_SECRET e
--- CUSTOMER_COMMUNICATION_AUTOMATION_SECRET.
+-- CUSTOMER_COMMUNICATION_AUTOMATION_SECRET, PORTAL_EMAIL_EVENTS_CRON_SECRET,
+-- IMPORT_EFFECTS_CRON_SECRET e RECALC_CRON_SECRET.
 ```
 
-Até lá, os quatro jobs ficam agendados e inertes, com `WARNING` no log a cada
-execução.
+Até lá, os jobs ficam agendados e inertes, com `WARNING` no log a cada execução.
+Mesmo com o Vault preenchido, `import-effects-runner` exige
+`IMPORT_EFFECTS_RUNNER_ENABLED=true`; o job de PTAX permanece inativo até a
+liberação operacional após validação de Preview e gateway.
 
 ## Risco residual
 

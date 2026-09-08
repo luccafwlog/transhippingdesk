@@ -345,7 +345,7 @@ describe('Demurrage page behaviours', () => {
     await user.clear(paymentDate)
     await user.type(paymentDate, '2026-07-12')
     await user.click(screen.getByRole('button', { name: 'Confirmar' }))
-    await waitFor(() => expect(mocks.markPaid).toHaveBeenCalledWith(21, '2026-07-12', 5.5))
+    await waitFor(() => expect(mocks.markPaid).toHaveBeenCalledWith(21, '2026-07-12'))
     expect(mocks.fetchRoe).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog', { name: 'Registrar Pagamento' })).toBeNull()
 

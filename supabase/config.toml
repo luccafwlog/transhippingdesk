@@ -17,6 +17,9 @@ verify_jwt = false
 [functions.portal-email-webhook]
 verify_jwt = false
 
+[functions.portal-email-events-runner]
+verify_jwt = false
+
 [functions.portal-invite-activate]
 verify_jwt = false
 

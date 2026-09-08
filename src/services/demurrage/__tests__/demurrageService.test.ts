@@ -59,7 +59,8 @@ it('US-043: marca como paga uma invoice emitida', async () => {
   expect(rpcMock).toHaveBeenCalledWith('register_demurrage_payment', expect.objectContaining({
     p_invoice_id: 5,
     p_paid_at: '2026-06-23',
-    p_total_brl: 500,
+    p_total_brl: null,
+    p_ptax_used: null,
   }))
 })
 
@@ -81,10 +82,11 @@ it('US-047: abre/atualiza disputa via patch', async () => {
 })
 
 it('US-040: abre o detalhe da invoice com header e itens', async () => {
-  results.demurrage_invoices = { data: { id: 5, doc_number: 'DEM-1' }, error: null }
+  results.demurrage_invoices = { data: { id: 5, doc_number: 'DEM-1', current_total_brl: 100, pix_payload: null }, error: null }
   results.demurrage_invoice_items = { data: [{ id: 1, container_number: 'C1' }], error: null }
   const detail = await getInvoiceDetail(5)
   expect(detail.invoice).toMatchObject({ id: 5 })
+  expect(detail.invoice.pix_payload).toBeNull()
   expect(detail.items).toHaveLength(1)
 })
 

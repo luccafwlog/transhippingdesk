@@ -12,23 +12,33 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial em `codex/remediation-takeover` (2026-09-07).** O plano continua aberto: as entregas abaixo foram aplicadas e validadas nesta branch, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial em `codex/remediation-complete` (2026-09-07).** O plano continua aberto: a PR #669 foi usada como baseline e esta branch integra correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
-As entregas foram feitas em commits pequenos sobre o worktree isolado, preservando a ordem Page → Hook → Service → RPC/RLS:
+As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Page → Hook → Service → RPC/RLS:
 
 - **S01–S02:** guards de RPC/entrada, revogação e validação de Preview já existentes foram preservados e cobertos por catálogo/testes (`2d23d2e6`, `e1120960`).
-- **S03–S10:** foram aplicadas as correções de parsing numérico, identidade/roteamento, importações atômicas, efeitos recuperáveis, ledger local, procedência de ROE/PTAX e contratos de billing (`ef84e845` até `cb01ee05`, conforme o log da branch).
+- **S03:** o parser Baplie passou a bloquear peso inválido, porto desconhecido/ausente e vazamento de contexto entre equipamentos, com testes focados.
+- **S05:** efeitos pós-commit ganharam consumidor SQL server-only, retry/bloqueio, alerta persistente e runner agendado fail-closed (`025`–`026`). Granite/veículo sem consumidor completo continuam bloqueados.
+- **S07:** eventos de email passaram a ser inbox durável, com claim, ordenação, retry, supressão, fallback e runner server-only (`022`).
+- **S08–S09:** emissão de Demurrage passou a aceitar somente identidades no RPC autoritativo, gerar snapshot append-only e retirar cálculos/escritas financeiras do browser; falhas de PTAX abrem alerta persistente (`023`–`024`).
 - **S11–S12:** a paridade de Inspeção ganhou os wrappers de billing paginado da migration `021`, com filtros, contagem, limites e isolamento; as listas operacionais usam projeções paginadas existentes e o Painel oferece janela incremental de viagens (`a851fbf4`, `b1444146`).
 - **S13:** buscas operacionais têm debounce, as três listas principais distinguem offline sem cache de lista vazia, quatro confirmações nativas usam `ConfirmDialog`, e as tabelas/menus principais têm caption, semântica de menu e foco de teclado (`87a4d520`, `b417109d`, `b1444146`, `c58330eb`).
 - **S14:** o checker executado de RPC passou a validar o catálogo ativo; documentação viva e rastreabilidade foram atualizadas (`1ff9e1bd`, `b1444146`).
 
-Validação desta execução: `npm test` (553 arquivos, 2.926 testes aprovados), typecheck, lint, build, `npm run docs:check`, `npm run rpc:check` (164 RPCs) e os contratos locais diretamente afetados após reset do Postgres. O replay local agregado ainda possui falhas históricas de fixtures/limpeza fora deste lote; elas estão registradas no relatório da execução e não foram marcadas como resolvidas.
+Validação anterior do baseline está preservada no histórico abaixo. Nesta
+integração, `npm test -- --run` passou com 557 arquivos, 2.942 testes aprovados
+e 88 ignorados; typecheck, lint, build, `npm run docs:check` (214 Markdown/49
+rotas), `npm run rpc:check` (168 RPCs), size-limit (195,19 kB brotlied) e
+`git diff --check` também passaram. Os quatro testes locais opt-in de Postgres
+passaram com 14 testes. Não foram publicados Edge Functions, preenchidos Vaults
+ou ativados jobs remotos; Preview, gateway, Resend e BCB continuam evidências
+externas pendentes.
 
 ### 1.1 Baseline e alcance da evidência
 
-- **Código:** checkout e `main` remoto conferidos em `5cdf033ac6a0527829e93016001bbe1f8ad239d6`, merge da PR #661. Árvore inicialmente limpa. Migrations ativas: `001`–`008`; o arquivo histórico não é a definição final do banco.
+- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`026`. O arquivo histórico não é a definição final do banco.
 - Fonte dos identificadores: [auditoria consolidada](../archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md). Preservar esse registro integralmente. Nas seções sem ID, usar o número e o título original; os sufixos deste plano apenas desdobram causas diferentes.
 - Fontes de decisão: [CLAUDE.md](../../CLAUDE.md), [CONTEXT.md](../../CONTEXT.md), [WORKFLOW.md](../../WORKFLOW.md), [arquitetura](../ARCHITECTURE.md), [rastreabilidade](../RASTREABILIDADE.md), [convenções](../CONVENCOES.md) e [índice de ADRs](../adr/README.md).
 - **Código** significa confirmação estática no baseline. **Teste de contrato SQL** significa inspeção textual de SQL; não prova execução, concorrência, grants efetivos ou PostgREST. Testes citados abaixo são existentes ou propostos, com essa distinção explícita; não foram executados para afirmar que uma remediação funciona.
@@ -85,7 +95,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | ID | Classificação | Evidência atual e trabalho residual | Destino |
 |---|---|---|---|
 | A1 | Pendente | `008::repair_customer_contact_box_fallbacks` pode escolher qualquer contato ativo quando falta principal elegível. Contraria o fallback restrito ao principal da ADR 0064. Vazamento entre caixas do mesmo cliente, não IDOR entre clientes. | S06 |
-| A2 | Pendente | `portal-email-webhook` grava dedup antes de resolver tentativa; evento sem tentativa retorna 200 e replay é consumido. Erros posteriores também podem deixar processamento incompleto. | S07 |
+| A2 | Mitigado parcialmente | `portal-email-webhook` agora autentica e persiste a inbox; `portal-email-events-runner` resolve/retenta em transição server-only e marca evento sem tentativa como investigação. Deploy remoto, retry real e observabilidade ainda precisam de Preview. | S07 |
 | A3 | Pendente | Claim de dunning e resolução de destinatários divergem em desativação/caixas; release sem envio permite repetição dos primeiros 50 e starvation. | S06/S07 |
 | A4 | Pendente | `simulado` é estado inicial e terminal; saída antecipada no laço de dunning pula agregação final, inclusive após envio parcial. | S07 |
 | A5 | Pendente | Chave de idempotência de dunning contém email normalizado em claro, apesar de `recipient_masked`. Mascaramento não serve como chave única. | S07 |
@@ -118,7 +128,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 |---|---|---|---|
 | P1-01 | Mitigado parcialmente | Mesmo item #654 P1-5; proteção contra emissão após update falho entregue, atomicidade e recuperação durável pendentes. | S04/S05 |
 | P1-02 — observabilidade | Já corrigido | Catches pós-CE registram `reportBestEffortFailure`; não recriar logging como solução. | Preservar |
-| P1-02 — retry/fila/feedback | Pendente | Persistência de CE não garante conclusão do faturamento após falha/fechamento da aba. | S05 |
+| P1-02 — retry/fila/feedback | Mitigado parcialmente | `import_pending_effects` e `import-effects-runner` preservam lease, retry, bloqueio e histórico após o commit; o consumidor segue fail-closed e Granite/veículo continuam sem implementação completa. | S05 |
 | P2-01 | Pendente | `src/services/blFreightImport.ts` cria/vincula batch após RPC; o sucesso do núcleo não torna metadados atômicos. Respeitar ADR 0017: batch continua opcional. | S04 |
 | P2-02 — observabilidade | Já corrigido | Falhas de flags Baplie e taxas provisórias têm telemetria. | Preservar |
 | P2-02 — ordenação/retry | Pendente | Cauda usa execução separada; `.finally` pode calcular após falha de flags. Dependência precisa ser persistida. | S05, S04 auditoria |
@@ -135,12 +145,12 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | F2 — contrato de confirmação | Pendente | `002::confirm_demurrage_pix_matches(jsonb)` é invoker sem guard/estado/dedup/janela equivalentes ao contrato atual. | S08 |
 | F2 — baixa arbitrária persistida | Precisa de investigação | ACL final da 006 concede apenas SELECT em `demurrage_invoice_history`; INSERT do invoker pode abortar e desfazer UPDATE. Não há prova de exploração funcional nesta sessão; testar sob roles reais antes de afirmar. Não abrir INSERT para “consertar” RPC. | S08 |
 | F3 | Pendente | Desconto USD acima do total aceito no SQL; UI limita resultado, mas banco pode ficar negativo e PIX perder valor. | S08 |
-| F4 — autoridade server-side | Pendente | D02 aprovada: migrar cálculo para núcleo server-side com preview versionado, preservando tarifas/acordos/overrides. Formalizar supersessão parcial da ADR 0026 na implementação. | S08-B / D02 |
+| F4 — autoridade server-side | Mitigado parcialmente | `create_demurrage_invoice_authoritative` calcula por IDs no banco e `demurrage_calculation_snapshots` congela versão/entradas/saída; falta validar Preview/roles reais e concluir os documentos/fluxos financeiros residuais. | S08-B / D02 |
 | F4 — validade do cache | Pendente | `src/services/demurrage/demurrageRates.ts` renova timestamp ao falhar refresh, prolongando dado antigo sem limite visível. | S08-A |
 | F5 | Pendente | Cotação aceita valor sem faixa de sanidade. Escrita por usuário ativo não é, sozinha, violação da ADR 0046; não impor admin implicitamente. | S09 |
 | F6 — quantidade/fracionamento | Pendente | Exibição arredonda fração de container e não explica composição do total. Preservar rateio exato e resíduo já calculado no SQL. | S10 |
 | F6 — B/L irmão tardio | Aceito | Risco residual reconhecido pela ADR 0020, complemento de 06/08: irmãos recebem CE juntos. Não recalcular/faturar irmãos automaticamente sem mudança dessa premissa. Validar ocorrência atual e promover decisão se houver evidência. | S10 diagnóstico / D05 |
-| F7 | Pendente | SQL e TS gravam payload PIX; retirar escrita financeira paralela e impedir bypass direto. | S08/S10 |
+| F7 | Mitigado parcialmente | A emissão SQL continua sendo a autoridade do payload PIX e os serviços/UI não o calculam nem persistem em paralelo; ACLs/rotas legadas e runtime remoto ainda exigem conferência. | S08/S10 |
 | F8 | Precisa de investigação | Subcampo 26/05, txid/limites e caracteres exigem confronto com especificação oficial BR Code vigente. Ausência de campo 01 não torna QR estático expirável; não prometer invalidação de QR antigo. | S08-C |
 | F9 | Pendente | Foto inicial reconstrói PTAX dividindo ROE por 1,065, inclusive cotação manual. Preservar procedência real; não inventar histórico retroativo. | S09 |
 | F10 | Pendente | Spread 1,065 replicado; centralizar regra no servidor e snapshot/versionamento, sem refatoração de todas as moedas. | S09 |
@@ -149,7 +159,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | F13 — constraints intrínsecas | Pendente | `demurrage_rates` carece de validação de tarifa negativa, faixas e datas inválidas. | S08 |
 | F13 — gaps/sobreposições | Aceito | Lacunas de faixa têm regra aceita na ADR 0026; sobreposição de tabelas locais é deliberada na ADR 0040. Não proibir ambas com EXCLUDE genérico. Conflito específico de acordos continua protegido. | §8 |
 | F14 | Pendente | Tolerância de R$ 0,01 pode encerrar invoice local com saldo residual no ledger. Conferir manual e PIX no SQL atual; a afirmação histórica “PIX local exato” não basta. | S10 |
-| F15 | Pendente | Edge tem um fetch com timeout de 12 s, log e erro, sem recuperação/alerta persistente; não há cron versionado para ela. `verify_jwt=true` vs bearer dedicado requer validação de gateway antes de agendar. | S09, igual #659.1 |
+| F15 | Mitigado parcialmente | A Edge tem retry/backoff, erro sanitizado e alerta persistente; migration `018` declara o job PTAX nominalmente inativo. Ainda falta validar gateway/Vault/Preview e uma execução real. | S09, igual #659.1 |
 | F16 | Pendente | Seleção para detectar USD e seleção de itens de emissão usam conjuntos de status distintos; risco latente para isento positivo. | S10 |
 | F17 | Pendente | `CURRENT_DATE` de emissão pode diferir do dia BRT usado pela régua. | S09/S10 |
 | Disputas e juros/multa | Aceito | Disputa pausa dunning, não PTAX/pagamento; juros/multa não são praticados. Não adicionar congelamento de câmbio ou encargos. | §8 |
@@ -158,7 +168,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 
 | ID original | Classificação | Evidência atual e trabalho residual | Destino |
 |---|---|---|---|
-| 1 / §2.2 | Pendente | `recalc-demurrage-ptax` existe sem job nas migrations ativas; ver F15. | S09 |
+| 1 / §2.2 | Mitigado parcialmente | `recalc-demurrage-ptax` agora tem job declarado e inativo em `018`, além do alerta persistente de `024`; ativação e execução remota permanecem pendentes. | S09 |
 | 2 / §4.1 | Pendente | `upsert_portal_invoice_exception(bigint,text)` conserva PUBLIC; DEFAULT PRIVILEGES da 006 não revoga função já criada. Inventariar trigger ACLs sem fixar contagem histórica. | S01 |
 | 3 / §4.2 | Pendente | `portalScope.ts` constrói variante de disputa inexistente; hook habilita Inspeção. | S11 |
 | 4 / §2.7 | Pendente | Tipos não representam superfície final; `settle_cod_adjustment` tem assinatura divergente e adapters contornam inferência. Recalcular diferenças, não congelar 55/6 como meta. | S11 |

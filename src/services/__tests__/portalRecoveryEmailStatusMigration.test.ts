@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const sql = readFileSync('supabase/migrations/299_portal_recovery_email_status.sql', 'utf8')
 const assistedSql = readFileSync('supabase/migrations/300_portal_assisted_email_change_invalidates_invites.sql', 'utf8')
-const webhook = readFileSync('supabase/functions/portal-email-webhook/index.ts', 'utf8')
+const inboxMigration = readFileSync('supabase/migrations/022_email_inbox_and_dispatch_state.sql', 'utf8')
 
 describe('Sinal de Email de Recuperação quebrado (299)', () => {
   it('cria coluna própria com os três estados possíveis', () => {
@@ -34,17 +34,17 @@ describe('Sinal de Email de Recuperação quebrado (299)', () => {
 
 describe('webhook marca o sinal sem rebaixar a conta', () => {
   it('grava recovery_email_status no bounce permanente', () => {
-    expect(webhook).toContain("recovery_email_status: status === 'bounce' ? 'bounce_permanente' : 'complaint'")
+    expect(inboxMigration).toContain("recovery_email_status = CASE WHEN v_event_kind = 'email.bounced' THEN 'bounce_permanente' ELSE 'complaint' END")
   })
 
   it('mantém o rebaixamento restrito a convite_pendente', () => {
-    expect(webhook).toContain(".eq('account_situation', 'convite_pendente')")
+    expect(inboxMigration).toContain("account_situation = CASE WHEN account_situation = 'convite_pendente' THEN 'falha_no_envio' ELSE account_situation END")
   })
 
-  // Achado H: o webhook inseria alerta sem checar duplicado.
+  // Achado H: o consumidor usa o helper SQL deduplicado, não insert direto.
   it('abre alerta pelo helper deduplicado, não por insert direto', () => {
-    expect(webhook).toContain('openAlertOnce(admin, {')
-    expect(webhook).not.toMatch(/from\('alerts'\)\.insert/)
+    expect(inboxMigration).toContain('block521_upsert_alert(')
+    expect(inboxMigration).not.toMatch(/INSERT INTO public\.alerts/)
   })
 })
 

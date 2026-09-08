@@ -1,8 +1,10 @@
 // S05 — runner da fila de efeitos de import.
 //
-// O contrato de claim/complete ja e seguro no banco. O runner fica pausado ate
-// que os consumidores de cada effect_kind tenham sido ligados e validados em
-// Preview; uma chamada enquanto pausado nao toma lease nem altera a fila.
+// O claim e a execução de cada efeito são server-only. A Edge Function só
+// coordena lotes pequenos; a transação, a classificação de erro e a conclusão
+// idempotente vivem em `process_import_effect`.
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 function timingSafeEqual(leftValue: string, rightValue: string): boolean {
   const encoder = new TextEncoder()
@@ -34,5 +36,51 @@ Deno.serve(async (req: Request) => {
     return json(503, { status: 'paused', reason: 'consumers_not_activated' })
   }
 
-  return json(503, { status: 'paused', reason: 'consumer_handlers_pending' })
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceRoleKey) return json(500, { error: 'internal_configuration_error' })
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey)
+  const workerId = `import-effects-runner:${crypto.randomUUID()}`
+  const { data: claimed, error: claimError } = await supabase.rpc('claim_import_effects', {
+    p_worker_id: workerId,
+    p_limit: 20,
+    p_lease_seconds: 300,
+  })
+  if (claimError) {
+    console.error('import-effects-runner: claim falhou', claimError)
+    return json(502, { error: 'claim_failed' })
+  }
+
+  const effects = Array.isArray(claimed) ? claimed : []
+  const outcomes: Array<{ effect_id: number; status: string }> = []
+  for (const effect of effects) {
+    const effectId = Number((effect as { id?: unknown }).id)
+    if (!Number.isSafeInteger(effectId) || effectId <= 0) {
+      console.error('import-effects-runner: claim retornou id inválido')
+      continue
+    }
+
+    const { data: processResult, error: processError } = await supabase.rpc('process_import_effect', {
+      p_effect_id: effectId,
+      p_worker_id: workerId,
+    })
+    if (processError) {
+      // Em erro de rede o lease expira e outro ciclo recupera o efeito. O
+      // payload não é repetido no log para não vazar snapshot de importação.
+      console.error('import-effects-runner: processamento falhou', { effectId, error: processError })
+      outcomes.push({ effect_id: effectId, status: 'completed_with_error' })
+      continue
+    }
+    const processedStatus = (processResult as { effect?: { status?: unknown } } | null)?.effect?.status
+    outcomes.push({ effect_id: effectId, status: typeof processedStatus === 'string' ? processedStatus : 'completed' })
+  }
+
+  return json(200, {
+    ok: true,
+    worker_id: workerId,
+    claimed: effects.length,
+    completed: outcomes.length,
+    outcomes,
+  })
 })

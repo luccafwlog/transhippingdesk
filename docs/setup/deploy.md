@@ -271,8 +271,16 @@ O mesmo valor precisa estar no Supabase Vault sob o **mesmo nome**, junto de
 O runner automático de NOA/NOR exige o segredo server-side
 `CUSTOMER_COMMUNICATION_AUTOMATION_SECRET`, também espelhado no Vault com o
 mesmo nome, junto de `SUPABASE_URL`.
-Após aplicar as migrations, valide os jobs `demurrage-dunning` e
-`customer-communication-auto-runner`, e não exponha nenhum dos segredos no frontend.
+
+As migrations `022`–`026` adicionam `portal-email-events-runner` (segredo
+`PORTAL_EMAIL_EVENTS_CRON_SECRET`), `import-effects-runner` (segredo
+`IMPORT_EFFECTS_CRON_SECRET`) e o alerta/contrato do `recalc-demurrage-ptax`
+(`RECALC_CRON_SECRET`). Todos os segredos também precisam existir no Vault. O
+runner de efeitos é fail-closed e só processa após
+`IMPORT_EFFECTS_RUNNER_ENABLED=true`; o job de PTAX permanece inativo até a
+validação de gateway, Preview e observabilidade. Após aplicar as migrations,
+valide os jobs novos e existentes pela consulta do procedimento operacional,
+sem expor nenhum segredo no frontend.
 
 Os GUCs `app.settings.*` **não** são mais o mecanismo de configuração: a role
 `postgres` do Supabase não é superuser e não pode defini-los

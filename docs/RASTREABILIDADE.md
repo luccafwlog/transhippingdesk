@@ -1,6 +1,6 @@
 # Rastreabilidade Técnica
 
-Verificado contra o repositório em 2026-09-06.
+Verificado contra o repositório em 2026-09-07.
 
 Este índice liga cada rota e ação relevante aos chamadores do frontend, aos
 contratos executáveis do Supabase e ao documento do módulo proprietário. Ele é
@@ -28,6 +28,26 @@ no código. Levantamento e lacunas detalhadas na
 Testes que apenas inspecionam texto ou regex de migrations são classificados
 como **Teste de contrato SQL**. Eles detectam drift no SQL versionado, mas não
 provam migration aplicada, grants remotos, RLS em execução ou atomicidade real.
+
+## Atualização da remediação das auditorias #654–#660 — 2026-09-07
+
+Esta revisão focal integra o baseline da PR #669 e acrescenta as migrations
+`022`–`026`. A fronteira de email agora é: webhook autenticado recebe e
+persiste a inbox; `portal-email-events-runner` faz claim, retry e transições
+server-only. Efeitos de importação usam `import_pending_effects` com lease,
+histórico de tentativas e `import-effects-runner`, que permanece fail-closed até
+ativação explícita no ambiente correto. A emissão de Demurrage recebe IDs e
+data opcional no RPC autoritativo, calcula no banco e registra snapshots
+append-only; a falha persistente do recálculo PTAX abre o alerta
+`demurrage_ptax_recalc_failed`.
+
+**Código/Teste:** migrations `022_email_inbox_and_dispatch_state.sql`,
+`023_demurrage_calculation_snapshot.sql`,
+`024_demurrage_ptax_alert.sql`, `025_import_effect_worker.sql` e
+`026_import_effect_alert.sql`, integrações locais opt-in e testes focados.
+Esse bloco não afirma deploy remoto, grants efetivos no Postgres gerenciado,
+Vault preenchido, cron executado, Resend/BCB real ou conclusão integral do plano;
+os itens pendentes continuam classificados na matriz do plano.
 
 ## Atualização da PR 550
 
@@ -445,6 +465,9 @@ loops, não apenas por regex de `CREATE POLICY`.
 | `send-customer-communication` | Frontend interno autorizado ou automação financeira server-side | `verify_jwt=false`; valida Bearer por Supabase Auth e perfil interno ativo para o fluxo interativo; CORS compartilhado | Cliente Supabase `service_role`; RPC `create_customer_communication_atomic` | Confere contato, natureza, preferência e supressões; grava Comunicado/tentativa; em chave desligada registra `simulado` sem chamar Resend; quando ligada envia via `_shared/email.ts`. Recebe os tipos operacionais, `ce_mercante_taxas` e `cobranca_demurrage` | **Código:** `supabase/functions/send-customer-communication/index.ts`, `src/services/customerCommunicationDispatches.ts`; **Teste de contrato SQL:** `sendCustomerCommunicationFunction.test.ts` |
 | `demurrage-dunning` | `pg_cron` via `pg_net`, job horário | `verify_jwt=false`; Bearer de `DEMURRAGE_DUNNING_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC `claim_demurrage_dunning_candidates` em lotes; release server-only; escrita atômica da trilha de Comunicado | Reivindica a próxima cobrança por `first_billed_at`, pausa por disputa/bounce/ausência de contato válido, libera claims que não chegaram a envio concluído, não aplica teto e envia `cobranca_demurrage` respeitando a chave global | **Código:** `supabase/functions/demurrage-dunning/index.ts`, `src/services/demurrageDunning.ts`; migrations `378` e `379`; **Teste:** `demurrageDunningFunction.test.ts`, `demurrageDunningMigration.test.ts` |
 | `customer-communication-auto-runner` | `pg_cron` via `pg_net`, job a cada 15 minutos | `verify_jwt=false`; header `X-Communication-Automation-Secret` comparado em tempo constante | Cliente Supabase `service_role`; RPC `evaluate_and_dispatch_automatic_communications` com lease; release server-only | Avalia NOA (ETA − 5 dias), NOR (ATA nos últimos 30 dias) e `ce_mercante_taxas` após prontidão financeira, reivindica alvos por claims transacionais idempotentes e despacha e-mails pelo canal compartilhado | **Código:** `supabase/functions/customer-communication-auto-runner/index.ts`; migrations `381`–`384`; **Teste:** `customerCommunicationAutoRunner.test.ts`, `customerCommunicationAutomationMigration.test.ts` |
+| `portal-email-events-runner` | `pg_cron` via `pg_net`, job a cada minuto | `verify_jwt=false`; Bearer de `PORTAL_EMAIL_EVENTS_CRON_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPCs `claim_portal_email_events`, `process_portal_email_event` e `complete_portal_email_event` | Processa a inbox durável do webhook, respeita ordenação, retry, bounce/complaint, fallback e alerta de investigação; não reenvia evento legado sem payload | **Código:** `supabase/functions/portal-email-events-runner/index.ts`, `_shared/portalEmailEventProcessor.ts`; migration `022`; **Teste:** `portalEmailInboxMigration.test.ts`, `emailInbox.local-pg.test.ts` |
+| `import-effects-runner` | `pg_cron` via `pg_net`, job a cada 5 minutos | `verify_jwt=false`; Bearer de `IMPORT_EFFECTS_CRON_SECRET`; consumidor adicionalmente exige `IMPORT_EFFECTS_RUNNER_ENABLED=true` | Cliente Supabase `service_role`; claim e `process_import_effect` server-only | Executa efeitos pós-commit com lease, idempotência, retry transitório e bloqueio investigável; tipos sem consumidor completo permanecem bloqueados | **Código:** `supabase/functions/import-effects-runner/index.ts`; migration `025`; **Teste:** `importEffectsRunner.test.ts`, `importEffects.local-pg.test.ts` |
+| `recalc-demurrage-ptax` | `pg_cron`, agenda nominal em dias úteis, deliberadamente inativa | `verify_jwt=false`; Bearer de `RECALC_CRON_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC server-side de recálculo | Consulta PTAX com retry/backoff, preserva procedência e abre/resolve alerta persistente; ativação depende de validação de gateway, Vault e Preview | **Código:** `supabase/functions/recalc-demurrage-ptax/index.ts`; migrations `018` e `024`; **Teste:** `recalcDemurragePtax.test.ts`, `exchangeRateIntegrity.local-pg.test.ts` |
 
 ### RPCs da integração dos Blocos 1–5
 
@@ -460,7 +483,7 @@ reconciliadores são server-only; o browser usa somente RPCs tipadas de domínio
 | `add_demurrage_dispute_message` | Equipamentos, com estado `next_responder = equipamentos` | Acrescenta mensagem imutável, avança ou encerra a Dispute e sincroniza alertas | **Código:** migrations `325`, `334`; **Teste de contrato SQL:** `alertsDisputeHardeningMigration.test.ts` |
 | `customer_local_charges_communication_readiness` | `send-customer-communication`/frontend interno pela camada de serviço | `SECURITY DEFINER`, `search_path` fixo, `auth.uid()` e `is_active_read_user()`; `anon`/`PUBLIC` sem execução | Lê B/Ls ativos, `compute_bl_review_pendencies` e o estado financeiro necessário para a comunicação | Retorna JSONB estável por cliente/viagem: prontidão, contagem de B/Ls, motivos de bloqueio e situação por B/L; não altera o gate de faturamento | **Código:** migration `376_customer_local_charges_communication_readiness.sql`, `src/services/customerCommunicationReadiness.ts`; **Teste de contrato SQL:** `customerCommunicationReadinessMigration.test.ts` |
 | `portal_excecao_critica_fatura` | Trigger de emissão/atualização de invoice | Audiência catalogada para `documentacao` e `administrativo`; leitura segue a fila interna | `upsert_portal_invoice_exception()` e catálogo `alert_type_catalog`; EXECUTE revogado de `PUBLIC`/`anon`/`authenticated` (`009`), só triggers a alcançam | Mantém visível a exceção de invoice sem Portal ativo, independente do envio do Comunicado financeiro | **Código:** migration `377_portal_invoice_exception_audience.sql`, `src/services/alertRulesCatalog.ts`; **Teste:** `portalInvoiceExceptionAudienceMigration.test.ts`; **Teste:** `auditSecurityBoundaries.local-pg.test.ts` |
-| Família `portal-*` e `recalc-demurrage-ptax` | `portal-login`, `portal-invite-activate`, `portal-invite-send`, `portal-password-recovery`, `portal-password-reset`, `portal-recovery-email-change`, `portal-account-suspend`, `portal-email-webhook`, `portal-daily-digest` e `recalc-demurrage-ptax`; chamadores em `src/hooks/usePortalAuth.tsx`, `src/hooks/usePortalProvisioning.ts` e páginas do Portal | `verify_jwt=false` com validação própria (token de convite, assinatura Svix, segredo interno) conforme `supabase/config.toml`; `recalc-demurrage-ptax` usa `verify_jwt=true` | Service role para Auth Admin, convites, emails e recálculo de PTAX | Login, convite/ativação, recuperação e troca de email, suspensão, entrega de email e digest diário; detalhamento por função em [Portal do Cliente](modules/portal-cliente.md) | **Código:** `supabase/functions/*`, `supabase/config.toml`; a Edge Function legada `provision-portal-user` foi aposentada pelo fluxo de convite |
+| Família `portal-*` | `portal-login`, `portal-invite-activate`, `portal-invite-send`, `portal-password-recovery`, `portal-password-reset`, `portal-recovery-email-change`, `portal-account-suspend`, `portal-email-webhook` e `portal-daily-digest`; chamadores em `src/hooks/usePortalAuth.tsx`, `src/hooks/usePortalProvisioning.ts` e páginas do Portal | `verify_jwt=false` com validação própria (token de convite, assinatura Svix, segredo interno) conforme `supabase/config.toml` | Service role para Auth Admin, convites e emails | Login, convite/ativação, recuperação e troca de email, suspensão, entrega de email e digest diário; detalhamento por função em [Portal do Cliente](modules/portal-cliente.md) | **Código:** `supabase/functions/*`, `supabase/config.toml`; a Edge Function legada `provision-portal-user` foi aposentada pelo fluxo de convite |
 
 ### Histórico supersedido relevante
 
@@ -580,8 +603,9 @@ sem correspondente no banco continuam fora deste recorte.
 
 Email transacional: `supabase/functions/_shared/email.ts` é dono da mecânica
 comum de idempotência e retry; `sendPortalEmail` adapta tentativas e supressão
-do Portal; `portal-email-webhook` atualiza entrega, deduplica eventos e
-processa as duas trilhas; e `portal-daily-digest` consolida a atividade diária.
+do Portal; `portal-email-webhook` autentica o provedor e grava a inbox, enquanto
+`portal-email-events-runner` atualiza entrega, deduplica eventos e processa as
+duas trilhas; e `portal-daily-digest` consolida a atividade diária.
 A fundação de Comunicados está em `372_comunicados_fundacao.sql` e nasce com o
 envio global desligado. Evidência: **Código** e **Teste de contrato SQL**;
 runtime remoto ainda requer secrets e domínio verificado.

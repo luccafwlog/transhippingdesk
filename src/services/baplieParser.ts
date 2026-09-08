@@ -1,6 +1,7 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
-import { normalizePortCode } from './portCode'
+import { parseImportNumber } from '../lib/importNumber'
+import { resolvePortCode } from './portCode'
 import { decodeImportBytes, type ImportTextEncoding } from './importText'
 import type { ImportIssue } from './importValidation'
 
@@ -222,11 +223,15 @@ export function parseBaplieText(text: string): ParsedBaplie {
     // Grupo completo antes de emitir: coleta campos do grupo inteiro para o
     // caso de 1 EQD (cobre LOC→EQD e EQD→LOC); com EQDs consecutivos cada EQD
     // após o primeiro não herda nada do anterior.
-    const groupPol = lastValue(group.items.filter((i) => i.tag === 'LOC' && POL_QUALIFIERS.has(qualifierOf(i))).map(locCodeOf).map((c) => (c ? normalizePortCode(c) : null)))
-    const groupPod = lastValue(group.items.filter((i) => i.tag === 'LOC' && POD_QUALIFIERS.has(qualifierOf(i))).map(locCodeOf).map((c) => (c ? normalizePortCode(c) : null)))
-    const groupFinal = lastValue(group.items.filter((i) => i.tag === 'LOC' && FINAL_DEST_QUALIFIERS.has(qualifierOf(i))).map(locCodeOf).map((c) => (c ? normalizePortCode(c) : null)))
+    const groupPol = lastPort(group.items, POL_QUALIFIERS)
+    const groupPod = lastPort(group.items, POD_QUALIFIERS)
+    const groupFinal = lastPort(group.items, FINAL_DEST_QUALIFIERS)
     const groupBl = lastValue(group.items.filter((i) => i.tag === 'RFF' && (i.components[1]?.[0] ?? '') === 'BM').map((i) => i.components[1]?.[1]?.trim() || null))
-    const groupWeight = lastValue(group.items.filter((i) => i.tag === 'MEA' && WEIGHT_QUALIFIERS.has((i.components[1]?.[0] ?? '').trim())).map((i) => parseWeight(i)))
+    const weightValues = group.items
+      .filter((i) => i.tag === 'MEA' && WEIGHT_QUALIFIERS.has((i.components[1]?.[0] ?? '').trim()))
+      .map((i) => parseWeight(i))
+    const groupWeightResult = lastValue(weightValues)
+    const groupWeight = groupWeightResult?.value ?? null
     const groupOog = group.items.some((i) => i.tag === 'DIM' && hasOogDims(i))
 
     eqdIndices.forEach(({ item: eqd }, eqdPos) => {
@@ -271,9 +276,9 @@ export function parseBaplieText(text: string): ParsedBaplie {
         size_type,
         status,
         weight_kg: isFirst ? groupWeight : null,
-        pol: isFirst ? groupPol : null,
-        pod: isFirst ? groupPod : null,
-        final_dest: isFirst ? groupFinal : null,
+        pol: isFirst ? groupPol.code : null,
+        pod: isFirst ? groupPod.code : null,
+        final_dest: isFirst ? groupFinal.code : null,
         bl_ref: isFirst ? groupBl : null,
         slot: group.slot,
         is_imo: Boolean(dgsForThis),
@@ -291,21 +296,38 @@ export function parseBaplieText(text: string): ParsedBaplie {
         created.is_oog = created.is_oog || next.is_oog
       }
 
-      if (!next.pol || !next.pod) {
+      if (isFirst && (!groupPol.code || !groupPol.recognized)) {
         issues.push({
           row: group.order,
-          field: !next.pol ? 'pol' : 'pod',
+          field: 'pol',
           code: 'unknown_port',
-          severity: 'warning',
-          message: `Container ${container_number}: ${!next.pol ? 'POL' : 'POD'} ausente no conjunto ${group.order}.`,
+          severity: 'error',
+          message: `Container ${container_number}: POL ${groupPol.code ? 'não reconhecido' : 'ausente'} no conjunto ${group.order}.`,
         })
       }
-      if (next.status === 'full' && next.weight_kg == null) {
+      if (isFirst && (!groupPod.code || !groupPod.recognized)) {
+        issues.push({
+          row: group.order,
+          field: 'pod',
+          code: 'unknown_port',
+          severity: 'error',
+          message: `Container ${container_number}: POD ${groupPod.code ? 'não reconhecido' : 'ausente'} no conjunto ${group.order}.`,
+        })
+      }
+      if (isFirst && groupWeightResult?.issue) {
         issues.push({
           row: group.order,
           field: 'weight_kg',
           code: 'invalid_number',
-          severity: 'warning',
+          severity: 'error',
+          message: `Container ${container_number}: peso inválido no conjunto ${group.order}.`,
+        })
+      } else if (isFirst && next.status === 'full' && next.weight_kg == null) {
+        issues.push({
+          row: group.order,
+          field: 'weight_kg',
+          code: 'invalid_number',
+          severity: 'error',
           message: `Container ${container_number}: peso ausente no conjunto ${group.order}.`,
         })
       }
@@ -323,12 +345,30 @@ function lastValue<T>(values: Array<T | null>): T | null {
   return null
 }
 
-function parseWeight(segment: ParsedSegment): number | null {
+type ParsedPort = { code: string | null; recognized: boolean }
+
+function lastPort(items: ParsedSegment[], qualifiers: ReadonlySet<string>): ParsedPort {
+  const raw = lastValue(items
+    .filter((item) => item.tag === 'LOC' && qualifiers.has(qualifierOf(item)))
+    .map(locCodeOf))
+  if (!raw) return { code: null, recognized: false }
+  const resolved = resolvePortCode(raw)
+  return { code: resolved.code, recognized: resolved.recognized }
+}
+
+type ParsedWeight = { value: number | null; issue: 'invalid' | null }
+
+function parseWeight(segment: ParsedSegment): ParsedWeight {
   const valueField = segment.rawElements[3] ?? segment.rawElements[2] ?? ''
   const parts = splitRespectingRelease(valueField, ':', '?')
-  const value = parts[1] ?? parts[0] ?? ''
-  const n = parseFloat((value ?? '').trim())
-  return Number.isFinite(n) ? n : null
+  const value = (parts[1] ?? parts[0] ?? '').trim()
+  if (!value) return { value: null, issue: null }
+
+  const parsed = parseImportNumber(value, 'en-US')
+  if (parsed.kind !== 'value') return { value: null, issue: 'invalid' }
+  const number = Number(parsed.decimal)
+  if (!Number.isFinite(number) || number < 0) return { value: null, issue: 'invalid' }
+  return { value: number, issue: null }
 }
 
 function hasOogDims(segment: ParsedSegment): boolean {

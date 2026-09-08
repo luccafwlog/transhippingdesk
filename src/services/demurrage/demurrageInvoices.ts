@@ -1,9 +1,6 @@
 import { supabase } from '../supabase'
-import { ensureDemurrageRatesFresh, calculateDemurrage } from './demurrageRates'
-import { buildTransshippingPixPayload } from '../../lib/pix'
 import { extractErrorText } from '../../lib/errors'
-import { fetchROE } from './demurrageKpis'
-import type { DemurrageInvoice, DemurrageInvoiceItem, RoeSource } from '../../types/database'
+import type { DemurrageInvoice, DemurrageInvoiceItem } from '../../types/database'
 
 export type DemurrageInvoiceFilters = {
   status?: DemurrageInvoice['status'] | null
@@ -50,44 +47,17 @@ function genDemurrageDocnum(blId: string): string {
   return `DEM-${year}-${ts}${suffix}`
 }
 
-type DemurrageInvoiceItemSnapshot = {
-  container_id: number
-  container_number: string
-  container_type: string
-  discharge_date: string
-  return_date: string
-  total_days: number
-  free_days: number
-  days_p1: number
-  rate_p1_usd: number
-  days_p2: number
-  rate_p2_usd: number
-  subtotal_usd: number
-}
-
-async function createDemurrageInvoiceWithItems(input: {
+async function createDemurrageInvoiceAuthoritative(input: {
   docNumber: string
   blId: string
   customerId: number
-  totalUsd: number
-  readyAt: string | null
-  roeManual: boolean
-  roe: number | null
-  currentRoe: number
-  roeSource: RoeSource
-  items: DemurrageInvoiceItemSnapshot[]
+  containerIds: number[]
 }): Promise<number> {
-  const { data, error } = await supabase.rpc('create_demurrage_invoice_with_items', {
+  const { data, error } = await supabase.rpc('create_demurrage_invoice_authoritative', {
     p_doc_number: input.docNumber,
     p_bl_id: input.blId,
     p_customer_id: input.customerId,
-    p_total_usd: input.totalUsd,
-    p_ready_at: input.readyAt,
-    p_roe_manual: input.roeManual,
-    p_roe: input.roe,
-    p_current_roe: input.currentRoe,
-    p_roe_source: input.roeSource,
-    p_items: input.items,
+    p_container_ids: input.containerIds,
   })
   if (error) {
     const text = extractErrorText(error).toLowerCase()
@@ -102,13 +72,6 @@ async function createDemurrageInvoiceWithItems(input: {
     throw new Error('RPC de Demurrage nao retornou uma invoice valida.')
   }
   return invoiceId
-}
-
-/** ROE vigente para a foto inicial: override manual do B/L ou PTAX ao vivo do BCB. */
-async function resolveCurrentRoe(roeManual: boolean, manualRoe: number | null): Promise<{ currentRoe: number; roeSource: RoeSource }> {
-  if (roeManual && manualRoe && manualRoe > 0) return { currentRoe: manualRoe, roeSource: 'manual' }
-  const { roe, source } = await fetchROE({ ensurePersistence: true })
-  return { currentRoe: roe, roeSource: source }
 }
 
 /**
@@ -127,11 +90,9 @@ async function hasActiveInvoiceForBL(blId: string): Promise<boolean> {
 }
 
 export async function createInvoiceForBL(blId: string): Promise<number> {
-  await ensureDemurrageRatesFresh()
-
   const { data: bl, error: blErr } = await supabase
     .from('bls')
-    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd, demurrage_roe_manual, demurrage_roe')
+    .select('id, customer_id')
     .eq('id', blId)
     .single()
   if (blErr) throw blErr
@@ -139,82 +100,25 @@ export async function createInvoiceForBL(blId: string): Promise<number> {
 
   const { data: containers, error: cErr } = await supabase
     .from('bl_containers')
-    .select('id, container_number, type, discharge_date, return_date, demurrage_status')
+    .select('id')
     .eq('bl_id', blId)
     .eq('demurrage_status', 'overdue')
   if (cErr) throw cErr
   if (!containers?.length) throw new Error('Nenhum container em atraso para este BL')
 
-  const { data: customerAgreements } = await supabase
-    .from('customer_demurrage_agreements')
-    .select('*')
-    .eq('customer_id', bl.customer_id)
-    .eq('active', true)
-
-  const items = containers
-    .map((c) => {
-      const agreement = (customerAgreements ?? []).find(
-        (a) => c.discharge_date! >= a.valid_from && (!a.valid_to || c.discharge_date! <= a.valid_to),
-      ) ?? null
-      const calc = calculateDemurrage(
-        c.type,
-        c.discharge_date!,
-        c.return_date!,
-        bl.free_time_override,
-        bl.demurrage_rate_override_p1_usd,
-        bl.demurrage_rate_override_p2_usd,
-        agreement,
-      )
-      return { container: c, calc }
-    })
-    .filter((i) => i.calc.total_usd > 0)
-
-  if (!items.length) throw new Error('Nenhum container com sobreestadia para este BL')
-
-  if (await hasActiveInvoiceForBL(blId)) {
-    throw new Error('Já existe fatura de Demurrage emitida ou paga para este B/L. Cancele a fatura atual antes de reemitir.')
-  }
-
-  const total_usd = items.reduce((sum, i) => sum + i.calc.total_usd, 0)
   const doc_number = genDemurrageDocnum(blId)
-  const ready_at = containers.every((c) => c.return_date) ? containers.reduce((max, c) => (c.return_date! > max ? c.return_date! : max), containers[0].return_date!) : null
-  const { currentRoe, roeSource } = await resolveCurrentRoe(bl.demurrage_roe_manual ?? false, bl.demurrage_roe ?? null)
-
-  const itemRows = items.map(({ container: c, calc }) => ({
-    container_id: c.id,
-    container_number: c.container_number,
-    container_type: c.type ?? '',
-    discharge_date: c.discharge_date!,
-    return_date: c.return_date!,
-    total_days: calc.total_days,
-    free_days: calc.free_days,
-    days_p1: calc.days_p1,
-    rate_p1_usd: calc.rate_p1_usd,
-    days_p2: calc.days_p2,
-    rate_p2_usd: calc.rate_p2_usd,
-    subtotal_usd: calc.total_usd,
-  }))
-
-  return createDemurrageInvoiceWithItems({
+  return createDemurrageInvoiceAuthoritative({
     docNumber: doc_number,
     blId,
     customerId: bl.customer_id,
-    totalUsd: total_usd,
-    readyAt: ready_at,
-    roeManual: bl.demurrage_roe_manual ?? false,
-    roe: bl.demurrage_roe ?? null,
-    currentRoe,
-    roeSource,
-    items: itemRows,
+    containerIds: containers.map((container) => container.id),
   })
 }
 
 export async function createInvoiceForReturnedBL(blId: string): Promise<number | null> {
-  await ensureDemurrageRatesFresh()
-
   const { data: bl, error: blErr } = await supabase
     .from('bls')
-    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd, demurrage_roe_manual, demurrage_roe')
+    .select('id, customer_id')
     .eq('id', blId)
     .single()
   if (blErr) throw blErr
@@ -222,7 +126,7 @@ export async function createInvoiceForReturnedBL(blId: string): Promise<number |
 
   const { data: containers, error: cErr } = await supabase
     .from('bl_containers')
-    .select('id, container_number, type, discharge_date, return_date, demurrage_status')
+    .select('id')
     .eq('bl_id', blId)
     .eq('demurrage_status', 'returned')
     .not('discharge_date', 'is', null)
@@ -230,74 +134,21 @@ export async function createInvoiceForReturnedBL(blId: string): Promise<number |
   if (cErr) throw cErr
   if (!containers?.length) return null
 
-  const { data: customerAgreements } = await supabase
-    .from('customer_demurrage_agreements')
-    .select('*')
-    .eq('customer_id', bl.customer_id)
-    .eq('active', true)
-
-  const items = containers
-    .map((c) => {
-      const agreement = (customerAgreements ?? []).find(
-        (a) => c.discharge_date! >= a.valid_from && (!a.valid_to || c.discharge_date! <= a.valid_to),
-      ) ?? null
-      const calc = calculateDemurrage(
-        c.type,
-        c.discharge_date!,
-        c.return_date!,
-        bl.free_time_override,
-        bl.demurrage_rate_override_p1_usd,
-        bl.demurrage_rate_override_p2_usd,
-        agreement,
-      )
-      return { container: c, calc }
-    })
-    .filter((i) => i.calc.total_usd > 0)
-
-  if (!items.length) return null
-
-  // Reimportação para um B/L já com fatura ativa não sobrescreve (ADR 0014):
-  // a fatura emitida/paga prevalece; a correção é cancelar + reemitir.
   if (await hasActiveInvoiceForBL(blId)) return null
 
-  const total_usd = items.reduce((sum, i) => sum + i.calc.total_usd, 0)
   const doc_number = genDemurrageDocnum(blId)
-  const ready_at = containers.reduce((max, c) => (c.return_date! > max ? c.return_date! : max), containers[0].return_date!)
-  const { currentRoe, roeSource } = await resolveCurrentRoe(bl.demurrage_roe_manual ?? false, bl.demurrage_roe ?? null)
-
-  const itemRows = items.map(({ container: c, calc }) => ({
-    container_id: c.id,
-    container_number: c.container_number,
-    container_type: c.type ?? '',
-    discharge_date: c.discharge_date!,
-    return_date: c.return_date!,
-    total_days: calc.total_days,
-    free_days: calc.free_days,
-    days_p1: calc.days_p1,
-    rate_p1_usd: calc.rate_p1_usd,
-    days_p2: calc.days_p2,
-    rate_p2_usd: calc.rate_p2_usd,
-    subtotal_usd: calc.total_usd,
-  }))
-
-  return createDemurrageInvoiceWithItems({
+  return createDemurrageInvoiceAuthoritative({
     docNumber: doc_number,
     blId,
     customerId: bl.customer_id,
-    totalUsd: total_usd,
-    readyAt: ready_at,
-    roeManual: bl.demurrage_roe_manual ?? false,
-    roe: bl.demurrage_roe ?? null,
-    currentRoe,
-    roeSource,
-    items: itemRows,
+    containerIds: containers.map((container) => container.id),
   })
 }
 
-export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: number | null): Promise<void> {
+export async function markInvoicePaid(invoiceId: number, paidAt: string): Promise<void> {
   const { data: inv, error: fetchErr } = await supabase
     .from('demurrage_invoices')
-    .select('status, current_roe, current_total_brl, total_usd, discount_mode, discount_value, doc_number')
+    .select('status')
     .eq('id', invoiceId)
     .single()
   if (fetchErr) throw fetchErr
@@ -306,23 +157,13 @@ export async function markInvoicePaid(invoiceId: number, paidAt: string, roe?: n
     throw new Error(`Fatura não pode ser marcada como paga no status atual: ${inv.status}`)
   }
 
-  let frozenRoe = inv.current_roe
-  let frozenTotalBrl = inv.current_total_brl
-
-  if (frozenRoe == null && roe != null) {
-    frozenRoe = roe
-    // Desconto sempre em USD, antes da conversão para BRL (ADR 0014).
-    const discountedUsd = applyDemurrageUsdDiscount(inv.total_usd ?? 0, inv.discount_mode, inv.discount_value)
-    frozenTotalBrl = parseFloat((discountedUsd * roe).toFixed(2))
-  }
-
   const { error } = await supabase.rpc('register_demurrage_payment', {
     p_request_id: crypto.randomUUID(),
     p_invoice_id: invoiceId,
     p_paid_at: paidAt,
     p_pix_txid: null,
-    p_total_brl: frozenTotalBrl,
-    p_ptax_used: frozenRoe != null ? Number((frozenRoe / 1.065).toFixed(4)) : null,
+    p_total_brl: null,
+    p_ptax_used: null,
   })
   if (error) throw error
 }
@@ -409,9 +250,6 @@ export async function getInvoiceDetail(invoiceId: number) {
   return {
     invoice: {
       ...invRes.data!,
-      pix_payload: invRes.data!.pix_payload ?? (invRes.data!.current_total_brl && invRes.data!.doc_number
-        ? buildTransshippingPixPayload(invRes.data!.current_total_brl, invRes.data!.doc_number)
-        : null),
     },
     items: itemsRes.data ?? [],
   }

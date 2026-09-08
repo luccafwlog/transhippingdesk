@@ -105,4 +105,34 @@ describe('baplie S03 vetores', () => {
     expect(parsed.vessel_name).toBe('GREEN VITÓRIA')
     expect(parsed.containers[0].pod).toBe('BRVIX')
   })
+
+  it('bloqueia peso textual inválido em vez de aceitar prefixo numérico', () => {
+    const parsed = parseBaplieText([
+      "TDT+20+14+++:::GREEN SANTOS'",
+      "LOC+147+010101'",
+      "LOC+6+CNTAC'",
+      "LOC+12+BRVIX'",
+      "MEA+WT++KGM:12abc'",
+      "EQD+CN+TCLU1234567+45G1+++5'",
+      "UNT+10+1'",
+    ].join('\n'))
+
+    expect(parsed.containers[0]?.weight_kg).toBeNull()
+    expect(parsed.issues).toContainEqual(expect.objectContaining({ field: 'weight_kg', code: 'invalid_number', severity: 'error' }))
+    expect(hasBlockingIssues(parsed.issues)).toBe(true)
+  })
+
+  it('bloqueia conjunto sem POL/POD ou com LOCODE desconhecido', () => {
+    const parsed = parseBaplieText([
+      "TDT+20+14+++:::GREEN SANTOS'",
+      "LOC+147+010101'",
+      "LOC+6+XXXXX'",
+      "EQD+CN+TCLU1234567+45G1+++5'",
+      "UNT+10+1'",
+    ].join('\n'))
+
+    expect(parsed.issues.filter((issue) => issue.code === 'unknown_port')).toHaveLength(2)
+    expect(parsed.issues.every((issue) => issue.severity === 'error')).toBe(true)
+    expect(hasBlockingIssues(parsed.issues)).toBe(true)
+  })
 })

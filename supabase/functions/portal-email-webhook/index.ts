@@ -1,407 +1,113 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { Webhook } from 'https://esm.sh/svix@1'
-import { maskEmail, sendPortalEmail } from '../_shared/portalEmail.ts'
-import { bounceNotificationTemplate } from '../_shared/portalEmailTemplates.ts'
-import { openAlertOnce } from '../_shared/portalAlerts.ts'
-import { resolveBounceCascade, type BounceContact } from '../_shared/portalBounceCascade.ts'
-
-const STATUS_BY_EVENT: Record<string, string> = {
-  'email.delivered': 'entregue',
-  'email.bounced': 'bounce',
-  'email.complained': 'complaint',
-}
-const BOUNCE_NOTIFICATION_KIND = 'contato_bounced_notificacao'
 
 type ResendEvent = {
   type: string
-  data: {
+  data?: {
     email_id?: string
     to?: string[]
     bounce?: { type?: string }
   }
 }
 
-type PortalAttempt = {
-  id: number
-  kind: string
-  account_id: number | null
+function json(status: number, value: unknown): Response {
+  return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-type CommunicationAttempt = {
-  id: number
-  communication_id: number
-}
-
-type PortalAccount = {
-  id: number
-  customer_id: number
-  account_situation: string
-}
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
-}
-
-async function recordPortalSuppression(
-  admin: ReturnType<typeof createClient>,
-  email: string,
-  reason: 'bounce_permanente' | 'complaint',
-): Promise<void> {
-  const normalizedEmail = normalizeEmail(email)
-
-  if (reason === 'bounce_permanente') {
-    // O conflito não é ignorado: um bounce permanente deve escalar uma linha
-    // de complaint existente e renovar o momento da supressão.
-    const { error } = await admin.from('portal_suppressed_emails').upsert({
-      email: normalizedEmail,
-      reason,
-      suppressed_at: new Date().toISOString(),
-    }, { onConflict: 'email' })
-    if (error) throw error
-    return
-  }
-
-  // Complaint é específico do canal do Portal. Se o mesmo endereço já foi
-  // elevado a bounce_permanente, jamais o rebaixe por um evento posterior.
-  const { data: existing, error: lookupError } = await admin
-    .from('portal_suppressed_emails')
-    .select('reason')
-    .eq('email', normalizedEmail)
-    .maybeSingle()
-  if (lookupError) throw lookupError
-  if (existing) return
-
-  const { error: insertError } = await admin.from('portal_suppressed_emails').insert({
-    email: normalizedEmail,
-    reason,
-  })
-  if (insertError && insertError.code !== '23505') throw insertError
-}
-
-async function recordCommunicationComplaint(
-  admin: ReturnType<typeof createClient>,
-  email: string,
-): Promise<void> {
-  const { error } = await admin.from('customer_communication_suppressions').upsert({
-    email: normalizeEmail(email),
-    reason: 'complaint',
-  }, { onConflict: 'email' })
-  if (error) throw error
-}
-
-async function loadPortalSuppressionSets(
-  admin: ReturnType<typeof createClient>,
-  contacts: readonly BounceContact[],
-): Promise<{ portalSuppressedEmails: string[]; sharedBounceEmails: string[] }> {
-  const emails = [...new Set(contacts
-    .map((contact) => contact.email)
-    .filter((email): email is string => Boolean(email))
-    .map(normalizeEmail))]
-  if (!emails.length) return { portalSuppressedEmails: [], sharedBounceEmails: [] }
-
-  const { data, error } = await admin
-    .from('portal_suppressed_emails')
-    .select('email, reason')
-    .in('email', emails)
-  if (error) throw error
-
-  const suppressions = (data ?? []) as Array<{ email: string; reason: string }>
+function minimalPayload(event: ResendEvent): Record<string, unknown> {
+  const data = event.data ?? {}
   return {
-    portalSuppressedEmails: suppressions.map((suppression) => normalizeEmail(suppression.email)),
-    sharedBounceEmails: suppressions
-      .filter((suppression) => suppression.reason === 'bounce_permanente')
-      .map((suppression) => normalizeEmail(suppression.email)),
-  }
-}
-
-async function isCommunicationsEnabled(
-  admin: ReturnType<typeof createClient>,
-): Promise<boolean> {
-  // D04: aviso de bounce ao cliente submetido à chave global de Comunicados.
-  // Fail-closed: sem leitura confirmada, nenhum aviso externo. Supressão,
-  // reparo de caixas e alerta interno seguem ativos fora deste gate.
-  try {
-    const { data, error } = await admin
-      .from('app_settings')
-      .select('communications_enabled')
-      .eq('id', 1)
-      .maybeSingle()
-    if (error) return false
-    return Boolean((data as { communications_enabled?: boolean } | null)?.communications_enabled)
-  } catch {
-    return false
-  }
-}
-
-async function sendBounceNotification(
-  admin: ReturnType<typeof createClient>,
-  customerId: number,
-  bouncedEmail: string,
-  recipient: BounceContact,
-): Promise<void> {
-  if (!recipient.email) return
-  if (!await isCommunicationsEnabled(admin)) return
-
-  const normalizedBouncedEmail = normalizeEmail(bouncedEmail)
-  const maskedBouncedEmail = maskEmail(normalizedBouncedEmail)
-  const template = bounceNotificationTemplate({
-    bouncedEmailMasked: maskedBouncedEmail,
-    portalUrl: (Deno.env.get('PORTAL_URL') ?? 'https://portal.transhippingdesk.com.br').replace(/\/+$/, ''),
-    supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br',
-  })
-
-  try {
-    const sent = await sendPortalEmail({
-      admin,
-      kind: BOUNCE_NOTIFICATION_KIND,
-      to: recipient.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-      idempotencyKey: `${BOUNCE_NOTIFICATION_KIND}:${customerId}:${normalizedBouncedEmail}:${recipient.id}`,
-    })
-    if (!sent.ok) {
-      console.warn('[portal-email-webhook] notificação de bounce não enviada', customerId, recipient.id)
-    }
-  } catch (error) {
-    console.error('[portal-email-webhook] falha ao enviar notificação de bounce', customerId, error)
-  }
-}
-
-async function openNoAlternativeAlert(
-  admin: ReturnType<typeof createClient>,
-  customerId: number,
-): Promise<void> {
-  try {
-    const { data: customer, error: customerError } = await admin
-      .from('customers')
-      .select('cnpj_cpf')
-      .eq('id', customerId)
-      .maybeSingle()
-    if (customerError) throw customerError
-
-    const { error } = await admin.rpc('upsert_alert_item', {
-      p_type: 'cliente_contato_bounced_sem_alternativa',
-      p_entity_type: 'customer',
-      p_entity_id: String(customerId),
-      p_message: 'Cliente sem contato alternativo válido após bounce permanente; atualize o cadastro.',
-      p_source: 'portal_email_webhook',
-      p_department: 'documentacao',
-      p_metadata: {
-        customer_id: customerId,
-        customer_cnpj: customer?.cnpj_cpf ?? null,
-        reason: 'all_contacts_bounced_or_suppressed',
-      },
-      p_destination: '/clientes',
-    })
-    if (error) throw error
-  } catch (error) {
-    console.error('[portal-email-webhook] falha ao abrir alerta de contato sem alternativa', customerId, error)
-  }
-}
-
-async function handleBounceCascade(
-  admin: ReturnType<typeof createClient>,
-  customerIds: readonly number[],
-  bouncedEmail: string,
-): Promise<void> {
-  for (const customerId of [...new Set(customerIds)]) {
-    const { data: contacts, error: contactsError } = await admin
-      .from('customer_contacts')
-      .select('id, email, is_primary, deactivated_at')
-      .eq('customer_id', customerId)
-    if (contactsError) {
-      console.error('[portal-email-webhook] falha ao consultar contatos para cascata', customerId, contactsError)
-      continue
-    }
-
-    const bounceContacts = (contacts ?? []) as BounceContact[]
-    let suppressionSets: { portalSuppressedEmails: string[]; sharedBounceEmails: string[] }
-    try {
-      suppressionSets = await loadPortalSuppressionSets(admin, bounceContacts)
-    } catch (error) {
-      console.error('[portal-email-webhook] falha ao consultar supressões para cascata', customerId, error)
-      continue
-    }
-
-    const decision = resolveBounceCascade({
-      contacts: bounceContacts,
-      bouncedEmail,
-      ...suppressionSets,
-    })
-
-    if (decision.notificationRecipient) {
-      await sendBounceNotification(admin, customerId, bouncedEmail, decision.notificationRecipient)
-    }
-    if (decision.shouldOpenAlert) await openNoAlternativeAlert(admin, customerId)
+    type: event.type,
+    data: {
+      email_id: data.email_id ?? null,
+      // O provedor envia vários destinatários em alguns eventos; o domínio
+      // usa o primeiro como destinatário da tentativa individual.
+      to: Array.isArray(data.to) ? data.to.slice(0, 10) : [],
+      ...(data.bounce?.type ? { bounce: { type: data.bounce.type } } : {}),
+    },
   }
 }
 
 if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response(null, { status: 405 })
+  if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
+
   const payload = await req.text()
   const svixHeaders = {
     'svix-id': req.headers.get('svix-id') ?? '',
     'svix-timestamp': req.headers.get('svix-timestamp') ?? '',
     'svix-signature': req.headers.get('svix-signature') ?? '',
   }
+  if (!svixHeaders['svix-id']) return json(400, { error: 'missing_provider_event_id' })
+
   let event: ResendEvent
   try {
     event = new Webhook(Deno.env.get('RESEND_WEBHOOK_SECRET') ?? '').verify(payload, svixHeaders, { tolerance: 300 }) as ResendEvent
   } catch {
-    return new Response(JSON.stringify({ error: 'invalid signature' }), { status: 401 })
+    return json(401, { error: 'invalid_signature' })
   }
 
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-  const { error: dedupError } = await admin.from('portal_email_events').insert({
-    provider_event_id: svixHeaders['svix-id'],
-    event_type: event.type,
-  })
-  if (dedupError?.code === '23505') return new Response(null, { status: 200 })
-  if (dedupError) return new Response(null, { status: 500 })
+  const url = Deno.env.get('SUPABASE_URL')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!url || !serviceKey) return json(500, { error: 'supabase_configuration_missing' })
+  const admin = createClient(url, serviceKey)
+  const eventPayload = minimalPayload(event)
+  const providerMessageId = typeof eventPayload.data === 'object' && eventPayload.data !== null
+    ? ((eventPayload.data as { email_id?: string }).email_id ?? null)
+    : null
 
-  const status = STATUS_BY_EVENT[event.type]
-  if (!status) return new Response(null, { status: 200 })
-
-  const providerMessageId = event.data.email_id ?? ''
-  const { data: portalAttempt, error: portalAttemptError } = await admin
-    .from('portal_email_attempts')
-    .select('id, kind, account_id')
-    .eq('provider_message_id', providerMessageId)
-    .maybeSingle() as { data: PortalAttempt | null; error: { code?: string; message?: string } | null }
-  if (portalAttemptError) return new Response(null, { status: 500 })
-
-  let communicationAttempt: CommunicationAttempt | null = null
-  if (!portalAttempt) {
-    const { data, error } = await admin
-      .from('customer_communication_attempts')
-      .select('id, communication_id')
-      .eq('provider_message_id', providerMessageId)
-      .maybeSingle() as { data: CommunicationAttempt | null; error: { code?: string; message?: string } | null }
-    if (error) return new Response(null, { status: 500 })
-    communicationAttempt = data
+  const { data: existing, error: lookupError } = await admin
+    .from('portal_email_events')
+    .select('id, status')
+    .eq('provider_event_id', svixHeaders['svix-id'])
+    .maybeSingle() as { data: { id: number; status: string } | null; error: { code?: string; message?: string } | null }
+  if (lookupError) {
+    console.error('[portal-email-webhook] falha ao consultar deduplicação', lookupError)
+    return json(500, { error: 'inbox_lookup_failed' })
+  }
+  if (existing) {
+    // Duplicata processada é no-op; duplicata pendente continua respondendo
+    // sucesso ao provedor, mas permanece elegível para o worker.
+    return json(existing.status === 'processed' ? 200 : 202, {
+      event_id: existing.id,
+      status: existing.status,
+      duplicate: true,
+    })
   }
 
-  if (!portalAttempt && !communicationAttempt) return new Response(null, { status: 200 })
+  const { data: inserted, error: insertError } = await admin
+    .from('portal_email_events')
+    .insert({
+      provider_event_id: svixHeaders['svix-id'],
+      provider_message_id: providerMessageId,
+      event_type: event.type,
+      payload: eventPayload,
+      status: 'pending',
+    })
+    .select('id, status')
+    .single() as { data: { id: number; status: string } | null; error: { code?: string; message?: string } | null }
 
-  if (portalAttempt) {
-    const { error } = await admin.from('portal_email_attempts').update({ status }).eq('id', portalAttempt.id)
-    if (error) console.error('[portal-email-webhook] falha ao atualizar tentativa do Portal', portalAttempt.id, error)
-    const { error: eventLinkError } = await admin
+  if (insertError?.code === '23505') {
+    const { data: raced, error: raceLookupError } = await admin
       .from('portal_email_events')
-      .update({ attempt_id: portalAttempt.id })
+      .select('id, status')
       .eq('provider_event_id', svixHeaders['svix-id'])
-    if (eventLinkError) console.error('[portal-email-webhook] falha ao vincular evento à tentativa do Portal', eventLinkError)
-  } else if (communicationAttempt) {
-    const { error } = await admin
-      .from('customer_communication_attempts')
-      .update({ status })
-      .eq('id', communicationAttempt.id)
-    if (error) console.error('[portal-email-webhook] falha ao atualizar tentativa de Comunicado', communicationAttempt.id, error)
-    const { error: eventLinkError } = await admin
-      .from('portal_email_events')
-      .update({ communication_attempt_id: communicationAttempt.id })
-      .eq('provider_event_id', svixHeaders['svix-id'])
-    if (eventLinkError) console.error('[portal-email-webhook] falha ao vincular evento à tentativa de Comunicado', eventLinkError)
+      .maybeSingle() as { data: { id: number; status: string } | null; error: { code?: string; message?: string } | null }
+    if (raceLookupError || !raced) {
+      console.error('[portal-email-webhook] corrida de deduplicação sem linha recuperável', raceLookupError)
+      return json(500, { error: 'inbox_race_lookup_failed' })
+    }
+    return json(raced.status === 'processed' ? 200 : 202, {
+      event_id: raced.id,
+      status: raced.status,
+      duplicate: true,
+    })
+  }
+  if (insertError || !inserted) {
+    console.error('[portal-email-webhook] falha ao persistir inbox', insertError)
+    return json(500, { error: 'inbox_persist_failed' })
   }
 
-  const email = normalizeEmail(event.data.to?.[0] ?? '')
-  if (!email || (status !== 'bounce' && status !== 'complaint')) return new Response(null, { status: 200 })
-
-  const permanentBounce = status === 'bounce' && event.data.bounce?.type?.toLowerCase() === 'permanent'
-  try {
-    if (permanentBounce) {
-      await recordPortalSuppression(admin, email, 'bounce_permanente')
-    } else if (status === 'complaint' && portalAttempt) {
-      await recordPortalSuppression(admin, email, 'complaint')
-    } else if (status === 'complaint' && communicationAttempt) {
-      await recordCommunicationComplaint(admin, email)
-    }
-  } catch (error) {
-    console.error('[portal-email-webhook] falha ao registrar supressão', email, error)
-  }
-
-  let affected: PortalAccount[] = []
-  const isPortalRecoveryAttempt = Boolean(portalAttempt && portalAttempt.kind !== BOUNCE_NOTIFICATION_KIND)
-  if (portalAttempt && isPortalRecoveryAttempt && (permanentBounce || status === 'complaint')) {
-    const { data, error } = await admin
-      .from('customer_portal_accounts')
-      .select('id, customer_id, account_situation')
-      .ilike('recovery_email', email)
-    if (error) return new Response(null, { status: 500 })
-    affected = (data ?? []) as PortalAccount[]
-  }
-
-  if (portalAttempt && isPortalRecoveryAttempt) {
-    for (const account of affected ?? []) {
-      if (!(permanentBounce || status === 'complaint')) continue
-      // Sinal em coluna própria: `account_situation` é de valor único e
-      // `ativo`/`falha_no_envio` são excludentes, então marcar `falha_no_envio`
-      // numa conta ativa afirmaria que ela não está ativa -- e está, o cliente
-      // continua entrando com a senha. São dois fatos independentes: a conta
-      // funciona, e o Email de Recuperação quebrou.
-      await admin.from('customer_portal_accounts').update({ recovery_email_status: status === 'bounce' ? 'bounce_permanente' : 'complaint' }).eq('customer_id', account.customer_id)
-      await admin.from('customer_portal_accounts').update({ account_situation: 'falha_no_envio' }).eq('customer_id', account.customer_id).eq('account_situation', 'convite_pendente')
-      // O alerta é sinal secundário: o estado autoritativo já foi gravado em
-      // `recovery_email_status` acima, e é ele que o console lê. Deixar o
-      // erro subir daqui abortaria os Clientes seguintes da mesma caixa e
-      // devolveria 500 -- e o retry do Resend cairia na linha de dedup já
-      // gravada, que responde 200 sem reprocessar nada. Falhar em avisar não
-      // pode custar o registro do fato.
-      try {
-        await openAlertOnce(admin, {
-          type: 'portal_email_suprimido',
-          entityType: 'customer',
-          entityId: String(account.customer_id),
-          message: 'Email de Recuperação indisponível. Informe ou valide outro endereço.',
-        })
-      } catch (error) {
-        console.error('[portal-email-webhook] falha ao abrir alerta de email suprimido', account.customer_id, error)
-      }
-    }
-  }
-
-  if (permanentBounce && portalAttempt?.kind !== BOUNCE_NOTIFICATION_KIND) {
-    const customerIds = affected.map((account) => account.customer_id)
-    if (portalAttempt?.account_id && customerIds.length === 0) {
-      const { data: accountById, error: accountError } = await admin
-        .from('customer_portal_accounts')
-        .select('customer_id')
-        .eq('id', portalAttempt.account_id)
-        .maybeSingle()
-      if (accountError) console.error('[portal-email-webhook] falha ao consultar conta por id', portalAttempt.account_id, accountError)
-      if (accountById?.customer_id) customerIds.push(Number(accountById.customer_id))
-    }
-    if (communicationAttempt) {
-      const { data: communication, error } = await admin
-        .from('customer_communications')
-        .select('customer_id')
-        .eq('id', communicationAttempt.communication_id)
-        .maybeSingle()
-      if (error) return new Response(null, { status: 500 })
-      if (communication?.customer_id) customerIds.push(Number(communication.customer_id))
-    }
-    const { data: contactsByEmail, error: contactsByEmailError } = await admin
-      .from('customer_contacts')
-      .select('customer_id')
-      .ilike('email', email)
-    if (contactsByEmailError) {
-      console.error('[portal-email-webhook] falha ao consultar contatos por email', email, contactsByEmailError)
-    } else {
-      for (const row of contactsByEmail ?? []) {
-        if (row.customer_id) customerIds.push(Number(row.customer_id))
-      }
-    }
-    const uniqueCustomerIds = [...new Set(customerIds)]
-    for (const customerId of uniqueCustomerIds) {
-      try {
-        await admin.rpc('repair_customer_contact_box_fallbacks', { p_customer_id: customerId })
-      } catch (error) {
-        console.error('[portal-email-webhook] falha ao reparar fallbacks de caixas', customerId, error)
-      }
-    }
-    await handleBounceCascade(admin, uniqueCustomerIds, email)
-  }
-
-  return new Response(null, { status: 200 })
+  // O worker pode resolver o provider_message_id depois do recebimento. O
+  // ACK só significa persistência durável, nunca processamento concluído.
+  return json(202, { event_id: inserted.id, status: inserted.status ?? 'pending' })
 })

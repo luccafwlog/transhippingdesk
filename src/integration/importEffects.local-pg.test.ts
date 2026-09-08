@@ -54,34 +54,47 @@ function enqueue(actionId: string, kind: string, entity: string, revision = 1, d
   `)) as { effect: Effect; idempotent: boolean }
 }
 
+function cleanupTestData(): void {
+  localPsql(`
+    DELETE FROM public.alerts
+    WHERE type = 'aggregate'
+      AND entity_type = 'import_effect'
+      AND entity_id IN (
+        SELECT id::text
+        FROM public.import_pending_effects
+        WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
+           OR entity_id LIKE 'S05-OUTBOX-%'
+      );
+    SET session_replication_role = replica;
+    DELETE FROM public.import_effect_attempts
+    WHERE effect_id IN (SELECT id FROM public.import_pending_effects
+                        WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
+                           OR entity_id LIKE 'S05-OUTBOX-%');
+    DELETE FROM public.import_pending_effects
+    WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
+       OR entity_id LIKE 'S05-OUTBOX-%';
+    SET session_replication_role = origin;
+    DELETE FROM public.audit_logs WHERE changed_by = '${actorId}';
+  `)
+}
+
 describeLocal('S05 — outbox duravel dos efeitos de import', () => {
   beforeAll(() => {
+    cleanupTestData()
     localPsql(`
-      SET session_replication_role = replica;
-      DELETE FROM public.import_effect_attempts
-      WHERE effect_id IN (SELECT id FROM public.import_pending_effects
-                          WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
-                             OR entity_id LIKE 'S05-OUTBOX-%');
-      DELETE FROM public.import_pending_effects
-      WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
-         OR entity_id LIKE 'S05-OUTBOX-%';
-      SET session_replication_role = origin;
-      DELETE FROM public.audit_logs WHERE changed_by = '${actorId}';
+      DELETE FROM public.user_profiles WHERE id = '${actorId}';
+      DELETE FROM auth.users WHERE id = '${actorId}';
+      INSERT INTO auth.users (id, email) VALUES ('${actorId}', 's05-effects@example.test');
+      INSERT INTO public.user_profiles (id, full_name, role, active)
+      VALUES ('${actorId}', 'S05 Effects', 'admin', true);
     `)
   })
 
   afterAll(() => {
+    cleanupTestData()
     localPsql(`
-      SET session_replication_role = replica;
-      DELETE FROM public.import_effect_attempts
-      WHERE effect_id IN (SELECT id FROM public.import_pending_effects
-                          WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
-                             OR entity_id LIKE 'S05-OUTBOX-%');
-      DELETE FROM public.import_pending_effects
-      WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
-         OR entity_id LIKE 'S05-OUTBOX-%';
-      SET session_replication_role = origin;
-      DELETE FROM public.audit_logs WHERE changed_by = '${actorId}';
+      DELETE FROM public.user_profiles WHERE id = '${actorId}';
+      DELETE FROM auth.users WHERE id = '${actorId}';
     `)
   })
 
@@ -157,5 +170,28 @@ describeLocal('S05 — outbox duravel dos efeitos de import', () => {
     expectSqlFailure(`SELECT public.claim_import_effects('browser-worker', 1, 300);`, true)
     expectSqlFailure(`INSERT INTO public.import_pending_effects(source_action_id, effect_kind, entity_id) VALUES (gen_random_uuid(), 'physical_flags', 'S05-OUTBOX-UNAUTHORIZED');`, true)
     expectSqlFailure(`UPDATE public.import_effect_attempts SET error_message = 'alterado' WHERE effect_id IS NOT NULL;`, true)
+  })
+
+  it('processa erro de domínio como bloqueio auditável, sem deixar o efeito quente', () => {
+    const queued = enqueue(actionIds[5], 'provisional_charges', 'S05-OUTBOX-MISSING')
+    const claimed = JSON.parse(localPsql(`
+      SELECT row_to_json(e) FROM public.claim_import_effects('process-worker', 10, 300) AS e;
+    `)) as Effect
+    expect(claimed.id).toBe(queued.effect.id)
+
+    const processed = JSON.parse(localPsql(`
+      SELECT public.process_import_effect(${queued.effect.id}, 'process-worker');
+    `)) as { effect: Effect }
+    expect(processed.effect).toMatchObject({ status: 'blocked', last_error_code: 'effect_domain_missing' })
+    expect(localPsql(`SELECT count(*) FROM public.import_effect_attempts WHERE effect_id = ${queued.effect.id} AND event_kind = 'completed' AND status = 'blocked';`)).toBe('1')
+    expect(localPsql(`
+      SELECT count(*)
+      FROM public.alert_items i
+      JOIN public.alerts a ON a.id = i.alert_id
+      WHERE i.item_type = 'import_effect_blocked'
+        AND i.status = 'active'
+        AND a.entity_type = 'import_effect'
+        AND a.entity_id = '${queued.effect.id}';
+    `)).toBe('1')
   })
 })
