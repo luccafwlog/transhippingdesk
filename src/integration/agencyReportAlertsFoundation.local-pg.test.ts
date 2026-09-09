@@ -91,14 +91,15 @@ describeLocal('migration 323 — runtime do agregado de alertas do ADR', () => {
   })
 
   it('abre dois itens por departamento no mesmo agregado e faz fan-out', () => {
-    expect(psql(`SELECT count(*) FROM public.alert_items i JOIN public.alerts a ON a.id=i.alert_id WHERE a.entity_id='${entityId}' AND i.status='active';`)).toBe('6')
-    expect(psql(`SELECT count(*) FROM public.internal_notifications WHERE entity_id='${entityId}' AND recipient_id IN ('${opsId}', '${docsId}', '${equipmentId}');`)).toBe('6')
-    expect(psql(`SELECT count(DISTINCT a.id) FROM public.alerts a WHERE a.entity_id='${entityId}' AND a.type='aggregate';`)).toBe('1')
+    expect(psql(`SELECT count(*) FROM public.alert_items i JOIN public.alerts a ON a.id=i.alert_id WHERE a.entity_id='${entityId}' AND i.status='active' AND i.item_type IN ('agency_report_department_pending', 'agency_report_deadline_missed');`)).toBe('6')
+    expect(psql(`SELECT count(*) FROM public.internal_notifications WHERE entity_id='${entityId}' AND recipient_id IN ('${opsId}', '${docsId}', '${equipmentId}') AND item_type IN ('agency_report_department_pending', 'agency_report_deadline_missed');`)).toBe('10')
+    expect(psql(`SELECT count(DISTINCT a.id) FROM public.alerts a WHERE a.entity_id='${entityId}' AND a.entity_type='agency_departure_report' AND a.type='aggregate';`)).toBe('1')
   })
 
   it('é idempotente e reabre a responsabilidade quando uma seção volta a pendente', () => {
+    const eventsBefore = psql(`SELECT count(*) FROM public.alert_item_events e JOIN public.alert_items i ON i.id=e.alert_item_id JOIN public.alerts a ON a.id=i.alert_id WHERE a.entity_id='${entityId}' AND i.item_type IN ('agency_report_department_pending', 'agency_report_deadline_missed');`)
     expect(psql(`SELECT (public.reconcile_agency_report_alerts('${reportId}', true, true)->>'changed');`)).toBe('0')
-    expect(psql(`SELECT count(*) FROM public.alert_item_events e JOIN public.alert_items i ON i.id=e.alert_item_id JOIN public.alerts a ON a.id=i.alert_id WHERE a.entity_id='${entityId}';`)).toBe('6')
+    expect(psql(`SELECT count(*) FROM public.alert_item_events e JOIN public.alert_items i ON i.id=e.alert_item_id JOIN public.alerts a ON a.id=i.alert_id WHERE a.entity_id='${entityId}' AND i.item_type IN ('agency_report_department_pending', 'agency_report_deadline_missed');`)).toBe(eventsBefore)
 
     psql(`
       SET request.jwt.claim.role = 'service_role';
@@ -120,6 +121,6 @@ describeLocal('migration 323 — runtime do agregado de alertas do ADR', () => {
       VALUES ('agency_departure_report_signoff', '${reportId}::datas', 'state', 'confirmed', 'pending', '${adminId}', 'reabertura 323');
     `)
     expect(psql(`SELECT (signed_at IS NULL)::text FROM public.agency_departure_report_department_signoffs WHERE report_id='${reportId}' AND department='operacoes';`)).toBe('true')
-    expect(psql(`SELECT count(*) FROM public.alert_items i JOIN public.alerts a ON a.id=i.alert_id WHERE a.entity_id='${entityId}' AND i.department='operacoes' AND i.status='active';`)).toBe('2')
+    expect(psql(`SELECT count(*) FROM public.alert_items i JOIN public.alerts a ON a.id=i.alert_id WHERE a.entity_id='${entityId}' AND i.department='operacoes' AND i.status='active' AND i.item_type IN ('agency_report_department_pending', 'agency_report_deadline_missed');`)).toBe('2')
   })
 })

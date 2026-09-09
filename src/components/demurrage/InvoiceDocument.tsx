@@ -15,20 +15,24 @@ export function InvoiceDocument({ detail, type }: Props) {
   const { items, customer, bl, ...invoice } = detail
   const customerAddress = customer as typeof customer & { address?: string | null; city?: string | null; state?: string | null; zip?: string | null }
   const isInvoice = type === 'invoice'
-  const roe = invoice.current_roe ?? invoice.roe ?? null
-  const roeValue = roe ?? 1
+  // current_roe is the rate captured by the financial contract. `roe` is the
+  // original BL override and is not a safe fallback for an already issued
+  // document. Missing presentation values stay visible as unavailable instead
+  // of being silently reconverted with ROE 1.
+  const roe = invoice.current_roe ?? null
   const vesselVoyage = `${bl?.voyage?.vessel?.name ?? ''} ${bl?.voyage?.voyage_number ?? ''}`.trim() || '—'
   const containers = items.map((item) => item.container_number).join(', ') || '—'
-  const itemsWithBRL = items.map((item) => ({ ...item, subtotal_brl: item.subtotal_usd * roeValue }))
-  const rawTotalBRL = itemsWithBRL.reduce((sum, item) => sum + item.subtotal_brl, 0)
-
-  let discountBRL = 0
-  if (invoice.discount_value && invoice.discount_value > 0) {
-    discountBRL = invoice.discount_mode === 'percent'
-      ? rawTotalBRL * (invoice.discount_value / 100)
-      : invoice.discount_value * roeValue
-  }
-  const totalBRL = invoice.current_total_brl ?? Math.max(0, rawTotalBRL - discountBRL)
+  const itemsWithBRL = items.map((item) => ({
+    ...item,
+    subtotal_brl: item.subtotal_brl ?? null,
+  }))
+  const rawTotalBRL = itemsWithBRL.every((item) => item.subtotal_brl != null)
+    ? itemsWithBRL.reduce((sum, item) => sum + Number(item.subtotal_brl), 0)
+    : null
+  const totalBRL = invoice.current_total_brl ?? null
+  const discountBRL = rawTotalBRL != null && totalBRL != null
+    ? Math.max(0, rawTotalBRL - totalBRL)
+    : null
   const hasDiscount = (invoice.discount_value ?? 0) > 0
 
   return (
@@ -64,14 +68,14 @@ export function InvoiceDocument({ detail, type }: Props) {
         <tbody>
           {itemsWithBRL.map((item, idx) => (
             <tr key={item.id} style={{ background: idx % 2 === 0 ? '#f9fafb' : 'white', borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '8px 7px', fontWeight: 600 }}>{item.container_number}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.container_type}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.days_p1}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.rate_p1_usd.toFixed(2)}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.days_p2}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.rate_p2_usd.toFixed(2)}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{fmtDate(item.discharge_date)}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{fmtDate(item.return_date)}</td><td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.subtotal_brl)}</td>
+              <td style={{ padding: '8px 7px', fontWeight: 600 }}>{item.container_number}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.container_type}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.days_p1}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.rate_p1_usd.toFixed(2)}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.days_p2}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.rate_p2_usd.toFixed(2)}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{fmtDate(item.discharge_date)}</td><td style={{ padding: '8px 7px', textAlign: 'center' }}>{fmtDate(item.return_date)}</td><td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{item.subtotal_brl == null ? '—' : fmtBRL(item.subtotal_brl)}</td>
             </tr>
           ))}
           {hasDiscount && <>
-            <tr style={{ background: '#f0f4fa' }}><td colSpan={8} style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600 }}>Subtotal:</td><td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(rawTotalBRL)}</td></tr>
-            <tr style={{ background: '#f0fdf4' }}><td colSpan={8} style={{ padding: '7px 12px', textAlign: 'right' }}>Desconto {invoice.discount_mode === 'percent' ? `(${invoice.discount_value}%)` : 'fixo'}{invoice.discount_type ? ` — ${invoice.discount_type}` : ''}:</td><td style={{ padding: '7px 12px', textAlign: 'right', color: '#166534' }}>- {fmtBRL(discountBRL)}</td></tr>
+            <tr style={{ background: '#f0f4fa' }}><td colSpan={8} style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600 }}>Subtotal:</td><td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600 }}>{rawTotalBRL == null ? '—' : fmtBRL(rawTotalBRL)}</td></tr>
+            <tr style={{ background: '#f0fdf4' }}><td colSpan={8} style={{ padding: '7px 12px', textAlign: 'right' }}>Desconto {invoice.discount_mode === 'percent' ? `(${invoice.discount_value}%)` : 'fixo'}{invoice.discount_type ? ` — ${invoice.discount_type}` : ''}:</td><td style={{ padding: '7px 12px', textAlign: 'right', color: '#166534' }}>{discountBRL == null ? '—' : `- ${fmtBRL(discountBRL)}`}</td></tr>
           </>}
-          <tr style={{ background: '#F59E0B' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>TOTAL:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>{fmtBRL(totalBRL)}</td></tr>
+          <tr style={{ background: '#F59E0B' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>TOTAL:</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700 }}>{totalBRL == null ? '—' : fmtBRL(totalBRL)}</td></tr>
           {!isInvoice && invoice.paid_at && <tr><td colSpan={9} style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700 }}>PAGO EM: {fmtDate(invoice.paid_at)}</td></tr>}
           {isInvoice && invoice.due_date && <tr style={{ background: '#1A2744', color: 'white' }}><td colSpan={8} style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>VENCIMENTO DIA</td><td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600 }}>{fmtDate(invoice.due_date)}</td></tr>}
         </tbody>
@@ -87,7 +91,7 @@ export function InvoiceDocument({ detail, type }: Props) {
             <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: 4 }}>PAGAMENTO VIA PIX</div>
             <div>Escaneie o QR Code ao lado ou utilize o código Pix Copia e Cola abaixo para realizar o pagamento.</div>
             <div style={{ marginTop: 4 }}>Valor da fatura:</div>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{fmtBRL(totalBRL)}</div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>{totalBRL == null ? '—' : fmtBRL(totalBRL)}</div>
             <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, letterSpacing: '0.05em', marginBottom: 3 }}>PIX COPIA E COLA</div>
             <span style={{ display: 'block', fontFamily: 'monospace', fontSize: '8px', background: '#f3f4f6', padding: '5px 8px', borderRadius: 3, wordBreak: 'break-all', color: '#374151' }}>
               {invoice.pix_payload}

@@ -34,6 +34,7 @@ describeLocal('migrations 338 — comportamento real no Postgres', () => {
       DELETE FROM public.vessels WHERE id = ${voyageId};
       DELETE FROM public.carriers WHERE id = ${voyageId};
       DELETE FROM public.depots WHERE id = '${terminalId}';
+      DELETE FROM public.audit_logs WHERE changed_by IN ('${adminId}', '${opsId}', '${docsId}');
       DELETE FROM public.user_profiles WHERE id IN ('${adminId}', '${opsId}', '${docsId}');
       DELETE FROM auth.users WHERE id IN ('${adminId}', '${opsId}', '${docsId}');
 
@@ -57,6 +58,7 @@ describeLocal('migrations 338 — comportamento real no Postgres', () => {
       DELETE FROM public.vessels WHERE id = ${voyageId};
       DELETE FROM public.carriers WHERE id = ${voyageId};
       DELETE FROM public.depots WHERE id = '${terminalId}';
+      DELETE FROM public.audit_logs WHERE changed_by IN ('${adminId}', '${opsId}', '${docsId}');
       DELETE FROM public.user_profiles WHERE id IN ('${adminId}', '${opsId}', '${docsId}');
       DELETE FROM auth.users WHERE id IN ('${adminId}', '${opsId}', '${docsId}');
     `)

@@ -100,9 +100,13 @@ describeLocal('S08-B — cálculo server-side e snapshots de Demurrage', () => {
     createdInvoiceId = result.invoice_id
     expect(result).toMatchObject({ total_usd: 50, current_total_brl: 275, roe_source: 'manual' })
     expect(localPsql(`SELECT total_usd::text || ':' || current_total_brl::text FROM public.demurrage_invoices WHERE id = ${createdInvoiceId};`)).toBe('50.00:275.00')
-    expect(localPsql(`SELECT free_days::text || ':' || days_p1::text || ':' || rate_p1_usd::text || ':' || subtotal_usd::text FROM public.demurrage_invoice_items WHERE invoice_id = ${createdInvoiceId};`)).toBe('25:5:10.00:50.00')
+    expect(localPsql(`SELECT free_days::text || ':' || days_p1::text || ':' || rate_p1_usd::text || ':' || subtotal_usd::text || ':' || subtotal_brl::text FROM public.demurrage_invoice_items WHERE invoice_id = ${createdInvoiceId};`)).toBe('25:5:10.00:50.00:275.00')
     expect(localPsql(`SELECT count(*) FROM public.demurrage_calculation_snapshots WHERE demurrage_invoice_id = ${createdInvoiceId};`)).toBe('1')
     expect(localPsql(`SELECT event_kind FROM public.demurrage_calculation_snapshots WHERE demurrage_invoice_id = ${createdInvoiceId};`)).toBe('initial')
+    expect(localPsql(`SELECT (result_snapshot->>'presentation_total_brl') || ':' || ((result_snapshot->'presentation_items'->0)->>'subtotal_brl') FROM public.demurrage_calculation_snapshots WHERE demurrage_invoice_id = ${createdInvoiceId};`)).toBe('275.00:275.00')
+    expect(() => localPsql(`UPDATE public.demurrage_invoices SET current_roe = 0 WHERE id = ${createdInvoiceId};`)).toThrow()
+    expect(() => localPsql(`UPDATE public.demurrage_invoices SET roe_source = 'forged' WHERE id = ${createdInvoiceId};`)).toThrow()
+    expect(() => asAuthenticated(`UPDATE public.demurrage_invoices SET roe = 6, roe_manual = true WHERE id = ${createdInvoiceId};`)).toThrow()
   })
 
   it('não permite a entrada antiga que recebia linhas monetárias arbitrárias', () => {

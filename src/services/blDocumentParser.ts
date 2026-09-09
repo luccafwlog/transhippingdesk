@@ -5,8 +5,8 @@
 // caminho do manifesto BB e vive em blDocumentImport.ts.
 import { extractCnpjFromText } from '../lib/cnpj'
 import { assertUploadFile } from '../lib/fileGuard'
+import { parseImportNumber, type ImportNumberFormat } from '../lib/importNumber'
 import { extractNcmCodes } from '../lib/ncm'
-import { toNumber } from '../lib/utils'
 import {
   extractCarrierMachineQty,
   firstMeaningfulPartyLine,
@@ -308,7 +308,7 @@ function readWeight(value: string | null, warnings: string[]) {
   const match = value.match(/(\d[\d.,]*)\s*([A-Z/]*)/i)
   if (!match) return null
 
-  const amount = parseAmount(match[1], { thousandsAware: true })
+  const amount = parseAmount(match[1], { thousandsAware: true, format: 'unknown' })
   if (amount === null) return null
   if (amount.usedThousandsSeparator) {
     warnings.push(`Peso "${match[1]}" lido como ${amount.value} kg (ponto tratado como separador de milhar).`)
@@ -321,7 +321,7 @@ function readMeasurement(value: string | null) {
   const match = value.match(/(\d[\d.,]*)/)
   // CBM é escrito com decimais no B/L ("55.244"), então aqui o ponto é sempre
   // separador decimal — o contrário do peso.
-  return match ? parseAmount(match[1], { thousandsAware: false })?.value ?? null : null
+  return match ? parseAmount(match[1], { thousandsAware: false, format: 'en-US' })?.value ?? null : null
 }
 
 /**
@@ -332,14 +332,19 @@ function readMeasurement(value: string | null) {
  * avisado sempre que essa leitura for aplicada. Upgrade path = ler a unidade
  * declarada no manifesto da viagem quando ele existir para o mesmo B/L.
  */
-function parseAmount(value: string, options: { thousandsAware: boolean }) {
+function parseAmount(value: string, options: { thousandsAware: boolean; format: ImportNumberFormat }) {
   const text = value.trim()
   if (options.thousandsAware && /^\d{1,3}(\.\d{3})+$/.test(text)) {
-    return { value: Number(text.replace(/\./g, '')), usedThousandsSeparator: true }
+    const parsed = parseImportNumber(text.replace(/\./g, ''), 'unknown')
+    return parsed.kind === 'value'
+      ? { value: Number(parsed.decimal), usedThousandsSeparator: true }
+      : null
   }
 
-  const parsed = toNumber(text)
-  return parsed === null ? null : { value: parsed, usedThousandsSeparator: false }
+  const parsed = parseImportNumber(text, options.format)
+  return parsed.kind === 'value'
+    ? { value: Number(parsed.decimal), usedThousandsSeparator: false }
+    : null
 }
 
 function readFreightTerms(freight: string | null, description: string) {

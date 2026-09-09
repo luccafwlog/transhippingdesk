@@ -53,6 +53,9 @@ export type SheetReadOptions = {
   values?: 'formatado' | 'cru'
   skipBlankRows?: boolean
   sheetIndex?: number
+  /** Aliases used to locate a header row after an optional title/preamble. */
+  expectedHeaders?: readonly string[]
+  headerWindow?: number
   /** Fallback Windows-1252 somente para origem autorizada; default UTF-8 estrito. */
   allowWindows1252Fallback?: boolean
 }
@@ -61,6 +64,7 @@ export type SheetContent = {
   headers: string[]
   matrix: unknown[][]
   rows: Record<string, unknown>[]
+  headerRowIndex: number
 }
 
 export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions = {}): Promise<SheetContent> {
@@ -93,14 +97,20 @@ export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions =
     blankrows: false,
     raw,
   })
-  const headers = (matrix[0] ?? []).map((cell) => String(cell ?? '').trim())
+  const headerRowIndex = options.expectedHeaders
+    ? locateHeaderRowIndex(matrix, options.expectedHeaders, options.headerWindow ?? 5)
+    : 0
+  if (headerRowIndex < 0) throw new Error('Cabeçalho não encontrado na janela inicial da planilha.')
+
+  const headers = (matrix[headerRowIndex] ?? []).map((cell) => String(cell ?? '').trim())
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
     defval: '',
     raw,
     blankrows: !(options.skipBlankRows ?? true),
+    range: headerRowIndex,
   })
   if (!rows.length) throw new Error('Planilha vazia.')
-  return { headers, matrix, rows }
+  return { headers, matrix, rows, headerRowIndex }
 }
 
 export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<Record<string, unknown>[]> {

@@ -2284,6 +2284,7 @@ export type Database = {
           rate_p1_usd: number
           rate_p2_usd: number
           return_date: string
+          subtotal_brl: number | null
           subtotal_usd: number
           total_days: number
         }
@@ -2301,6 +2302,7 @@ export type Database = {
           rate_p1_usd?: number
           rate_p2_usd?: number
           return_date: string
+          subtotal_brl?: number | null
           subtotal_usd: number
           total_days: number
         }
@@ -2318,6 +2320,7 @@ export type Database = {
           rate_p1_usd?: number
           rate_p2_usd?: number
           return_date?: string
+          subtotal_brl?: number | null
           subtotal_usd?: number
           total_days?: number
         }

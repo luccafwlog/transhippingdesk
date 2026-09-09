@@ -51,3 +51,18 @@ it('US-048: exibe QR Pix e codigo copia e cola na fatura', () => {
   expect(screen.getByText(detail.pix_payload!)).toBeTruthy()
   expect(screen.getByRole('img', { name: /qr code/i })).toBeTruthy()
 })
+
+it('F1: imprime o valor BRL persistido da linha, sem reconverter o USD pelo ROE atual', () => {
+  const detailWithPersistedLine = {
+    ...detail,
+    current_roe: 5,
+    current_total_brl: 500,
+    items: [{ ...detail.items[0], subtotal_brl: 498 }],
+  } as unknown as DemurrageInvoiceDetail
+
+  render(<InvoiceDocument detail={detailWithPersistedLine} type="invoice" />)
+
+  const line = screen.getAllByText('TCLU1234567').at(-1)?.closest('tr')
+  expect(line?.textContent).toContain('R$ 498,00')
+  expect(line?.textContent).not.toContain('R$ 500,00')
+})

@@ -11,8 +11,10 @@ Nesta etapa foram inventariados 130 nomes literais de RPC, 60 tabelas acessadas
 diretamente pelo frontend e 2 buckets de Storage usados pelos serviços, além
 dos diretórios de `supabase/functions` (hoje 15 Edge Functions além de
 `_shared`). O índice cobre a superfície navegável, não a
-totalidade: o schema expõe 198 funções a `authenticated`/`anon`, e 83 delas
-ainda não têm linha aqui. O par cliente/inspeção deriva do mapa literal
+totalidade: o replay local atual expõe 219 funções SQL de aplicação a
+`authenticated`/`anon`; 168 nomes chamados pela produção resolvem no catálogo
+executado e as funções auxiliares restantes são acompanhadas por família abaixo,
+sem fingir que um helper interno é uma rota. O par cliente/inspeção deriva do mapa literal
 `src/services/portalRpcContracts.ts` (dispatcher em `src/services/portalScope.ts`,
 teste de completude e índice), então os nomes `portal_inspect_*` têm fonte única
 no código. Levantamento e lacunas detalhadas na
@@ -24,6 +26,61 @@ no código. Levantamento e lacunas detalhadas na
 - **Teste**: comportamento sustentado por uma asserção automatizada identificada.
 - **Runtime**: comportamento observado em navegador/API/banco controlado.
 - **Suspeita**: divergência plausível que ainda exige confirmação adicional.
+
+## Atualização da PR #670 — 2026-09-09
+
+O recorte de `009`–`027` foi conferido no replay PostgreSQL local e agora tem
+linha de rastreabilidade para as funções que não apareciam no índice anterior.
+As funções com prefixo `_` são núcleos privados; os demais nomes são wrappers,
+leitores ou workers. **Evidência:** 17 suítes de integração local, 64 testes,
+`npm run rpc:check` com 168 nomes chamados e `npm run docs:check` com 428
+Markdown/49 rotas. Isso não afirma deploy remoto, grants em Preview ou execução
+de jobs.
+
+| Família / funções introduzidas ou redefinidas nesta PR | Migração / evidência executável |
+|---|---|
+| `apply_baplie_physical_flags_atomic`, `apply_container_dates_atomic` | `015_import_dates_and_flags_atomic.sql`; `importAtomicity.local-pg.test.ts`, `baplieParserS03.test.ts` |
+| `apply_customer_base_row_atomic`, `import_bl_freight_with_metadata` | `016_import_metadata_and_omission_conflicts.sql`; testes de importação/customer base |
+| `claim_import_effects`, `complete_import_effect`, `enqueue_import_effect`, `list_import_effects`, `retry_import_effect`, `prevent_import_effect_attempt_mutation` | `017_import_effects_outbox.sql`, `025_import_effect_worker.sql`; `importEffects.local-pg.test.ts` |
+| `create_customer_dunning_group_atomic`, `demurrage_dunning_candidate_sendable`, `release_demurrage_dunning_claim` | `010_contact_routing_and_dunning_eligibility.sql`, `011_dunning_group_membership.sql`; contratos de dunning |
+| `apply_demurrage_discount`, `cancel_demurrage_invoice`, `confirm_demurrage_pix_matches`, `register_demurrage_payment`, `reopen_demurrage_invoice`, `_demurrage_mutation_request` | `012_demurrage_mutation_guards.sql`, `027_demurrage_money_fixes.sql`; `demurrageMoney.local-pg.test.ts` |
+| `create_demurrage_invoice_authoritative`, `create_demurrage_invoice_with_items`, `capture_demurrage_calculation_snapshot`, `prevent_demurrage_calculation_snapshot_mutation`, `_calculate_demurrage_invoice_authoritative` | `018_exchange_rate_provenance.sql`, `023_demurrage_calculation_snapshot.sql`, `027_demurrage_money_fixes.sql`; `demurrageAuthority.local-pg.test.ts` |
+| `recalculate_demurrage_invoices`, `recalculate_demurrage_invoices_manual`, `save_exchange_rate_reference`, `save_exchange_rate_reference_v2`, `_demurrage_roe_from_ptax`, `_demurrage_spread_version` | `018_exchange_rate_provenance.sql`; `exchangeRateIntegrity.local-pg.test.ts` |
+| `operational_list_bl_summary`, `operational_list_bls`, `operational_list_containers` | `020_operational_read_pages.sql`; `operationalLists.local-pg.test.ts` |
+| `portal_list_disputes`, `_portal_list_disputes_core` | `013_portal_disputes_inspection.sql`; `portalInspectionParity.local-pg.test.ts` |
+| `portal_list_demurrage_invoices_page`, `portal_list_invoices_page`, `_portal_list_demurrage_invoices_page_core`, `_portal_list_invoices_page_core` | `021_portal_billing_pages.sql`; `portalInspectionParity.local-pg.test.ts` |
+| `customer_billing_access_ready` | `019_local_billing_integrity.sql`; `localBillingIntegrity.local-pg.test.ts` |
+| `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql`; `auditSecurityBoundaries.local-pg.test.ts` |
+| `portal_email_event_attempts_append_only` | `022_email_inbox_and_dispatch_state.sql`; `emailInbox.local-pg.test.ts` |
+
+Os contratos financeiros passaram a persistir `demurrage_invoice_items.subtotal_brl`
+com resíduo determinístico e o documento lê o valor persistido; valores históricos
+sem snapshot não são inventados. `src/types/database.ts` foi alinhado com a coluna
+confirmada no replay; a geração oficial via CLI foi tentada, mas o Podman local
+encerrou a máquina antes de executar o container do gerador, portanto a alteração
+do tipo foi conferida contra `information_schema` e deve ser regenerada pelo CLI
+quando o runtime de containers estiver disponível.
+
+### Inventário S14 — legado e colunas nullable
+
+No replay local de 2026-09-09, as 14 candidatas do plano (`portal_*_legacy`,
+`close_legacy_agency_report_alerts_for_scale` e
+`reconcile_bl_review_alerts_item`) resolveram para assinaturas existentes, todas
+sem dependente em `pg_depend`, sem referência no corpo de outra função e sem job
+local cujo comando as chame. As funções `*_legacy` também estão sem `EXECUTE`
+para `anon` e `authenticated`. Isso é evidência de não-uso interno, não prova de
+ausência de consumidor externo; por isso nenhuma foi removida nesta PR e os sete
+elos de import que formam a cadeia `_legacy_205/284/322/357`, `_legacy_165`,
+`_legacy_136` e `save_granite_bl_review_legacy_148` continuam preservados.
+
+As colunas `alerts.notified_at`, `bls.consignee_address`,
+`charge_calculations.reviewed_at` e `customer_portal_sessions.last_seen_at`
+existem e são nullable; no banco descartável todas estavam nulas. Não houve
+caller ativo em `src`/Edge Functions para as quatro; `charges_reviewed_at` e
+outros campos homônimos usados pela projeção de Taxas Locais não são a coluna
+legada `charge_calculations.reviewed_at`. Sem contagem do ambiente real,
+telemetria externa e decisão documental, a remoção fica deliberadamente
+pendente; qualquer contração futura deve usar migration nova e `DROP ... RESTRICT`.
 
 Testes que apenas inspecionam texto ou regex de migrations são classificados
 como **Teste de contrato SQL**. Eles detectam drift no SQL versionado, mas não

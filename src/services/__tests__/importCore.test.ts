@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createHeaderMapper, createRowErrorCollector, matchHeaders, readFirstSheetRows, readSheet, type HeaderSpec } from '../importCore'
+import { createHeaderMapper, createRowErrorCollector, locateHeaderRowIndex, matchHeaders, readFirstSheetRows, readSheet, type HeaderSpec } from '../importCore'
 import { aoaToBuffer, jsonToBuffer } from './testWorkbook'
 
 describe('createHeaderMapper', () => {
@@ -94,6 +94,32 @@ describe('readSheet', () => {
 
   it('lanca a mensagem historica quando a planilha nao tem linhas', async () => {
     await expect(readSheet(aoaToBuffer([['A']]))).rejects.toThrow('Planilha vazia.')
+  })
+
+  it('localiza cabecalho depois de um preambulo e preserva o numero da linha', async () => {
+    const { headers, rows, headerRowIndex } = await readSheet(
+      aoaToBuffer([
+        ['Relatorio de containers'],
+        ['Gerado em 2026-09-09'],
+        ['BL', 'Container'],
+        ['BL-1', 'MSCU1234567'],
+      ]),
+      { expectedHeaders: ['bl', 'container'] },
+    )
+
+    expect(headerRowIndex).toBe(2)
+    expect(headers).toEqual(['BL', 'Container'])
+    expect(rows).toEqual([{ BL: 'BL-1', Container: 'MSCU1234567' }])
+  })
+})
+
+describe('locateHeaderRowIndex', () => {
+  it('recusa mais de uma linha candidata na janela', () => {
+    expect(() => locateHeaderRowIndex([
+      ['BL', 'Container'],
+      ['Nota'],
+      ['Container', 'Data'],
+    ], ['bl', 'container'])).toThrow('Cabeçalho ambíguo')
   })
 })
 

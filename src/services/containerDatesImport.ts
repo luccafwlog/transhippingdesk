@@ -33,10 +33,13 @@ export type ParsedContainerDatesImport = {
 export async function parseContainerDatesFile(file: File): Promise<ParsedContainerDatesImport> {
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
-  const { headers, rows } = await readSheet(buffer, { dates: 'date' })
+  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+    dates: 'date',
+    expectedHeaders: Object.values(headerMap).flat(),
+  })
   const { missing } = matchHeaders(headers, SPEC)
   if (missing.length) throw new Error(`Colunas obrigatorias ausentes: ${missing.join(', ')}.`)
-  return parseRows(rows)
+  return parseRows(rows, headerRowIndex)
 }
 
 export type ContainerDatesImportError = { bl_id: string; container_number: string; message: string }
@@ -155,7 +158,7 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
   return { updated, unchanged, missing, errors }
 }
 
-function parseRows(objectRows: Record<string, unknown>[]): ParsedContainerDatesImport {
+function parseRows(objectRows: Record<string, unknown>[], headerRowIndex = 0): ParsedContainerDatesImport {
   const rows: ContainerDatesImportRow[] = []
   const rowErrors: ParsedContainerDatesImport['rowErrors'] = []
 
@@ -166,18 +169,19 @@ function parseRows(objectRows: Record<string, unknown>[]): ParsedContainerDatesI
     const rawDischarge = mapped.discharge_date
     const rawReturn = mapped.return_date
 
-    if (!blId) { rowErrors.push({ row: index + 2, message: 'Linha sem BL.', raw: row }); return }
-    if (!containerNumber) { rowErrors.push({ row: index + 2, message: 'Linha sem Container.', raw: row }); return }
+    const rowNumber = index + headerRowIndex + 2
+    if (!blId) { rowErrors.push({ row: rowNumber, message: 'Linha sem BL.', raw: row }); return }
+    if (!containerNumber) { rowErrors.push({ row: rowNumber, message: 'Linha sem Container.', raw: row }); return }
 
     const discharge = parseDate(rawDischarge)
-    if (!discharge) { rowErrors.push({ row: index + 2, message: 'Data de descarga invalida ou ausente.', raw: row }); return }
+    if (!discharge) { rowErrors.push({ row: rowNumber, message: 'Data de descarga invalida ou ausente.', raw: row }); return }
 
     const returnDate = rawReturn != null && asString(rawReturn) ? parseDate(rawReturn) : null
     if (rawReturn != null && asString(rawReturn) && !returnDate) {
-      rowErrors.push({ row: index + 2, message: 'Data de devolucao invalida.', raw: row }); return
+      rowErrors.push({ row: rowNumber, message: 'Data de devolucao invalida.', raw: row }); return
     }
     if (returnDate && returnDate < discharge) {
-      rowErrors.push({ row: index + 2, message: 'Data de devolucao anterior a descarga.', raw: row }); return
+      rowErrors.push({ row: rowNumber, message: 'Data de devolucao anterior a descarga.', raw: row }); return
     }
 
     rows.push({ bl_id: blId, container_number: containerNumber, discharge_date: discharge, return_date: returnDate })

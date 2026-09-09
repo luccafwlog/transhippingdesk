@@ -143,12 +143,8 @@ jobs:
         # devem usar ids e `customers.cnpj_cpf` do próprio namespace da suíte,
         # porque o CNPJ é UNIQUE e a limpeza remove por id.
         #
-        # A lista é explícita, não `src/integration/`, porque cinco suítes
-        # anteriores a este gate (adminUsuarios, agencyReportAlertsFoundation,
-        # agencyReportCloserName, alertsReviewHardening, rpcFinalDefinition)
-        # falham por fixture/limpeza mesmo em série. Ampliar exige corrigi-las
-        # antes; ligar tudo agora só deixaria o gate vermelho e ensinaria a
-        # equipe a ignorá-lo.
+        # A lista é explícita, não `src/integration/`, porque estas suítes
+        # compartilham um único banco e precisam de execução serializada.
         env:
           LOCAL_PG_INTEGRATION: '1'
           LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test
@@ -165,7 +161,12 @@ jobs:
             src/integration/localBillingIntegrity.local-pg.test.ts \
             src/integration/operationalLists.local-pg.test.ts \
             src/integration/portalInspectionParity.local-pg.test.ts \
-            src/integration/rpcCatalog.local-pg.test.ts
+            src/integration/rpcCatalog.local-pg.test.ts \
+            src/integration/adminUsuarios.local-pg.test.ts \
+            src/integration/agencyReportAlertsFoundation.local-pg.test.ts \
+            src/integration/agencyReportCloserName.local-pg.test.ts \
+            src/integration/alertsReviewHardening.local-pg.test.ts \
+            src/integration/rpcFinalDefinition.local-pg.test.ts
 
       - name: Verify the executed RPC catalog
         # `npm run rpc:check` existia no package.json sem nenhum gate a executá-lo.

@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial em `codex/remediation-complete` (2026-09-07).** O plano continua aberto: a PR #669 foi usada como baseline e esta branch integra correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial na PR #670 (2026-09-09).** O plano continua aberto: a PR #669 foi usada como baseline e esta branch integra correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -26,6 +26,14 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **S11–S12:** a paridade de Inspeção ganhou os wrappers de billing paginado da migration `021`, com filtros, contagem, limites e isolamento; as listas operacionais usam projeções paginadas existentes e o Painel oferece janela incremental de viagens (`a851fbf4`, `b1444146`).
 - **S13:** buscas operacionais têm debounce, as três listas principais distinguem offline sem cache de lista vazia, quatro confirmações nativas usam `ConfirmDialog`, e as tabelas/menus principais têm caption, semântica de menu e foco de teclado (`87a4d520`, `b417109d`, `b1444146`, `c58330eb`).
 - **S14:** o checker executado de RPC passou a validar o catálogo ativo; documentação viva e rastreabilidade foram atualizadas (`1ff9e1bd`, `b1444146`).
+
+### 1.0.1 Execução complementar na PR #670
+
+- **F1/F5:** `InvoiceDocument` deixou de reconverter linhas e de usar ROE `1`; o documento usa `current_total_brl` e `demurrage_invoice_items.subtotal_brl`, exibindo indisponibilidade para histórico sem valor persistido. A migration expansiva adiciona resíduo determinístico por linha, CHECKs de faixa/proveniência e revoga `UPDATE (roe, roe_manual)` de `anon`/`authenticated`; o service não aceita mais esses campos no patch do browser.
+- **S03:** os cinco callers restantes de `toNumber` foram migrados para `parseImportNumber` com formato explícito; `locateHeaderRowIndex` foi conectado ao `readSheet`/import de datas; Baplie expõe issues, exporta relatório e bloqueia staging com erro. `importValidation` e `resolvePortCode` agora têm consumidores vivos.
+- **Gate SQL:** as cinco suítes antes fora do gate foram corrigidas e incorporadas ao CI. Replay local do zero: 17 arquivos / 64 testes verdes. A correção adicional de `upsert_alert_item_before_milestone_hardening` impede eventos `updated` espúrios em reconciliação idempotente.
+- **S02:** o skip observado em runs de `workflow_run` sem PR é explicado pelo `if` do workflow para pushes em `main`; na execução da PR, o check Supabase passou. O provisionamento seguinte falhou por `PREVIEW_ADMIN_PASSWORD` operacional com menos de oito caracteres. Não alterar o workflow para aceitar `skipped`, não relaxar a validação do segredo e não ativar jobs.
+- **S11/S14:** o catálogo e os documentos foram atualizados; a geração oficial de `src/types/database.ts` foi tentada, mas o Podman local encerrou antes do container do CLI. O tipo novo foi conferido contra `information_schema` e deve ser regenerado oficialmente quando o runtime de containers estiver disponível. A inspeção das 14 candidatas legadas encontrou zero dependências `pg_depend`, zero referências nos corpos de outras funções e zero jobs locais; sem telemetria de consumidores externos, nenhum `DROP` foi aplicado.
 
 Validação anterior do baseline está preservada no histórico abaixo. Nesta
 integração, `npm test -- --run` passou com 557 arquivos, 2.942 testes aprovados
@@ -73,15 +81,15 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 
 | ID original | Classificação | Evidência atual e trabalho residual | Destino |
 |---|---|---|---|
-| P0-1 / §2.2 | Pendente | `src/lib/utils.ts::toNumber` remove letras e infere separador; `1e3` vira 13, `1.234` depende de convenção inexistente. Peso alimenta cobrança de Granito. | S03 |
-| P0-2 | Pendente | `src/services/baplieParser.ts` acumula contexto, publica no EQD e reinicia no LOC; associação depende da ordem, sem canal de erro de grupo/UNA. | S03 |
-| P0-3 / §2.1 | Pendente | `importCore.readSheet` entrega bytes CSV ao XLSX sem decodificação explícita; Baplie usa `file.text()`. XLSX binário não deve passar pelo decoder textual. | S03 |
+| P0-1 / §2.2 | Mitigado parcialmente | Todos os callers de produção identificados foram migrados para `parseImportNumber` com formato explícito; `toNumber` permanece apenas como helper de compatibilidade sem caller de produção. Vetores adicionais de Granito continuam regressão obrigatória. | S03 |
+| P0-2 | Mitigado parcialmente | Baplie agora transforma grupo físico inválido em issue bloqueante, mostra o relatório e impede staging; a semântica completa de identidade/UNA e importadores legados ainda exige regressão. | S03 |
+| P0-3 / §2.1 | Mitigado parcialmente | `readSheet` agora localiza a linha de cabeçalho com janela/aliases e o import de datas usa a linha real; o recorte de bytes/decodificação de todos os parsers ainda não foi uniformizado. | S03 |
 | P0-4 / §§5.1–5.3 | Pendente | `vesselAlias.ts` e `voyages.ts` não compartilham identidade canônica suficiente; fallback de nome em Chegadas e Saídas continua frágil. Risco confirmado é duplicação/associação incorreta por nome, não troca comprovada entre IMOs distintos. | S03 |
 | P1-5 / §3.2, igual a #657 P1-01 | Mitigado parcialmente | `src/services/containerDatesImport.ts` registra falhas por linha/B/L, continua outros B/Ls, não fatura B/L com update falho e reavalia devolução inalterada. RPC única/transação do conjunto ainda não existe. | S04 + S05 |
-| §2.3 — colunas e cabeçalho | Pendente | Adotar o `matchHeaders` já existente nos parsers que não exigem estrutura mínima; layout fixo COSCO precisa de assinatura, não inferência silenciosa. | S03 |
+| §2.3 — colunas e cabeçalho | Mitigado parcialmente | `locateHeaderRowIndex`/aliases foram conectados ao core de planilhas e ao import de datas; layouts fixos como COSCO ainda precisam de assinatura explícita. | S03 |
 | §2.4 — datas | Pendente | Política difere entre planilhas; datas inválidas/ambíguas podem virar ausência. Manter inferência de ano apenas onde já é contrato de programação. | S03 |
-| §2.5 — dado inválido | Pendente | Vazios IMP conserva ISO inválido, tara pode virar zero e `canImport` não expressa severidade. | S03 |
-| §2.6 — porto desconhecido | Pendente | Normalização pode devolver texto cru sem indicar reconhecimento; não inventar LOCODE. | S03 |
+| §2.5 — dado inválido | Mitigado parcialmente | Baplie agora preserva severidade, exibe issues e bloqueia erro; Vazios IMP e alguns fluxos de tara ainda precisam de contrato de rejeição próprio. | S03 |
+| §2.6 — porto desconhecido | Mitigado parcialmente | Baplie usa `resolvePortCode` e bloqueia porto ausente/desconhecido; os demais importadores ainda precisam convergir para o mesmo resultado explícito. | S03 |
 | §3.1 — imports já transacionais | Aceito | Preservar RPCs atômicas existentes; reexecutar seus contratos ao alterar helpers comuns. Não reconstruir esses imports. | Regressão S03/S04 |
 | §3.3 — caudas BL/veículos/clientes/BB | Mitigado parcialmente | Núcleos persistem, mas lote/vínculo, efeitos de veículos e cadastro seguido de contatos têm fronteiras distintas; erros já visíveis não equivalem a rollback. | S04 + S05 |
 | §3.4 — CE por linha vs manifesto | Pendente | Planilha confirma RPC por B/L; EDI aplica conjunto. Definir unidade explícita e relatório de aplicação, mantendo a distinção entre `bls` e Granito. | S04 + S05 |
@@ -141,13 +149,13 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 
 | ID | Classificação | Evidência atual e trabalho residual | Destino |
 |---|---|---|---|
-| F1 | Pendente | `components/demurrage/InvoiceDocument.tsx` reconverte linhas USD e admite ROE 1; arredondamento por linha pode divergir do total persistido. | S08 |
+| F1 | Mitigado parcialmente | `InvoiceDocument` lê `subtotal_brl`/`current_total_brl`, não reconverte por linha e não usa ROE 1; o snapshot persistido distribui o resíduo deterministicamente. Histórico sem valor BRL é marcado como indisponível. Falta apenas a prova autenticada no Preview. | S08 |
 | F2 — contrato de confirmação | Pendente | `002::confirm_demurrage_pix_matches(jsonb)` é invoker sem guard/estado/dedup/janela equivalentes ao contrato atual. | S08 |
 | F2 — baixa arbitrária persistida | Precisa de investigação | ACL final da 006 concede apenas SELECT em `demurrage_invoice_history`; INSERT do invoker pode abortar e desfazer UPDATE. Não há prova de exploração funcional nesta sessão; testar sob roles reais antes de afirmar. Não abrir INSERT para “consertar” RPC. | S08 |
 | F3 | Pendente | Desconto USD acima do total aceito no SQL; UI limita resultado, mas banco pode ficar negativo e PIX perder valor. | S08 |
 | F4 — autoridade server-side | Mitigado parcialmente | `create_demurrage_invoice_authoritative` calcula por IDs no banco e `demurrage_calculation_snapshots` congela versão/entradas/saída; falta validar Preview/roles reais e concluir os documentos/fluxos financeiros residuais. | S08-B / D02 |
 | F4 — validade do cache | Pendente | `src/services/demurrage/demurrageRates.ts` renova timestamp ao falhar refresh, prolongando dado antigo sem limite visível. | S08-A |
-| F5 | Pendente | Cotação aceita valor sem faixa de sanidade. Escrita por usuário ativo não é, sozinha, violação da ADR 0046; não impor admin implicitamente. | S09 |
+| F5 | Mitigado parcialmente | Migration nova valida `roe`/`current_roe`, exige valor para override manual e revoga UPDATE direto de `roe`/`roe_manual` ao browser; `roe_source` permanece controlado fora do grant. Falta a prova autenticada no Preview e a decisão operacional completa do writer interno. | S09 |
 | F6 — quantidade/fracionamento | Pendente | Exibição arredonda fração de container e não explica composição do total. Preservar rateio exato e resíduo já calculado no SQL. | S10 |
 | F6 — B/L irmão tardio | Aceito | Risco residual reconhecido pela ADR 0020, complemento de 06/08: irmãos recebem CE juntos. Não recalcular/faturar irmãos automaticamente sem mudança dessa premissa. Validar ocorrência atual e promover decisão se houver evidência. | S10 diagnóstico / D05 |
 | F7 | Mitigado parcialmente | A emissão SQL continua sendo a autoridade do payload PIX e os serviços/UI não o calculam nem persistem em paralelo; ACLs/rotas legadas e runtime remoto ainda exigem conferência. | S08/S10 |
@@ -205,7 +213,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | TOCTOU de contatos | Aceito | Hipótese depende de troca concorrente de customer_id, fora do fluxo atual. Preservar imutabilidade e lock do cliente; reabrir se essa capacidade nascer. | §8 |
 | `portal_ship_schedule` anon | Aceito | Programação sem dados privados é exceção deliberada; grants nomeados, nunca PUBLIC genérico. | Regressão S01 |
 | Vetores sem achado | Aceito | Não criar tarefas genéricas de IDOR, rotação de segredo sem incidente ou reescrita de Auth/webhooks. | §6 |
-| Provision Preview Admin / §1.3 deste plano | Mitigado parcialmente | Guarda de alvo entregue; falha confirmada de lifecycle `skipped` permanece no YAML, causa do skip em investigação. | S02 |
+| Provision Preview Admin / §1.3 deste plano | Mitigado parcialmente | Guarda de alvo entregue. `skipped` em `workflow_run` sem PR é comportamento esperado para push em `main`; no run da PR, o Supabase Preview passou, mas o provisionamento falhou porque `PREVIEW_ADMIN_PASSWORD` tinha menos de oito caracteres. O segredo precisa ser corrigido fora do código. | S02 |
 
 ## 3. Dependências entre subprojetos
 
