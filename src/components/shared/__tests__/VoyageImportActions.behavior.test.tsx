@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   showToast: vi.fn(),
   parseBreakbulkManifestFile: vi.fn(),
   importBreakbulkManifest: vi.fn(() => Promise.resolve()),
+  parseBaplieFile: vi.fn(),
+  importBaplieStaging: vi.fn(() => Promise.resolve({ staged: 1 })),
   can: vi.fn<(permission: string) => boolean>(() => true),
   effectiveRole: vi.fn(() => 'documentacao'),
   profile: { id: 'user-1' },
@@ -29,6 +31,12 @@ vi.mock('../../../services/breakbulkImport', () => ({
   parseBreakbulkManifestFile: mocks.parseBreakbulkManifestFile,
   importBreakbulkManifest: mocks.importBreakbulkManifest,
 }))
+vi.mock('../../../services/baplieParser', () => ({
+  parseBaplieFile: mocks.parseBaplieFile,
+}))
+vi.mock('../../../services/baplieImport', () => ({
+  importBaplieStaging: mocks.importBaplieStaging,
+}))
 vi.mock('../CeMercanteImportModal', () => ({
   CeMercanteImportModal: ({ lockedVoyageId, target }: { lockedVoyageId?: number; target?: string }) => <div>CE travado: {lockedVoyageId} · {target ?? 'bls'}</div>,
 }))
@@ -41,12 +49,14 @@ beforeEach(() => {
   mocks.effectiveRole.mockReturnValue('documentacao')
   mocks.invalidateQueries.mockResolvedValue(undefined)
   mocks.importBreakbulkManifest.mockResolvedValue(undefined)
+  mocks.parseBaplieFile.mockReset()
+  mocks.importBaplieStaging.mockResolvedValue({ staged: 1 })
   mocks.navigate.mockReset()
 })
 afterEach(cleanup)
 
 function renderActions() {
-  render(
+  return render(
     <VoyageImportActions
       voyageId={7}
       voyageLabel="GREEN SANTOS / 14N"
@@ -112,6 +122,50 @@ it('US-223: confirmar a importacao conecta o importador ao voyageId travado', as
   expect(mocks.importBreakbulkManifest).toHaveBeenCalledWith(
     expect.objectContaining({ voyageId: 7, filename: 'manifesto-bb.xlsx', uploadedBy: 'user-1' }),
   )
+})
+
+it('bloqueia staging quando a prévia do Baplie contém issue bloqueante', async () => {
+  mocks.parseBaplieFile.mockResolvedValue({
+    vessel_name: 'GREEN SANTOS',
+    voyage_number: '14N',
+    containers: [{
+      container_number: 'TCLU1234567',
+      size_type: '45G1',
+      status: 'full',
+      weight_kg: null,
+      pol: null,
+      pod: null,
+      final_dest: null,
+      bl_ref: null,
+      slot: '010101',
+      is_imo: false,
+      imo_class: null,
+      un_number: null,
+      is_oog: false,
+    }],
+    pods: [],
+    issues: [{
+      row: 1,
+      field: 'weight_kg',
+      code: 'invalid_number',
+      severity: 'error',
+      message: 'Peso inválido no conjunto 1.',
+    }],
+    encoding: 'utf-8',
+  })
+
+  const { container } = renderActions()
+  fireEvent.click(screen.getByRole('button', { name: /Baplie/ }))
+  const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+  fireEvent.change(fileInput, { target: { files: [new File(['edi'], 'manifesto.edi', { type: 'text/plain' })] } })
+
+  await waitFor(() => expect(mocks.parseBaplieFile).toHaveBeenCalledTimes(1))
+  const confirm = screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement
+  expect(screen.getByText(/Peso inválido no conjunto 1/)).toBeTruthy()
+  expect(confirm.disabled).toBe(true)
+
+  fireEvent.click(confirm)
+  expect(mocks.importBaplieStaging).not.toHaveBeenCalled()
 })
 
 it('ordena as importacoes e abre CE Mercante travado na viagem', () => {

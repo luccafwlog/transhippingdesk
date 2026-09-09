@@ -214,7 +214,7 @@ export function parseBaplieText(text: string): ParsedBaplie {
         row: group.order,
         field: 'slot',
         code: 'invalid_group',
-        severity: 'warning',
+        severity: 'error',
         message: `Conjunto físico ${group.order} (slot ${group.slot ?? 'sem slot'}) sem container EQD.`,
       })
       continue

@@ -50,6 +50,23 @@ describe('baplie S03 vetores', () => {
     expect(parsed.containers[1]).toMatchObject({ pol: null, pod: null, weight_kg: null })
   })
 
+  it('bloqueia conjunto físico sem EQD', () => {
+    const parsed = parseBaplieText([
+      "TDT+20+14+++:::GREEN SANTOS'",
+      "LOC+147+010101'",
+      "LOC+6+CNTAC'",
+      "LOC+12+BRVIX'",
+      "MEA+WT++KGM:10000'",
+      "UNT+10+1'",
+    ].join('\n'))
+
+    expect(parsed.issues).toContainEqual(expect.objectContaining({
+      code: 'invalid_group',
+      severity: 'error',
+    }))
+    expect(hasBlockingIssues(parsed.issues)).toBe(true)
+  })
+
   it('DGS marca IMO e DIM não-zero marca OOG', () => {
     const parsed = parseBaplieText([
       "TDT+20+14+++:::GREEN SANTOS'",
