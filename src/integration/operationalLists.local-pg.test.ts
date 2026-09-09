@@ -46,7 +46,10 @@ describeLocal('S12 — leituras operacionais paginadas', () => {
       DELETE FROM auth.users WHERE id = '${actorId}';
       INSERT INTO auth.users (id, email) VALUES ('${actorId}', 's12@example.test');
       INSERT INTO public.user_profiles (id, full_name, role, active) VALUES ('${actorId}', 'S12', 'operacoes', true);
-      INSERT INTO public.customers (id, cnpj_cpf, name) VALUES (${customerId}, '12345678000195', 'S12 Customer');
+      -- CNPJ derivado do namespace de ids desta suite: customers.cnpj_cpf e UNIQUE e
+      -- a limpeza remove por id, entao um CNPJ compartilhado com outra suite colide
+      -- na execucao em serie do gate de CI.
+      INSERT INTO public.customers (id, cnpj_cpf, name) VALUES (${customerId}, '99220100000195', 'S12 Customer');
       INSERT INTO public.carriers (id, name) VALUES (${carrierId}, 'S12 Carrier');
       INSERT INTO public.vessels (id, name, imo, carrier_id) VALUES (${vesselId}, 'S12 Vessel', 'IMO992203', ${carrierId});
       INSERT INTO public.voyages (id, vessel_id, voyage_number, status) VALUES (${voyageId}, ${vesselId}, 'S12-V', 'active');

@@ -10,8 +10,8 @@ const customerId = 99122601
 const carrierId = 99122602
 const vesselId = 99122603
 const voyageId = 99122604
-const blIds = ['S08-MONEY-BL-1', 'S08-MONEY-BL-2', 'S08-MONEY-BL-3']
-const invoiceIds = [99122605, 99122606, 99122607]
+const blIds = ['S08-MONEY-BL-1', 'S08-MONEY-BL-2', 'S08-MONEY-BL-3', 'S08-MONEY-BL-4', 'S08-MONEY-BL-5']
+const invoiceIds = [99122605, 99122606, 99122607, 99122608, 99122609]
 const paymentRequestId = '00000000-0000-0000-0000-000000012699'
 
 function localPsql(sql: string): string {
@@ -37,7 +37,9 @@ describeLocal('S08-A — invariantes monetarios de Demurrage', () => {
     localPsql(`
       SET session_replication_role = replica;
       DELETE FROM public.demurrage_mutation_requests WHERE invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.demurrage_invoice_items WHERE invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
       DELETE FROM public.demurrage_invoice_history WHERE invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.bl_containers WHERE id = 99122611;
       DELETE FROM public.demurrage_invoices WHERE id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
       DELETE FROM public.bls WHERE id = ANY(ARRAY['${blIds.join("','")}']::text[]);
       DELETE FROM public.voyages WHERE id = ${voyageId};
@@ -65,13 +67,18 @@ describeLocal('S08-A — invariantes monetarios de Demurrage', () => {
       VALUES
         (${invoiceIds[0]}, 'S08-DEM-1', '${blIds[0]}', ${customerId}, 100, 5.5, 550, 'manual', 'issued'),
         (${invoiceIds[1]}, 'S08-DEM-2', '${blIds[1]}', ${customerId}, 100, 5.5, 550, 'manual', 'issued'),
-        (${invoiceIds[2]}, 'S08-DEM-3', '${blIds[2]}', ${customerId}, 100, 5.5, 550, 'manual', 'issued');
+        (${invoiceIds[2]}, 'S08-DEM-3', '${blIds[2]}', ${customerId}, 100, 5.5, 550, 'manual', 'issued'),
+        (${invoiceIds[3]}, 'S08-DEM-4', '${blIds[3]}', ${customerId}, 100, 5.5, 550, 'manual', 'issued'),
+        (${invoiceIds[4]}, 'S08-DEM-5', '${blIds[4]}', ${customerId}, 100, 5.5, 550, 'manual', 'issued');
       INSERT INTO public.demurrage_invoice_history
         (invoice_id, event_date, ptax_used, roe_used, total_usd, total_brl, discount_usd, source)
       VALUES
         (${invoiceIds[0]}, '2026-09-01', 5.1643, 5.5, 100, 550, 0, 'manual'),
         (${invoiceIds[1]}, '2026-09-01', 5.1643, 5.5, 100, 550, 0, 'manual'),
-        (${invoiceIds[2]}, '2026-09-01', 5.1643, 5.5, 100, 550, 0, 'manual');
+        (${invoiceIds[2]}, '2026-09-01', 5.1643, 5.5, 100, 550, 0, 'manual'),
+        (${invoiceIds[3]}, '2026-09-01', 4.6948, 5.0, 100, 500, 0, 'manual'),
+        (${invoiceIds[3]}, '2026-09-02', 4.9765, 5.3, 100, 530, 0, 'bcb_live'),
+        (${invoiceIds[3]}, '2026-09-03', 5.1643, 5.5, 100, 550, 0, 'bcb_live');
     `)
   })
 
@@ -79,7 +86,9 @@ describeLocal('S08-A — invariantes monetarios de Demurrage', () => {
     localPsql(`
       SET session_replication_role = replica;
       DELETE FROM public.demurrage_mutation_requests WHERE invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.demurrage_invoice_items WHERE invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
       DELETE FROM public.demurrage_invoice_history WHERE invoice_id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
+      DELETE FROM public.bl_containers WHERE id = 99122611;
       DELETE FROM public.demurrage_invoices WHERE id = ANY(ARRAY[${invoiceIds.join(',')}]::bigint[]);
       DELETE FROM public.bls WHERE id = ANY(ARRAY['${blIds.join("','")}']::text[]);
       DELETE FROM public.voyages WHERE id = ${voyageId};
@@ -128,6 +137,67 @@ describeLocal('S08-A — invariantes monetarios de Demurrage', () => {
     expect(result.current_total_brl).toBe(0)
     expect(result.pix_payload).toBeNull()
     expect(localPsql(`SELECT current_total_brl::text || ':' || COALESCE(pix_payload, 'NULL') FROM public.demurrage_invoices WHERE id = ${invoiceIds[1]};`)).toBe('0.00:NULL')
+  })
+
+  // Vetor exigido pelo plano (S08-A): "valor da terceira PTAX anterior ->
+  // divergencia, nao quitacao". A janela e de DUAS fotos, como
+  // get_demurrage_recent_values ja fazia no reconciliador da 002.
+  it('recusa o valor da terceira foto anterior e aceita o da janela de duas', () => {
+    expectSqlFailure(`
+      SELECT public.register_demurrage_payment(
+        gen_random_uuid(), ${invoiceIds[3]}, '2026-09-04', 'S08-TXID-OLD', 500, NULL
+      );
+    `)
+    expect(localPsql(`SELECT status FROM public.demurrage_invoices WHERE id = ${invoiceIds[3]};`)).toBe('issued')
+
+    const accepted = JSON.parse(localPsql(`
+      SELECT public.register_demurrage_payment(
+        gen_random_uuid(), ${invoiceIds[3]}, '2026-09-04', 'S08-TXID-WINDOW', 530, NULL
+      );
+    `)) as { status: string; total_brl: number }
+    expect(accepted).toMatchObject({ status: 'paid' })
+    expect(Number(accepted.total_brl)).toBe(530)
+  })
+
+  // #658 F9: sem foto persistida a PTAX e desconhecida. O historico registra
+  // NULL em vez de round(current_roe / 1.065, 4) = 5.1643.
+  it('nao deduz PTAX do ROE quando a fatura legada nao tem foto', () => {
+    const result = JSON.parse(localPsql(`
+      SELECT public.register_demurrage_payment(
+        gen_random_uuid(), ${invoiceIds[4]}, '2026-09-04', 'S08-TXID-LEGACY', 550, NULL
+      );
+    `)) as { status: string }
+    expect(result).toMatchObject({ status: 'paid' })
+    expect(localPsql(`
+      SELECT COALESCE(ptax_used::text, 'NULL') || ':' || roe_used::text
+      FROM public.demurrage_invoice_history
+      WHERE invoice_id = ${invoiceIds[4]} AND source = 'payment';
+    `)).toBe('NULL:5.5000')
+    expect(localPsql(`SELECT count(*) FROM public.demurrage_invoice_history WHERE invoice_id = ${invoiceIds[4]} AND ptax_used IS NOT NULL;`)).toBe('0')
+  })
+
+  // Guarda de regressao das duas tabelas que compartilham o gatilho de snapshot
+  // da 023. O caminho quebrado era o UPDATE em demurrage_invoices (coberto pelo
+  // teste de desconto acima); este fixa o caminho de item, que ja funcionava,
+  // para que uma proxima mudanca no resolvedor de id nao o quebre em silencio.
+  it('captura snapshot no ciclo de item sem quebrar o gatilho compartilhado', () => {
+    localPsql(`
+      SET session_replication_role = replica;
+      INSERT INTO public.bl_containers (id, bl_id, container_number, type)
+      VALUES (99122611, '${blIds[2]}', 'MSCU7654321', '20GP')
+      ON CONFLICT (id) DO NOTHING;
+      INSERT INTO public.demurrage_invoice_items
+        (id, invoice_id, container_id, container_number, container_type, discharge_date, return_date, total_days, free_days, subtotal_usd)
+      VALUES (99122610, ${invoiceIds[2]}, 99122611, 'MSCU7654321', '20GP', '2026-09-01', '2026-09-20', 19, 7, 100)
+      ON CONFLICT (id) DO NOTHING;
+      SET session_replication_role = origin;
+    `)
+    expect(() => localPsql(`DELETE FROM public.demurrage_invoice_items WHERE id = 99122610;`)).not.toThrow()
+    localPsql(`
+      SET session_replication_role = replica;
+      DELETE FROM public.bl_containers WHERE id = 99122611;
+      SET session_replication_role = origin;
+    `)
   })
 
   it('bloqueia DML direto de status e historico para authenticated', () => {

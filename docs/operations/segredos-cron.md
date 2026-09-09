@@ -102,9 +102,10 @@ WHERE command ~ $re$Bearer ' \|\| '[^']$re$
    OR command ~ $re$'X-Communication-Automation-Secret',\s*'[^']$re$;
 ```
 
-**Os jobs HTTP passam pelo dispatcher** — deve retornar sete linhas com `ok =
-true`. `recalc-demurrage-ptax` pode aparecer com `active = false` até sua
-validação externa; isso é deliberado:
+**Os jobs HTTP passam pelo dispatcher** — deve retornar `ok = true` em todas as
+linhas. `recalc-demurrage-ptax` **não é criado pelas migrations** (ver
+"Agendar o recálculo de PTAX" abaixo), então em um banco recém-provisionado a
+consulta devolve seis linhas; sete depois que ele for agendado manualmente:
 
 ```sql
 SELECT jobname, schedule, active,
@@ -116,6 +117,34 @@ WHERE jobname IN ('portal-daily-digest', 'alerts-foundation-detectors',
                   'recalc-demurrage-ptax')
 ORDER BY jobname;
 ```
+
+### Agendar o recálculo de PTAX
+
+A migration `018` deliberadamente **não** cria o job `recalc-demurrage-ptax`.
+Criá-lo e desativá-lo no replay exigiria `UPDATE` em `cron.job`, privilégio que
+o papel de migrations do Supabase não tem — a tentativa anterior abortava a
+aplicação com `permission denied for table job (SQLSTATE 42501)` e impedia as
+migrations seguintes de rodar. Agendar é passo operacional, executado **depois**
+de validar segredo, Edge e gateway conforme a S09:
+
+```sql
+-- 1. Confirme que o segredo existe no cofre e que a Edge responde fail-closed
+--    com segredo ausente/errado antes de agendar.
+SELECT count(*) FROM vault.secrets WHERE name = 'RECALC_CRON_SECRET';
+
+-- 2. Agende. cron.schedule é função da extensão e não exige ACL de tabela.
+SELECT cron.schedule(
+  'recalc-demurrage-ptax',
+  '0 17 * * 1-5',
+  $$SELECT ops.dispatch_edge_job('recalc-demurrage-ptax', 'RECALC_CRON_SECRET');$$
+);
+
+-- 3. Para pausar sem remover, use a função da extensão — nunca UPDATE direto:
+--    SELECT cron.alter_job(jobid, active := false) FROM cron.job
+--    WHERE jobname = 'recalc-demurrage-ptax';
+```
+
+Remover: `SELECT cron.unschedule('recalc-demurrage-ptax');`.
 
 **O cofre tem as oito entradas** — deve retornar `8`:
 

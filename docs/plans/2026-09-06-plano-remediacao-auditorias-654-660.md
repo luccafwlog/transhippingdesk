@@ -496,12 +496,18 @@ export type ImportEffectKind = 'physical_flags' | 'provisional_charges' |
 - [ ] Criar job nomeado e idempotente usando comando exato abaixo, inicialmente inativo até segredo/Edge validados. `RECALC_CRON_SECRET` tem mesmo valor no Vault e no secret da Edge daquele ambiente; SQL contém apenas nome do segredo. Não usar service_role como secret de cron nem expor valor no log.
 
 ```sql
+-- Correcao 2026-09-09: `UPDATE cron.job` exige privilegio de tabela que o papel
+-- de migrations do Supabase nao tem (42501) e aborta o replay. O agendamento
+-- saiu da migration e virou passo operacional; ver
+-- docs/operations/segredos-cron.md, "Agendar o recalculo de PTAX".
 SELECT cron.schedule(
   'recalc-demurrage-ptax',
   '0 17 * * 1-5',
   $$SELECT ops.dispatch_edge_job('recalc-demurrage-ptax', 'RECALC_CRON_SECRET');$$
 );
-UPDATE cron.job SET active = false WHERE jobname = 'recalc-demurrage-ptax';
+-- Pausar, se necessario, pela funcao da extensao:
+-- SELECT cron.alter_job(jobid, active := false) FROM cron.job
+-- WHERE jobname = 'recalc-demurrage-ptax';
 ```
 
 - [ ] Verificar dispatcher/Vault e job em Preview real: sem segredo deve falhar fechado e alertar; autorizado atualiza uma invoice aberta e preserva paga. Repetição da mesma publicação não cria outra foto idêntica. Só então ativar pelo procedimento operacional registrado; verificar uma execução agendada real, não apenas chamada manual.

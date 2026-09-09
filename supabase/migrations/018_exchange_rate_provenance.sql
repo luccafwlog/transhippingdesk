@@ -465,19 +465,28 @@ GRANT EXECUTE ON FUNCTION public.recalculate_demurrage_invoices(numeric, date, t
 REVOKE ALL ON FUNCTION public.recalculate_demurrage_invoices_manual(numeric) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.recalculate_demurrage_invoices_manual(numeric) TO authenticated;
 
--- Job criado e deliberadamente inativo: primeiro validar Vault, Edge e gateway
--- no Preview; a ativacao e uma operacao explicita, nao efeito colateral do
--- replay de migrations.
-DO $schedule_018$
-BEGIN
-  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'recalc-demurrage-ptax') THEN
-    PERFORM cron.unschedule('recalc-demurrage-ptax');
-  END IF;
-  PERFORM cron.schedule(
-    'recalc-demurrage-ptax',
-    '0 17 * * 1-5',
-    $job_018$SELECT ops.dispatch_edge_job('recalc-demurrage-ptax', 'RECALC_CRON_SECRET');$job_018$
-  );
-  UPDATE cron.job SET active = false WHERE jobname = 'recalc-demurrage-ptax';
-END;
-$schedule_018$;
+-- O agendamento NAO acontece aqui.
+--
+-- A versao anterior desta migration criava o job e o desativava com
+-- `UPDATE cron.job SET active = false`. Isso aborta o replay em qualquer
+-- ambiente Supabase real com
+--
+--   ERROR: permission denied for table job (SQLSTATE 42501)
+--
+-- porque o papel que aplica migrations nao tem UPDATE na tabela cron.job;
+-- cron.schedule/cron.unschedule funcionam por serem funcoes da extensao. O
+-- gate `Migration replay` nao pega o caso: scripts/setup-local-pg.sh cria
+-- cron.job como tabela comum do superusuario local, onde o UPDATE passa.
+-- Como a falha interrompe a aplicacao aqui, as migrations seguintes tambem
+-- nao chegavam a rodar.
+--
+-- A intencao declarada era que "a ativacao e uma operacao explicita, nao
+-- efeito colateral do replay de migrations". Nao criar o job entrega
+-- exatamente isso, sem depender de ACL: o agendamento vira passo operacional,
+-- registrado em docs/operations/segredos-cron.md, executado apos validar
+-- segredo, Edge e gateway conforme a S09.
+--
+-- Se um dia o job precisar nascer junto do schema, o caminho e
+-- cron.alter_job(jobid, active := false) -- funcao da extensao --, e o shim de
+-- scripts/setup-local-pg.sh precisa ganhar alter_job para o replay local
+-- continuar representativo.
