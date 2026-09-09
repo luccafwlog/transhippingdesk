@@ -146,14 +146,17 @@ BEGIN
     RAISE EXCEPTION 'demurrage_invoices recebeu mutacao ampla para authenticated.';
   END IF;
   FOREACH v_table IN ARRAY ARRAY[
-    'due_date', 'roe', 'roe_manual', 'dispute_open', 'dispute_subject',
+    'due_date', 'dispute_open', 'dispute_subject',
     'dispute_reason', 'dispute_status', 'dispute_notes', 'notes'
   ] LOOP
     IF NOT has_column_privilege('authenticated', 'public.demurrage_invoices', v_table, 'UPDATE') THEN
       RAISE EXCEPTION 'authenticated sem UPDATE operacional em demurrage_invoices.%', v_table;
     END IF;
   END LOOP;
-  FOREACH v_table IN ARRAY ARRAY['status', 'total_usd', 'current_total_brl', 'pix_txid'] LOOP
+  FOREACH v_table IN ARRAY ARRAY[
+    'status', 'total_usd', 'current_total_brl', 'pix_txid',
+    'current_roe', 'roe', 'roe_manual', 'roe_source'
+  ] LOOP
     IF has_column_privilege('authenticated', 'public.demurrage_invoices', v_table, 'UPDATE') THEN
       RAISE EXCEPTION 'authenticated recebeu UPDATE financeiro em demurrage_invoices.%', v_table;
     END IF;
