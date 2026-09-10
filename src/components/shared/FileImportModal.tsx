@@ -3,10 +3,12 @@ import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
+import type { ImportFileInspection } from '../../services/importText'
 
 export type FilePreviewEntry<T> = {
   file: File
   preview: T
+  inspection?: ImportFileInspection
 }
 
 type Props<T, TResult = void> = {
@@ -17,6 +19,7 @@ type Props<T, TResult = void> = {
   accept: string
   multiple?: boolean
   parser: (file: File) => Promise<T>
+  inspectFile?: (file: File) => Promise<ImportFileInspection>
   importer?: (preview: T, file: File) => Promise<TResult>
   batchImporter?: (entries: FilePreviewEntry<T>[]) => Promise<void>
   canImport: (preview: T) => boolean
@@ -35,6 +38,7 @@ export function FileImportModal<T, TResult = void>({
   accept,
   multiple = false,
   parser,
+  inspectFile,
   importer,
   batchImporter,
   canImport,
@@ -61,7 +65,8 @@ export function FileImportModal<T, TResult = void>({
     const parsedEntries: FilePreviewEntry<T>[] = []
     for (const file of files) {
       try {
-        parsedEntries.push({ file, preview: await parser(file) })
+        const inspection = inspectFile ? await inspectFile(file) : undefined
+        parsedEntries.push({ file, preview: await parser(file), inspection })
       } catch (err) {
         showToast(`${file.name}: ${err instanceof Error ? err.message : 'Falha ao ler arquivo.'}`, 'error')
       }
@@ -123,6 +128,7 @@ export function FileImportModal<T, TResult = void>({
             </div>
           </div>
         ) : null}
+        {activeEntry?.inspection ? <ImportInspection inspection={activeEntry.inspection} /> : null}
         {activeEntry ? renderPreview(activeEntry.preview, activeEntry.file) : null}
         {importResult !== undefined && renderImportResult ? renderImportResult(importResult) : null}
         <div className="app-modal__actions">
@@ -137,5 +143,37 @@ export function FileImportModal<T, TResult = void>({
         </div>
       </div>
     </Modal>
+  )
+}
+
+function ImportInspection({ inspection }: { inspection: ImportFileInspection }) {
+  const formatLabel: Record<ImportFileInspection['format'], string> = {
+    xlsx: 'XLSX',
+    xls: 'XLS',
+    csv: 'CSV',
+    edi: 'EDI',
+  }
+  const encodingLabel = inspection.encoding === null
+    ? 'binário'
+    : inspection.encoding === 'utf-8-sig'
+      ? 'UTF-8 com BOM'
+      : inspection.encoding === 'windows-1252'
+        ? 'Windows-1252'
+        : inspection.encoding.toUpperCase()
+
+  return (
+    <div className="app-panel app-panel--padded grid gap-2 text-xs" role="status" aria-label="Diagnóstico do arquivo">
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <span>Formato detectado: <strong>{formatLabel[inspection.format]}</strong></span>
+        <span>Encoding: <strong>{encodingLabel}</strong></span>
+        <span>{inspection.byteLength.toLocaleString('pt-BR')} bytes</span>
+      </div>
+      {inspection.preview ? (
+        <details>
+          <summary className="cursor-pointer font-semibold">Prévia do conteúdo decodificado</summary>
+          <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2 font-mono text-[11px]">{inspection.preview}</pre>
+        </details>
+      ) : null}
+    </div>
   )
 }

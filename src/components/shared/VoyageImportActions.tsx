@@ -18,6 +18,7 @@ import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicl
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
 import { canImportPreview, downloadIssuesCsv, hasBlockingIssues } from '../../services/importValidation'
+import { inspectImportUpload } from '../../services/importText'
 
 type ImportType = 'bb' | 'granite' | 'ceMercanteGranite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'blBreakbulk' | 'ceMercante'
 
@@ -131,6 +132,7 @@ export function VoyageImportActions({
           subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls,.csv"
           parser={parseBreakbulkManifestFile}
+          inspectFile={inspectImportUpload}
           helper={<TemplateLinks baseName="manifesto-bb-modelo" />}
           canImport={(p) => p.bls.length > 0}
           importer={async (preview, file) => {
@@ -155,6 +157,7 @@ export function VoyageImportActions({
           subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls"
           parser={parseGraniteManifestFile}
+          inspectFile={inspectImportUpload}
           canImport={(p) => p.bls.length > 0}
           importer={async (preview, file) => {
             const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
@@ -196,6 +199,7 @@ export function VoyageImportActions({
           subtitle={<>Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span></>}
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosImportacaoFile}
+          inspectFile={inspectImportUpload}
           canImport={(p) => p.containers.length > 0}
           importer={async (preview) => {
             await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId })
@@ -369,6 +373,9 @@ function BaplieImportModal({
                 Navio/Viagem detectado: <span className="font-semibold text-[var(--app-text-strong)]">{parsed.vessel_name ?? '-'} / {parsed.voyage_number ?? '-'}</span>
               </div>
             ) : null}
+            <div className="app-panel__meta text-sm">
+              Encoding detectado: <span className="font-semibold text-[var(--app-text-strong)]">{parsed.encoding}</span>
+            </div>
             {issues.length > 0 ? (
               <div role="alert" className="app-panel app-panel--padded grid gap-2 border border-[var(--app-gold)] bg-[var(--app-gold-soft)] text-sm">
                 <div className="flex items-center justify-between gap-3">

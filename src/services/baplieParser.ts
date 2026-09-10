@@ -2,7 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import { parseImportNumber } from '../lib/importNumber'
 import { resolvePortCode } from './portCode'
-import { decodeImportBytes, type ImportTextEncoding } from './importText'
+import { decodeImportBytes, detectImportFormat, type ImportTextEncoding } from './importText'
 import type { ImportIssue } from './importValidation'
 
 export type BaplieContainer = {
@@ -120,6 +120,8 @@ export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
 }
 
 export function parseBaplieBuffer(buffer: ArrayBuffer): ParsedBaplie {
+  const format = detectImportFormat(buffer, { allowWindows1252Fallback: true })
+  if (format !== 'edi') throw new Error('Arquivo Baplie não reconhecido como EDI.')
   const decoded = decodeImportBytes(buffer, { allowWindows1252Fallback: true })
   const parsed = parseBaplieText(decoded.text)
   return { ...parsed, encoding: decoded.encoding }

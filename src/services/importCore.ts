@@ -71,23 +71,23 @@ export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions =
   const wantDates = options.dates === 'date'
   const raw = options.values === 'cru' || wantDates
   const XLSX = await import('@e965/xlsx')
-  const { isBinarySpreadsheetBuffer, decodeImportBytes } = await import('./importText')
-  // XLS/XLSX binário nunca pelo decoder textual; CSV/texto com BOM/UTF-8
-  // estrito (fallback Windows-1252 só origem autorizada).
-  const workbook = isBinarySpreadsheetBuffer(buffer)
+  const { decodeImportBytes, detectImportFormat } = await import('./importText')
+  // XLS/XLSX binário nunca passa pelo decoder textual. CSV é texto com BOM e
+  // UTF-8 estrito; fallback Windows-1252 só pode ser optado pelo importer que
+  // conhece e autoriza essa origem. EDI não é aceito pelo leitor de planilhas.
+  const format = detectImportFormat(buffer, { allowWindows1252Fallback: options.allowWindows1252Fallback })
+  if (format === 'edi') throw new Error('Arquivo EDI recebido no leitor de planilhas. Use o parser EDI correspondente.')
+  const workbook = format === 'xlsx' || format === 'xls'
     ? XLSX.read(buffer, {
       type: 'array',
       cellText: !wantDates,
       cellDates: wantDates,
     })
-    : XLSX.read(
-      decodeImportBytes(buffer, { allowWindows1252Fallback: options.allowWindows1252Fallback }).text,
-      {
+    : XLSX.read(decodeImportBytes(buffer, { allowWindows1252Fallback: options.allowWindows1252Fallback }).text, {
         type: 'string',
         cellText: !wantDates,
         cellDates: wantDates,
-      },
-    )
+      })
   const firstSheet = workbook.Sheets[workbook.SheetNames[options.sheetIndex ?? 0]]
   if (!firstSheet) throw new Error('Arquivo sem abas validas.')
 
@@ -103,11 +103,16 @@ export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions =
   if (headerRowIndex < 0) throw new Error('Cabeçalho não encontrado na janela inicial da planilha.')
 
   const headers = (matrix[headerRowIndex] ?? []).map((cell) => String(cell ?? '').trim())
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+  const rowsWithSheetMetadata = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
     defval: '',
     raw,
     blankrows: !(options.skipBlankRows ?? true),
     range: headerRowIndex,
+  })
+  const rows = rowsWithSheetMetadata.map((row) => {
+    const data = { ...row }
+    delete data.__rowNum__
+    return data
   })
   if (!rows.length) throw new Error('Planilha vazia.')
   return { headers, matrix, rows, headerRowIndex }

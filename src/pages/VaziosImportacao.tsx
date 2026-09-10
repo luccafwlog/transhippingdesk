@@ -31,6 +31,7 @@ import {
   setVaziosImportacaoNaturezaMany,
 } from '../services/vaziosNatureza'
 import { afterManifestoImportado } from '../services/cacheEffects'
+import { inspectImportUpload } from '../services/importText'
 
 const exportPageSize = 200
 
@@ -419,6 +420,7 @@ export function VaziosImportacao() {
           title="Importar Planilha de Vazios (Importacao)"
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosImportacaoFile}
+          inspectFile={inspectImportUpload}
           importer={async (nextManifest) => {
             if (!user || !voyageId) return
             await importVaziosImportacaoManifest({ manifest: nextManifest, uploadedBy: user.id, voyageId: Number(voyageId), description: description.trim() || undefined })

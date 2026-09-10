@@ -307,6 +307,12 @@ export function CeMercanteImportModal({
                 <span className="font-semibold text-[var(--app-text-strong)]">{ediPreview.manifestRef}</span>
               </div>
             ) : null}
+            {ediPreview.encoding ? (
+              <div className="app-panel__meta text-sm">
+                Encoding detectado:{' '}
+                <span className="font-semibold text-[var(--app-text-strong)]">{ediPreview.encoding}</span>
+              </div>
+            ) : null}
 
             <PreviewTable rows={ediSampleRows.map((row) => ({ ref: row.lineNumber, bl: row.bl_id, ce: row.ce_mercante }))} refLabel="Linha EDI" />
 

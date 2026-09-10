@@ -25,6 +25,7 @@ import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
 import { afterManifestoImportado } from '../services/cacheEffects'
+import { inspectImportUpload } from '../services/importText'
 import type { BLListItem } from '../types/database'
 
 export function CargaSolta() {
@@ -393,6 +394,7 @@ export function CargaSolta() {
           title="Importar Manifesto BB"
           accept=".xlsx,.xls,.csv"
           parser={parseBreakbulkManifestFile}
+          inspectFile={inspectImportUpload}
           importer={async (nextManifest, file) => {
             if (!user || !voyageId) return
             await importBreakbulkManifest({ filename: file.name, voyageId: Number(voyageId), manifest: nextManifest, uploadedBy: user.id })

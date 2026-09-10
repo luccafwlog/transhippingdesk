@@ -106,7 +106,7 @@ it('US-223: confirmar a importacao conecta o importador ao voyageId travado', as
   fireEvent.click(screen.getByRole('button', { name: /Manifesto BB/ }))
 
   const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
-  const file = new File(['conteudo'], 'manifesto-bb.xlsx', { type: 'application/vnd.ms-excel' })
+  const file = new File(['BL;Cidade\nBL-1;Vitória'], 'manifesto-bb.csv', { type: 'text/csv' })
   fireEvent.change(fileInput, { target: { files: [file] } })
 
   // Aguarda o parser rodar e o botao Confirmar habilitar (prévia válida).
@@ -120,7 +120,7 @@ it('US-223: confirmar a importacao conecta o importador ao voyageId travado', as
     expect(mocks.importBreakbulkManifest).toHaveBeenCalledTimes(1)
   })
   expect(mocks.importBreakbulkManifest).toHaveBeenCalledWith(
-    expect.objectContaining({ voyageId: 7, filename: 'manifesto-bb.xlsx', uploadedBy: 'user-1' }),
+    expect.objectContaining({ voyageId: 7, filename: 'manifesto-bb.csv', uploadedBy: 'user-1' }),
   )
 })
 

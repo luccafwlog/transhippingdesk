@@ -4,9 +4,23 @@ export type ImportTextEncoding = 'utf-8' | 'utf-8-sig' | 'utf-16le' | 'utf-16be'
 
 export type DecodedImportText = {
   text: string
+  /** Texto decodificado antes da normalização de line endings, sem o BOM. */
+  sourceText: string
   encoding: ImportTextEncoding
   hadBom: boolean
 }
+
+export type ImportFileFormat = 'xlsx' | 'xls' | 'csv' | 'edi'
+
+export type ImportFileInspection = {
+  format: ImportFileFormat
+  encoding: ImportTextEncoding | null
+  hadBom: boolean
+  preview: string | null
+  byteLength: number
+}
+
+export type InspectImportFileOptions = DecodeImportBytesOptions & { previewChars?: number }
 
 export type DecodeImportBytesOptions = {
   /** Fallback Windows-1252 somente para origem autorizada (ex.: Baplie legado). Default estrito. */
@@ -32,28 +46,198 @@ export function decodeImportBytes(buffer: ArrayBuffer, options: DecodeImportByte
   const bytes = new Uint8Array(buffer)
   // BOM UTF-8
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes.slice(3))
-    return { text: normalizeLineEndings(text), encoding: 'utf-8-sig', hadBom: true }
+    return makeDecodedText(new TextDecoder('utf-8', { fatal: true }).decode(bytes.slice(3)), 'utf-8-sig', true)
   }
   // BOM UTF-16
   if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
-    const text = new TextDecoder('utf-16le', { fatal: true }).decode(bytes.slice(2))
-    return { text: normalizeLineEndings(text), encoding: 'utf-16le', hadBom: true }
+    return makeDecodedText(new TextDecoder('utf-16le', { fatal: true }).decode(bytes.slice(2)), 'utf-16le', true)
   }
   if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
-    const text = new TextDecoder('utf-16be', { fatal: true }).decode(bytes.slice(2))
-    return { text: normalizeLineEndings(text), encoding: 'utf-16be', hadBom: true }
+    return makeDecodedText(new TextDecoder('utf-16be', { fatal: true }).decode(bytes.slice(2)), 'utf-16be', true)
   }
   try {
-    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-    return { text: normalizeLineEndings(text), encoding: 'utf-8', hadBom: false }
+    return makeDecodedText(new TextDecoder('utf-8', { fatal: true }).decode(bytes), 'utf-8', false)
   } catch {
     if (!options.allowWindows1252Fallback) {
       throw new Error('Bytes inválidos em UTF-8 sem fallback autorizado. Converta a origem para UTF-8 ou autorize Windows-1252.')
     }
-    const text = new TextDecoder('windows-1252').decode(bytes)
-    return { text: normalizeLineEndings(text), encoding: 'windows-1252', hadBom: false }
+    return makeDecodedText(new TextDecoder('windows-1252').decode(bytes), 'windows-1252', false)
   }
+}
+
+/**
+ * Detecta o formato pelo conteúdo, antes de delegar a leitura ao parser
+ * correspondente. Extensão não é prova de que um arquivo é uma planilha ou
+ * EDI; texto ambíguo é rejeitado para não escolher um parser arbitrariamente.
+ */
+export function detectImportFormat(buffer: ArrayBuffer, options: DecodeImportBytesOptions = {}): ImportFileFormat {
+  if (hasMagic(buffer, ZIP_MAGIC)) return 'xlsx'
+  if (hasMagic(buffer, OLE_MAGIC)) return 'xls'
+
+  const decoded = decodeImportBytes(buffer, options)
+  if (looksLikeEdifact(decoded.text)) return 'edi'
+
+  const csvCandidates = findCsvDelimiters(decoded.text)
+  if (csvCandidates.length > 1) {
+    throw new Error(`Formato textual ambíguo: múltiplos delimitadores CSV (${csvCandidates.join(', ')}).`)
+  }
+  if (csvCandidates.length === 1) return 'csv'
+
+  throw new Error('Formato de importação não reconhecido pelo conteúdo do arquivo.')
+}
+
+/** Retorna o formato e uma prévia segura do texto já decodificado para o preview. */
+export function inspectImportFile(
+  buffer: ArrayBuffer,
+  options: InspectImportFileOptions = {},
+): ImportFileInspection {
+  const format = detectImportFormat(buffer, options)
+  if (format === 'xlsx' || format === 'xls') {
+    return { format, encoding: null, hadBom: false, preview: null, byteLength: buffer.byteLength }
+  }
+
+  const decoded = decodeImportBytes(buffer, options)
+  const previewChars = Math.max(0, Math.trunc(options.previewChars ?? 400))
+  return {
+    format,
+    encoding: decoded.encoding,
+    hadBom: decoded.hadBom,
+    preview: decoded.text.slice(0, previewChars),
+    byteLength: buffer.byteLength,
+  }
+}
+
+export async function inspectImportUpload(
+  file: { arrayBuffer: () => Promise<ArrayBuffer> },
+  options: InspectImportFileOptions = {},
+): Promise<ImportFileInspection> {
+  return inspectImportFile(await file.arrayBuffer(), options)
+}
+
+/** Reconstitui exatamente os bytes aceitos por decodeImportBytes. */
+export function encodeImportText(decoded: DecodedImportText): ArrayBuffer {
+  const payload = encodeText(decoded.sourceText, decoded.encoding)
+  if (!decoded.hadBom) return payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength) as ArrayBuffer
+
+  const bom = decoded.encoding === 'utf-8-sig'
+    ? [0xef, 0xbb, 0xbf]
+    : decoded.encoding === 'utf-16le'
+      ? [0xff, 0xfe]
+      : decoded.encoding === 'utf-16be'
+        ? [0xfe, 0xff]
+        : []
+  const result = new Uint8Array(bom.length + payload.length)
+  result.set(bom)
+  result.set(payload, bom.length)
+  return result.buffer as ArrayBuffer
+}
+
+function makeDecodedText(sourceText: string, encoding: ImportTextEncoding, hadBom: boolean): DecodedImportText {
+  return { sourceText, text: normalizeLineEndings(sourceText), encoding, hadBom }
+}
+
+function hasMagic(buffer: ArrayBuffer, magic: readonly number[]): boolean {
+  const bytes = new Uint8Array(buffer)
+  return bytes.length >= magic.length && magic.every((byte, index) => bytes[index] === byte)
+}
+
+function looksLikeEdifact(text: string): boolean {
+  const normalized = text.trim()
+  if (!normalized) return false
+  // UNA is the optional EDIFACT service-string advice and is a conclusive
+  // signature even when the message uses non-default separators.
+  if (/^UNA[\s\S]{6}/.test(normalized)) return true
+
+  // Baplie/EDIFACT messages can start at TDT or another business segment in
+  // an exported fragment, so inspect segment boundaries rather than requiring
+  // UNB/UNH. The allow-list avoids classifying arbitrary prose as EDI.
+  if (/(?:^|['\n])\s*(?:UNB|UNH|UNT|UNZ|TDT|LOC|EQD|MEA|RFF|DGS|DIM)(?=[+;:])/im.test(normalized)) return true
+
+  // CE Mercante is a positional EDI variant with M/C/I records instead of
+  // EDIFACT tags. Require a numeric C record to avoid treating a note starting
+  // with the letter C as a manifest.
+  return /(?:^|\n)\s*C\d+\s{2,}\d{10,}\s{2,}\S+/m.test(normalized)
+}
+
+function findCsvDelimiters(text: string): string[] {
+  const lines = text.split('\n').map((line) => line.replace(/\s+$/g, '')).filter((line) => line.trim())
+  if (!lines.length) return []
+  const sample = lines.slice(0, 20)
+  const delimiters = [',', ';', '\t', '|']
+  return delimiters.filter((delimiter) => {
+    const parsed = sample.map((line) => splitCsvLine(line, delimiter))
+    const fieldCount = parsed[0]?.length ?? 0
+    return fieldCount > 1 && parsed.some((fields) => fields.length > 1) && parsed.every((fields) => fields.length === fieldCount)
+  })
+}
+
+function splitCsvLine(line: string, delimiter: string): string[] {
+  const fields: string[] = []
+  let field = ''
+  let quoted = false
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]
+    if (char === '"') {
+      if (quoted && line[index + 1] === '"') {
+        field += '"'
+        index += 1
+      } else {
+        quoted = !quoted
+      }
+      continue
+    }
+    if (char === delimiter && !quoted) {
+      fields.push(field)
+      field = ''
+      continue
+    }
+    field += char
+  }
+  fields.push(field)
+  return fields
+}
+
+const WINDOWS_1252_EXTENDED = [
+  '€', '\u0081', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u008D', 'Ž', '\u008F',
+  '\u0090', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u009D', 'ž', 'Ÿ',
+]
+const WINDOWS_1252_REVERSE = new Map(WINDOWS_1252_EXTENDED.map((char, index) => [char, 0x80 + index]))
+
+function encodeText(text: string, encoding: ImportTextEncoding): Uint8Array {
+  if (encoding === 'utf-8' || encoding === 'utf-8-sig') return new TextEncoder().encode(text)
+  if (encoding === 'windows-1252') return encodeWindows1252(text)
+  return encodeUtf16(text, encoding === 'utf-16le')
+}
+
+function encodeWindows1252(text: string): Uint8Array {
+  const bytes: number[] = []
+  for (const char of text) {
+    const codePoint = char.codePointAt(0)!
+    if (codePoint <= 0x7f || (codePoint >= 0xa0 && codePoint <= 0xff)) {
+      bytes.push(codePoint)
+      continue
+    }
+    const byte = WINDOWS_1252_REVERSE.get(char)
+    if (byte === undefined) throw new Error(`Caractere não representável em Windows-1252: ${char}`)
+    bytes.push(byte)
+  }
+  return Uint8Array.from(bytes)
+}
+
+function encodeUtf16(text: string, littleEndian: boolean): Uint8Array {
+  const bytes = new Uint8Array(text.length * 2)
+  for (let index = 0; index < text.length; index += 1) {
+    const codeUnit = text.charCodeAt(index)
+    const offset = index * 2
+    if (littleEndian) {
+      bytes[offset] = codeUnit & 0xff
+      bytes[offset + 1] = codeUnit >> 8
+    } else {
+      bytes[offset] = codeUnit >> 8
+      bytes[offset + 1] = codeUnit & 0xff
+    }
+  }
+  return bytes
 }
 
 function normalizeLineEndings(text: string): string {
