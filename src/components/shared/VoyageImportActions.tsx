@@ -17,6 +17,7 @@ import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../..
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
+import { canImportPreview, downloadIssuesCsv, hasBlockingIssues } from '../../services/importValidation'
 
 type ImportType = 'bb' | 'granite' | 'ceMercanteGranite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'blBreakbulk' | 'ceMercante'
 
@@ -304,9 +305,12 @@ function BaplieImportModal({
   const pods = parsed?.pods ?? []
   const filteredContainers = (parsed?.containers ?? []).filter((c) => !c.pod || !excludedPods.has(c.pod))
   const includedPods = pods.filter((pod) => !excludedPods.has(pod)).length
+  const issues = parsed?.issues ?? []
+  const blockingIssues = hasBlockingIssues(issues)
+  const canImport = canImportPreview(filteredContainers.length > 0, issues)
 
   async function handleImport() {
-    if (!filteredContainers.length) return
+    if (!canImport) return
     setImporting(true)
     try {
       const { staged } = await importBaplieStaging(voyageId, filteredContainers, userId)
@@ -365,11 +369,25 @@ function BaplieImportModal({
                 Navio/Viagem detectado: <span className="font-semibold text-[var(--app-text-strong)]">{parsed.vessel_name ?? '-'} / {parsed.voyage_number ?? '-'}</span>
               </div>
             ) : null}
+            {issues.length > 0 ? (
+              <div role="alert" className="app-panel app-panel--padded grid gap-2 border border-[var(--app-gold)] bg-[var(--app-gold-soft)] text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{blockingIssues ? 'Corrija os problemas antes de importar.' : 'Revise os avisos da prévia.'}</strong>
+                  <Button variant="secondary" onClick={() => downloadIssuesCsv('baplie-issues.csv', issues)}>Baixar relatório</Button>
+                </div>
+                <div className="text-xs text-[var(--app-muted)]">
+                  {issues.filter((issue) => issue.severity === 'error').length} erro(s), {issues.filter((issue) => issue.severity === 'warning').length} aviso(s)
+                </div>
+                <ul className="grid gap-1 pl-5 text-xs" aria-label="Problemas da prévia">
+                  {issues.map((issue, index) => <li key={`${issue.row}-${issue.field}-${issue.code}-${index}`}>{issue.message}</li>)}
+                </ul>
+              </div>
+            ) : null}
           </div>
         ) : null}
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button disabled={filteredContainers.length === 0} loading={importing} onClick={() => void handleImport()}>
+          <Button disabled={!canImport} loading={importing} onClick={() => void handleImport()}>
             Confirmar{excludedPods.size > 0 ? ` (${filteredContainers.length} containers)` : ''}
           </Button>
         </div>

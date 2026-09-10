@@ -1,11 +1,21 @@
 import React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { InvoiceDetail } from '../../services/billing'
+import type { InvoiceItem } from '../../types/database'
 import { formatDate, stripBlPrefix } from '../../lib/utils'
 import { cell, dataTotalCell, dataTotalRow, describeUsdConversionNote, DOC_BORDER, DOC_GROUP, DOC_MUTED, DOC_NAVY, DOC_SUBTOTAL, documentRoot, fmtBRL, fmtCNPJ, labelCell, zebraRow } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
 type Props = { detail: InvoiceDetail; type?: 'invoice' | 'receipt' }
+
+function displayQuantity(item: InvoiceItem): string | number {
+  const snapshot = item.snapshot_payload
+  if (snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)) {
+    const sharedQuantityLabel = (snapshot as Record<string, unknown>).shared_quantity_label
+    if (typeof sharedQuantityLabel === 'string' && sharedQuantityLabel.trim()) return sharedQuantityLabel
+  }
+  return item.quantity ?? 1
+}
 
 export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
   const { invoice, bls, items } = detail
@@ -104,7 +114,7 @@ export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
                             {stripBlPrefix(item.description, item.bl_id)}
                             {usdNote && <div style={{ fontSize: '10px', color: DOC_MUTED }}>{usdNote}</div>}
                           </td>
-                          <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
+                          <td style={{ padding: '8px 7px', textAlign: 'center' }}>{displayQuantity(item)}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
                           <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.total_value_brl)}</td>
                         </tr>
@@ -129,7 +139,7 @@ export function InvoiceDocumentLocal({ detail, type = 'invoice' }: Props) {
                       {stripBlPrefix(item.description, item.bl_id)}
                       {usdNote && <div style={{ fontSize: '10px', color: DOC_MUTED }}>{usdNote}</div>}
                     </td>
-                    <td style={{ padding: '8px 7px', textAlign: 'center' }}>{item.quantity ?? 1}</td>
+                    <td style={{ padding: '8px 7px', textAlign: 'center' }}>{displayQuantity(item)}</td>
                     <td style={{ padding: '8px 7px', textAlign: 'right' }}>{fmtBRL(item.unit_value_brl)}</td>
                     <td style={{ padding: '8px 7px', textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.total_value_brl)}</td>
                   </tr>

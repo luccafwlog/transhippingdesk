@@ -37,6 +37,14 @@ def ler(caminho: str) -> str:
 VARREDURA_DEFAULT_DENY = re.compile(
     r"REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+%s\s+FROM\s+PUBLIC,\s*anon", re.I)
 
+# S01 (#659.2): helper de trigger sem GRANT explícito herda EXECUTE no
+# catálogo real — os defaults da plataforma não aparecem no replay estático.
+# Exigir o REVOKE explícito que fecha PUBLIC/anon/authenticated.
+FECHAMENTO_TRIGGER_HELPER = re.compile(
+    r'REVOKE\s+ALL(?:\s+PRIVILEGES)?\s+ON\s+FUNCTION\s+'
+    r'public\.upsert_portal_invoice_exception\s*\(\s*bigint\s*,\s*text\s*\)\s+FROM\s+([^;]+);',
+    re.I)
+
 # ADR 0047: o Supabase concede EXECUTE a anon/authenticated em toda função nova
 # de `public` por ALTER DEFAULT PRIVILEGES próprio. Sem inverter esse default, um
 # banco novo nasce aberto e nenhum REVOKE pontual no arquivo corrige isso — os
@@ -375,6 +383,18 @@ def main():
         falhas.append(
             'nenhuma migration inverte o ALTER DEFAULT PRIVILEGES de FUNCTIONS em public: '
             'toda função nova nasceria executável por anon/PUBLIC')
+
+    fecha_helper = None
+    for caminho in caminhos:
+        for match in FECHAMENTO_TRIGGER_HELPER.finditer(sem_comentarios(ler(caminho))):
+            papeis = {p.strip().lower() for p in match.group(1).split(',')}
+            if {'public', 'anon', 'authenticated'} <= papeis:
+                fecha_helper = os.path.basename(caminho)
+    print(f'[5] Helper de trigger sem EXECUTE externo ..... {"OK" if fecha_helper else "FALHA"}')
+    if not fecha_helper:
+        falhas.append(
+            'nenhuma migration revoga EXECUTE de public.upsert_portal_invoice_exception(bigint,text) '
+            'de PUBLIC, anon e authenticated: no catálogo real o helper herdaria EXECUTE (#659.2)')
 
     print()
     if falhas:

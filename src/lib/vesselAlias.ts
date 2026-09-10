@@ -3,12 +3,14 @@ const VESSEL_PREFIX_ALIASES: Array<{ canonical: string; aliases: string[] }> = [
   { canonical: 'COSCO SHIPPING', aliases: ['CS', 'C.S.'] },
 ]
 
-function normalizeVesselName(value: string) {
+export function normalizeVesselName(value: string) {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .trim()
+    .replace(/\./g, '')
+    .replace(/[^A-Z0-9 ]/gi, ' ')
     .replace(/\s+/g, ' ')
+    .trim()
     .toUpperCase()
 }
 

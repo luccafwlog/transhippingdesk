@@ -1,6 +1,6 @@
 # Arquitetura do Transhipping Desk
 
-Verificado contra o código, a configuração e as migrations em 2026-09-01.
+Verificado contra o código, a configuração e as migrations em 2026-09-07.
 
 Este é o mapa canônico da arquitetura atual. Termos de negócio vivem em
 [`CONTEXT.md`](../CONTEXT.md); decisões e supersessões vivem no
@@ -27,7 +27,7 @@ flowchart LR
     Browser --> Functions
     Functions --> Database
     Functions --> Resend
-    Browser --> BCB
+    Functions --> BCB
     Browser --> Sentry
     Vercel --> Browser
 ```
@@ -35,6 +35,16 @@ flowchart LR
 O frontend é uma SPA estática. A segurança real não depende do roteador: tabelas,
 views e funções do Supabase aplicam escopo e autorização por RLS, grants e
 validações dentro das RPCs.
+
+### Estado da remediação #654–#660
+
+As migrations `022`–`026` adicionam inbox durável para eventos de email,
+consumidores server-only de efeitos pós-commit e snapshots append-only para o
+cálculo autoritativo de Demurrage. O webhook só recebe/persiste; runners fazem
+claim, retry e transições com service role. O runner de efeitos é agendado, mas
+permanece fail-closed até `IMPORT_EFFECTS_RUNNER_ENABLED=true`; o recálculo PTAX
+continua nominalmente inativo até validação de Preview, gateway e Vault. Esta é
+uma integração parcial do plano, não uma declaração de rollout remoto.
 
 ### Comunicados ao Cliente e Caixas de Comunicação
 
@@ -549,7 +559,12 @@ seguem restritos. A mesma migration cria `can_edit_local_charges()` e alinha o
   CE Mercante prontas, reivindica alvos via claims transacionais recuperáveis e
   despacha os avisos operacionais e financeiros;
 - `portal-daily-digest`: resumo diário interno;
-- `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage;
+- `portal-email-events-runner`: consome a inbox de eventos do provedor com
+  retries e ordenação server-side;
+- `import-effects-runner`: consome efeitos pós-commit com lease e bloqueio
+  investigável, inicialmente fail-closed;
+- `recalc-demurrage-ptax`: recálculo diário do BRL das invoices de demurrage,
+  com alerta persistente em falha e job nominal inativo até validação externa;
 
 O Portal não participa do gate financeiro de revisão/faturamento. As migrations
 188–190 criam alertas preventivos e exceções críticas por fatura, mantendo a

@@ -1439,6 +1439,17 @@ textarea {
   line-height: 1.45;
 }
 
+.app-offline-banner {
+  border: 1px solid var(--app-gold-strong);
+  border-radius: var(--app-radius);
+  background: var(--app-gold-soft);
+  color: var(--app-text);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
 /* Collapsible filter bar -------------------------------------------------- */
 .app-filter-bar {
   border: 1px solid var(--app-border);

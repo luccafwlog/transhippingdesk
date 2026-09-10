@@ -1,6 +1,6 @@
 # Segredos dos jobs `pg_cron`
 
-Como os quatro jobs HTTP do banco encontram a URL da API e o segredo da Edge
+Como os jobs HTTP do banco encontram a URL da API e o segredo da Edge
 Function que vão chamar, como rotacionar esses valores e como verificar que
 nenhum deles voltou a aparecer em texto claro.
 
@@ -29,11 +29,14 @@ por nome:
 
 | Nome no Vault | Consumidor | Espelha o Edge Function Secret |
 |---|---|---|
-| `SUPABASE_URL` | todos os quatro jobs | — (configuração, não segredo) |
+| `SUPABASE_URL` | todos os jobs | — (configuração, não segredo) |
 | `PORTAL_DIGEST_SECRET` | `portal-daily-digest` | `PORTAL_DIGEST_SECRET` |
 | `ALERTS_DETECTOR_SECRET` | `alerts-foundation-detectors` | `ALERTS_DETECTOR_SECRET` |
 | `DEMURRAGE_DUNNING_SECRET` | `demurrage-dunning` | `DEMURRAGE_DUNNING_SECRET` |
 | `CUSTOMER_COMMUNICATION_AUTOMATION_SECRET` | `customer-communication-auto-runner` | `CUSTOMER_COMMUNICATION_AUTOMATION_SECRET` |
+| `PORTAL_EMAIL_EVENTS_CRON_SECRET` | `portal-email-events-runner` | `PORTAL_EMAIL_EVENTS_CRON_SECRET` |
+| `IMPORT_EFFECTS_CRON_SECRET` | `import-effects-runner` | `IMPORT_EFFECTS_CRON_SECRET` |
+| `RECALC_CRON_SECRET` | `recalc-demurrage-ptax` | `RECALC_CRON_SECRET` |
 
 Os nomes são iguais aos dos Edge Function Secrets de propósito: o par
 banco/Function é o contrato, e rotacionar um sem o outro derruba o job.
@@ -99,24 +102,58 @@ WHERE command ~ $re$Bearer ' \|\| '[^']$re$
    OR command ~ $re$'X-Communication-Automation-Secret',\s*'[^']$re$;
 ```
 
-**Os quatro jobs HTTP passam pelo dispatcher e estão ativos** — deve retornar
-quatro linhas com `ok = true`:
+**Os jobs HTTP passam pelo dispatcher** — deve retornar `ok = true` em todas as
+linhas. `recalc-demurrage-ptax` **não é criado pelas migrations** (ver
+"Agendar o recálculo de PTAX" abaixo), então em um banco recém-provisionado a
+consulta devolve seis linhas; sete depois que ele for agendado manualmente:
 
 ```sql
 SELECT jobname, schedule, active,
        command LIKE 'SELECT ops.dispatch_edge_job(%' AS ok
 FROM cron.job
 WHERE jobname IN ('portal-daily-digest', 'alerts-foundation-detectors',
-                  'demurrage-dunning', 'customer-communication-auto-runner')
+                  'demurrage-dunning', 'customer-communication-auto-runner',
+                  'portal-email-events-runner', 'import-effects-runner',
+                  'recalc-demurrage-ptax')
 ORDER BY jobname;
 ```
 
-**O cofre tem as cinco entradas** — deve retornar `5`:
+### Agendar o recálculo de PTAX
+
+A migration `018` deliberadamente **não** cria o job `recalc-demurrage-ptax`.
+Criá-lo e desativá-lo no replay exigiria `UPDATE` em `cron.job`, privilégio que
+o papel de migrations do Supabase não tem — a tentativa anterior abortava a
+aplicação com `permission denied for table job (SQLSTATE 42501)` e impedia as
+migrations seguintes de rodar. Agendar é passo operacional, executado **depois**
+de validar segredo, Edge e gateway conforme a S09:
+
+```sql
+-- 1. Confirme que o segredo existe no cofre e que a Edge responde fail-closed
+--    com segredo ausente/errado antes de agendar.
+SELECT count(*) FROM vault.secrets WHERE name = 'RECALC_CRON_SECRET';
+
+-- 2. Agende. cron.schedule é função da extensão e não exige ACL de tabela.
+SELECT cron.schedule(
+  'recalc-demurrage-ptax',
+  '0 17 * * 1-5',
+  $$SELECT ops.dispatch_edge_job('recalc-demurrage-ptax', 'RECALC_CRON_SECRET');$$
+);
+
+-- 3. Para pausar sem remover, use a função da extensão — nunca UPDATE direto:
+--    SELECT cron.alter_job(jobid, active := false) FROM cron.job
+--    WHERE jobname = 'recalc-demurrage-ptax';
+```
+
+Remover: `SELECT cron.unschedule('recalc-demurrage-ptax');`.
+
+**O cofre tem as oito entradas** — deve retornar `8`:
 
 ```sql
 SELECT count(*) FROM vault.secrets
 WHERE name IN ('SUPABASE_URL', 'PORTAL_DIGEST_SECRET', 'ALERTS_DETECTOR_SECRET',
-               'DEMURRAGE_DUNNING_SECRET', 'CUSTOMER_COMMUNICATION_AUTOMATION_SECRET');
+               'DEMURRAGE_DUNNING_SECRET', 'CUSTOMER_COMMUNICATION_AUTOMATION_SECRET',
+               'PORTAL_EMAIL_EVENTS_CRON_SECRET', 'IMPORT_EFFECTS_CRON_SECRET',
+               'RECALC_CRON_SECRET');
 ```
 
 **O cofre está fechado para o cliente** — as quatro colunas devem ser `false`:
@@ -150,7 +187,7 @@ LIMIT 8;
 ## Provisionar um banco novo
 
 Um banco criado só por migrations nasce com o cofre vazio. Depois de aplicar as
-migrations, cadastre as cinco entradas uma única vez:
+migrations, cadastre as oito entradas uma única vez:
 
 ```sql
 SELECT vault.create_secret('https://<ref>.supabase.co', 'SUPABASE_URL',
@@ -158,11 +195,14 @@ SELECT vault.create_secret('https://<ref>.supabase.co', 'SUPABASE_URL',
 SELECT vault.create_secret('<valor>', 'PORTAL_DIGEST_SECRET',
   'Espelha o Edge Function Secret de mesmo nome.');
 -- idem para ALERTS_DETECTOR_SECRET, DEMURRAGE_DUNNING_SECRET e
--- CUSTOMER_COMMUNICATION_AUTOMATION_SECRET.
+-- CUSTOMER_COMMUNICATION_AUTOMATION_SECRET, PORTAL_EMAIL_EVENTS_CRON_SECRET,
+-- IMPORT_EFFECTS_CRON_SECRET e RECALC_CRON_SECRET.
 ```
 
-Até lá, os quatro jobs ficam agendados e inertes, com `WARNING` no log a cada
-execução.
+Até lá, os jobs ficam agendados e inertes, com `WARNING` no log a cada execução.
+Mesmo com o Vault preenchido, `import-effects-runner` exige
+`IMPORT_EFFECTS_RUNNER_ENABLED=true`; o job de PTAX permanece inativo até a
+liberação operacional após validação de Preview e gateway.
 
 ## Risco residual
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Download, FilePlus2, Printer } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -9,7 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
-import { InvoiceDocument as DemurrageInvoiceDocument } from '../components/demurrage/InvoiceDocument'
+import { InvoiceDocument as DemurrageInvoiceDocument, type DemurrageInvoiceDocumentDetail } from '../components/demurrage/InvoiceDocument'
 import { PortalConsolidatedModal } from '../components/portal/PortalConsolidatedModal'
 import { DisputeModal } from '../components/portal/DisputeModal'
 import { PortalDemurrageDetailModal } from '../components/portal/PortalDemurrageDetailModal'
@@ -22,52 +22,32 @@ import {
   usePortalConsolidatableReceivables,
   usePortalCurrentRoe,
   usePortalDemurrageInvoiceDetail,
-  usePortalDemurrageInvoices,
+  usePortalDemurrageInvoicesPage,
   usePortalInvoiceDetail,
-  usePortalInvoices,
+  usePortalInvoicesPage,
   usePortalObsoleteConsolidation,
 } from '../hooks/usePortalBilling'
 import { usePortalDisputes } from '../hooks/usePortalDisputes'
 import { buildInvoiceFileBaseName } from '../components/shared/invoiceFormat'
 import { exportPortalDemurrageWorkbook, exportPortalLocalInvoicesWorkbook } from '../services/exports'
+import { portalListDemurrageInvoicesForExport, portalListInvoicesForExport } from '../services/portalBilling'
 import { EMPTY_PORTAL_BILLING_FILTERS, type PortalBillingFilters } from '../lib/portalBillingFilters'
 import { formatBRL } from '../lib/utils'
 import { portalErrorMessage } from '../lib/portalErrorMessage'
-import { STATUS_GROUPS, type PortalStatusFilter } from '../lib/portalInvoiceStatus'
 
 type PortalTab = 'local' | 'demurrage'
-type StatusFilter = PortalStatusFilter
 type Filters = PortalBillingFilters
 
-function matchesStatus(status: string | null, filter: StatusFilter) {
-  if (!filter) return true
-  return (STATUS_GROUPS[filter] as readonly string[]).includes(status ?? 'issued')
-}
-
-function inDateRange(value: string | null, from: string, to: string) {
-  if (!value) return !from && !to
-  const day = value.slice(0, 10)
-  if (from && day < from) return false
-  if (to && day > to) return false
-  return true
-}
-
-// Match por substring case-insensitive contra uma lista de valores (navio/viagem, BLs).
-function matchesText(values: string[], term: string) {
-  if (!term.trim()) return true
-  const needle = term.trim().toLowerCase()
-  return values.some((v) => v.toLowerCase().includes(needle))
-}
+const BILLING_PAGE_SIZE = 25
 
 export function PortalBilling() {
   const { overview: authOverview } = usePortalAuth()
-  const { overview } = usePortalScope()
+  const portalScope = usePortalScope()
+  const { overview } = portalScope
   const effectiveOverview = overview ?? authOverview
   const { showToast } = useToast()
   const confirm = useConfirm()
   const { data: receivables } = usePortalConsolidatableReceivables()
-  const { data: invoices, isLoading: invoicesLoading, error: invoicesError } = usePortalInvoices()
-  const { data: demurrageInvoices, isLoading: demurrageLoading, error: demurrageError } = usePortalDemurrageInvoices()
   const { data: currentRoe } = usePortalCurrentRoe()
   const obsoleteMutation = usePortalObsoleteConsolidation()
   const { data: disputes } = usePortalDisputes()
@@ -89,72 +69,48 @@ export function PortalBilling() {
   const [printOpen, setPrintOpen] = useState(false)
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [demurragePrintOpen, setDemurragePrintOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [localFilters, setLocalFilters] = useState<Filters>(EMPTY_PORTAL_BILLING_FILTERS)
   const [demFilters, setDemFilters] = useState<Filters>(EMPTY_PORTAL_BILLING_FILTERS)
+  const [localPage, setLocalPage] = useState(0)
+  const [demPage, setDemPage] = useState(0)
+
+  const localInvoicesQuery = usePortalInvoicesPage(localFilters, localPage, BILLING_PAGE_SIZE)
+  const demurrageInvoicesQuery = usePortalDemurrageInvoicesPage(demFilters, demPage, BILLING_PAGE_SIZE)
+  const localInvoices = localInvoicesQuery.data?.rows ?? []
+  const localInvoiceCount = localInvoicesQuery.data?.totalCount ?? 0
+  const demurrageInvoices = demurrageInvoicesQuery.data?.rows ?? []
+  const demurrageInvoiceCount = demurrageInvoicesQuery.data?.totalCount ?? 0
 
   const detailQuery = usePortalInvoiceDetail(selectedInvoiceId)
   const demurrageDetailQuery = usePortalDemurrageInvoiceDetail(selectedDemurrageId)
 
   const eligibleCount = (receivables ?? []).filter((r) => r.eligibility_status === 'eligible').length
 
-  // Opções de dropdown derivadas das próprias faturas do cliente.
-  // Navio/Viagem usa o par "NAVIO / VIAGEM" para o autocomplete do filtro.
-  const localVesselOptions = useMemo(
-    () => Array.from(new Set((invoices ?? []).flatMap((i) => i.vessel_voyages ?? []))).sort(),
-    [invoices],
-  )
-  const localPods = useMemo(
-    () => Array.from(new Set((invoices ?? []).flatMap((i) => i.pods ?? []))).sort(),
-    [invoices],
-  )
-  const demVesselOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (demurrageInvoices ?? [])
-            .map((i) => (i.vessel_name ? [i.vessel_name, i.voyage_number].filter(Boolean).join(' / ') : null))
-            .filter(Boolean) as string[],
-        ),
-      ).sort(),
-    [demurrageInvoices],
-  )
-  const demPods = useMemo(
-    () => Array.from(new Set((demurrageInvoices ?? []).map((i) => i.pod).filter(Boolean) as string[])).sort(),
-    [demurrageInvoices],
-  )
+  const updateLocalFilters = (next: Filters) => {
+    setLocalFilters(next)
+    setLocalPage(0)
+  }
+  const updateDemFilters = (next: Filters) => {
+    setDemFilters(next)
+    setDemPage(0)
+  }
 
-  const filteredInvoices = useMemo(
-    () =>
-      (invoices ?? []).filter(
-        (i) =>
-          matchesStatus(i.status, localFilters.status) &&
-          matchesText(i.vessel_voyages ?? [], localFilters.vessel) &&
-          matchesText(i.bls ?? [], localFilters.bl) &&
-          (!localFilters.pod || (i.pods ?? []).includes(localFilters.pod)) &&
-          inDateRange(i.issued_at, localFilters.dateFrom, localFilters.dateTo),
-      ),
-    [invoices, localFilters],
-  )
-
-  const filteredDemurrage = useMemo(
-    () =>
-      (demurrageInvoices ?? []).filter(
-        (i) =>
-          matchesStatus(i.status, demFilters.status) &&
-          matchesText([i.vessel_name, i.voyage_number].filter(Boolean) as string[], demFilters.vessel) &&
-          matchesText([i.bl_id], demFilters.bl) &&
-          (!demFilters.pod || i.pod === demFilters.pod) &&
-          inDateRange(i.billed_at, demFilters.dateFrom, demFilters.dateTo),
-      ),
-    [demurrageInvoices, demFilters],
-  )
-
-  function handleExport() {
-    if (tab === 'demurrage') {
-      void exportPortalDemurrageWorkbook(filteredDemurrage)
-      return
+  async function handleExport() {
+    setExporting(true)
+    try {
+      if (tab === 'demurrage') {
+        const rows = await portalListDemurrageInvoicesForExport(demFilters, portalScope)
+        await exportPortalDemurrageWorkbook(rows)
+        return
+      }
+      const rows = await portalListInvoicesForExport(localFilters, portalScope)
+      await exportPortalLocalInvoicesWorkbook(rows)
+    } catch (error) {
+      showToast(portalErrorMessage(error, 'Falha ao exportar as faturas.'), 'error')
+    } finally {
+      setExporting(false)
     }
-    void exportPortalLocalInvoicesWorkbook(filteredInvoices)
   }
 
   async function handleObsolete() {
@@ -188,7 +144,7 @@ export function PortalBilling() {
         description="Consulte suas faturas, pague via PIX e consolide B/Ls em aberto."
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={handleExport}>
+            <Button variant="ghost" loading={exporting} onClick={() => void handleExport()}>
               <Download size={16} />
               Exportar Excel
             </Button>
@@ -202,7 +158,7 @@ export function PortalBilling() {
 
       <div className="mb-5 grid gap-4 grid-cols-[repeat(auto-fit,minmax(210px,1fr))]">
         <MetricCard label="Saldo pendente" value={formatBRL(effectiveOverview?.pending_balance)} />
-        <MetricCard label="Faturas emitidas" value={String(invoices?.length ?? 0)} />
+        <MetricCard label="Faturas emitidas" value={String(localInvoiceCount)} />
         <MetricCard label="B/Ls elegíveis" value={String(eligibleCount)} />
       </div>
 
@@ -213,13 +169,16 @@ export function PortalBilling() {
 
       {tab === 'local' ? (
         <LocalFeesTab
-          invoices={filteredInvoices}
-          loading={invoicesLoading}
-          error={Boolean(invoicesError)}
+          invoices={localInvoices}
+          totalCount={localInvoiceCount}
+          page={localPage}
+          onPageChange={setLocalPage}
+          loading={localInvoicesQuery.isLoading}
+          error={Boolean(localInvoicesQuery.error)}
           filters={localFilters}
-          onFilters={setLocalFilters}
-          vesselOptions={localVesselOptions}
-          pods={localPods}
+          onFilters={updateLocalFilters}
+          vesselOptions={localInvoicesQuery.data?.vesselOptions ?? []}
+          pods={localInvoicesQuery.data?.pods ?? []}
           onOpenDetail={setSelectedInvoiceId}
         />
       ) : (
@@ -233,13 +192,16 @@ export function PortalBilling() {
             </div>
           ) : null}
           <DemurrageTab
-            invoices={filteredDemurrage}
-            loading={demurrageLoading}
-            error={Boolean(demurrageError)}
+            invoices={demurrageInvoices}
+            totalCount={demurrageInvoiceCount}
+            page={demPage}
+            onPageChange={setDemPage}
+            loading={demurrageInvoicesQuery.isLoading}
+            error={Boolean(demurrageInvoicesQuery.error)}
             filters={demFilters}
-            onFilters={setDemFilters}
-            vesselOptions={demVesselOptions}
-            pods={demPods}
+            onFilters={updateDemFilters}
+            vesselOptions={demurrageInvoicesQuery.data?.vesselOptions ?? []}
+            pods={demurrageInvoicesQuery.data?.pods ?? []}
             onOpenDetail={setSelectedDemurrageId}
             onDispute={(id, doc) => { setDisputeInvoiceId(id); setDisputeDocNumber(doc) }}
           />
@@ -310,10 +272,11 @@ export function PortalBilling() {
           <div className="invoice-print-content">
             <DemurrageInvoiceDocument
               detail={{
-                ...demurrageDetailQuery.data,
+                ...demurrageDetailQuery.data.invoice,
+                items: demurrageDetailQuery.data.items,
                 customer: { name: demurrageDetailQuery.data.invoice.customer_name, cnpj_cpf: demurrageDetailQuery.data.invoice.customer_cnpj_cpf },
                 bl: { pol: demurrageDetailQuery.data.invoice.pol, pod: demurrageDetailQuery.data.invoice.pod, voyage: { voyage_number: demurrageDetailQuery.data.invoice.voyage_number, vessel: { name: demurrageDetailQuery.data.invoice.vessel_name } } },
-              } as never}
+              } satisfies DemurrageInvoiceDocumentDetail}
               type="receipt"
             />
           </div>

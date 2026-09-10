@@ -336,39 +336,15 @@ export async function reconcileBaplieWithManifest(
  * foram atualizados.
  */
 export async function applyBapliePhysicalFlags(voyageId: number, actorId: string | null): Promise<number> {
-  const { staged, blContainers } = await fetchStagingAndBlContainers(voyageId)
-  const updates = computeBapliePhysicalUpdates(staged, blContainers)
-
-  for (const update of updates) {
-    const { error } = await supabase
-      .from('bl_containers')
-      .update({
-        is_imo: update.is_imo,
-        imo_class: update.imo_class,
-        un_number: update.un_number,
-        is_oog: update.is_oog,
-      })
-      .eq('id', update.bl_container_id)
-    if (error) throw error
-
-    await supabase.from('audit_logs').insert({
-      entity_type: 'bl_container',
-      entity_id: String(update.bl_container_id),
-      field_name: 'baplie_physical_flags',
-      old_value: JSON.stringify(update.previous),
-      new_value: JSON.stringify({
-        is_imo: update.is_imo,
-        imo_class: update.imo_class,
-        un_number: update.un_number,
-        is_oog: update.is_oog,
-      }),
-      changed_by: actorId,
-      changed_at: new Date().toISOString(),
-      justification: 'Baplie soberano: flags físicas aplicadas automaticamente',
-    })
-  }
-
-  return updates.length
+  if (!actorId) throw new Error('Usuário ativo obrigatório para aplicar flags do Baplie.')
+  const { data, error } = await supabase.rpc('apply_baplie_physical_flags_atomic', {
+    p_voyage_id: voyageId,
+    p_changes: null,
+    p_changed_by: actorId,
+  })
+  if (error) throw error
+  const applied = (data as { applied?: unknown } | null)?.applied
+  return Number.isFinite(Number(applied)) ? Number(applied) : 0
 }
 
 function normalizeVal(v: string | null | undefined) {

@@ -1,5 +1,6 @@
 import type { InvoiceDetail } from './billing'
 import type { ConsolidatableReceivable, DemurrageInvoiceItem } from '../types/database'
+import type { PortalBillingFilters } from '../lib/portalBillingFilters'
 import { callPortalRpc, clientPortalScope, type PortalScope } from './portalScope'
 import { supabasePortal } from './supabase'
 
@@ -29,6 +30,13 @@ export type PortalInvoiceSummary = {
   pods: string[]
 }
 
+export type PortalInvoicePage = {
+  rows: PortalInvoiceSummary[]
+  totalCount: number
+  vesselOptions: string[]
+  pods: string[]
+}
+
 type PortalInvoiceContainer = {
   id: number
   bl_id: string | null
@@ -54,7 +62,11 @@ export async function portalListConsolidatableReceivables(scope: PortalScope = c
 
 export async function portalListInvoices(scope: PortalScope = clientPortalScope): Promise<PortalInvoiceSummary[]> {
   const data = await callPortalRpc<PortalInvoiceSummary[]>(scope, 'portal_list_invoices')
-  return ((data ?? []) as PortalInvoiceSummary[]).map((row) => ({
+  return ((data ?? []) as PortalInvoiceSummary[]).map(normalizePortalInvoiceSummary)
+}
+
+function normalizePortalInvoiceSummary(row: PortalInvoiceSummary): PortalInvoiceSummary {
+  return {
     ...row,
     total_brl: Number(row.total_brl ?? 0),
     total_paid_brl: Number(row.total_paid_brl ?? 0),
@@ -64,7 +76,66 @@ export async function portalListInvoices(scope: PortalScope = clientPortalScope)
     vessel_voyages: row.vessel_voyages ?? [],
     bls: row.bls ?? [],
     pods: row.pods ?? [],
-  }))
+  }
+}
+
+function pageArgs(filters: PortalBillingFilters, page: number, pageSize: number) {
+  return {
+    p_limit: pageSize,
+    p_offset: Math.max(0, page) * pageSize,
+    p_status: filters.status || null,
+    p_vessel: filters.vessel.trim() || null,
+    p_bl: filters.bl.trim() || null,
+    p_pod: filters.pod || null,
+    p_date_from: filters.dateFrom || null,
+    p_date_to: filters.dateTo || null,
+  }
+}
+
+export async function portalListInvoicesPage(
+  filters: PortalBillingFilters,
+  page: number,
+  pageSize = 25,
+  scope: PortalScope = clientPortalScope,
+): Promise<PortalInvoicePage> {
+  const data = await callPortalRpc<unknown>(scope, 'portal_list_invoices_page', pageArgs(filters, page, pageSize))
+  const payload = (data ?? {}) as {
+    rows?: PortalInvoiceSummary[]
+    total_count?: number | string
+    vessel_options?: string[]
+    pods?: string[]
+  }
+  return {
+    rows: (payload.rows ?? []).map(normalizePortalInvoiceSummary),
+    totalCount: Number(payload.total_count ?? 0),
+    vesselOptions: payload.vessel_options ?? [],
+    pods: payload.pods ?? [],
+  }
+}
+
+const PORTAL_EXPORT_PAGE_SIZE = 100
+
+async function collectPortalPages<TRow, TPage extends { rows: TRow[]; totalCount: number }>(
+  firstPage: TPage,
+  loadPage: (page: number) => Promise<TPage>,
+): Promise<TRow[]> {
+  const rows = [...firstPage.rows]
+  const totalPages = Math.ceil(firstPage.totalCount / PORTAL_EXPORT_PAGE_SIZE)
+  for (let page = 1; page < totalPages; page += 1) {
+    const nextPage = await loadPage(page)
+    rows.push(...nextPage.rows)
+    if (nextPage.rows.length === 0) break
+  }
+  return rows
+}
+
+export async function portalListInvoicesForExport(
+  filters: PortalBillingFilters,
+  scope: PortalScope = clientPortalScope,
+): Promise<PortalInvoiceSummary[]> {
+  const loadPage = (page: number) => portalListInvoicesPage(filters, page, PORTAL_EXPORT_PAGE_SIZE, scope)
+  const firstPage = await loadPage(0)
+  return collectPortalPages(firstPage, loadPage)
 }
 
 export async function portalInvoiceDetails(invoiceId: number, scope: PortalScope = clientPortalScope) {
@@ -131,11 +202,52 @@ export async function portalGetCurrentRoe(scope: PortalScope = clientPortalScope
 
 export async function portalListDemurrageInvoices(scope: PortalScope = clientPortalScope): Promise<PortalDemurrageInvoice[]> {
   const data = await callPortalRpc<PortalDemurrageInvoice[]>(scope, 'portal_list_demurrage_invoices')
-  return ((data ?? []) as PortalDemurrageInvoice[]).map((row) => ({
+  return ((data ?? []) as PortalDemurrageInvoice[]).map(normalizePortalDemurrageInvoice)
+}
+
+function normalizePortalDemurrageInvoice(row: PortalDemurrageInvoice): PortalDemurrageInvoice {
+  return {
     ...row,
     total_usd: Number(row.total_usd ?? 0),
     current_total_brl: row.current_total_brl != null ? Number(row.current_total_brl) : null,
-  }))
+  }
+}
+
+export type PortalDemurrageInvoicePage = {
+  rows: PortalDemurrageInvoice[]
+  totalCount: number
+  vesselOptions: string[]
+  pods: string[]
+}
+
+export async function portalListDemurrageInvoicesPage(
+  filters: PortalBillingFilters,
+  page: number,
+  pageSize = 25,
+  scope: PortalScope = clientPortalScope,
+): Promise<PortalDemurrageInvoicePage> {
+  const data = await callPortalRpc<unknown>(scope, 'portal_list_demurrage_invoices_page', pageArgs(filters, page, pageSize))
+  const payload = (data ?? {}) as {
+    rows?: PortalDemurrageInvoice[]
+    total_count?: number | string
+    vessel_options?: string[]
+    pods?: string[]
+  }
+  return {
+    rows: (payload.rows ?? []).map(normalizePortalDemurrageInvoice),
+    totalCount: Number(payload.total_count ?? 0),
+    vesselOptions: payload.vessel_options ?? [],
+    pods: payload.pods ?? [],
+  }
+}
+
+export async function portalListDemurrageInvoicesForExport(
+  filters: PortalBillingFilters,
+  scope: PortalScope = clientPortalScope,
+): Promise<PortalDemurrageInvoice[]> {
+  const loadPage = (page: number) => portalListDemurrageInvoicesPage(filters, page, PORTAL_EXPORT_PAGE_SIZE, scope)
+  const firstPage = await loadPage(0)
+  return collectPortalPages(firstPage, loadPage)
 }
 
 export async function portalGetDemurrageInvoiceDetail(invoiceId: number, scope: PortalScope = clientPortalScope): Promise<PortalDemurrageInvoiceDetail> {

@@ -43,9 +43,9 @@ describeLocal('migration 217 — autorização local do nome do autor do ADR', (
       ON CONFLICT (id) DO NOTHING;
       INSERT INTO public.voyages (id, vessel_id, voyage_number) VALUES (${voyageId}, ${vesselId}, 'LOCAL-217')
       ON CONFLICT (id) DO NOTHING;
+      DELETE FROM public.agency_departure_reports WHERE voyage_id = ${voyageId} AND port = 'BRVIX';
       INSERT INTO public.agency_departure_reports (voyage_id, port, status, closed_by)
-      VALUES (${voyageId}, 'BRVIX', 'closed', '${closerId}')
-      ON CONFLICT (voyage_id, port) DO UPDATE SET status = 'closed', closed_by = EXCLUDED.closed_by;
+      VALUES (${voyageId}, 'BRVIX', 'closed', '${closerId}');
     `)
   })
 

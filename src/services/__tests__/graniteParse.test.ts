@@ -41,6 +41,18 @@ it('US-077: registra erro de linha quando o Real Weight esta ausente ou zero', a
   expect(parsed.rowErrors.length).toBeGreaterThan(0)
 })
 
+it('S03: rejeita coerção silenciosa de expoente e letras em pesos', async () => {
+  const parsed = await parseGraniteManifestFile(
+    cosco([
+      { BL: 'BL-G7', 'Navio/Viagem': 'NAVIO/14', 'Real Weight': '1e3' },
+      { BL: 'BL-G8', 'Navio/Viagem': 'NAVIO/14', 'Real Weight': '12abc' },
+    ]),
+  )
+
+  expect(parsed.bls).toHaveLength(0)
+  expect(parsed.rowErrors).toHaveLength(4)
+})
+
 it('ADR 2026-07-31 (Task 6): normaliza L/PORT para LOCODE, aceitando codigo ja limpo e texto livre', async () => {
   const parsed = await parseGraniteManifestFile(
     cosco([

@@ -18,7 +18,7 @@ import { DemurragePaymentReversalModal } from '../components/demurrage/Demurrage
 import { DemurrageDisputeConversation } from '../components/demurrage/DemurrageDisputeConversation'
 import { DiscountModal } from '../components/demurrage/DiscountModal'
 import { DisputeModal } from '../components/demurrage/DisputeModal'
-import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
+import { InvoiceDocument, type DemurrageInvoiceDocumentDetail } from '../components/demurrage/InvoiceDocument'
 import { PaymentModal } from '../components/demurrage/PaymentModal'
 import { PtaxModal } from '../components/demurrage/PtaxModal'
 import { listDemurrageContainers, updateContainerDates } from '../services/demurrage/demurrageContainers'
@@ -28,7 +28,7 @@ import {
   getInvoiceDetail,
   listDemurrageInvoices,
   markInvoicePaid,
-  recomputeDiscountedBrl,
+  applyDemurrageDiscount,
   updateDemurrageInvoice,
 } from '../services/demurrage/demurrageInvoices'
 import {
@@ -36,7 +36,6 @@ import {
   fetchCustomerDemurrageSummary,
   fetchDemurrageKPIs,
   fetchLatestRecalcDate,
-  fetchROE,
   recalculateInvoicesManual,
 } from '../services/demurrage/demurrageKpis'
 import { DEMURRAGE_INVOICE_TABS } from '../services/demurrage/demurrageInvoiceTabs'
@@ -44,7 +43,7 @@ import { EMPTY_DISCOUNT, EMPTY_DISPUTE, type DiscountForm, type DisputeForm } fr
 import { effectiveDemurrage, fmtBRL, fmtUSD, groupByBl, isPtaxWarningEligible, lastBusinessDayISO } from '../services/demurrage/demurragePresentation'
 import { reverseDemurragePayment } from '../services/reconciliacao'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
-import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
+import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters } from '../lib/operationalState'
 import { printDocumentElement } from '../lib/printDocument'
 import { formatDate } from '../lib/utils'
@@ -81,7 +80,6 @@ export function Demurrage() {
   // e o breakdown que a originou pode ja estar fechado quando ele abre.
   const [reversingPayment, setReversingPayment] = useState<{ id: number; docNumber: string | null } | null>(null)
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
-  const [roeOfflineWarning, setRoeOfflineWarning] = useState<string | null>(null)
   const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null)
   const [discountInvoiceId, setDiscountInvoiceId] = useState<number | null>(null)
   const [discountForm, setDiscountForm] = useState<DiscountForm>(EMPTY_DISCOUNT)
@@ -214,15 +212,8 @@ export function Demurrage() {
     onSettled: () => setGeneratingBl(null),
   })
   const payMutation = useMutation({
-    mutationFn: async ({ id, date }: { id: number; date: string }) => {
-      const invoice = invoices?.find((item) => item.id === id)
-      let roe = invoice?.current_roe ?? null
-      if (!roe) {
-        const result = await fetchROE()
-        if (result.offline) setRoeOfflineWarning(result.cachedAt)
-        roe = result.roe
-      }
-      await markInvoicePaid(id, date, roe)
+    mutationFn: ({ id, date }: { id: number; date: string }) => {
+      return markInvoicePaid(id, date)
     },
     onSuccess: () => { invalidateInvoices(); setPayingId(null); showToast('Pagamento registrado.', 'success') },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -246,15 +237,14 @@ export function Demurrage() {
       const validation = demurrageDiscountSchema.safeParse(form)
       if (!validation.success) throw new Error(formatValidationError(validation.error, 'Desconto invalido.'))
       const discount = validation.data
-      await updateDemurrageInvoice(id, {
-        discount_type: discount.discount_type,
-        discount_value: discount.discount_value,
-        discount_mode: discount.discount_mode,
-        discount_justification: discount.discount_justification,
-        discount_approver: discount.discount_approver,
+      await applyDemurrageDiscount({
+        invoiceId: id,
+        discountType: discount.discount_type,
+        discountValue: discount.discount_value,
+        discountMode: discount.discount_mode,
+        justification: discount.discount_justification,
+        approver: discount.discount_approver,
       })
-      // Reflete o desconto (USD) no BRL e no QR já, sem esperar o recálculo diário.
-      await recomputeDiscountedBrl(id)
     },
     onSuccess: () => {
       invalidateInvoices()
@@ -343,11 +333,6 @@ export function Demurrage() {
         <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <span className="flex items-center gap-2"><AlertTriangle size={16} />PTAX de hoje não obtida do BCB. Os valores em BRL podem estar desatualizados.</span>
           <Button variant="secondary" onClick={() => setPtaxModalOpen(true)}>Informar PTAX</Button>
-        </div>
-      ) : null}
-      {roeOfflineWarning ? (
-        <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-          BCB offline — usando PTAX em cache de {new Date(roeOfflineWarning).toLocaleString('pt-BR')}. Verifique a taxa antes de emitir faturas.
         </div>
       ) : null}
       <DemurrageDisputeConversation />
@@ -449,7 +434,7 @@ export function Demurrage() {
       {viewInvoiceId && invoiceDetail && (
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Demurrage'}>
           <div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={printInvoiceDocument}>Imprimir</Button></div>
-          <div className="invoice-print-content"><InvoiceDocument detail={{ ...invoiceDetail.invoice, items: invoiceDetail.items } as unknown as DemurrageInvoiceDetail} type={docType} /></div>
+          <div className="invoice-print-content"><InvoiceDocument detail={{ ...invoiceDetail.invoice, items: invoiceDetail.items } satisfies DemurrageInvoiceDocumentDetail} type={docType} /></div>
         </Modal>
       )}
       {customerReportOpen && customerSummary && <CustomerReportModal open rows={customerSummary} onClose={() => setCustomerReportOpen(false)} />}

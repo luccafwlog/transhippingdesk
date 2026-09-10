@@ -11,6 +11,7 @@ import {
 import { alertEntityLink, formatAlertEntity, ENTITY_TYPE_LABELS, type InternalNotification } from '../../services/alerts'
 import type { InternalNotificationCursor } from '../../services/alerts'
 import { formatDate } from '../../lib/utils'
+import { useToast } from '../ui/Toast'
 
 export function InternalNotificationBell() {
   const [open, setOpen] = useState(false)
@@ -18,6 +19,7 @@ export function InternalNotificationBell() {
   const [cursorByPage, setCursorByPage] = useState<Array<InternalNotificationCursor | null>>([null])
   const wrapperRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const { showToast } = useToast()
 
   const { data: countData } = useUnreadInternalNotificationCount()
   const unreadCount = Number(countData ?? 0)
@@ -82,7 +84,7 @@ export function InternalNotificationBell() {
                 type="button"
                 className="inline-flex items-center gap-1 text-xs text-[var(--app-primary)] hover:underline disabled:opacity-50"
                 disabled={markAllRead.isPending}
-                onClick={() => void markAllRead.mutateAsync().catch(() => undefined)}
+                onClick={() => void markAllRead.mutateAsync().catch(() => showToast('Não foi possível marcar todas como lidas. Tente de novo.', 'error'))}
               >
                 <CheckCheck size={14} />
                 <span>Marcar todas como lidas</span>
@@ -120,7 +122,12 @@ export function InternalNotificationBell() {
                   className="flex w-full gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-white/5"
                   onClick={() => {
                     if (!notification.read_at) {
-                      void markRead.mutateAsync(notification.id).catch(() => undefined)
+                      // A mutation é idempotente por notificação: repetir o clique
+                      // (retry após falha) não duplica nem perde o item — o hook
+                      // restaura o estado otimista no erro.
+                      void markRead.mutateAsync(notification.id).catch(() =>
+                        showToast('Não foi possível marcar como lida. Toque de novo para tentar.', 'error'),
+                      )
                     }
                     navigate(destination)
                     setOpen(false)

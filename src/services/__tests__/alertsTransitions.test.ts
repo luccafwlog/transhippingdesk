@@ -40,6 +40,7 @@ it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/De
       { id: 30, type: 'pix_unreconciled', entity_type: 'pix_transaction', created_at: '2026-08-22T10:00:00Z' },
       { id: 31, type: 'demurrage', entity_type: 'pix_transaction', created_at: '2026-08-23T10:00:00Z' },
     ],
+    exchange_rate_reference: [],
   }
   rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType; p_offset?: number; p_limit?: number }) => ({
     data: args.p_entity_type ? rowsByEntityType[args.p_entity_type].slice(args.p_offset ?? 0, (args.p_offset ?? 0) + (args.p_limit ?? 100)) : [],
@@ -52,9 +53,10 @@ it('busca cada entidade financeira, deduplica, ordena e exclui Granito/Portal/De
     rowsByEntityType.pix_transaction[0],
     rowsByEntityType.bl[0],
   ])
-  expect(rpcMock).toHaveBeenCalledTimes(2)
+  expect(rpcMock).toHaveBeenCalledTimes(3)
   expect(rpcMock).toHaveBeenNthCalledWith(1, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'bl', p_offset: 0, p_limit: 100 })
   expect(rpcMock).toHaveBeenNthCalledWith(2, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'pix_transaction', p_offset: 0, p_limit: 100 })
+  expect(rpcMock).toHaveBeenNthCalledWith(3, 'list_alert_queue_page', { p_filter: 'active', p_entity_type: 'exchange_rate_reference', p_offset: 0, p_limit: 100 })
 })
 
 it('combina as entidades financeiras antes de cortar a fila em 200 itens', async () => {
@@ -73,6 +75,7 @@ it('combina as entidades financeiras antes de cortar a fila em 200 itens', async
       entity_id: 'PIX-202',
       created_at: '2026-08-21T10:00:00Z',
     }],
+    exchange_rate_reference: [],
   }
   rpcMock.mockImplementation(async (_name: string, args: { p_entity_type?: keyof typeof rowsByEntityType; p_offset?: number; p_limit?: number }) => ({
     data: args.p_entity_type ? rowsByEntityType[args.p_entity_type].slice(args.p_offset ?? 0, (args.p_offset ?? 0) + (args.p_limit ?? 100)) : [],
@@ -91,6 +94,7 @@ it('expõe somente os tipos financeiros ativos do contrato', () => {
   expect(FINANCIAL_ALERT_TYPES).toEqual([
     'billing_calculation_blocked',
     'billing_auto_issue_failed',
+    'demurrage_ptax_recalc_failed',
     'pix_unreconciled',
   ])
 
@@ -102,6 +106,10 @@ it('expõe somente os tipos financeiros ativos do contrato', () => {
     billing_auto_issue_failed: {
       audience: ['documentacao'],
       unit: 'bl',
+    },
+    demurrage_ptax_recalc_failed: {
+      audience: ['documentacao'],
+      unit: 'exchange_rate_reference',
     },
     pix_unreconciled: {
       audience: ['documentacao', 'equipamentos'],

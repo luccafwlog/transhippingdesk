@@ -44,35 +44,7 @@ describe('customerBase import', () => {
   })
 
   it('imports customer base and ensures contact email via RPC for each email', async () => {
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'customers') {
-        return {
-          select: vi.fn().mockReturnValue({
-            in: vi.fn().mockResolvedValue({ data: [], error: null }),
-          }),
-          upsert: vi.fn().mockReturnValue({
-            select: vi.fn().mockResolvedValue({
-              data: [{ id: 101, cnpj_cpf: '12345678000195' }],
-              error: null,
-            }),
-          }),
-        }
-      }
-      if (table === 'bls') {
-        return {
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              is: vi.fn().mockReturnValue({
-                select: vi.fn().mockResolvedValue({ data: [], error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      return {}
-    })
-
-    mockRpc.mockResolvedValue({ data: true, error: null })
+    mockRpc.mockResolvedValue({ data: { created: true, contacts_created: 2, bls_linked: 0 }, error: null })
 
     const result = await importCustomerBaseRows([
       {
@@ -85,20 +57,21 @@ describe('customerBase import', () => {
         state: 'SP',
         zip: null,
       },
-    ])
+    ], { changedBy: 'actor-1' })
 
     expect(result.imported).toBe(1)
     expect(result.contactsCreated).toBe(2)
-    expect(mockRpc).toHaveBeenCalledTimes(2)
-    expect(mockRpc).toHaveBeenCalledWith('ensure_customer_contact_email', {
-      p_customer_id: 101,
-      p_email: 'contato1@empresa.com',
-      p_contact_name: 'Empresa Teste',
-    })
-    expect(mockRpc).toHaveBeenCalledWith('ensure_customer_contact_email', {
-      p_customer_id: 101,
-      p_email: 'contato2@empresa.com',
-      p_contact_name: 'Empresa Teste',
+    expect(mockRpc).toHaveBeenCalledTimes(1)
+    expect(mockRpc).toHaveBeenCalledWith('apply_customer_base_row_atomic', {
+      p_cnpj: '12345678000195',
+      p_name: 'Empresa Teste',
+      p_trade_name: null,
+      p_address: null,
+      p_city: null,
+      p_state: 'SP',
+      p_zip: null,
+      p_emails: ['contato1@empresa.com', 'contato2@empresa.com'],
+      p_changed_by: 'actor-1',
     })
   })
 })

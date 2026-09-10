@@ -129,11 +129,36 @@ BEGIN
   FOREACH v_table IN ARRAY ARRAY[
     'baplie_containers', 'billing_batches',
     'customer_demurrage_agreements', 'demurrage_invoice_items',
-    'demurrage_invoices', 'demurrage_rates', 'vazios_export_operations',
+    'demurrage_rates', 'vazios_export_operations',
     'voyage_export_schedules', 'voyage_route_ce_master'
   ] LOOP
     IF NOT has_table_privilege('authenticated', format('public.%I', v_table), 'INSERT,UPDATE,DELETE') THEN
       RAISE EXCEPTION 'authenticated sem mutacao em public.%', v_table;
+    END IF;
+  END LOOP;
+
+  -- Demurrage tem uma fronteira deliberada: status, valores, PIX e historico
+  -- somente mudam pelos RPCs financeiros da migration 012. O navegador pode
+  -- alterar apenas os campos operacionais permitidos por grant de coluna.
+  IF has_table_privilege('authenticated', 'public.demurrage_invoices', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.demurrage_invoices', 'DELETE')
+     OR has_table_privilege('authenticated', 'public.demurrage_invoices', 'UPDATE') THEN
+    RAISE EXCEPTION 'demurrage_invoices recebeu mutacao ampla para authenticated.';
+  END IF;
+  FOREACH v_table IN ARRAY ARRAY[
+    'due_date', 'dispute_open', 'dispute_subject',
+    'dispute_reason', 'dispute_status', 'dispute_notes', 'notes'
+  ] LOOP
+    IF NOT has_column_privilege('authenticated', 'public.demurrage_invoices', v_table, 'UPDATE') THEN
+      RAISE EXCEPTION 'authenticated sem UPDATE operacional em demurrage_invoices.%', v_table;
+    END IF;
+  END LOOP;
+  FOREACH v_table IN ARRAY ARRAY[
+    'status', 'total_usd', 'current_total_brl', 'pix_txid',
+    'current_roe', 'roe', 'roe_manual', 'roe_source'
+  ] LOOP
+    IF has_column_privilege('authenticated', 'public.demurrage_invoices', v_table, 'UPDATE') THEN
+      RAISE EXCEPTION 'authenticated recebeu UPDATE financeiro em demurrage_invoices.%', v_table;
     END IF;
   END LOOP;
 

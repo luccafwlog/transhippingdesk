@@ -172,6 +172,13 @@ Webhooks e cron têm
 Sem `RESEND_API_KEY`, o módulo transacional opera em dry-run. O domínio do
 remetente precisa estar verificado antes de qualquer envio real.
 
+Os consumidores da remediação usam `PORTAL_EMAIL_EVENTS_CRON_SECRET`,
+`IMPORT_EFFECTS_CRON_SECRET` e `RECALC_CRON_SECRET`, sempre em par entre o
+secret da Edge Function e o Supabase Vault. `import-effects-runner` também exige
+`IMPORT_EFFECTS_RUNNER_ENABLED=true`; sem essa variável o endpoint responde
+paused e não faz claim. O job de PTAX continua deliberadamente inativo até a
+validação externa descrita em `docs/operations/segredos-cron.md`.
+
 ### Execução
 
 ```powershell
@@ -265,6 +272,13 @@ integração GitHub do Supabase aplica as pendentes em produção. Confirme o ch
 do Supabase Preview antes do merge e, em caso de falha, compare o histórico
 remoto com os arquivos locais antes de reexecutar. Após DDL, verifique advisors
 e o contrato usado pela aplicação.
+
+As migrations `022`–`026` são a integração atual da remediação: inbox/dispatch
+de email, autoridade e snapshot de Demurrage, alerta persistente de PTAX e
+consumidor de efeitos de importação. Elas devem ser aplicadas antes de publicar
+as Edge Functions correspondentes; a validação local controlada usa os testes
+`emailInbox.local-pg.test.ts`, `demurrageAuthority.local-pg.test.ts`,
+`exchangeRateIntegrity.local-pg.test.ts` e `importEffects.local-pg.test.ts`.
 
 Nunca execute um reset amplo para “testar” uma migration. O reset operacional
 atual está suspenso em

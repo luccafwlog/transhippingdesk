@@ -1,6 +1,7 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { canonicalizeValidCnpj } from '../lib/cnpj'
-import { asString, toNumber } from '../lib/utils'
+import { parseImportNumber } from '../lib/importNumber'
+import { asString } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 
 export type BLFreightCharge = {
@@ -217,12 +218,12 @@ function parseContainers(rows: RawSheetRow[]): ParsedBLContainer[] {
     containers.push({
       containerNumber,
       sealNumber: parts[1] || null,
-      tareKg: parseNumber(parts[2]),
+      tareKg: parseNumber(parts[2], 'pt-BR'),
       ownership: parts[3] || null,
       packages: parts[4] || null,
       type: parts[5] || null,
-      grossWeightKg: parseNumber(parts[6]),
-      cbm: parseNumber(parts[7]),
+      grossWeightKg: parseNumber(parts[6], 'pt-BR'),
+      cbm: parseNumber(parts[7], 'en-US'),
     })
   }
 
@@ -265,11 +266,16 @@ function parseVesselVoyage(value: string) {
 
 function parseMoney(value: string) {
   const currency = value.match(/\b[A-Z]{3}\b/i)?.[0]?.toUpperCase() ?? null
-  return { currency, amount: parseNumber(value) }
+  const numericToken = value.match(/[+-]?\d[\d.,]*/)?.[0] ?? ''
+  return { currency, amount: parseNumber(numericToken, 'unknown') }
 }
 
-function parseNumber(value: unknown) {
-  return toNumber(value)
+function parseNumber(value: unknown, format: 'pt-BR' | 'en-US' | 'unknown' = 'unknown') {
+  const text = typeof value === 'string'
+    ? value.trim().match(/^[+-]?\d[\d.,]*/)?.[0] ?? value.trim()
+    : value
+  const parsed = parseImportNumber(text, format)
+  return parsed.kind === 'value' ? Number(parsed.decimal) : null
 }
 
 export function extractTaxId(value: string) {

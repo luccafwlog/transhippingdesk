@@ -39,10 +39,12 @@ describe('fetchROE', () => {
     expect(result.ptax).toBe(5)
     expect(result.roe).toBe(5.325)
     expect(result.effectiveDate).toBe('2026-07-16')
-    expect(rpc).toHaveBeenCalledWith('save_exchange_rate_reference', {
+    expect(rpc).toHaveBeenCalledWith('save_exchange_rate_reference_v2', {
       p_ptax: 5,
       p_roe: 5.325,
       p_effective_date: '2026-07-16',
+      p_source: 'bcb_live',
+      p_quote_date: '2026-07-16',
     })
     expect(reportBestEffortFailure).not.toHaveBeenCalled()
   })
@@ -59,6 +61,13 @@ describe('fetchROE', () => {
     expect(context).toBe('fetchROE: BCB PTAX indisponivel')
     expect((error as Error).message).toBe('network down')
     expect(meta).toEqual({ fellBackToCache: true })
+    expect(rpc).toHaveBeenCalledWith('save_exchange_rate_reference_v2', {
+      p_ptax: 4.9953,
+      p_roe: 5.32,
+      p_effective_date: '2026-06-19',
+      p_source: 'cached',
+      p_quote_date: '2026-06-19',
+    })
   })
 
   it('ignora cache legado sem PTAX e data efetiva', async () => {

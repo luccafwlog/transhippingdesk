@@ -73,12 +73,14 @@ function toCustomerContact(contact: ExtendedCustomerContact): CustomerContact {
     customer_id: contact.customer_id ?? null,
     name: contact.name ?? null,
     email: contact.email ?? null,
+    email_normalized: contact.email_normalized ?? (contact.email ? normalizeEmail(contact.email) : null),
     phone: contact.phone ?? null,
     is_primary: contact.is_primary ?? null,
     created_at: contact.created_at ?? null,
     purpose: contact.purpose ?? null,
     deactivated_at: contact.deactivated_at ?? null,
-    updated_at: contact.updated_at ?? null,
+    updated_at: contact.updated_at ?? contact.created_at ?? new Date().toISOString(),
+    origin: contact.origin ?? 'interno',
   }
 }
 

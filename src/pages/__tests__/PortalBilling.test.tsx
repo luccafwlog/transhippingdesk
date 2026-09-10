@@ -67,6 +67,14 @@ const demurrageInvoices: PortalDemurrageInvoice[] = [
 
 const exportLocal = vi.fn()
 const exportDemurrage = vi.fn()
+const portalExport = vi.hoisted(() => ({
+  local: vi.fn(),
+  demurrage: vi.fn(),
+}))
+portalExport.local.mockImplementation((filters: { bl?: string }) => Promise.resolve(
+  filters?.bl ? localInvoices.filter((invoice) => invoice.bls.includes(filters.bl!)) : localInvoices,
+))
+portalExport.demurrage.mockResolvedValue(demurrageInvoices)
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -108,7 +116,30 @@ vi.mock('../../hooks/usePortalAuth', async () => ({
 vi.mock('../../hooks/usePortalBilling', () => ({
   usePortalConsolidatableReceivables: () => ({ data: [] }),
   usePortalInvoices: () => ({ data: localInvoices, isLoading: false, error: null }),
+  usePortalInvoicesPage: (filters: { bl?: string }) => {
+    const rows = filters?.bl ? localInvoices.filter((invoice) => invoice.bls.includes(filters.bl!)) : localInvoices
+    return {
+    data: {
+      rows,
+      totalCount: rows.length,
+      vesselOptions: ['NAVIO A / 001W', 'NAVIO B / 002W'],
+      pods: ['BRVIX', 'BRSSZ'],
+    },
+    isLoading: false,
+    error: null,
+    }
+  },
   usePortalDemurrageInvoices: () => ({ data: mocks.demurrageError ? undefined : demurrageInvoices, isLoading: false, error: mocks.demurrageError }),
+  usePortalDemurrageInvoicesPage: () => ({
+    data: mocks.demurrageError ? undefined : {
+      rows: demurrageInvoices,
+      totalCount: demurrageInvoices.length,
+      vesselOptions: ['NAVIO C / 003W'],
+      pods: ['BRVIX'],
+    },
+    isLoading: false,
+    error: mocks.demurrageError,
+  }),
   usePortalCurrentRoe: () => ({ data: mocks.currentRoe }),
   usePortalInvoiceDetail: () => ({ data: mocks.detail, isLoading: false, error: null }),
   usePortalDemurrageInvoiceDetail: () => ({ data: null, isLoading: false, error: null }),
@@ -127,6 +158,11 @@ vi.mock('../../services/exports', () => ({
   exportPortalDemurrageWorkbook: (...args: unknown[]) => exportDemurrage(...args),
 }))
 
+vi.mock('../../services/portalBilling', () => ({
+  portalListInvoicesForExport: (...args: unknown[]) => portalExport.local(...args),
+  portalListDemurrageInvoicesForExport: (...args: unknown[]) => portalExport.demurrage(...args),
+}))
+
 import { PortalBilling } from '../PortalBilling'
 
 function renderBilling() {
@@ -141,6 +177,10 @@ afterEach(() => {
   cleanup()
   exportLocal.mockClear()
   exportDemurrage.mockClear()
+  portalExport.local.mockReset().mockImplementation((filters: { bl?: string }) => Promise.resolve(
+    filters?.bl ? localInvoices.filter((invoice) => invoice.bls.includes(filters.bl!)) : localInvoices,
+  ))
+  portalExport.demurrage.mockReset().mockResolvedValue(demurrageInvoices)
   mocks.confirm.mockReset()
   mocks.obsolete.mockReset()
   mocks.detail = null

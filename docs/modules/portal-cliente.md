@@ -160,13 +160,16 @@ conta não ativa.
 
 #### Arquitetura núcleo + invólucro
 
-As nove leituras escopadas por Cliente usam `_portal_<x>_core(customer_id, ...)`
+As leituras escopadas por Cliente usam `_portal_<x>_core(customer_id, ...)`
 como fonte única. A RPC do cliente mantém a assinatura e chama o núcleo com
 `current_portal_customer_id()`; `portal_inspect_<x>(customer_id, ...)` chama o
 mesmo núcleo após `_portal_inspect_guard`. O núcleo não é executável
 externamente; os invólucros de inspeção revogam `PUBLIC`/`anon` e concedem
 somente a `authenticated`. Isso evita assinaturas opcionais novas e o risco de
-`ALTER DEFAULT PRIVILEGES` reabrir `EXECUTE` para `anon`.
+`ALTER DEFAULT PRIVILEGES` reabrir `EXECUTE` para `anon`. `portal_list_disputes`
+segue o mesmo par desde `013_portal_disputes_inspection.sql`, e o par
+cliente/inspeção deriva do mapa literal `src/services/portalRpcContracts.ts`
+(usado pelo dispatcher, pelo teste de completude e pelo índice).
 
 `portal_get_session_overview_v2` fica fora desse par porque grava
 `last_login_at`; `portal_open_inspection` devolve seu overview sem essa escrita.
@@ -251,7 +254,7 @@ Portal.
 
 ### `/portal/billing`
 
-`src/pages/PortalBilling.tsx` orquestra abas Taxas Locais e Demurrage, filtros client-side por status, navio/viagem, B/L, POD e intervalo de emissao, exportacao XLSX do resultado filtrado e abertura de modais. As listas ficam em `PortalBillingTabs`; os detalhes ficam em `PortalInvoiceDetailModal` e `PortalDemurrageDetailModal`, com bloco PIX compartilhado. A aba local mostra breakdown, containers, PIX e impressao pelo navegador; tambem abre criacao ou desfazimento de consolidada. A aba demurrage mostra detalhe, PIX e abertura de disputa.
+`src/pages/PortalBilling.tsx` orquestra abas Taxas Locais e Demurrage. As listas interativas usam `portal_list_invoices_page` e `portal_list_demurrage_invoices_page`, com filtros server-side de status, navio/viagem, B/L, POD e intervalo de emissão, contagem total, opções e páginas de 25 linhas. Os wrappers `portal_inspect_*_page` preservam o mesmo recorte no Modo Inspeção. As listas ficam em `PortalBillingTabs`; os detalhes ficam em `PortalInvoiceDetailModal` e `PortalDemurrageDetailModal`, com bloco PIX compartilhado. A aba local mostra breakdown, containers, PIX e impressão pelo navegador; também abre criação ou desfazimento de consolidada. A aba demurrage mostra detalhe, PIX e abertura de disputa. **Código:** `src/pages/PortalBilling.tsx`, `src/hooks/usePortalBilling.ts`, `src/services/portalBilling.ts`; **SQL:** migration `021_portal_billing_pages.sql`.
 
 ### `/portal/operacao`
 
@@ -287,10 +290,10 @@ Portal.
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|
-| `/portal/billing` — listar/filtrar invoices locais | Sessão autenticada | `PortalBilling`/`LocalFeesTab` | `usePortalInvoices`; filtros client-side por status agrupado, navio/viagem, B/L, POD e data | RPC `portal_list_invoices`; invoices/links/recebíveis/B/Ls do cliente resolvido por `auth.uid()` | Query `['portal-invoices']`; filtros são estado local; `tab` fica na URL | Erro da query mostra “Falha ao consultar faturas” | **Teste:** filtros/export em `src/pages/__tests__/PortalBilling.test.tsx`; **Teste de contrato SQL:** `src/services/__tests__/portalCeMercanteGateMigration.test.ts` |
+| `/portal/billing` — listar/filtrar invoices locais | Sessão autenticada | `PortalBilling`/`LocalFeesTab` | `usePortalInvoicesPage`; filtros server-side por status agrupado, navio/viagem, B/L, POD e data; página de 25 | RPC `portal_list_invoices_page`; núcleo escopado resolve invoices/links/recebíveis/B/Ls do cliente por `auth.uid()` | Query `['portal-invoices-page', mode, customerId, filters, page]`; mudança de filtro volta à primeira página; `tab` fica na URL | Erro da query mostra falha da aba; página vazia é distinta de falha de rede | **Código:** `src/pages/PortalBilling.tsx`, `src/hooks/usePortalBilling.ts`; **Teste:** `src/pages/__tests__/PortalBilling.test.tsx`; **Teste local:** `src/integration/portalInspectionParity.local-pg.test.ts` |
 | `/portal/billing` - abrir detalhe local/imprimir | Invoice da lista selecionada | Botao "Detalhes"; `PortalInvoiceDetailModal` e botao "Imprimir PDF" | `usePortalInvoiceDetail` -> `portalInvoiceDetails`; `PortalPixPaymentBlock`; `InvoiceDocumentLocal`; `window.print()` | RPC `portal_invoice_details`; le invoice, B/Ls, itens, containers e pagamentos | Query `['portal-invoice-detail', id]`; impressao altera temporariamente `document.title` | Invoice fora do cliente/gate gera `P0002`; UI mostra falha generica | **Teste de contrato SQL:** `src/services/__tests__/portalInvoiceConsolidatedBreakdownMigration.test.ts`, `src/services/__tests__/portalCeMercanteGateMigration.test.ts`; **Runtime nao executado** |
-| `/portal/billing` — listar/filtrar/detalhar demurrage | Sessão autenticada | `DemurrageTab` e `PortalDemurrageDetailModal` | `usePortalDemurrageInvoices`/`usePortalDemurrageInvoiceDetail`; `PortalPixPaymentBlock` | RPCs `portal_list_demurrage_invoices` e `portal_get_demurrage_invoice_detail`; lê `demurrage_invoices/items` e B/L | Queries `portal-demurrage-invoices` e `portal-demurrage-invoice-detail` | A lista final aceita somente `issued`, `overdue`, `paid`; detalhe negado gera `P0002` | **Teste:** aba/export em `src/pages/__tests__/PortalBilling.test.tsx`; **Teste de contrato SQL:** `src/services/__tests__/portalCeMercanteGateMigration.test.ts` |
-| `/portal/billing` — exportar resultado | Aba ativa; resultado filtrado | `handleExport` | `exportPortalLocalInvoicesWorkbook` ou `exportPortalDemurrageWorkbook` | Download XLSX local com `@e965/xlsx` | Exporta somente linhas após filtros da aba; sem mutação/cache | A página não aguarda nem apresenta toast de falha do export | **Teste:** `src/pages/__tests__/PortalBilling.test.tsx`; **Código:** `src/services/exports.ts` |
+| `/portal/billing` — listar/filtrar/detalhar demurrage | Sessão autenticada | `DemurrageTab` e `PortalDemurrageDetailModal` | `usePortalDemurrageInvoicesPage`/`usePortalDemurrageInvoiceDetail`; filtros server-side e página de 25 | RPCs `portal_list_demurrage_invoices_page` e `portal_get_demurrage_invoice_detail`; lê `demurrage_invoices/items` e B/L | Queries `portal-demurrage-invoices-page` e `portal-demurrage-invoice-detail`; wrappers de Inspeção preservam `customerId` | A lista final aceita somente `issued`, `overdue`, `paid`; detalhe negado gera `P0002`; filtros sem resultado são distintos de falha de RPC | **Código:** `src/pages/PortalBilling.tsx`, `src/services/portalBilling.ts`; **Teste:** `src/pages/__tests__/PortalBilling.test.tsx`, `src/integration/portalInspectionParity.local-pg.test.ts` |
+| `/portal/billing` — exportar resultado | Aba ativa; filtros atuais | `handleExport` | Busca todas as páginas server-side com `portalList*ForExport`, depois chama `exportPortalLocalInvoicesWorkbook` ou `exportPortalDemurrageWorkbook` | Download XLSX local com `@e965/xlsx` | Exporta todos os resultados que correspondem aos filtros; leitura sob demanda não altera cache das abas | Falha mostra toast e preserva a tela | **Teste:** `src/pages/__tests__/PortalBilling.test.tsx`; **Código:** `src/services/portalBilling.ts`, `src/services/exports.ts` |
 | `/portal/billing` — carregar recebíveis consolidáveis | Sessão autenticada | Métrica e `PortalConsolidatedModal` | `usePortalConsolidatableReceivables`; `isReceivableSelectable` | RPC `portal_list_consolidatable_receivables`; `bl_receivables`, links e invoices | Query `['portal-consolidatable-receivables']`; status `eligible`, `paid`, `no_balance`, `open_consolidated` | Itens inelegíveis ficam desabilitados; falha de query não tem erro dedicado no modal | **Teste de contrato SQL:** `src/services/__tests__/portalCeMercanteGateMigration.test.ts`; **Código:** `src/components/portal/PortalConsolidatedModal.tsx` |
 | `/portal/billing` — criar consolidada | Ao menos um recebível selecionado e elegível; posse do cliente; CE em todos os B/Ls; rate limit | `PortalConsolidatedModal.submit` | `usePortalCreateConsolidation` → `portalCreateConsolidation` → core transacional | RPC `portal_create_consolidation`; core `create_local_consolidated_invoice_core`; INSERT `alerts` e `portal_notifications` | Invalida recebíveis e invoices; `refreshOverview`; abre detalhe retornado | 3 tentativas/10 min, outro cliente, sem CE, inelegibilidade/core ou transporte | **Teste de contrato SQL:** `src/services/__tests__/portalCreateConsolidationJsonbMigration.test.ts`, `src/services/__tests__/portalCeMercanteGateMigration.test.ts`; **Código:** componente/hook |
 | `/portal/billing` — desfazer consolidada | Invoice `consolidated`, status `issued/partially_paid/overdue`, sem pagamentos; confirmação; rate limit | Detalhe local, `handleObsolete` | `usePortalObsoleteConsolidation` → `portalObsoleteConsolidation` | RPC `portal_obsolete_consolidation`; UPDATE invoice e links; INSERT lifecycle, alerta e notificação | Invalida recebíveis/invoices; `refreshOverview`; fecha detalhe | 3 tentativas/15 min, invoice alheia/não consolidada/paga/cancelada/obsoleta ou com pagamento | **Código:** `src/pages/PortalBilling.tsx`, `supabase/migrations_archive/119_portal_fixes_post_pr227.sql`; **Runtime não executado** |
@@ -321,10 +324,10 @@ Portal.
 |---|---|---|
 | `overview` no `PortalAuthProvider` | `portal_get_session_overview_v2` | Login, hidratação, `refreshOverview`, `SIGNED_IN`/`TOKEN_REFRESHED`; limpo antes do logout, em `SIGNED_OUT` ou por erro de sessão. |
 | Sentry `user`/tag do Portal | `overview.customer_id` | Setado quando o overview carrega; limpo no logout/`SIGNED_OUT`; sem PII além do id numérico. |
-| `['portal-invoices']` | `portal_list_invoices` | Criação/desfazimento de consolidada. |
+| `['portal-invoices-page', mode, customerId, filters, page]` | `portal_list_invoices_page` | Criação/desfazimento de consolidada invalidam as raízes `portal-invoices` e `portal-invoices-page`; mudança de filtro/página cria uma leitura limitada. |
 | `['portal-invoice-detail', id]` | `portal_invoice_details` | Não é invalidada explicitamente; o modal fecha após desfazer. |
 | `['portal-consolidatable-receivables']` | `portal_list_consolidatable_receivables` | Criação/desfazimento de consolidada. |
-| `['portal-demurrage-invoices']` | `portal_list_demurrage_invoices` | Abertura de disputa. |
+| `['portal-demurrage-invoices-page', mode, customerId, filters, page]` | `portal_list_demurrage_invoices_page` | Abertura de disputa invalida as raízes `portal-demurrage-invoices` e `portal-demurrage-invoices-page`; cada leitura traz somente a página solicitada. |
 | `['portal-demurrage-invoice-detail', id]` | `portal_get_demurrage_invoice_detail` | Sem invalidação explícita. |
 | `['portal-operation-bls']` | `portal_list_operation_bls` | Sem Realtime/refetch específico. |
 | `['portal-schedule-voyages']` | RPC `portal_ship_schedule` (projeção de `voyages.show_on_portal` e omissões) | Invalidada por omissão/reversão e pelas mutações de `/chegadas-saidas`; o Portal reflete `OMIT` sem depender de Realtime. |
@@ -405,7 +408,7 @@ Não há teste focado para `PortalLogin`, `PortalProtectedRoute`, `PortalConsoli
 - **Código — links de notificação não navegam.** `portal_list_notifications` retorna `link`, mas `NotificationBell` apenas marca a linha como lida.
 - **Código — falha de perfil é silenciosa na carga.** `PortalProfile` ignora erro de `portal_get_profile`, podendo exibir campos vazios como se fossem dados reais.
 - **Código — falha do cronograma vira vazio.** `listVesselSchedules` registra no console e retorna `[]`, sem distinguir indisponibilidade de ausência de navios.
-- `portal_list_disputes()` existe em `supabase/migrations_archive/116_portal_fase2_notifications_disputes_profile.sql`, mas não tem consumidor no frontend atual.
+- `portal_list_disputes()` é consumida por `portalListDisputes` (`src/services/portalBilling.ts` via `usePortalDisputes`) e tem par de inspeção `portal_inspect_list_disputes` desde `013_portal_disputes_inspection.sql`.
 - [ADR 0001](../adr/0001-portal-login-supabase-auth.md) continua válida para Supabase Auth e fim do token legado, mas foi parcialmente superada pela [ADR 0013](../adr/0013-portal-auth-identificador-resolvido-e-excecao-anon.md) quanto aos identificadores aceitos.
 A operação interna do Portal está disponível em `/clientes/portal`, com fila
 inicial em “Aguardando análise”, prioridade visual, candidatos de email e

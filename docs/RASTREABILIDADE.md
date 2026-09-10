@@ -1,6 +1,6 @@
 # Rastreabilidade Técnica
 
-Verificado contra o repositório em 2026-09-06.
+Verificado contra o repositório em 2026-09-10.
 
 Este índice liga cada rota e ação relevante aos chamadores do frontend, aos
 contratos executáveis do Supabase e ao documento do módulo proprietário. Ele é
@@ -11,11 +11,13 @@ Nesta etapa foram inventariados 130 nomes literais de RPC, 60 tabelas acessadas
 diretamente pelo frontend e 2 buckets de Storage usados pelos serviços, além
 dos diretórios de `supabase/functions` (hoje 15 Edge Functions além de
 `_shared`). O índice cobre a superfície navegável, não a
-totalidade: o schema expõe 198 funções a `authenticated`/`anon`, e 83 delas
-ainda não têm linha aqui. Parte da superfície é montada em tempo de execução —
-`callPortalRpc` deriva os nomes `portal_inspect_*` por interpolação
-(`src/services/portalScope.ts`), então esses nomes não aparecem como literais no
-código. Levantamento e lacunas detalhadas na
+totalidade: o replay local atual expõe 219 funções SQL de aplicação a
+`authenticated`/`anon`; 168 nomes chamados pela produção resolvem no catálogo
+executado e as funções auxiliares restantes são acompanhadas por família abaixo,
+sem fingir que um helper interno é uma rota. O par cliente/inspeção deriva do mapa literal
+`src/services/portalRpcContracts.ts` (dispatcher em `src/services/portalScope.ts`,
+teste de completude e índice), então os nomes `portal_inspect_*` têm fonte única
+no código. Levantamento e lacunas detalhadas na
 [auditoria consolidada das PRs #654–#660](archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md).
 
 ## Evidência
@@ -25,9 +27,88 @@ código. Levantamento e lacunas detalhadas na
 - **Runtime**: comportamento observado em navegador/API/banco controlado.
 - **Suspeita**: divergência plausível que ainda exige confirmação adicional.
 
+## Atualização da PR #670 — 2026-09-10
+
+O recorte de `009`–`030` foi conferido no replay PostgreSQL local e agora tem
+linha de rastreabilidade para as funções que não apareciam no índice anterior.
+As funções com prefixo `_` são núcleos privados; os demais nomes são wrappers,
+leitores ou workers. **Evidência:** 17 suítes de integração local, 64 testes,
+`npm run rpc:check` com 168 nomes chamados e `npm run docs:check` com 428
+Markdown/49 rotas. O smoke autenticado do Preview também confirmou importação
+de datas, emissão/baixa de Demurrage com desconto e paridade Portal/Inspeção.
+Isso não afirma deploy de produção, execução dos jobs, Vault preenchido, BCB ou
+Resend reais.
+
+| Família / funções introduzidas ou redefinidas nesta PR | Migração / evidência executável |
+|---|---|
+| `apply_baplie_physical_flags_atomic`, `apply_container_dates_atomic` | `015_import_dates_and_flags_atomic.sql`; `importAtomicity.local-pg.test.ts`, `baplieParserS03.test.ts` |
+| `apply_customer_base_row_atomic`, `import_bl_freight_with_metadata` | `016_import_metadata_and_omission_conflicts.sql`; testes de importação/customer base |
+| `claim_import_effects`, `complete_import_effect`, `enqueue_import_effect`, `list_import_effects`, `retry_import_effect`, `prevent_import_effect_attempt_mutation` | `017_import_effects_outbox.sql`, `025_import_effect_worker.sql`; `importEffects.local-pg.test.ts` |
+| `create_customer_dunning_group_atomic`, `demurrage_dunning_candidate_sendable`, `release_demurrage_dunning_claim` | `010_contact_routing_and_dunning_eligibility.sql`, `011_dunning_group_membership.sql`; contratos de dunning |
+| `apply_demurrage_discount`, `cancel_demurrage_invoice`, `confirm_demurrage_pix_matches`, `register_demurrage_payment`, `reopen_demurrage_invoice`, `_demurrage_mutation_request` | `012_demurrage_mutation_guards.sql`, `027_demurrage_money_fixes.sql`; `demurrageMoney.local-pg.test.ts` |
+| `create_demurrage_invoice_authoritative`, `create_demurrage_invoice_with_items`, `capture_demurrage_calculation_snapshot`, `prevent_demurrage_calculation_snapshot_mutation`, `_calculate_demurrage_invoice_authoritative` | `018_exchange_rate_provenance.sql`, `023_demurrage_calculation_snapshot.sql`, `027_demurrage_money_fixes.sql`; `demurrageAuthority.local-pg.test.ts` |
+| `capture_demurrage_calculation_snapshot` (correção da coluna histórica de PTAX) | `030_fix_demurrage_snapshot_ptax_column.sql`; `demurrageAuthorityMigration.test.ts`, smoke autenticado no Preview |
+| `recalculate_demurrage_invoices`, `recalculate_demurrage_invoices_manual`, `save_exchange_rate_reference`, `save_exchange_rate_reference_v2`, `_demurrage_roe_from_ptax`, `_demurrage_spread_version` | `018_exchange_rate_provenance.sql`; `exchangeRateIntegrity.local-pg.test.ts` |
+| `operational_list_bl_summary`, `operational_list_bls`, `operational_list_containers` | `020_operational_read_pages.sql`; `operationalLists.local-pg.test.ts` |
+| `portal_list_disputes`, `_portal_list_disputes_core` | `013_portal_disputes_inspection.sql`; `portalInspectionParity.local-pg.test.ts` |
+| `portal_list_demurrage_invoices_page`, `portal_list_invoices_page`, `_portal_list_demurrage_invoices_page_core`, `_portal_list_invoices_page_core` | `021_portal_billing_pages.sql`; `portalInspectionParity.local-pg.test.ts` |
+| `customer_billing_access_ready` | `019_local_billing_integrity.sql`; `localBillingIntegrity.local-pg.test.ts` |
+| `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql`; `auditSecurityBoundaries.local-pg.test.ts` |
+| `portal_email_event_attempts_append_only` | `022_email_inbox_and_dispatch_state.sql`; `emailInbox.local-pg.test.ts` |
+
+Os contratos financeiros passaram a persistir `demurrage_invoice_items.subtotal_brl`
+com resíduo determinístico e o documento lê o valor persistido; valores históricos
+sem snapshot não são inventados. `src/types/database.ts` foi regenerado pelo
+gerador oficial contra o Preview depois do smoke autenticado, preservando os
+aliases de domínio do frontend e uma camada separada de compatibilidade para
+`null` explícito em inputs/RPCs. A coluna `subtotal_brl`, os campos de procedência
+do ROE e a família de `exchange_rate_reference_history` foram conferidos no
+schema remoto e no replay PostgreSQL local.
+
+### Inventário S14 — legado e colunas nullable
+
+No replay local de 2026-09-09, as 14 candidatas do plano (`portal_*_legacy`,
+`close_legacy_agency_report_alerts_for_scale` e
+`reconcile_bl_review_alerts_item`) resolveram para assinaturas existentes, todas
+sem dependente em `pg_depend`, sem referência no corpo de outra função e sem job
+local cujo comando as chame. As funções `*_legacy` também estão sem `EXECUTE`
+para `anon` e `authenticated`. Isso é evidência de não-uso interno, não prova de
+ausência de consumidor externo; por isso nenhuma foi removida nesta PR e os sete
+elos de import que formam a cadeia `_legacy_205/284/322/357`, `_legacy_165`,
+`_legacy_136` e `save_granite_bl_review_legacy_148` continuam preservados.
+
+As colunas `alerts.notified_at`, `bls.consignee_address`,
+`charge_calculations.reviewed_at` e `customer_portal_sessions.last_seen_at`
+existem e são nullable; no banco descartável todas estavam nulas. Não houve
+caller ativo em `src`/Edge Functions para as quatro; `charges_reviewed_at` e
+outros campos homônimos usados pela projeção de Taxas Locais não são a coluna
+legada `charge_calculations.reviewed_at`. Sem contagem do ambiente real,
+telemetria externa e decisão documental, a remoção fica deliberadamente
+pendente; qualquer contração futura deve usar migration nova e `DROP ... RESTRICT`.
+
 Testes que apenas inspecionam texto ou regex de migrations são classificados
 como **Teste de contrato SQL**. Eles detectam drift no SQL versionado, mas não
 provam migration aplicada, grants remotos, RLS em execução ou atomicidade real.
+
+## Atualização da remediação das auditorias #654–#660 — 2026-09-07
+
+Esta revisão focal integra o baseline da PR #669 e acrescenta as migrations
+`022`–`026`. A fronteira de email agora é: webhook autenticado recebe e
+persiste a inbox; `portal-email-events-runner` faz claim, retry e transições
+server-only. Efeitos de importação usam `import_pending_effects` com lease,
+histórico de tentativas e `import-effects-runner`, que permanece fail-closed até
+ativação explícita no ambiente correto. A emissão de Demurrage recebe IDs e
+data opcional no RPC autoritativo, calcula no banco e registra snapshots
+append-only; a falha persistente do recálculo PTAX abre o alerta
+`demurrage_ptax_recalc_failed`.
+
+**Código/Teste:** migrations `022_email_inbox_and_dispatch_state.sql`,
+`023_demurrage_calculation_snapshot.sql`,
+`024_demurrage_ptax_alert.sql`, `025_import_effect_worker.sql` e
+`026_import_effect_alert.sql`, integrações locais opt-in e testes focados.
+Esse bloco não afirma deploy remoto, grants efetivos no Postgres gerenciado,
+Vault preenchido, cron executado, Resend/BCB real ou conclusão integral do plano;
+os itens pendentes continuam classificados na matriz do plano.
 
 ## Atualização da PR 550
 
@@ -148,14 +229,14 @@ as divergências permanecem no documento vivo do módulo indicado.
 | `/clientes/portal` | Fila e revisão individual do provisionamento | `src/pages/ClientesPortal.tsx`, `PortalReviewPanel` | `usePortalProvisioning`, `portalProvisioning.ts` | `customer_portal_accounts`, convites, contatos e alertas | Filtro inicial aguardando análise; ações individuais; deep-link por cliente | **Código**, **Teste** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/comunicacao` | Conferir, simular/enviar e consultar histórico de Comunicados | `src/pages/ClientesComunicacao.tsx` | `useCustomerCommunications`, `customerCommunications.ts`, `customerCommunicationDispatches.ts` | `customer_communications`, `customer_communication_bls`, `customer_communication_attempts`; Edge `send-customer-communication`; migrations `373`/`374` | Cache de conferência/histórico invalidado após dispatch; banner permanente quando a chave global está desligada; histórico chega à Ficha e aos B/Ls vinculados | **Código**, **Teste**, **Teste de contrato SQL** | [Clientes](modules/clientes.md#anatomia-das-telas) |
 | `/clientes/portal/inspecao/:customerId/*` | Inspecionar o Portal de um Cliente em modo somente leitura | `PortalReviewPanel`, `PortalLayout`, páginas do Portal | `PortalScope`, `callPortalRpc`, hooks de billing/operação/perfil/notificações | `portal_open_inspection`; núcleos `_portal_*_core`; invólucros `portal_inspect_*`; `portal_inspection_events` | Base path e caches incluem o Cliente; escritas bloqueadas; saída retorna à origem | Usuário interno inativo, Cliente inválido, RPC negada ou falha de overview | **Código:** ADR 0045; **Teste de contrato SQL:** paridade/grants; **Teste:** bloqueio e contenção |
-| `/clientes/portal/inspecao/:customerId/billing` | Consultar faturas em Modo Inspeção | `PortalBilling` | `usePortalBilling` / `PortalScope` | `portal_inspect_list_invoices`, `portal_inspect_*` | Cache inclui `customerId`; mutações desabilitadas | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
+| `/clientes/portal/inspecao/:customerId/billing` | Consultar faturas e disputas em Modo Inspeção | `PortalBilling` | `usePortalBilling` / `usePortalDisputes` / `PortalScope` | `portal_inspect_list_invoices_page`, `portal_inspect_list_demurrage_invoices_page`, `portal_inspect_list_disputes`, `portal_inspect_*` | Cache inclui `customerId`; mutações desabilitadas; listas de billing são paginadas no servidor | **Código**, **Teste local de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/portal/inspecao/:customerId/operacao` | Consultar BLs e containers em Modo Inspeção | `PortalOperacao` | `usePortalOperation` / `PortalScope` | `portal_inspect_list_operation_bls` | Leitura compartilhada; nenhuma escrita | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/clientes/portal/inspecao/:customerId/perfil` | Consultar perfil em Modo Inspeção | `PortalProfile` | `usePortalProfile` / `PortalScope` | `portal_inspect_get_profile` | Campos e ações permanecem visíveis; gravações bloqueadas | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `billing` | Subrota de faturas da Inspeção | `PortalBilling` | `PortalScope` | `portal_inspect_*` | Mantém o cliente na inspeção | **Código** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `operacao` | Subrota operacional da Inspeção | `PortalOperacao` | `PortalScope` | `portal_inspect_list_operation_bls` | Somente leitura | **Código** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `perfil` | Subrota de perfil da Inspeção | `PortalProfile` | `PortalScope` | `portal_inspect_get_profile` | Escritas bloqueadas | **Código** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/portal` | Carregar KPIs e programação de navios | `src/pages/PortalDashboard.tsx` | `usePortalAuth`, `usePortalScheduleVoyages` | `portal_get_session_overview_v2`, RPC `portal_ship_schedule` | Cache do Portal removido em logout/`SIGNED_OUT`; programação projetada de viagens visíveis distingue `OMIT` de `X` e recebe invalidação por omissão/reversão | **Código**, **Teste**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
-| `/portal/billing` | Listar e abrir cobranças locais e demurrage | `src/pages/PortalBilling.tsx` | `usePortalBilling` / `portalBilling.ts` | RPCs `portal_list_*`, `portal_get_*` | Dados são resolvidos pelo cliente autenticado | **Código**, **Teste**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
+| `/portal/billing` | Listar e abrir cobranças locais e demurrage | `src/pages/PortalBilling.tsx` | `usePortalBilling` / `portalBilling.ts` | RPCs `portal_list_invoices_page`, `portal_list_demurrage_invoices_page`, `portal_get_*` | Filtros e contagem são resolvidos no servidor; cada aba transfere uma página de até 25 linhas | **Código**, **Teste**, **Teste local de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/portal/billing` | Criar ou tornar obsoleta consolidação | `src/components/portal/PortalConsolidatedModal.tsx` | `usePortalBilling` | `portal_create_consolidation`, `portal_obsolete_consolidation` | Invalida listas, overview e recebíveis consolidáveis | **Código**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/portal/operacao` | Consultar B/Ls, containers e Informações de Transbordo | `src/pages/PortalOperacao.tsx` | `usePortalOperation` / `portalOperation.ts` | `portal_list_operation_bls`; projeção de `bl_transshipments` + `voyage_omissions` | Expansão do B/L mostra o card global vigente; COD é distinto e não publica justificativa, navio ou datas internas | **Código**, **Teste**, **Teste de contrato SQL** | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
 | `/portal/perfil` | Atualizar perfil e contatos permitidos | `src/pages/PortalProfile.tsx` | `usePortalAuth` | `portal_update_profile` | Atualiza somente campos autorizados e recarrega overview | **Código**; runtime não executado | [Portal do Cliente](modules/portal-cliente.md#catálogo-de-ações) |
@@ -320,11 +401,12 @@ O escopo inclui `customers`, `customer_contacts`, `carriers`, `vessels`, `ports`
 | `portal_create_consolidation` | `src/services/portalBilling.ts` | `123_portal_ce_mercante_gate.sql`: `(bigint[]) → jsonb`, `SECURITY DEFINER` | `current_portal_customer_id()`, posse, CE e rate limit 3/10 min; `PUBLIC`/`anon` revogados; `authenticated` | Cria consolidada pelo core, insere alerta e notificação; hooks invalidam recebíveis/invoices e atualizam overview. | Portal / Faturamento | **Código:** service + migration; **Teste de contrato SQL:** `portalCreateConsolidationJsonbMigration.test.ts`, `portalCeMercanteGateMigration.test.ts` |
 | `portal_get_demurrage_invoice_detail` | `src/services/portalBilling.ts` | `123_portal_ce_mercante_gate.sql`: `(bigint) → jsonb`, `STABLE SECURITY DEFINER` | Escopo por `current_portal_customer_id()`, status e CE; migration concede `authenticated, anon` | Somente leitura de invoice/itens próprios. **Suspeita:** grant `anon` contradiz a allowlist da ADR 0013, embora o helper rejeite `auth.uid()` nulo. | Portal / Demurrage | **Código:** service + migration; **Suspeita:** ACL final |
 | `portal_get_profile` | `src/services/portalBilling.ts` | `116_portal_fase2_notifications_disputes_profile.sql`: `() → jsonb`, `STABLE SECURITY DEFINER` | Escopo por `current_portal_customer_id()`; `PUBLIC`/`anon` revogados; `authenticated` | Lê conta, cadastro do cliente e contato de faturamento. | Portal / Perfil | **Código:** service + migration |
-| `portal_get_session_overview_v2` | `src/hooks/usePortalAuth.tsx` | `115_portal_fase1_login_cnpj.sql`: `() → jsonb`, `SECURITY DEFINER` | Exige `auth.uid()` e conta ativa vinculada; `PUBLIC` revogado; `authenticated` | Lê overview e atualiza `last_login_at` da conta. | Portal / Auth | **Código:** hook + migration |
+| `portal_get_session_overview_v2` | `src/hooks/usePortalAuth.tsx` | `115_portal_fase1_login_cnpj.sql` + `009_rpc_entry_security.sql`: `() → jsonb`, `SECURITY DEFINER` | Valida identidade/revogação via `current_portal_customer_id()` (iat, `revoked_before`, tolerância 5 s) antes de atualizar `last_login_at`; `PUBLIC`/`anon` revogados; `authenticated` | Lê overview e atualiza `last_login_at` da conta; token revogado recebe `28000` genérico sem deixar rastro de login. | Portal / Auth | **Código:** hook + migration; **Teste:** `auditSecurityBoundaries.local-pg.test.ts` |
 | `portal_invoice_details` | `src/services/portalBilling.ts` | `123_portal_ce_mercante_gate.sql` + `261_freeze_consolidated_invoice_items.sql`: `(bigint) → jsonb`, `STABLE SECURITY DEFINER` | Cliente resolvido, invoice própria e CE em todos os B/Ls; grant `authenticated, anon` | Lê invoice, links, breakdown, containers e pagamentos. A montagem dos B/Ls (de `invoice_receivable_links`, quando `invoice_bls` está vazio) foi desacoplada da montagem dos itens (de `invoice_items`, quando congelado pela migration 261; senão reconstrói ao vivo) — antes as duas dependiam do mesmo `IF v_items vazio`, o que faria a lista de B/Ls sumir assim que os itens passassem a vir congelados. **Suspeita:** `anon` reaberto após default-deny. | Portal / Faturamento | **Código:** service + migration; **Teste de contrato SQL:** `portalInvoiceConsolidatedBreakdownMigration.test.ts`, `portalCeMercanteGateMigration.test.ts`; **Suspeita:** ACL |
 | `portal_list_consolidatable_receivables` | `src/services/portalBilling.ts` | `123_portal_ce_mercante_gate.sql`: `() → table`, `STABLE SECURITY DEFINER` | Cliente resolvido e CE por B/L; grant `authenticated, anon` | Somente leitura de recebíveis próprios elegíveis. **Suspeita:** grant `anon` diverge da ADR 0013. | Portal / Faturamento | **Código:** service + migration; **Teste de contrato SQL:** `portalCeMercanteGateMigration.test.ts`; **Suspeita:** ACL |
 | `portal_list_demurrage_invoices` | `src/services/portalBilling.ts` | `123_portal_ce_mercante_gate.sql`: `() → jsonb`, `STABLE SECURITY DEFINER` | Cliente resolvido, status permitido e CE; grant `authenticated, anon` | Somente leitura das invoices próprias de demurrage. **Suspeita:** grant `anon`. | Portal / Demurrage | **Código:** service + migration; **Teste de contrato SQL:** `portalCeMercanteGateMigration.test.ts`; **Suspeita:** ACL |
-| `portal_list_invoices` | `src/services/portalBilling.ts` | `123_portal_ce_mercante_gate.sql`: `() → table`, `STABLE SECURITY DEFINER` | Cliente resolvido, invoice própria e CE; grant `authenticated, anon` | Somente leitura de invoices e saldo ledger. **Suspeita:** grant `anon`. | Portal / Faturamento | **Código:** service + migration; **Teste de contrato SQL:** `portalInvoiceHistoryLinksMigration.test.ts`, `portalCeMercanteGateMigration.test.ts`; **Suspeita:** ACL |
+| `portal_list_invoices` | `src/services/portalBilling.ts` (Dashboard/exportação legada) | `123_portal_ce_mercante_gate.sql`: `() → table`, `STABLE SECURITY DEFINER` | Cliente resolvido, invoice própria e CE; grant `authenticated, anon` | Leitura legada de invoices e saldo ledger; a aba de billing usa o contrato paginado novo | Portal / Faturamento | **Código:** service + migration; **Teste de contrato SQL:** `portalInvoiceHistoryLinksMigration.test.ts`, `portalCeMercanteGateMigration.test.ts`; **Teste local:** `portalInspectionParity.local-pg.test.ts` |
+| `portal_list_invoices_page` / `portal_list_demurrage_invoices_page` | `src/services/portalBilling.ts`, `src/hooks/usePortalBilling.ts` | `021_portal_billing_pages.sql`: `(limit,offset,status,vessel,bl,pod,date_from,date_to) → jsonb`, `STABLE SECURITY DEFINER`; wrappers `portal_inspect_*_page` usam `_portal_inspect_guard` | Cliente resolvido e gate de CE preservados pelo núcleo legado; página limitada a 100 e ordenação total | Retorna `rows`, `total_count`, opções de filtro e não expõe tabelas diretamente | Portal / Faturamento / Inspeção | **Código:** service + hooks; **Teste local:** `portalInspectionParity.local-pg.test.ts`; **Catálogo executado:** `scripts/check-rpc-catalog.mjs` |
 | `portal_list_notifications` | `src/services/portalBilling.ts` | `119_portal_fixes_post_pr227.sql`: `(int=20) → jsonb`, `STABLE SECURITY DEFINER` | Cliente resolvido; `PUBLIC`/`anon` revogados; `authenticated` | Somente leitura; query é cacheada e atualizada por polling/refetch. | Portal / Notificações | **Código:** service + migration |
 | `portal_list_operation_bls` | `src/services/portalOperation.ts` | `123_portal_ce_mercante_gate.sql`: `() → jsonb`, `STABLE SECURITY DEFINER` | Cliente resolvido e CE; grant `authenticated, anon` | Lê B/Ls/containers próprios e deriva free time/demurrage. **Suspeita:** grant `anon` contradiz ADR, apesar do guard interno. | Portal / Operação | **Código:** service + migration; **Teste:** `portalOperation.test.ts`; **Teste de contrato SQL:** `portalOperationMigration.test.ts`, `portalCeMercanteGateMigration.test.ts`; **Suspeita:** ACL |
 | `portal_mark_all_notifications_read` | `src/services/portalBilling.ts` | `116_portal_fase2_notifications_disputes_profile.sql`: `() → void`, `SECURITY DEFINER` | Cliente resolvido; `PUBLIC`/`anon` revogados; `authenticated` | Atualiza `portal_notifications.read_at` do cliente; invalida lista e contador. | Portal / Notificações | **Código:** service + migration |
@@ -444,6 +526,9 @@ loops, não apenas por regex de `CREATE POLICY`.
 | `send-customer-communication` | Frontend interno autorizado ou automação financeira server-side | `verify_jwt=false`; valida Bearer por Supabase Auth e perfil interno ativo para o fluxo interativo; CORS compartilhado | Cliente Supabase `service_role`; RPC `create_customer_communication_atomic` | Confere contato, natureza, preferência e supressões; grava Comunicado/tentativa; em chave desligada registra `simulado` sem chamar Resend; quando ligada envia via `_shared/email.ts`. Recebe os tipos operacionais, `ce_mercante_taxas` e `cobranca_demurrage` | **Código:** `supabase/functions/send-customer-communication/index.ts`, `src/services/customerCommunicationDispatches.ts`; **Teste de contrato SQL:** `sendCustomerCommunicationFunction.test.ts` |
 | `demurrage-dunning` | `pg_cron` via `pg_net`, job horário | `verify_jwt=false`; Bearer de `DEMURRAGE_DUNNING_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC `claim_demurrage_dunning_candidates` em lotes; release server-only; escrita atômica da trilha de Comunicado | Reivindica a próxima cobrança por `first_billed_at`, pausa por disputa/bounce/ausência de contato válido, libera claims que não chegaram a envio concluído, não aplica teto e envia `cobranca_demurrage` respeitando a chave global | **Código:** `supabase/functions/demurrage-dunning/index.ts`, `src/services/demurrageDunning.ts`; migrations `378` e `379`; **Teste:** `demurrageDunningFunction.test.ts`, `demurrageDunningMigration.test.ts` |
 | `customer-communication-auto-runner` | `pg_cron` via `pg_net`, job a cada 15 minutos | `verify_jwt=false`; header `X-Communication-Automation-Secret` comparado em tempo constante | Cliente Supabase `service_role`; RPC `evaluate_and_dispatch_automatic_communications` com lease; release server-only | Avalia NOA (ETA − 5 dias), NOR (ATA nos últimos 30 dias) e `ce_mercante_taxas` após prontidão financeira, reivindica alvos por claims transacionais idempotentes e despacha e-mails pelo canal compartilhado | **Código:** `supabase/functions/customer-communication-auto-runner/index.ts`; migrations `381`–`384`; **Teste:** `customerCommunicationAutoRunner.test.ts`, `customerCommunicationAutomationMigration.test.ts` |
+| `portal-email-events-runner` | `pg_cron` via `pg_net`, job a cada minuto | `verify_jwt=false`; Bearer de `PORTAL_EMAIL_EVENTS_CRON_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPCs `claim_portal_email_events`, `process_portal_email_event` e `complete_portal_email_event` | Processa a inbox durável do webhook, respeita ordenação, retry, bounce/complaint, fallback e alerta de investigação; não reenvia evento legado sem payload | **Código:** `supabase/functions/portal-email-events-runner/index.ts`, `_shared/portalEmailEventProcessor.ts`; migration `022`; **Teste:** `portalEmailInboxMigration.test.ts`, `emailInbox.local-pg.test.ts` |
+| `import-effects-runner` | `pg_cron` via `pg_net`, job a cada 5 minutos | `verify_jwt=false`; Bearer de `IMPORT_EFFECTS_CRON_SECRET`; consumidor adicionalmente exige `IMPORT_EFFECTS_RUNNER_ENABLED=true` | Cliente Supabase `service_role`; claim e `process_import_effect` server-only | Executa efeitos pós-commit com lease, idempotência, retry transitório e bloqueio investigável; tipos sem consumidor completo permanecem bloqueados | **Código:** `supabase/functions/import-effects-runner/index.ts`; migration `025`; **Teste:** `importEffectsRunner.test.ts`, `importEffects.local-pg.test.ts` |
+| `recalc-demurrage-ptax` | `pg_cron`, agenda nominal em dias úteis, deliberadamente inativa | `verify_jwt=false`; Bearer de `RECALC_CRON_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC server-side de recálculo | Consulta PTAX com retry/backoff, preserva procedência e abre/resolve alerta persistente; ativação depende de validação de gateway, Vault e Preview | **Código:** `supabase/functions/recalc-demurrage-ptax/index.ts`; migrations `018` e `024`; **Teste:** `recalcDemurragePtax.test.ts`, `exchangeRateIntegrity.local-pg.test.ts` |
 
 ### RPCs da integração dos Blocos 1–5
 
@@ -458,8 +543,8 @@ reconciliadores são server-only; o browser usa somente RPCs tipadas de domínio
 | `resolve_pix_reconciliation_exception` | usuário interno autorizado, com autoridade financeira | Persiste resolução PIX e conserva a autoridade da origem | **Código:** migrations `328`, `331`; **Teste de contrato SQL:** `pixUnreconciledMigration.test.ts` |
 | `add_demurrage_dispute_message` | Equipamentos, com estado `next_responder = equipamentos` | Acrescenta mensagem imutável, avança ou encerra a Dispute e sincroniza alertas | **Código:** migrations `325`, `334`; **Teste de contrato SQL:** `alertsDisputeHardeningMigration.test.ts` |
 | `customer_local_charges_communication_readiness` | `send-customer-communication`/frontend interno pela camada de serviço | `SECURITY DEFINER`, `search_path` fixo, `auth.uid()` e `is_active_read_user()`; `anon`/`PUBLIC` sem execução | Lê B/Ls ativos, `compute_bl_review_pendencies` e o estado financeiro necessário para a comunicação | Retorna JSONB estável por cliente/viagem: prontidão, contagem de B/Ls, motivos de bloqueio e situação por B/L; não altera o gate de faturamento | **Código:** migration `376_customer_local_charges_communication_readiness.sql`, `src/services/customerCommunicationReadiness.ts`; **Teste de contrato SQL:** `customerCommunicationReadinessMigration.test.ts` |
-| `portal_excecao_critica_fatura` | Trigger de emissão/atualização de invoice | Audiência catalogada para `documentacao` e `administrativo`; leitura segue a fila interna | `upsert_portal_invoice_exception()` e catálogo `alert_type_catalog` | Mantém visível a exceção de invoice sem Portal ativo, independente do envio do Comunicado financeiro | **Código:** migration `377_portal_invoice_exception_audience.sql`, `src/services/alertRulesCatalog.ts`; **Teste:** `portalInvoiceExceptionAudienceMigration.test.ts` |
-| Família `portal-*` e `recalc-demurrage-ptax` | `portal-login`, `portal-invite-activate`, `portal-invite-send`, `portal-password-recovery`, `portal-password-reset`, `portal-recovery-email-change`, `portal-account-suspend`, `portal-email-webhook`, `portal-daily-digest` e `recalc-demurrage-ptax`; chamadores em `src/hooks/usePortalAuth.tsx`, `src/hooks/usePortalProvisioning.ts` e páginas do Portal | `verify_jwt=false` com validação própria (token de convite, assinatura Svix, segredo interno) conforme `supabase/config.toml`; `recalc-demurrage-ptax` usa `verify_jwt=true` | Service role para Auth Admin, convites, emails e recálculo de PTAX | Login, convite/ativação, recuperação e troca de email, suspensão, entrega de email e digest diário; detalhamento por função em [Portal do Cliente](modules/portal-cliente.md) | **Código:** `supabase/functions/*`, `supabase/config.toml`; a Edge Function legada `provision-portal-user` foi aposentada pelo fluxo de convite |
+| `portal_excecao_critica_fatura` | Trigger de emissão/atualização de invoice | Audiência catalogada para `documentacao` e `administrativo`; leitura segue a fila interna | `upsert_portal_invoice_exception()` e catálogo `alert_type_catalog`; EXECUTE revogado de `PUBLIC`/`anon`/`authenticated` (`009`), só triggers a alcançam | Mantém visível a exceção de invoice sem Portal ativo, independente do envio do Comunicado financeiro | **Código:** migration `377_portal_invoice_exception_audience.sql`, `src/services/alertRulesCatalog.ts`; **Teste:** `portalInvoiceExceptionAudienceMigration.test.ts`; **Teste:** `auditSecurityBoundaries.local-pg.test.ts` |
+| Família `portal-*` | `portal-login`, `portal-invite-activate`, `portal-invite-send`, `portal-password-recovery`, `portal-password-reset`, `portal-recovery-email-change`, `portal-account-suspend`, `portal-email-webhook` e `portal-daily-digest`; chamadores em `src/hooks/usePortalAuth.tsx`, `src/hooks/usePortalProvisioning.ts` e páginas do Portal | `verify_jwt=false` com validação própria (token de convite, assinatura Svix, segredo interno) conforme `supabase/config.toml` | Service role para Auth Admin, convites e emails | Login, convite/ativação, recuperação e troca de email, suspensão, entrega de email e digest diário; detalhamento por função em [Portal do Cliente](modules/portal-cliente.md) | **Código:** `supabase/functions/*`, `supabase/config.toml`; a Edge Function legada `provision-portal-user` foi aposentada pelo fluxo de convite |
 
 ### Histórico supersedido relevante
 
@@ -579,8 +664,9 @@ sem correspondente no banco continuam fora deste recorte.
 
 Email transacional: `supabase/functions/_shared/email.ts` é dono da mecânica
 comum de idempotência e retry; `sendPortalEmail` adapta tentativas e supressão
-do Portal; `portal-email-webhook` atualiza entrega, deduplica eventos e
-processa as duas trilhas; e `portal-daily-digest` consolida a atividade diária.
+do Portal; `portal-email-webhook` autentica o provedor e grava a inbox, enquanto
+`portal-email-events-runner` atualiza entrega, deduplica eventos e processa as
+duas trilhas; e `portal-daily-digest` consolida a atividade diária.
 A fundação de Comunicados está em `372_comunicados_fundacao.sql` e nasce com o
 envio global desligado. Evidência: **Código** e **Teste de contrato SQL**;
 runtime remoto ainda requer secrets e domínio verificado.

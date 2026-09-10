@@ -11,6 +11,7 @@
     "sync:hard": "git fetch origin --prune && git reset --hard origin/main && git clean -fd",
     "dev": "vite",
     "docs:check": "node scripts/check-docs.mjs",
+    "rpc:check": "node scripts/check-rpc-catalog.mjs",
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

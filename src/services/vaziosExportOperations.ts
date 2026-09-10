@@ -1,4 +1,5 @@
 import type {
+  TablesInsert,
   VaziosBooking,
   VaziosExportOperation,
   VaziosExportServiceLine,
@@ -214,7 +215,7 @@ export async function upsertVaziosExportOperation(input: {
 }
 
 export async function upsertServiceLine(
-  input: Omit<VaziosExportServiceLine, "id" | "created_at" | "updated_at"> & {
+  input: Omit<TablesInsert<"vazios_export_service_lines">, "id" | "created_at" | "updated_at"> & {
     id?: string;
   },
 ) {

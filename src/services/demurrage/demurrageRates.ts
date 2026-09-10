@@ -20,6 +20,8 @@ const RATE_CACHE_TTL_MS = 5 * 60 * 1000
 const RATES_UNAVAILABLE_MESSAGE = 'Tarifas de Demurrage indisponíveis. Verifique a tabela de tarifas antes de calcular.'
 let dynamicRateGroups: RateGroup[] | null = null
 let dynamicRateGroupsLoadedAt = 0
+let dynamicRateGroupsLastError: string | null = null
+let dynamicRateGroupsLastErrorAt = 0
 
 // O catálogo atual de main guarda apenas uma linha por tipo canônico. Estes
 // aliases permanecem aceitos porque aparecem em B/Ls e nas migrations legadas.
@@ -49,7 +51,7 @@ function resolveActiveRateGroups(): RateGroup[] {
       return dynamicRateGroups
     }
     // Cache stale — serve current data, trigger background refresh
-    void ensureDemurrageRatesLoaded(true)
+    void ensureDemurrageRatesLoaded(true).catch(() => undefined)
     return dynamicRateGroups
   }
   // A tarifa do banco é a única fonte de verdade; não existe fallback estático
@@ -111,6 +113,8 @@ export async function ensureDemurrageRatesLoaded(force = false) {
 
   const resolved = error ? [] : toRateGroups((data ?? []) as DemurrageRate[])
   if (error || resolved.length === 0) {
+    dynamicRateGroupsLastError = error?.message ?? 'demurrage_rates vazia'
+    dynamicRateGroupsLastErrorAt = now
     reportBestEffortFailure(
       'ensureDemurrageRatesLoaded: tarifas de demurrage indisponiveis',
       error ?? new Error('demurrage_rates vazia'),
@@ -119,12 +123,41 @@ export async function ensureDemurrageRatesLoaded(force = false) {
     if (!dynamicRateGroups) {
       throw new Error(RATES_UNAVAILABLE_MESSAGE)
     }
-    dynamicRateGroupsLoadedAt = now
     return
   }
 
   dynamicRateGroups = resolved
   dynamicRateGroupsLoadedAt = now
+  dynamicRateGroupsLastError = null
+  dynamicRateGroupsLastErrorAt = 0
+}
+
+export type DemurrageRatesCacheState = {
+  loadedAt: string | null
+  ageMs: number | null
+  stale: boolean
+  lastError: string | null
+  lastErrorAt: string | null
+}
+
+export function getDemurrageRatesCacheState(now = Date.now()): DemurrageRatesCacheState {
+  const hasCache = dynamicRateGroups != null && dynamicRateGroups.length > 0
+  const ageMs = hasCache ? Math.max(0, now - dynamicRateGroupsLoadedAt) : null
+  return {
+    loadedAt: hasCache ? new Date(dynamicRateGroupsLoadedAt).toISOString() : null,
+    ageMs,
+    stale: !hasCache || (ageMs != null && ageMs >= RATE_CACHE_TTL_MS),
+    lastError: dynamicRateGroupsLastError,
+    lastErrorAt: dynamicRateGroupsLastErrorAt ? new Date(dynamicRateGroupsLastErrorAt).toISOString() : null,
+  }
+}
+
+/** Emissao e faturamento nao podem continuar usando uma tarifa expirada. */
+export async function ensureDemurrageRatesFresh(): Promise<void> {
+  await ensureDemurrageRatesLoaded(true)
+  if (getDemurrageRatesCacheState().stale) {
+    throw new Error(RATES_UNAVAILABLE_MESSAGE)
+  }
 }
 
 export function invalidateDemurrageRatesCache() {

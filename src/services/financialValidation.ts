@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { toNumber } from '../lib/utils'
+import { parseImportNumber } from '../lib/importNumber'
 
 const paymentMethods = ['pix', 'ted', 'doc', 'boleto', 'outros'] as const
 const discountTypes = ['comercial', 'datas', 'cortesia', 'acordo', 'erro'] as const
@@ -12,7 +12,8 @@ function blankToNull(value: unknown) {
 }
 
 function parseNumberInput(value: unknown) {
-  return toNumber(value) ?? Number.NaN
+  const parsed = parseImportNumber(value, 'pt-BR')
+  return parsed.kind === 'value' ? Number(parsed.decimal) : Number.NaN
 }
 
 function isValidDateOnly(value: string) {
@@ -77,6 +78,13 @@ export const demurrageDiscountSchema = z.object({
       code: 'custom',
       path: ['discount_value'],
       message: 'Percentual de desconto deve ficar entre 0 e 100.',
+    })
+  }
+  if (value.discount_value != null && value.discount_value > 0 && !value.discount_justification) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['discount_justification'],
+      message: 'Justificativa obrigatoria para aplicar desconto.',
     })
   }
 })

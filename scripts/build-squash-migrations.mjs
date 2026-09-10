@@ -504,7 +504,13 @@ function checkSingleExceptionPerBlock(fail) {
   } catch {
     fail('rode a partir da raiz do repo (supabase/migrations/*.sql).');
   }
-  const noComments = (sql) => sql.replace(/^\s*--.*$/gm, '');
+  const noComments = (sql) =>
+    sql
+      .replace(/^\s*--.*$/gm, '')
+      // `RAISE EXCEPTION` is a statement inside a handler, not a second
+      // PL/pgSQL EXCEPTION clause. Remove the statement form before checking
+      // that each BEGIN block has at most one handler clause.
+      .replace(/\bRAISE\s+EXCEPTION\b/gi, 'RAISE');
   for (const [name, sql] of files) {
     const body = noComments(sql);
     const re = /\bEXCEPTION\b(?:(?!\b(?:BEGIN|END)\b)[\s\S])*?\bEXCEPTION\b/i;

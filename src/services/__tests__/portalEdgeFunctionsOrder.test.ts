@@ -12,6 +12,8 @@ const emailChange = readFileSync('supabase/functions/portal-recovery-email-chang
 const login = readFileSync('supabase/functions/portal-login/index.ts', 'utf8')
 const recovery = readFileSync('supabase/functions/portal-password-recovery/index.ts', 'utf8')
 const webhook = readFileSync('supabase/functions/portal-email-webhook/index.ts', 'utf8')
+const inboxProcessor = readFileSync('supabase/functions/_shared/portalEmailEventProcessor.ts', 'utf8')
+const inboxMigration = readFileSync('supabase/migrations/022_email_inbox_and_dispatch_state.sql', 'utf8')
 
 function indexOf(source: string, needle: string): number {
   const at = source.indexOf(needle)
@@ -76,26 +78,25 @@ describe('caminho bloqueado do login não faz trabalho síncrono a mais', () => 
   })
 })
 
-describe('webhook do Resend grava o fato antes de tentar avisar', () => {
-  // `openAlertOnce` passou a propagar erro que não seja o 23505 da corrida. No
-  // webhook isso cai dentro de um laço por Cliente da mesma caixa: subir daqui
-  // abortaria os Clientes seguintes e devolveria 500 -- e o retry do Resend
-  // encontraria a linha de dedup já gravada no início do handler, que responde
-  // 200 sem reprocessar nada. O alerta é aviso; `recovery_email_status` é o
-  // fato, e ele já foi gravado.
+describe('processamento do evento do Resend preserva fatos antes dos efeitos', () => {
+  // O RPC grava o estado da conta, supressão e reparo antes de devolver o
+  // evento para os efeitos secundários. O processor percorre todos os
+  // clientes mesmo quando um alerta ou email de fallback falha.
   it('isola a falha do alerta sem abortar os demais Clientes da caixa', () => {
-    expect(indexOf(webhook, "update({ recovery_email_status:")).toBeLessThan(indexOf(webhook, 'openAlertOnce(admin, {'))
-    const laco = webhook.slice(indexOf(webhook, 'for (const account of affected ?? [])'))
-    expect(laco).toContain('try {')
-    expect(indexOf(laco, 'try {')).toBeLessThan(indexOf(laco, 'openAlertOnce(admin, {'))
-    expect(laco).toContain("console.error('[portal-email-webhook] falha ao abrir alerta de email suprimido'")
+    expect(inboxMigration).toContain("SET recovery_email_status = CASE WHEN v_event_kind = 'email.bounced' THEN 'bounce_permanente' ELSE 'complaint' END")
+    expect(inboxProcessor).toContain('for (const customerId of [...new Set(customerIds)])')
+    const alertHelper = inboxProcessor.slice(indexOf(inboxProcessor, 'async function openNoAlternativeAlert'), indexOf(inboxProcessor, 'async function loadPortalSuppressionSets'))
+    expect(alertHelper).toContain('try {')
+    expect(alertHelper).toContain('catch (error)')
+    expect(alertHelper).toContain('return false')
   })
 
-  // A linha de dedup entra antes de qualquer processamento, então um 500 depois
-  // dela é definitivo: o retry cai no 23505 e devolve 200.
-  it('devolve 200 no evento repetido, o que torna o 500 posterior irreversível', () => {
-    expect(webhook).toContain("if (dedupError?.code === '23505') return new Response(null, { status: 200 })")
-    expect(indexOf(webhook, 'portal_email_events').valueOf()).toBeLessThan(indexOf(webhook, 'openAlertOnce(admin, {'))
+  // A consulta de dedup acontece antes da inserção; evento já processado é
+  // no-op, enquanto pendente continua recebendo 202 para permanecer elegível.
+  it('devolve o status idempotente correto para evento repetido', () => {
+    expect(webhook).toContain("existing.status === 'processed' ? 200 : 202")
+    expect(indexOf(webhook, "from('portal_email_events')")).toBeLessThan(indexOf(webhook, "insert({"))
+    expect(webhook).toContain("if (insertError?.code === '23505')")
   })
 })
 

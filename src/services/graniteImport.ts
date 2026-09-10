@@ -1,6 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { canonicalizeDocument } from '../lib/cnpj'
-import { toNumber } from '../lib/utils'
+import { parseImportNumber } from '../lib/importNumber'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
 import { normalizePortCode } from './portCode'
@@ -107,7 +107,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
     }
     seenBlNumbers.add(blNumber)
 
-    const realWeightRaw = toNumber(String(mapped['real_weight_kg'] ?? ''))
+    const realWeightRaw = parseGraniteNumber(mapped['real_weight_kg'], 'real_weight_kg', rowNumber, rowErrors)
     if (realWeightRaw === null || realWeightRaw <= 0) {
       rowErrors.add(rowNumber, `BL ${blNumber}: Real Weight ausente ou zero.`, row)
       return
@@ -135,7 +135,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
 
     bls.push({
       rowNumber,
-      sequence: toNumber(String(mapped['sequence'] ?? '')),
+      sequence: parseGraniteNumber(mapped['sequence'], 'sequence', rowNumber, rowErrors),
       booking_number: String(mapped['booking_number'] ?? '').trim() || null,
       bl_number: blNumber,
       shipper_ref: String(mapped['shipper_ref'] ?? '').trim() || null,
@@ -149,17 +149,17 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       shipper_cnpj: cnpjCanonical || cnpjRaw || null,
       consignee_name: String(mapped['consignee_name'] ?? '').trim() || null,
       charter: String(mapped['charter'] ?? '').trim() || null,
-      shipper_m3: toNumber(String(mapped['shipper_m3'] ?? '')),
-      shipper_weight_kg: toNumber(String(mapped['shipper_weight_kg'] ?? '')),
-      blocks_qty: toNumber(String(mapped['blocks_qty'] ?? '')),
-      received_blocks_qty: toNumber(String(mapped['received_blocks_qty'] ?? '')),
-      final_m3: toNumber(String(mapped['final_m3'] ?? '')),
+      shipper_m3: parseGraniteNumber(mapped['shipper_m3'], 'shipper_m3', rowNumber, rowErrors),
+      shipper_weight_kg: parseGraniteNumber(mapped['shipper_weight_kg'], 'shipper_weight_kg', rowNumber, rowErrors),
+      blocks_qty: parseGraniteNumber(mapped['blocks_qty'], 'blocks_qty', rowNumber, rowErrors),
+      received_blocks_qty: parseGraniteNumber(mapped['received_blocks_qty'], 'received_blocks_qty', rowNumber, rowErrors),
+      final_m3: parseGraniteNumber(mapped['final_m3'], 'final_m3', rowNumber, rowErrors),
       real_weight_kg: realWeightRaw,
       stockyard: String(mapped['stockyard'] ?? '').trim() || null,
       remarks: String(mapped['remarks'] ?? '').trim() || null,
       partial_restriction: String(mapped['partial_restriction'] ?? '').trim().toLowerCase() === 'sim',
       cosco_transport: String(mapped['cosco_transport'] ?? '').trim() || null,
-      fragile_blocks: toNumber(String(mapped['fragile_blocks'] ?? '')),
+      fragile_blocks: parseGraniteNumber(mapped['fragile_blocks'], 'fragile_blocks', rowNumber, rowErrors),
       cssc_selection: String(mapped['cssc_selection'] ?? '').trim() || null,
       cargo_readiness_date: parseDateBR(String(mapped['cargo_readiness_date'] ?? '')),
       phase: String(mapped['phase'] ?? '').trim() || null,
@@ -172,6 +172,31 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
   const vesselVoyage = bls.find((bl) => bl.vessel_voyage)?.vessel_voyage ?? ''
 
   return { vesselVoyage, bls, rowErrors: rowErrors.errors }
+}
+
+/**
+ * O template COSCO é uma planilha operacional brasileira. A convenção é
+ * declarada aqui para que `1e3`, `12abc` e separadores ambíguos nunca sejam
+ * convertidos silenciosamente em peso/quantidade.
+ */
+function parseGraniteNumber(
+  value: unknown,
+  field: string,
+  row: number,
+  rowErrors: ReturnType<typeof createRowErrorCollector>,
+): number | null {
+  const parsed = parseImportNumber(value, 'pt-BR')
+  if (parsed.kind === 'empty') return null
+  if (parsed.kind !== 'value') {
+    rowErrors.add(row, `Campo ${field} inválido (${parsed.reason}).`, value)
+    return null
+  }
+  const number = Number(parsed.decimal)
+  if (!Number.isFinite(number)) {
+    rowErrors.add(row, `Campo ${field} inválido (não finito).`, value)
+    return null
+  }
+  return number
 }
 
 function parseDateBR(value: string): string | null {

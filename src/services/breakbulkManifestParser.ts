@@ -5,7 +5,8 @@
 // breakbulkImport.ts.
 import { assertUploadFile } from '../lib/fileGuard'
 import { canonicalizeDocument, extractCnpjFromText } from '../lib/cnpj'
-import { asString, normalizeHeader, onlyDigits, toNumber } from '../lib/utils'
+import { parseImportNumber, type ImportNumberFormat } from '../lib/importNumber'
+import { asString, normalizeHeader, onlyDigits } from '../lib/utils'
 import { normalizePortCode } from './portCode'
 import {
   extractCarrierMachineQty,
@@ -157,8 +158,8 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
 
     const descriptionBlock = joinedStringsFromColumn(groupRows, colDescription >= 0 ? colDescription : 3)
     const grossWeightKg =
-      firstNumberFromColumn(groupRows, colWeight) ?? findNumberBeforeUnit(groupRows, /^KGS?$/i) ?? 0
-    const cbm = firstNumberFromColumn(groupRows, colCbm) ?? findNumberBeforeUnit(groupRows, /^CBMS?$/i) ?? 0
+      firstNumberFromColumn(groupRows, colWeight, 'unknown') ?? findNumberBeforeUnit(groupRows, /^KGS?$/i, 'unknown') ?? 0
+    const cbm = firstNumberFromColumn(groupRows, colCbm, 'en-US') ?? findNumberBeforeUnit(groupRows, /^CBMS?$/i, 'en-US') ?? 0
     const packageInfo = parseCarrierPackageInfo(descriptionBlock, firstValueFromColumn(groupRows, colQty))
     const itemDescription = normalizeCarrierBreakbulkDescription(descriptionBlock)
     const splitParties = parseCarrierSplitPartyRows(groupRows)
@@ -492,20 +493,20 @@ function joinedStringsFromColumn(rows: (string | number | null)[][], columnIndex
   return rows.map((row) => asString(row[columnIndex])).filter(Boolean).join('\n')
 }
 
-function firstNumberFromColumn(rows: (string | number | null)[][], columnIndex: number) {
+function firstNumberFromColumn(rows: (string | number | null)[][], columnIndex: number, format: ImportNumberFormat) {
   if (columnIndex < 0) return null
   for (const row of rows) {
-    const number = parseNumber(row[columnIndex]) ?? parseLeadingNumber(row[columnIndex])
+    const number = parseNumber(row[columnIndex], format) ?? parseLeadingNumber(row[columnIndex], format)
     if (number !== null) return number
   }
   return null
 }
 
-function findNumberBeforeUnit(rows: (string | number | null)[][], unitPattern: RegExp) {
+function findNumberBeforeUnit(rows: (string | number | null)[][], unitPattern: RegExp, format: ImportNumberFormat) {
   for (const row of rows) {
     for (let index = 1; index < row.length; index += 1) {
       if (!unitPattern.test(asString(row[index]))) continue
-      const number = parseNumber(row[index - 1])
+      const number = parseNumber(row[index - 1], format)
       if (number !== null) return number
     }
   }
@@ -630,7 +631,7 @@ function parseCarrierBreakbulkParties(value: string) {
 }
 
 function parseCarrierPackageInfo(value: string, explicitQty: unknown) {
-  const explicit = parseNumber(explicitQty) ?? parseLeadingNumber(explicitQty)
+  const explicit = parseNumber(explicitQty, 'unknown') ?? parseLeadingNumber(explicitQty, 'unknown')
   if (explicit !== null && explicit >= 0) {
     return {
       quantity: explicit,
@@ -650,11 +651,11 @@ function parseCarrierPackageInfo(value: string, explicitQty: unknown) {
   }
 }
 
-function parseLeadingNumber(value: unknown) {
+function parseLeadingNumber(value: unknown, format: ImportNumberFormat) {
   const text = asString(value)
   const match = text.match(/^(\d+(?:[.,]\d+)?)/)
   if (!match) return null
-  return parseNumber(match[1])
+  return parseNumber(match[1], format)
 }
 
 
@@ -699,8 +700,12 @@ function nullableKey(value: unknown) {
   return normalized || null
 }
 
-function parseNumber(value: unknown) {
-  return toNumber(value)
+function parseNumber(value: unknown, format: ImportNumberFormat = 'pt-BR') {
+  const text = typeof value === 'string'
+    ? value.trim().match(/^[+-]?\d[\d.,]*/)?.[0] ?? value.trim()
+    : value
+  const parsed = parseImportNumber(text, format)
+  return parsed.kind === 'value' ? Number(parsed.decimal) : null
 }
 
 function formatNullableNumber(value: number | null) {

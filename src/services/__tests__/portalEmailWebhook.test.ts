@@ -2,35 +2,51 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const webhook = readFileSync(resolve(process.cwd(), 'supabase/functions/portal-email-webhook/index.ts'), 'utf8')
+const root = resolve(process.cwd())
+const read = (file: string) => readFileSync(resolve(root, file), 'utf8')
+const webhook = read('supabase/functions/portal-email-webhook/index.ts')
+const processor = read('supabase/functions/_shared/portalEmailEventProcessor.ts')
+const portalEmail = read('supabase/functions/_shared/portalEmail.ts')
 
 describe('webhook de email para Portal e Comunicados', () => {
-  it('resolve as duas trilhas e aponta o evento para apenas uma tentativa', () => {
-    expect(webhook).toContain("from('portal_email_attempts')")
-    expect(webhook).toContain("from('customer_communication_attempts')")
-    expect(webhook).toContain('if (!portalAttempt && !communicationAttempt) return new Response(null, { status: 200 })')
-    expect(webhook).toContain(".update({ attempt_id: portalAttempt.id })")
-    expect(webhook).toContain(".update({ communication_attempt_id: communicationAttempt.id })")
+  it('persiste o envelope mínimo antes do ACK e não confunde deduplicação com conclusão', () => {
+    expect(webhook).toContain("provider_message_id: providerMessageId")
+    expect(webhook).toContain('payload: eventPayload')
+    expect(webhook).toContain("status: 'pending'")
+    expect(webhook).toContain("return json(202")
+    expect(webhook).toContain("inbox_persist_failed")
+    expect(webhook).toContain("existing.status === 'processed' ? 200 : 202")
+    expect(webhook).not.toContain("from('portal_email_attempts')")
     expect(webhook).not.toContain('ignoreDuplicates')
   })
 
-  it('separa complaint por canal e compartilha somente bounce permanente sem abortar em caso de erro transiente', () => {
-    expect(webhook).toContain("const permanentBounce = status === 'bounce' && event.data.bounce?.type?.toLowerCase() === 'permanent'")
-    expect(webhook).toContain("recordPortalSuppression(admin, email, 'bounce_permanente')")
-    expect(webhook).toContain("recordPortalSuppression(admin, email, 'complaint')")
-    expect(webhook).toContain('recordCommunicationComplaint(admin, email)')
-    expect(webhook).toContain("const { data: existing, error: lookupError } = await admin")
-    expect(webhook).toContain("if (existing) return")
-    expect(webhook).toMatch(/try\s*\{\s*if\s*\(permanentBounce\)/)
-    expect(webhook).toContain(".ilike('recovery_email', email)")
+  it('resolve tentativa, estado e supressão em RPC privado antes dos efeitos secundários', () => {
+    expect(processor).toContain("admin.rpc('process_portal_email_event'")
+    expect(processor).toContain("admin.rpc('complete_portal_email_event'")
+    expect(processor).toContain('resolveBounceCascade')
+    expect(processor).toContain('sendPortalEmail')
+    expect(processor).toContain('should_cascade')
   })
 
-  it('aplica cascata, alerta sem alternativa e trava anti-loop', () => {
-    expect(webhook).toContain("kind: BOUNCE_NOTIFICATION_KIND")
-    expect(webhook).toContain("permanentBounce && portalAttempt?.kind !== BOUNCE_NOTIFICATION_KIND")
-    expect(webhook).toContain("p_type: 'cliente_contato_bounced_sem_alternativa'")
-    expect(webhook).toContain("admin.rpc('upsert_alert_item'")
-    expect(webhook).toContain('resolveBounceCascade({')
-    expect(webhook).toContain('idempotencyKey: `${BOUNCE_NOTIFICATION_KIND}:')
+  it('separa complaint por canal e preserva bounce permanente sem regressão', () => {
+    expect(read('supabase/migrations/022_email_inbox_and_dispatch_state.sql')).toContain("ON CONFLICT (email) DO NOTHING")
+    expect(read('supabase/migrations/022_email_inbox_and_dispatch_state.sql')).toContain("reason = 'bounce_permanente'")
+    expect(read('supabase/migrations/022_email_inbox_and_dispatch_state.sql')).toContain("older.received_at > v_event.received_at")
+    expect(read('supabase/migrations/022_email_inbox_and_dispatch_state.sql')).toContain("'stale_transition_ignored'")
+  })
+
+  it('S06/D04 — aviso de bounce respeita chave global; reparo/alerta interno seguem no banco', () => {
+    expect(processor).toContain('isCommunicationsEnabled')
+    expect(processor).toContain("from('app_settings')")
+    expect(processor).toContain('communications_enabled')
+    expect(processor).toMatch(/if\s*\(!recipient\.email\s*\|\|\s*!await isCommunicationsEnabled\(admin\)\)/)
+    expect(read('supabase/migrations/022_email_inbox_and_dispatch_state.sql')).toContain('repair_customer_contact_box_fallbacks')
+    expect(read('supabase/migrations/022_email_inbox_and_dispatch_state.sql')).toContain("'portal_email_suprimido'")
+  })
+
+  it('reusa tentativa de bounce quando o efeito secundário é repetido', () => {
+    expect(portalEmail).toContain("if (error?.code === '23505')")
+    expect(portalEmail).toContain(".eq('idempotency_key', idempotencyKey)")
+    expect(portalEmail).toContain('existing: true')
   })
 })

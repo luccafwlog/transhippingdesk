@@ -3,8 +3,6 @@ import { extractErrorText } from '../lib/errors'
 import { asString } from '../lib/utils'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 import { supabase } from './supabase'
-import { selectAgreementForDischargeDate } from './demurrage/customerDemurrageAgreements'
-import { calculateDemurrage, ensureDemurrageRatesLoaded } from './demurrage/demurrageRates'
 import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
 
 const headerMap = {
@@ -35,10 +33,17 @@ export type ParsedContainerDatesImport = {
 export async function parseContainerDatesFile(file: File): Promise<ParsedContainerDatesImport> {
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
-  const { headers, rows } = await readSheet(buffer, { dates: 'date' })
+  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+    // Keep the source text intact. In particular, SheetJS may reinterpret a
+    // CSV value such as `01/08/2026` as a JavaScript Date using the host
+    // locale, turning the Brazilian date into `2026-01-08` before parseDate
+    // can apply the documented DD/MM/YYYY contract.
+    dates: 'texto',
+    expectedHeaders: Object.values(headerMap).flat(),
+  })
   const { missing } = matchHeaders(headers, SPEC)
   if (missing.length) throw new Error(`Colunas obrigatorias ausentes: ${missing.join(', ')}.`)
-  return parseRows(rows)
+  return parseRows(rows, headerRowIndex)
 }
 
 export type ContainerDatesImportError = { bl_id: string; container_number: string; message: string }
@@ -57,46 +62,12 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   const { data: containers, error: fetchError } = await supabase
     .from('bl_containers')
-    .select('id, bl_id, container_number, container_type, discharge_date, return_date, demurrage_status')
+    .select('id, bl_id, container_number, discharge_date, return_date, demurrage_status')
     .in('bl_id', blIds)
 
   if (fetchError) throw fetchError
 
-  const { data: bls, error: blsError } = await supabase
-    .from('bls')
-    .select('id, customer_id, free_time_override, demurrage_rate_override_p1_usd, demurrage_rate_override_p2_usd')
-    .in('id', blIds)
-
-  if (blsError) throw blsError
-
-  const blOverrides = new Map(bls?.map((b) => [b.id, b]) ?? [])
-  const customerIds = [...new Set((bls ?? []).map((b) => b.customer_id).filter((id): id is number => typeof id === 'number'))]
-  // Todos os acordos ativos de cada cliente, e nao um por cliente: guardar
-  // apenas o primeiro que a consulta devolvesse podia guardar um acordo vencido
-  // (a consulta nao ordenava), e a validacao por data logo abaixo o descartaria,
-  // fazendo o import cobrar pela tabela padrao apesar de existir acordo vigente.
-  // A escolha correta depende da data de descarga de CADA container, entao ela
-  // acontece na hora de calcular, nao aqui. Ordenado por vigencia decrescente,
-  // como `findActiveAgreementForCustomer` ja fazia, para que o mais recente
-  // venca quando dois periodos se sobrepoem.
-  const customerAgreements = new Map<number, import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement[]>()
-
-  if (customerIds.length > 0) {
-    const { data: agreements } = await supabase
-      .from('customer_demurrage_agreements')
-      .select('*')
-      .in('customer_id', customerIds)
-      .eq('active', true)
-      .order('valid_from', { ascending: false })
-      .order('id', { ascending: false })
-    for (const a of (agreements ?? []) as unknown as import('../types/customerDemurrageAgreements').CustomerDemurrageAgreement[]) {
-      const doCliente = customerAgreements.get(a.customer_id)
-      if (doCliente) doCliente.push(a)
-      else customerAgreements.set(a.customer_id, [a])
-    }
-  }
-
-  type ContainerRow = { id: number; bl_id: string | null; container_number: string; container_type: string | null; discharge_date: string | null; return_date: string | null; demurrage_status: string | null }
+  type ContainerRow = { id: number; bl_id: string | null; container_number: string; discharge_date: string | null; return_date: string | null; demurrage_status: string | null }
   const containersByKey = new Map<string, ContainerRow>()
   for (const c of (containers as unknown as ContainerRow[]) ?? []) {
     containersByKey.set(makeKey(c.bl_id ?? '', c.container_number), c)
@@ -109,64 +80,67 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   const uniqueRows = Array.from(new Map(rows.map((r) => [makeKey(r.bl_id, r.container_number), r])).values())
 
-  // Track BL IDs where a container was newly set to 'returned'
+  // O RPC aplica cada B/L inteiro como unidade; um erro não deixa linhas
+  // parcialmente gravadas e o lote continua com os demais B/Ls.
   const blsToCheckForInvoice = new Set<string>()
   const blsWithFailedUpdates = new Set<string>()
-  let demurrageRatesLoaded = false
-
+  const rowsByBl = new Map<string, ContainerDatesImportRow[]>()
   for (const row of uniqueRows) {
-    const container = containersByKey.get(makeKey(row.bl_id, row.container_number))
-    if (!container) { missing += 1; continue }
-
-    const sameDischarge = container.discharge_date === row.discharge_date
-    const sameReturn = container.return_date === (row.return_date ?? null)
-    if (sameDischarge && sameReturn) {
-      unchanged += 1
-      // Uma execucao anterior interrompida no meio ja gravou a devolucao mas
-      // abortou antes de faturar. No reimport do mesmo arquivo a linha volta
-      // como inalterada; sem reenfileirar o B/L aqui a fatura de Demurrage
-      // nunca nasceria. `createInvoiceForReturnedBL` e idempotente.
-      if (container.demurrage_status === 'returned') blsToCheckForInvoice.add(row.bl_id)
-      continue
-    }
-
-    const bl = blOverrides.get(row.bl_id)
-    const doCliente = bl?.customer_id ? (customerAgreements.get(bl.customer_id) ?? []) : []
-    const validAgreement = selectAgreementForDischargeDate(doCliente, row.discharge_date)
-
-    if (!row.return_date && !demurrageRatesLoaded) {
-      await ensureDemurrageRatesLoaded()
-      demurrageRatesLoaded = true
-    }
-    const newStatus = resolveStatus(
-      row.discharge_date,
-      row.return_date,
-      container.container_type,
-      bl?.free_time_override ?? null,
-      bl?.demurrage_rate_override_p1_usd ?? null,
-      bl?.demurrage_rate_override_p2_usd ?? null,
-      validAgreement,
-    )
-
-    const { error: updateError } = await supabase
-      .from('bl_containers')
-      .update({ discharge_date: row.discharge_date, return_date: row.return_date ?? null, demurrage_status: newStatus as 'within_free_time' | 'overdue' | 'returned' })
-      .eq('id', container.id)
-
-    if (updateError) {
-      // Cada linha e uma transacao propria: abortar no meio deixaria "meia
-      // carga" gravada e pularia o faturamento das linhas ja aplicadas.
-      // Acumular o erro mantem o lote avancando e o relatorio honesto.
-      errors.push({ bl_id: row.bl_id, container_number: row.container_number, message: extractErrorText(updateError) })
-      // Nao faturar com base nos valores propostos pela planilha quando uma
-      // linha do mesmo B/L nao foi persistida. O faturamento consulta o banco
-      // e poderia emitir com apenas a parte ja retornada.
+    if (!containersByKey.has(makeKey(row.bl_id, row.container_number))) {
+      missing += 1
       blsWithFailedUpdates.add(row.bl_id)
+      errors.push({
+        bl_id: row.bl_id,
+        container_number: row.container_number,
+        message: `Container nao encontrado; o B/L foi ignorado para preservar a atomicidade.`,
+      })
       continue
     }
-    updated += 1
+    const rowsForBl = rowsByBl.get(row.bl_id) ?? []
+    rowsForBl.push(row)
+    rowsByBl.set(row.bl_id, rowsForBl)
+  }
 
-    if (newStatus === 'returned') blsToCheckForInvoice.add(row.bl_id)
+  let actorId: string | null = null
+  if (rowsByBl.size > 0) {
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError) throw authError
+    actorId = authData.user?.id ?? null
+    if (!actorId) throw new Error('Sessao expirada. Entre novamente antes de importar datas.')
+  }
+
+  for (const [blId, rowsForBl] of rowsByBl) {
+    if (blsWithFailedUpdates.has(blId)) continue
+
+    const payload = rowsForBl.map((row) => {
+      const current = containersByKey.get(makeKey(row.bl_id, row.container_number))!
+      return {
+        container_number: row.container_number,
+        discharge_date: row.discharge_date,
+        return_date: row.return_date,
+        expected_discharge_date: current.discharge_date,
+        expected_return_date: current.return_date,
+      }
+    })
+
+    const { data: applied, error: applyError } = await supabase.rpc('apply_container_dates_atomic', {
+      p_request_id: crypto.randomUUID(),
+      p_bl_id: blId,
+      p_rows: payload,
+      p_changed_by: actorId!,
+    })
+
+    if (applyError) {
+      const message = extractErrorText(applyError)
+      rowsForBl.forEach((row) => errors.push({ bl_id: row.bl_id, container_number: row.container_number, message }))
+      blsWithFailedUpdates.add(blId)
+      continue
+    }
+
+    const result = (applied ?? {}) as { updated_ids?: unknown[]; unchanged_ids?: unknown[]; billing_state?: string }
+    updated += Array.isArray(result.updated_ids) ? result.updated_ids.length : 0
+    unchanged += Array.isArray(result.unchanged_ids) ? result.unchanged_ids.length : 0
+    if (result.billing_state === 'ready_for_billing') blsToCheckForInvoice.add(blId)
   }
 
   // For each BL that had a container newly returned, check if ALL containers are now returned
@@ -196,23 +170,9 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
   return { updated, unchanged, missing, errors }
 }
 
-function resolveStatus(
-  dischargeDate: string,
-  returnDate: string | null,
-  containerType: string | null,
-  freeTimeOverride: number | null,
-  ov1: number | null,
-  ov2: number | null,
-  customerAgreement?: { free_days?: number | null; p1_usd?: number | null; p2_usd?: number | null } | null,
-): string {
-  if (returnDate) return 'returned'
-  const today = new Date().toISOString().slice(0, 10)
-  const result = calculateDemurrage(containerType, dischargeDate, today, freeTimeOverride, ov1, ov2, customerAgreement)
-  return result.total_usd > 0 ? 'overdue' : 'within_free_time'
-}
-
-function parseRows(objectRows: Record<string, unknown>[]): ParsedContainerDatesImport {
-  const rows: ContainerDatesImportRow[] = []
+function parseRows(objectRows: Record<string, unknown>[], headerRowIndex = 0): ParsedContainerDatesImport {
+  const rowsByKey = new Map<string, ContainerDatesImportRow>()
+  const conflictingKeys = new Set<string>()
   const rowErrors: ParsedContainerDatesImport['rowErrors'] = []
 
   objectRows.forEach((row, index) => {
@@ -222,25 +182,38 @@ function parseRows(objectRows: Record<string, unknown>[]): ParsedContainerDatesI
     const rawDischarge = mapped.discharge_date
     const rawReturn = mapped.return_date
 
-    if (!blId) { rowErrors.push({ row: index + 2, message: 'Linha sem BL.', raw: row }); return }
-    if (!containerNumber) { rowErrors.push({ row: index + 2, message: 'Linha sem Container.', raw: row }); return }
+    const rowNumber = index + headerRowIndex + 2
+    if (!blId) { rowErrors.push({ row: rowNumber, message: 'Linha sem BL.', raw: row }); return }
+    if (!containerNumber) { rowErrors.push({ row: rowNumber, message: 'Linha sem Container.', raw: row }); return }
 
     const discharge = parseDate(rawDischarge)
-    if (!discharge) { rowErrors.push({ row: index + 2, message: 'Data de descarga invalida ou ausente.', raw: row }); return }
+    if (!discharge) { rowErrors.push({ row: rowNumber, message: 'Data de descarga invalida ou ausente.', raw: row }); return }
 
     const returnDate = rawReturn != null && asString(rawReturn) ? parseDate(rawReturn) : null
     if (rawReturn != null && asString(rawReturn) && !returnDate) {
-      rowErrors.push({ row: index + 2, message: 'Data de devolucao invalida.', raw: row }); return
+      rowErrors.push({ row: rowNumber, message: 'Data de devolucao invalida.', raw: row }); return
     }
     if (returnDate && returnDate < discharge) {
-      rowErrors.push({ row: index + 2, message: 'Data de devolucao anterior a descarga.', raw: row }); return
+      rowErrors.push({ row: rowNumber, message: 'Data de devolucao anterior a descarga.', raw: row }); return
     }
 
-    rows.push({ bl_id: blId, container_number: containerNumber, discharge_date: discharge, return_date: returnDate })
+    const parsedRow = { bl_id: blId, container_number: containerNumber, discharge_date: discharge, return_date: returnDate }
+    const key = makeKey(blId, containerNumber)
+    const previous = rowsByKey.get(key)
+    if (conflictingKeys.has(key)) return
+    if (previous) {
+      if (previous.discharge_date !== parsedRow.discharge_date || previous.return_date !== parsedRow.return_date) {
+        conflictingKeys.add(key)
+        rowsByKey.delete(key)
+        rowErrors.push({ row: rowNumber, message: 'Duplicata conflitante para o mesmo BL e container.', raw: row })
+      }
+      return
+    }
+    rowsByKey.set(key, parsedRow)
   })
 
   return {
-    rows: Array.from(new Map(rows.map((r) => [makeKey(r.bl_id, r.container_number), r])).values()),
+    rows: Array.from(rowsByKey.values()),
     rowErrors,
   }
 }
@@ -254,15 +227,28 @@ function parseDate(value: unknown): string | null {
   const s = String(value).trim()
   if (!s) return null
   // ISO format YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s) && isValidCalendarDate(s)) return s
   // Brazilian format DD/MM/YYYY or DD-MM-YYYY
   const parts = s.split(/[-/]/)
   if (parts.length === 3 && parts[0].length <= 2) {
     const [d, m, y] = parts
     const iso = `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso) && isValidCalendarDate(iso)) return iso
   }
   return null
+}
+
+function isValidCalendarDate(iso: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!match) return false
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
 }
 
 function mapRow(row: Record<string, unknown>) {

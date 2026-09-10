@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -20,6 +20,9 @@ function countActive(f: Filters) {
 
 type LocalTabProps = {
   invoices: PortalInvoiceSummary[]
+  totalCount: number
+  page: number
+  onPageChange: (page: number) => void
   loading: boolean
   error: boolean
   filters: Filters
@@ -29,18 +32,15 @@ type LocalTabProps = {
   onOpenDetail: (id: number) => void
 }
 
-export function LocalFeesTab({ invoices, loading, error, filters, onFilters, vesselOptions, pods, onOpenDetail }: LocalTabProps) {
-  const [page, setPage] = useState(0)
-  const totalPages = Math.max(1, Math.ceil(invoices.length / BILLING_PAGE_SIZE))
+export function LocalFeesTab({ invoices, totalCount, page, onPageChange, loading, error, filters, onFilters, vesselOptions, pods, onOpenDetail }: LocalTabProps) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / BILLING_PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)
-  // ponytail: paginacao client-side; upgrade para p_limit/p_offset nas RPCs se o volume por cliente crescer.
-  const paginatedInvoices = invoices.slice(safePage * BILLING_PAGE_SIZE, (safePage + 1) * BILLING_PAGE_SIZE)
 
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[var(--app-border)] px-5 py-4">
         <h2 className="text-base font-semibold">Faturas de taxas locais</h2>
-        <p className="mt-1 text-sm text-[var(--app-muted)]">{formatResultCount(invoices.length, 'fatura', 'faturas')}</p>
+        <p className="mt-1 text-sm text-[var(--app-muted)]">{formatResultCount(totalCount, 'fatura', 'faturas')}</p>
       </div>
 
       <div className="px-5 pt-4">
@@ -52,6 +52,7 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
       {/* Desktop */}
       <div className="hidden app-table-scroll md:block">
         <table className="app-table app-table--compact min-w-[920px] text-left text-sm">
+          <caption className="sr-only">Faturas de taxas locais do cliente</caption>
           <thead>
             <tr>
               <th scope="col" className="px-4 py-3">B/L</th>
@@ -71,7 +72,7 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
             {!loading && invoices.length === 0 ? (
               <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>Nenhuma fatura para os filtros atuais.</td></tr>
             ) : null}
-            {paginatedInvoices.map((invoice) => (
+            {invoices.map((invoice) => (
               <tr key={invoice.id}>
                 <td className="px-4 py-3 font-semibold">{formatBlList(invoice.bls)}</td>
                 <td className="px-4 py-3">{invoice.invoice_number ?? `INV-${invoice.id}`}</td>
@@ -100,7 +101,7 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
         {!loading && invoices.length === 0 ? (
           <div className="py-6 text-center text-sm text-[var(--app-muted)]">Nenhuma fatura para os filtros atuais.</div>
         ) : null}
-        {paginatedInvoices.map((invoice) => (
+        {invoices.map((invoice) => (
           <button
             key={invoice.id}
             type="button"
@@ -119,15 +120,15 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
           </button>
         ))}
       </div>
-      {invoices.length > 0 ? (
+      {totalCount > 0 ? (
         <TableFooterPagination
           page={safePage}
           pageBase={0}
           pageSize={BILLING_PAGE_SIZE}
-          totalCount={invoices.length}
+          totalCount={totalCount}
           totalPages={totalPages}
-          countLabel={`${safePage * BILLING_PAGE_SIZE + 1}-${Math.min((safePage + 1) * BILLING_PAGE_SIZE, invoices.length)} de ${invoices.length}`}
-          onPageChange={setPage}
+          countLabel={`${safePage * BILLING_PAGE_SIZE + 1}-${Math.min(safePage * BILLING_PAGE_SIZE + invoices.length, totalCount)} de ${totalCount}`}
+          onPageChange={onPageChange}
         />
       ) : null}
     </Card>
@@ -136,6 +137,9 @@ export function LocalFeesTab({ invoices, loading, error, filters, onFilters, ves
 
 type DemTabProps = {
   invoices: PortalDemurrageInvoice[]
+  totalCount: number
+  page: number
+  onPageChange: (page: number) => void
   loading: boolean
   error: boolean
   filters: Filters
@@ -146,18 +150,15 @@ type DemTabProps = {
   onDispute: (id: number, docNumber: string) => void
 }
 
-export function DemurrageTab({ invoices, loading, error, filters, onFilters, vesselOptions, pods, onOpenDetail, onDispute }: DemTabProps) {
-  const [page, setPage] = useState(0)
-  const totalPages = Math.max(1, Math.ceil(invoices.length / BILLING_PAGE_SIZE))
+export function DemurrageTab({ invoices, totalCount, page, onPageChange, loading, error, filters, onFilters, vesselOptions, pods, onOpenDetail, onDispute }: DemTabProps) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / BILLING_PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)
-  // ponytail: paginacao client-side; upgrade para p_limit/p_offset nas RPCs se o volume por cliente crescer.
-  const paginatedInvoices = invoices.slice(safePage * BILLING_PAGE_SIZE, (safePage + 1) * BILLING_PAGE_SIZE)
 
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-[var(--app-border)] px-5 py-4">
         <h2 className="text-base font-semibold">Sobreestadia de containers (D&D)</h2>
-        <p className="mt-1 text-sm text-[var(--app-muted)]">{formatResultCount(invoices.length, 'fatura', 'faturas')}</p>
+        <p className="mt-1 text-sm text-[var(--app-muted)]">{formatResultCount(totalCount, 'fatura', 'faturas')}</p>
       </div>
 
       <div className="px-5 pt-4">
@@ -168,6 +169,7 @@ export function DemurrageTab({ invoices, loading, error, filters, onFilters, ves
 
       <div className="hidden app-table-scroll md:block">
         <table className="app-table app-table--compact min-w-[820px] text-left text-sm">
+          <caption className="sr-only">Faturas de demurrage do cliente</caption>
           <thead>
             <tr>
               <th scope="col" className="px-4 py-3">Documento</th>
@@ -187,7 +189,7 @@ export function DemurrageTab({ invoices, loading, error, filters, onFilters, ves
             {!loading && !error && invoices.length === 0 ? (
               <tr><td className="px-4 py-8 text-center text-[var(--app-muted)]" colSpan={8}>Nenhuma fatura de demurrage para os filtros atuais.</td></tr>
             ) : null}
-            {paginatedInvoices.map((inv) => (
+            {invoices.map((inv) => (
               <tr key={inv.id}>
                 <td className="px-4 py-3 font-semibold">{inv.doc_number}</td>
                 <td className="px-4 py-3">{inv.bl_id} — {inv.pol ?? '-'} / {inv.pod ?? '-'}</td>
@@ -219,7 +221,7 @@ export function DemurrageTab({ invoices, loading, error, filters, onFilters, ves
         {!loading && !error && invoices.length === 0 ? (
           <div className="py-6 text-center text-sm text-[var(--app-muted)]">Nenhuma fatura de demurrage para os filtros atuais.</div>
         ) : null}
-        {paginatedInvoices.map((inv) => (
+        {invoices.map((inv) => (
           <div
             key={inv.id}
             className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 text-left"
@@ -242,15 +244,15 @@ export function DemurrageTab({ invoices, loading, error, filters, onFilters, ves
           </div>
         ))}
       </div>
-      {invoices.length > 0 ? (
+      {totalCount > 0 ? (
         <TableFooterPagination
           page={safePage}
           pageBase={0}
           pageSize={BILLING_PAGE_SIZE}
-          totalCount={invoices.length}
+          totalCount={totalCount}
           totalPages={totalPages}
-          countLabel={`${safePage * BILLING_PAGE_SIZE + 1}-${Math.min((safePage + 1) * BILLING_PAGE_SIZE, invoices.length)} de ${invoices.length}`}
-          onPageChange={setPage}
+          countLabel={`${safePage * BILLING_PAGE_SIZE + 1}-${Math.min(safePage * BILLING_PAGE_SIZE + invoices.length, totalCount)} de ${totalCount}`}
+          onPageChange={onPageChange}
         />
       ) : null}
     </Card>

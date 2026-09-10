@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { escapeFilterTerm, normalizeText } from '../lib/utils'
 import { queryKeys } from '../services/queryKeys'
 import { supabase } from '../services/supabase'
+import { getOperationalBlSummary, listOperationalBls, listOperationalContainers } from '../services/operationalLists'
 import type { AuditLog, BL, BLDetail, BLListItem, ContainerListItem } from '../types/database'
 
 const blSelect = `
@@ -26,6 +27,10 @@ function supabaseRows<T>(data: unknown): T[] {
 
 function supabaseValue<T>(data: unknown): T {
   return data as T
+}
+
+function supportsOperationalReadPages() {
+  return typeof (supabase as unknown as { rpc?: unknown }).rpc === 'function'
 }
 
 export type BlFilters = {
@@ -62,6 +67,10 @@ export function useBls(filters: BlFilters) {
   return useQuery({
     queryKey: queryKeys.bls.list(filters),
     queryFn: async () => {
+      if (supportsOperationalReadPages()) {
+        return listOperationalBls(filters, filters.page, filters.pageSize)
+      }
+
       // Some legacy rows may carry charge_status with formatting drift (e.g. casing/spacing),
       // which makes PostgREST eq() return false negatives. For status/profile filters,
       // fetch-and-filter in app to keep UI behavior consistent.
@@ -96,6 +105,10 @@ export function useContainers(filters: ContainerFilters) {
   return useQuery({
     queryKey: queryKeys.bls.containers(filters),
     queryFn: async () => {
+      if (supportsOperationalReadPages()) {
+        return listOperationalContainers(filters, filters.page, filters.pageSize)
+      }
+
       // ponytail: este filtro materializa todos os B/Ls/containers no cliente (O(tabela))
       // para preservar filtros derivados; upgrade path = agregacao/filtros server-side.
       const filteredRows = await fetchAllContainers(filters)
@@ -136,6 +149,10 @@ export function useBlSummary(filters: BlFilters) {
   return useQuery({
     queryKey: queryKeys.bls.summary(toSummaryFilters(filters)),
     queryFn: async () => {
+      if (supportsOperationalReadPages()) {
+        return getOperationalBlSummary(filters)
+      }
+
       const rows = await fetchAllBls(filters)
 
       return {

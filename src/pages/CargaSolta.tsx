@@ -4,13 +4,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { MetricCard } from '../components/ui/MetricCard'
-import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { BlDocumentImportModal } from '../components/shared/BlDocumentImportModal'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { ChargeStatusBadge } from '../components/shared/OperationalBadges'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
+import { QueryStateGate } from '../components/shared/QueryStateGate'
 import { PreviewBox } from '../components/ui/PreviewBox'
 import { useToast } from '../components/ui/Toast'
 import { TruncationNote } from '../components/shared/TruncationNote'
@@ -19,6 +20,7 @@ import { FileImportModal } from '../components/shared/FileImportModal'
 import { useAuth } from '../hooks/useAuth'
 import { fetchAllBls, type BlFilters, useBls, usePortOptions } from '../hooks/useBls'
 import { usePageFilters } from '../hooks/usePageFilters'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
@@ -52,13 +54,19 @@ export function CargaSolta() {
   const [exporting, setExporting] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
 
-  const { data, isLoading, error } = useBls(filters)
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const queryFilters = useMemo(() => ({
+    ...filters,
+    search: debouncedSearch,
+    page: debouncedSearch === filters.search ? filters.page : 1,
+  }), [debouncedSearch, filters])
+  const { data, isLoading, error, fetchStatus, refetch } = useBls(queryFilters)
   const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
   const { data: invoiceLinksByBl } = useInvoiceLinks(blIdsOnPage)
   const [summaryRows, setSummaryRows] = useState<BLListItem[]>([])
   const summaryFilters = useMemo(
     () => ({
-      search: filters.search,
+      search: debouncedSearch,
       voyageId: filters.voyageId,
       cargoMode: filters.cargoMode,
       pol: filters.pol,
@@ -71,7 +79,7 @@ export function CargaSolta() {
       pageSize: 1000,
     }),
     [
-      filters.search,
+      debouncedSearch,
       filters.voyageId,
       filters.cargoMode,
       filters.pol,
@@ -266,10 +274,17 @@ export function CargaSolta() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        {error ? <InlineError message="Erro ao carregar carga solta." /> : null}
-
+        <QueryStateGate
+          isLoading={false}
+          isError={Boolean(error)}
+          isPaused={fetchStatus === 'paused'}
+          hasData={data !== undefined}
+          errorMessage="Erro ao carregar carga solta."
+          onRetry={() => void refetch()}
+        >
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact min-w-[1420px] text-left text-sm whitespace-nowrap">
+            <caption className="sr-only">B/Ls de carga solta filtrados</caption>
             <thead>
               <tr>
                 <th scope="col" className="px-4 py-3">No. B/L</th>
@@ -356,6 +371,7 @@ export function CargaSolta() {
             </tbody>
           </table>
         </div>
+        </QueryStateGate>
 
         <TableFooterPagination
           page={filters.page}

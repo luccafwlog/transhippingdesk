@@ -3,11 +3,28 @@ import { createContext, useContext, useEffect, useMemo, useState, type PropsWith
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
+import { extractErrorText } from '../lib/errors'
 import type { UserProfile, UserProfileRole } from '../types/database'
 import { markStartupStage } from '../lib/telemetry'
 
 export function shouldHydrateProfile(nextUserId: string | null, hydratedUserId: string | null): boolean {
   return nextUserId !== null && nextUserId !== hydratedUserId
+}
+
+export type ProfileHydrationStatus = 'loading' | 'ready' | 'transient-error' | 'unauthorized' | 'signed-out'
+
+/**
+ * Erro transitório (rede/timeout/RLS) mantém a sessão e permite retry com as
+ * ações bloqueadas; perfil ausente/inválido confirmado elimina o acesso.
+ * `PGRST116` é o "0 rows" do `.single()` com `active = true`: perfil inativo
+ * ou removido. Mensagem de papel inválido também é decisão, não transiência.
+ */
+export function classifyProfileHydrationError(error: unknown): 'transient-error' | 'unauthorized' {
+  if (error && typeof error === 'object') {
+    if ((error as { code?: unknown }).code === 'PGRST116') return 'unauthorized'
+  }
+  if (error instanceof Error && error.message === 'Perfil de usuário inválido.') return 'unauthorized'
+  return 'transient-error'
 }
 
 export type Permission =
@@ -39,6 +56,9 @@ type AuthContextValue = {
   session: Session | null
   profile: UserProfile | null
   loading: boolean
+  /** Hidratação do perfil: `loading` inicial, `ready`, erro transitório (sessão válida, retry permitido) ou `unauthorized` (acesso eliminado). */
+  profileStatus: ProfileHydrationStatus
+  profileError: string | null
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
@@ -75,6 +95,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileStatus, setProfileStatus] = useState<ProfileHydrationStatus>('loading')
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   useEffect(() => {
     let lastActivity = Date.now()
@@ -125,17 +147,38 @@ export function AuthProvider({ children }: PropsWithChildren) {
       try {
         const nextUserId = nextSession?.user?.id ?? null
         if (shouldHydrateProfile(nextUserId, hydratedUserId)) {
-          const nextProfile = await loadProfile(nextSession!.user.id)
-          markStartupStage('profile')
           hydratedUserId = nextUserId
+          // Troca de usuário: descartar o perfil antigo antes de carregar o
+          // novo — nunca autorizar com credencial de outra sessão.
+          if (mounted) {
+            setProfile(null)
+            setProfileError(null)
+            setProfileStatus('loading')
+          }
+          const nextProfile = await loadProfile(nextSession!.user.id)
+          if (!mounted) return
+          markStartupStage('profile')
           setProfile(nextProfile)
+          setProfileError(null)
+          setProfileStatus('ready')
         } else if (!nextUserId) {
           hydratedUserId = null
           setProfile(null)
+          setProfileError(null)
+          setProfileStatus('signed-out')
         }
-      } catch {
-        if (mounted) {
-          setProfile(null)
+      } catch (error) {
+        if (!mounted) return
+        // Erro transitório mantém a sessão Auth válida (sem logout) e expõe
+        // retry; perfil confirmado inativo/removido elimina o acesso.
+        const kind = classifyProfileHydrationError(error)
+        setProfile(null)
+        setProfileError(extractErrorText(error) || 'Falha ao carregar o perfil.')
+        if (kind === 'unauthorized') {
+          setProfileStatus('unauthorized')
+          void signOutSupabaseClient(supabase)
+        } else {
+          setProfileStatus('transient-error')
         }
       } finally {
         if (mounted) {
@@ -150,9 +193,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const { data } = await supabase.auth.getSession()
         markStartupStage('session')
         await hydrateSession(data.session)
-      } catch {
+      } catch (error) {
         if (mounted) {
           setProfile(null)
+          setProfileError(extractErrorText(error) || 'Falha ao carregar a sessão.')
+          setProfileStatus('transient-error')
           setLoading(false)
         }
       }
@@ -180,6 +225,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       session,
       profile,
       loading,
+      profileStatus,
+      profileError,
       isAdmin: role === 'admin' || role === 'administrativo',
       effectiveRole,
       can: (permission: Permission) => roleHasPermission(role, permission),
@@ -195,10 +242,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
         await signOutSupabaseClient(supabase)
       },
       async refreshProfile() {
-        if (session?.user.id) setProfile(await loadProfile(session.user.id))
+        if (!session?.user.id) return
+        setProfileStatus('loading')
+        try {
+          setProfile(await loadProfile(session.user.id))
+          setProfileError(null)
+          setProfileStatus('ready')
+        } catch (error) {
+          const kind = classifyProfileHydrationError(error)
+          setProfile(null)
+          setProfileError(extractErrorText(error) || 'Falha ao carregar o perfil.')
+          if (kind === 'unauthorized') {
+            setProfileStatus('unauthorized')
+            await signOutSupabaseClient(supabase)
+          } else {
+            setProfileStatus('transient-error')
+          }
+        }
       },
     }
-  }, [loading, profile, session])
+  }, [loading, profile, profileError, profileStatus, session])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

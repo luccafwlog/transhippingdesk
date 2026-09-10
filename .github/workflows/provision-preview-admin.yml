@@ -61,28 +61,91 @@ jobs:
         with:
           version: 2.113.0
 
-      - name: Wait for Supabase Preview
+      - name: Wait for Supabase Preview readiness
+        id: readiness
         shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
         run: |
           set -euo pipefail
+          : "${PR_NUMBER:?PR_NUMBER ausente}"
           : "${PR_HEAD_SHA:?PR_HEAD_SHA ausente}"
+          : "${PR_HEAD_REF:?PR_HEAD_REF ausente}"
+          decide() {
+            OPEN="$1" CURRENT_SHA="$2" CONCLUSION="$3" BRANCH_READY="$4" node --input-type=module -e "
+              import { decidePreviewReadiness } from './scripts/preview-readiness.mjs';
+              const conclusion = process.env.CONCLUSION || null;
+              process.stdout.write(decidePreviewReadiness({
+                open: process.env.OPEN === 'true',
+                currentSha: process.env.CURRENT_SHA,
+                requestedSha: '${PR_HEAD_SHA}',
+                conclusion,
+                branchReady: process.env.BRANCH_READY === 'true',
+              }));"
+          }
+          poll_state() {
+            pr_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+            pr_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+            # Paginação explícita: o filtro --jq do gh avalia por página, então
+            # o raw paginado é reduzido com jq -s para o SHA exato solicitado.
+            payload="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs?per_page=100")"
+            # O nome do check é controlado pelo emissor. Exigir o app oficial
+            # Supabase (ID estável da integração) evita que outro check com o
+            # mesmo nome autorize credenciais de uma branch.
+            read -r check_status check_conclusion <<<"$(jq -sr --arg sha "${PR_HEAD_SHA}" '
+              [.[].check_runs[] | select(.name == "Supabase Preview" and .head_sha == $sha and .app.id == 330661 and .app.slug == "supabase")]
+              | if length == 0 then ["", ""]
+                else (max_by(.completed_at // .started_at // .created_at) | [.status, (.conclusion // "")])
+                end | join(" ")' <<<"$payload")"
+            branch_ready=false
+            if [[ "$check_conclusion" == "success" ]]; then
+              if supabase --experimental branches get "$PR_HEAD_REF" --project-ref "$SUPABASE_PROJECT_REF" -o env >/dev/null 2>&1; then
+                branch_ready=true
+              fi
+            fi
+            pr_open=false
+            if [[ "$pr_state" == "open" ]]; then pr_open=true; fi
+            decision="$(decide "$pr_open" "$pr_sha" "$check_conclusion" "$branch_ready")"
+            printf '%s|%s|%s|%s\n' "$decision" "$check_status" "$check_conclusion" "$branch_ready"
+          }
           for attempt in $(seq 1 36); do
-            result="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs?per_page=100" \
-              --jq '[.check_runs[] | select(.name == "Supabase Preview")] | if length == 0 then "missing" else (max_by(.completed_at // .started_at // .created_at) | .status + " " + (.conclusion // "")) end')"
-            if [[ "$result" == "completed success" ]]; then
-              exit 0
-            fi
-            if [[ "$result" == completed\ * ]]; then
-              echo "Supabase Preview terminou com: $result"
-              exit 1
-            fi
-            echo "Aguardando Supabase Preview ($attempt/36): ${result:-missing}"
+            IFS='|' read -r decision check_status check_conclusion branch_ready <<<"$(poll_state)"
+            case "$decision" in
+              ready)
+                # Revalidar SHA e estado antes de provisionar: cobre merge/fechamento durante a espera.
+                pr_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
+                pr_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+                if [[ "$pr_state" == "open" && "$pr_sha" == "$PR_HEAD_SHA" ]]; then
+                  echo "readiness=ready" >> "$GITHUB_OUTPUT"
+                  echo "Preview pronta para a PR #${PR_NUMBER} no SHA ${PR_HEAD_SHA}."
+                  exit 0
+                fi
+                echo "SHA/estado mudou durante a espera (state=${pr_state} sha=${pr_sha}); reavaliando."
+                ;;
+              obsolete)
+                echo "readiness=obsolete" >> "$GITHUB_OUTPUT"
+                echo "PR #${PR_NUMBER} encerrada ou SHA superado; concluindo sem credenciais e sem provisionar."
+                exit 0
+                ;;
+              failed)
+                echo "Supabase Preview terminou com '${check_conclusion}' para o SHA ${PR_HEAD_SHA} na PR #${PR_NUMBER}; abortando sem provisionar."
+                exit 1
+                ;;
+              investigate)
+                echo "Supabase Preview pulado (skipped) com a PR #${PR_NUMBER} aberta no SHA ${PR_HEAD_SHA}; causa exige investigação, skip não é sucesso. Abortando sem provisionar."
+                exit 1
+                ;;
+              wait)
+                echo "Aguardando Supabase Preview ($attempt/36): status='${check_status:-missing}' conclusion='${check_conclusion:-missing}' branch_ready=${branch_ready:-false}"
+                ;;
+            esac
             sleep 10
           done
-          echo 'Tempo limite aguardando o check Supabase Preview.'
+          echo "Tempo limite (36 tentativas) aguardando o Supabase Preview para o SHA ${PR_HEAD_SHA} na PR #${PR_NUMBER}; último estado: status='${check_status:-missing}' conclusion='${check_conclusion:-missing}'."
           exit 1
 
       - name: Load branch credentials
+        if: steps.readiness.outputs.readiness == 'ready'
         # O `-o env` do CLI emite formato dotenv (`KEY="valor"`). O $GITHUB_ENV
         # espera `KEY=valor` cru e não remove aspas: anexar sem decodificar
         # deixava cada credencial com aspas literais e o provisionamento
@@ -97,4 +160,5 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" -o env | node scripts/load-branch-env.mjs
 
       - name: Provision test admin
+        if: steps.readiness.outputs.readiness == 'ready'
         run: node scripts/provision-preview-admin.mjs

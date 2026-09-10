@@ -13,7 +13,7 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain("p_anchor_invoice_id: candidate.invoice_id")
     expect(source).toContain("admin.rpc('release_demurrage_dunning_claim'")
     expect(source).toContain('CLAIM_BATCH_SIZE')
-    expect(source).toContain('idempotencyKey = `demurrage:${candidate.invoice_id}:${candidate.attempt_discriminator}:${recipient}`')
+    expect(source).toContain('idempotencyKey = `demurrage:${communicationId}:${contact.id}:${await recipientVersion(recipient)}`')
     expect(source).not.toContain('claimed_at}:${recipient}')
   })
 
@@ -30,5 +30,22 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain('revalidateInvoiceBeforeSend')
     expect(source).toContain("result === 'falha' || result === 'pausado'")
     expect(source).not.toContain("result === 'simulado') simulated")
+  })
+
+  it('S06/D11 — agrupa por cliente/ciclo com uma mensagem por destinatário', () => {
+    expect(source).toContain('groupDunningCandidatesByCustomerCycle')
+    expect(source).toContain('sendCandidateGroup')
+    expect(source).toContain('createGroupedCommunication')
+    expect(source).toContain("admin.rpc('create_customer_dunning_group_atomic'")
+    expect(source).toContain('p_invoice_ids')
+    expect(source).toContain('customer_communication_recipient_allowed')
+    expect(source).toContain('demurrage:group:')
+    // Sem consolidar faturas: cada identificador/valor segue individual.
+    expect(source).toContain('sem consolidação')
+    // Revalida quitação/disputa/supressão/caixa por fatura antes de compor.
+    expect(source).toContain('revalidateInvoiceBeforeSend(admin, candidate.invoice_id)')
+    // Chave global: sem envio real desligado não há RESEND, mas o grupo
+    // simulado segue registrado; grupo unitário preserva o caminho por fatura.
+    expect(source).toContain('group.length === 1')
   })
 })

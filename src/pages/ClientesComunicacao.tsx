@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
 import { Field, Input, Select, Textarea } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAppSettings, useSetCommunicationsEnabled } from '../hooks/useAppSettings'
 import { useAuth } from '../hooks/useAuth'
 import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate, useVoyageCommunicationCoverage } from '../hooks/useCustomerCommunications'
@@ -100,6 +101,7 @@ export function ClientesComunicacao() {
   const [audience, setAudience] = useState<CustomerCommunicationAudience>({ mode: 'caixa', boxCode: 'documentacao_operacao' })
   const { data: settings } = useAppSettings()
   const { effectiveRole, isAdmin } = useAuth()
+  const confirm = useConfirm()
   const canToggleCommunications = effectiveRole === 'administrativo' || isAdmin
   const setCommunicationsMutation = useSetCommunicationsEnabled()
   const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, audience, enabled: conferenceRequested })
@@ -360,9 +362,15 @@ export function ClientesComunicacao() {
               variant="secondary"
               loading={setCommunicationsMutation.isPending}
               onClick={() => {
-                if (window.confirm('Confirma a ativação da chave global de envio? Os próximos disparos de comunicados e cobranças enviarão e-mails reais aos clientes via Resend.')) {
-                  void setCommunicationsMutation.mutateAsync(true)
-                }
+                void (async () => {
+                  const confirmed = await confirm({
+                    title: 'Ativar envio real',
+                    message: 'Confirma a ativação da chave global de envio? Os próximos disparos de comunicados e cobranças enviarão e-mails reais aos clientes via Resend.',
+                    confirmLabel: 'Ativar envio real',
+                    tone: 'danger',
+                  })
+                  if (confirmed) await setCommunicationsMutation.mutateAsync(true)
+                })()
               }}
             >
               Ativar envio real
@@ -386,9 +394,15 @@ export function ClientesComunicacao() {
               variant="secondary"
               loading={setCommunicationsMutation.isPending}
               onClick={() => {
-                if (window.confirm('Deseja desativar a chave global de envio e retornar ao modo de simulação?')) {
-                  void setCommunicationsMutation.mutateAsync(false)
-                }
+                void (async () => {
+                  const confirmed = await confirm({
+                    title: 'Desativar envio real',
+                    message: 'Deseja desativar a chave global de envio e retornar ao modo de simulação?',
+                    confirmLabel: 'Desativar envio real',
+                    tone: 'danger',
+                  })
+                  if (confirmed) await setCommunicationsMutation.mutateAsync(false)
+                })()
               }}
             >
               Desativar envio real

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Boxes, Download, Trash2, Upload, MoreVertical } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { MetricCard } from '../components/ui/MetricCard'
-import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
+import { Card, EmptyState, PageHeader } from '../components/ui/Card'
 import { FilterBar } from '../components/ui/FilterBar'
 import { SkeletonTable } from '../components/ui/Skeleton'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
@@ -14,11 +14,13 @@ import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { Field, Input, Select } from '../components/ui/Input'
 import { TableFooterPagination } from '../components/ui/TableFooterPagination'
+import { QueryStateGate } from '../components/shared/QueryStateGate'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { usePageFilters } from '../hooks/usePageFilters'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { checkBlDependencies, deleteBls } from '../services/bls'
 import { formatBlockedSummary } from '../services/deleteDependencies'
 import { type BlFilters, fetchAllBls, useBls, useBlSummary, usePortOptions } from '../hooks/useBls'
@@ -55,8 +57,14 @@ export function Manifestos() {
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const { showToast } = useToast()
-  const { data, isLoading, error } = useBls(filters)
-  const { data: summary, isLoading: isSummaryLoading } = useBlSummary(filters)
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const queryFilters = useMemo(() => ({
+    ...filters,
+    search: debouncedSearch,
+    page: debouncedSearch === filters.search ? filters.page : 1,
+  }), [debouncedSearch, filters])
+  const { data, isLoading, error, fetchStatus, refetch } = useBls(queryFilters)
+  const { data: summary, isLoading: isSummaryLoading } = useBlSummary(queryFilters)
   const { data: portOptions } = usePortOptions()
   const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
   const { data: invoiceLinksByBl } = useInvoiceLinks(blIdsOnPage)
@@ -90,6 +98,27 @@ export function Manifestos() {
     left: number
   } | null
   const [actionsMenu, setActionsMenu] = useState<ActionsMenuState>(null)
+  const actionsTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const actionsItemRef = useRef<HTMLButtonElement | null>(null)
+
+  function openActionsMenu(id: string, button: HTMLButtonElement) {
+    actionsTriggerRef.current = button
+    const rect = button.getBoundingClientRect()
+    setActionsMenu({
+      id,
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.right + window.scrollX - 160,
+    })
+  }
+
+  useEffect(() => {
+    if (!actionsMenu) {
+      actionsTriggerRef.current?.focus()
+      actionsTriggerRef.current = null
+      return
+    }
+    actionsItemRef.current?.focus()
+  }, [actionsMenu])
 
   useEffect(() => {
     if (!actionsMenu) return
@@ -324,10 +353,17 @@ export function Manifestos() {
           <span className="font-semibold text-white">{formatResultCount(data?.count ?? 0, 'B/L retornado', 'B/Ls retornados')}</span>
           <span className="text-xs text-slate-400">{filterDescription}</span>
         </div>
-        {error ? <InlineError message="Erro ao carregar manifestos." /> : null}
-
+        <QueryStateGate
+          isLoading={false}
+          isError={Boolean(error)}
+          isPaused={fetchStatus === 'paused'}
+          hasData={data !== undefined}
+          errorMessage="Erro ao carregar manifestos."
+          onRetry={() => void refetch()}
+        >
         <div className="app-table-scroll app-table-scroll--sticky">
           <table className="app-table app-table--compact app-table--sticky-actions min-w-[920px] text-left text-sm whitespace-nowrap">
+            <caption className="sr-only">B/Ls de container filtrados</caption>
             <thead>
               <tr>
                 {isAdmin ? (
@@ -430,13 +466,15 @@ export function Manifestos() {
                           type="button"
                           className="app-btn app-btn--secondary p-1 leading-none"
                           aria-label={`Ações para B/L ${bl.id}`}
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            setActionsMenu({
-                              id: bl.id,
-                              top: rect.bottom + window.scrollY + 4,
-                              left: rect.right + window.scrollX - 160,
-                            })
+                          aria-haspopup="menu"
+                          aria-expanded={actionsMenu?.id === bl.id}
+                          aria-controls="manifestos-actions-menu"
+                          onClick={(e) => openActionsMenu(bl.id, e.currentTarget)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault()
+                              openActionsMenu(bl.id, e.currentTarget)
+                            }
                           }}
                         >
                           <MoreVertical size={15} />
@@ -449,6 +487,7 @@ export function Manifestos() {
             </tbody>
           </table>
         </div>
+        </QueryStateGate>
 
         {data && totalPages > 1 ? (
           <TableFooterPagination
@@ -466,6 +505,7 @@ export function Manifestos() {
       {actionsMenu ? (
         <div
           data-actions-menu
+          id="manifestos-actions-menu"
           className="app-floating-menu"
           role="menu"
           style={{ top: actionsMenu.top, left: actionsMenu.left }}
@@ -474,12 +514,19 @@ export function Manifestos() {
             <button
               type="button"
               role="menuitem"
+              ref={actionsItemRef}
               className="app-floating-menu__danger"
               disabled={deleting}
               onClick={() => {
                 const id = actionsMenu.id
                 setActionsMenu(null)
                 void runBlDelete([id])
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setActionsMenu(null)
+                }
               }}
             >
               <Trash2 size={14} />

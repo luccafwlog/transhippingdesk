@@ -21,6 +21,7 @@ describe('financialValidation', () => {
     expect(paymentFormSchema.safeParse({ amountBrl: '10', paymentMethod: 'cartao', paidAt: '2026-06-13' }).success).toBe(false)
     expect(paymentFormSchema.safeParse({ amountBrl: '10', paymentMethod: 'pix', paidAt: '' }).success).toBe(false)
     expect(paymentFormSchema.safeParse({ amountBrl: '10', paymentMethod: 'pix', paidAt: '2026-13-01' }).success).toBe(false)
+    expect(paymentFormSchema.safeParse({ amountBrl: '1e3', paymentMethod: 'pix', paidAt: '2026-06-13' }).success).toBe(false)
   })
 
   it('valida item manual de invoice', () => {

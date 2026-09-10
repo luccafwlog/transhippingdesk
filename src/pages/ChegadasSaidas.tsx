@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, FileSpreadsheet, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { Card, PageHeader } from '../components/ui/Card'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { assertUploadSize } from '../lib/fileGuard'
 import { useAuth } from '../hooks/useAuth'
@@ -223,6 +224,7 @@ export function ChegadasSaidas() {
   const [formData, setFormData] = useState<ScheduleForm>(emptyScheduleForm)
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const confirm = useConfirm()
   const { user, profile } = useAuth()
   const canWrite = Boolean(profile || user)
   const tableColumnCount = PORTAL_SCHEDULE_LANES.length + (canWrite ? 3 : 2)
@@ -291,7 +293,13 @@ export function ChegadasSaidas() {
   }
 
   const handleRemoveFromPortal = async (voyage: PortalScheduleVoyage) => {
-    if (!confirm(`Remover "${voyage.vesselName}" do Portal? A viagem operacional sera preservada.`)) return
+    const confirmed = await confirm({
+      title: 'Remover publicação do Portal',
+      message: `Remover "${voyage.vesselName}" do Portal? A viagem operacional será preservada.`,
+      confirmLabel: 'Remover do Portal',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     try {
       await setVoyageShowOnPortal(voyage.voyageId, false)
       showToast(`${voyage.vesselName} removido do Portal.`, 'success')

@@ -36,6 +36,31 @@ npm run test:integration
 Use somente projeto ou branch de banco controlado. A suíte requer as variáveis
 `SUPABASE_*` descritas em `.env.example`.
 
+### Migrations e automações da remediação
+
+Para validar o bloco `022`–`026` em PostgreSQL local descartável, depois de
+`scripts/setup-local-pg.sh`, execute:
+
+```bash
+LOCAL_PG_INTEGRATION=1 npm test -- --run \
+  src/integration/emailInbox.local-pg.test.ts \
+  src/integration/demurrageAuthority.local-pg.test.ts \
+  src/integration/exchangeRateIntegrity.local-pg.test.ts \
+  src/integration/importEffects.local-pg.test.ts
+```
+
+Esse roteiro comprova contratos e invariantes no banco local, inclusive
+permissões negativas, snapshots, alertas e leases. Não comprova a branch
+Supabase do Preview, grants do Postgres gerenciado, Vault preenchido,
+`pg_cron`/`pg_net` executando, publicação das Edge Functions, Resend ou BCB
+reais; esses pontos exigem a validação controlada das seções seguintes.
+
+Para Demurrage, a evidência mínima do novo contrato é emitir por IDs de B/L e
+containers no RPC autoritativo, conferir o snapshot append-only e confirmar que
+o browser não grava PIX, total ou PTAX. Para PTAX, provoque falha controlada da
+fonte e confirme o alerta persistente; não marque o job como operacional sem
+uma execução autenticada em Preview.
+
 ## 2. Níveis de ambiente
 
 ### Local sem Supabase real
@@ -356,7 +381,11 @@ Passos:
 6. use CNPJ ou senha inválidos;
 7. ultrapasse o limite apenas em ambiente descartável;
 8. confirme mensagem genérica e rate limit;
-9. valide coexistência com uma sessão interna no mesmo navegador.
+9. valide coexistência com uma sessão interna no mesmo navegador;
+10. após revogar a credencial (`credentials_revoked_at`), confirme que o overview
+    nega com `28000` e não atualiza `last_login_at` — coberto de forma
+    automatizada por `src/integration/auditSecurityBoundaries.local-pg.test.ts`
+    (iat anterior/posterior, tolerância de 5 s, ausência e formato inválido).
 
 ### Recuperação de senha
 

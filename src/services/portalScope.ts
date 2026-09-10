@@ -1,5 +1,6 @@
 import { supabase, supabasePortal } from './supabase'
 import type { PortalSessionOverview } from './portalBilling'
+import { PORTAL_WRITE_CONTRACTS, resolvePortalRpcName, type PortalContract } from './portalRpcContracts'
 
 export type PortalScope = {
   mode: 'client' | 'inspect'
@@ -15,18 +16,7 @@ export const clientPortalScope: PortalScope = {
   basePath: '/portal',
 }
 
-export const portalWriteRpcNames = new Set([
-  'portal_open_demurrage_dispute',
-  'portal_add_dispute_message',
-  'add_demurrage_dispute_attachment',
-  'portal_request_dispute_reopen',
-  'portal_update_profile',
-  'portal_create_consolidation',
-  'portal_obsolete_consolidation',
-  'portal_mark_notification_read',
-  'portal_mark_all_notifications_read',
-  'portal_save_contact_configuration',
-])
+export const portalWriteRpcNames: ReadonlySet<string> = new Set<string>(PORTAL_WRITE_CONTRACTS)
 
 export function portalPath(scope: PortalScope, suffix = '') {
   if (!suffix) return scope.basePath
@@ -38,21 +28,20 @@ export function inspectionRpcArgs(scope: PortalScope, args: Record<string, unkno
 }
 
 export async function openPortalInspection(customerId: number, origin: string | null) {
-  const result = await (supabase as unknown as { rpc: (rpc: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> }).rpc('portal_open_inspection', { p_customer_id: customerId, p_origin: origin })
-  if (result.error) throw result.error
-  return result.data as PortalSessionOverview
+  const { data, error } = await supabase.rpc('portal_open_inspection', {
+    p_customer_id: customerId,
+    ...(origin == null ? {} : { p_origin: origin }),
+  })
+  if (error) throw error
+  return data as PortalSessionOverview
 }
 
-export async function callPortalRpc<T = unknown>(scope: PortalScope, name: string, args: Record<string, unknown> = {}) {
-  if (scope.mode === 'inspect' && portalWriteRpcNames.has(name)) {
-    throw new Error('Ação do cliente indisponível em Modo Inspeção.')
-  }
-
+export async function callPortalRpc<T = unknown>(scope: PortalScope, name: PortalContract, args: Record<string, unknown> = {}) {
   const client = scope.mode === 'inspect' ? supabase : supabasePortal
+  const rpcName = resolvePortalRpcName(scope.mode, name)
   // portal_ship_schedule isn't customer-scoped (no portal_inspect_ variant
   // exists), so it keeps its name and its zero-arg signature in inspect mode too.
   const isShipSchedule = name === 'portal_ship_schedule'
-  const rpcName = scope.mode === 'inspect' && !isShipSchedule ? `portal_inspect_${name.replace(/^portal_/, '')}` : name
   const rpc = (client as unknown as { rpc: (rpc: string, params?: Record<string, unknown>) => Promise<{ data: T | null; error: unknown }> }).rpc
   const rpcArgs = isShipSchedule ? args : inspectionRpcArgs(scope, args)
   const result = Object.keys(rpcArgs).length

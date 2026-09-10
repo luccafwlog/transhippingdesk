@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
@@ -45,7 +45,7 @@ beforeEach(() => {
   }))
 })
 
-it('filtra, pagina, seleciona e abre um B/L', () => {
+it('filtra, pagina, seleciona e abre um B/L', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
@@ -60,7 +60,7 @@ it('filtra, pagina, seleciona e abre um B/L', () => {
 
   fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
   fireEvent.change(screen.getByPlaceholderText('B/L ou cliente'), { target: { value: 'BL-001' } })
-  expect(useBlsMock.mock.calls.at(-1)?.[0]).toMatchObject({ search: 'BL-001', page: 1 })
+  await waitFor(() => expect(useBlsMock.mock.calls.at(-1)?.[0]).toMatchObject({ search: 'BL-001', page: 1 }))
 
   fireEvent.click(screen.getByLabelText('Selecionar B/L BL-001'))
   expect(screen.getByText('Selecionados: 1')).toBeTruthy()
@@ -117,4 +117,23 @@ it('remove os listeners globais do menu de ações ao desmontar', () => {
   const removed = removeSpy.mock.calls.map(([type]) => type)
   expect(removed).toEqual(expect.arrayContaining(['scroll', 'resize', 'keydown', 'mousedown']))
   removeSpy.mockRestore()
+})
+
+it('abre o menu de ações pelo teclado e devolve o foco ao acionador', () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <Manifestos />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+  const trigger = screen.getByRole('button', { name: 'Ações para B/L BL-001' })
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+
+  const menuItem = screen.getByRole('menuitem', { name: 'Excluir B/L' })
+  expect(document.activeElement).toBe(menuItem)
+  fireEvent.keyDown(menuItem, { key: 'Escape' })
+  expect(document.activeElement).toBe(trigger)
 })

@@ -83,6 +83,9 @@ export type LineUpRow = {
 export type LineUpSnapshot = {
   rows: LineUpRow[]
   lastChangedAt: string | null
+  /** True when the panel can request an older window of voyages. */
+  hasMore?: boolean
+  totalVoyages?: number
 }
 
 export type LineUpTerminalFront = {
@@ -203,10 +206,14 @@ export function lineUpScheduleDates(schedule: { ata?: string | null; atb?: strin
   }
 }
 
-export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
-  const voyages = await fetchVoyages()
+export async function fetchLineUpSnapshot(voyageLimit = 60): Promise<LineUpSnapshot> {
+  const voyageResult = await fetchVoyages(voyageLimit)
+  const voyages = voyageResult.rows
+  const pageMeta = voyageResult.totalCount > voyages.length
+    ? { hasMore: true, totalVoyages: voyageResult.totalCount }
+    : {}
   const voyageIds = voyages.map((voyage) => voyage.id)
-  if (!voyageIds.length) return { rows: [], lastChangedAt: null }
+  if (!voyageIds.length) return { rows: [], lastChangedAt: null, ...pageMeta }
 
   // Uma unica leitura de `depots` alimenta o mapa de codigos daqui e a
   // resolucao de codigo dentro das duas projecoes de Atracacao; sem
@@ -417,6 +424,7 @@ export async function fetchLineUpSnapshot(): Promise<LineUpSnapshot> {
   return {
     rows: sortedRows,
     lastChangedAt,
+    ...pageMeta,
   }
 }
 
@@ -471,17 +479,17 @@ function hasActiveEscalaScheduleData(schedule: {
   return false
 }
 
-async function fetchVoyages() {
-  const { data, error } = await supabase
+async function fetchVoyages(limit: number) {
+  const { data, error, count } = await supabase
     .from('voyages')
-    .select('id, voyage_number, status, vessel:vessels(name), pol:ports!pol_id(name, locode)')
+    .select('id, voyage_number, status, vessel:vessels(name), pol:ports!pol_id(name, locode)', { count: 'exact' })
     .in('status', ['active', 'completed', 'cancelled'])
     .order('created_at', { ascending: false })
-    .limit(60)
+    .range(0, Math.max(0, Math.min(limit, 500)) - 1)
     .overrideTypes<LineUpVoyageRow[], { merge: false }>()
 
   if (error) throw error
-  return data ?? []
+  return { rows: data ?? [], totalCount: count ?? data?.length ?? 0 }
 }
 
 async function fetchBlsByVoyageIds(voyageIds: number[]) {

@@ -16,12 +16,14 @@ function contact(id: number, email: string | null, purpose = 'demurrage'): Custo
     customer_id: 99,
     name: `Contato ${id}`,
     email,
+    email_normalized: email?.toLowerCase() ?? null,
     phone: null,
     purpose,
     is_primary: id === 1,
     created_at: '2026-09-01T00:00:00Z',
     deactivated_at: null,
     updated_at: '2026-09-01T00:00:00Z',
+    origin: 'interno',
   }
 }
 

@@ -4,7 +4,7 @@
 // precisar exatamente das mesmas regras — a fonte é a mesma (o texto que o
 // armador escreve no B/L), então a regra tem de ser uma só.
 import { extractNcmCodes } from '../lib/ncm'
-import { toNumber } from '../lib/utils'
+import { parseImportNumber } from '../lib/importNumber'
 
 const MACHINE_KEYWORD_PATTERN =
   /\b(?:EXCAVATORS?|BUS(?:ES)?|MOBILE CRANES?|CRANES?|MOBILE JAW CRUSHERS?|JAW CRUSHERS?|CRUSHERS?|BULLDOZERS?|WHEEL LOADERS?|LOADERS?|FORKLIFTS?|DUMP TRUCKS?|TRUCKS?|CONVEYORS?|GRADERS?|ROLLERS?|TRACTORS?|DRILLING RIGS?)\b/
@@ -48,14 +48,19 @@ function extractCarrierMachineQtyFromLine(value: string, hasMachineIdentifier: b
   if (!hasMachineKeyword && !hasMachineIdentifier) return 0
 
   const unitMatch = line.match(/(?:^|\D)(\d+(?:[.,]\d+)?)\s+(?:UNITS?|MACHINES?)\b/)
-  if (unitMatch) return toNumber(unitMatch[1]) ?? 0
+  if (unitMatch) return parseNumericToken(unitMatch[1]) ?? 0
 
   if (!hasMachineKeyword) return 0
 
   const directEquipmentMatch = line.match(
     new RegExp(`(?:^|\\D)(\\d+(?:[.,]\\d+)?)\\s+(?:${MACHINE_KEYWORD_PATTERN.source})\\b`),
   )
-  return directEquipmentMatch ? toNumber(directEquipmentMatch[1]) ?? 0 : 0
+  return directEquipmentMatch ? parseNumericToken(directEquipmentMatch[1]) ?? 0 : 0
+}
+
+function parseNumericToken(value: string) {
+  const parsed = parseImportNumber(value, 'unknown')
+  return parsed.kind === 'value' ? Number(parsed.decimal) : null
 }
 
 function extractMachineNcmCodes(value: string) {

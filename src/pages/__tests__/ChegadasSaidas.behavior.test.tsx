@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   createOrAttach: vi.fn(),
   setShow: vi.fn(),
   effectiveRole: vi.fn(() => 'documentacao'),
+  confirm: vi.fn(),
 }))
 
 const vessels = [
@@ -43,6 +44,9 @@ vi.mock('../../hooks/useAuth', () => ({
 vi.mock('../../components/ui/Toast', () => ({
   useToast: () => ({ showToast: mocks.showToast }),
 }))
+vi.mock('../../components/ui/ConfirmDialog', () => ({
+  useConfirm: () => mocks.confirm,
+}))
 vi.mock('../../services/voyageFromSchedule', () => ({
   createOrAttachVoyageFromSchedule: mocks.createOrAttach,
 }))
@@ -63,7 +67,7 @@ describe('ChegadasSaidas user behaviours', () => {
     mocks.createOrAttach.mockResolvedValue({ voyageId: 3, created: true })
     mocks.setShow.mockResolvedValue(undefined)
     mocks.effectiveRole.mockReturnValue('documentacao')
-    vi.stubGlobal('confirm', vi.fn(() => true))
+    mocks.confirm.mockResolvedValue(true)
   })
 
   it('cadastra viagem publicada no Portal via createOrAttachVoyageFromSchedule', async () => {
@@ -122,7 +126,9 @@ describe('ChegadasSaidas user behaviours', () => {
 
     await user.click(screen.getAllByTitle('Remover do Portal')[0])
 
-    expect(confirm).toHaveBeenCalled()
+    expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Remover publicação do Portal',
+    }))
     expect(mocks.setShow).toHaveBeenCalledWith(1, false)
   })
 

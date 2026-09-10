@@ -1,9 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
-vi.mock('../../supabase', () => ({ supabase: { from: fromMock } }))
+const { fromMock, rpcMock } = vi.hoisted(() => ({ fromMock: vi.fn(), rpcMock: vi.fn() }))
+vi.mock('../../supabase', () => ({ supabase: { from: fromMock, rpc: rpcMock } }))
 vi.mock('../demurrageRates', () => ({
   ensureDemurrageRatesLoaded: vi.fn(() => Promise.resolve()),
+  ensureDemurrageRatesFresh: vi.fn(() => Promise.resolve()),
   invalidateDemurrageRatesCache: vi.fn(),
   calculateDemurrage: vi.fn(),
 }))
@@ -48,12 +49,19 @@ beforeEach(() => {
   builders = new Map()
   fromMock.mockReset()
   fromMock.mockImplementation((table: string) => builderFor(table))
+  rpcMock.mockReset()
+  rpcMock.mockResolvedValue({ data: {}, error: null })
 })
 
 it('US-043: marca como paga uma invoice emitida', async () => {
   results.demurrage_invoices = { data: { status: 'issued', current_roe: 5, current_total_brl: 500, total_usd: 100, doc_number: 'DEM-1' }, error: null }
   await markInvoicePaid(5, '2026-06-23')
-  expect(lastUpdate('demurrage_invoices')).toMatchObject({ status: 'paid', paid_at: '2026-06-23' })
+  expect(rpcMock).toHaveBeenCalledWith('register_demurrage_payment', expect.objectContaining({
+    p_invoice_id: 5,
+    p_paid_at: '2026-06-23',
+    p_total_brl: null,
+    p_ptax_used: null,
+  }))
 })
 
 it('US-043: rejeita marcar paga uma invoice em draft', async () => {
@@ -64,7 +72,7 @@ it('US-043: rejeita marcar paga uma invoice em draft', async () => {
 it('US-045: cancela a invoice', async () => {
   results.demurrage_invoices = { data: null, error: null }
   await cancelDemurrageInvoice(5)
-  expect(lastUpdate('demurrage_invoices')).toMatchObject({ status: 'cancelled' })
+  expect(rpcMock).toHaveBeenCalledWith('cancel_demurrage_invoice', expect.objectContaining({ p_invoice_id: 5 }))
 })
 
 it('US-047: abre/atualiza disputa via patch', async () => {
@@ -74,10 +82,11 @@ it('US-047: abre/atualiza disputa via patch', async () => {
 })
 
 it('US-040: abre o detalhe da invoice com header e itens', async () => {
-  results.demurrage_invoices = { data: { id: 5, doc_number: 'DEM-1' }, error: null }
+  results.demurrage_invoices = { data: { id: 5, doc_number: 'DEM-1', current_total_brl: 100, pix_payload: null }, error: null }
   results.demurrage_invoice_items = { data: [{ id: 1, container_number: 'C1' }], error: null }
   const detail = await getInvoiceDetail(5)
   expect(detail.invoice).toMatchObject({ id: 5 })
+  expect(detail.invoice.pix_payload).toBeNull()
   expect(detail.items).toHaveLength(1)
 })
 
