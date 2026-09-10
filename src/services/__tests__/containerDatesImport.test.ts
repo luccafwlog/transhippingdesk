@@ -62,6 +62,17 @@ describe('containerDatesImport', () => {
     }])
   })
 
+  it('preserva o formato brasileiro em CSV sem inverter dia e mes', async () => {
+    const csv = [
+      'BL,Container,Discharge,Return',
+      'BL001,TCLU1234567,01/08/2026,',
+    ].join('\n')
+    const parsed = await parseContainerDatesFile(new File([csv], 'datas-container.csv', { type: 'text/csv' }))
+
+    expect(parsed.rowErrors).toHaveLength(0)
+    expect(parsed.rows[0]?.discharge_date).toBe('2026-08-01')
+  })
+
   it('rejeita devolucao anterior a descarga', async () => {
     const buffer = jsonToBuffer([
       {

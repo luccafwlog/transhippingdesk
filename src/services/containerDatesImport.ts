@@ -34,7 +34,11 @@ export async function parseContainerDatesFile(file: File): Promise<ParsedContain
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
   const { headers, rows, headerRowIndex } = await readSheet(buffer, {
-    dates: 'date',
+    // Keep the source text intact. In particular, SheetJS may reinterpret a
+    // CSV value such as `01/08/2026` as a JavaScript Date using the host
+    // locale, turning the Brazilian date into `2026-01-08` before parseDate
+    // can apply the documented DD/MM/YYYY contract.
+    dates: 'texto',
     expectedHeaders: Object.values(headerMap).flat(),
   })
   const { missing } = matchHeaders(headers, SPEC)
