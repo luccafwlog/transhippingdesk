@@ -26,6 +26,10 @@ export type OperationalBlSummary = {
   chargePending: number
   chargeReady: number
   chargeExempt: number
+  totalMachines: number
+  totalPackages: number
+  totalWeightTon: number
+  totalCbm: number
 }
 
 export type OperationalContainerFilters = OperationalListFilters & {
@@ -212,6 +216,10 @@ export async function getOperationalBlSummary(filters: OperationalListFilters): 
     chargePending: asNumber(payload.chargePending),
     chargeReady: asNumber(payload.chargeReady),
     chargeExempt: asNumber(payload.chargeExempt),
+    totalMachines: asNumber(payload.totalMachines),
+    totalPackages: asNumber(payload.totalPackages),
+    totalWeightTon: asNumber(payload.totalWeightTon),
+    totalCbm: asNumber(payload.totalCbm),
   }
 }
 

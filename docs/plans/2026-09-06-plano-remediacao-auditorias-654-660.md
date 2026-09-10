@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial após as PRs #670–#681 (2026-09-10), com a entrega S12 desta branch em preparação.** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial após as PRs #670–#682 (2026-09-10), com a entrega complementar S12/S13 desta branch em preparação.** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -195,9 +195,32 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   passaram a declarar as colunas necessárias.
 - **Evidência local:** typecheck, lint, `docs:check`, `rpc:check`, diff check,
   testes focados de read-model/Viagens/Line Up e replay PostgreSQL com a
-  integração de agregados passaram. O benchmark 100/1.000/10.000, Preview
-  autenticado e a remoção completa de fallbacks compatíveis permanecem
-  pendentes e não são afirmados por esta entrega.
+  integração de agregados passaram. O benchmark local foi concluído na seção
+  1.0.12; Preview autenticado e a prova manual permanecem pendentes e não são
+  afirmados por esta entrega.
+
+### 1.0.12 Benchmark S12 e contraste S13 — entrega complementar em preparação sobre #682
+
+- **S12:** o caminho normal dos hooks de listas chama diretamente as RPCs
+  paginadas; os full-scans de compatibilidade foram removidos dos hooks. O
+  resumo de Carga Solta passou a ser server-side na migration `036`, mantendo
+  no cliente somente a exportação solicitada pelo usuário. A leitura de detalhe
+  do Baplie foi extraída para `baplieReadModel.ts`, com projeção explícita,
+  paginação por viagem e teste do contrato de existência de B/L.
+- **Medição local reproduzível:** com cinco rodadas, rollback por cenário e
+  três viagens/quatro rotas, o resumo teve p95 de `0,987/2,053/8,550 ms` para
+  `100/1.000/10.000` B/Ls, contra `2,840/30,050/317,485 ms` do baseline
+  pesado. Os bytes p95 foram `3.023/3.085/3.147` contra
+  `205.971/2.055.752/20.589.687`; o `EXPLAIN` de 10.000 mediu `8,288 ms`
+  contra `291,244 ms`.
+- **S13:** `npm run a11y:contrast` passou 20 pares de tokens nos temas light e
+  dark com mínimo 4,5:1, ajustando `muted-soft` e verde no light e
+  `muted-soft` no dark. O roteiro manual de Preview, leitor de tela, foco,
+  modal sujo e reconnect continua obrigatório.
+- **Bloqueio explícito:** `npm run perf:authenticated-startup` foi executado e
+  encerrou com código 2 por ausência de `PERF_BASE_URL`,
+  `PERF_USER_EMAIL` e `PERF_USER_PASSWORD`; nenhuma credencial foi inventada
+  ou persistida.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -313,13 +336,19 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   identidade de serviço. **Residual:** o gate de emissão/Portal e a prova
   operacional remota permanecem separados; não reescrever pagamentos nem
   ativar envio.
-- [ ] **S12 residual:** medir 100/1.000/10.000 B/Ls, requests/bytes/EXPLAIN/p95,
-  remover ou reclassificar fallbacks de compatibilidade/full-scan ainda
-  existentes e concluir a prova de refresh sem N+1 em todos os consumidores.
-- [ ] **S13 residual:** medir contraste nos dois temas, executar roteiro manual de
-  teclado/leitor de tela/modal sujo/offline e ceder execução entre blocos. O
-  progresso/cancelamento dos uploads customizados está implementado; não
-  introduzir worker ou virtualização sem benchmark.
+- [x] **S12 — benchmark local:** medir 100/1.000/10.000 B/Ls com containers
+  compartilhados, múltiplas escalas, requests SQL, bytes, EXPLAIN e p95; o
+  harness termina cada cenário em rollback e registra o ambiente.
+- [ ] **S12 residual:** reavaliar materialização de exportações explícitas,
+  concluir a prova de refresh sem N+1 em todos os consumidores e repetir a
+  medição autenticada no Preview.
+- [x] **S13 — contraste de tokens:** gate automatizado mediu os dois temas e
+  ajustou os pares abaixo de 4,5:1; componentes reais, estados hover/disabled e
+  status compostos continuam no roteiro manual.
+- [ ] **S13 residual:** executar roteiro manual de teclado/leitor de tela/modal
+  sujo/offline e ceder execução entre blocos. O progresso/cancelamento dos
+  uploads customizados está implementado; não introduzir worker ou
+  virtualização sem benchmark.
 - [ ] **S14 residual:** completar mapa literal rota → hook → service → RPC →
   tabela → teste; provar consumidores externos e dados das quatro colunas antes
   de qualquer `DROP RESTRICT`; manter funções fechadas se a ausência externa não
@@ -334,7 +363,7 @@ uma decisão registrada.
 
 ### 1.1 Baseline e alcance da evidência
 
-- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`035` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
+- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`036` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
 - Fonte dos identificadores: [auditoria consolidada](../archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md). Preservar esse registro integralmente. Nas seções sem ID, usar o número e o título original; os sufixos deste plano apenas desdobram causas diferentes.
 - Fontes de decisão: [CLAUDE.md](../../CLAUDE.md), [CONTEXT.md](../../CONTEXT.md), [WORKFLOW.md](../../WORKFLOW.md), [arquitetura](../ARCHITECTURE.md), [rastreabilidade](../RASTREABILIDADE.md), [convenções](../CONVENCOES.md) e [índice de ADRs](../adr/README.md).
 - **Código** significa confirmação estática no baseline. **Teste de contrato SQL** significa inspeção textual de SQL; não prova execução, concorrência, grants efetivos ou PostgREST. Testes citados abaixo são existentes ou propostos, com essa distinção explícita; não foram executados para afirmar que uma remediação funciona.
@@ -415,11 +444,11 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 
 | ID / seção original | Classificação | Evidência atual e trabalho residual | Destino |
 |---|---|---|---|
-| Achado 1 / §1.1 / §3.3 — buscas e resumo de B/L | Mitigado parcialmente | Migration `020_operational_read_pages.sql` e `operationalLists.ts` limitam resposta e agregados na rota RPC; fallback legado ainda materializa linhas. | S12 |
-| Achado 2 / §1.2 — `useContainers` | Mitigado parcialmente | A rota RPC pagina containers e calcula agregados no servidor; o fallback de `useBls.ts` ainda busca o conjunto completo. | S12 |
+| Achado 1 / §1.1 / §3.3 — buscas e resumo de B/L | Mitigado parcialmente | Migration `020_operational_read_pages.sql`/`036` e `operationalLists.ts` limitam resposta e agregados na rota RPC; exportações explícitas ainda materializam o conjunto solicitado. | S12 |
+| Achado 2 / §1.2 — `useContainers` | Mitigado parcialmente | A rota RPC pagina containers e calcula agregados no servidor; a exportação sob demanda ainda achata o conjunto completo filtrado para gerar o arquivo. | S12 |
 | Achado 3 / §1.3 — `useVoyages` | Mitigado parcialmente | `useVoyages` consome `operational_list_voyage_summaries` e `useVoyageDetail` carrega o detalhe da viagem selecionada; fallback de compatibilidade e prova de escala real ainda exigem benchmark. | S12 |
 | Achado 4 / §1.4 — ausência de memoização | Precisa de investigação | Ausência de `React.memo` não prova lentidão. Medir commits e props; memoizar somente hotspot demonstrado. | S12/S13 |
-| Achado 5 / §1.5 — Line Up TV | Mitigado parcialmente | `Painel` consulta janela inicial de 60 viagens, informa o total e oferece “Carregar mais”; a montagem de agregados por janela e o refresh da TV ainda exigem medição. | S12 |
+| Achado 5 / §1.5 — Line Up TV | Mitigado parcialmente | `Painel` consulta janela inicial de 60 viagens, informa o total e oferece “Carregar mais”; o snapshot eliminou o waterfall B/L → containers e há benchmark local, mas o refresh autenticado da TV ainda exige medição. | S12 |
 | Achado 6 / §2 — listeners | Já corrigido | `src/pages/Containers.tsx` e `src/pages/Manifestos.tsx` usam `useEffect` e cleanup nos menus de ações. Não planejar nova troca de lifecycle. | Só regressão existente |
 | §3.1 — retry/cache existentes | Aceito | Preservar configuração compartilhada e persistência de preferências já funcionais; não substituir TanStack Query. | Regressão S13 |
 | Achado 7 / §3.2 — offline como vazio | Mitigado parcialmente | `QueryStateGate` cobre as listas principais e distingue query pausada sem cache de dados salvos; outras superfícies e o roteiro manual de reconnect ainda precisam de prova. | S13 |
@@ -496,7 +525,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | §3.4 — `voyage_pod_schedule` | Aceito | ADRs 0027 e 0035 adiam explicitamente `port_calls`; literal histórico não é descumprimento que autorize migração ampla. | §8 |
 | §3.4 — adapter billingLedger | Já corrigido no código | Regeneração oficial e typecheck passaram; manter contrato gerado como fonte, sem allowlist silenciosa de drift. | Regressão S11 |
 | §3.4 — DV CNPJ | Precisa de investigação | `portalCnpjLogin.ts` aceita formato sem DV por dados de teste. Conferir base atual e variantes aceitas antes de restringir login. | S14 / D09 |
-| §4.4 — Supabase em Baplie.tsx | Mitigado parcialmente | O rail usa `useVoyages`/read-model comum e o staging selecionado declara a projeção de colunas; a leitura de detalhe ainda permanece local à página e requer prova operacional. | S12 |
+| §4.4 — Supabase em Baplie.tsx | Mitigado | `Baplie.tsx` não acessa mais Supabase diretamente para staging/existência; `baplieReadModel.ts` concentra a projeção explícita, a paginação por viagem e a checagem limitada de B/Ls. Preview autenticado e roteiro manual continuam residuais operacionais. | S12 |
 | §2.5 / §4.5 — sem divergência | Aceito | Nenhuma tabela órfã comprovada; preservar cadeias de import, jobs válidos, triggers e decisões conferidas. | Regressão |
 
 ### 2.7 PR #660 e falha de workflow
@@ -674,7 +703,7 @@ export type ParsedNumber =
 - [x] No BL, incluir metadado/vínculo na transação existente, validar viagem/pertencimento e manter batch opcional para B/L avulso conforme ADR 0017.
 - [x] No cadastro de clientes, mover cada linha para `apply_customer_base_row_atomic`, preservando soft-delete, unicidade, contatos e snapshot da ADR 0064.
 - [x] Declarar CE de planilha por B/L e EDI como conjunto atômico; ambos persistem o gatilho recuperável quando aplicável.
-- [ ] Completar consumidores de veículo/Granite/BB no S05 sem interpretar tarifa ausente como tabela vazia.
+- [x] Completar consumidores de veículo/Granite/BB no S05 sem interpretar tarifa ausente como tabela vazia; `031_import_effect_consumers.sql` cobre os três fluxos, com teste de contrato e integração local de efeitos.
 - [x] Em `omit_voyage_escala`, serializar por viagem/escala e capturar somente a constraint de omissão esperada; não engolir `unique_violation` de outra origem.
 - [x] Executar a suíte de atomicidade/imports; os 17 arquivos SQL seriais/64 testes e os testes focados passaram. Commits de referência: `666e4d5a`, `f4248168`, `5a1caf50`.
 
@@ -898,17 +927,17 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 
 **Contratos SQL propostos:** página e resumo de B/L/containers com os mesmos filtros canônicos, lista resumida de viagens e snapshot de Line Up; limite máximo de página 100, ordem total com ID de desempate. Portal usa núcleos escopados com dois wrappers. RPCs de consulta interna usam helper de leitura incluindo Equipamentos; consultas agregadas não podem escapar da política de escopo.
 
-- [ ] Medir baseline com 100, 1000 e 10000 B/Ls sintéticos, containers compartilhados e múltiplas escalas; registrar requests, bytes, EXPLAIN e p95 com ambiente explícito. Os tempos de parser não servem como baseline dessas consultas.
+- [x] Medir baseline com 100, 1000 e 10000 B/Ls sintéticos, containers compartilhados e múltiplas escalas; registrar requests SQL, bytes, EXPLAIN e p95 com ambiente explícito. O harness `scripts/perf/measure-operational-read-model.mjs` executa em PostgreSQL local vazio e termina cada cenário em ROLLBACK. Os tempos de parser não servem como baseline dessas consultas.
 - [x] Reproduzir filtros derivados e contagens em contratos SQL paginados, com busca/status/rota/viagem/compartilhamento e total separado da página. As projeções e páginas entregues em `020_operational_read_pages.sql` preservam escopo e filtros.
-- [ ] Substituir todos os full-scans restantes de containers/B/L e waterfalls por filtro/ordem/paginação server-side. A implementação atual cobre os caminhos principais, mas ainda há fallbacks a inventariar e remover; não marcar como concluído sem benchmark.
-- [ ] Separar completamente resumo de viagem dos embeds de detalhe e concluir o snapshot/consulta de Line Up com omissões, POL documental, escala/atracação, somente embarque e vazios sem consulta por linha.
-- [ ] Fazer EmbarqueVazios, `agencyDepartureReport` e a leitura de Baplie consumirem a projeção/serviço comum, preservando terminais e relatórios fechados.
+- [x] Substituir os full-scans de containers/B/L dos hooks de listagem e do resumo de Carga Solta por filtro/ordem/paginação/agregação server-side. Exportações explícitas ainda materializam somente o conjunto solicitado pelo usuário; elas permanecem como residual de medição, não como caminho de rail.
+- [x] Separar resumo de viagem dos embeds de detalhe e concluir o snapshot/consulta de Line Up com omissões, POL documental, escala/atracação, somente embarque e vazios sem a consulta secundária B/L → containers.
+- [x] Fazer EmbarqueVazios, `agencyDepartureReport` e a leitura de Baplie consumirem a projeção/serviço comum, preservando terminais e relatórios fechados.
 - [x] Oferecer janela/“carregar mais” no Painel acima de 60 viagens e paginação com total/filtros nas listas de PortalBilling, incluindo wrappers de Inspeção.
 - [ ] Comprovar refresh de 30 s sem refazer a cadeia inteira em Preview.
 - [ ] Se a medição S06 confirmar teto de supressão por cliente, adicionar RPC server-side filtrada/paginada; até lá manter a mitigação atual e registrar o gatilho.
 - [ ] Comparar profiler antes/depois e só aplicar memoização/virtualização onde custo e invalidação forem demonstrados.
 - [x] Executar os testes de listas/projeções e os gates da PR relacionados a filtros/contagens.
-- [ ] Executar `npm run perf:authenticated-startup` e o benchmark 100/1.000/10.000; manter commits separados por lista/snapshot.
+- [ ] Executar `npm run perf:authenticated-startup` com credenciais de teste do Preview e anexar o resultado; o benchmark local 100/1.000/10.000 foi concluído em commit separado desta continuação.
 
 **Compatibilidade / rollout:** RPCs de leitura novas antes dos hooks; remover consultas antigas depois de paridade. Novos índices com plano e custo conhecidos; migração não deve incluir alteração monetária. **Aceite:** página de 100 não transfere a tabela completa; requests por refresh permanecem limitados independentemente do número de linhas; histórico >60 é acessível; Portal A/B continua isolado; em 10000 B/Ls há redução mensurável de bytes e p95 vs baseline, com alvo definido no primeiro benchmark. **Residual:** totalizações ainda podem custar O(tabela) no servidor; EXPLAIN determina índice/cache, não promessa de custo constante. **Ordem:** depois de riscos de integridade; pode ser dividido em três PRs independentes por consumidor.
 
@@ -925,7 +954,7 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 - [ ] Executar o roteiro completo no Preview autenticado.
 - [x] Substituir as quatro confirmações nativas por `ConfirmDialog`, com descrição da entidade/efeito, e preservar os listeners corrigidos de Containers/Manifestos.
 - [ ] Validar manualmente modal sujo, backdrop/Escape/fechar, foco previsível e ausência de confirmação quando não há alteração.
-- [ ] Medir contraste de texto normal >=4,5:1 e estados hover/disabled/status nos dois temas reais; ajustar tokens e confirmar que status não depende apenas de cor.
+- [x] Medir contraste de texto normal >=4,5:1 nos tokens de texto, link, status e cabeçalho nos dois temas reais; `npm run a11y:contrast` passou 20 pares e ajustou tokens claros/escuros. Estados hover/disabled e confirmação de que status não depende apenas de cor continuam no roteiro manual.
 - [x] Implementar botões/menus de ação acessíveis por teclado e semântica de interação equivalente para as linhas auditadas.
 - [ ] Completar caption, `aria-sort` e retorno de foco com verificação manual de leitor de tela; não criar grid ARIA sem necessidade.
 - [x] Nos uploads múltiplos que usam `FileImportModal`, exibir progresso por
@@ -982,7 +1011,7 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 
 ## 5. Sequência recomendada de PRs
 
-Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`035`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
+Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`036`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
 
 | Ordem | Estado | Entrega / ação | Referência atual | O que o próximo agente deve considerar concluído ou pendente |
 |---|---|---|---|---|
@@ -1002,7 +1031,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 14 | `[x]` + `[ ]` runtime | Fechar readiness de emissão e comunicação | S10/F12; `033_customer_communication_readiness_guards.sql` | Guarda server-side de comunicação aplicada em criação/claim/envio, com lock e identidade de sistema; gate de emissão/Portal e prova de runtime continuam pendentes. |
 | 15 | `[x]` + `[ ]` runtime | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` + `032_customer_communication_partial_status.sql` | Inbox, dedup, stale events, recuperação e estado explícito `parcial` estão entregues; índice sem `status`, deploy/Edge e provedor continuam pendentes. |
 | 16 | `[x]` + `[ ]` | Fechar ledger, status/itens e rateio do impresso | S10/F14; `019_local_billing_integrity.sql` | D05/R$0,01 e integração local passaram; casos amplos, diagnóstico de irmãos e gate completo de comunicação continuam abertos. |
-| 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql`, `035_operational_voyage_summaries.sql` e páginas Portal | Projeções, paginação/window, resumo de viagem sob demanda, Line Up sem waterfall de containers e filtros principais estão entregues; benchmark, full-scan/fallback residual, refresh de Preview e profiler faltam. |
+| 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql`, `035_operational_voyage_summaries.sql`, `036_operational_breakbulk_summary_metrics.sql` e páginas Portal | Projeções, paginação/window, resumo de viagem sob demanda, Line Up sem waterfall de containers, resumo BB server-side e filtros principais estão entregues; exportações sob demanda, refresh de Preview e profiler faltam. |
 | 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação, confirmações/menu e progresso/cancelamento nos modais múltiplos e customizados estão entregues; contraste, leitor de tela/foco manual e cessão entre blocos faltam. |
 | 19 | `[x]` + `[ ]` | Completar índice e gate de catálogo | S14/#659.7; scripts de docs/RPC catalog | `docs:check`, catálogo, replay, tipos e inspeção local das 14 candidatas passaram; famílias ausentes e prova externa ainda faltam. |
 | 20 | `[ ]` | Retirar legado confirmado / DV condicional | S14/#659.5/6/9; sem DROP ainda | Provar consumidores externos e dados das quatro colunas, decidir DV e somente então abrir migration com `DROP ... RESTRICT`. |

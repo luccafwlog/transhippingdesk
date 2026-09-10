@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
@@ -18,17 +18,15 @@ import { TruncationNote } from '../components/shared/TruncationNote'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { FileImportModal } from '../components/shared/FileImportModal'
 import { useAuth } from '../hooks/useAuth'
-import { fetchAllBls, type BlFilters, useBls, usePortOptions } from '../hooks/useBls'
+import { fetchAllBls, type BlFilters, useBlSummary, useBls, usePortOptions } from '../hooks/useBls'
 import { usePageFilters } from '../hooks/usePageFilters'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
-import { summarizeChargeStatuses } from '../lib/chargeStatus'
 import { useInvoiceLinks } from '../hooks/useBilling'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
 import { afterManifestoImportado } from '../services/cacheEffects'
 import { inspectImportUpload } from '../services/importText'
 import { rowErrorsToImportIssues } from '../services/importValidation'
 import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
-import type { BLListItem } from '../types/database'
 
 export function CargaSolta() {
   const [searchParams] = useSearchParams()
@@ -64,71 +62,21 @@ export function CargaSolta() {
     page: debouncedSearch === filters.search ? filters.page : 1,
   }), [debouncedSearch, filters])
   const { data, isLoading, error, fetchStatus, refetch } = useBls(queryFilters)
+  const { data: summaryData } = useBlSummary(queryFilters)
   const blIdsOnPage = useMemo(() => (data?.rows ?? []).map((row) => row.id), [data?.rows])
   const { data: invoiceLinksByBl } = useInvoiceLinks(blIdsOnPage)
-  const [summaryRows, setSummaryRows] = useState<BLListItem[]>([])
-  const summaryFilters = useMemo(
-    () => ({
-      search: debouncedSearch,
-      voyageId: filters.voyageId,
-      cargoMode: filters.cargoMode,
-      pol: filters.pol,
-      pod: filters.pod,
-      reviewStatus: filters.reviewStatus,
-      financialStatus: filters.financialStatus,
-      chargeStatus: filters.chargeStatus,
-      cargoProfile: filters.cargoProfile,
-      page: 1,
-      pageSize: 1000,
-    }),
-    [
-      debouncedSearch,
-      filters.voyageId,
-      filters.cargoMode,
-      filters.pol,
-      filters.pod,
-      filters.reviewStatus,
-      filters.financialStatus,
-      filters.chargeStatus,
-      filters.cargoProfile,
-    ],
-  )
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      const rows = await fetchAllBls(summaryFilters)
-      if (!cancelled) {
-        setSummaryRows(rows)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [summaryFilters])
 
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / filters.pageSize))
-  const summary = useMemo(() => {
-    const rows = summaryRows ?? []
-    const totalMachines = rows.reduce((sum, row) => sum + Number(row.bb_machine_qty ?? 0), 0)
-    const totalPackages = rows.reduce((sum, row) => sum + Number(row.bb_packages_total ?? row.bb_packages_qty ?? 0), 0)
-    const totalWeightTon = rows.reduce(
-      (sum, row) => sum + Number(row.bb_weight_ton ?? (row.total_weight_kg ? Number(row.total_weight_kg) / 1000 : 0)),
-      0,
-    )
-    const totalCbm = rows.reduce((sum, row) => sum + Number(row.total_cbm ?? 0), 0)
-    const charges = summarizeChargeStatuses(rows)
-    return {
-      totalBls: rows.length,
-      totalMachines,
-      totalPackages,
-      totalWeightTon,
-      totalCbm,
-      chargePending: charges.pending,
-      chargeReady: charges.ready,
-      chargeExempt: charges.exempt,
-    }
-  }, [summaryRows])
+  const summary = {
+    totalBls: summaryData?.totalBls ?? 0,
+    totalMachines: summaryData?.totalMachines ?? 0,
+    totalPackages: summaryData?.totalPackages ?? 0,
+    totalWeightTon: summaryData?.totalWeightTon ?? 0,
+    totalCbm: summaryData?.totalCbm ?? 0,
+    chargePending: summaryData?.chargePending ?? 0,
+    chargeReady: summaryData?.chargeReady ?? 0,
+    chargeExempt: summaryData?.chargeExempt ?? 0,
+  }
 
   const activeFilterCount = (
     ['search', 'voyageId', 'pol', 'pod', 'reviewStatus', 'financialStatus', 'chargeStatus'] as (keyof BlFilters)[]

@@ -14,9 +14,9 @@ import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
 import { useVoyages } from '../hooks/useBls'
 import { useCancellableFileRead } from '../hooks/useCancellableFileRead'
-import { supabase } from '../services/supabase'
 import { parseBaplieFile } from '../services/baplieParser'
 import { importBaplieStaging } from '../services/baplieImport'
+import { hasBlsForVoyage, listBaplieStaging } from '../services/baplieReadModel'
 import {
   reconcileBaplieWithManifest,
   applyBapliePhysicalFlags,
@@ -75,38 +75,13 @@ export function Baplie() {
   const { data: stagingData, isLoading: stagingLoading } = useQuery({
     queryKey: ['baplie-staging', voyageId],
     enabled: !!voyageId,
-    queryFn: async () => {
-      const PAGE = 1000
-      let all: BaplieContainer[] = []
-      let from = 0
-      while (true) {
-        const { data, error } = await supabase
-          .from('baplie_containers')
-          .select('id, voyage_id, container_number, bl_ref, pol, pod, final_dest, size_type, status, slot, weight_kg, is_imo, is_oog, imo_class, un_number, imported_at, imported_by')
-          .eq('voyage_id', Number(voyageId))
-          .order('container_number')
-          .range(from, from + PAGE - 1)
-        if (error) throw error
-        all = all.concat(data ?? [])
-        if (!data || data.length < PAGE) break
-        from += PAGE
-      }
-      return all
-    },
+    queryFn: () => listBaplieStaging(Number(voyageId)),
   })
 
   const { data: blsExist } = useQuery({
     queryKey: ['baplie-bls-exist', voyageId],
     enabled: !!voyageId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bls')
-        .select('id')
-        .eq('voyage_id', Number(voyageId))
-        .limit(1)
-      if (error) throw error
-      return (data ?? []).length > 0
-    },
+    queryFn: () => hasBlsForVoyage(Number(voyageId)),
   })
 
   const { data: existingVaziosManifest, isLoading: existingVaziosManifestLoading } = useQuery({

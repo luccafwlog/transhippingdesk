@@ -8,10 +8,14 @@ vi.mock('../supabase', () => ({
   supabase: { rpc: mockRpc },
 }))
 
-import { listOperationalVoyageSummaries } from '../operationalLists'
+import { getOperationalBlSummary, listOperationalVoyageSummaries } from '../operationalLists'
 
 const migration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/035_operational_voyage_summaries.sql'),
+  'utf8',
+)
+const summaryMetricsMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/036_operational_breakbulk_summary_metrics.sql'),
   'utf8',
 )
 
@@ -71,6 +75,36 @@ describe('lista resumida de viagens', () => {
       p_page_size: 100,
     })
   })
+
+  it('normaliza as métricas de carga solta do resumo server-side', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        totalBls: '2',
+        totalDistinctContainers: '0',
+        pendingReview: '1',
+        pendingFinancial: '2',
+        chargePending: '1',
+        chargeReady: '0',
+        chargeExempt: '0',
+        totalMachines: '3',
+        totalPackages: '48',
+        totalWeightTon: '2.75',
+        totalCbm: '12.5',
+      },
+      error: null,
+    })
+
+    await expect(getOperationalBlSummary({ cargoMode: 'carga_solta' })).resolves.toMatchObject({
+      totalBls: 2,
+      totalMachines: 3,
+      totalPackages: 48,
+      totalWeightTon: 2.75,
+      totalCbm: 12.5,
+    })
+    expect(mockRpc).toHaveBeenCalledWith('operational_list_bl_summary', expect.objectContaining({
+      p_cargo_mode: 'carga_solta',
+    }))
+  })
 })
 
 describe('migration 035 — resumo operacional de viagens', () => {
@@ -86,5 +120,16 @@ describe('migration 035 — resumo operacional de viagens', () => {
     expect(migration).toMatch(/SECURITY INVOKER/i)
     expect(migration).toMatch(/REVOKE ALL ON FUNCTION public\.operational_list_voyage_summaries\([\s\S]*FROM PUBLIC, anon/i)
     expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION public\.operational_list_voyage_summaries\([\s\S]*TO authenticated/i)
+  })
+})
+
+describe('migration 036 — métricas de carga solta', () => {
+  it('preserva a assinatura e calcula o envelope sem selecionar B/Ls no browser', () => {
+    expect(summaryMetricsMigration).toMatch(/CREATE OR REPLACE FUNCTION public\.operational_list_bl_summary\(/i)
+    expect(summaryMetricsMigration).toMatch(/totalMachines/i)
+    expect(summaryMetricsMigration).toMatch(/totalPackages/i)
+    expect(summaryMetricsMigration).toMatch(/totalWeightTon/i)
+    expect(summaryMetricsMigration).toMatch(/totalCbm/i)
+    expect(summaryMetricsMigration).toMatch(/REVOKE ALL ON FUNCTION/i)
   })
 })

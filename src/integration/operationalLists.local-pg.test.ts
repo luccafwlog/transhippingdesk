@@ -53,10 +53,10 @@ describeLocal('S12 — leituras operacionais paginadas', () => {
       INSERT INTO public.carriers (id, name) VALUES (${carrierId}, 'S12 Carrier');
       INSERT INTO public.vessels (id, name, imo, carrier_id) VALUES (${vesselId}, 'S12 Vessel', 'IMO992203', ${carrierId});
       INSERT INTO public.voyages (id, vessel_id, voyage_number, status) VALUES (${voyageId}, ${vesselId}, 'S12-V', 'active');
-      INSERT INTO public.bls (id, voyage_id, customer_id, consignee, cargo_mode, pol, pod, financial_status, review_status, charge_status, created_at) VALUES
-        ('${blIds[0]}', ${voyageId}, ${customerId}, 'Alpha', 'container', 'CNSHA', 'BRVIX', 'pending', 'ok', 'ready_for_billing', '2026-01-01T00:00:00Z'),
-        ('${blIds[1]}', ${voyageId}, ${customerId}, 'Beta', 'container', 'CNSHA', 'BRVIX', 'pending', 'pending_review', 'review_required', '2026-01-02T00:00:00Z'),
-        ('${blIds[2]}', ${voyageId}, ${customerId}, 'Gamma', 'carga_solta', 'CNSHA', 'BRSSZ', 'paid', 'ok', 'exempt', '2026-01-03T00:00:00Z');
+      INSERT INTO public.bls (id, voyage_id, customer_id, consignee, cargo_mode, pol, pod, financial_status, review_status, charge_status, bb_machine_qty, bb_packages_qty, bb_packages_total, bb_weight_ton, total_cbm, created_at) VALUES
+        ('${blIds[0]}', ${voyageId}, ${customerId}, 'Alpha', 'container', 'CNSHA', 'BRVIX', 'pending', 'ok', 'ready_for_billing', NULL, NULL, NULL, NULL, NULL, '2026-01-01T00:00:00Z'),
+        ('${blIds[1]}', ${voyageId}, ${customerId}, 'Beta', 'container', 'CNSHA', 'BRVIX', 'pending', 'pending_review', 'review_required', NULL, NULL, NULL, NULL, NULL, '2026-01-02T00:00:00Z'),
+        ('${blIds[2]}', ${voyageId}, ${customerId}, 'Gamma', 'carga_solta', 'CNSHA', 'BRSSZ', 'paid', 'ok', 'exempt', 2, 12, 12, 1.5, 4.25, '2026-01-03T00:00:00Z');
       INSERT INTO public.bl_containers (id, bl_id, container_number, type, is_imo, is_oog) VALUES
         (${containerIds[0]}, '${blIds[0]}', 'MSCU0000001', '20GP', false, false),
         (${containerIds[1]}, '${blIds[1]}', 'MSCU0000002', '40HC', true, false);
@@ -90,8 +90,8 @@ describeLocal('S12 — leituras operacionais paginadas', () => {
     const standard = JSON.parse(lastJson(callAsAuthenticated(`SELECT public.operational_list_bls(1, 100, NULL, ${voyageId}, 'container', NULL, NULL, NULL, NULL, NULL, 'standard');`))) as { rows: Array<{ id: string }>; count: number }
     expect(standard.rows.map((row) => row.id)).toEqual(['S12-BL-A'])
 
-    const summary = JSON.parse(lastJson(callAsAuthenticated(`SELECT public.operational_list_bl_summary(NULL, ${voyageId}, NULL, NULL, NULL, NULL, NULL, NULL, NULL);`))) as { totalBls: number; totalDistinctContainers: number; chargeExempt: number }
-    expect(summary).toMatchObject({ totalBls: 3, totalDistinctContainers: 2, chargeExempt: 1 })
+    const summary = JSON.parse(lastJson(callAsAuthenticated(`SELECT public.operational_list_bl_summary(NULL, ${voyageId}, NULL, NULL, NULL, NULL, NULL, NULL, NULL);`))) as { totalBls: number; totalDistinctContainers: number; chargeExempt: number; totalMachines: number; totalPackages: number; totalWeightTon: number; totalCbm: number }
+    expect(summary).toMatchObject({ totalBls: 3, totalDistinctContainers: 2, chargeExempt: 1, totalMachines: 2, totalPackages: 12, totalWeightTon: 1.5, totalCbm: 4.25 })
   })
 
   it('pagina containers e calcula agregados no mesmo conjunto filtrado', () => {

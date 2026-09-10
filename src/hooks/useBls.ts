@@ -1,8 +1,3 @@
-import {
-  countDistinctContainerNumbers,
-  countDistinctContainerNumbersBy,
-  countDistinctContainersAcrossGroups,
-} from '../lib/containerCounts'
 import { useQuery } from '@tanstack/react-query'
 import { escapeFilterTerm, normalizeText } from '../lib/utils'
 import { queryKeys } from '../services/queryKeys'
@@ -83,10 +78,6 @@ function supabaseValue<T>(data: unknown): T {
   return data as T
 }
 
-function supportsOperationalReadPages() {
-  return typeof (supabase as unknown as { rpc?: unknown }).rpc === 'function'
-}
-
 export type BlFilters = {
   search: string
   voyageId: string
@@ -120,105 +111,21 @@ export type ContainerFilters = {
 export function useBls(filters: BlFilters) {
   return useQuery({
     queryKey: queryKeys.bls.list(filters),
-    queryFn: async () => {
-      if (supportsOperationalReadPages()) {
-        return listOperationalBls(filters, filters.page, filters.pageSize)
-      }
-
-      // Some legacy rows may carry charge_status with formatting drift (e.g. casing/spacing),
-      // which makes PostgREST eq() return false negatives. For status/profile filters,
-      // fetch-and-filter in app to keep UI behavior consistent.
-      if (filters.cargoProfile || Boolean(filters.chargeStatus)) {
-        const allRows = await fetchAllBls(filters)
-        const from = (filters.page - 1) * filters.pageSize
-        const to = from + filters.pageSize
-        return {
-          rows: allRows.slice(from, to),
-          count: allRows.length,
-        }
-      }
-
-      const from = (filters.page - 1) * filters.pageSize
-      const to = from + filters.pageSize - 1
-
-      let query = supabase.from('bls').select(blSelect, { count: 'exact' }).order('created_at', { ascending: false }).range(from, to)
-      query = applyBlFilters(query, filters)
-
-      const { data, error, count } = await query
-      if (error) throw error
-
-      return {
-        rows: supabaseRows<BLListItem>(data),
-        count: count ?? 0,
-      }
-    },
+    queryFn: () => listOperationalBls(filters, filters.page, filters.pageSize),
   })
 }
 
 export function useContainers(filters: ContainerFilters) {
   return useQuery({
     queryKey: queryKeys.bls.containers(filters),
-    queryFn: async () => {
-      if (supportsOperationalReadPages()) {
-        return listOperationalContainers(filters, filters.page, filters.pageSize)
-      }
-
-      // ponytail: este filtro materializa todos os B/Ls/containers no cliente (O(tabela))
-      // para preservar filtros derivados; upgrade path = agregacao/filtros server-side.
-      const filteredRows = await fetchAllContainers(filters)
-      const from = (filters.page - 1) * filters.pageSize
-      const to = from + filters.pageSize
-      const typeGroups = new Map<string, ContainerListItem[]>()
-
-      for (const row of filteredRows) {
-        const typeLabel = String(row.type ?? '').trim() || 'Nao informado'
-        const group = typeGroups.get(typeLabel)
-
-        if (group) {
-          group.push(row)
-        } else {
-          typeGroups.set(typeLabel, [row])
-        }
-      }
-
-      return {
-        rows: filteredRows.slice(from, to),
-        count: filteredRows.length,
-        distinctCount: countDistinctContainerNumbers(filteredRows),
-        oogDistinctCount: countDistinctContainerNumbersBy(filteredRows, (container) => Boolean(container.is_oog)),
-        imoDistinctCount: countDistinctContainerNumbersBy(filteredRows, (container) => Boolean(container.is_imo)),
-        blCount: new Set(filteredRows.map((container) => container.bl?.id).filter(Boolean)).size,
-        typeSummary: Array.from(typeGroups.entries())
-          .map(([type, rows]) => ({
-            type,
-            distinctCount: countDistinctContainerNumbers(rows),
-          }))
-          .sort((left, right) => right.distinctCount - left.distinctCount || left.type.localeCompare(right.type, 'pt-BR')),
-      }
-    },
+    queryFn: () => listOperationalContainers(filters, filters.page, filters.pageSize),
   })
 }
 
 export function useBlSummary(filters: BlFilters) {
   return useQuery({
     queryKey: queryKeys.bls.summary(toSummaryFilters(filters)),
-    queryFn: async () => {
-      if (supportsOperationalReadPages()) {
-        return getOperationalBlSummary(filters)
-      }
-
-      const rows = await fetchAllBls(filters)
-
-      return {
-        totalBls: rows.length,
-        totalDistinctContainers: countDistinctContainersAcrossGroups(rows, (row) => row.bl_containers),
-        pendingReview: rows.filter((row) => row.review_status === 'pending_review').length,
-        pendingFinancial: rows.filter((row) => row.financial_status === 'pending').length,
-        chargePending: rows.filter((row) => row.charge_status === 'review_required' || row.charge_status === 'not_calculated').length,
-        chargeReady: rows.filter((row) => row.charge_status === 'ready_for_billing').length,
-        chargeExempt: rows.filter((row) => row.charge_status === 'exempt').length,
-      }
-    },
+    queryFn: () => getOperationalBlSummary(filters),
   })
 }
 
@@ -404,91 +311,7 @@ export function useContainerTypeOptions() {
   })
 }
 
-function summarizeLegacyVoyageRows(rows: unknown[]): OperationalVoyageSummary[] {
-  return rows.flatMap((value) => {
-    const row = value && typeof value === 'object' && !Array.isArray(value)
-      ? value as Record<string, unknown>
-      : null
-    if (!row || !Number.isInteger(Number(row.id))) return []
-    const bls = Array.isArray(row.bls) ? row.bls as Array<Record<string, unknown>> : []
-    const routes = new Map<string, {
-      pol: string | null
-      pod: string | null
-      blCount: number
-      containerBlCount: number
-      breakbulkBlCount: number
-      ceFilled: number
-    }>()
-    const containerNumbers = new Set<string>()
-    for (const bl of bls) {
-      const pol = typeof bl.pol === 'string' ? bl.pol : null
-      const pod = typeof bl.pod === 'string' ? bl.pod : null
-      const key = `${pol ?? ''}\u0000${pod ?? ''}`
-      const route = routes.get(key) ?? { pol, pod, blCount: 0, containerBlCount: 0, breakbulkBlCount: 0, ceFilled: 0 }
-      route.blCount += 1
-      if (bl.cargo_mode === 'carga_solta') route.breakbulkBlCount += 1
-      else route.containerBlCount += 1
-      if (String(bl.ce_mercante ?? '').trim()) route.ceFilled += 1
-      routes.set(key, route)
-      for (const container of Array.isArray(bl.bl_containers) ? bl.bl_containers as Array<Record<string, unknown>> : []) {
-        const number = String(container.container_number ?? '').trim().toUpperCase()
-        if (number) containerNumbers.add(number)
-      }
-    }
-    const containerCount = containerNumbers.size
-    const vessel = row.vessel as OperationalVoyageSummary['vessel']
-    const pol = row.pol as OperationalVoyageSummary['pol']
-    const pod = row.pod as OperationalVoyageSummary['pod']
-    const id = Number(row.id)
-    return [{
-      id,
-      voyage_number: String(row.voyage_number ?? ''),
-      etd: typeof row.etd === 'string' ? row.etd : null,
-      eta: typeof row.eta === 'string' ? row.eta : null,
-      ata: typeof row.ata === 'string' ? row.ata : null,
-      status: typeof row.status === 'string' ? row.status : null,
-      created_at: typeof row.created_at === 'string' ? row.created_at : null,
-      vessel: vessel ?? null,
-      pol: pol ?? null,
-      pod: pod ?? null,
-      blCount: bls.length,
-      containerBlCount: [...routes.values()].reduce((total, route) => total + route.containerBlCount, 0),
-      breakbulkBlCount: [...routes.values()].reduce((total, route) => total + route.breakbulkBlCount, 0),
-      containerCount,
-      baplieCount: 0,
-      ceCoverage: {
-        filled: [...routes.values()].reduce((total, route) => total + route.ceFilled, 0),
-        total: bls.length,
-      },
-      routes: [...routes.values()].map((route) => ({ ...route, ceTotal: route.blCount })),
-    }]
-  })
-}
-
-async function fetchLegacyVoyageSummaries() {
-  const query = supabase
-    .from('voyages')
-    .select(`
-      id, voyage_number, etd, eta, ata, status, created_at,
-      vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
-      pol:ports!voyages_pol_id_fkey(id, name, locode, country),
-      pod:ports!voyages_pod_id_fkey(id, name, locode, country),
-      bls(id, batch_id, cargo_mode, ce_mercante, pol, pod, bl_containers(id, container_number))
-    `)
-    .order('created_at', { ascending: false })
-  const allRows: unknown[] = []
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await query.range(from, from + 999)
-    if (error) throw error
-    allRows.push(...(data ?? []))
-    if (!data || data.length < 1000) break
-  }
-  return summarizeLegacyVoyageRows(allRows)
-}
-
 async function fetchOperationalVoyageSummaries() {
-  if (!supportsOperationalReadPages()) return fetchLegacyVoyageSummaries()
-
   const pageSize = 100
   const rows: OperationalVoyageSummary[] = []
   for (let page = 1; ; page += 1) {
