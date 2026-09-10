@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial após as PRs #670–#673 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial após as PRs #670–#680 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -44,7 +44,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **Integração:** `readSheet` não encaminha EDI ao leitor de planilhas; Baplie e CE Mercante validam o formato antes de parsear; os callers de planilha usam a inspeção comum sem enviar conteúdo à telemetria. Evidência: `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`, `baplieParser.test.ts` e `FileImportModal.test.tsx`, com vetores UTF-8/BOM, Windows-1252, bytes inválidos, formatos binários/textuais, ambiguidades e round-trip.
 - **S03/Baplie:** o scanner agora respeita `UNA`, separadores e release character; limita a ingestão ao conteúdo antes do trailer, isola os segmentos entre EQDs consecutivos e associa `DGS`/`DIM` à unidade correta. Duplicatas continuam bloqueantes. Evidência: `baplieParserS03.test.ts` com dialetos LOC→EQD/EQD→LOC, múltiplos EQD, OOG/IMO, EOF, duplicata e UNA customizada.
 
-### 1.0.4 Contratos concretos de planilhas — PR em preparação sobre #673
+### 1.0.4 Contratos concretos de planilhas — PR em preparação sobre #674
 
 - **S03:** Granito agora valida calendário real de `Cargo Readiness Date`,
   normaliza e valida `L/PORT`/`D/PORT`, e mantém o B/L apenas na prévia quando
@@ -64,7 +64,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   `Granite`); `typecheck`, `lint`, `docs:check` e `git diff --check` também
   passaram. Nenhuma migration foi criada e não houve ativação externa.
 
-### 1.0.5 Relatório integral e leitura cancelável — PR em preparação sobre #675
+### 1.0.5 Relatório integral e leitura cancelável — PRs #675–#676
 
 - **S03/S13:** `rowErrorsToImportIssues` converte o legado sem carregar `raw`,
   `ImportIssuesPanel` exibe todas as ocorrências aplicáveis e oferece CSV
@@ -85,7 +85,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   `docs:check` e `git diff --check` passaram. Nenhuma migration foi criada e
   não houve ativação externa.
 
-### 1.0.6 Consumidores duráveis dos efeitos — PR em preparação sobre #676
+### 1.0.6 Consumidores duráveis dos efeitos — PR em preparação sobre #677
 
 - **S05:** a migration `031_import_effect_consumers.sql` conclui os consumidores
   server-only de Granito, veículos e carga solta, além de mover os produtores
@@ -103,7 +103,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   focado de UI/hooks e `typecheck` passou. Nenhum worker/cron, Edge, Vault,
   Resend ou outro consumidor externo foi ativado.
 
-### 1.0.7 Contratos estruturais dos importadores — PR em preparação sobre #677
+### 1.0.7 Contratos estruturais dos importadores — PR em preparação sobre #678
 
 - **S03:** Granito/COSCO, Vazios e Vazios de Importação agora localizam o
   cabeçalho por marcadores da origem, recusam colunas obrigatórias ausentes e
@@ -121,7 +121,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   será inventada nem extraída de produção. O gate integral e essa evidência
   operacional continuam pendentes.
 
-### 1.0.8 Estado parcial por tentativa — PR em preparação sobre #678
+### 1.0.8 Estado parcial por tentativa — PR em preparação sobre #679
 
 - **S07/A4:** a migration `032_customer_communication_partial_status.sql`
   adiciona `dispatch_mode` (`real`/`simulado`) às tentativas, amplia o CHECK do
@@ -139,6 +139,27 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **Residual:** deploy/execução dos Edge Functions, prova com o provedor e
   ativação de envio continuam pendentes; nenhum worker, cron, Vault, Resend ou
   `communications_enabled` foi ativado nesta execução.
+
+### 1.0.9 Readiness server-side de CE Mercante — PR em preparação sobre #680
+
+- **S10/F12:** a migration `033_customer_communication_readiness_guards.sql`
+  adiciona `customer_local_charges_communication_dispatch_ready`, que valida
+  todos os B/Ls ativos do cliente/viagem, trava a unidade com advisory lock e
+  locks de linha, e falha fechado quando faltar CE, revisão liberada ou
+  financeiro concluído.
+- **S10/S07:** a mesma guarda é aplicada por trigger na criação/alteração do
+  comunicado e na aquisição de claims automáticos; o Edge de envio revalida
+  imediatamente antes de registrar a tentativa. A janela após a revalidação e
+  antes do HTTP externo continua explicitamente limitada pela fronteira do
+  provedor.
+- **S07:** o runner automático aceita `parcial` como resultado resolvido do
+  destinatário atual, preservando retry somente para falhas não resolvidas.
+- **Evidência local:** 30 testes focados verdes, integração PostgreSQL
+  descartável verde para criação/claim/envio com CE removido, `typecheck` e
+  `git diff --check`. Nenhum serviço externo foi ativado.
+- **Residual:** o gate de emissão/Portal e a prova operacional em Preview
+  continuam separados; esta PR fecha a guarda de comunicação de CE, não a
+  ativação de envio.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -273,7 +294,7 @@ uma decisão registrada.
 
 ### 1.1 Baseline e alcance da evidência
 
-- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`030` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
+- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`033` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
 - Fonte dos identificadores: [auditoria consolidada](../archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md). Preservar esse registro integralmente. Nas seções sem ID, usar o número e o título original; os sufixos deste plano apenas desdobram causas diferentes.
 - Fontes de decisão: [CLAUDE.md](../../CLAUDE.md), [CONTEXT.md](../../CONTEXT.md), [WORKFLOW.md](../../WORKFLOW.md), [arquitetura](../ARCHITECTURE.md), [rastreabilidade](../RASTREABILIDADE.md), [convenções](../CONVENCOES.md) e [índice de ADRs](../adr/README.md).
 - **Código** significa confirmação estática no baseline. **Teste de contrato SQL** significa inspeção textual de SQL; não prova execução, concorrência, grants efetivos ou PostgREST. Testes citados abaixo são existentes ou propostos, com essa distinção explícita; não foram executados para afirmar que uma remediação funciona.
@@ -685,7 +706,7 @@ export type ImportEffectKind = 'physical_flags' | 'provisional_charges' |
 - [x] Persistir estado explícito `parcial` quando uma comunicação tem destinatários mistos; `dispatch_mode` fica na tentativa e a RPC/trigger recalcula o cabeçalho sem achatar combinações distintas. A prova de deploy/provedor permanece pendente.
 - [x] Trocar novas chaves de dunning para comunicação/contato/versão do destinatário, sem email em claro; não reescrever identidades históricas.
 - [ ] Remover `status` mutável da unicidade lógica de `customer_communications` após preflight/reconciliação das referências antigas; a membership D11 reduz o risco, mas não substitui esta contração.
-- [ ] Fechar readiness de `ce_mercante_taxas` na criação/claim/envio; esta fronteira pertence a S10 e não deve ser inferida do inbox.
+- [x] Fechar readiness de `ce_mercante_taxas` na criação/claim/envio; a RPC server-side com locks e a revalidação do Edge impedem criação/claim/dispatch sem CE, revisão liberada e financeiro concluído para todos os B/Ls ativos. A prova de Preview/provedor permanece pendente.
 - [x] Executar testes de webhook, dispatch, dunning e inbox; commit de referência: `ff44e1bb`.
 
 **Job proposto:** `portal-email-events-runner`, a cada minuto (`* * * * *`), via `ops.dispatch_edge_job('portal-email-events-runner', 'PORTAL_EMAIL_EVENTS_CRON_SECRET')`. Usar segredo dedicado homônimo no Vault/Edge e mesmas provas de autenticação de S09. Retry de processamento em 1, 5, 15, 60 e 360 minutos, seis tentativas totais; após esgotamento, manter registro bloqueado e alertar para investigação, sem descartar. Ajustar janela somente com evidência da latência real de vínculo de tentativa.
@@ -799,7 +820,7 @@ SELECT cron.schedule(
 - [x] Implementar o núcleo server-side de critérios de acesso à emissão (conta ativa, acesso utilizável, `auth_user_id`, `recovery_email` válido/não suprimido) nos wrappers individual/consolidado/Granito; cálculo continua separado do gate.
 - [ ] Validar o gate completo no ambiente operacional.
 - [x] Fazer overloads de pendências delegarem ao mesmo contrato, com precedência cliente → cálculo → CE → Portal e motivo Portal distinto de “Cálculo incompleto”. CE não foi introduzido no gate de revisão que deliberadamente não o exige.
-- [ ] Fechar readiness de `ce_mercante_taxas`: todos os B/Ls do cliente/viagem com CE, revisão liberada e financeiro concluído na criação/claim/envio, com lock e identidade de sistema. O código-base tem o núcleo de leitura, mas a validação de emissão/dispatch permanece pendente.
+- [x] Fechar readiness de `ce_mercante_taxas`: todos os B/Ls do cliente/viagem com CE, revisão liberada e financeiro concluído na criação/claim/envio, com advisory/row lock e identidade `service_role`. O gate de emissão/Portal continua separado e a validação de runtime permanece pendente.
 - [x] Executar a cobertura local de ledger, readiness e `InvoiceDocumentLocal`; os gates da PR passaram.
 - [ ] Reexecutar/estender o conjunto quando o readiness de comunicação e os cenários de runtime forem implementados.
 
@@ -921,7 +942,7 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 
 ## 5. Sequência recomendada de PRs
 
-Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`030`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
+Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`033`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
 
 | Ordem | Estado | Entrega / ação | Referência atual | O que o próximo agente deve considerar concluído ou pendente |
 |---|---|---|---|---|
@@ -933,13 +954,13 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 06 | `[x]` | Restaurar Inspeção de disputas, páginas e tipos | S11; `013_portal_disputes_inspection.sql` + `021_portal_billing_pages.sql` | Paridade de escopo, paginação, tipos e adapters passaram; regenerar apenas após nova migration. |
 | 07 | `[x]` | Corrigir coerção numérica | S03/P0-1; sem migration | Callers e vetores numéricos estão corrigidos/testados. |
 | 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Encoding, scanner Baplie (UNA/dialetos/grupos/EOF), schemas concretos, relatório uniforme e progresso/cancelamento nas superfícies cobertas estão entregues; marcadores/fixtures residuais continuam abertos. |
-| 09 | `[ ]` | Unificar identidade de navio/viagem | S03/P0-4; sem migration | Implementar alias canônico com IMO prioritário, conflito explícito e regressão de IMOs distintos em `vesselAlias.ts`/`voyages.ts`. |
+| 09 | `[x]` | Unificar identidade de navio/viagem | S03/P0-4; sem migration | Alias canônico com IMO prioritário, conflito explícito e regressão de IMOs distintos em `vesselAlias.ts`/`voyages.ts` foram implementados e testados. |
 | 10 | `mitigado` + `[ ]` | Fixar snapshot de Demurrage e escritor PIX | S08-B/C; `023_demurrage_calculation_snapshot.sql` + `030_fix_demurrage_snapshot_ptax_column.sql` | Autoridade server-side, snapshot e QR SQL estão implementados; decoder/manual BCB independente e aceite normativo F8 ainda faltam. |
 | 11 | `[x]` | Aplicar datas/flags em transação | S04/P1-01; `015_import_dates_and_flags_atomic.sql` | Atomicidade por B/L, auditoria e flags físicas estão cobertas; não repetir. |
 | 12 | `[x]` | Fechar metadados e conflito de omissão | S04/P2-01/P3-01; `016_import_metadata_and_omission_conflicts.sql` | Metadados, CE e omissão/conflitos estão implementados/testados; não repetir o núcleo. |
 | 13 | `mitigado` + `[ ] runtime` | Persistir efeitos e relatório de import | S05; `017_import_effects_outbox.sql` + `025_import_effect_worker.sql` + `026_import_effect_alert.sql` + `031_import_effect_consumers.sql` | Outbox/claim/lease/retry, consumidores server-side e painel reabrível por unidade passaram na prova local; Preview, secrets/Vault/Edge e ativação controlada do worker continuam pendentes. |
-| 14 | `[ ]` | Fechar readiness de emissão e comunicação | S10/F12; código parcial, sem nova migration isolada | Completar Portal, conta, revisão e `ce_mercante_taxas` em criação/claim/envio, com identidade server-side e prova de runtime. |
-| 15 | `[x]` + `[ ]` | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` | Inbox, dedup, stale events e recuperação estão entregues; estado explícito `parcial`, índice sem `status` e readiness `ce_mercante_taxas` continuam pendentes. |
+| 14 | `[x]` + `[ ]` runtime | Fechar readiness de emissão e comunicação | S10/F12; `033_customer_communication_readiness_guards.sql` | Guarda server-side de comunicação aplicada em criação/claim/envio, com lock e identidade de sistema; gate de emissão/Portal e prova de runtime continuam pendentes. |
+| 15 | `[x]` + `[ ]` runtime | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` + `032_customer_communication_partial_status.sql` | Inbox, dedup, stale events, recuperação e estado explícito `parcial` estão entregues; índice sem `status`, deploy/Edge e provedor continuam pendentes. |
 | 16 | `[x]` + `[ ]` | Fechar ledger, status/itens e rateio do impresso | S10/F14; `019_local_billing_integrity.sql` | D05/R$0,01 e integração local passaram; casos amplos, diagnóstico de irmãos e gate completo de comunicação continuam abertos. |
 | 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql` e páginas Portal | Projeções, paginação/window e filtros principais estão entregues; benchmark, full-scan/waterfall residual, resumo de viagem/EmbarqueVazios/agency report e profiler faltam. |
 | 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação, confirmações/menu e progresso/cancelamento nos modais múltiplos e customizados estão entregues; contraste, leitor de tela/foco manual e cessão entre blocos faltam. |

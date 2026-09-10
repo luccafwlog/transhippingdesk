@@ -479,6 +479,17 @@ async function handler(req: Request): Promise<Response> {
     return json(500, { error: 'RESEND_API_KEY não está configurada para envio real.' }, origin)
   }
 
+  if (kind === 'ce_mercante_taxas') {
+    const { error: dispatchReadinessError } = await admin.rpc('customer_local_charges_communication_dispatch_ready', {
+      p_voyage_id: Number(body.anchor_voyage_id),
+      p_customer_id: customerId,
+    })
+    if (dispatchReadinessError) {
+      console.error('customer communication dispatch readiness failed', dispatchReadinessError)
+      return json(422, { error: 'Prontidão financeira bloqueada para este cliente e viagem.' }, origin)
+    }
+  }
+
   let sent: { ok: boolean }
   try {
     sent = await sendEmail({

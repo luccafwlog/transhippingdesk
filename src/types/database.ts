@@ -6863,6 +6863,10 @@ export type Database = {
         Args: { p_value: string }
         Returns: string
       }
+      customer_local_charges_communication_dispatch_ready: {
+        Args: { p_customer_id: number; p_raise?: boolean; p_voyage_id: number }
+        Returns: Json
+      }
       customer_local_charges_communication_payload: {
         Args: { p_customer_id: number; p_voyage_id: number }
         Returns: Json
@@ -8091,6 +8095,10 @@ export type Database = {
       refresh_alert_aggregate: {
         Args: { p_alert_id: number }
         Returns: undefined
+      }
+      refresh_customer_communication_status: {
+        Args: { p_communication_id: number }
+        Returns: string
       }
       refresh_customer_reconciliation_queue_for_bl: {
         Args: { p_bl_id: string }
