@@ -34,6 +34,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **Gate SQL:** as cinco suítes antes fora do gate foram corrigidas e incorporadas ao CI. Replay local do zero: 17 arquivos / 64 testes verdes. A correção adicional de `upsert_alert_item_before_milestone_hardening` impede eventos `updated` espúrios em reconciliação idempotente.
 - **S02:** o skip observado em runs de `workflow_run` sem PR é explicado pelo `if` do workflow para pushes em `main`; na execução da PR, o check Supabase passou. O segredo operacional foi corrigido fora do código e o smoke autenticado do Preview foi concluído. O workflow continua fail-closed e nenhum job foi ativado.
 - **S11/S14:** o catálogo e os documentos foram atualizados; `src/types/database.ts` foi regenerado oficialmente contra o schema do Preview, preservando os aliases de domínio. A inspeção das 14 candidatas legadas encontrou zero dependências `pg_depend`, zero referências nos corpos de outras funções e zero jobs locais; sem telemetria de consumidores externos, nenhum `DROP` foi aplicado.
+- **S03/P0-4:** a identidade de navio/viagem agora normaliza tokens e designações (`M/V`, `VSL`), aceita variantes pontuadas dos aliases sem casar prefixos como `CSCL`, normaliza o rótulo textual do IMO e resolve primeiro pelo IMO exato. O fallback nominal só considera cadastros sem IMO e recusa conflito com outro IMO; os testes S03 cobrem prioridade, IMOs distintos, ambiguidade e grafias do alias.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -104,10 +105,12 @@ ser promovido a concluído apenas porque o caminho principal está verde.
 
 #### Pendências que devem orientar o próximo agente
 
-- [ ] **S03/P0-4:** concluir identidade canônica de navio/viagem em
-  `src/lib/vesselAlias.ts` e `src/services/voyages.ts`, com IMO prioritário,
-  conflito explícito e regressão de IMOs distintos. Não usar `.find()` para
-  resolver ambiguidade.
+- [x] **S03/P0-4:** identidade canônica concluída em `src/lib/vesselAlias.ts`
+  e `src/services/voyages.ts`: IMO exato tem prioridade sobre grafia e
+  cadastros sem IMO, aliases são comparados por tokens com designações de navio
+  removidas, conflito com IMO distinto retorna ausência e ambiguidade gera erro
+  explícito. Evidência: `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`
+  (11 testes focados verdes); não há `.find()` na resolução.
 - [ ] **S03 restante:** concluir bytes/encoding, scanner Baplie por dialeto,
   schemas/contratos de Granito/Vazios/COSCO, validação uniforme de datas/portos
   e relatório integral/progresso. Os itens já marcados como mitigados não devem
@@ -199,7 +202,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | P0-1 / §2.2 | Já corrigido | Todos os callers de produção identificados usam `parseImportNumber` com formato explícito; `toNumber` permanece apenas como helper de compatibilidade sem caller de produção. Testes cobrem `1e3`, separadores, vazio, zero e não finitos. | Regressão S03 |
 | P0-2 | Mitigado parcialmente | Baplie agora transforma grupo físico inválido em issue bloqueante, mostra o relatório e impede staging; a semântica completa de identidade/UNA e importadores legados ainda exige regressão. | S03 |
 | P0-3 / §2.1 | Mitigado parcialmente | `readSheet` agora localiza a linha de cabeçalho com janela/aliases e o import de datas usa a linha real; o recorte de bytes/decodificação de todos os parsers ainda não foi uniformizado. | S03 |
-| P0-4 / §§5.1–5.3 | Pendente | `vesselAlias.ts` e `voyages.ts` não compartilham identidade canônica suficiente; fallback de nome em Chegadas e Saídas continua frágil. Risco confirmado é duplicação/associação incorreta por nome, não troca comprovada entre IMOs distintos. | S03 |
+| P0-4 / §§5.1–5.3 | Já corrigido | `vesselAlias.ts` tokeniza designações e aliases pontuados com fronteira segura; `findVoyageByNumberAndVessel` prioriza IMO exato, rejeita conflito conhecido e não escolhe arbitrariamente entre candidatas. Testes cobrem grafias, prioridade, IMOs distintos e ambiguidade. | Regressão S03 |
 | P1-5 / §3.2, igual a #657 P1-01 | Mitigado parcialmente | Datas por B/L usam RPC transacional; o caller rejeita datas impossíveis, duplicata conflitante e container ausente antes de aplicar, preserva outros B/Ls e impede faturamento do B/L falho. Continua pendente a unidade transacional de efeitos posteriores e o consumidor completo de cada cauda. | S04 + S05 |
 | §2.3 — colunas e cabeçalho | Mitigado parcialmente | `locateHeaderRowIndex`/aliases foram conectados ao core de planilhas e ao import de datas; layouts fixos como COSCO ainda precisam de assinatura explícita. | S03 |
 | §2.4 — datas | Mitigado parcialmente | O import de datas rejeita calendário impossível, mas a política ainda difere entre planilhas e alguns parsers podem transformar formatos inválidos/ambíguos em ausência. Manter inferência de ano apenas onde já é contrato de programação. | S03 |
@@ -461,7 +464,7 @@ export type ParsedNumber =
 - [ ] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM e round-trip byte a byte. O parser atual tem cobertura parcial; não marcar esta tarefa até os vetores de encoding e o preview do encoding escolhido existirem.
 - [ ] Completar scanner Baplie por UNA/separadores/release character e por dialeto, com isolamento de grupos LOC/EQD, DGS/OOG, EOF e duplicata. A UI já bloqueia issue inválida, mas a semântica completa do scanner continua aberta.
 - [ ] Completar schemas concretos de Granito/Vazios/Vazios IMP/COSCO, marcadores fixos, ISO/case, tara, datas/ordem temporal e portos; `locateHeaderRowIndex` e `resolvePortCode` já estão conectados e não devem ser refeitos.
-- [ ] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`.
+- [x] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`; evidência nos testes `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`.
 - [x] Baplie já expõe issues bloqueantes, contagens e relatório de preview.
 - [ ] Tornar feedback integral/exportável e uniforme nos demais importadores sem enviar arquivo/PII à telemetria.
 - [ ] Executar o gate completo de parsers depois dos itens acima, incluindo fixtures reais anonimizados, encoding, Baplie e identidade. Não usar a suíte verde atual como prova de P0-4 ou dos contratos ainda não cobertos.
