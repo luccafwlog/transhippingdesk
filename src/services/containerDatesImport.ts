@@ -62,12 +62,12 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   const { data: containers, error: fetchError } = await supabase
     .from('bl_containers')
-    .select('id, bl_id, container_number, container_type, discharge_date, return_date, demurrage_status')
+    .select('id, bl_id, container_number, discharge_date, return_date, demurrage_status')
     .in('bl_id', blIds)
 
   if (fetchError) throw fetchError
 
-  type ContainerRow = { id: number; bl_id: string | null; container_number: string; container_type: string | null; discharge_date: string | null; return_date: string | null; demurrage_status: string | null }
+  type ContainerRow = { id: number; bl_id: string | null; container_number: string; discharge_date: string | null; return_date: string | null; demurrage_status: string | null }
   const containersByKey = new Map<string, ContainerRow>()
   for (const c of (containers as unknown as ContainerRow[]) ?? []) {
     containersByKey.set(makeKey(c.bl_id ?? '', c.container_number), c)

@@ -6,7 +6,6 @@ type FakeContainer = {
   id: number
   bl_id: string
   container_number: string
-  container_type: string | null
   discharge_date: string | null
   return_date: string | null
   demurrage_status: string | null
@@ -112,8 +111,8 @@ describe('importContainerDates (lote parcial)', () => {
 
   it('desfaz o B/L inteiro quando o RPC atomico falha', async () => {
     setContainers([
-      { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', container_type: 'DRY', discharge_date: null, return_date: null, demurrage_status: null },
-      { id: 2, bl_id: 'BL001', container_number: 'TCLU2222222', container_type: 'DRY', discharge_date: null, return_date: null, demurrage_status: null },
+      { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', discharge_date: null, return_date: null, demurrage_status: null },
+      { id: 2, bl_id: 'BL001', container_number: 'TCLU2222222', discharge_date: null, return_date: null, demurrage_status: null },
     ])
     mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'conflito de escrita' } })
 
@@ -131,7 +130,7 @@ describe('importContainerDates (lote parcial)', () => {
 
   it('refatura B/L cuja devolucao ja estava gravada por uma tentativa interrompida', async () => {
     setContainers([
-      { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', container_type: 'DRY', discharge_date: '2026-01-10', return_date: '2026-01-20', demurrage_status: 'returned' },
+      { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', discharge_date: '2026-01-10', return_date: '2026-01-20', demurrage_status: 'returned' },
     ])
     mockRpc.mockResolvedValue({ data: { updated_ids: [], unchanged_ids: [1], billing_state: 'ready_for_billing' }, error: null })
 
