@@ -2,10 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { importCeMercanteEdi, importCeMercanteRows, parseCeMercanteBuffer, partitionRowsByVoyage, type CeMercanteRow } from '../ceMercanteImport'
 import { jsonToBuffer } from './testWorkbook'
 
-const { mockFrom, mockRpc, mockMaybeAutoBillAfterCeMercante } = vi.hoisted(() => ({
+const { mockFrom, mockRpc } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
   mockRpc: vi.fn(),
-  mockMaybeAutoBillAfterCeMercante: vi.fn(),
 }))
 
 vi.mock('../supabase', () => ({
@@ -15,16 +14,10 @@ vi.mock('../supabase', () => ({
   },
 }))
 
-vi.mock('../reviewBillingAutomation', () => ({
-  maybeAutoBillAfterCeMercante: mockMaybeAutoBillAfterCeMercante,
-}))
-
 describe('ceMercanteImport', () => {
   beforeEach(() => {
     mockFrom.mockReset()
     mockRpc.mockReset()
-    mockMaybeAutoBillAfterCeMercante.mockReset()
-    mockMaybeAutoBillAfterCeMercante.mockResolvedValue(null)
   })
 
   it('parseia a planilha e rejeita BL duplicado', async () => {
@@ -93,7 +86,7 @@ describe('ceMercanteImport', () => {
     expect(rpcName).toBe('apply_ce_mercante_update')
     expect(rpcArgs.p_bl_id).toBe('BL001')
     expect(rpcArgs.p_new_ce).toBe('122605051526081')
-    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', null)
+    expect(mockRpc).toHaveBeenCalledOnce()
   })
 
   it('resolve o numero do B/L de Granito para UUID e grava pela RPC auditavel sem auto-faturar', async () => {
@@ -116,7 +109,6 @@ describe('ceMercanteImport', () => {
     expect(mockRpc).toHaveBeenCalledWith('apply_granite_ce_mercante_update', {
       p_bl_id: 'uuid-gr1', p_new_ce: '122605051526081', p_changed_by: 'user-1',
     })
-    expect(mockMaybeAutoBillAfterCeMercante).not.toHaveBeenCalled()
   })
 
   it('conta CE de Granito unchanged sem incrementar updated', async () => {
@@ -181,7 +173,7 @@ describe('ceMercanteImport', () => {
     })
   })
 
-  it('nao dispara automacao quando a aplicacao do CE falha', async () => {
+  it('nao tenta uma segunda operacao quando a aplicacao do CE falha', async () => {
     mockFrom.mockImplementation(() => ({
       select: () => ({
         in: async () => ({ data: [{ id: 'BL001' }], error: null }),
@@ -194,10 +186,10 @@ describe('ceMercanteImport', () => {
     ])
 
     expect(result.errorCount).toBe(1)
-    expect(mockMaybeAutoBillAfterCeMercante).not.toHaveBeenCalled()
+    expect(mockRpc).toHaveBeenCalledOnce()
   })
 
-  it('dispara automacao para cada BL apos importar CE por EDI', async () => {
+  it('deixa o efeito de billing persistido para o import CE por EDI', async () => {
     mockRpc.mockResolvedValue({
       data: { ok: true, batch_id: 10, processed: 2, inserted: 2, overwritten: 0, unchanged: 0 },
       error: null,
@@ -209,7 +201,6 @@ describe('ceMercanteImport', () => {
     ], { changedBy: 'user-1' })
 
     expect(result).toMatchObject({ ok: true, batchId: 10, processed: 2 })
-    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL001', 'user-1')
-    expect(mockMaybeAutoBillAfterCeMercante).toHaveBeenCalledWith('BL002', 'user-1')
+    expect(mockRpc).toHaveBeenCalledOnce()
   })
 })

@@ -3,7 +3,6 @@ import { extractErrorText } from '../lib/errors'
 import { asString } from '../lib/utils'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 import { supabase } from './supabase'
-import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -82,7 +81,6 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   // O RPC aplica cada B/L inteiro como unidade; um erro não deixa linhas
   // parcialmente gravadas e o lote continua com os demais B/Ls.
-  const blsToCheckForInvoice = new Set<string>()
   const blsWithFailedUpdates = new Set<string>()
   const rowsByBl = new Map<string, ContainerDatesImportRow[]>()
   for (const row of uniqueRows) {
@@ -140,31 +138,6 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
     const result = (applied ?? {}) as { updated_ids?: unknown[]; unchanged_ids?: unknown[]; billing_state?: string }
     updated += Array.isArray(result.updated_ids) ? result.updated_ids.length : 0
     unchanged += Array.isArray(result.unchanged_ids) ? result.unchanged_ids.length : 0
-    if (result.billing_state === 'ready_for_billing') blsToCheckForInvoice.add(blId)
-  }
-
-  // For each BL that had a container newly returned, check if ALL containers are now returned
-  // and auto-generate a demurrage invoice if any demurrage is owed.
-  for (const blId of blsToCheckForInvoice) {
-    if (blsWithFailedUpdates.has(blId)) continue
-    const blContainers = (containers as unknown as ContainerRow[]).filter((c) => c.bl_id === blId)
-    const updatesForBl = new Map(uniqueRows.filter((r) => r.bl_id === blId).map((r) => [makeKey(r.bl_id, r.container_number), r]))
-
-    const allReturned = blContainers.every((c) => {
-      const update = updatesForBl.get(makeKey(c.bl_id ?? '', c.container_number))
-      return update ? !!update.return_date : c.demurrage_status === 'returned'
-    })
-
-    if (allReturned) {
-      // Nasce 'issued' com a foto inicial (ADR 0014). Retorna null se o B/L já
-      // tem fatura ativa (não sobrescreve) ou se não há demurrage devido.
-      try {
-        await createInvoiceForReturnedBL(blId)
-      } catch (error) {
-        // Um B/L que falha ao faturar nao pode impedir o faturamento dos demais.
-        errors.push({ bl_id: blId, container_number: '', message: extractErrorText(error) })
-      }
-    }
   }
 
   return { updated, unchanged, missing, errors }

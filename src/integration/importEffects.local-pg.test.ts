@@ -13,12 +13,16 @@ const actionIds = [
   '00000000-0000-0000-0000-000000017104',
   '00000000-0000-0000-0000-000000017105',
   '00000000-0000-0000-0000-000000017106',
+  '00000000-0000-0000-0000-000000017107',
 ]
+const graniteManifestId = '00000000-0000-0000-0000-000000017201'
+const graniteBlId = '00000000-0000-0000-0000-000000017202'
+const graniteRateId = '00000000-0000-0000-0000-000000017203'
 
-function localPsql(sql: string): string {
+function localPsql(sql: string, entityPrefix = 'S05-OUTBOX-%'): string {
   return execFileSync('psql', [
     '-X', '-v', 'ON_ERROR_STOP=1', '-At', '-q', '-d', databaseUrl,
-    '-c', `SET request.jwt.claim.role = 'service_role'; SET request.jwt.claim.sub = '${actorId}'; SET import_effects.entity_prefix = 'S05-OUTBOX-%'; ${sql}`,
+    '-c', `SET request.jwt.claim.role = 'service_role'; SET request.jwt.claim.sub = '${actorId}'; SET import_effects.entity_prefix = '${entityPrefix}'; ${sql}`,
   ], { encoding: 'utf8' }).trim()
 }
 
@@ -78,9 +82,19 @@ function cleanupTestData(): void {
   `)
 }
 
+function cleanupGraniteFixture(): void {
+  localPsql(`
+    DELETE FROM public.granite_bl_charges WHERE bl_id = '${graniteBlId}';
+    DELETE FROM public.granite_bls WHERE id = '${graniteBlId}';
+    DELETE FROM public.granite_manifests WHERE id = '${graniteManifestId}';
+    DELETE FROM public.granite_rates WHERE id = '${graniteRateId}';
+  `)
+}
+
 describeLocal('S05 — outbox duravel dos efeitos de import', () => {
   beforeAll(() => {
     cleanupTestData()
+    cleanupGraniteFixture()
     localPsql(`
       DELETE FROM public.user_profiles WHERE id = '${actorId}';
       DELETE FROM auth.users WHERE id = '${actorId}';
@@ -92,6 +106,7 @@ describeLocal('S05 — outbox duravel dos efeitos de import', () => {
 
   afterAll(() => {
     cleanupTestData()
+    cleanupGraniteFixture()
     localPsql(`
       DELETE FROM public.user_profiles WHERE id = '${actorId}';
       DELETE FROM auth.users WHERE id = '${actorId}';
@@ -193,5 +208,55 @@ describeLocal('S05 — outbox duravel dos efeitos de import', () => {
         AND a.entity_type = 'import_effect'
         AND a.entity_id = '${queued.effect.id}';
     `)).toBe('1')
+  })
+
+  it('calcula Granito pelo consumidor SQL, preserva snapshot sem tarifa e reabre o resultado', () => {
+    localPsql(`
+      INSERT INTO public.granite_manifests(
+        id, vessel_voyage, total_bls, total_weight_kg, imported_by
+      ) VALUES (
+        '${graniteManifestId}', 'S05 TEST / V001', 1, 2000, '${actorId}'
+      );
+      INSERT INTO public.granite_bls(
+        id, manifest_id, sequence, bl_number, vessel_voyage,
+        real_weight_kg, charge_status
+      ) VALUES (
+        '${graniteBlId}', '${graniteManifestId}', 1, 'S05-GRANITE-001',
+        'S05 TEST / V001', 2000, 'not_calculated'
+      );
+      INSERT INTO public.granite_bl_charges(
+        id, bl_id, description, charge_type, unit_value, quantity,
+        subtotal, currency, calculated_at
+      ) VALUES (
+        gen_random_uuid(), '${graniteBlId}', 'snapshot anterior', 'fixed',
+        10, 1, 10, 'BRL', now()
+      );
+    `)
+
+    expectSqlFailure(`SELECT public.calculate_granite_bl_charges('${graniteBlId}'::uuid);`, false)
+    expect(localPsql(`SELECT count(*) FROM public.granite_bl_charges WHERE bl_id = '${graniteBlId}';`)).toBe('1')
+
+    localPsql(`
+      INSERT INTO public.granite_rates(
+        id, description, charge_type, unit_value, currency,
+        valid_from, valid_to, active
+      ) VALUES (
+        '${graniteRateId}', 'S05 peso real', 'per_kg', 1, 'BRL',
+        CURRENT_DATE, CURRENT_DATE, true
+      );
+    `)
+
+    const queued = enqueue(actionIds[6], 'granite_billing', graniteBlId)
+    const claimed = JSON.parse(localPsql(`
+      SELECT row_to_json(e) FROM public.claim_import_effects('granite-worker', 10, 300) AS e;
+    `, '')) as Effect
+    expect(claimed.id).toBe(queued.effect.id)
+
+    const processed = JSON.parse(localPsql(`
+      SELECT public.process_import_effect(${queued.effect.id}, 'granite-worker');
+    `, '')) as { effect: Effect }
+    expect(processed.effect).toMatchObject({ status: 'succeeded', effect_kind: 'granite_billing' })
+    expect(localPsql(`SELECT charge_status FROM public.granite_bls WHERE id = '${graniteBlId}';`)).toBe('calculated')
+    expect(localPsql(`SELECT subtotal::text FROM public.granite_bl_charges WHERE bl_id = '${graniteBlId}';`)).toBe('2000.00')
   })
 })

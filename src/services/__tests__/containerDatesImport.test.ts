@@ -11,11 +11,10 @@ type FakeContainer = {
   demurrage_status: string | null
 }
 
-const { mockFrom, mockRpc, mockGetUser, mockCreateInvoiceForReturnedBL, mockEnsureRates, state } = vi.hoisted(() => ({
+const { mockFrom, mockRpc, mockGetUser, mockEnsureRates, state } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
   mockRpc: vi.fn(),
   mockGetUser: vi.fn(),
-  mockCreateInvoiceForReturnedBL: vi.fn(),
   mockEnsureRates: vi.fn(),
   state: { containers: [] as unknown[] },
 }))
@@ -41,7 +40,6 @@ mockFrom.mockImplementation((table: string) => {
 })
 
 vi.mock('../supabase', () => ({ supabase: { from: mockFrom, rpc: mockRpc, auth: { getUser: mockGetUser } } }))
-vi.mock('../demurrage/demurrageInvoices', () => ({ createInvoiceForReturnedBL: mockCreateInvoiceForReturnedBL }))
 vi.mock('../demurrage/demurrageRates', () => ({
   ensureDemurrageRatesLoaded: mockEnsureRates,
   calculateDemurrage: () => ({ totalUsd: 0 }),
@@ -126,8 +124,6 @@ describe('importContainerDates (lote parcial)', () => {
   beforeEach(() => {
     mockRpc.mockReset()
     mockGetUser.mockResolvedValue({ data: { user: { id: '00000000-0000-0000-0000-000000000401' } }, error: null })
-    mockCreateInvoiceForReturnedBL.mockReset()
-    mockCreateInvoiceForReturnedBL.mockResolvedValue(null)
   })
 
   it('desfaz o B/L inteiro quando o RPC atomico falha', async () => {
@@ -146,10 +142,9 @@ describe('importContainerDates (lote parcial)', () => {
     expect(result.errors).toHaveLength(2)
     expect(result.errors[0]?.container_number).toBe('TCLU1111111')
     expect(result.errors[0]?.message).toContain('conflito de escrita')
-    expect(mockCreateInvoiceForReturnedBL).not.toHaveBeenCalled()
   })
 
-  it('refatura B/L cuja devolucao ja estava gravada por uma tentativa interrompida', async () => {
+  it('deixa a emissão de Demurrage para o efeito persistido da RPC', async () => {
     setContainers([
       { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', discharge_date: '2026-01-10', return_date: '2026-01-20', demurrage_status: 'returned' },
     ])
@@ -161,7 +156,7 @@ describe('importContainerDates (lote parcial)', () => {
 
     expect(result.unchanged).toBe(1)
     expect(result.updated).toBe(0)
-    expect(mockCreateInvoiceForReturnedBL).toHaveBeenCalledWith('BL001')
+    expect(mockRpc).toHaveBeenCalledWith('apply_container_dates_atomic', expect.objectContaining({ p_bl_id: 'BL001' }))
   })
 
   it('nao atualiza parcialmente um B/L quando outro container do mesmo lote nao existe', async () => {

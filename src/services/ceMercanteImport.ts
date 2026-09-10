@@ -1,9 +1,7 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { reportBestEffortFailure } from '../lib/telemetry'
 import { asString, chunkArray, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { CeMercanteEdiRow } from './ceMercanteEdiParser'
-import { maybeAutoBillAfterCeMercante } from './reviewBillingAutomation'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
 
 const headerMap = {
@@ -205,11 +203,6 @@ export async function importCeMercanteRows(
         inserted += 1
         break
     }
-    if (target !== 'granite') {
-      await maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy).catch((error: unknown) => {
-        reportBestEffortFailure('faturar automaticamente apos vinculo de CE Mercante', error, { blId: row.bl_id })
-      })
-    }
   }
 
   return {
@@ -263,11 +256,6 @@ export async function importCeMercanteEdi(
   } | null
 
   if (result?.ok) {
-    for (const blId of new Set(rows.map((row) => row.bl_id))) {
-      await maybeAutoBillAfterCeMercante(blId, options.changedBy).catch((error: unknown) => {
-        reportBestEffortFailure('faturar automaticamente apos vinculo de CE Mercante (EDI)', error, { blId })
-      })
-    }
     return {
       ok: true,
       batchId: Number(result.batch_id ?? 0),

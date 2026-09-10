@@ -6,9 +6,6 @@ import { extractConsigneeShortName } from '../lib/consigneeName'
 import type { BL, BLContainer, BlFreightLine, Vehicle } from '../types/database'
 import { extractTaxId, type ParsedBLDocument } from './blParser'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink, type CustomerMaps } from './customerReconciliation'
-import { applyBapliePhysicalFlags } from './baplieReconciliation'
-import { calculateProvisionalLocalCharges } from './charges/chargeOperationsService'
-import { reportBestEffortFailure } from '../lib/telemetry'
 import { normalizePortCode } from './portCode'
 import { supabase } from './supabase'
 
@@ -506,28 +503,6 @@ export async function confirmBlFreightImport(
   if (error) throw error
   const wrapped = rawData as { result?: unknown } | null
   const data = usesBatchContract && wrapped && 'result' in wrapped ? wrapped.result : rawData
-
-  // B/L nascido DEPOIS do Baplie (fluxo B/L-primário): aplica as flags físicas
-  // soberanas do Baplie (IMO/OOG) aos containers recém-criados, fechando o gap
-  // do #306. Best-effort e idempotente — sem Baplie, é no-op.
-  if (voyageId != null) {
-    // Etapa 4 do plano de faturamento (ADR 0038, achado 11): cálculo provisório
-    // de taxas locais roda depois das flags do Baplie (elas definem o perfil de
-    // carga usado no cálculo), incluindo os B/Ls irmãos de container
-    // compartilhado. Best-effort e idempotente — sem isso, container é no-op.
-    void applyBapliePhysicalFlags(voyageId, changedBy)
-      .then(() => calculateProvisionalLocalCharges(
-        voyageId,
-        payload.map((bl) => bl.id),
-        changedBy,
-      ))
-      .catch((error: unknown) => {
-        // A falha das flags bloqueia o calculo dependente; o outbox persistido
-        // pelo RPC de origem fica disponivel para retomada sem executar uma
-        // etapa financeira sobre um conjunto fisico obsoleto.
-        reportBestEffortFailure('aplicar flags/calcular taxas provisorias apos import de B/L', error, { voyageId })
-      })
-  }
 
   const importedIds = payload.map((bl) => bl.id)
   if (!usesBatchContract && voyageId != null && importedIds.length > 0) {

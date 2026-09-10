@@ -328,14 +328,14 @@ describe('vehicleImport', () => {
     expect(insertedRows).toHaveLength(1)
     expect(insertedRows[0]?.bl_id).toBe('BL001')
     expect(insertedRows[0]?.container_id).toBe(11)
-    // O BL com veiculo deve ter as taxas recalculadas (isencao), nao apenas o status alterado.
-    expect(mockRpc).toHaveBeenCalledWith(
-      'calculate_bl_local_charges',
-      expect.objectContaining({ p_bl_id: 'BL001', p_recalculate: true }),
-    )
+    // O RPC de origem persiste o follow-up; nenhum cálculo/cancelamento fica
+    // dependente da janela HTTP do browser.
+    expect(mockRpc).toHaveBeenCalledWith('import_vehicle_rows_transactional', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('calculate_bl_local_charges', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('cancel_invoice', expect.anything())
   })
 
-  it('cancela fatura ativa e recalcula isencao ao vincular veiculos a um BL ja faturado', async () => {
+  it('persiste o follow-up quando o BL ja estava faturado', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'vehicles') {
         return {
@@ -401,11 +401,9 @@ describe('vehicleImport', () => {
 
     expect(result.successCount).toBe(1)
     expect(result.errorCount).toBe(0)
-    expect(mockRpc).toHaveBeenCalledWith('cancel_invoice', expect.objectContaining({ p_invoice_id: 900 }))
-    expect(mockRpc).toHaveBeenCalledWith(
-      'calculate_bl_local_charges',
-      expect.objectContaining({ p_bl_id: 'BL001', p_recalculate: true }),
-    )
+    expect(mockRpc).toHaveBeenCalledWith('import_vehicle_rows_transactional', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('cancel_invoice', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('calculate_bl_local_charges', expect.anything())
   })
 
   it('rejeita linha quando mais de um container atende ao mesmo tipo e lacre', async () => {
