@@ -12,6 +12,8 @@ import { parseScheduleRows, scheduleTemplateColumns } from '../services/portalSc
 import { fetchPortalScheduleVoyages, type PortalScheduleVoyage } from '../services/portalScheduleVoyages'
 import { createOrAttachVoyageFromSchedule } from '../services/voyageFromSchedule'
 import { setVoyageShowOnPortal } from '../services/voyages'
+import { readSheet } from '../services/importCore'
+import { inspectImportFile, type ImportFileInspection } from '../services/importText'
 
 function DateTd({ value, isActual = false, omitted = false }: { value: string; isActual?: boolean; omitted?: boolean }) {
   const isX = value === 'X'
@@ -118,7 +120,7 @@ function VesselForm({ formData, onChange, onSubmit, onCancel, isEditing }: {
 
 function SpreadsheetUpload({ canWrite, onUpdate }: { canWrite: boolean; onUpdate: () => void }) {
   const [uploading, setUploading] = useState(false)
-  const [result, setResult] = useState<{ updated: string[]; errors: string[]; warnings: string[] } | null>(null)
+  const [result, setResult] = useState<{ inspection: ImportFileInspection; updated: string[]; errors: string[]; warnings: string[] } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { showToast } = useToast()
   const { user } = useAuth()
@@ -148,12 +150,11 @@ function SpreadsheetUpload({ canWrite, onUpdate }: { canWrite: boolean; onUpdate
     setResult(null)
     try {
       assertUploadSize(file)
-      const XLSX = await import('@e965/xlsx')
       const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { cellDates: true })
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { raw: true })
+      const inspection = inspectImportFile(buf)
+      const { rows } = await readSheet(buf, { dates: 'date' })
       const parsed = parseScheduleRows(rows)
-      const next = { updated: [] as string[], errors: [] as string[], warnings: [] as string[] }
+      const next = { inspection, updated: [] as string[], errors: [] as string[], warnings: [] as string[] }
 
       for (const row of parsed) {
         if (row.invalidCells.length > 0) {
@@ -206,6 +207,10 @@ function SpreadsheetUpload({ canWrite, onUpdate }: { canWrite: boolean; onUpdate
       </div>
       {result && (
         <div className="space-y-2 mt-4 pt-4 border-t border-[var(--app-border)] text-sm">
+          <div className="app-panel app-panel--padded text-xs" role="status" aria-label="Diagnóstico do arquivo">
+            Formato detectado: <strong>{result.inspection.format.toUpperCase()}</strong> · Encoding: <strong>{result.inspection.encoding ?? 'binário'}</strong> · BOM: <strong>{result.inspection.hadBom ? 'presente' : 'ausente'}</strong> · {result.inspection.byteLength.toLocaleString('pt-BR')} bytes
+            {result.inspection.preview ? <pre className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap rounded border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-2 font-mono text-[11px]">{result.inspection.preview}</pre> : null}
+          </div>
           {result.updated.length > 0 && <div className="text-[var(--app-green)] font-medium">{result.updated.length} atualizada(s)</div>}
           {result.warnings.length > 0 && <div className="text-[var(--app-gold)]">{result.warnings.length} com datas ilegíveis (ignoradas)</div>}
           {result.errors.length > 0 && <div className="text-[var(--app-red)]">{result.errors.length} erro(s)</div>}

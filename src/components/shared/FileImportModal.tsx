@@ -166,6 +166,7 @@ function ImportInspection({ inspection }: { inspection: ImportFileInspection }) 
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         <span>Formato detectado: <strong>{formatLabel[inspection.format]}</strong></span>
         <span>Encoding: <strong>{encodingLabel}</strong></span>
+        <span>BOM: <strong>{inspection.hadBom ? 'presente' : 'ausente'}</strong></span>
         <span>{inspection.byteLength.toLocaleString('pt-BR')} bytes</span>
       </div>
       {inspection.preview ? (

@@ -35,6 +35,7 @@ it('mostra o formato e o encoding detectados junto da prévia do arquivo', async
   const inspection = screen.getByRole('status')
   expect(inspection.textContent).toContain('Formato detectado: CSV')
   expect(inspection.textContent).toContain('Encoding: UTF-8 com BOM')
+  expect(inspection.textContent).toContain('BOM: presente')
   expect(inspection.textContent).toContain('BL;Cidade')
   expect(screen.getByText('Linhas: 1')).toBeTruthy()
 })

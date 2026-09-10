@@ -3,6 +3,7 @@ import { canonicalizeValidCnpj } from '../lib/cnpj'
 import { parseImportNumber } from '../lib/importNumber'
 import { asString } from '../lib/utils'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
+import { detectImportFormat } from './importText'
 
 export type BLFreightCharge = {
   description: string
@@ -77,6 +78,8 @@ export async function parseBLFile(file: File): Promise<ParsedBLDocument> {
 }
 
 export async function parseBLBuffer(buffer: ArrayBuffer): Promise<ParsedBLDocument> {
+  const format = detectImportFormat(buffer)
+  if (format !== 'xlsx' && format !== 'xls') throw new Error('Arquivo B/L não reconhecido como XLS/XLSX.')
   const XLSX = await import('@e965/xlsx')
   // cellDates: cells formatted as dates in the source workbook (e.g. Laden On
   // Board) come back as JS Date objects instead of Excel serial numbers, so
