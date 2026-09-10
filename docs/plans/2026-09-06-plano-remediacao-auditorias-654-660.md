@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial após as PRs #670–#672 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial após as PRs #670–#673 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -40,6 +40,26 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **Round-trip e preview:** o resultado mantém os bytes textuais de origem para reconstituição byte a byte; `inspectImportFile` expõe formato, encoding, BOM, tamanho e prévia limitada. O `FileImportModal` mostra esse diagnóstico, e os modais de Baplie/CE exibem o encoding selecionado.
 - **Integração:** `readSheet` não encaminha EDI ao leitor de planilhas; Baplie e CE Mercante validam o formato antes de parsear; os callers de planilha usam a inspeção comum sem enviar conteúdo à telemetria. Evidência: `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`, `baplieParser.test.ts` e `FileImportModal.test.tsx`, com vetores UTF-8/BOM, Windows-1252, bytes inválidos, formatos binários/textuais, ambiguidades e round-trip.
 - **S03/Baplie:** o scanner agora respeita `UNA`, separadores e release character; limita a ingestão ao conteúdo antes do trailer, isola os segmentos entre EQDs consecutivos e associa `DGS`/`DIM` à unidade correta. Duplicatas continuam bloqueantes. Evidência: `baplieParserS03.test.ts` com dialetos LOC→EQD/EQD→LOC, múltiplos EQD, OOG/IMO, EOF, duplicata e UNA customizada.
+
+### 1.0.4 Contratos concretos de planilhas — PR em preparação sobre #673
+
+- **S03:** Granito agora valida calendário real de `Cargo Readiness Date`,
+  normaliza e valida `L/PORT`/`D/PORT`, e mantém o B/L apenas na prévia quando
+  houver erro. Vazios IMP canoniza ISO/tipo/rotas, rejeita tara inválida e
+  sinaliza POL/POD não reconhecidos. Embarque de Vazios reutiliza os schemas
+  ISO/data existentes após normalizar container/tipo. Veículos escolhem a
+  gramática numérica pelo cabeçalho da origem (pt-BR interno, en-US COSCO) e
+  recusam expoente, texto residual e container não-ISO.
+- **Confirmação:** Manifesto BB, Granito, Vazios IMP e Veículos não permitem
+  confirmar com `rowErrors`; o parser customizado da tela de Granito também
+  bloqueia a RPC defensivamente. O catálogo de portos reconhece os códigos já
+  usados nas escalas (`BR*`, `ITGOA`, `NLRTM`) sem transformar código desconhecido
+  em porto válido.
+- **Evidência local:** 83 testes focados verdes nos parsers, schemas, modal e
+  telas (`vaziosImportAdrColumns`, `vaziosImportacaoImport`, `graniteParse`,
+  `vehicleImport`, `portCode`, `FileImportModal`, `VoyageImportActions` e
+  `Granite`); `typecheck`, `lint`, `docs:check` e `git diff --check` também
+  passaram. Nenhuma migration foi criada e não houve ativação externa.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -123,10 +143,11 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   limitada com formato/encoding/BOM no modal compartilhado. Evidência: vetores
   em `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`,
   `baplieParser.test.ts` e `FileImportModal.test.tsx`.
-- [ ] **S03 restante:** concluir schemas/contratos de Granito/Vazios/COSCO,
-  validação uniforme de datas/portos
-  e relatório integral/progresso. Os itens já marcados como mitigados não devem
-  ser reimplementados; executar somente os bullets vazios de S03.
+- [ ] **S03 restante:** completar a validação estrutural de todos os campos e
+  o gate com fixtures reais anonimizados; tornar o relatório integral/exportável
+  e implementar progresso/cancelamento. Os contratos de ISO, tara, datas/ordem,
+  portos e a confirmação sem `rowErrors` já foram entregues nesta linha; não
+  reimplementar esses itens.
 - [ ] **S04/S05 residual:** completar as caudas de veículo, Granite e
   Breakbulk, relatório durável de cada unidade e consumidores/efeitos que ainda
   ficam `blocked`. O worker existente permanece fail-closed/inativo até cada
@@ -475,7 +496,8 @@ export type ParsedNumber =
 
 - [x] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM e round-trip byte a byte. Evidência: `detectImportFormat`, `decodeImportBytes`, `encodeImportText`, `inspectImportFile` e vetores em `importText.test.ts`; o preview mostra o formato e encoding selecionados.
 - [x] Completar scanner Baplie por UNA/separadores/release character e por dialeto, com isolamento de grupos LOC/EQD, DGS/OOG, EOF e duplicata. Evidência: `baplieParserS03.test.ts` cobre ambos os sentidos LOC→EQD/EQD→LOC, separador de componente definido por UNA, DGS/DIM por EQD, trailer com conteúdo posterior e duplicata bloqueante.
-- [ ] Completar schemas concretos de Granito/Vazios/Vazios IMP/COSCO, marcadores fixos, ISO/case, tara, datas/ordem temporal e portos; `locateHeaderRowIndex` e `resolvePortCode` já estão conectados e não devem ser refeitos.
+- [ ] Completar a validação estrutural dos campos restantes e marcadores fixos de Granito/Vazios/Vazios IMP/COSCO, além de fixtures reais anonimizados; ISO/case, tara, datas/ordem temporal e portos já têm contrato executável nesta linha. `locateHeaderRowIndex` e `resolvePortCode` já estão conectados e não devem ser refeitos.
+- [x] Aplicar os contratos primitivos aos quatro fluxos: `IsoContainerSchema`/`IsoDateSchema`/`LocodeSchema`, parser numérico por origem e bloqueio de confirmação quando houver `rowErrors`. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts`, `vehicleImport.test.ts`, `portCode.test.ts`, `FileImportModal.test.tsx`, `VoyageImportActions.behavior.test.tsx` e `Granite.behavior.test.tsx`.
 - [x] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`; evidência nos testes `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`.
 - [x] Baplie já expõe issues bloqueantes, contagens e relatório de preview.
 - [ ] Tornar feedback integral/exportável e uniforme nos demais importadores sem enviar arquivo/PII à telemetria.

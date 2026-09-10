@@ -77,6 +77,10 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 
 - `src/pages/Veiculos.tsx` exige viagem para visualizar lista, estatísticas e filtros; o modal de importação possui seletor próprio de viagem.
 - O parser suporta modelo do sistema, COSCO Daily Report e cabeçalhos chineses.
+- A convenção numérica é escolhida pelos cabeçalhos da origem (pt-BR no modelo
+  interno; en-US nos relatórios COSCO/terminais), sem aceitar expoente ou texto
+  anexado como peso/cubagem. Container e tipo são canonizados em maiúsculas e
+  um ISO inválido mantém-se apenas na prévia de erro, sem confirmação.
 - O import valida chassi, B/L da viagem e match não ambíguo de container por número, tipo e lacre.
 - Após inserir veículos, cancela invoices ativas dos B/Ls afetados e recalcula taxas para aplicar isenção; esse pós-processamento ocorre fora da RPC de insert.
 - Admin pode excluir veículos individualmente ou em lote.
@@ -93,12 +97,15 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 
 - `src/pages/VaziosImportacao.tsx` lista e exporta containers vazios por texto, viagem e manifesto.
 - O modal importa planilha com container, tipo e tara para uma viagem.
+- O parser canoniza container/tipo e POL/POD, valida tara não negativa e aceita
+  somente portos reconhecidos pelo catálogo operacional; uma linha inválida
+  bloqueia a confirmação antes da RPC.
 - O fluxo alternativo vindo de Baplie é iniciado em `/baplie`, não por botão desta página.
 
 ### `/embarquevazios`
 
 - `src/pages/EmbarqueVazios.tsx` reúne um Embarque por escala, com Unidades Embarcadas e Linhas de Serviço.
-- A planilha aceita as sete colunas operacionais; container repetido, local/condição inválidos ou datas incompatíveis recusam o lote inteiro antes da substituição. Inclusão manual cria manifesto e unidade na mesma RPC; regras de local e datas devolvem mensagem de validação segura para a tela.
+- A planilha aceita as sete colunas operacionais; container repetido, local/condição inválidos ou datas incompatíveis recusam o lote inteiro antes da substituição. Container e tipo são canonizados em maiúsculas, e os contratos ISO/data são validados antes da RPC. Inclusão manual cria manifesto e unidade na mesma RPC; regras de local e datas devolvem mensagem de validação segura para a tela.
 - `/vazios` é apenas redirect de compatibilidade para esta rota.
 
 ## Contato do manifesto na importação
