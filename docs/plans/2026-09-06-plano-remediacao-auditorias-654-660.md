@@ -20,7 +20,10 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 
 - **S01–S02:** guards de RPC/entrada, revogação e validação de Preview já existentes foram preservados e cobertos por catálogo/testes (`2d23d2e6`, `e1120960`).
 - **S03:** o parser Baplie passou a bloquear peso inválido, porto desconhecido/ausente e vazamento de contexto entre equipamentos, com testes focados.
-- **S05:** efeitos pós-commit ganharam consumidor SQL server-only, retry/bloqueio, alerta persistente e runner agendado fail-closed (`025`–`026`). Granite/veículo sem consumidor completo continuam bloqueados.
+- **S05:** efeitos pós-commit ganharam consumidor SQL server-only, retry/bloqueio,
+  alerta persistente, painel reabrível e runner agendado fail-closed (`025`–`026`,
+  `031`). Granite/veículo/BB agora possuem consumidores em código; o worker
+  continua bloqueado operacionalmente até a prova de rollout.
 - **S07:** eventos de email passaram a ser inbox durável, com claim, ordenação, retry, supressão, fallback e runner server-only (`022`).
 - **S08–S09:** emissão de Demurrage passou a aceitar somente identidades no RPC autoritativo, gerar snapshot append-only e retirar cálculos/escritas financeiras do browser; falhas de PTAX abrem alerta persistente (`023`–`024`).
 - **S11–S12:** a paridade de Inspeção ganhou os wrappers de billing paginado da migration `021`, com filtros, contagem, limites e isolamento; as listas operacionais usam projeções paginadas existentes e o Painel oferece janela incremental de viagens (`a851fbf4`, `b1444146`).
@@ -82,13 +85,31 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   `docs:check` e `git diff --check` passaram. Nenhuma migration foi criada e
   não houve ativação externa.
 
+### 1.0.6 Consumidores duráveis dos efeitos — PR em preparação sobre #676
+
+- **S05:** a migration `031_import_effect_consumers.sql` conclui os consumidores
+  server-only de Granito, veículos e carga solta, além de mover os produtores
+  de B/L, CE, datas e B/L de frete para a fila persistida na mesma transação da
+  origem. O cálculo de Granito valida peso, vigência e valores antes de apagar
+  o snapshot anterior; sem tarifa vigente falha fechado e preserva o snapshot.
+- **S05:** `useImportEffects` e `ImportResultPanel` consultam o resultado por
+  unidade depois de recarregar. O detalhe do B/L exibe efeitos da unidade e da
+  viagem física; Granito oferece reabertura do resultado persistido e retry
+  auditado de bloqueios. A mensagem exibida é sanitizada e não inclui payload
+  bruto.
+- **Evidência local:** PostgreSQL descartável reaplicou as migrations ativas
+  `001`–`013`, `015`–`031`; a integração de efeitos cobre cálculo de Granito
+  sem tarifa, preservação do snapshot, claim, dispatcher e conclusão. O gate
+  focado de UI/hooks e `typecheck` passou. Nenhum worker/cron, Edge, Vault,
+  Resend ou outro consumidor externo foi ativado.
+
 ### 1.0.2 Fechamento da revisão da PR #670
 
 - O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
 - O documento de Demurrage recebeu um DTO explícito. A impressão da Conciliação PIX passou a achatar corretamente `{ invoice, items }`, removendo casts que mascaravam a ausência de `doc_number`, totais e dados do cliente no recibo.
 - O replay limpo `001`–`013` e `015`–`030` aplicou 29 migrations; as 17 suítes SQL seriais passaram com 64 testes. O smoke autenticado no Preview confirmou importação de `01/08/2026` como `2026-08-01`, emissão/baixa de Demurrage com desconto de 10% (`DEM-2026-O5K9531`, R$ 1.319,32), documento com ROE/subtotal/desconto/total persistidos e paridade Portal/Inspeção com paginação.
 
-O resultado não encerra o plano: a matriz abaixo ainda contém itens **Pendente** ou **Precisa de investigação**, incluindo identidade canônica de navio/viagem e parsers legados (S03), caudas de metadados/efeitos de Granito e veículos (S04/S05), contratos de confirmação/ledger/BR Code/cache e execução real de PTAX (S08–S10), fallbacks e benchmarks de leitura (S12), contraste/formulário/progresso de uploads (S13) e prova de consumidores externos antes de qualquer `DROP` (S14). A ausência de deploy/execução remota de Edge, Vault, Resend, BCB e cron também permanece uma lacuna operacional; a chave de Comunicados, workers e cron continuam desligados.
+O resultado não encerra o plano: a matriz abaixo ainda contém itens **Pendente** ou **Precisa de investigação**, incluindo validações estruturais/fixtures reais de parsers (S03), readiness de emissão/comunicação, BR Code/cache e execução real de PTAX (S08–S10), fallbacks e benchmarks de leitura (S12), contraste e validação manual de acessibilidade (S13) e prova de consumidores externos antes de qualquer `DROP` (S14). A ausência de deploy/execução remota de Edge, Vault, Resend, BCB e cron também permanece uma lacuna operacional; a chave de Comunicados, workers e cron continuam desligados.
 
 Validação anterior do baseline está preservada no histórico abaixo. Nesta
 integração, `npm test -- --run` passou com 558 arquivos, 2.954 testes aprovados
@@ -119,10 +140,10 @@ ser promovido a concluído apenas porque o caminho principal está verde.
 - [x] **S04 — núcleo de atomicidade:** datas por B/L, flags físicas do Baplie,
   metadados de import, CE por B/L/EDI e cadastro de clientes possuem RPCs
   transacionais e cobertura local opt-in.
-- [x] **S05 — recuperação durável entregue para os efeitos suportados:** outbox,
-  claim/lease/retry, worker server-only, alertas de bloqueio e recuperação de
-  efeitos local/financeiro; consumidores de Granite/veículo/BB incompletos
-  continuam bloqueados, conforme a pendência abaixo.
+- [x] **S05 — recuperação durável entregue em código:** outbox, claim/lease/retry,
+  worker server-only, alertas de bloqueio e consumidores de efeitos local,
+  Granito, veículos e carga solta; o painel reabre resultados persistidos.
+  A ativação operacional do worker/cron continua separada e pendente.
 - [x] **S06/S07 — elegibilidade, agrupamento e inbox:** fallback restrito ao
   principal, elegibilidade sem `customer_contact_preferences`, agrupamento D11,
   chave D04 para bounce, inbox durável, estados truthful, idempotência e
@@ -169,10 +190,11 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   portos, confirmação sem `rowErrors` e relatório compartilhado já foram
   entregues nesta linha; não reimplementar esses itens. Restam marcadores e
   fixtures reais anonimizados ainda não cobertos.
-- [ ] **S04/S05 residual:** completar as caudas de veículo, Granite e
-  Breakbulk, relatório durável de cada unidade e consumidores/efeitos que ainda
-  ficam `blocked`. O worker existente permanece fail-closed/inativo até cada
-  consumidor ter contrato, teste de retry/idempotência e autorização de rollout.
+- [x] **S04/S05 código:** caudas de veículo, Granite e Breakbulk, relatório
+  durável por unidade e consumidores server-side foram completados na migration
+  `031_import_effect_consumers.sql`, com teste focado e integração de Granito.
+- [ ] **S05 runtime:** o worker continua fail-closed/inativo até prova no
+  Preview, secrets/Vault/Edge coerentes e autorização de rollout.
 - [x] **S06/S07 de código:** não reabrir A1/A3/A4/A5/A6/A7/A8/A9 como se fossem
   tarefas novas; D04 e D11 já possuem implementação e testes.
 - [ ] **S06/S07 runtime:** provar limites/provedor/Edge e eventual liberação de
@@ -574,9 +596,12 @@ export type ImportEffectKind = 'physical_flags' | 'provisional_charges' |
 - [x] Implementar claim com `FOR UPDATE SKIP LOCKED`, lease recuperável, exclusão por entidade e ordem de dependência `physical_flags → provisional_charges → billing`.
 - [x] Worker chama núcleos privados com service_role, preserva actor/executor separados e não inventa `p_changed_by` para atravessar guard.
 - [x] Classificar retries/leases/blocked/superseded, limitar tentativas e abrir alerta idempotente ao esgotar; ação de retry é auditada.
-- [ ] Persistir e exibir relatório integral por linha/unidade no modal e reabrir o resultado após recarregar. A outbox/alerta existe; o painel transversal de relatório ainda não.
+- [x] Persistir e exibir relatório integral por linha/unidade no detalhe e no
+  modal de resultado, e reabrir o resultado após recarregar. O painel lista
+  status, tentativas, erro sanitizado, resultado concluído e retry auditado.
 - [x] O consumidor `demurrage_billing` existe e fica fail-closed/inativo até S08-B e rollout operacional.
-- [ ] Não ativar cron/worker sem prova Preview e autorização D10.
+- [ ] Não ativar cron/worker sem prova Preview e autorização D10. O código e o
+  endpoint permanecem pausados por configuração, sem ativação nesta execução.
 - [x] Executar testes unitários/integração de efeitos, crash, timeout, dois workers, replay, dependência e lease; commits de referência: `d85a0558`, `ff44e1bb`.
 
 **Job proposto:** `import-effects-runner`, a cada cinco minutos (`*/5 * * * *`), via `ops.dispatch_edge_job('import-effects-runner', 'IMPORT_EFFECTS_CRON_SECRET')`. Segredo homônimo no Vault e Edge, autenticação própria fail-closed e `verify_jwt` coerente, provados em Preview antes de ativação.
@@ -869,7 +894,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 10 | `mitigado` + `[ ]` | Fixar snapshot de Demurrage e escritor PIX | S08-B/C; `023_demurrage_calculation_snapshot.sql` + `030_fix_demurrage_snapshot_ptax_column.sql` | Autoridade server-side, snapshot e QR SQL estão implementados; decoder/manual BCB independente e aceite normativo F8 ainda faltam. |
 | 11 | `[x]` | Aplicar datas/flags em transação | S04/P1-01; `015_import_dates_and_flags_atomic.sql` | Atomicidade por B/L, auditoria e flags físicas estão cobertas; não repetir. |
 | 12 | `[x]` | Fechar metadados e conflito de omissão | S04/P2-01/P3-01; `016_import_metadata_and_omission_conflicts.sql` | Metadados, CE e omissão/conflitos estão implementados/testados; não repetir o núcleo. |
-| 13 | `mitigado` + `[ ]` | Persistir efeitos e relatório de import | S05; `017_import_effects_outbox.sql` + `025_import_effect_worker.sql` + `026_import_effect_alert.sql` | Outbox/claim/lease/retry/worker fail-closed e painel de relatório no fluxo compartilhado existem; relatório durável após recarregar e consumidores Granite/veículo/Breakbulk ainda bloqueiam o fechamento. |
+| 13 | `mitigado` + `[ ] runtime` | Persistir efeitos e relatório de import | S05; `017_import_effects_outbox.sql` + `025_import_effect_worker.sql` + `026_import_effect_alert.sql` + `031_import_effect_consumers.sql` | Outbox/claim/lease/retry, consumidores server-side e painel reabrível por unidade passaram na prova local; Preview, secrets/Vault/Edge e ativação controlada do worker continuam pendentes. |
 | 14 | `[ ]` | Fechar readiness de emissão e comunicação | S10/F12; código parcial, sem nova migration isolada | Completar Portal, conta, revisão e `ce_mercante_taxas` em criação/claim/envio, com identidade server-side e prova de runtime. |
 | 15 | `[x]` + `[ ]` | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` | Inbox, dedup, stale events e recuperação estão entregues; estado explícito `parcial`, índice sem `status` e readiness `ce_mercante_taxas` continuam pendentes. |
 | 16 | `[x]` + `[ ]` | Fechar ledger, status/itens e rateio do impresso | S10/F14; `019_local_billing_integrity.sql` | D05/R$0,01 e integração local passaram; casos amplos, diagnóstico de irmãos e gate completo de comunicação continuam abertos. |

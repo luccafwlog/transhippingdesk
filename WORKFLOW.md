@@ -273,9 +273,10 @@ do Supabase Preview antes do merge e, em caso de falha, compare o histórico
 remoto com os arquivos locais antes de reexecutar. Após DDL, verifique advisors
 e o contrato usado pela aplicação.
 
-As migrations `022`–`026` são a integração atual da remediação: inbox/dispatch
-de email, autoridade e snapshot de Demurrage, alerta persistente de PTAX e
-consumidor de efeitos de importação. Elas devem ser aplicadas antes de publicar
+As migrations `022`–`026` e `031` são a integração atual da remediação:
+inbox/dispatch de email, autoridade e snapshot de Demurrage, alerta persistente
+de PTAX, consumidor de efeitos de importação e seus consumidores de Granito,
+veículos e carga solta. Elas devem ser aplicadas antes de publicar
 as Edge Functions correspondentes; a validação local controlada usa os testes
 `emailInbox.local-pg.test.ts`, `demurrageAuthority.local-pg.test.ts`,
 `exchangeRateIntegrity.local-pg.test.ts` e `importEffects.local-pg.test.ts`.
