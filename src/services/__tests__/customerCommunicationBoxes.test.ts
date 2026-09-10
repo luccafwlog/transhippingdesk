@@ -15,12 +15,14 @@ describe('customerCommunicationBoxes — catálogo e resolvedor determinístico'
     customer_id: 10,
     name: `Contato ${id}`,
     email,
+    email_normalized: email.toLowerCase(),
     phone: null,
     purpose: null,
     is_primary: isPrimary,
     created_at: '2026-01-01T00:00:00Z',
     deactivated_at: null,
     updated_at: '2026-01-01T00:00:00Z',
+    origin: 'interno',
   })
 
   it('possui as 3 caixas oficiais e mapeamento de modelos fechado', () => {

@@ -26,10 +26,12 @@ function makeContact(overrides: Partial<CustomerContact> & { id: number; email: 
     name: 'Contato',
     is_primary: false,
     purpose: 'geral',
+    email_normalized: overrides.email.toLowerCase(),
     phone: null,
     created_at: null,
     deactivated_at: null,
-    updated_at: null,
+    updated_at: '2026-09-01T00:00:00Z',
+    origin: 'interno',
     ...overrides,
   }
 }

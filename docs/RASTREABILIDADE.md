@@ -1,6 +1,6 @@
 # Rastreabilidade Técnica
 
-Verificado contra o repositório em 2026-09-07.
+Verificado contra o repositório em 2026-09-10.
 
 Este índice liga cada rota e ação relevante aos chamadores do frontend, aos
 contratos executáveis do Supabase e ao documento do módulo proprietário. Ele é
@@ -56,11 +56,12 @@ de jobs.
 
 Os contratos financeiros passaram a persistir `demurrage_invoice_items.subtotal_brl`
 com resíduo determinístico e o documento lê o valor persistido; valores históricos
-sem snapshot não são inventados. `src/types/database.ts` foi alinhado com a coluna
-confirmada no replay; a geração oficial via CLI foi tentada, mas o Podman local
-encerrou a máquina antes de executar o container do gerador, portanto a alteração
-do tipo foi conferida contra `information_schema` e deve ser regenerada pelo CLI
-quando o runtime de containers estiver disponível.
+sem snapshot não são inventados. `src/types/database.ts` foi regenerado pelo
+gerador oficial contra o Preview depois do smoke autenticado, preservando os
+aliases de domínio do frontend e uma camada separada de compatibilidade para
+`null` explícito em inputs/RPCs. A coluna `subtotal_brl`, os campos de procedência
+do ROE e a família de `exchange_rate_reference_history` foram conferidos no
+schema remoto e no replay PostgreSQL local.
 
 ### Inventário S14 — legado e colunas nullable
 
