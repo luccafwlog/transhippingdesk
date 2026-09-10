@@ -18,6 +18,13 @@ Windows-1252 só é aceito quando a origem autoriza o fallback. O preview inform
 formato, encoding, BOM, tamanho e uma amostra textual limitada, sem enviar o
 conteúdo à telemetria.
 
+Os erros de linha dos importadores que usam o modal compartilhado são
+normalizados em `ImportIssue`: o painel mostra a lista completa, permite baixar
+um CSV sanitizado e nunca inclui o payload bruto. O modal também mostra o
+progresso por arquivo em leituras múltiplas e permite cancelar antes da etapa de
+persistência; o cancelamento descarta prévias parciais. Uploads customizados de
+arquivo único ainda mantêm seus próprios estados de leitura.
+
 As rotas são registradas em `src/App.tsx`. Os donos executáveis são as páginas em `src/pages/`, os parsers/importadores em `src/services/`, as RPCs e policies em `supabase/migrations/` e as chaves em `src/services/queryKeys.ts`. `docs/adr/0005-pipeline-importacao-viagem-staging-reconciliacao.md` define a separação entre fontes; `docs/adr/0009-hard-delete-controlado-bloqueios-fiscais-auditoria.md` define exclusões controladas.
 
 Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spec e os três planos arquivados em `docs/archive/` preservam intenção e sequência histórica, mas não prevalecem sobre `src/pages/BlDetalhe.tsx`, `src/components/bl/` e `supabase/migrations_archive/130_bl_timeline_rpc.sql`.
@@ -62,7 +69,7 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 ### `/carga-solta`
 
 - `src/pages/CargaSolta.tsx` lista B/Ls BB, indicadores, filtros, exportação e acesso ao mesmo detalhe `/manifestos/:blId`.
-- O importador de **Manifesto BB** aceita layout resumido, legado e formatos de carrier; faz preview, rejeita sobrescrita de B/L que já exista como container e registra erros no batch. Os modais de planilha mostram o formato/encoding detectados antes da prévia do domínio.
+- O importador de **Manifesto BB** aceita layout resumido, legado e formatos de carrier; faz preview, rejeita sobrescrita de B/L que já exista como container e registra erros no batch. Os modais de planilha mostram o formato/encoding detectados antes da prévia do domínio, exibem o relatório completo de erros aplicáveis e permitem exportá-lo sem `raw`.
 - O modal **Importar B/Ls (PDF/DOCX)** recebe o conhecimento avulso do armador — um arquivo por B/L, vários de uma vez. Exige a viagem declarada pelo operador e bloqueia o arquivo cujo navio/viagem divirja da viagem escolhida, no mesmo contrato da importação documental de B/L de container. O preview mostra partes, rota, volumes, peso, cubagem, marcas, NCM, frete e ressalvas do navio, além dos avisos de leitura.
 - A tela também abre o modal compartilhado de CE Mercante.
 
@@ -82,6 +89,9 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
   anexado como peso/cubagem. Container e tipo são canonizados em maiúsculas e
   um ISO inválido mantém-se apenas na prévia de erro, sem confirmação.
 - O import valida chassi, B/L da viagem e match não ambíguo de container por número, tipo e lacre.
+- A prévia exibe o relatório completo de erros de linha e permite exportá-lo sem
+  arquivo bruto; no modal compartilhado, leituras múltiplas exibem progresso e
+  podem ser canceladas antes da importação.
 - Após inserir veículos, cancela invoices ativas dos B/Ls afetados e recalcula taxas para aplicar isenção; esse pós-processamento ocorre fora da RPC de insert.
 - Admin pode excluir veículos individualmente ou em lote.
 
@@ -99,7 +109,9 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - O modal importa planilha com container, tipo e tara para uma viagem.
 - O parser canoniza container/tipo e POL/POD, valida tara não negativa e aceita
   somente portos reconhecidos pelo catálogo operacional; uma linha inválida
-  bloqueia a confirmação antes da RPC.
+  bloqueia a confirmação antes da RPC. A prévia exibe e exporta a lista completa
+  de erros sem `raw`; o modal compartilhado também permite cancelar a leitura
+  antes da persistência.
 - O fluxo alternativo vindo de Baplie é iniciado em `/baplie`, não por botão desta página.
 
 ### `/embarquevazios`

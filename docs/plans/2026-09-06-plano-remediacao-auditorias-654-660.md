@@ -61,6 +61,26 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   `Granite`); `typecheck`, `lint`, `docs:check` e `git diff --check` também
   passaram. Nenhuma migration foi criada e não houve ativação externa.
 
+### 1.0.5 Relatório integral e leitura cancelável — PR em preparação sobre #674
+
+- **S03/S13:** `rowErrorsToImportIssues` converte o legado sem carregar `raw`,
+  `ImportIssuesPanel` exibe todas as ocorrências aplicáveis e oferece CSV
+  sanitizado; o contrato foi conectado aos modais compartilhados e às prévias
+  de Carga Solta, Granito, Vazios de Importação e Veículos. O bloqueio de erro
+  continua no parser/gate e não depende apenas da quantidade exibida.
+- **S13:** `FileImportModal` agora informa arquivo concluído/total durante
+  leituras múltiplas e permite cancelar. O cancelamento limpa a prévia parcial
+  e impede qualquer importer/RPC após o cancelamento; as assinaturas públicas
+  dos parsers permaneceram compatíveis. Como os parsers atuais não recebem
+  `AbortSignal`, a interrupção é observada entre arquivos e depois de cada
+  parser assíncrono; não se afirma interrupção interna de um parser já em
+  execução. Baplie e outras superfícies customizadas de arquivo único continuam
+  residuais para uma etapa própria.
+- **Evidência local:** testes focados do relatório/modal e regressões das ações
+  de importação passaram (23 testes); `typecheck`, `lint`, `docs:check` e
+  `git diff --check` passaram. Nenhuma migration foi criada e não houve
+  ativação externa.
+
 ### 1.0.2 Fechamento da revisão da PR #670
 
 - O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
@@ -144,10 +164,10 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   em `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`,
   `baplieParser.test.ts` e `FileImportModal.test.tsx`.
 - [ ] **S03 restante:** completar a validação estrutural de todos os campos e
-  o gate com fixtures reais anonimizados; tornar o relatório integral/exportável
-  e implementar progresso/cancelamento. Os contratos de ISO, tara, datas/ordem,
-  portos e a confirmação sem `rowErrors` já foram entregues nesta linha; não
-  reimplementar esses itens.
+  o gate com fixtures reais anonimizados. Os contratos de ISO, tara, datas/ordem,
+  portos, confirmação sem `rowErrors` e relatório compartilhado já foram
+  entregues nesta linha; não reimplementar esses itens. Restam as superfícies
+  customizadas e os marcadores/fixtures ainda não cobertos.
 - [ ] **S04/S05 residual:** completar as caudas de veículo, Granite e
   Breakbulk, relatório durável de cada unidade e consumidores/efeitos que ainda
   ficam `blocked`. O worker existente permanece fail-closed/inativo até cada
@@ -171,8 +191,9 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   remover fallbacks full-scan e waterfalls ainda existentes e completar resumo de
   viagens/EmbarqueVazios/agencyDepartureReport sem N+1.
 - [ ] **S13 residual:** medir contraste nos dois temas, executar roteiro manual de
-  teclado/leitor de tela/modal sujo/offline e implementar progresso/cancelamento
-  de uploads. Não introduzir worker ou virtualização sem benchmark.
+  teclado/leitor de tela/modal sujo/offline e completar progresso/cancelamento
+  nas superfícies customizadas de arquivo único, além de ceder execução entre
+  blocos. Não introduzir worker ou virtualização sem benchmark.
 - [ ] **S14 residual:** completar mapa literal rota → hook → service → RPC →
   tabela → teste; provar consumidores externos e dados das quatro colunas antes
   de qualquer `DROP RESTRICT`; manter funções fechadas se a ausência externa não
@@ -500,7 +521,12 @@ export type ParsedNumber =
 - [x] Aplicar os contratos primitivos aos quatro fluxos: `IsoContainerSchema`/`IsoDateSchema`/`LocodeSchema`, parser numérico por origem e bloqueio de confirmação quando houver `rowErrors`. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts`, `vehicleImport.test.ts`, `portCode.test.ts`, `FileImportModal.test.tsx`, `VoyageImportActions.behavior.test.tsx` e `Granite.behavior.test.tsx`.
 - [x] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`; evidência nos testes `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`.
 - [x] Baplie já expõe issues bloqueantes, contagens e relatório de preview.
-- [ ] Tornar feedback integral/exportável e uniforme nos demais importadores sem enviar arquivo/PII à telemetria.
+- [x] Tornar feedback integral/exportável nos importadores que usam o modal/painel
+  compartilhado, sem enviar arquivo/`raw`/PII à telemetria. Evidência:
+  `ImportIssuesPanel.test.tsx`, `importValidation.test.ts`, `FileImportModal.test.tsx`
+  e regressões de Carga Solta, Granito, Vazios IMP e Veículos.
+- [ ] Completar o mesmo contrato nas superfícies customizadas restantes, em
+  especial o upload Baplie de arquivo único.
 - [ ] Executar o gate completo de parsers depois dos itens acima, incluindo fixtures reais anonimizados, encoding, Baplie e identidade. Não usar a suíte verde atual como prova de P0-4 ou dos contratos ainda não cobertos.
 
 **Compatibilidade / rollout:** conservar assinatura dos imports ou adaptar todos os callers no mesmo PR; avisar rejeições novas no preview. Não reprocessar lotes antigos nem fundir viagens já existentes automaticamente. **Testes:** unitários acima, integração parse→preview→RPC de Granito para verificar peso e valor, regressão de templates e EDI, runtime com arquivo real e alias. **Aceite:** nenhum campo inválido vira zero/null silenciosamente; duas unidades Baplie não trocam peso/POL/POD; nenhuma duplicata por alias conhecido e nenhum merge de IMO distinto. **Residual:** formatos não suportados são recusados com diagnóstico; cadastro amplo de aliases/UNLOCODE e worker exigem medição. **Ordem:** três PRs pequenos; precisão primeiro.
@@ -771,7 +797,12 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 - [ ] Medir contraste de texto normal >=4,5:1 e estados hover/disabled/status nos dois temas reais; ajustar tokens e confirmar que status não depende apenas de cor.
 - [x] Implementar botões/menus de ação acessíveis por teclado e semântica de interação equivalente para as linhas auditadas.
 - [ ] Completar caption, `aria-sort` e retorno de foco com verificação manual de leitor de tela; não criar grid ARIA sem necessidade.
-- [ ] Nos uploads suportados, exibir progresso por fase/arquivo, permitir cancelamento entre unidades e ceder execução entre blocos; medir long tasks próximo do limite antes de decidir por worker ou mudança do teto de Baplie.
+- [x] Nos uploads múltiplos que usam `FileImportModal`, exibir progresso por
+  arquivo e permitir cancelamento entre unidades; o cancelamento não inicia a
+  etapa de importação. Evidência: `FileImportModal.test.tsx`.
+- [ ] Levar o mesmo controle às superfícies customizadas de arquivo único e
+  ceder execução entre blocos; medir long tasks próximo do limite antes de
+  decidir por worker ou mudança do teto de Baplie.
 - [x] Executar os testes de hidratação, modal, comunicação, debounce, `QueryStateGate` e sino; typecheck, lint, build e suíte integral da PR passaram.
 - [ ] Completar a evidência manual de teclado, leitor de tela, offline/reconnect e light/dark.
 
@@ -829,17 +860,17 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 05 | `[x]` + `[ ]` runtime | Preservar procedência e recálculo diário | S09; `018_exchange_rate_provenance.sql` + `024_demurrage_ptax_alert.sql` | Código, retry/alerta e configuração fail-closed estão prontos; Preview/Vault/Edge/cron e execução agendada real continuam pendentes. |
 | 06 | `[x]` | Restaurar Inspeção de disputas, páginas e tipos | S11; `013_portal_disputes_inspection.sql` + `021_portal_billing_pages.sql` | Paridade de escopo, paginação, tipos e adapters passaram; regenerar apenas após nova migration. |
 | 07 | `[x]` | Corrigir coerção numérica | S03/P0-1; sem migration | Callers e vetores numéricos estão corrigidos/testados. |
-| 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Encoding e scanner Baplie (UNA/dialetos/grupos/EOF) estão entregues, com issues bloqueantes; schemas concretos e relatório uniforme continuam abertos. |
+| 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Encoding, scanner Baplie (UNA/dialetos/grupos/EOF), schemas concretos dos fluxos cobertos e relatório uniforme no modal compartilhado estão entregues; marcadores/fixtures residuais e superfícies customizadas continuam abertos. |
 | 09 | `[ ]` | Unificar identidade de navio/viagem | S03/P0-4; sem migration | Implementar alias canônico com IMO prioritário, conflito explícito e regressão de IMOs distintos em `vesselAlias.ts`/`voyages.ts`. |
 | 10 | `mitigado` + `[ ]` | Fixar snapshot de Demurrage e escritor PIX | S08-B/C; `023_demurrage_calculation_snapshot.sql` + `030_fix_demurrage_snapshot_ptax_column.sql` | Autoridade server-side, snapshot e QR SQL estão implementados; decoder/manual BCB independente e aceite normativo F8 ainda faltam. |
 | 11 | `[x]` | Aplicar datas/flags em transação | S04/P1-01; `015_import_dates_and_flags_atomic.sql` | Atomicidade por B/L, auditoria e flags físicas estão cobertas; não repetir. |
 | 12 | `[x]` | Fechar metadados e conflito de omissão | S04/P2-01/P3-01; `016_import_metadata_and_omission_conflicts.sql` | Metadados, CE e omissão/conflitos estão implementados/testados; não repetir o núcleo. |
-| 13 | `mitigado` + `[ ]` | Persistir efeitos e relatório de import | S05; `017_import_effects_outbox.sql` + `025_import_effect_worker.sql` + `026_import_effect_alert.sql` | Outbox/claim/lease/retry/worker fail-closed existem; painel de relatório e consumidores Granite/veículo/Breakbulk ainda bloqueiam o fechamento. |
+| 13 | `mitigado` + `[ ]` | Persistir efeitos e relatório de import | S05; `017_import_effects_outbox.sql` + `025_import_effect_worker.sql` + `026_import_effect_alert.sql` | Outbox/claim/lease/retry/worker fail-closed e painel de relatório no fluxo compartilhado existem; relatório durável após recarregar e consumidores Granite/veículo/Breakbulk ainda bloqueiam o fechamento. |
 | 14 | `[ ]` | Fechar readiness de emissão e comunicação | S10/F12; código parcial, sem nova migration isolada | Completar Portal, conta, revisão e `ce_mercante_taxas` em criação/claim/envio, com identidade server-side e prova de runtime. |
 | 15 | `[x]` + `[ ]` | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` | Inbox, dedup, stale events e recuperação estão entregues; estado explícito `parcial`, índice sem `status` e readiness `ce_mercante_taxas` continuam pendentes. |
 | 16 | `[x]` + `[ ]` | Fechar ledger, status/itens e rateio do impresso | S10/F14; `019_local_billing_integrity.sql` | D05/R$0,01 e integração local passaram; casos amplos, diagnóstico de irmãos e gate completo de comunicação continuam abertos. |
 | 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql` e páginas Portal | Projeções, paginação/window e filtros principais estão entregues; benchmark, full-scan/waterfall residual, resumo de viagem/EmbarqueVazios/agency report e profiler faltam. |
-| 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação e confirmações/menu estão entregues; contraste, leitor de tela/foco manual e progresso/cancelamento de upload faltam. |
+| 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação, confirmações/menu e progresso/cancelamento nos modais múltiplos estão entregues; contraste, leitor de tela/foco manual e superfícies customizadas de upload faltam. |
 | 19 | `[x]` + `[ ]` | Completar índice e gate de catálogo | S14/#659.7; scripts de docs/RPC catalog | `docs:check`, catálogo, replay, tipos e inspeção local das 14 candidatas passaram; famílias ausentes e prova externa ainda faltam. |
 | 20 | `[ ]` | Retirar legado confirmado / DV condicional | S14/#659.5/6/9; sem DROP ainda | Provar consumidores externos e dados das quatro colunas, decidir DV e somente então abrir migration com `DROP ... RESTRICT`. |
 

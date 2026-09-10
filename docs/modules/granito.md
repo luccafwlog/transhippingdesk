@@ -53,7 +53,8 @@ operação:
   total, erros de parser e reconciliação `matched|missing_cnpj|not_found`; peso
   e quantidades usam a gramática pt-BR sem expoente/texto residual, datas de
   prontidão precisam ser calendários válidos e POL/POD são normalizados pelo
-  catálogo de LOCODEs;
+  catálogo de LOCODEs; o relatório completo de erros pode ser exportado sem o
+  payload bruto;
 - CNPJ ausente pode ser preenchido inline e reconciliado novamente;
 - confirmar com pendências importa B/Ls sem `client_id`, que permanecem com
   reconciliação pendente até a revisão;
