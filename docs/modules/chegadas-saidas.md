@@ -50,7 +50,10 @@ operacional continua existindo e só pode ser excluída em `/viagens`.
 O upload em lote baixa um template gerado da mesma constante de lanes. Cada
 linha da planilha (`VESSEL NAME`, `VOY`, `IMO`, lanes ETD/ETA) vira uma chamada
 ao mesmo `createOrAttachVoyageFromSchedule`. Datas aceitas: ISO ou
-`DD/MM/AAAA`; vazio/`X` significa "não escala".
+`DD/MM/AAAA`; vazio/`X` significa "não escala". Antes do parse, o arquivo é
+classificado pelo conteúdo (XLSX/XLS ou CSV), bytes inválidos são recusados sem
+fallback implícito e o diagnóstico do preview informa formato, encoding, BOM e
+tamanho do arquivo.
 
 ### Widget do Portal
 
@@ -100,6 +103,8 @@ lanes e ordena pela menor ETA de POD.
 - `src/pages/__tests__/chegadasSaidasForm.test.ts`
 - `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx`
 - `src/services/__tests__/portalScheduleBulkImport.test.ts`
+- `src/services/__tests__/importText.test.ts`
+- `src/services/__tests__/importCore.test.ts`
 - `src/services/__tests__/voyageIdentityS03.test.ts`
 - `src/lib/__tests__/vesselAliasS03.test.ts`
 - `src/services/__tests__/portalScheduleVoyages.test.ts`

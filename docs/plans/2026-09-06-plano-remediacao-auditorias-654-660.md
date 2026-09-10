@@ -36,6 +36,10 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **S11/S14:** o catálogo e os documentos foram atualizados; `src/types/database.ts` foi regenerado oficialmente contra o schema do Preview, preservando os aliases de domínio. A inspeção das 14 candidatas legadas encontrou zero dependências `pg_depend`, zero referências nos corpos de outras funções e zero jobs locais; sem telemetria de consumidores externos, nenhum `DROP` foi aplicado.
 - **S03/P0-4:** a identidade de navio/viagem agora normaliza tokens e designações (`M/V`, `VSL`), aceita variantes pontuadas dos aliases sem casar prefixos como `CSCL`, normaliza o rótulo textual do IMO e resolve primeiro pelo IMO exato. Quando a entrada não traz IMO, um único fallback nominal canônico é permitido; múltiplas candidatas são ambíguas. Com IMO informado, o fallback só considera cadastro sem IMO e recusa conflito com outro IMO; os testes S03 cobrem prioridade, IMOs distintos, ambiguidade e grafias do alias.
 
+- **S03/P0-2/P0-3:** a detecção de formato agora é separada do decode: XLSX/XLS são reconhecidos pelo conteúdo binário, CSV e EDI pelo conteúdo textual, e texto desconhecido ou ambíguo é recusado. O decode permanece UTF-8 estrito por padrão, aceita BOM UTF-8/UTF-16, e só usa Windows-1252 quando o parser da origem autoriza explicitamente.
+- **Round-trip e preview:** o resultado mantém os bytes textuais de origem para reconstituição byte a byte; `inspectImportFile` expõe formato, encoding, BOM, tamanho e prévia limitada. O `FileImportModal` mostra esse diagnóstico, e os modais de Baplie/CE exibem o encoding selecionado.
+- **Integração:** `readSheet` não encaminha EDI ao leitor de planilhas; Baplie e CE Mercante validam o formato antes de parsear; os callers de planilha usam a inspeção comum sem enviar conteúdo à telemetria. Evidência: `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`, `baplieParser.test.ts` e `FileImportModal.test.tsx`, com vetores UTF-8/BOM, Windows-1252, bytes inválidos, formatos binários/textuais, ambiguidades e round-trip.
+
 ### 1.0.2 Fechamento da revisão da PR #670
 
 - O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
@@ -112,7 +116,13 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   ambiguidade gera erro explícito. Evidência: `vesselAliasS03.test.ts` e
   `voyageIdentityS03.test.ts` (12 testes de identidade verdes); não há `.find()`
   na resolução.
-- [ ] **S03 restante:** concluir bytes/encoding, scanner Baplie por dialeto,
+- [x] **S03 — formato e encoding:** `detectImportFormat` separa XLS/XLSX binário
+  de CSV/EDI textual, recusa conteúdo desconhecido/ambíguo, mantém UTF-8 estrito
+  e fallback 1252 explícito, preserva round-trip byte a byte e fornece prévia
+  limitada com formato/encoding/BOM no modal compartilhado. Evidência: vetores
+  em `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`,
+  `baplieParser.test.ts` e `FileImportModal.test.tsx`.
+- [ ] **S03 restante:** concluir scanner Baplie por dialeto,
   schemas/contratos de Granito/Vazios/COSCO, validação uniforme de datas/portos
   e relatório integral/progresso. Os itens já marcados como mitigados não devem
   ser reimplementados; executar somente os bullets vazios de S03.
@@ -462,7 +472,7 @@ export type ParsedNumber =
 | `1.234,56`, `1,234.56` | formato correspondente | decimal canônico `1234.56` |
 | negativo em peso/tara | coluna não negativa | erro de domínio |
 
-- [ ] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM e round-trip byte a byte. O parser atual tem cobertura parcial; não marcar esta tarefa até os vetores de encoding e o preview do encoding escolhido existirem.
+- [x] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM e round-trip byte a byte. Evidência: `detectImportFormat`, `decodeImportBytes`, `encodeImportText`, `inspectImportFile` e vetores em `importText.test.ts`; o preview mostra o formato e encoding selecionados.
 - [ ] Completar scanner Baplie por UNA/separadores/release character e por dialeto, com isolamento de grupos LOC/EQD, DGS/OOG, EOF e duplicata. A UI já bloqueia issue inválida, mas a semântica completa do scanner continua aberta.
 - [ ] Completar schemas concretos de Granito/Vazios/Vazios IMP/COSCO, marcadores fixos, ISO/case, tara, datas/ordem temporal e portos; `locateHeaderRowIndex` e `resolvePortCode` já estão conectados e não devem ser refeitos.
 - [x] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`; evidência nos testes `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`.
