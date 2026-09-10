@@ -28,6 +28,7 @@ import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../s
 import { rowErrorsToImportIssues } from '../services/importValidation'
 import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
 import { ImportReadProgress } from '../components/shared/ImportReadProgress'
+import { ImportResultPanel } from '../components/shared/ImportResultPanel'
 
 type Filters = {
   search: string
@@ -61,6 +62,7 @@ export function Granite() {
   // Overrides de CNPJ feitos inline no preview
   const [cnpjOverrides, setCnpjOverrides] = useState<Record<number, string>>({})
   const [chargeBlId, setChargeBlId] = useState<string | null>(null)
+  const [resultBlId, setResultBlId] = useState<string | null>(null)
   const [chargeLines, setChargeLines] = useState<Array<{ description: string | null; charge_type: string | null; quantity: number | null; unit_value: number | null; subtotal: number | null; currency: string | null }>>([])
 
   const { data, isLoading, error } = useQuery({
@@ -300,12 +302,20 @@ export function Granite() {
                   </td>
                   <td className="px-4 py-3">
                     {canWrite ? (
-                      <button
-                        className="app-table__action mr-2"
-                        onClick={() => handleCalculateCharges(bl.id)}
-                      >
-                        Calcular taxas
-                      </button>
+                      <>
+                        <button
+                          className="app-table__action mr-2"
+                          onClick={() => handleCalculateCharges(bl.id)}
+                        >
+                          Calcular taxas
+                        </button>
+                        <button
+                          className="app-table__action"
+                          onClick={() => setResultBlId(bl.id)}
+                        >
+                          Ver resultado
+                        </button>
+                      </>
                     ) : null}
                   </td>
                 </tr>
@@ -368,6 +378,13 @@ export function Granite() {
           <Button variant="ghost" onClick={() => { setChargeBlId(null); setChargeLines([]) }}>
             Fechar
           </Button>
+        </div>
+      </Modal>
+
+      <Modal open={resultBlId !== null} onClose={() => setResultBlId(null)} title="Resultado persistido do B/L">
+        <ImportResultPanel entityId={resultBlId} alwaysVisible />
+        <div className="app-modal__actions">
+          <Button variant="ghost" onClick={() => setResultBlId(null)}>Fechar</Button>
         </div>
       </Modal>
 
