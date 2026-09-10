@@ -1,5 +1,5 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
+import { createHeaderMapper, createRowErrorCollector, matchHeaders, readSheet, type HeaderSpec, type RowError } from './importCore'
 import { IsoContainerSchema, IsoDateSchema } from './importValidation'
 import { supabase } from './supabase'
 import { escapeFilterTerm } from '../lib/utils'
@@ -12,6 +12,21 @@ const HEADER_MAP: Record<string, string> = {
   'hand-in': 'hand_in_date', 'hand in': 'hand_in_date', entrada: 'hand_in_date', 'gate in': 'hand_in_date',
   'hand-out': 'hand_out_date', 'hand out': 'hand_out_date', saida: 'hand_out_date', 'gate out': 'hand_out_date',
   embarque: 'movement_date', 'data embarque': 'movement_date', 'load date': 'movement_date', data: 'movement_date',
+}
+
+type VaziosHeaderField = 'container_number' | 'local_code' | 'condition'
+const VAZIOS_HEADER_SPEC: HeaderSpec<VaziosHeaderField> = {
+  aliases: {
+    container_number: ['container', 'conteiner', 'container number'],
+    local_code: ['local', 'origem', 'depot', 'local de origem', 'origin location'],
+    condition: ['condicao', 'condition', 'status'],
+  },
+  required: ['container_number', 'local_code', 'condition'],
+}
+const VAZIOS_HEADER_LABELS: Record<VaziosHeaderField, string> = {
+  container_number: 'Container',
+  local_code: 'Local',
+  condition: 'Condition',
 }
 
 export type ParsedVaziosBooking = {
@@ -49,7 +64,15 @@ export async function parseVaziosManifestFile(file: File, depots?: readonly Depo
 }
 
 export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: readonly DepotLookup[]): Promise<ParsedVaziosManifest> {
-  const rows = await readFirstSheetRows(buffer)
+  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+    dates: 'texto',
+    expectedHeaders: Object.keys(HEADER_MAP),
+  })
+  const { missing } = matchHeaders(headers, VAZIOS_HEADER_SPEC)
+  if (missing.length) {
+    const labels = missing.map((field) => VAZIOS_HEADER_LABELS[field])
+    throw new Error(`Planilha invalida. Colunas obrigatorias: ${labels.join(', ')}.`)
+  }
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
   const mappedRows = rows.map(mapRow)
   // Uma planilha inteira segue uma única convenção de data (DD/MM ou MM/DD).
@@ -62,7 +85,7 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
   const bookings: ParsedVaziosBooking[] = []
   const rowErrors = createRowErrorCollector()
   mappedRows.forEach((mapped, idx) => {
-    const rowNumber = idx + 2
+    const rowNumber = headerRowIndex + idx + 2
     const row = rows[idx]
     const containerNumber = String(mapped.container_number ?? '').trim().toUpperCase()
     if (!containerNumber) { rowErrors.add(rowNumber, 'Container ausente.', row); return }

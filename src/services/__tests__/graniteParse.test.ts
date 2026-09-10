@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { jsonToBuffer } from './testWorkbook'
+import { aoaToBuffer, jsonToBuffer } from './testWorkbook'
 
 vi.mock('../customerReconciliation', () => ({
   loadCustomerMaps: vi.fn(() => Promise.resolve({})),
@@ -30,6 +30,28 @@ it('US-077: parseia a planilha COSCO mapeando colunas e reconciliando CNPJ', asy
     reconciliationStatus: 'not_found',
   })
   expect(parsed.vesselVoyage).toBe('NAVIO/14')
+})
+
+it('S03: rejeita o manifesto COSCO quando o marcador estrutural Real Weight está ausente', async () => {
+  await expect(parseGraniteManifestFile(
+    cosco([{ BL: 'BL-G11', 'Navio/Viagem': 'NAVIO/14', 'Shipper': 'Granito SA' }]),
+  )).rejects.toThrow(/Real Weight/)
+})
+
+it('S03: localiza o cabeçalho COSCO após o preâmbulo e preserva a linha de origem', async () => {
+  const file = new File([
+    aoaToBuffer([
+      ['COSCO CARGO REPORT'],
+      ['Gerado em 09/09/2026'],
+      ['BL', 'Navio/Viagem', 'Real Weight'],
+      ['BL-G12', 'NAVIO/14', 5000],
+    ]),
+  ], 'cosco.xlsx')
+
+  const parsed = await parseGraniteManifestFile(file)
+
+  expect(parsed.rowErrors).toEqual([])
+  expect(parsed.bls[0]).toMatchObject({ bl_number: 'BL-G12', rowNumber: 4, real_weight_kg: 5000 })
 })
 
 it('US-077: registra erro de linha quando o Real Weight esta ausente ou zero', async () => {

@@ -114,7 +114,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
   for (let sheetIndex = 0; ; sheetIndex += 1) {
     let content
     try {
-      content = await readSheet(buffer, { sheetIndex })
+      content = await readSheet(buffer, { sheetIndex, values: 'cru' })
     } catch (error) {
       if (error instanceof Error && error.message === 'Arquivo sem abas validas.') break
       if (error instanceof Error && error.message === 'Planilha vazia.') continue

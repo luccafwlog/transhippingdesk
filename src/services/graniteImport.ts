@@ -2,7 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { canonicalizeDocument } from '../lib/cnpj'
 import { parseImportNumber } from '../lib/importNumber'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
-import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
+import { createHeaderMapper, createRowErrorCollector, matchHeaders, readSheet, type HeaderSpec, type RowError } from './importCore'
 import { IsoDateSchema, LocodeSchema } from './importValidation'
 import { resolvePortCode } from './portCode'
 import { supabase } from './supabase'
@@ -35,6 +35,20 @@ const HEADER_MAP: Record<string, string> = {
   'cssc selection': 'cssc_selection',
   'prontidao de carga': 'cargo_readiness_date',
   'fase': 'phase',
+}
+
+type GraniteHeaderField = 'bl_number' | 'real_weight_kg'
+const GRANITE_HEADER_SPEC: HeaderSpec<GraniteHeaderField> = {
+  aliases: {
+    bl_number: ['bl'],
+    real_weight_kg: ['real weight'],
+  },
+  required: ['bl_number', 'real_weight_kg'],
+}
+const GRANITE_HEADER_MARKERS = Object.keys(HEADER_MAP)
+const GRANITE_HEADER_LABELS: Record<GraniteHeaderField, string> = {
+  bl_number: 'BL',
+  real_weight_kg: 'Real Weight',
 }
 
 export type ReconciliationStatus = 'matched' | 'suggested_name' | 'missing_cnpj' | 'not_found'
@@ -84,7 +98,14 @@ export async function parseGraniteManifestFile(file: File): Promise<ParsedGranit
 }
 
 async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
-  const rows = await readFirstSheetRows(buffer)
+  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+    expectedHeaders: GRANITE_HEADER_MARKERS,
+  })
+  const { missing } = matchHeaders(headers, GRANITE_HEADER_SPEC)
+  if (missing.length) {
+    const labels = missing.map((field) => GRANITE_HEADER_LABELS[field])
+    throw new Error(`Planilha invalida. Colunas obrigatorias: ${labels.join(', ')}.`)
+  }
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
 
   const customerMaps = await loadCustomerMaps()
@@ -93,7 +114,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
   const seenBlNumbers = new Set<string>()
 
   rows.forEach((row, idx) => {
-    const rowNumber = idx + 2 // linha 1 = cabeçalho, dados começam na 2
+    const rowNumber = headerRowIndex + idx + 2 // preserva a linha física quando há preâmbulo
 
     const mapped = mapRow(row)
 

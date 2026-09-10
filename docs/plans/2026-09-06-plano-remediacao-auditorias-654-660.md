@@ -103,6 +103,24 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   focado de UI/hooks e `typecheck` passou. Nenhum worker/cron, Edge, Vault,
   Resend ou outro consumidor externo foi ativado.
 
+### 1.0.7 Contratos estruturais dos importadores — PR em preparação sobre #677
+
+- **S03:** Granito/COSCO, Vazios e Vazios de Importação agora localizam o
+  cabeçalho por marcadores da origem, recusam colunas obrigatórias ausentes e
+  preservam a linha física quando existe preâmbulo. O importador de Vazios de
+  Importação também repete o bloqueio antes da RPC, caso um caller envie um
+  preview com divergências. O leitor preserva células numéricas Excel nativas
+  no fluxo COSCO de veículos, sem relaxar strings ambíguas ou expoentes.
+- **Fixtures e evidência local:** o gate focado usa o template publicado de
+  Unidades Embarcadas, a fixture `test-fixtures/qa-veiculos.xlsx`, a nova
+  fixture QA anonimizada `test-fixtures/qa-vazios-importacao.csv`, o manifesto
+  carrier versionado de Salvador, encoding/Baplie e identidade de viagem.
+  Foram 114 testes focados verdes após o RED dos sete contratos novos.
+- **Residual:** ainda não há no repositório uma planilha COSCO/Granito real
+  anonimizada autorizada para fechar a prova de fixture dessa origem; ela não
+  será inventada nem extraída de produção. O gate integral e essa evidência
+  operacional continuam pendentes.
+
 ### 1.0.2 Fechamento da revisão da PR #670
 
 - O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
@@ -185,11 +203,16 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   limitada com formato/encoding/BOM no modal compartilhado. Evidência: vetores
   em `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`,
   `baplieParser.test.ts` e `FileImportModal.test.tsx`.
-- [ ] **S03 restante:** completar a validação estrutural de todos os campos e
-  o gate com fixtures reais anonimizados. Os contratos de ISO, tara, datas/ordem,
-  portos, confirmação sem `rowErrors` e relatório compartilhado já foram
-  entregues nesta linha; não reimplementar esses itens. Restam marcadores e
-  fixtures reais anonimizados ainda não cobertos.
+- [x] **S03 — contratos estruturais:** Granito/COSCO, Vazios e Vazios IMP
+  recusam marcadores obrigatórios ausentes, aceitam preâmbulo sem deslocar a
+  linha física e mantêm o gate antes da RPC; o leitor de veículos preserva
+  números Excel nativos. Evidência: 114 testes focados, incluindo template,
+  fixture QA de veículos, fixture QA de Vazios IMP, Baplie, encoding e
+  identidade.
+- [ ] **S03 residual:** fechar o gate com uma planilha COSCO/Granito real
+  anonimizada autorizada e executar a suíte integral nesta linha. Os contratos
+  de ISO, tara, datas/ordem, portos, confirmação sem `rowErrors` e relatório
+  compartilhado já foram entregues; não reimplementar esses itens.
 - [x] **S04/S05 código:** caudas de veículo, Granite e Breakbulk, relatório
   durável por unidade e consumidores server-side foram completados na migration
   `031_import_effect_consumers.sql`, com teste focado e integração de Granito.
@@ -540,7 +563,8 @@ export type ParsedNumber =
 
 - [x] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM e round-trip byte a byte. Evidência: `detectImportFormat`, `decodeImportBytes`, `encodeImportText`, `inspectImportFile` e vetores em `importText.test.ts`; o preview mostra o formato e encoding selecionados.
 - [x] Completar scanner Baplie por UNA/separadores/release character e por dialeto, com isolamento de grupos LOC/EQD, DGS/OOG, EOF e duplicata. Evidência: `baplieParserS03.test.ts` cobre ambos os sentidos LOC→EQD/EQD→LOC, separador de componente definido por UNA, DGS/DIM por EQD, trailer com conteúdo posterior e duplicata bloqueante.
-- [ ] Completar a validação estrutural dos campos restantes e marcadores fixos de Granito/Vazios/Vazios IMP/COSCO, além de fixtures reais anonimizados; ISO/case, tara, datas/ordem temporal e portos já têm contrato executável nesta linha. `locateHeaderRowIndex` e `resolvePortCode` já estão conectados e não devem ser refeitos.
+- [x] Completar a validação estrutural dos marcadores fixos de Granito/Vazios/Vazios IMP/COSCO: cabeçalhos obrigatórios são conferidos, preâmbulos são localizados sem perder a linha física e preview com erro não chega à RPC. `locateHeaderRowIndex` e `resolvePortCode` foram reutilizados, sem duplicação. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts` e fixture QA de veículos.
+- [ ] Completar a prova com fixture COSCO/Granito real anonimizada autorizada; não inventar nem copiar dados de produção para teste.
 - [x] Aplicar os contratos primitivos aos quatro fluxos: `IsoContainerSchema`/`IsoDateSchema`/`LocodeSchema`, parser numérico por origem e bloqueio de confirmação quando houver `rowErrors`. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts`, `vehicleImport.test.ts`, `portCode.test.ts`, `FileImportModal.test.tsx`, `VoyageImportActions.behavior.test.tsx` e `Granite.behavior.test.tsx`.
 - [x] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`; evidência nos testes `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`.
 - [x] Baplie já expõe issues bloqueantes, contagens e relatório de preview.

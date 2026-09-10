@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest'
-import { parseVaziosImportacaoBuffer } from '../vaziosImportacaoImport'
-import { jsonToBuffer } from './testWorkbook'
+import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { importVaziosImportacaoManifest, parseVaziosImportacaoBuffer } from '../vaziosImportacaoImport'
+import { aoaToBuffer, jsonToBuffer } from './testWorkbook'
+
+const rpcMock = vi.hoisted(() => vi.fn())
+vi.mock('../supabase', () => ({ supabase: { rpc: (...args: unknown[]) => rpcMock(...args) } }))
 
 describe('parseVaziosImportacaoBuffer', () => {
   it('mapeia cabecalhos com acentos/variacoes e normaliza tara e rotas (Origem / Destino)', async () => {
@@ -80,5 +85,45 @@ describe('parseVaziosImportacaoBuffer', () => {
 
   it('rejeita planilha vazia com a mensagem original', async () => {
     await expect(parseVaziosImportacaoBuffer(jsonToBuffer([]))).rejects.toThrow('Planilha vazia.')
+  })
+
+  it('S03: rejeita arquivo sem o marcador estrutural Container', async () => {
+    await expect(parseVaziosImportacaoBuffer(jsonToBuffer([{ Tipo: '40HC', Tara: 3800 }]))).rejects.toThrow(/Container/)
+  })
+
+  it('S03: localiza o cabeçalho de Vazios IMP após o preâmbulo e preserva a linha de origem', async () => {
+    const manifest = await parseVaziosImportacaoBuffer(aoaToBuffer([
+      ['VAZIOS IMP — COSCO'],
+      ['Atualizado em 09/09/2026'],
+      ['Container', 'Tipo', 'Tara'],
+      ['MSCU1234567', '40HC', 3800],
+    ]))
+
+    expect(manifest.rowErrors).toEqual([])
+    expect(manifest.containers[0]).toMatchObject({ rowNumber: 4, container_number: 'MSCU1234567' })
+  })
+
+  it('S03: valida a fixture QA anonimizada em CSV do fluxo de Vazios IMP', async () => {
+    const file = readFileSync(resolve(process.cwd(), 'test-fixtures/qa-vazios-importacao.csv'))
+    const manifest = await parseVaziosImportacaoBuffer(file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength))
+
+    expect(manifest.rowErrors).toEqual([])
+    expect(manifest.containers).toHaveLength(2)
+    expect(manifest.containers.map((container) => container.container_number)).toEqual(['TEMU1234567', 'TGHU7654325'])
+  })
+
+  it('S03: o importador não chama a RPC quando o preview traz divergências', async () => {
+    rpcMock.mockReset()
+
+    await expect(importVaziosImportacaoManifest({
+      manifest: {
+        containers: [{ rowNumber: 2, container_number: 'MSCU1234567', container_type: '40HC', tare_kg: 3800 }],
+        rowErrors: [{ row: 2, message: 'Container inválido.', raw: { Container: 'MSCU1234567' } }],
+      },
+      uploadedBy: 'user-1',
+      voyageId: 7,
+    })).rejects.toThrow('Linha 2')
+
+    expect(rpcMock).not.toHaveBeenCalled()
   })
 })

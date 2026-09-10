@@ -88,10 +88,32 @@ describe('parser de vazios — novo contrato', () => {
     ]))
   })
   it('recusa linha sem condição ou local', async () => {
-    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567' }]))
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567', Local: '', Condition: '' }]))
     expect(parsed.bookings).toHaveLength(1)
     expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('condição')
     expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('local')
+  })
+
+  it('S03: rejeita arquivo sem os marcadores estruturais Local e Condition', async () => {
+    await expect(parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567' }]))).rejects.toThrow(/Local.*Condition|Condition.*Local/)
+  })
+
+  it('S03: localiza cabeçalho de Vazios após o preâmbulo e preserva a linha de origem', async () => {
+    const parsed = await parseVaziosManifestBuffer(await (async () => {
+      const XLSX = await import('@e965/xlsx')
+      const workbook = XLSX.utils.book_new()
+      const sheet = XLSX.utils.aoa_to_sheet([
+        ['UNIDADES EMBARCADAS'],
+        ['Modelo operacional'],
+        ['Container', 'Tipo', 'Local', 'Condition'],
+        ['ABCD1234582', '40HC', 'VBR', 'vazio'],
+      ])
+      XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1')
+      return XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+    })())
+
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.bookings[0]).toMatchObject({ rowNumber: 4, container_number: 'ABCD1234582' })
   })
 })
 

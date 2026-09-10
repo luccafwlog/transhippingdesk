@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { importVehicleRows, parseVehicleImportBuffer, type VehicleImportRow } from '../vehicleImport'
 import { jsonToBuffer, sheetsToBuffer } from './testWorkbook'
 
@@ -19,6 +21,16 @@ describe('vehicleImport', () => {
     mockFrom.mockReset()
     mockRpc.mockReset()
     mockRpc.mockResolvedValue({ data: { status: 'exempt', exempt: true }, error: null })
+  })
+
+  it('S03: valida a fixture QA anonimizada do fluxo COSCO', async () => {
+    const file = readFileSync(resolve(process.cwd(), 'test-fixtures/qa-veiculos.xlsx'))
+    const parsed = await parseVehicleImportBuffer(file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength))
+
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.rows).toHaveLength(2)
+    expect(parsed.rows.map((row) => row.bl_id)).toEqual(['QABL001', 'QABL001'])
+    expect(parsed.rows.map((row) => row.container_number)).toEqual(['TEMU1234567', 'TEMU1234567'])
   })
 
   it('parseia a planilha de veiculos com o novo campo modelo', async () => {

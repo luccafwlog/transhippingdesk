@@ -97,6 +97,7 @@ export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions =
     blankrows: false,
     raw,
   })
+  if (!matrix.length) throw new Error('Planilha vazia.')
   const headerRowIndex = options.expectedHeaders
     ? locateHeaderRowIndex(matrix, options.expectedHeaders, options.headerWindow ?? 5)
     : 0
