@@ -78,6 +78,7 @@ function cleanupTestData(): void {
     WHERE source_action_id = ANY(ARRAY['${actionIds.join("','")}']::uuid[])
        OR entity_id LIKE 'S05-OUTBOX-%';
     SET session_replication_role = origin;
+    DELETE FROM public.alert_item_events WHERE actor_id = '${actorId}';
     DELETE FROM public.audit_logs WHERE changed_by = '${actorId}';
   `)
 }
@@ -93,8 +94,8 @@ function cleanupGraniteFixture(): void {
 
 describeLocal('S05 — outbox duravel dos efeitos de import', () => {
   beforeAll(() => {
-    cleanupTestData()
     cleanupGraniteFixture()
+    cleanupTestData()
     localPsql(`
       DELETE FROM public.user_profiles WHERE id = '${actorId}';
       DELETE FROM auth.users WHERE id = '${actorId}';
@@ -105,8 +106,8 @@ describeLocal('S05 — outbox duravel dos efeitos de import', () => {
   })
 
   afterAll(() => {
-    cleanupTestData()
     cleanupGraniteFixture()
+    cleanupTestData()
     localPsql(`
       DELETE FROM public.user_profiles WHERE id = '${actorId}';
       DELETE FROM auth.users WHERE id = '${actorId}';
