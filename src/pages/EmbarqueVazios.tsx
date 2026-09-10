@@ -32,6 +32,7 @@ import {
   valorSugerido,
 } from "../services/depots";
 import { supabase } from "../services/supabase";
+import { listVoyageRoutePorts } from "../services/operationalLists";
 import { normalizePortCode } from "../services/portCode";
 import {
   armazenagemPorDepotCondicao,
@@ -74,17 +75,10 @@ function countByField<T>(rows: T[], keyOf: (row: T) => string): Array<{ label: s
 // pela projeção unificada de escalas quando
 // docs/plans/2026-07-31-escala-unificada-pol-pod.md for entregue.
 async function fetchVoyageEscalaPorts(voyageId: number): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("bls")
-    .select("pod, pol")
-    .eq("voyage_id", voyageId);
-  if (error) throw error;
   const ports = new Set<string>();
-  for (const row of data ?? []) {
-    for (const raw of [row.pod, row.pol]) {
-      const code = normalizePortCode(raw);
-      if (code && code.startsWith("BR")) ports.add(code);
-    }
+  for (const raw of await listVoyageRoutePorts(voyageId)) {
+    const code = normalizePortCode(raw);
+    if (code && code.startsWith("BR")) ports.add(code);
   }
   return [...ports].sort();
 }
@@ -157,10 +151,12 @@ export function EmbarqueVazios() {
   const operations = useQuery({
     queryKey: ["vazios-export-operations"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("vazios_export_operations")
-        .select("*, voyage:voyages(id, voyage_number, vessel:vessels(name))")
+        .select("id, voyage_id, embark_port, voyage:voyages(id, voyage_number, vessel:vessels(name))")
         .order("created_at", { ascending: false });
+      if (voyageId) query = query.eq("voyage_id", voyageId);
+      const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
     },

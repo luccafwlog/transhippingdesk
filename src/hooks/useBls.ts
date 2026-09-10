@@ -7,7 +7,14 @@ import { useQuery } from '@tanstack/react-query'
 import { escapeFilterTerm, normalizeText } from '../lib/utils'
 import { queryKeys } from '../services/queryKeys'
 import { supabase } from '../services/supabase'
-import { getOperationalBlSummary, listOperationalBls, listOperationalContainers } from '../services/operationalLists'
+import {
+  getOperationalBlSummary,
+  listOperationalBls,
+  listOperationalContainers,
+  listOperationalVoyageSummaries,
+  type OperationalVoyageSummary,
+} from '../services/operationalLists'
+import type { VoyageDetail } from '../services/voyageReadModels'
 import type { AuditLog, BL, BLDetail, BLListItem, ContainerListItem } from '../types/database'
 
 const blSelect = `
@@ -20,6 +27,53 @@ const blSelect = `
 `
 
 const exportBatchSize = 1000
+
+const voyageDetailSelect = `
+  *,
+  vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
+  pol:ports!voyages_pol_id_fkey(id, name, locode, country),
+  pod:ports!voyages_pod_id_fkey(id, name, locode, country),
+  import_batches(
+    id,
+    voyage_id,
+    cargo_mode,
+    filename,
+    uploaded_at,
+    status,
+    total_bls,
+    ce_master
+  ),
+  granite_manifests(
+    id,
+    voyage_id,
+    loading_port,
+    discharge_port,
+    total_bls,
+    total_weight_kg,
+    granite_bls(id, charge_status)
+  ),
+  vazios_manifests(
+    id,
+    voyage_id,
+    description,
+    total_bookings,
+    vazios_bookings(
+      id,
+      container_number,
+      container_type,
+      local_id,
+      condition,
+      operation_id,
+      operation:vazios_export_operations(id, embark_port),
+      local:depots(id, code, name, tipo)
+    )
+  ),
+  bls(
+    *,
+    bl_containers(id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_oog, is_imo, imo_class, un_number),
+    bl_breakbulk_items(id, gross_weight_kg, cbm)
+  )
+`
 
 function supabaseRows<T>(data: unknown): T[] {
   return Array.isArray(data) ? (data as T[]) : []
@@ -350,161 +404,120 @@ export function useContainerTypeOptions() {
   })
 }
 
-export function useVoyages() {
-  return useQuery({
-    queryKey: ['voyages'],
-    queryFn: async () => {
-      const query = supabase
-        .from('voyages')
-        .select(
-          `
-          *,
-          vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
-          pol:ports!voyages_pol_id_fkey(id, name, locode, country),
-          pod:ports!voyages_pod_id_fkey(id, name, locode, country),
-          import_batches(
-            id,
-            voyage_id,
-            cargo_mode,
-            filename,
-            uploaded_at,
-            status,
-            total_bls,
-            ce_master
-          ),
-          granite_manifests(
-            id,
-            voyage_id,
-            loading_port,
-            discharge_port,
-            total_bls,
-            total_weight_kg,
-            granite_bls(id, charge_status)
-          ),
-          vazios_manifests(
-            id,
-            voyage_id,
-            description,
-            total_bookings,
-            vazios_bookings(
-              id,
-              container_number,
-              container_type,
-              local_id,
-              condition,
-              operation_id,
-              operation:vazios_export_operations(id, embark_port),
-              local:depots(id, code, name, tipo)
-            )
-          ),
-          bls(
-            *,
-            bl_containers(id, container_number, seal_number, type, tare_weight_kg, gross_weight_kg, cbm, is_oog, is_imo, imo_class, un_number),
-            bl_breakbulk_items(id, gross_weight_kg, cbm)
-          )
-        `,
-        )
-        .order('created_at', { ascending: false })
-      const allRows: unknown[] = []
-      for (let from = 0; ; from += 1000) {
-        const { data, error } = await query.range(from, from + 999)
-        if (error) throw error
-        allRows.push(...(data ?? []))
-        if (!data || data.length < 1000) break
+function summarizeLegacyVoyageRows(rows: unknown[]): OperationalVoyageSummary[] {
+  return rows.flatMap((value) => {
+    const row = value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+    if (!row || !Number.isInteger(Number(row.id))) return []
+    const bls = Array.isArray(row.bls) ? row.bls as Array<Record<string, unknown>> : []
+    const routes = new Map<string, {
+      pol: string | null
+      pod: string | null
+      blCount: number
+      containerBlCount: number
+      breakbulkBlCount: number
+      ceFilled: number
+    }>()
+    const containerNumbers = new Set<string>()
+    for (const bl of bls) {
+      const pol = typeof bl.pol === 'string' ? bl.pol : null
+      const pod = typeof bl.pod === 'string' ? bl.pod : null
+      const key = `${pol ?? ''}\u0000${pod ?? ''}`
+      const route = routes.get(key) ?? { pol, pod, blCount: 0, containerBlCount: 0, breakbulkBlCount: 0, ceFilled: 0 }
+      route.blCount += 1
+      if (bl.cargo_mode === 'carga_solta') route.breakbulkBlCount += 1
+      else route.containerBlCount += 1
+      if (String(bl.ce_mercante ?? '').trim()) route.ceFilled += 1
+      routes.set(key, route)
+      for (const container of Array.isArray(bl.bl_containers) ? bl.bl_containers as Array<Record<string, unknown>> : []) {
+        const number = String(container.container_number ?? '').trim().toUpperCase()
+        if (number) containerNumbers.add(number)
       }
+    }
+    const containerCount = containerNumbers.size
+    const vessel = row.vessel as OperationalVoyageSummary['vessel']
+    const pol = row.pol as OperationalVoyageSummary['pol']
+    const pod = row.pod as OperationalVoyageSummary['pod']
+    const id = Number(row.id)
+    return [{
+      id,
+      voyage_number: String(row.voyage_number ?? ''),
+      etd: typeof row.etd === 'string' ? row.etd : null,
+      eta: typeof row.eta === 'string' ? row.eta : null,
+      ata: typeof row.ata === 'string' ? row.ata : null,
+      status: typeof row.status === 'string' ? row.status : null,
+      created_at: typeof row.created_at === 'string' ? row.created_at : null,
+      vessel: vessel ?? null,
+      pol: pol ?? null,
+      pod: pod ?? null,
+      blCount: bls.length,
+      containerBlCount: [...routes.values()].reduce((total, route) => total + route.containerBlCount, 0),
+      breakbulkBlCount: [...routes.values()].reduce((total, route) => total + route.breakbulkBlCount, 0),
+      containerCount,
+      baplieCount: 0,
+      ceCoverage: {
+        filled: [...routes.values()].reduce((total, route) => total + route.ceFilled, 0),
+        total: bls.length,
+      },
+      routes: [...routes.values()].map((route) => ({ ...route, ceTotal: route.blCount })),
+    }]
+  })
+}
 
-        return supabaseRows<{
-          id: number
-          voyage_number: string
-          etd: string | null
-          eta: string | null
-          ata: string | null
-          status: string | null
-          vessel?: { id: number; name: string; imo: string | null; carrier?: { id: number; name: string; scac: string | null } | null } | null
-          pol?: { id: number; name: string; locode: string | null; country: string | null } | null
-          pod?: { id: number; name: string; locode: string | null; country: string | null } | null
-          import_batches?: Array<{
-            id: number
-            voyage_id: number | null
-            cargo_mode: 'container' | 'carga_solta' | null
-            filename: string
-            uploaded_at: string | null
-            status: 'processing' | 'completed' | 'partial' | 'failed' | null
-            total_bls: number | null
-            ce_master: string | null
-          }> | null
-          granite_manifests?: Array<{
-            id: string
-            voyage_id: number | null
-            loading_port: string | null
-            discharge_port: string | null
-            total_bls: number | null
-            total_weight_kg: number | null
-            granite_bls?: Array<{
-              id: string
-              charge_status: 'not_calculated' | 'calculated' | 'ready_for_billing' | 'invoiced' | null
-            }> | null
-          }> | null
-          vazios_manifests?: Array<{
-            id: string
-            voyage_id: number | null
-            description: string | null
-            total_bookings: number | null
-            vazios_bookings?: Array<{
-              id: string
-              container_number: string | null
-              container_type: string | null
-              local_id: string
-              condition: string
-              operation_id?: string | null
-              operation?: {
-                id: string
-                embark_port: string | null
-              } | null
-              local?: {
-                id: string
-                code: string
-                name: string | null
-                tipo: string
-              } | null
-            }> | null
-          }> | null
-          bls?: Array<{
-            id: string
-            batch_id: number | null
-            cargo_mode: 'container' | 'carga_solta' | null
-            ce_mercante: string | null
-            bb_machine_qty: number | null
-          bb_packages_qty: number | null
-          bb_packages_total: number | null
-          bb_weight_ton: number | null
-          shipper: string | null
-          consignee: string | null
-          notify_party: string | null
-          pol: string | null
-          pod: string | null
-          total_weight_kg: number | null
-          total_cbm: number | null
-          bl_containers?: Array<{
-            id: number
-            container_number: string
-            seal_number?: string | null
-            type?: string | null
-            tare_weight_kg?: number | null
-            gross_weight_kg?: number | null
-            cbm?: number | null
-            is_oog?: boolean | null
-            is_imo?: boolean | null
-            imo_class?: string | null
-            un_number?: string | null
-          }> | null
-          bl_breakbulk_items?: Array<{
-            id: number
-            gross_weight_kg?: number | null
-            cbm?: number | null
-          }> | null
-        }> | null
-          }>(allRows)
+async function fetchLegacyVoyageSummaries() {
+  const query = supabase
+    .from('voyages')
+    .select(`
+      id, voyage_number, etd, eta, ata, status, created_at,
+      vessel:vessels(id, name, imo, carrier:carriers(id, name, scac)),
+      pol:ports!voyages_pol_id_fkey(id, name, locode, country),
+      pod:ports!voyages_pod_id_fkey(id, name, locode, country),
+      bls(id, batch_id, cargo_mode, ce_mercante, pol, pod, bl_containers(id, container_number))
+    `)
+    .order('created_at', { ascending: false })
+  const allRows: unknown[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await query.range(from, from + 999)
+    if (error) throw error
+    allRows.push(...(data ?? []))
+    if (!data || data.length < 1000) break
+  }
+  return summarizeLegacyVoyageRows(allRows)
+}
+
+async function fetchOperationalVoyageSummaries() {
+  if (!supportsOperationalReadPages()) return fetchLegacyVoyageSummaries()
+
+  const pageSize = 100
+  const rows: OperationalVoyageSummary[] = []
+  for (let page = 1; ; page += 1) {
+    const result = await listOperationalVoyageSummaries(page, pageSize)
+    rows.push(...result.rows)
+    if (rows.length >= result.count || result.rows.length < pageSize) break
+  }
+  return rows
+}
+
+export function useVoyages() {
+  return useQuery<OperationalVoyageSummary[]>({
+    queryKey: ['voyages'],
+    queryFn: fetchOperationalVoyageSummaries,
+  })
+}
+
+export function useVoyageDetail(voyageId?: number | null) {
+  return useQuery<VoyageDetail | null>({
+    queryKey: ['voyage-detail', voyageId],
+    enabled: Number.isInteger(voyageId) && Number(voyageId) > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('voyages')
+        .select(voyageDetailSelect)
+        .eq('id', Number(voyageId))
+        .single()
+      if (error) throw error
+      return data as unknown as VoyageDetail
     },
   })
 }

@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
+import { useVoyages } from '../hooks/useBls'
 import { useCancellableFileRead } from '../hooks/useCancellableFileRead'
 import { supabase } from '../services/supabase'
 import { parseBaplieFile } from '../services/baplieParser'
@@ -47,29 +48,10 @@ export function Baplie() {
   const [exporting, setExporting] = useState(false)
   const [containerFilters, setContainerFilters] = useState<ContainerFilters>(EMPTY_CONTAINER_FILTERS)
 
-  const { data: voyageRows = [], isLoading: voyagesLoading } = useQuery({
-    queryKey: ['baplie-voyage-cards'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('voyages')
-        .select('id, voyage_number, vessel:vessels(name, carrier:carriers(name))')
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return (data ?? []) as Array<{
-        id: number
-        voyage_number: string
-        vessel: { name: string | null; carrier: { name: string | null } | null } | null
-      }>
-    },
-  })
-  const { data: baplieVoyageIds = [] } = useQuery({
-    queryKey: ['baplie-voyage-card-staging'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('baplie_containers').select('voyage_id').not('voyage_id', 'is', null)
-      if (error) throw error
-      return Array.from(new Set((data ?? []).map((row) => Number(row.voyage_id))))
-    },
-  })
+  // O rail reaproveita a projeção resumida de Viagens. A presença de Baplie
+  // também vem do agregado server-side, portanto a tela não precisa varrer
+  // `baplie_containers` inteiro apenas para desenhar os cards.
+  const { data: voyageRows = [], isLoading: voyagesLoading } = useVoyages()
   const voyageIds = useMemo(() => voyageRows.map((voyage) => voyage.id), [voyageRows])
   const { data: schedulesByVoyage = new Map() } = useQuery({
     queryKey: ['baplie-voyage-card-schedules', voyageIds],
@@ -78,22 +60,17 @@ export function Baplie() {
   })
   const voyageCards = useMemo(() => {
     const items = buildVoyageRailItems(
-      voyageRows.map((voyage) => ({
-        id: voyage.id,
-        voyage_number: voyage.voyage_number,
-        status: 'active',
-        vessel: {
-          name: voyage.vessel?.name ?? 'Navio não informado',
-          carrier: voyage.vessel?.carrier ? { name: voyage.vessel.carrier.name ?? '' } : null,
-        },
-      })),
+      voyageRows,
       schedulesByVoyage,
     )
     return items.map((item): VoyageRailItem => ({
       ...item,
-      modules: { ...item.modules, container: baplieVoyageIds.includes(item.id) },
+      modules: {
+        ...item.modules,
+        container: item.modules.container || (voyageRows.find((voyage) => voyage.id === item.id)?.baplieCount ?? 0) > 0,
+      },
     }))
-  }, [baplieVoyageIds, schedulesByVoyage, voyageRows])
+  }, [schedulesByVoyage, voyageRows])
 
   const { data: stagingData, isLoading: stagingLoading } = useQuery({
     queryKey: ['baplie-staging', voyageId],
@@ -105,7 +82,7 @@ export function Baplie() {
       while (true) {
         const { data, error } = await supabase
           .from('baplie_containers')
-          .select('*')
+          .select('id, voyage_id, container_number, bl_ref, pol, pod, final_dest, size_type, status, slot, weight_kg, is_imo, is_oog, imo_class, un_number, imported_at, imported_by')
           .eq('voyage_id', Number(voyageId))
           .order('container_number')
           .range(from, from + PAGE - 1)

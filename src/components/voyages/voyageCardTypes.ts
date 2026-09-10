@@ -1,7 +1,7 @@
-import type { useVoyages } from '../../hooks/useBls'
 import type { VoyagePodCeStatus } from '../../services/voyageRouteSchedules'
+import type { VoyageDetail } from '../../services/voyageReadModels'
 
-export type Voyage = NonNullable<ReturnType<typeof useVoyages>['data']>[number]
+export type Voyage = VoyageDetail
 
 export type EditingPodPayload = {
   voyageId: number

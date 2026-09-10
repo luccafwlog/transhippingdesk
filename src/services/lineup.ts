@@ -30,6 +30,7 @@ type LineUpBlRow = {
   ce_mercante: string | null
   bb_machine_qty: number | null
   bb_packages_qty: number | null
+  bl_containers?: LineUpContainerRow[] | null
 }
 
 type LineUpContainerRow = {
@@ -234,7 +235,10 @@ export async function fetchLineUpSnapshot(voyageLimit = 60): Promise<LineUpSnaps
   )
 
   const blIds = bls.map((bl) => bl.id)
-  const containers = await fetchContainersByBlIds(blIds)
+  // Os containers necessários para a projeção já vêm no mesmo read-model dos
+  // B/Ls. Isso elimina a segunda fase `bl_ids -> bl_containers` a cada refresh
+  // do Line Up, sem carregar frete ou outros detalhes que a tabela não usa.
+  const containers = bls.flatMap((bl) => bl.bl_containers ?? [])
 
   const blsByVoyage = new Map<number, LineUpBlRow[]>()
   for (const bl of bls) {
@@ -500,37 +504,11 @@ async function fetchBlsByVoyageIds(voyageIds: number[]) {
     while (true) {
       const { data, error } = await supabase
         .from('bls')
-        .select('id, voyage_id, pod, cargo_mode, ce_mercante, bb_machine_qty, bb_packages_qty')
+        .select('id, voyage_id, pod, cargo_mode, ce_mercante, bb_machine_qty, bb_packages_qty, bl_containers(id, bl_id, container_number, tare_weight_kg, gross_weight_kg)')
         .in('voyage_id', voyageChunk)
         .order('id', { ascending: true })
         .range(from, from + 999)
         .overrideTypes<LineUpBlRow[], { merge: false }>()
-
-      if (error) throw error
-      const batch = data ?? []
-      if (!batch.length) break
-      rows.push(...batch)
-      if (batch.length < 1000) break
-      from += 1000
-    }
-  }
-
-  return rows
-}
-
-async function fetchContainersByBlIds(blIds: string[]) {
-  const rows: LineUpContainerRow[] = []
-
-  for (const blChunk of chunkArray(blIds, 250)) {
-    let from = 0
-    while (true) {
-      const { data, error } = await supabase
-        .from('bl_containers')
-        .select('id, bl_id, container_number, tare_weight_kg, gross_weight_kg')
-        .in('bl_id', blChunk)
-        .order('id', { ascending: true })
-        .range(from, from + 999)
-        .overrideTypes<LineUpContainerRow[], { merge: false }>()
 
       if (error) throw error
       const batch = data ?? []
@@ -575,40 +553,28 @@ async function fetchVaziosImportacaoMtyByVoyageIds(voyageIds: number[]) {
   if (!voyageIds.length) return countByVoyage
 
   for (const voyageChunk of chunkArray(voyageIds, 50)) {
-    const { data: manifestRows, error: manifestError } = await supabase
-      .from('vazios_importacao_manifests')
-      .select('id, voyage_id')
-      .in('voyage_id', voyageChunk)
-      .overrideTypes<Array<{ id: string; voyage_id: number | null }>, { merge: false }>()
-    if (manifestError) throw manifestError
-
-    const manifestToVoyage = new Map<string, number>()
-    for (const row of manifestRows ?? []) {
-      if (row.voyage_id != null) manifestToVoyage.set(row.id, row.voyage_id)
-    }
-    if (!manifestToVoyage.size) continue
-
-    const manifestIds = Array.from(manifestToVoyage.keys())
-    for (const manifestChunk of chunkArray(manifestIds, 200)) {
-      let from = 0
-      while (true) {
-        const { data: containerRows, error: containerError } = await supabase
-          .from('vazios_importacao_containers')
-          .select('manifest_id')
-          .in('manifest_id', manifestChunk)
-          .range(from, from + 999)
-          .overrideTypes<Array<{ manifest_id: string }>, { merge: false }>()
-        if (containerError) throw containerError
-        const batch = containerRows ?? []
-        if (!batch.length) break
-        for (const container of batch) {
-          const voyageId = manifestToVoyage.get(container.manifest_id)
-          if (voyageId == null) continue
-          countByVoyage.set(voyageId, (countByVoyage.get(voyageId) ?? 0) + 1)
-        }
-        if (batch.length < 1000) break
-        from += 1000
+    // A relação inner já restringe os containers ao conjunto de viagens. A
+    // versão anterior lia manifestos, criava chunks de ids e então fazia uma
+    // segunda cascata de páginas; em um refresh isso virava um waterfall
+    // proporcional ao número de manifestos.
+    let from = 0
+    while (true) {
+      const { data: containerRows, error: containerError } = await supabase
+        .from('vazios_importacao_containers')
+        .select('manifest:vazios_importacao_manifests!inner(voyage_id)')
+        .in('manifest.voyage_id', voyageChunk)
+        .range(from, from + 999)
+        .overrideTypes<Array<{ manifest: { voyage_id: number | null } | null }>, { merge: false }>()
+      if (containerError) throw containerError
+      const batch = containerRows ?? []
+      if (!batch.length) break
+      for (const container of batch) {
+        const voyageId = container.manifest?.voyage_id
+        if (voyageId == null) continue
+        countByVoyage.set(voyageId, (countByVoyage.get(voyageId) ?? 0) + 1)
       }
+      if (batch.length < 1000) break
+      from += 1000
     }
   }
 

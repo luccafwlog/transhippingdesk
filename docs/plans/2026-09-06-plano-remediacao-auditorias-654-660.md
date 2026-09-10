@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial após as PRs #670–#680 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial após as PRs #670–#681 (2026-09-10), com a entrega S12 desta branch em preparação.** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -161,7 +161,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   continuam separados; esta PR fecha a guarda de comunicação de CE, não a
   ativação de envio.
 
-### 1.0.10 BR Code/Pix estático — PR em preparação sobre #680
+### 1.0.10 BR Code/Pix estático — PR #681 sobre #680
 
 - **S08-C/F8:** a conferência do Manual de Padrões para Iniciação do Pix
   versão 2.10.0 e do Manual BR Code versão 2.0.1 confirmou que o txid estático
@@ -180,6 +180,24 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **Residual:** a prova cobre QR Code Pix estático. Fluxos dinâmicos,
   compostos, Pix Automático, DICT, decoder de terceiro e execução em PSP
   continuam fora deste contrato e não são declarados conformes por ele.
+
+### 1.0.11 Read-model operacional de viagens — entrega S12 em preparação sobre #681
+
+- **S12:** `operational_list_voyage_summaries` (`035`) entrega uma página
+  resumida de viagens com rotas, modalidade de carga, cobertura de CE,
+  containers e Baplie agregados no servidor. `useVoyages` deixou de carregar
+  manifests, bookings e B/Ls completos para todo o rail; `useVoyageDetail`
+  busca o detalhe apenas da viagem selecionada.
+- **S12:** `LineUp` projeta `bl_containers` junto com os B/Ls e elimina a
+  consulta secundária por lista de IDs; o contador de vazios de importação usa
+  relação `inner` direta. EmbarqueVazios, `agencyDepartureReport` e Baplie
+  compartilham a projeção pequena de rotas/rail e as consultas de Baplie
+  passaram a declarar as colunas necessárias.
+- **Evidência local:** typecheck, lint, `docs:check`, `rpc:check`, diff check,
+  testes focados de read-model/Viagens/Line Up e replay PostgreSQL com a
+  integração de agregados passaram. O benchmark 100/1.000/10.000, Preview
+  autenticado e a remoção completa de fallbacks compatíveis permanecem
+  pendentes e não são afirmados por esta entrega.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -239,8 +257,9 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   escopo, paginação de billing, tipos regenerados do schema e correção dos
   payloads/documentos tipados.
 - [x] **S12 — primeira entrega de leitura proporcional:** projeções paginadas,
-  paginação de Portal, janela incremental do Painel e debounce/limites dos
-  caminhos implementados.
+  read-model resumido de viagens, detalhe sob demanda, redução do waterfall do
+  Line Up, paginação de Portal, janela incremental do Painel e debounce/limites
+  dos caminhos implementados.
 - [x] **S13 — fundamentos de UX:** debounce, estados offline/error distintos,
   hidratação de perfil, confirmações compartilhadas e semântica/foco das tabelas
   e menus principais.
@@ -295,8 +314,8 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   operacional remota permanecem separados; não reescrever pagamentos nem
   ativar envio.
 - [ ] **S12 residual:** medir 100/1.000/10.000 B/Ls, requests/bytes/EXPLAIN/p95,
-  remover fallbacks full-scan e waterfalls ainda existentes e completar resumo de
-  viagens/EmbarqueVazios/agencyDepartureReport sem N+1.
+  remover ou reclassificar fallbacks de compatibilidade/full-scan ainda
+  existentes e concluir a prova de refresh sem N+1 em todos os consumidores.
 - [ ] **S13 residual:** medir contraste nos dois temas, executar roteiro manual de
   teclado/leitor de tela/modal sujo/offline e ceder execução entre blocos. O
   progresso/cancelamento dos uploads customizados está implementado; não
@@ -315,7 +334,7 @@ uma decisão registrada.
 
 ### 1.1 Baseline e alcance da evidência
 
-- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`033` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
+- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`035` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
 - Fonte dos identificadores: [auditoria consolidada](../archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md). Preservar esse registro integralmente. Nas seções sem ID, usar o número e o título original; os sufixos deste plano apenas desdobram causas diferentes.
 - Fontes de decisão: [CLAUDE.md](../../CLAUDE.md), [CONTEXT.md](../../CONTEXT.md), [WORKFLOW.md](../../WORKFLOW.md), [arquitetura](../ARCHITECTURE.md), [rastreabilidade](../RASTREABILIDADE.md), [convenções](../CONVENCOES.md) e [índice de ADRs](../adr/README.md).
 - **Código** significa confirmação estática no baseline. **Teste de contrato SQL** significa inspeção textual de SQL; não prova execução, concorrência, grants efetivos ou PostgREST. Testes citados abaixo são existentes ou propostos, com essa distinção explícita; não foram executados para afirmar que uma remediação funciona.
@@ -398,7 +417,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 |---|---|---|---|
 | Achado 1 / §1.1 / §3.3 — buscas e resumo de B/L | Mitigado parcialmente | Migration `020_operational_read_pages.sql` e `operationalLists.ts` limitam resposta e agregados na rota RPC; fallback legado ainda materializa linhas. | S12 |
 | Achado 2 / §1.2 — `useContainers` | Mitigado parcialmente | A rota RPC pagina containers e calcula agregados no servidor; o fallback de `useBls.ts` ainda busca o conjunto completo. | S12 |
-| Achado 3 / §1.3 — `useVoyages` | Pendente | Hook em `useBls.ts` agrega embeds e segunda fase de consultas; separar resumo e detalhe sem N+1. | S12 |
+| Achado 3 / §1.3 — `useVoyages` | Mitigado parcialmente | `useVoyages` consome `operational_list_voyage_summaries` e `useVoyageDetail` carrega o detalhe da viagem selecionada; fallback de compatibilidade e prova de escala real ainda exigem benchmark. | S12 |
 | Achado 4 / §1.4 — ausência de memoização | Precisa de investigação | Ausência de `React.memo` não prova lentidão. Medir commits e props; memoizar somente hotspot demonstrado. | S12/S13 |
 | Achado 5 / §1.5 — Line Up TV | Mitigado parcialmente | `Painel` consulta janela inicial de 60 viagens, informa o total e oferece “Carregar mais”; a montagem de agregados por janela e o refresh da TV ainda exigem medição. | S12 |
 | Achado 6 / §2 — listeners | Já corrigido | `src/pages/Containers.tsx` e `src/pages/Manifestos.tsx` usam `useEffect` e cleanup nos menus de ações. Não planejar nova troca de lifecycle. | Só regressão existente |
@@ -438,11 +457,11 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | F6 — quantidade/fracionamento | Mitigado parcialmente | SQL distribui resíduo determinístico e documentos usam valor persistido; a apresentação da fração compartilhada ainda precisa explicar claramente `1/7` e a consulta diagnóstica de irmãos continua aberta. | S10 |
 | F6 — B/L irmão tardio | Aceito | Risco residual reconhecido pela ADR 0020, complemento de 06/08: irmãos recebem CE juntos. Não recalcular/faturar irmãos automaticamente sem mudança dessa premissa. Validar ocorrência atual e promover decisão se houver evidência. | S10 diagnóstico / D05 |
 | F7 | Já corrigido no código | Emissão SQL é a autoridade do payload PIX; browser não persiste uma versão financeira paralela. Ainda falta prova normativa/runtime independente. | S08-C/runtime |
-| F8 | Pendente | Subcampos 01/26/05/62/54, txid/limites e caracteres exigem confronto com especificação oficial BR Code vigente e decoder independente. | S08-C |
+| F8 | Mitigado parcialmente | Manual Pix 2.10.0/BR Code 2.0.1, decoder independente e correção dos subcampos 26/00+01, 62/05, campo 54, txid e CRC estão entregues na PR #681; QR dinâmico/composto e execução em PSP continuam fora do contrato. | S08-C/runtime |
 | F9 | Já corrigido no código | Snapshot inicial usa PTAX factual para origem BCB/cached e permite `ptax = NULL` somente para manual com ROE; migration 030 corrigiu a coluna real `ptax`. | Regressão S09 |
 | F10 | Já corrigido no código | Spread canônico está no cálculo SQL e os valores/versionamento são persistidos; manter uma única função ao evoluir. | Regressão S09 |
 | F11 | Já corrigido | Browser usa contratos `register_demurrage_payment`/`apply_demurrage_discount`; histórico financeiro segue protegido e a integração local cobre idempotência/locks. | Regressão S08 |
-| F12 | Pendente | Readiness de comunicado ainda precisa ser unificado com o gate de emissão sem misturar cálculo, revisão, CE e Portal; revalidar na criação/claim/envio. | S10/S07 |
+| F12 | Mitigado parcialmente | A PR #680 revalida CE, revisão e financeiro no servidor com lock na criação/claim/envio de comunicação; o gate de emissão/Portal e a prova operacional remota continuam separados. | S10/S07 |
 | F13 — constraints intrínsecas | Já corrigido no código | Guardas de tarifa validam não negativos, dias/faixas e vigência; manter preflight de dados antes de ampliar constraints. | Regressão S08 |
 | F13 — gaps/sobreposições | Aceito | Lacunas de faixa têm regra aceita na ADR 0026; sobreposição de tabelas locais é deliberada na ADR 0040. Não proibir ambas com EXCLUDE genérico. Conflito específico de acordos continua protegido. | §8 |
 | F14 | Já corrigido no código | Migration 019 e integração local mantêm R$ 0,01 aberto tanto no caminho manual quanto no PIX, sem baixa fictícia. | Regressão S10 |
@@ -467,9 +486,9 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | 9 / §2.6 — quatro nullable | Pendente | Confirmar escrita externa/uso documental de `alerts.notified_at`, `bls.consignee_address`, `charge_calculations.reviewed_at` e `customer_portal_sessions.last_seen_at`; nenhuma remoção sem backup/preflight. | S14 |
 | 9 / §2.6 — duas write-only | Aceito | Manter `ended_vessels.ended_at` e `portal_email_events.received_at`; esta última será útil ao inbox. | §8 |
 | 10 / §3.1 — cast obsoleto | Já corrigido | Tipos oficiais e DTOs foram corrigidos; `InvoiceDocument`, Portal Billing e Conciliação PIX não dependem dos casts que ocultavam shape inválido. | Regressão S11 |
-| 10 / §3.1 — projeção de escalas | Pendente | EmbarqueVazios e agencyDepartureReport ainda precisam convergir na projeção normalizada sem remodelar as páginas. | S12 |
+| 10 / §3.1 — projeção de escalas | Mitigado parcialmente | EmbarqueVazios e agencyDepartureReport usam `listVoyageRoutePorts`, uma projeção comum de POL/POD; a prova completa de todos os consumidores e do refresh sem N+1 continua em S12. | S12 |
 | §3.2 — supressões | Mitigado parcialmente | Filtro por emails do cliente evita full-scan global atual. RPC filtrada/paginada é necessária ao ultrapassar teto por cliente, não prova de falha atual. | S06 diagnóstico, S12 condicional |
-| §3.2 — B/Ls | Mitigado parcialmente | `operational_list_bls`, `operational_list_containers` e `operational_list_bl_summary` têm filtros/limites server-side; fallback e listas derivadas ainda requerem convergência. | S12 |
+| §3.2 — B/Ls | Mitigado parcialmente | `operational_list_bls`, `operational_list_containers`, `operational_list_bl_summary` e `operational_list_voyage_summaries` têm filtros/limites ou agregados server-side; fallback de compatibilidade e listas derivadas ainda requerem convergência. | S12 |
 | §3.2 — Painel 60 viagens | Mitigado parcialmente | Painel expõe janela inicial e “Carregar mais” com total; TV ainda mantém snapshot limitado e a cadeia de agregados não foi reestruturada. | S12 |
 | §3.2 — PortalBillingTabs | Já corrigido no código | Taxas Locais e Demurrage usam páginas, contagem, filtros e wrappers de Inspeção na migration `021`; exportação busca páginas filtradas sob demanda. | Regressão S11/S12 |
 | §3.3 — tetos distantes | Aceito | N+1 transbordos, alertas por página, ATD sequencial, Vault por disparo e ZIP sem Zip64 ficam condicionados a medição; lookup portos/layout COSCO recebem validação S03, sem substituição ampla. | §8 |
@@ -477,7 +496,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | §3.4 — `voyage_pod_schedule` | Aceito | ADRs 0027 e 0035 adiam explicitamente `port_calls`; literal histórico não é descumprimento que autorize migração ampla. | §8 |
 | §3.4 — adapter billingLedger | Já corrigido no código | Regeneração oficial e typecheck passaram; manter contrato gerado como fonte, sem allowlist silenciosa de drift. | Regressão S11 |
 | §3.4 — DV CNPJ | Precisa de investigação | `portalCnpjLogin.ts` aceita formato sem DV por dados de teste. Conferir base atual e variantes aceitas antes de restringir login. | S14 / D09 |
-| §4.4 — Supabase em Baplie.tsx | Pendente | Leitura direta na página deve ir para service/hook, limitada à consulta auditada. | S12 |
+| §4.4 — Supabase em Baplie.tsx | Mitigado parcialmente | O rail usa `useVoyages`/read-model comum e o staging selecionado declara a projeção de colunas; a leitura de detalhe ainda permanece local à página e requer prova operacional. | S12 |
 | §2.5 / §4.5 — sem divergência | Aceito | Nenhuma tabela órfã comprovada; preservar cadeias de import, jobs válidos, triggers e decisões conferidas. | Regressão |
 
 ### 2.7 PR #660 e falha de workflow
@@ -963,7 +982,7 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 
 ## 5. Sequência recomendada de PRs
 
-Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`033`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
+Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`035`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
 
 | Ordem | Estado | Entrega / ação | Referência atual | O que o próximo agente deve considerar concluído ou pendente |
 |---|---|---|---|---|
@@ -983,7 +1002,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 14 | `[x]` + `[ ]` runtime | Fechar readiness de emissão e comunicação | S10/F12; `033_customer_communication_readiness_guards.sql` | Guarda server-side de comunicação aplicada em criação/claim/envio, com lock e identidade de sistema; gate de emissão/Portal e prova de runtime continuam pendentes. |
 | 15 | `[x]` + `[ ]` runtime | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` + `032_customer_communication_partial_status.sql` | Inbox, dedup, stale events, recuperação e estado explícito `parcial` estão entregues; índice sem `status`, deploy/Edge e provedor continuam pendentes. |
 | 16 | `[x]` + `[ ]` | Fechar ledger, status/itens e rateio do impresso | S10/F14; `019_local_billing_integrity.sql` | D05/R$0,01 e integração local passaram; casos amplos, diagnóstico de irmãos e gate completo de comunicação continuam abertos. |
-| 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql` e páginas Portal | Projeções, paginação/window e filtros principais estão entregues; benchmark, full-scan/waterfall residual, resumo de viagem/EmbarqueVazios/agency report e profiler faltam. |
+| 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql`, `035_operational_voyage_summaries.sql` e páginas Portal | Projeções, paginação/window, resumo de viagem sob demanda, Line Up sem waterfall de containers e filtros principais estão entregues; benchmark, full-scan/fallback residual, refresh de Preview e profiler faltam. |
 | 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação, confirmações/menu e progresso/cancelamento nos modais múltiplos e customizados estão entregues; contraste, leitor de tela/foco manual e cessão entre blocos faltam. |
 | 19 | `[x]` + `[ ]` | Completar índice e gate de catálogo | S14/#659.7; scripts de docs/RPC catalog | `docs:check`, catálogo, replay, tipos e inspeção local das 14 candidatas passaram; famílias ausentes e prova externa ainda faltam. |
 | 20 | `[ ]` | Retirar legado confirmado / DV condicional | S14/#659.5/6/9; sem DROP ainda | Provar consumidores externos e dados das quatro colunas, decidir DV e somente então abrir migration com `DROP ... RESTRICT`. |

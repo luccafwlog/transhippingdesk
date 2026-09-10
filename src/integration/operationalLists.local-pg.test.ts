@@ -105,5 +105,35 @@ describeLocal('S12 — leituras operacionais paginadas', () => {
     expect(page).toMatchObject({ count: 1, distinctCount: 1, imoDistinctCount: 1, blCount: 1 })
     expect(page.rows[0]?.bl?.id).toBe(blIds[1])
   })
-})
 
+  it('entrega o rail com agregados de viagem sem materializar o detalhe', () => {
+    const page = JSON.parse(lastJson(callAsAuthenticated(`SELECT public.operational_list_voyage_summaries(1, 100);`))) as {
+      rows: Array<{
+        id: number
+        blCount: number
+        containerCount: number
+        baplieCount: number
+        containerBlCount: number
+        breakbulkBlCount: number
+        ceCoverage: { filled: number; total: number }
+        routes: Array<{ pol: string; pod: string; blCount: number }>
+      }>
+      count: number
+    }
+    const voyage = page.rows.find((row) => row.id === voyageId)
+    expect(page.count).toBeGreaterThanOrEqual(1)
+    expect(voyage).toMatchObject({
+      id: voyageId,
+      blCount: 3,
+      containerCount: 2,
+      baplieCount: 0,
+      containerBlCount: 2,
+      breakbulkBlCount: 1,
+      ceCoverage: { filled: 0, total: 3 },
+    })
+    expect(voyage?.routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ pol: 'CNSHA', pod: 'BRVIX', blCount: 2 }),
+      expect.objectContaining({ pol: 'CNSHA', pod: 'BRSSZ', blCount: 1 }),
+    ]))
+  })
+})

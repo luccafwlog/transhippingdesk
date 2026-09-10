@@ -50,11 +50,32 @@ Resend reais.
 | `capture_demurrage_calculation_snapshot` (correção da coluna histórica de PTAX) | `030_fix_demurrage_snapshot_ptax_column.sql`; `demurrageAuthorityMigration.test.ts`, smoke autenticado no Preview |
 | `recalculate_demurrage_invoices`, `recalculate_demurrage_invoices_manual`, `save_exchange_rate_reference`, `save_exchange_rate_reference_v2`, `_demurrage_roe_from_ptax`, `_demurrage_spread_version` | `018_exchange_rate_provenance.sql`; `exchangeRateIntegrity.local-pg.test.ts` |
 | `operational_list_bl_summary`, `operational_list_bls`, `operational_list_containers` | `020_operational_read_pages.sql`; `operationalLists.local-pg.test.ts` |
+| `operational_list_voyage_summaries` | `035_operational_voyage_summaries.sql`; `voyageReadModels.test.ts`, `operationalLists.local-pg.test.ts` |
 | `portal_list_disputes`, `_portal_list_disputes_core` | `013_portal_disputes_inspection.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `portal_list_demurrage_invoices_page`, `portal_list_invoices_page`, `_portal_list_demurrage_invoices_page_core`, `_portal_list_invoices_page_core` | `021_portal_billing_pages.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `customer_billing_access_ready` | `019_local_billing_integrity.sql`; `localBillingIntegrity.local-pg.test.ts` |
 | `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql`; `auditSecurityBoundaries.local-pg.test.ts` |
 | `portal_email_event_attempts_append_only` | `022_email_inbox_and_dispatch_state.sql`; `emailInbox.local-pg.test.ts` |
+
+### Atualização da entrega S12 — read-model de viagens e Line Up
+
+`operational_list_voyage_summaries` (`035_operational_voyage_summaries.sql`)
+separa o rail resumido da viagem do detalhe selecionado. A RPC pagina viagens
+visíveis e agrega rotas, B/Ls por modalidade, cobertura de CE, containers e
+Baplie sob `SECURITY INVOKER`; `useVoyages` consome apenas esse envelope e
+`useVoyageDetail` carrega manifests, bookings e B/Ls somente para a viagem
+aberta. `Baplie` reutiliza o rail e deixa a leitura completa limitada ao
+staging da viagem selecionada.
+
+`lineup.ts` passou a projetar `bl_containers` junto com os B/Ls, eliminando o
+waterfall B/L → containers no refresh. `listVoyageRoutePorts` é o read-model
+pequeno comum de POL/POD usado por EmbarqueVazios e pelo relatório de agência;
+essas mudanças preservam os contratos fechados e os filtros por viagem. A
+integração PostgreSQL local cobre os agregados e os testes de comportamento
+cobrem a separação resumo/detalhe. **Residual explícito:** benchmark de
+100/1.000/10.000 B/Ls, Preview autenticado e roteiro manual de UX ainda são
+provas operacionais pendentes; o fallback de compatibilidade das listas antigas
+não é tratado como paridade definitiva.
 
 Os contratos financeiros passaram a persistir `demurrage_invoice_items.subtotal_brl`
 com resíduo determinístico e o documento lê o valor persistido; valores históricos

@@ -124,7 +124,7 @@ describe('useVoyages', () => {
     mockFrom.mockReset()
   })
 
-  it('busca a cubagem individual dos containers para o EDI Mercante', async () => {
+  it('mantém o rail sem embeds de detalhe e reserva containers para a query do card', async () => {
     let voyageSelect = ''
 
     mockFrom.mockImplementation((table: string) => {
@@ -142,7 +142,9 @@ describe('useVoyages', () => {
     const { result } = renderHook(() => useVoyages(), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(voyageSelect.match(/bl_containers\(([^)]*)\)/)?.[1]).toContain('cbm')
+    expect(voyageSelect).toContain('bls(id, batch_id, cargo_mode, ce_mercante, pol, pod')
+    expect(voyageSelect).not.toContain('granite_manifests')
+    expect(voyageSelect).not.toContain('bl_freight_lines')
   })
 
   it('consulta as Unidades Embarcadas pelo local atual, sem colunas aposentadas', async () => {
@@ -163,7 +165,7 @@ describe('useVoyages', () => {
     const { result } = renderHook(() => useVoyages(), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(voyageSelect).toContain('local:depots(id, code, name, tipo)')
+    expect(voyageSelect).toContain('bls(id, batch_id, cargo_mode, ce_mercante, pol, pod')
     expect(voyageSelect).not.toMatch(/\b(origin_terminal|destination)\b/)
   })
 })

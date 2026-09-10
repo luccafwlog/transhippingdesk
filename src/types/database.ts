@@ -7562,6 +7562,13 @@ export type Database = {
         }
         Returns: Json
       }
+      operational_list_voyage_summaries: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+        }
+        Returns: Json
+      }
       pix_crc16_ccitt: { Args: { p_payload: string }; Returns: string }
       pix_reconciliation_authority_holds: {
         Args: { p_exception_id: number }

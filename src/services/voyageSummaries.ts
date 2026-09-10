@@ -409,11 +409,25 @@ type VoyageRailSource = {
   id: number
   voyage_number: string
   status: string | null
-  vessel?: { name: string; carrier?: { name: string } | null } | null
-  pol?: { name: string } | null
-  pod?: { name: string } | null
+  vessel?: { name: string | null; carrier?: { name: string | null } | null } | null
+  pol?: { name: string | null } | null
+  pod?: { name: string | null } | null
   bls?: VoyageBl[] | null
   import_batches?: Array<{ id: number }> | null
+  routes?: Array<{
+    pol: string | null
+    pod: string | null
+    blCount: number
+    containerBlCount?: number
+    breakbulkBlCount?: number
+    ceFilled?: number
+    ceTotal?: number
+  }> | null
+  blCount?: number
+  containerBlCount?: number
+  breakbulkBlCount?: number
+  containerCount?: number
+  ceCoverage?: { filled: number; total: number }
 }
 
 type PodScheduleRow = { pod: string; eta: string | null; etb: string | null; ata: string | null; omitted?: boolean }
@@ -483,8 +497,16 @@ export function buildVoyageRailItems(
     const escalaRows = escalaRowsByVoyageId.get(voyage.id) ?? []
     const exportEscalas = escalaRows.filter((row) => 'port' in row && row.temExportacao)
     const { containerBls, breakbulkBls } = splitVoyageBls(voyage.bls)
-    const { filled, total } = voyageCeCoverage(voyage.bls)
+    const routeRows = voyage.routes ?? voyage.bls ?? []
+    const detailedBls = Array.isArray(voyage.bls)
+    const { filled: derivedFilled, total: derivedTotal } = voyageCeCoverage(voyage.bls)
+    const filled = voyage.ceCoverage?.filled ?? derivedFilled
+    const total = voyage.ceCoverage?.total ?? voyage.blCount ?? derivedTotal
     const moduleStats = moduleStatsByVoyageId.get(voyage.id)
+    const containerBlCount = voyage.containerBlCount ?? containerBls.length
+    const breakbulkBlCount = voyage.breakbulkBlCount ?? breakbulkBls.length
+    const blCount = voyage.blCount ?? voyage.bls?.length ?? 0
+    const containerCount = voyage.containerCount ?? countDistinctContainerNumbers(containerBls.flatMap((bl) => bl.bl_containers ?? []))
 
     return {
       id: voyage.id,
@@ -492,9 +514,9 @@ export function buildVoyageRailItems(
       vesselName: voyage.vessel?.name ?? 'Navio',
       voyageNumber: voyage.voyage_number,
       status: normalizeVoyageStatus(voyage.status),
-      originPorts: collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null, exportEscalas),
+      originPorts: collectVoyagePorts(routeRows, 'pol', voyage.pol?.name ?? null, exportEscalas),
       destinationPorts: collectVoyagePorts(
-        voyage.bls,
+        routeRows,
         'pod',
         null,
         escalaRows,
@@ -505,15 +527,17 @@ export function buildVoyageRailItems(
         ceTotal: total,
       }),
       proximaEscala: getProximaEscala(escalaRows),
-      blCount: (voyage.bls ?? []).length,
-      containerCount: countDistinctContainerNumbers(containerBls.flatMap((bl) => bl.bl_containers ?? [])),
+      blCount,
+      containerCount,
       ceCoverage: { filled, total },
       escalasBrasileiras: collectEscalasBrasileiras(escalaRows).map((escala) => {
         const vehicleContainers = new Set((moduleStats?.vehicleContainerNumbers ?? []).map((number) => String(number).trim().toUpperCase()))
-        const hasVehiclesAtPort = containerBls
-          .filter((bl) => canonicalPort(bl.pod) === canonicalPort(escala.port))
-          .flatMap((bl) => bl.bl_containers ?? [])
-          .some((container) => vehicleContainers.has(String(container.container_number ?? '').trim().toUpperCase()))
+        const hasVehiclesAtPort = detailedBls
+          ? containerBls
+              .filter((bl) => canonicalPort(bl.pod) === canonicalPort(escala.port))
+              .flatMap((bl) => bl.bl_containers ?? [])
+              .some((container) => vehicleContainers.has(String(container.container_number ?? '').trim().toUpperCase()))
+          : Boolean(moduleStats?.hasVehicles)
         const modules: Partial<VoyageRailItem['modules']> = { ...(escala.modules ?? {}) }
         if (moduleStats?.hasVehicles) modules.veiculos = hasVehiclesAtPort
         if (moduleStats?.hasVaziosExportacao) modules.vaziosExp = Boolean(modules.vaziosExp)
@@ -521,8 +545,8 @@ export function buildVoyageRailItems(
         return Object.keys(modules).length ? { ...escala, modules } : { port: escala.port, eta: escala.eta }
       }),
       modules: {
-        container: containerBls.length > 0,
-        cargaSolta: breakbulkBls.length > 0,
+        container: containerBlCount > 0,
+        cargaSolta: breakbulkBlCount > 0,
         veiculos: moduleStats?.hasVehicles ?? false,
     vazios: moduleStats?.hasVaziosImportacao ?? false,
     ...(moduleStats?.hasVaziosExportacao ? { vaziosExp: true } : {}),

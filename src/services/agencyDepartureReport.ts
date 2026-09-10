@@ -17,6 +17,7 @@ import { computeStorageTotals, type VaziosExportServiceLineWithObservation } fro
 import { listDepots } from './depots'
 import { quantidadeEfetiva, totalEmbarque, totalLinha } from './vaziosCusto'
 import { buildVoyagePodEntityId, listVoyageEscalaSchedulesByVoyageIds, listVoyagePodSchedules } from './voyageRouteSchedules'
+import { listVoyageRoutePorts } from './operationalLists'
 import { normalizePortCode, portCodeVariants } from './portCode'
 import type { AgencyReportByTerminal, OperationFront, OperationFrontKind } from './escalaTerminalAllocation'
 
@@ -817,16 +818,10 @@ async function fetchAllRows<T>(
 // escala planejada sem B/L ainda lançado. Upgrade: as duas cópias somem quando
 // docs/plans/2026-07-31-escala-unificada-pol-pod.md entregar a projeção comum.
 async function listVoyageEscalaPorts(voyageId: number): Promise<Set<string>> {
-  const { data, error } = await fetchAllRows<{ pod: string | null; pol: string | null }>((from, to) =>
-    supabase.from('bls').select('pod, pol').eq('voyage_id', voyageId).range(from, to),
-  )
-  if (error) throw error
   const ports = new Set<string>()
-  for (const row of data ?? []) {
-    for (const raw of [row.pod, row.pol]) {
-      const code = normalizePortCode(raw)
-      if (code && code.startsWith('BR')) ports.add(code)
-    }
+  for (const raw of await listVoyageRoutePorts(voyageId)) {
+    const code = normalizePortCode(raw)
+    if (code && code.startsWith('BR')) ports.add(code)
   }
   return ports
 }
