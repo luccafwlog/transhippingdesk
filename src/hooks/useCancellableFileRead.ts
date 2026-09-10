@@ -15,6 +15,10 @@ type FileReadState<T> = {
 
 const EMPTY_PROGRESS: FileReadProgress = { completed: 0, total: 0, currentFile: null }
 
+function yieldToBrowser() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0))
+}
+
 /**
  * Coordena uma leitura de arquivo que não aceita AbortSignal no parser legado.
  * O token de operação impede que uma resposta tardia publique estado ou seja
@@ -117,6 +121,7 @@ export function useCancellableFileRead<T>(parser: (file: File) => Promise<T>) {
             currentFile: files[index + 1]?.name ?? file.name,
           },
         }))
+        if (index < files.length - 1) await yieldToBrowser()
       }
       if (!isActive()) return null
       setState((current) => ({

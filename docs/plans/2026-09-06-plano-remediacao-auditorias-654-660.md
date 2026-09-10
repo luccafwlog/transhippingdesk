@@ -962,9 +962,9 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
   etapa de importação. Evidência: `FileImportModal.test.tsx`.
 - [x] Levar o mesmo controle às superfícies customizadas de arquivo único;
   `useCancellableFileRead` cobre leitura única e múltipla e os modais exibem
-  arquivo atual/progresso/cancelamento. [ ] Ceder execução entre blocos e
-  medir long tasks próximo do limite antes de decidir por worker ou mudança do
-  teto de Baplie.
+  arquivo atual/progresso/cancelamento. A leitura múltipla cede execução ao
+  navegador entre arquivos; [ ] medir long tasks próximo do limite antes de
+  decidir por worker ou mudança do teto de Baplie.
 - [x] Executar os testes de hidratação, modal, comunicação, debounce, `QueryStateGate` e sino; typecheck, lint, build e suíte integral da PR passaram.
 - [ ] Completar a evidência manual de teclado, leitor de tela, offline/reconnect e light/dark.
 

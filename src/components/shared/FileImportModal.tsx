@@ -9,6 +9,10 @@ import type { FileReadProgress } from '../../hooks/useCancellableFileRead'
 import { ImportIssuesPanel } from './ImportIssuesPanel'
 import { ImportReadProgress } from './ImportReadProgress'
 
+function yieldToBrowser() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0))
+}
+
 export type FilePreviewEntry<T> = {
   file: File
   preview: T
@@ -93,7 +97,7 @@ export function FileImportModal<T, TResult = void>({
     parseControllerRef.current = controller
     setParsing(true)
     const parsedEntries: FilePreviewEntry<T>[] = []
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
       if (controller.signal.aborted) break
       try {
         const inspection = inspectFile ? await inspectFile(file) : undefined
@@ -114,6 +118,7 @@ export function FileImportModal<T, TResult = void>({
           currentFile: files[progress.completed + 1]?.name ?? file.name,
         }))
       }
+      if (!controller.signal.aborted && index < files.length - 1) await yieldToBrowser()
     }
     if (!controller.signal.aborted) setEntries(parsedEntries)
     if (parseControllerRef.current === controller) {
