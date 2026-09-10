@@ -2,17 +2,16 @@
 
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
-import type { DemurrageInvoiceDetail } from '../../../types/database'
-import { InvoiceDocument } from '../InvoiceDocument'
+import { InvoiceDocument, type DemurrageInvoiceDocumentDetail } from '../InvoiceDocument'
 
-const detail = {
+const detail: DemurrageInvoiceDocumentDetail = {
   doc_number: 'DEM-2026-0001',
   bl_id: 'BL-9',
   current_roe: 5,
-  roe: 5,
   current_total_brl: 500,
   discount_value: 0,
   discount_mode: null,
+  discount_type: null,
   due_date: '2026-07-01',
   paid_at: '2026-06-25',
   pix_payload: '00020101021226880014br.gov.bcb.pix',
@@ -24,7 +23,7 @@ const detail = {
   }],
   customer: { name: 'Cliente Demurrage', cnpj_cpf: '11222333000181' },
   bl: { pol: 'CNSHA', pod: 'BRVIX', voyage: { voyage_number: '14N', vessel: { name: 'GREEN' } } },
-} as unknown as DemurrageInvoiceDetail
+}
 
 afterEach(cleanup)
 
@@ -58,7 +57,7 @@ it('F1: imprime o valor BRL persistido da linha, sem reconverter o USD pelo ROE 
     current_roe: 5,
     current_total_brl: 500,
     items: [{ ...detail.items[0], subtotal_brl: 498 }],
-  } as unknown as DemurrageInvoiceDetail
+  } satisfies DemurrageInvoiceDocumentDetail
 
   render(<InvoiceDocument detail={detailWithPersistedLine} type="invoice" />)
 

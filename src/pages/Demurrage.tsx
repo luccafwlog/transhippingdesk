@@ -18,7 +18,7 @@ import { DemurragePaymentReversalModal } from '../components/demurrage/Demurrage
 import { DemurrageDisputeConversation } from '../components/demurrage/DemurrageDisputeConversation'
 import { DiscountModal } from '../components/demurrage/DiscountModal'
 import { DisputeModal } from '../components/demurrage/DisputeModal'
-import { InvoiceDocument } from '../components/demurrage/InvoiceDocument'
+import { InvoiceDocument, type DemurrageInvoiceDocumentDetail } from '../components/demurrage/InvoiceDocument'
 import { PaymentModal } from '../components/demurrage/PaymentModal'
 import { PtaxModal } from '../components/demurrage/PtaxModal'
 import { listDemurrageContainers, updateContainerDates } from '../services/demurrage/demurrageContainers'
@@ -43,7 +43,7 @@ import { EMPTY_DISCOUNT, EMPTY_DISPUTE, type DiscountForm, type DisputeForm } fr
 import { effectiveDemurrage, fmtBRL, fmtUSD, groupByBl, isPtaxWarningEligible, lastBusinessDayISO } from '../services/demurrage/demurragePresentation'
 import { reverseDemurragePayment } from '../services/reconciliacao'
 import { demurrageDatesSchema, demurrageDiscountSchema, formatValidationError } from '../services/financialValidation'
-import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceDetail, DemurrageInvoiceItem } from '../types/database'
+import type { DemurrageContainerListItem, DemurrageInvoice, DemurrageInvoiceItem } from '../types/database'
 import { describeActiveFilters } from '../lib/operationalState'
 import { printDocumentElement } from '../lib/printDocument'
 import { formatDate } from '../lib/utils'
@@ -434,7 +434,7 @@ export function Demurrage() {
       {viewInvoiceId && invoiceDetail && (
         <Modal open onClose={() => setViewInvoiceId(null)} title={docType === 'invoice' ? 'Fatura de Demurrage' : 'Recibo de Demurrage'}>
           <div className="mb-2 flex justify-end gap-2"><Button variant="secondary" onClick={printInvoiceDocument}>Imprimir</Button></div>
-          <div className="invoice-print-content"><InvoiceDocument detail={{ ...invoiceDetail.invoice, items: invoiceDetail.items } as unknown as DemurrageInvoiceDetail} type={docType} /></div>
+          <div className="invoice-print-content"><InvoiceDocument detail={{ ...invoiceDetail.invoice, items: invoiceDetail.items } satisfies DemurrageInvoiceDocumentDetail} type={docType} /></div>
         </Modal>
       )}
       {customerReportOpen && customerSummary && <CustomerReportModal open rows={customerSummary} onClose={() => setCustomerReportOpen(false)} />}

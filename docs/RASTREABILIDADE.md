@@ -27,15 +27,17 @@ no código. Levantamento e lacunas detalhadas na
 - **Runtime**: comportamento observado em navegador/API/banco controlado.
 - **Suspeita**: divergência plausível que ainda exige confirmação adicional.
 
-## Atualização da PR #670 — 2026-09-09
+## Atualização da PR #670 — 2026-09-10
 
-O recorte de `009`–`027` foi conferido no replay PostgreSQL local e agora tem
+O recorte de `009`–`030` foi conferido no replay PostgreSQL local e agora tem
 linha de rastreabilidade para as funções que não apareciam no índice anterior.
 As funções com prefixo `_` são núcleos privados; os demais nomes são wrappers,
 leitores ou workers. **Evidência:** 17 suítes de integração local, 64 testes,
 `npm run rpc:check` com 168 nomes chamados e `npm run docs:check` com 428
-Markdown/49 rotas. Isso não afirma deploy remoto, grants em Preview ou execução
-de jobs.
+Markdown/49 rotas. O smoke autenticado do Preview também confirmou importação
+de datas, emissão/baixa de Demurrage com desconto e paridade Portal/Inspeção.
+Isso não afirma deploy de produção, execução dos jobs, Vault preenchido, BCB ou
+Resend reais.
 
 | Família / funções introduzidas ou redefinidas nesta PR | Migração / evidência executável |
 |---|---|

@@ -26,10 +26,9 @@ import {
 import { getInvoiceDetail as getDemurrageDetail } from '../services/demurrage/demurrageInvoices'
 import { InvoiceDetailModal } from '../components/billing/InvoiceDetailModal'
 import { ReconciliationHistoryTable } from '../components/billing/ReconciliationHistoryTable'
-import { InvoiceDocument as DemurrageInvoiceDoc } from '../components/demurrage/InvoiceDocument'
+import { InvoiceDocument as DemurrageInvoiceDoc, type DemurrageInvoiceDocumentDetail } from '../components/demurrage/InvoiceDocument'
 import type { PixReconciliationCandidate, PixReconciliationException, UnifiedPixConfirmationResult, UnifiedPixMatch } from '../services/reconciliacao'
 import { queryKeys } from '../services/queryKeys'
-import type { DemurrageInvoiceDetail } from '../types/database'
 
 function fmtBRL(v: number) {
   return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -581,7 +580,7 @@ function ReconciliacaoContent() {
               </div>
               <div className="invoice-print-content">
                 <DemurrageInvoiceDoc
-                  detail={demurrageDetailQuery.data as unknown as DemurrageInvoiceDetail}
+                  detail={{ ...demurrageDetailQuery.data.invoice, items: demurrageDetailQuery.data.items } satisfies DemurrageInvoiceDocumentDetail}
                   type="receipt"
                 />
               </div>

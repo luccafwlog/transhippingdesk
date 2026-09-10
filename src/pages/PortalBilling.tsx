@@ -9,7 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { InvoiceDocumentLocal } from '../components/billing/InvoiceDocumentLocal'
-import { InvoiceDocument as DemurrageInvoiceDocument } from '../components/demurrage/InvoiceDocument'
+import { InvoiceDocument as DemurrageInvoiceDocument, type DemurrageInvoiceDocumentDetail } from '../components/demurrage/InvoiceDocument'
 import { PortalConsolidatedModal } from '../components/portal/PortalConsolidatedModal'
 import { DisputeModal } from '../components/portal/DisputeModal'
 import { PortalDemurrageDetailModal } from '../components/portal/PortalDemurrageDetailModal'
@@ -272,10 +272,11 @@ export function PortalBilling() {
           <div className="invoice-print-content">
             <DemurrageInvoiceDocument
               detail={{
-                ...demurrageDetailQuery.data,
+                ...demurrageDetailQuery.data.invoice,
+                items: demurrageDetailQuery.data.items,
                 customer: { name: demurrageDetailQuery.data.invoice.customer_name, cnpj_cpf: demurrageDetailQuery.data.invoice.customer_cnpj_cpf },
                 bl: { pol: demurrageDetailQuery.data.invoice.pol, pod: demurrageDetailQuery.data.invoice.pod, voyage: { voyage_number: demurrageDetailQuery.data.invoice.voyage_number, vessel: { name: demurrageDetailQuery.data.invoice.vessel_name } } },
-              } as never}
+              } satisfies DemurrageInvoiceDocumentDetail}
               type="receipt"
             />
           </div>

@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial na PR #670 (2026-09-09).** O plano continua aberto: a PR #669 foi usada como baseline e esta branch integra correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial na PR #670 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e esta branch integra correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -32,21 +32,28 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **F1/F5:** `InvoiceDocument` deixou de reconverter linhas e de usar ROE `1`; o documento usa `current_total_brl` e `demurrage_invoice_items.subtotal_brl`, exibindo indisponibilidade para histórico sem valor persistido. A migration expansiva adiciona resíduo determinístico por linha, CHECKs de faixa/proveniência e revoga `UPDATE (roe, roe_manual)` de `anon`/`authenticated`; o service não aceita mais esses campos no patch do browser.
 - **S03:** os cinco callers restantes de `toNumber` foram migrados para `parseImportNumber` com formato explícito; `locateHeaderRowIndex` foi conectado ao `readSheet`/import de datas; Baplie expõe issues, exporta relatório e bloqueia staging com erro. `importValidation` e `resolvePortCode` agora têm consumidores vivos.
 - **Gate SQL:** as cinco suítes antes fora do gate foram corrigidas e incorporadas ao CI. Replay local do zero: 17 arquivos / 64 testes verdes. A correção adicional de `upsert_alert_item_before_milestone_hardening` impede eventos `updated` espúrios em reconciliação idempotente.
-- **S02:** o skip observado em runs de `workflow_run` sem PR é explicado pelo `if` do workflow para pushes em `main`; na execução da PR, o check Supabase passou. O provisionamento seguinte falhou por `PREVIEW_ADMIN_PASSWORD` operacional com menos de oito caracteres. Não alterar o workflow para aceitar `skipped`, não relaxar a validação do segredo e não ativar jobs.
-- **S11/S14:** o catálogo e os documentos foram atualizados; a geração oficial de `src/types/database.ts` foi tentada, mas o Podman local encerrou antes do container do CLI. O tipo novo foi conferido contra `information_schema` e deve ser regenerado oficialmente quando o runtime de containers estiver disponível. A inspeção das 14 candidatas legadas encontrou zero dependências `pg_depend`, zero referências nos corpos de outras funções e zero jobs locais; sem telemetria de consumidores externos, nenhum `DROP` foi aplicado.
+- **S02:** o skip observado em runs de `workflow_run` sem PR é explicado pelo `if` do workflow para pushes em `main`; na execução da PR, o check Supabase passou. O segredo operacional foi corrigido fora do código e o smoke autenticado do Preview foi concluído. O workflow continua fail-closed e nenhum job foi ativado.
+- **S11/S14:** o catálogo e os documentos foram atualizados; `src/types/database.ts` foi regenerado oficialmente contra o schema do Preview, preservando os aliases de domínio. A inspeção das 14 candidatas legadas encontrou zero dependências `pg_depend`, zero referências nos corpos de outras funções e zero jobs locais; sem telemetria de consumidores externos, nenhum `DROP` foi aplicado.
+
+### 1.0.2 Fechamento da revisão da PR #670
+
+- O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
+- O documento de Demurrage recebeu um DTO explícito. A impressão da Conciliação PIX passou a achatar corretamente `{ invoice, items }`, removendo casts que mascaravam a ausência de `doc_number`, totais e dados do cliente no recibo.
+- O replay limpo `001`–`013` e `015`–`030` aplicou 29 migrations; as 17 suítes SQL seriais passaram com 64 testes. O smoke autenticado no Preview confirmou importação de `01/08/2026` como `2026-08-01`, emissão/baixa de Demurrage com desconto de 10% (`DEM-2026-O5K9531`, R$ 1.319,32), documento com ROE/subtotal/desconto/total persistidos e paridade Portal/Inspeção com paginação.
+
+O resultado não encerra o plano: a matriz abaixo ainda contém itens **Pendente** ou **Precisa de investigação**, incluindo identidade canônica de navio/viagem e parsers legados (S03), caudas de metadados/efeitos de Granito e veículos (S04/S05), contratos de confirmação/ledger/BR Code/cache e execução real de PTAX (S08–S10), fallbacks e benchmarks de leitura (S12), contraste/formulário/progresso de uploads (S13) e prova de consumidores externos antes de qualquer `DROP` (S14). A ausência de deploy/execução remota de Edge, Vault, Resend, BCB e cron também permanece uma lacuna operacional; a chave de Comunicados, workers e cron continuam desligados.
 
 Validação anterior do baseline está preservada no histórico abaixo. Nesta
-integração, `npm test -- --run` passou com 557 arquivos, 2.942 testes aprovados
-e 88 ignorados; typecheck, lint, build, `npm run docs:check` (214 Markdown/49
-rotas), `npm run rpc:check` (168 RPCs), size-limit (195,19 kB brotlied) e
-`git diff --check` também passaram. Os quatro testes locais opt-in de Postgres
-passaram com 14 testes. Não foram publicados Edge Functions, preenchidos Vaults
-ou ativados jobs remotos; Preview, gateway, Resend e BCB continuam evidências
-externas pendentes.
+integração, `npm test -- --run` passou com 558 arquivos, 2.954 testes aprovados
+e 91 ignorados; typecheck, lint, build, `npm run docs:check` (428 Markdown/49
+rotas), `npm run rpc:check` (168 RPCs), size-limit e `git diff --check` também
+passaram. As 17 suítes locais opt-in de Postgres passaram com 64 testes. O
+Preview teve smoke autenticado concluído, mas Edge Functions, Vault, Resend,
+BCB e cron não foram ativados nem tratados como prova de produção.
 
 ### 1.1 Baseline e alcance da evidência
 
-- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`026`. O arquivo histórico não é a definição final do banco.
+- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`030` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
 - Fonte dos identificadores: [auditoria consolidada](../archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md). Preservar esse registro integralmente. Nas seções sem ID, usar o número e o título original; os sufixos deste plano apenas desdobram causas diferentes.
 - Fontes de decisão: [CLAUDE.md](../../CLAUDE.md), [CONTEXT.md](../../CONTEXT.md), [WORKFLOW.md](../../WORKFLOW.md), [arquitetura](../ARCHITECTURE.md), [rastreabilidade](../RASTREABILIDADE.md), [convenções](../CONVENCOES.md) e [índice de ADRs](../adr/README.md).
 - **Código** significa confirmação estática no baseline. **Teste de contrato SQL** significa inspeção textual de SQL; não prova execução, concorrência, grants efetivos ou PostgREST. Testes citados abaixo são existentes ou propostos, com essa distinção explícita; não foram executados para afirmar que uma remediação funciona.
@@ -85,9 +92,9 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | P0-2 | Mitigado parcialmente | Baplie agora transforma grupo físico inválido em issue bloqueante, mostra o relatório e impede staging; a semântica completa de identidade/UNA e importadores legados ainda exige regressão. | S03 |
 | P0-3 / §2.1 | Mitigado parcialmente | `readSheet` agora localiza a linha de cabeçalho com janela/aliases e o import de datas usa a linha real; o recorte de bytes/decodificação de todos os parsers ainda não foi uniformizado. | S03 |
 | P0-4 / §§5.1–5.3 | Pendente | `vesselAlias.ts` e `voyages.ts` não compartilham identidade canônica suficiente; fallback de nome em Chegadas e Saídas continua frágil. Risco confirmado é duplicação/associação incorreta por nome, não troca comprovada entre IMOs distintos. | S03 |
-| P1-5 / §3.2, igual a #657 P1-01 | Mitigado parcialmente | `src/services/containerDatesImport.ts` registra falhas por linha/B/L, continua outros B/Ls, não fatura B/L com update falho e reavalia devolução inalterada. RPC única/transação do conjunto ainda não existe. | S04 + S05 |
+| P1-5 / §3.2, igual a #657 P1-01 | Mitigado parcialmente | `src/services/containerDatesImport.ts` rejeita datas impossíveis, bloqueia duplicata conflitante, trata container ausente como falha do B/L inteiro, registra falhas por linha/B/L, continua outros B/Ls, não fatura B/L com update falho e reavalia devolução inalterada. RPC única/transação do conjunto ainda não existe. | S04 + S05 |
 | §2.3 — colunas e cabeçalho | Mitigado parcialmente | `locateHeaderRowIndex`/aliases foram conectados ao core de planilhas e ao import de datas; layouts fixos como COSCO ainda precisam de assinatura explícita. | S03 |
-| §2.4 — datas | Pendente | Política difere entre planilhas; datas inválidas/ambíguas podem virar ausência. Manter inferência de ano apenas onde já é contrato de programação. | S03 |
+| §2.4 — datas | Mitigado parcialmente | O import de datas rejeita calendário impossível, mas a política ainda difere entre planilhas e alguns parsers podem transformar formatos inválidos/ambíguos em ausência. Manter inferência de ano apenas onde já é contrato de programação. | S03 |
 | §2.5 — dado inválido | Mitigado parcialmente | Baplie agora preserva severidade, exibe issues e bloqueia erro; Vazios IMP e alguns fluxos de tara ainda precisam de contrato de rejeição próprio. | S03 |
 | §2.6 — porto desconhecido | Mitigado parcialmente | Baplie usa `resolvePortCode` e bloqueia porto ausente/desconhecido; os demais importadores ainda precisam convergir para o mesmo resultado explícito. | S03 |
 | §3.1 — imports já transacionais | Aceito | Preservar RPCs atômicas existentes; reexecutar seus contratos ao alterar helpers comuns. Não reconstruir esses imports. | Regressão S03/S04 |

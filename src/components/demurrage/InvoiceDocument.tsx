@@ -1,10 +1,54 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { COMPANY } from '../../config/company'
-import type { DemurrageInvoiceDetail } from '../../types/database'
 import { cell, documentRoot, fmtBRL, fmtCNPJ, labelCell } from '../shared/invoiceFormat'
 import { InvoiceDocFooter, InvoiceDocHeader, InvoiceDocTitle } from '../shared/InvoiceDocumentKit'
 
-type Props = { detail: DemurrageInvoiceDetail; type: 'invoice' | 'receipt' }
+export type DemurrageInvoiceDocumentItem = {
+  id: number
+  container_number: string
+  container_type: string | null
+  days_p1: number
+  rate_p1_usd: number
+  days_p2: number
+  rate_p2_usd: number
+  subtotal_usd: number
+  discharge_date: string | null
+  return_date: string | null
+  subtotal_brl?: number | null
+}
+
+export type DemurrageInvoiceDocumentDetail = {
+  doc_number: string
+  bl_id: string
+  total_usd: number
+  current_roe: number | null
+  current_total_brl: number | null
+  discount_value: number | null
+  discount_mode: string | null
+  discount_type: string | null
+  due_date: string | null
+  paid_at: string | null
+  pix_payload: string | null
+  items: DemurrageInvoiceDocumentItem[]
+  customer?: {
+    name: string
+    cnpj_cpf: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+  } | null
+  bl?: {
+    pol: string | null
+    pod: string | null
+    voyage?: {
+      voyage_number: string | null
+      vessel?: { name: string | null } | null
+    } | null
+  } | null
+}
+
+type Props = { detail: DemurrageInvoiceDocumentDetail; type: 'invoice' | 'receipt' }
 
 function fmtDate(s: string | null | undefined) {
   if (!s) return '—'
@@ -13,7 +57,7 @@ function fmtDate(s: string | null | undefined) {
 
 export function InvoiceDocument({ detail, type }: Props) {
   const { items, customer, bl, ...invoice } = detail
-  const customerAddress = customer as typeof customer & { address?: string | null; city?: string | null; state?: string | null; zip?: string | null }
+  const customerAddress = customer
   const isInvoice = type === 'invoice'
   // current_roe is the rate captured by the financial contract. `roe` is the
   // original BL override and is not a safe fallback for an already issued

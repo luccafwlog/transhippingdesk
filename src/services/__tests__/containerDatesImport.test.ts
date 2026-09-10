@@ -97,6 +97,27 @@ describe('containerDatesImport', () => {
     expect(parsed.rows).toHaveLength(0)
     expect(parsed.rowErrors[0]?.message).toContain('Data de descarga invalida ou ausente')
   })
+
+  it('rejeita datas de calendario impossiveis', async () => {
+    const buffer = jsonToBuffer([{ BL: 'BL001', Container: 'TCLU1234567', Descarga: '31/02/2026', Devolucao: '' }])
+    const parsed = await parseContainerDatesFile(new File([buffer], 'datas-container.xlsx'))
+
+    expect(parsed.rows).toHaveLength(0)
+    expect(parsed.rowErrors[0]?.message).toContain('Data de descarga invalida ou ausente')
+  })
+
+  it('bloqueia duplicata conflitante do mesmo BL e container', async () => {
+    const buffer = jsonToBuffer([
+      { BL: 'BL001', Container: 'TCLU1234567', Descarga: '01/08/2026', Devolucao: '' },
+      { BL: 'BL001', Container: 'TCLU1234567', Descarga: '02/08/2026', Devolucao: '' },
+    ])
+    const parsed = await parseContainerDatesFile(new File([buffer], 'datas-container.xlsx'))
+
+    expect(parsed.rows).toHaveLength(0)
+    expect(parsed.rowErrors).toEqual([
+      expect.objectContaining({ message: expect.stringMatching(/duplicata conflitante/i) }),
+    ])
+  })
 })
 
 // Regressao do lote parcial: cada B/L agora e uma unidade atomica. Uma falha
@@ -141,5 +162,28 @@ describe('importContainerDates (lote parcial)', () => {
     expect(result.unchanged).toBe(1)
     expect(result.updated).toBe(0)
     expect(mockCreateInvoiceForReturnedBL).toHaveBeenCalledWith('BL001')
+  })
+
+  it('nao atualiza parcialmente um B/L quando outro container do mesmo lote nao existe', async () => {
+    setContainers([
+      { id: 1, bl_id: 'BL001', container_number: 'TCLU1111111', discharge_date: null, return_date: null, demurrage_status: null },
+    ])
+
+    const result = await importContainerDates([
+      { bl_id: 'BL001', container_number: 'TCLU1111111', discharge_date: '2026-01-10', return_date: '2026-01-20' },
+      { bl_id: 'BL001', container_number: 'TCLU2222222', discharge_date: '2026-01-10', return_date: '2026-01-20' },
+    ])
+
+    expect(mockRpc).not.toHaveBeenCalled()
+    expect(result.updated).toBe(0)
+    expect(result.unchanged).toBe(0)
+    expect(result.missing).toBe(1)
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        bl_id: 'BL001',
+        container_number: 'TCLU2222222',
+        message: expect.stringContaining('B/L foi ignorado'),
+      }),
+    ])
   })
 })

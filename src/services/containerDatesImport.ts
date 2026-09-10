@@ -88,6 +88,12 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
   for (const row of uniqueRows) {
     if (!containersByKey.has(makeKey(row.bl_id, row.container_number))) {
       missing += 1
+      blsWithFailedUpdates.add(row.bl_id)
+      errors.push({
+        bl_id: row.bl_id,
+        container_number: row.container_number,
+        message: `Container nao encontrado; o B/L foi ignorado para preservar a atomicidade.`,
+      })
       continue
     }
     const rowsForBl = rowsByBl.get(row.bl_id) ?? []
@@ -104,6 +110,8 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
   }
 
   for (const [blId, rowsForBl] of rowsByBl) {
+    if (blsWithFailedUpdates.has(blId)) continue
+
     const payload = rowsForBl.map((row) => {
       const current = containersByKey.get(makeKey(row.bl_id, row.container_number))!
       return {
@@ -163,7 +171,8 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 }
 
 function parseRows(objectRows: Record<string, unknown>[], headerRowIndex = 0): ParsedContainerDatesImport {
-  const rows: ContainerDatesImportRow[] = []
+  const rowsByKey = new Map<string, ContainerDatesImportRow>()
+  const conflictingKeys = new Set<string>()
   const rowErrors: ParsedContainerDatesImport['rowErrors'] = []
 
   objectRows.forEach((row, index) => {
@@ -188,11 +197,23 @@ function parseRows(objectRows: Record<string, unknown>[], headerRowIndex = 0): P
       rowErrors.push({ row: rowNumber, message: 'Data de devolucao anterior a descarga.', raw: row }); return
     }
 
-    rows.push({ bl_id: blId, container_number: containerNumber, discharge_date: discharge, return_date: returnDate })
+    const parsedRow = { bl_id: blId, container_number: containerNumber, discharge_date: discharge, return_date: returnDate }
+    const key = makeKey(blId, containerNumber)
+    const previous = rowsByKey.get(key)
+    if (conflictingKeys.has(key)) return
+    if (previous) {
+      if (previous.discharge_date !== parsedRow.discharge_date || previous.return_date !== parsedRow.return_date) {
+        conflictingKeys.add(key)
+        rowsByKey.delete(key)
+        rowErrors.push({ row: rowNumber, message: 'Duplicata conflitante para o mesmo BL e container.', raw: row })
+      }
+      return
+    }
+    rowsByKey.set(key, parsedRow)
   })
 
   return {
-    rows: Array.from(new Map(rows.map((r) => [makeKey(r.bl_id, r.container_number), r])).values()),
+    rows: Array.from(rowsByKey.values()),
     rowErrors,
   }
 }
@@ -206,15 +227,28 @@ function parseDate(value: unknown): string | null {
   const s = String(value).trim()
   if (!s) return null
   // ISO format YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s) && isValidCalendarDate(s)) return s
   // Brazilian format DD/MM/YYYY or DD-MM-YYYY
   const parts = s.split(/[-/]/)
   if (parts.length === 3 && parts[0].length <= 2) {
     const [d, m, y] = parts
     const iso = `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso) && isValidCalendarDate(iso)) return iso
   }
   return null
+}
+
+function isValidCalendarDate(iso: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!match) return false
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
 }
 
 function mapRow(row: Record<string, unknown>) {
