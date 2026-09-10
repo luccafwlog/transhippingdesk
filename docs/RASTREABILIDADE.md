@@ -78,7 +78,7 @@ e roteiro manual de UX continuam provas operacionais pendentes; exportações
 explícitas ainda materializam o conjunto solicitado sob demanda e não são
 tratadas como leitura de rail.
 
-### Atualização complementar S12/S13 — benchmark e contraste
+### Atualização complementar S12/S13 — PR #683, benchmark e contraste
 
 O caminho normal de `useBls`, `useContainers`, `useBlSummary` e `useVoyages`
 agora chama diretamente os wrappers/RPCs paginados; os antigos full-scans ficam

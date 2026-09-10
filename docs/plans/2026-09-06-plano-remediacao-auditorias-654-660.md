@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial após as PRs #670–#682 (2026-09-10), com a entrega complementar S12/S13 desta branch em preparação.** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial após as PRs #670–#682 (2026-09-10), com a PR #683 aberta para a entrega complementar S12/S13 desta branch.** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -181,7 +181,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   compostos, Pix Automático, DICT, decoder de terceiro e execução em PSP
   continuam fora deste contrato e não são declarados conformes por ele.
 
-### 1.0.11 Read-model operacional de viagens — entrega S12 em preparação sobre #681
+### 1.0.11 Read-model operacional de viagens — PR #682 sobre #681
 
 - **S12:** `operational_list_voyage_summaries` (`035`) entrega uma página
   resumida de viagens com rotas, modalidade de carga, cobertura de CE,
@@ -199,7 +199,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   1.0.12; Preview autenticado e a prova manual permanecem pendentes e não são
   afirmados por esta entrega.
 
-### 1.0.12 Benchmark S12 e contraste S13 — entrega complementar em preparação sobre #682
+### 1.0.12 Benchmark S12 e contraste S13 — PR #683 sobre #682
 
 - **S12:** o caminho normal dos hooks de listas chama diretamente as RPCs
   paginadas; os full-scans de compatibilidade foram removidos dos hooks. O
