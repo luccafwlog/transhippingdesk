@@ -129,6 +129,23 @@ it('US-079: importar com pendencias chama importGraniteManifest e reporta a pend
   )
 })
 
+it('bloqueia confirmacao quando o preview possui erro de parser', async () => {
+  const user = userEvent.setup()
+  mocks.parse.mockResolvedValue({
+    vesselVoyage: 'NAVIO/14',
+    bls: [bl()],
+    rowErrors: [{ row: 2, message: 'Data invalida', raw: {} }],
+  })
+  renderGranite()
+
+  await user.click(screen.getByRole('button', { name: /Importar Planilha COSCO/ }))
+  await selectVoyage(user)
+  await user.upload(screen.getByLabelText(/Arquivo/), new File(['x'], 'cosco.xlsx'))
+
+  await waitFor(() => expect(screen.getByText(/Data invalida/)).toBeTruthy())
+  expect((screen.getByRole('button', { name: 'Confirmar importação' }) as HTMLButtonElement).disabled).toBe(true)
+})
+
 it('US-078: resolver o CNPJ no preview reconcilia o B/L pendente', async () => {
   const user = userEvent.setup()
   mocks.parse.mockResolvedValue({ vesselVoyage: 'NAVIO/14', bls: [bl()], rowErrors: [] })

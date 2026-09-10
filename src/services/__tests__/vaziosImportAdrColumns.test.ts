@@ -22,6 +22,11 @@ describe('parser de vazios — novo contrato', () => {
     expect(parsed.rowErrors).toEqual([])
     expect(parsed.bookings[0]).toMatchObject({ local_code: 'VBR', condition: 'vazio', hand_in_date: '2026-07-01', hand_out_date: '2026-07-05', movement_date: '2026-07-06' })
   })
+  it('canoniza a caixa do container e do tipo antes do contrato da RPC', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'abcd1234568', Type: '40hc', Depot: 'VBR', Condition: 'vazio' }]))
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.bookings[0]).toMatchObject({ container_number: 'ABCD1234568', container_type: '40HC' })
+  })
   it('normaliza datas Excel no formato MM/DD/YYYY sem enviar mes invalido ao banco', async () => {
     const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ CONTAINER: 'ABCD1234570', TIPO: '40HC', LOCAL: 'VBR', Condition: 'vazio', 'Hand-in': '02/25/2026', 'Hand-out': '02/26/2026', 'Load date': '02/27/2026' }]))
     expect(parsed.rowErrors).toEqual([])

@@ -55,6 +55,14 @@ const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
   ['hongkong', 'HKHKG'],
 ]
 
+// Códigos que já fazem parte do cadastro de escalas/rotas, mas que não
+// precisam de alias textual para serem aceitos no contrato dos imports.
+const KNOWN_PORT_CODES = new Set([
+  ...PORT_NAME_TO_LOCODE.map(([, code]) => code),
+  'BRVIX', 'BRVIT', 'BRBEL', 'BRFOR', 'BRIGI', 'BRIOS', 'BRMCZ', 'BRNAT',
+  'BRNVT', 'BRREC', 'BRSLZ', 'BRSFS', 'ITGOA', 'NLRTM',
+])
+
 export function normalizePortCode(value: string | null | undefined) {
   return resolvePortCode(value).code
 }
@@ -73,18 +81,14 @@ export function resolvePortCode(value: string | null | undefined): { code: strin
   if (match) return { code: match.code, recognized: true }
 
   if (/^[A-Z]{5}$/.test(normalized)) {
-    const known = new Set(PORT_NAME_TO_LOCODE.map(([, code]) => code))
-    known.add('BRVIX')
-    known.add('BRVIT')
     // 5 letras desconhecidas: devolve o texto mas sinaliza não reconhecido,
     // nunca inventa que é LOCODE válido.
-    return { code: normalized, recognized: known.has(normalized) }
+    return { code: normalized, recognized: KNOWN_PORT_CODES.has(normalized) }
   }
   const embeddedLocode = normalized.match(/\b(?:BR|CN|HK)[A-Z0-9]{3}\b/)?.[0]
   if (embeddedLocode) {
     const code = embeddedLocode === 'BRVIT' ? 'BRVIX' : embeddedLocode
-    const known = new Set(PORT_NAME_TO_LOCODE.map(([, code]) => code))
-    return { code, recognized: known.has(code) || code === 'BRVIX' }
+    return { code, recognized: KNOWN_PORT_CODES.has(code) || code === 'BRVIX' }
   }
 
   return { code: normalized, recognized: false }

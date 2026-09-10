@@ -111,7 +111,7 @@ export function Granite() {
   }
 
   async function handleImport() {
-    if (!manifest || !voyageId || !user) return
+    if (!manifest || manifest.rowErrors.length > 0 || !voyageId || !user) return
     setSubmitting(true)
     try {
       const { pendingCount } = await importGraniteManifest({
@@ -463,7 +463,7 @@ export function Granite() {
 
           <div className="app-modal__actions">
             <Button variant="secondary" onClick={() => setUploadOpen(false)}>Cancelar</Button>
-            <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
+            <Button disabled={!manifest || manifest.rowErrors.length > 0 || !voyageId || !user} loading={submitting} onClick={handleImport}>
               Confirmar importação
             </Button>
           </div>

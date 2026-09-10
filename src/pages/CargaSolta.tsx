@@ -402,7 +402,7 @@ export function CargaSolta() {
             showToast('Manifesto BB importado com sucesso.', 'success')
             setVoyageId('')
           }}
-          canImport={(nextManifest) => nextManifest.bls.length > 0}
+          canImport={(nextManifest) => nextManifest.bls.length > 0 && nextManifest.rowErrors.length === 0}
           ready={Boolean(voyageId && user)}
           prerequisite={<VoyageCombobox required label="Viagem de destino" selectedVoyageId={voyageId} onSelect={(id) => setVoyageId(id == null ? '' : String(id))} />}
           renderPreview={(nextManifest) => <BreakbulkPreview manifest={nextManifest} />}

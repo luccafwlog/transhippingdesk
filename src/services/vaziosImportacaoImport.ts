@@ -3,6 +3,8 @@ import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type R
 import { supabase } from './supabase'
 import { escapeFilterTerm } from '../lib/utils'
 import { parseImportNumber } from '../lib/importNumber'
+import { IsoContainerSchema, LocodeSchema } from './importValidation'
+import { resolvePortCode } from './portCode'
 import type { VaziosImportacaoContainerListItem, VaziosImportacaoManifest } from '../types/database'
 
 const HEADER_MAP: Record<string, string> = {
@@ -62,12 +64,12 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
     const rowNumber = idx + 2
     const mapped = mapRow(row)
 
-    const containerNumber = String(mapped['container_number'] ?? '').trim()
+    const containerNumber = String(mapped['container_number'] ?? '').trim().toUpperCase()
     if (!containerNumber) {
       rowErrors.add(rowNumber, 'Container ausente — linha ignorada.', row)
       return
     }
-    if (!/^[A-Z]{4}\d{7}$/.test(containerNumber)) {
+    if (!IsoContainerSchema.safeParse(containerNumber).success) {
       rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
     }
 
@@ -78,13 +80,27 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
     } else if (tare_kg !== null && tare_kg < 0) {
       rowErrors.add(rowNumber, `Container ${containerNumber}: tara não pode ser negativa.`, row)
     }
-    const pol = String(mapped['pol'] ?? '').trim() || null
-    const pod = String(mapped['pod'] ?? '').trim() || null
+    const pol = resolveVaziosPort(
+      String(mapped['pol'] ?? '').trim() || null,
+      'POL',
+      containerNumber,
+      rowNumber,
+      rowErrors,
+      row,
+    )
+    const pod = resolveVaziosPort(
+      String(mapped['pod'] ?? '').trim() || null,
+      'POD',
+      containerNumber,
+      rowNumber,
+      rowErrors,
+      row,
+    )
 
     containers.push({
       rowNumber,
       container_number: containerNumber,
-      container_type: String(mapped['container_type'] ?? '').trim() || null,
+      container_type: String(mapped['container_type'] ?? '').trim().toUpperCase() || null,
       tare_kg,
       pol,
       pod,
@@ -92,6 +108,26 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
   })
 
   return { containers, rowErrors: rowErrors.errors }
+}
+
+function resolveVaziosPort(
+  value: string | null,
+  field: 'POL' | 'POD',
+  containerNumber: string,
+  rowNumber: number,
+  rowErrors: ReturnType<typeof createRowErrorCollector>,
+  raw: unknown,
+): string | null {
+  if (!value) return null
+  const resolved = resolvePortCode(value)
+  if (!resolved.code || !resolved.recognized || !LocodeSchema.safeParse(resolved.code).success) {
+    rowErrors.add(
+      rowNumber,
+      `Container ${containerNumber}: ${field} ${resolved.code ?? value} não reconhecido como LOCODE.`,
+      raw,
+    )
+  }
+  return resolved.code
 }
 
 export type ImportVaziosImportacaoArgs = {

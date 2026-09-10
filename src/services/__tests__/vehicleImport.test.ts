@@ -127,6 +127,63 @@ describe('vehicleImport', () => {
     })
   })
 
+  it('canoniza container ISO em minusculas antes de persistir', async () => {
+    const buffer = jsonToBuffer([
+      {
+        CHASSI: '9BWZZZ377VT004251',
+        MARCA: 'BYD',
+        MODELO: 'DOLPHIN',
+        PESO: '1.650,50',
+        CUBAGEM: '12,3',
+        CONTAINER: 'caxu1234567',
+        TIPO_CONTAINER: '40fm',
+        LACRE: 'sel123',
+        BL: 'BL001',
+      },
+    ])
+
+    const parsed = await parseVehicleImportBuffer(buffer)
+
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.rows[0]).toMatchObject({
+      container_number: 'CAXU1234567',
+      container_type: '40FM',
+      seal_number: 'SEL123',
+    })
+  })
+
+  it('nao aceita expoente em peso ou cubagem do contrato COSCO', async () => {
+    const buffer = jsonToBuffer([
+      {
+        CHASSI: '9BWZZZ377VT004251',
+        MARCA: 'BYD',
+        MODELO: 'DOLPHIN',
+        PESO: '1e3',
+        CUBAGEM: '12,3',
+        CONTAINER: 'CAXU1234567',
+        TIPO_CONTAINER: '40FM',
+        LACRE: 'SEL123',
+        BL: 'BL001',
+      },
+      {
+        CHASSI: '9BWZZZ377VT004252',
+        MARCA: 'BYD',
+        MODELO: 'DOLPHIN',
+        PESO: '1.650,50',
+        CUBAGEM: '1e2',
+        CONTAINER: 'CAXU1234568',
+        TIPO_CONTAINER: '40FM',
+        LACRE: 'SEL124',
+        BL: 'BL002',
+      },
+    ])
+
+    const parsed = await parseVehicleImportBuffer(buffer)
+
+    expect(parsed.rows).toHaveLength(0)
+    expect(parsed.rowErrors).toHaveLength(2)
+  })
+
   it('valida duplicidade de chassi e consistencia BL-container antes de inserir', async () => {
     const insertedRows: Array<Record<string, unknown>> = []
 

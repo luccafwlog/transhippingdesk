@@ -134,7 +134,7 @@ export function VoyageImportActions({
           parser={parseBreakbulkManifestFile}
           inspectFile={inspectImportUpload}
           helper={<TemplateLinks baseName="manifesto-bb-modelo" />}
-          canImport={(p) => p.bls.length > 0}
+          canImport={(p) => p.bls.length > 0 && p.rowErrors.length === 0}
           importer={async (preview, file) => {
             await importBreakbulkManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
             await invalidateAfterBLImport()
@@ -158,7 +158,7 @@ export function VoyageImportActions({
           accept=".xlsx,.xls"
           parser={parseGraniteManifestFile}
           inspectFile={inspectImportUpload}
-          canImport={(p) => p.bls.length > 0}
+          canImport={(p) => p.bls.length > 0 && p.rowErrors.length === 0}
           importer={async (preview, file) => {
             const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
             await Promise.all([
@@ -200,7 +200,7 @@ export function VoyageImportActions({
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosImportacaoFile}
           inspectFile={inspectImportUpload}
-          canImport={(p) => p.containers.length > 0}
+          canImport={(p) => p.containers.length > 0 && p.rowErrors.length === 0}
           importer={async (preview) => {
             await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId })
             await Promise.all([
@@ -446,7 +446,7 @@ function VehiclesImportModal({
   }
 
   async function handleImport() {
-    if (!preview?.rows.length) return
+    if (!preview?.rows.length || preview.rowErrors.length) return
     setImporting(true)
     try {
       const result = await importVehicleRows({ voyageId, rows: preview.rows })
@@ -486,7 +486,7 @@ function VehiclesImportModal({
         ) : null}
         <div className="app-modal__actions">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button disabled={!preview?.rows.length} loading={importing} onClick={() => void handleImport()}>Confirmar</Button>
+          <Button disabled={!preview?.rows.length || preview.rowErrors.length > 0} loading={importing} onClick={() => void handleImport()}>Confirmar</Button>
         </div>
       </div>
     </Modal>

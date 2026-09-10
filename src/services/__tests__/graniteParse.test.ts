@@ -75,3 +75,27 @@ it('ADR 2026-07-31 (Task 6): sem L/PORT na planilha, loading_port fica null (fal
   expect(parsed.bls).toHaveLength(1)
   expect(parsed.bls[0].loading_port).toBeNull()
 })
+
+it('S03: rejeita data de prontidao com calendario impossivel, sem descartar o B/L', async () => {
+  const parsed = await parseGraniteManifestFile(
+    cosco([{ BL: 'BL-G9', 'Navio/Viagem': 'NAVIO/14', 'Real Weight': 5000, 'Prontidao de Carga': '31/02/2026' }]),
+  )
+
+  expect(parsed.bls).toHaveLength(1)
+  expect(parsed.bls[0]?.cargo_readiness_date).toBeNull()
+  expect(parsed.rowErrors).toEqual([
+    expect.objectContaining({ row: 2, message: expect.stringContaining('Cargo Readiness') }),
+  ])
+})
+
+it('S03: normaliza data valida e bloqueia porto fora do contrato', async () => {
+  const parsed = await parseGraniteManifestFile(
+    cosco([{ BL: 'BL-G10', 'Navio/Viagem': 'NAVIO/14', 'Real Weight': 5000, 'Prontidao de Carga': '29/02/2024', 'D/PORT': 'porto inexistente' }]),
+  )
+
+  expect(parsed.bls[0]?.cargo_readiness_date).toBe('2024-02-29')
+  expect(parsed.bls[0]?.discharge_port).toBe('PORTO INEXISTENTE')
+  expect(parsed.rowErrors).toEqual([
+    expect.objectContaining({ row: 2, message: expect.stringContaining('D/PORT') }),
+  ])
+})

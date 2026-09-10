@@ -124,6 +124,25 @@ it('US-223: confirmar a importacao conecta o importador ao voyageId travado', as
   )
 })
 
+it('bloqueia manifesto BB quando a previa contem erro de linha', async () => {
+  mocks.parseBreakbulkManifestFile.mockResolvedValue({
+    bls: [{ id: 'BL-1' }],
+    rowErrors: [{ row: 2, message: 'Peso invalido', raw: {} }],
+  })
+
+  const { container } = render(
+    <VoyageImportActions voyageId={7} voyageLabel="GREEN SANTOS / 14N" userId="user-1" types={['bb']} />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: /Manifesto BB/ }))
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['BL;CE\nBL-1;CE-1'], 'manifesto-bb.csv')] },
+  })
+
+  await waitFor(() => expect(mocks.parseBreakbulkManifestFile).toHaveBeenCalledTimes(1))
+  expect((screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement).disabled).toBe(true)
+  expect(mocks.importBreakbulkManifest).not.toHaveBeenCalled()
+})
+
 it('bloqueia staging quando a prévia do Baplie contém issue bloqueante', async () => {
   mocks.parseBaplieFile.mockResolvedValue({
     vessel_name: 'GREEN SANTOS',

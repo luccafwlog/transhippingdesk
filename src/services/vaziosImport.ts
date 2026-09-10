@@ -1,5 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
+import { IsoContainerSchema, IsoDateSchema } from './importValidation'
 import { supabase } from './supabase'
 import { escapeFilterTerm } from '../lib/utils'
 
@@ -65,7 +66,7 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
     const row = rows[idx]
     const containerNumber = String(mapped.container_number ?? '').trim().toUpperCase()
     if (!containerNumber) { rowErrors.add(rowNumber, 'Container ausente.', row); return }
-    if (!/^[A-Z]{4}\d{7}$/.test(containerNumber)) rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
+    if (!IsoContainerSchema.safeParse(containerNumber).success) rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
     const condition = parseCondition(mapped.condition)
     if (!condition) rowErrors.add(rowNumber, `Container ${containerNumber}: condição deve ser vazio ou material.`, row)
     const localCode = text(mapped.local_code)
@@ -81,7 +82,7 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
     if (!localCode) rowErrors.add(rowNumber, `Container ${containerNumber}: local de origem obrigatório.`, row)
     else if (depots) validateLocalAgainstDepots(rowNumber, containerNumber, localCode, handInDate, handOutDate, depots, rowErrors, row)
     bookings.push({
-      rowNumber, container_number: containerNumber, container_type: text(mapped.container_type), local_code: localCode,
+      rowNumber, container_number: containerNumber, container_type: text(mapped.container_type)?.toUpperCase() ?? null, local_code: localCode,
       condition, hand_in_date: handInDate,
       hand_out_date: handOutDate, movement_date: movementDate,
     })
@@ -196,7 +197,8 @@ function dateFromParts(year: number, month: number, day: number): string | null 
     month < 1 || month > 12 || day < 1 ||
     date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day
   ) return null
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return IsoDateSchema.safeParse(isoDate).success ? isoDate : null
 }
 
 function formatRowErrors(rowErrors: readonly RowError[]): string {

@@ -3,7 +3,8 @@ import { canonicalizeDocument } from '../lib/cnpj'
 import { parseImportNumber } from '../lib/importNumber'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
 import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
-import { normalizePortCode } from './portCode'
+import { IsoDateSchema, LocodeSchema } from './importValidation'
+import { resolvePortCode } from './portCode'
 import { supabase } from './supabase'
 
 // Mapeamento de cabeçalhos da planilha COSCO "Relatório de Cargas/Booking"
@@ -133,6 +134,32 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
           : cnpjCanonical ? 'not_found' : 'missing_cnpj'
     }
 
+    const loadingPort = resolveGranitePort(
+      String(mapped['loading_port'] ?? '').trim() || null,
+      'L/PORT',
+      blNumber,
+      rowNumber,
+      rowErrors,
+      row,
+    )
+    const dischargePort = resolveGranitePort(
+      String(mapped['discharge_port'] ?? '').trim() || null,
+      'D/PORT',
+      blNumber,
+      rowNumber,
+      rowErrors,
+      row,
+    )
+    const cargoReadinessRaw = String(mapped['cargo_readiness_date'] ?? '').trim()
+    const cargoReadinessDate = parseDateBR(cargoReadinessRaw)
+    if (cargoReadinessRaw && cargoReadinessDate === null) {
+      rowErrors.add(
+        rowNumber,
+        `BL ${blNumber}: Cargo Readiness Date inválida (${cargoReadinessRaw}). Use DD/MM/AAAA.`,
+        row,
+      )
+    }
+
     bls.push({
       rowNumber,
       sequence: parseGraniteNumber(mapped['sequence'], 'sequence', rowNumber, rowErrors),
@@ -143,8 +170,8 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       // Task 6 (ADR 2026-07-31): normaliza para LOCODE aqui, na entrada, para
       // que o casamento com a escala (agencyDepartureReport.ts) funcione sem
       // depender de correção retroativa dos dados já gravados.
-      loading_port: normalizePortCode(String(mapped['loading_port'] ?? '').trim() || null),
-      discharge_port: normalizePortCode(String(mapped['discharge_port'] ?? '').trim() || null),
+      loading_port: loadingPort,
+      discharge_port: dischargePort,
       shipper_name: shipperName,
       shipper_cnpj: cnpjCanonical || cnpjRaw || null,
       consignee_name: String(mapped['consignee_name'] ?? '').trim() || null,
@@ -161,7 +188,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       cosco_transport: String(mapped['cosco_transport'] ?? '').trim() || null,
       fragile_blocks: parseGraniteNumber(mapped['fragile_blocks'], 'fragile_blocks', rowNumber, rowErrors),
       cssc_selection: String(mapped['cssc_selection'] ?? '').trim() || null,
-      cargo_readiness_date: parseDateBR(String(mapped['cargo_readiness_date'] ?? '')),
+      cargo_readiness_date: cargoReadinessDate,
       phase: String(mapped['phase'] ?? '').trim() || null,
       clientId,
       suggestedClientId,
@@ -206,7 +233,35 @@ function parseDateBR(value: string): string | null {
   if (!match) return null
   const [, d, m, y] = match
   const year = y.length === 2 ? `20${y}` : y
-  return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  const isoDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  if (!IsoDateSchema.safeParse(isoDate).success) return null
+  const parsed = new Date(Date.UTC(Number(year), Number(m) - 1, Number(d)))
+  if (
+    parsed.getUTCFullYear() !== Number(year)
+    || parsed.getUTCMonth() !== Number(m) - 1
+    || parsed.getUTCDate() !== Number(d)
+  ) return null
+  return isoDate
+}
+
+function resolveGranitePort(
+  value: string | null,
+  field: 'L/PORT' | 'D/PORT',
+  blNumber: string,
+  rowNumber: number,
+  rowErrors: ReturnType<typeof createRowErrorCollector>,
+  raw: unknown,
+): string | null {
+  if (!value) return null
+  const resolved = resolvePortCode(value)
+  if (!resolved.code || !resolved.recognized || !LocodeSchema.safeParse(resolved.code).success) {
+    rowErrors.add(
+      rowNumber,
+      `BL ${blNumber}: ${field} ${resolved.code ?? value} não reconhecido como LOCODE.`,
+      raw,
+    )
+  }
+  return resolved.code
 }
 
 export type ImportGraniteArgs = {

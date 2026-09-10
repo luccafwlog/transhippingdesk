@@ -39,3 +39,25 @@ it('mostra o formato e o encoding detectados junto da prévia do arquivo', async
   expect(inspection.textContent).toContain('BL;Cidade')
   expect(screen.getByText('Linhas: 1')).toBeTruthy()
 })
+
+it('mantem a confirmacao desabilitada quando o contrato rejeita a previa', async () => {
+  const { container } = render(
+    <ToastProvider>
+      <FileImportModal
+        title="Importar arquivo"
+        accept=".csv"
+        parser={async () => ({ rows: 1 })}
+        canImport={() => false}
+        renderPreview={(preview) => <div>Linhas: {preview.rows}</div>}
+        onClose={vi.fn()}
+      />
+    </ToastProvider>,
+  )
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['conteudo'], 'dados.csv')] },
+  })
+
+  await waitFor(() => expect(screen.getByText('Linhas: 1')).toBeTruthy())
+  expect((screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement).disabled).toBe(true)
+})

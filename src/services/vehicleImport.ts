@@ -1,5 +1,7 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { asString, chunkArray } from '../lib/utils'
+import { asString, chunkArray, normalizeHeader } from '../lib/utils'
+import { parseImportNumber, type ImportNumberFormat } from '../lib/importNumber'
+import { IsoContainerSchema } from './importValidation'
 import { supabase } from './supabase'
 import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
@@ -107,6 +109,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
   // O modelo do armador pode manter os veiculos na segunda aba; percorremos as
   // abas pelo leitor compartilhado ate encontrar o cabecalho completo.
   let chosenRows: Record<string, unknown>[] | undefined
+  let chosenNumberFormat: ImportNumberFormat = 'pt-BR'
   let lastMissing: string[] = Object.values(requiredHeaders)
 
   for (let sheetIndex = 0; ; sheetIndex += 1) {
@@ -121,6 +124,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
     const { missing } = matchHeaders(content.headers, SPEC)
     if (!missing.length) {
       chosenRows = content.rows
+      chosenNumberFormat = inferVehicleNumberFormat(content.headers)
       break
     }
     lastMissing = missing.map((field) => requiredHeaders[field as keyof typeof requiredHeaders] ?? field)
@@ -129,7 +133,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
   if (!chosenRows) {
     throw new Error(`Planilha invalida. Colunas obrigatorias: ${lastMissing.join(', ')}.`)
   }
-  return parseVehicleImportRows(chosenRows)
+  return parseVehicleImportRows(chosenRows, chosenNumberFormat)
 }
 
 export async function importVehicleRows({
@@ -405,7 +409,7 @@ async function loadActiveInvoicesByBl(blIds: string[]): Promise<Map<string, Set<
   return byBl
 }
 
-function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleImport {
+function parseVehicleImportRows(rows: Record<string, unknown>[], numberFormat: ImportNumberFormat): ParsedVehicleImport {
   const parsedRows: VehicleImportRow[] = []
   const rowErrors: ParsedVehicleImport['rowErrors'] = []
 
@@ -416,8 +420,8 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
     const chassis = normalizeKey(mapped.chassis)
     const brand = translateBrand(asString(mapped.brand))
     const model = asString(mapped.model)
-    const weight = parseSpreadsheetNumber(mapped.weight_kg)
-    const cbm = parseSpreadsheetNumber(mapped.cbm)
+    const weight = parseSpreadsheetNumber(mapped.weight_kg, numberFormat)
+    const cbm = parseSpreadsheetNumber(mapped.cbm, numberFormat)
     const containerNumber = normalizeKey(mapped.container_number)
     const containerType = normalizeKey(mapped.container_type)
     const sealNumber = normalizeKey(mapped.seal_number)
@@ -441,6 +445,11 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
 
     if (weight <= 0 || cbm <= 0) {
       rowErrors.push({ row: rowNumber, message: 'Peso e cubagem devem ser numericos e maiores que zero.', raw: row })
+      return
+    }
+
+    if (!IsoContainerSchema.safeParse(containerNumber).success) {
+      rowErrors.push({ row: rowNumber, message: `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, raw: row })
       return
     }
 
@@ -471,27 +480,27 @@ function mapRow(row: Record<string, unknown>) {
   return mapped
 }
 
-function parseSpreadsheetNumber(value: unknown) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null
-  }
-
-  const text = asString(value)
-  if (!text) return null
-
-  if (text.includes(',') && text.includes('.')) {
-    const normalized = text.replace(/\./g, '').replace(',', '.')
-    const number = Number(normalized)
-    return Number.isFinite(number) ? number : null
-  }
-
-  if (text.includes(',')) {
-    const number = Number(text.replace(',', '.'))
-    return Number.isFinite(number) ? number : null
-  }
-
-  const number = Number(text)
+function parseSpreadsheetNumber(value: unknown, format: ImportNumberFormat) {
+  const parsed = parseImportNumber(value, format)
+  if (parsed.kind !== 'value') return null
+  const number = Number(parsed.decimal)
   return Number.isFinite(number) ? number : null
+}
+
+function inferVehicleNumberFormat(headers: readonly string[]): ImportNumberFormat {
+  const normalized = headers.map(normalizeHeader)
+  const carrierMarkers = new Set([
+    'vin no.',
+    'vin no',
+    'gw(kg)',
+    'gross weight',
+    'volume',
+    '品牌',
+    '型号',
+    '毛重',
+    '体积',
+  ])
+  return normalized.some((header) => carrierMarkers.has(header)) ? 'en-US' : 'pt-BR'
 }
 
 function normalizeKey(value: unknown) {

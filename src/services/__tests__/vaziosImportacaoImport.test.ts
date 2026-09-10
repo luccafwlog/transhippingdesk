@@ -44,6 +44,24 @@ describe('parseVaziosImportacaoBuffer', () => {
     ])
   })
 
+  it('canoniza caixa do ISO e dos portos e bloqueia porto nao reconhecido', async () => {
+    const buffer = jsonToBuffer([
+      { Container: 'mscu1234567', Tipo: '40hc', Tara: '3800', Origem: 'Vitoria', Destino: 'porto inexistente' },
+    ])
+
+    const manifest = await parseVaziosImportacaoBuffer(buffer)
+
+    expect(manifest.containers[0]).toMatchObject({
+      container_number: 'MSCU1234567',
+      container_type: '40HC',
+      pol: 'BRVIX',
+      pod: 'PORTO INEXISTENTE',
+    })
+    expect(manifest.rowErrors).toEqual([
+      expect.objectContaining({ row: 2, message: expect.stringContaining('POD') }),
+    ])
+  })
+
   it('ignora linha sem container e sinaliza formato ISO invalido sem descartar a linha', async () => {
     const buffer = jsonToBuffer([
       { 'Container': '', 'Tipo': '20DV' },

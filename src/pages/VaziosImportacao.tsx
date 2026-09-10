@@ -427,7 +427,7 @@ export function VaziosImportacao() {
             await afterManifestoImportado(queryClient, { voyageId })
             showToast(`${nextManifest.containers.length} containers importados.`, 'success')
           }}
-          canImport={(nextManifest) => nextManifest.containers.length > 0}
+          canImport={(nextManifest) => nextManifest.containers.length > 0 && nextManifest.rowErrors.length === 0}
           ready={Boolean(voyageId && user)}
           prerequisite={<VoyageCombobox required label="Viagem de destino" selectedVoyageId={voyageId} onSelect={(id) => setVoyageId(id == null ? '' : String(id))} />}
           helper={
