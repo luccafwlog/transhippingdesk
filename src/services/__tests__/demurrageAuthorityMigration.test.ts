@@ -7,6 +7,14 @@ describe('S08-B/C — autoridade financeira e snapshot de Demurrage', () => {
     resolve(process.cwd(), 'supabase/migrations/023_demurrage_calculation_snapshot.sql'),
     'utf8',
   )
+  const roeIntegritySql = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/028_demurrage_roe_integrity.sql'),
+    'utf8',
+  )
+  const repairSql = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/030_fix_demurrage_snapshot_ptax_column.sql'),
+    'utf8',
+  )
 
   it('mantém a foto de cálculo append-only e aceita PTAX ausente apenas quando a origem é manual', () => {
     expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS public\.demurrage_calculation_snapshots/)
@@ -34,5 +42,13 @@ describe('S08-B/C — autoridade financeira e snapshot de Demurrage', () => {
     expect(demurrage).not.toContain('buildTransshippingPixPayload')
     expect(billing).not.toContain('persistPixPayload')
     expect(billing).not.toContain('backfillInvoicePixPayload')
+  })
+
+  it('consulta a coluna PTAX real no histórico de referências', () => {
+    expect(sql).toContain('SELECT history.ptax INTO v_ptax')
+    expect(roeIntegritySql).toContain('SELECT history.ptax INTO v_ptax')
+    expect(roeIntegritySql).not.toContain('history.ptax_used')
+    expect(repairSql).toContain('SELECT history.ptax INTO v_ptax')
+    expect(repairSql).not.toContain('history.ptax_used')
   })
 })

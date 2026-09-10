@@ -84,7 +84,7 @@ BEGIN
   IF v_invoice.roe_source = 'manual' THEN
     v_ptax := NULL;
   ELSE
-    SELECT history.ptax_used INTO v_ptax
+    SELECT history.ptax INTO v_ptax
     FROM public.exchange_rate_reference_history AS history
     WHERE history.source = v_invoice.roe_source
       AND history.roe = v_invoice.current_roe
