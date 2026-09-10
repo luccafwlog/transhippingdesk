@@ -27,6 +27,8 @@ import { exportVehicleWorkbook } from '../services/exports'
 import { listVoyageEscalaSchedulesByVoyageIds } from '../services/voyageRouteSchedules'
 import { buildVoyageRailItems, type VoyageRailModuleStats } from '../services/voyageSummaries'
 import { VoyageRail } from '../components/voyages/VoyageRail'
+import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
+import { rowErrorsToImportIssues } from '../services/importValidation'
 
 export function Veiculos() {
   const [searchParams] = useSearchParams()
@@ -164,7 +166,7 @@ export function Veiculos() {
   }
 
   async function handleImport() {
-    if (!importTargetVoyageId || !parsedImport?.rows.length) return
+    if (!importTargetVoyageId || !parsedImport?.rows.length || parsedImport.rowErrors.length) return
 
     setImporting(true)
     try {
@@ -641,15 +643,7 @@ export function Veiculos() {
               </div>
               <TruncationNote shown={20} total={parsedImport.rows.length} noun="veículo" nounPlural="veículos" />
 
-              {parsedImport.rowErrors.length ? (
-                <div className="grid gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-                  {parsedImport.rowErrors.slice(0, 8).map((rowError) => (
-                    <div key={`${rowError.row}-${rowError.message}`}>
-                      Linha {rowError.row}: {rowError.message}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
+              <ImportIssuesPanel issues={rowErrorsToImportIssues(parsedImport.rowErrors)} filename="veiculos-issues.csv" />
             </div>
           ) : null}
 
@@ -679,7 +673,7 @@ export function Veiculos() {
             <Button variant="secondary" onClick={resetImportState}>
               Fechar
             </Button>
-            <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length || Boolean(importReport)} loading={importing} onClick={handleImport}>
+            <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length || Boolean(parsedImport.rowErrors.length) || Boolean(importReport)} loading={importing} onClick={handleImport}>
               Confirmar importação
             </Button>
           </div>

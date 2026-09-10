@@ -24,6 +24,8 @@ import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCh
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { canonicalizeDocument, normalizeCnpj } from '../lib/cnpj'
 import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../services/customerReconciliation'
+import { rowErrorsToImportIssues } from '../services/importValidation'
+import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
 
 type Filters = {
   search: string
@@ -451,13 +453,7 @@ export function Granite() {
               </div>
               <TruncationNote shown={50} total={manifest.bls.length} noun="B/L" nounPlural="B/Ls" />
 
-              {manifest.rowErrors.length ? (
-                <div className="max-h-32 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                  {manifest.rowErrors.slice(0, 10).map((e, i) => (
-                    <div key={i}>Linha {e.row}: {e.message}</div>
-                  ))}
-                </div>
-              ) : null}
+              <ImportIssuesPanel issues={rowErrorsToImportIssues(manifest.rowErrors)} filename="granito-issues.csv" />
             </div>
           ) : null}
 

@@ -17,7 +17,7 @@ import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../..
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
-import { canImportPreview, downloadIssuesCsv, hasBlockingIssues } from '../../services/importValidation'
+import { canImportPreview, downloadIssuesCsv, hasBlockingIssues, rowErrorsToImportIssues } from '../../services/importValidation'
 import { inspectImportUpload } from '../../services/importText'
 
 type ImportType = 'bb' | 'granite' | 'ceMercanteGranite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'blBreakbulk' | 'ceMercante'
@@ -135,6 +135,7 @@ export function VoyageImportActions({
           inspectFile={inspectImportUpload}
           helper={<TemplateLinks baseName="manifesto-bb-modelo" />}
           canImport={(p) => p.bls.length > 0 && p.rowErrors.length === 0}
+          getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
           importer={async (preview, file) => {
             await importBreakbulkManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
             await invalidateAfterBLImport()
@@ -159,6 +160,7 @@ export function VoyageImportActions({
           parser={parseGraniteManifestFile}
           inspectFile={inspectImportUpload}
           canImport={(p) => p.bls.length > 0 && p.rowErrors.length === 0}
+          getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
           importer={async (preview, file) => {
             const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
             await Promise.all([
@@ -201,6 +203,7 @@ export function VoyageImportActions({
           parser={parseVaziosImportacaoFile}
           inspectFile={inspectImportUpload}
           canImport={(p) => p.containers.length > 0 && p.rowErrors.length === 0}
+          getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
           importer={async (preview) => {
             await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId })
             await Promise.all([

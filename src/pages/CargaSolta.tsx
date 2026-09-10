@@ -26,6 +26,8 @@ import { useInvoiceLinks } from '../hooks/useBilling'
 import { importBreakbulkManifest, parseBreakbulkManifestFile, type ParsedBreakbulkManifest } from '../services/breakbulkImport'
 import { afterManifestoImportado } from '../services/cacheEffects'
 import { inspectImportUpload } from '../services/importText'
+import { rowErrorsToImportIssues } from '../services/importValidation'
+import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
 import type { BLListItem } from '../types/database'
 
 export function CargaSolta() {
@@ -403,6 +405,7 @@ export function CargaSolta() {
             setVoyageId('')
           }}
           canImport={(nextManifest) => nextManifest.bls.length > 0 && nextManifest.rowErrors.length === 0}
+          getIssues={(nextManifest) => rowErrorsToImportIssues(nextManifest.rowErrors)}
           ready={Boolean(voyageId && user)}
           prerequisite={<VoyageCombobox required label="Viagem de destino" selectedVoyageId={voyageId} onSelect={(id) => setVoyageId(id == null ? '' : String(id))} />}
           renderPreview={(nextManifest) => <BreakbulkPreview manifest={nextManifest} />}
@@ -445,7 +448,7 @@ function BreakbulkPreview({ manifest }: { manifest: ParsedBreakbulkManifest }) {
         </table>
       </div>
       <TruncationNote shown={25} total={manifest.bls.length} noun="B/L" nounPlural="B/Ls" />
-      {manifest.rowErrors.length ? <div className="max-h-44 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">{manifest.rowErrors.slice(0, 12).map((item, index) => <div key={`${item.row}-${index}`}>Linha {item.row}: {item.message}</div>)}</div> : null}
+      <ImportIssuesPanel issues={rowErrorsToImportIssues(manifest.rowErrors)} filename="manifesto-bb-issues.csv" />
     </div>
   )
 }

@@ -21,6 +21,50 @@ export type ImportIssue = {
   message: string
 }
 
+type RowErrorLike = { row: number; message: string; raw?: unknown }
+
+/** Converte o legado `{ row, message, raw }` sem carregar o payload bruto. */
+export function rowErrorsToImportIssues(rowErrors: readonly RowErrorLike[]): ImportIssue[] {
+  return rowErrors.map((error) => {
+    const lower = error.message.toLocaleLowerCase('pt-BR')
+    const code: ImportIssueCode = lower.includes('porto') || lower.includes('locode') || lower.includes('pol ') || lower.includes('pod ')
+      ? 'unknown_port'
+      : lower.includes('container') || lower.includes('iso')
+        ? 'invalid_iso'
+        : lower.includes('data') || lower.includes('date')
+          ? 'invalid_date'
+          : lower.includes('peso') || lower.includes('tara') || lower.includes('cubagem') || lower.includes('num') || lower.includes('expoente')
+            ? 'invalid_number'
+            : lower.includes('cabeçalho') || lower.includes('header')
+              ? 'missing_header'
+              : 'invalid_group'
+    const field = code === 'unknown_port'
+      ? lower.includes('pod') ? 'pod' : 'pol'
+      : code === 'invalid_iso'
+        ? 'container_number'
+        : code === 'invalid_date'
+          ? 'date'
+          : code === 'invalid_number'
+            ? 'value'
+            : 'row'
+    return { row: error.row, field, code, severity: 'error', message: error.message }
+  })
+}
+
+export function messagesToImportIssues(
+  messages: readonly string[],
+  severity: ImportIssue['severity'],
+  context: { row: number; field: string },
+): ImportIssue[] {
+  return messages.map((message) => ({
+    row: context.row,
+    field: context.field,
+    code: 'invalid_group',
+    severity,
+    message,
+  }))
+}
+
 export function hasBlockingIssues(issues: readonly ImportIssue[]): boolean {
   return issues.some((issue) => issue.severity === 'error')
 }
