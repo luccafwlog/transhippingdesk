@@ -22,8 +22,10 @@ Os erros de linha dos importadores que usam o modal compartilhado são
 normalizados em `ImportIssue`: o painel mostra a lista completa, permite baixar
 um CSV sanitizado e nunca inclui o payload bruto. O modal também mostra o
 progresso por arquivo em leituras múltiplas e permite cancelar antes da etapa de
-persistência; o cancelamento descarta prévias parciais. Uploads customizados de
-arquivo único ainda mantêm seus próprios estados de leitura.
+persistência; o cancelamento descarta prévias parciais. As superfícies
+customizadas de Baplie, Granito, Veículos, Datas, CE Mercante e B/Ls usam o
+mesmo hook de leitura cancelável e exibem o arquivo atual, progresso e o botão
+de cancelamento; uma resposta tardia não publica prévia.
 
 As rotas são registradas em `src/App.tsx`. Os donos executáveis são as páginas em `src/pages/`, os parsers/importadores em `src/services/`, as RPCs e policies em `supabase/migrations/` e as chaves em `src/services/queryKeys.ts`. `docs/adr/0005-pipeline-importacao-viagem-staging-reconciliacao.md` define a separação entre fontes; `docs/adr/0009-hard-delete-controlado-bloqueios-fiscais-auditoria.md` define exclusões controladas.
 
@@ -92,7 +94,11 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - A prévia exibe o relatório completo de erros de linha e permite exportá-lo sem
   arquivo bruto; no modal compartilhado, leituras múltiplas exibem progresso e
   podem ser canceladas antes da importação.
-- Após inserir veículos, cancela invoices ativas dos B/Ls afetados e recalcula taxas para aplicar isenção; esse pós-processamento ocorre fora da RPC de insert.
+- O modal customizado também exibe o arquivo atual/progresso e permite cancelar
+  a leitura antes de inserir veículos.
+- Após inserir veículos, a isenção e o cancelamento de invoices ainda são
+  efeitos pós-commit tratados pelo serviço atual; a migração para consumidor
+  durável permanece no residual S05.
 - Admin pode excluir veículos individualmente ou em lote.
 
 ### `/baplie`
@@ -100,6 +106,8 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - `src/pages/Baplie.tsx` sincroniza a viagem em `?voyage=<id>` e trabalha em três estados: sem staging; staging sem manifesto; staging com manifesto.
 - Importação/reimportação substitui o staging completo da viagem por `import_baplie_staging_transactional`; o parser valida que o conteúdo é EDI, respeita `UNA`/separadores/release character, isola segmentos por EQD, identifica o encoding escolhido e deduplica containers repetidos por numeração ISO antes de persistir.
 - A conciliação considera containers `full`, divergência de existência e diferenças de `is_imo`, `imo_class` e `un_number`.
+- O upload customizado mostra o progresso do parse e permite cancelar; o
+  staging parcial nunca é publicado depois do cancelamento.
 - O operador pode aplicar o valor físico do Baplie ou manter o manifesto, inclusive em lote.
 - Containers `empty` podem gerar um manifesto de Vazios de Importação; se já existir um manifesto Baplie, o operador escolhe substituir ou manter.
 
@@ -110,8 +118,8 @@ Para o detalhe de B/L, o código dos PRs `#255`–`#258` é a fonte atual. A spe
 - O parser canoniza container/tipo e POL/POD, valida tara não negativa e aceita
   somente portos reconhecidos pelo catálogo operacional; uma linha inválida
   bloqueia a confirmação antes da RPC. A prévia exibe e exporta a lista completa
-  de erros sem `raw`; o modal compartilhado também permite cancelar a leitura
-  antes da persistência.
+  de erros sem `raw`; a leitura mostra progresso e pode ser cancelada antes da
+  persistência.
 - O fluxo alternativo vindo de Baplie é iniciado em `/baplie`, não por botão desta página.
 
 ### `/embarquevazios`

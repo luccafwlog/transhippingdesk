@@ -71,8 +71,9 @@ relatório são renderizados pelos modais homônimos. Sob recálculo diário (AD
   filtrada e total BRL aguardando pagamento.
 - `Importar Datas` abre
   [`src/components/shared/ContainerDatesImportModal.tsx`](../../src/components/shared/ContainerDatesImportModal.tsx):
-  parseia planilha, mostra preview e erros, atualiza datas e pode criar/emitir
-  invoice quando todos os containers do B/L foram devolvidos.
+  parseia planilha, mostra preview e erros, exibe progresso/cancelamento da
+  leitura, atualiza datas e pode criar/emitir invoice quando todos os containers
+  do B/L foram devolvidos.
 - O modal `Editar datas do container` altera descarga e devolução, validando
   formato e ordem antes da escrita.
 - As abas de invoice consultam um status exato por vez (`issued`, `paid` ou

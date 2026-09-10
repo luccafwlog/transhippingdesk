@@ -61,7 +61,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   `Granite`); `typecheck`, `lint`, `docs:check` e `git diff --check` também
   passaram. Nenhuma migration foi criada e não houve ativação externa.
 
-### 1.0.5 Relatório integral e leitura cancelável — PR em preparação sobre #674
+### 1.0.5 Relatório integral e leitura cancelável — PR em preparação sobre #675
 
 - **S03/S13:** `rowErrorsToImportIssues` converte o legado sem carregar `raw`,
   `ImportIssuesPanel` exibe todas as ocorrências aplicáveis e oferece CSV
@@ -74,12 +74,13 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   dos parsers permaneceram compatíveis. Como os parsers atuais não recebem
   `AbortSignal`, a interrupção é observada entre arquivos e depois de cada
   parser assíncrono; não se afirma interrupção interna de um parser já em
-  execução. Baplie e outras superfícies customizadas de arquivo único continuam
-  residuais para uma etapa própria.
-- **Evidência local:** testes focados do relatório/modal e regressões das ações
-  de importação passaram (23 testes); `typecheck`, `lint`, `docs:check` e
-  `git diff --check` passaram. Nenhuma migration foi criada e não houve
-  ativação externa.
+  execução. As superfícies customizadas passaram a usar o mesmo token de
+  operação: Baplie, Granito, Veículos, Datas, CE Mercante e B/Ls mostram
+  arquivo atual, progresso e cancelamento antes da persistência.
+- **Evidência local:** testes focados do relatório/modal, hook cancelável e
+  regressões das ações de importação passaram (54 testes); `typecheck`, `lint`,
+  `docs:check` e `git diff --check` passaram. Nenhuma migration foi criada e
+  não houve ativação externa.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -166,8 +167,8 @@ ser promovido a concluído apenas porque o caminho principal está verde.
 - [ ] **S03 restante:** completar a validação estrutural de todos os campos e
   o gate com fixtures reais anonimizados. Os contratos de ISO, tara, datas/ordem,
   portos, confirmação sem `rowErrors` e relatório compartilhado já foram
-  entregues nesta linha; não reimplementar esses itens. Restam as superfícies
-  customizadas e os marcadores/fixtures ainda não cobertos.
+  entregues nesta linha; não reimplementar esses itens. Restam marcadores e
+  fixtures reais anonimizados ainda não cobertos.
 - [ ] **S04/S05 residual:** completar as caudas de veículo, Granite e
   Breakbulk, relatório durável de cada unidade e consumidores/efeitos que ainda
   ficam `blocked`. O worker existente permanece fail-closed/inativo até cada
@@ -191,9 +192,9 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   remover fallbacks full-scan e waterfalls ainda existentes e completar resumo de
   viagens/EmbarqueVazios/agencyDepartureReport sem N+1.
 - [ ] **S13 residual:** medir contraste nos dois temas, executar roteiro manual de
-  teclado/leitor de tela/modal sujo/offline e completar progresso/cancelamento
-  nas superfícies customizadas de arquivo único, além de ceder execução entre
-  blocos. Não introduzir worker ou virtualização sem benchmark.
+  teclado/leitor de tela/modal sujo/offline e ceder execução entre blocos. O
+  progresso/cancelamento dos uploads customizados está implementado; não
+  introduzir worker ou virtualização sem benchmark.
 - [ ] **S14 residual:** completar mapa literal rota → hook → service → RPC →
   tabela → teste; provar consumidores externos e dados das quatro colunas antes
   de qualquer `DROP RESTRICT`; manter funções fechadas se a ausência externa não
@@ -525,8 +526,9 @@ export type ParsedNumber =
   compartilhado, sem enviar arquivo/`raw`/PII à telemetria. Evidência:
   `ImportIssuesPanel.test.tsx`, `importValidation.test.ts`, `FileImportModal.test.tsx`
   e regressões de Carga Solta, Granito, Vazios IMP e Veículos.
-- [ ] Completar o mesmo contrato nas superfícies customizadas restantes, em
-  especial o upload Baplie de arquivo único.
+- [x] Completar o mesmo contrato nas superfícies customizadas de arquivo,
+  incluindo o upload Baplie de arquivo único. O hook compartilhado descarta
+  respostas tardias e os modais não chamam persistência após cancelamento.
 - [ ] Executar o gate completo de parsers depois dos itens acima, incluindo fixtures reais anonimizados, encoding, Baplie e identidade. Não usar a suíte verde atual como prova de P0-4 ou dos contratos ainda não cobertos.
 
 **Compatibilidade / rollout:** conservar assinatura dos imports ou adaptar todos os callers no mesmo PR; avisar rejeições novas no preview. Não reprocessar lotes antigos nem fundir viagens já existentes automaticamente. **Testes:** unitários acima, integração parse→preview→RPC de Granito para verificar peso e valor, regressão de templates e EDI, runtime com arquivo real e alias. **Aceite:** nenhum campo inválido vira zero/null silenciosamente; duas unidades Baplie não trocam peso/POL/POD; nenhuma duplicata por alias conhecido e nenhum merge de IMO distinto. **Residual:** formatos não suportados são recusados com diagnóstico; cadastro amplo de aliases/UNLOCODE e worker exigem medição. **Ordem:** três PRs pequenos; precisão primeiro.
@@ -800,9 +802,11 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 - [x] Nos uploads múltiplos que usam `FileImportModal`, exibir progresso por
   arquivo e permitir cancelamento entre unidades; o cancelamento não inicia a
   etapa de importação. Evidência: `FileImportModal.test.tsx`.
-- [ ] Levar o mesmo controle às superfícies customizadas de arquivo único e
-  ceder execução entre blocos; medir long tasks próximo do limite antes de
-  decidir por worker ou mudança do teto de Baplie.
+- [x] Levar o mesmo controle às superfícies customizadas de arquivo único;
+  `useCancellableFileRead` cobre leitura única e múltipla e os modais exibem
+  arquivo atual/progresso/cancelamento. [ ] Ceder execução entre blocos e
+  medir long tasks próximo do limite antes de decidir por worker ou mudança do
+  teto de Baplie.
 - [x] Executar os testes de hidratação, modal, comunicação, debounce, `QueryStateGate` e sino; typecheck, lint, build e suíte integral da PR passaram.
 - [ ] Completar a evidência manual de teclado, leitor de tela, offline/reconnect e light/dark.
 
@@ -860,7 +864,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 05 | `[x]` + `[ ]` runtime | Preservar procedência e recálculo diário | S09; `018_exchange_rate_provenance.sql` + `024_demurrage_ptax_alert.sql` | Código, retry/alerta e configuração fail-closed estão prontos; Preview/Vault/Edge/cron e execução agendada real continuam pendentes. |
 | 06 | `[x]` | Restaurar Inspeção de disputas, páginas e tipos | S11; `013_portal_disputes_inspection.sql` + `021_portal_billing_pages.sql` | Paridade de escopo, paginação, tipos e adapters passaram; regenerar apenas após nova migration. |
 | 07 | `[x]` | Corrigir coerção numérica | S03/P0-1; sem migration | Callers e vetores numéricos estão corrigidos/testados. |
-| 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Encoding, scanner Baplie (UNA/dialetos/grupos/EOF), schemas concretos dos fluxos cobertos e relatório uniforme no modal compartilhado estão entregues; marcadores/fixtures residuais e superfícies customizadas continuam abertos. |
+| 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Encoding, scanner Baplie (UNA/dialetos/grupos/EOF), schemas concretos, relatório uniforme e progresso/cancelamento nas superfícies cobertas estão entregues; marcadores/fixtures residuais continuam abertos. |
 | 09 | `[ ]` | Unificar identidade de navio/viagem | S03/P0-4; sem migration | Implementar alias canônico com IMO prioritário, conflito explícito e regressão de IMOs distintos em `vesselAlias.ts`/`voyages.ts`. |
 | 10 | `mitigado` + `[ ]` | Fixar snapshot de Demurrage e escritor PIX | S08-B/C; `023_demurrage_calculation_snapshot.sql` + `030_fix_demurrage_snapshot_ptax_column.sql` | Autoridade server-side, snapshot e QR SQL estão implementados; decoder/manual BCB independente e aceite normativo F8 ainda faltam. |
 | 11 | `[x]` | Aplicar datas/flags em transação | S04/P1-01; `015_import_dates_and_flags_atomic.sql` | Atomicidade por B/L, auditoria e flags físicas estão cobertas; não repetir. |
@@ -870,7 +874,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 15 | `[x]` + `[ ]` | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` | Inbox, dedup, stale events e recuperação estão entregues; estado explícito `parcial`, índice sem `status` e readiness `ce_mercante_taxas` continuam pendentes. |
 | 16 | `[x]` + `[ ]` | Fechar ledger, status/itens e rateio do impresso | S10/F14; `019_local_billing_integrity.sql` | D05/R$0,01 e integração local passaram; casos amplos, diagnóstico de irmãos e gate completo de comunicação continuam abertos. |
 | 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql` e páginas Portal | Projeções, paginação/window e filtros principais estão entregues; benchmark, full-scan/waterfall residual, resumo de viagem/EmbarqueVazios/agency report e profiler faltam. |
-| 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação, confirmações/menu e progresso/cancelamento nos modais múltiplos estão entregues; contraste, leitor de tela/foco manual e superfícies customizadas de upload faltam. |
+| 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação, confirmações/menu e progresso/cancelamento nos modais múltiplos e customizados estão entregues; contraste, leitor de tela/foco manual e cessão entre blocos faltam. |
 | 19 | `[x]` + `[ ]` | Completar índice e gate de catálogo | S14/#659.7; scripts de docs/RPC catalog | `docs:check`, catálogo, replay, tipos e inspeção local das 14 candidatas passaram; famílias ausentes e prova externa ainda faltam. |
 | 20 | `[ ]` | Retirar legado confirmado / DV condicional | S14/#659.5/6/9; sem DROP ainda | Provar consumidores externos e dados das quatro colunas, decidir DV e somente então abrir migration com `DROP ... RESTRICT`. |
 

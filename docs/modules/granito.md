@@ -1,6 +1,6 @@
 # Granito
 
-> **Status:** ativo · **Atualizado:** 2026-06-20 · **Rotas:** `/granito`, `/granito/taxas`
+> **Status:** ativo · **Atualizado:** 2026-09-10 · **Rotas:** `/granito`, `/granito/taxas`
 
 ## Propósito e escopo
 
@@ -56,6 +56,8 @@ operação:
   catálogo de LOCODEs; o relatório completo de erros pode ser exportado sem o
   payload bruto;
 - CNPJ ausente pode ser preenchido inline e reconciliado novamente;
+- a leitura do upload customizado informa arquivo atual/progresso e pode ser
+  cancelada; respostas tardias são descartadas antes de qualquer RPC;
 - confirmar com pendências importa B/Ls sem `client_id`, que permanecem com
   reconciliação pendente até a revisão;
 - o cálculo abre um modal com as linhas snapshot. Mesmo com cliente resolvido,
