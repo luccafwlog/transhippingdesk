@@ -19,6 +19,8 @@ describe('Edge Function demurrage-dunning', () => {
 
   it('respeita a chave global, contatos/supressões e o reply-to dedicado', () => {
     expect(source).toContain("communications_enabled")
+    expect(source).toContain("dispatch_mode: communicationsEnabled ? 'real' : 'simulado'")
+    expect(source).toContain("refresh_customer_communication_status")
     expect(source).toContain("customer_communication_suppressions")
     expect(source).toContain("bounce_permanente")
     expect(source).toContain("COMMUNICATIONS_REPLY_TO")
@@ -28,7 +30,7 @@ describe('Edge Function demurrage-dunning', () => {
     expect(source).toContain(".in('email', contactEmails)")
     expect(source).toContain('releaseClaimSafely')
     expect(source).toContain('revalidateInvoiceBeforeSend')
-    expect(source).toContain("result === 'falha' || result === 'pausado'")
+    expect(source).toContain("result === 'falha' || result === 'parcial' || result === 'pausado'")
     expect(source).not.toContain("result === 'simulado') simulated")
   })
 

@@ -1718,6 +1718,7 @@ export type Database = {
         Row: {
           communication_id: number
           created_at: string
+          dispatch_mode: string
           id: number
           idempotency_key: string
           last_error: string | null
@@ -1730,6 +1731,7 @@ export type Database = {
         Insert: {
           communication_id: number
           created_at?: string
+          dispatch_mode?: string
           id?: number
           idempotency_key: string
           last_error?: string | null
@@ -1742,6 +1744,7 @@ export type Database = {
         Update: {
           communication_id?: number
           created_at?: string
+          dispatch_mode?: string
           id?: number
           idempotency_key?: string
           last_error?: string | null
@@ -8971,7 +8974,8 @@ export type CustomerCommunicationKind =
   | 'cobranca_demurrage'
   | 'institucional'
   | 'livre'
-export type CustomerCommunicationStatus = 'enviado' | 'simulado' | 'falha'
+export type CustomerCommunicationStatus = 'enviado' | 'simulado' | 'parcial' | 'falha'
+export type CustomerCommunicationDispatchMode = 'real' | 'simulado'
 export type CustomerCommunicationAttemptStatus =
   | 'aceito'
   | 'entregue'

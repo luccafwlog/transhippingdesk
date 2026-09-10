@@ -505,6 +505,7 @@ async function handler(req: Request): Promise<Response> {
           communication_id: communicationId,
           recipient_masked: maskEmail(to),
           status: 'aceito',
+          dispatch_mode: enabled ? 'real' : 'simulado',
           idempotency_key: idempotencyKey,
         }).select('id').single()
         if (error?.code === '23505') {
@@ -535,12 +536,14 @@ async function handler(req: Request): Promise<Response> {
     return json(500, { error: 'Falha no envio do comunicado.' }, origin)
   }
 
-  const status = sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'
-  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const { data: refreshedStatus, error: statusError } = await admin.rpc('refresh_customer_communication_status', {
+    p_communication_id: Number(communicationId),
+  })
   if (statusError) {
     console.error('customer communication status persistence failed', statusError)
     return json(500, { error: 'Não foi possível persistir o status do comunicado.' }, origin)
   }
+  const status = String(refreshedStatus ?? (sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'))
   const { data: attempt } = await admin
     .from('customer_communication_attempts')
     .select('id')

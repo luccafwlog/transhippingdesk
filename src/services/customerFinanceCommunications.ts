@@ -61,7 +61,7 @@ export type CustomerVoyageCommunicationStatus = {
 }
 
 export type CeMercanteCommunicationDispatchSummary = {
-  status: 'enviado' | 'simulado' | 'bloqueado' | 'ignorado'
+  status: 'enviado' | 'simulado' | 'parcial' | 'bloqueado' | 'ignorado'
   readiness: CustomerLocalChargesCommunicationReadiness
   sentCount: number
   simulatedCount: number
@@ -342,8 +342,18 @@ export async function dispatchCeMercanteTaxasCommunication(
   const communicationIds = results.map((result) => result.communicationId).filter((id) => Number.isFinite(id))
   const sentCount = results.filter((result) => result.status === 'enviado').length
   const simulatedCount = results.filter((result) => result.status === 'simulado').length
+  const hasFailed = results.some((result) => result.status === 'falha')
+  const hasSent = sentCount > 0
+  const hasSimulated = simulatedCount > 0
+  const status = hasSent && !hasSimulated && !hasFailed
+    ? 'enviado'
+    : hasSimulated && !hasSent && !hasFailed
+      ? 'simulado'
+      : hasSent || hasSimulated
+        ? 'parcial'
+        : 'bloqueado'
   return {
-    status: sentCount > 0 ? 'enviado' : simulatedCount > 0 ? 'simulado' : 'bloqueado',
+    status,
     readiness,
     sentCount,
     simulatedCount,

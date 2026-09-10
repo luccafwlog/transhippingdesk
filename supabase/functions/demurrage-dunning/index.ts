@@ -303,7 +303,7 @@ async function sendCandidateGroup(
   admin: ReturnType<typeof createClient>,
   group: DunningCandidate[],
   communicationsEnabled: boolean,
-): Promise<'enviado' | 'simulado' | 'falha' | 'pausado'> {
+): Promise<'enviado' | 'simulado' | 'parcial' | 'falha' | 'pausado'> {
   const first = group[0]!
   // Revalida quitação/disputa/supressão/caixa por fatura antes de compor o grupo.
   const sendable: DunningCandidate[] = []
@@ -407,6 +407,7 @@ async function sendCandidateGroup(
             communication_id: communicationId,
             recipient_masked: maskEmail(to),
             status: 'aceito',
+            dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
             idempotency_key: attemptKey,
           }).select('id').single()
           if (error?.code === '23505') {
@@ -446,17 +447,19 @@ async function sendCandidateGroup(
   if (eligibleRecipients === 0) return 'pausado'
   const allDelivered = deliveredRecipients === eligibleRecipients && failedRecipients === 0
   const allSimulated = simulatedRecipients === eligibleRecipients && failedRecipients === 0
-  const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
-  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const fallbackStatus = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
+  const { data: refreshedStatus, error: statusError } = await admin.rpc('refresh_customer_communication_status', {
+    p_communication_id: communicationId,
+  })
   if (statusError) throw statusError
-  return status
+  return (refreshedStatus ?? fallbackStatus) as 'enviado' | 'simulado' | 'parcial' | 'falha'
 }
 
 async function sendCandidate(
   admin: ReturnType<typeof createClient>,
   candidate: DunningCandidate,
   communicationsEnabled: boolean,
-): Promise<'enviado' | 'simulado' | 'falha' | 'pausado'> {
+): Promise<'enviado' | 'simulado' | 'parcial' | 'falha' | 'pausado'> {
   const context = await loadInvoice(admin, candidate.invoice_id)
   if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
   const contacts = await loadRecipients(admin, candidate.customer_id)
@@ -523,6 +526,7 @@ async function sendCandidate(
             communication_id: communicationId,
             recipient_masked: maskEmail(to),
             status: 'aceito',
+            dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
             idempotency_key: attemptKey,
           }).select('id').single()
           if (error?.code === '23505') {
@@ -562,10 +566,12 @@ async function sendCandidate(
   if (eligibleRecipients === 0) return 'pausado'
   const allDelivered = deliveredRecipients === eligibleRecipients && failedRecipients === 0
   const allSimulated = simulatedRecipients === eligibleRecipients && failedRecipients === 0
-  const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
-  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const fallbackStatus = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
+  const { data: refreshedStatus, error: statusError } = await admin.rpc('refresh_customer_communication_status', {
+    p_communication_id: communicationId,
+  })
   if (statusError) throw statusError
-  return status
+  return (refreshedStatus ?? fallbackStatus) as 'enviado' | 'simulado' | 'parcial' | 'falha'
 }
 
 async function releaseClaim(
@@ -630,9 +636,9 @@ async function handler(req: Request): Promise<Response> {
       try {
         const result = await sendCandidate(admin, candidate, communicationsEnabled)
         if (result === 'enviado') sent += 1
-        else if (result === 'falha' || result === 'pausado') {
+        else if (result === 'falha' || result === 'parcial' || result === 'pausado') {
           if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
-          if (result === 'falha') failed += 1
+          if (result === 'falha' || result === 'parcial') failed += 1
           else paused += 1
         } else {
           simulated += 1
@@ -647,11 +653,11 @@ async function handler(req: Request): Promise<Response> {
     try {
       const result = await sendCandidateGroup(admin, group, communicationsEnabled)
       if (result === 'enviado') sent += 1
-      else if (result === 'falha' || result === 'pausado') {
+      else if (result === 'falha' || result === 'parcial' || result === 'pausado') {
         for (const candidate of group) {
           if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
         }
-        if (result === 'falha') failed += 1
+        if (result === 'falha' || result === 'parcial') failed += 1
         else paused += 1
       } else {
         simulated += 1

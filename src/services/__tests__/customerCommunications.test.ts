@@ -5,6 +5,7 @@ import {
   getEmailSuppressionReason,
   isInstitutionalCustomerCommunicable,
   resolveCustomerCommunicationRecipients,
+  customerCommunicationStatusLabel,
   validateCustomerCommunicationFilters,
   type CustomerCommunicationBlCandidate,
 } from '../customerCommunications'
@@ -28,6 +29,10 @@ function contact(id: number, email: string | null, purpose = 'demurrage'): Custo
 }
 
 describe('resolução pura de destinatários de Comunicados', () => {
+  it('rotula o estado parcial de uma comunicação com destinatários mistos', () => {
+    expect(customerCommunicationStatusLabel('parcial')).toBe('Parcial')
+  })
+
   it('retorna os quatro motivos de exclusão e mantém os elegíveis', () => {
     const result = resolveCustomerCommunicationRecipients({
       nature: 'documentacao',

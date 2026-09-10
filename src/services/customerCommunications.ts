@@ -751,6 +751,7 @@ export async function fetchCustomerCommunicationConference(input: {
 export type CustomerCommunicationAttemptHistory = {
   id: number
   recipient_masked: string
+  dispatch_mode: 'real' | 'simulado'
   status: string
   retry_count: number
   provider_message_id: string | null
@@ -842,7 +843,7 @@ export async function saveCustomerCommunicationSavedTemplate(input: { name: stri
   return result.data
 }
 
-const COMMUNICATION_HISTORY_SELECT = 'id, customer_id, kind, nature, anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator, status, dispatch_id, vessel_name, voyage_number, terminal_name, created_by, origin, created_at, customer:customers(id, name, cnpj_cpf), attempts:customer_communication_attempts(id, recipient_masked, status, retry_count, provider_message_id, last_error, created_at, updated_at), bl_links:customer_communication_bls(bl_id), attachments:customer_communication_attachments(id, file_name, mime_type, storage_path, size_bytes, created_at)'
+const COMMUNICATION_HISTORY_SELECT = 'id, customer_id, kind, nature, anchor_voyage_id, anchor_port, anchor_atracacao_id, anchor_invoice_id, attempt_discriminator, status, dispatch_id, vessel_name, voyage_number, terminal_name, created_by, origin, created_at, customer:customers(id, name, cnpj_cpf), attempts:customer_communication_attempts(id, recipient_masked, dispatch_mode, status, retry_count, provider_message_id, last_error, created_at, updated_at), bl_links:customer_communication_bls(bl_id), attachments:customer_communication_attachments(id, file_name, mime_type, storage_path, size_bytes, created_at)'
 
 export async function fetchCustomerCommunicationHistory(input?: number | CustomerCommunicationHistoryFilters): Promise<CustomerCommunicationHistoryItem[]> {
   const filters = typeof input === 'number' ? { customerId: input } : (input ?? {})
@@ -1011,6 +1012,7 @@ export async function fetchBlCommunicationHistory(blId: string): Promise<Custome
 export function customerCommunicationStatusLabel(status: string): string {
   if (status === 'enviado') return 'Enviado'
   if (status === 'simulado') return 'Simulado'
+  if (status === 'parcial') return 'Parcial'
   if (status === 'falha') return 'Falha'
   return status
 }

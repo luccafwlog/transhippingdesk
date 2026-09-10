@@ -36,7 +36,7 @@ export type CustomerCommunicationDispatchInput = {
 export type CustomerCommunicationDispatchResult = {
   communicationId: number
   attemptId?: number
-  status: 'enviado' | 'simulado' | 'falha'
+  status: 'enviado' | 'simulado' | 'parcial' | 'falha'
   suppressed?: boolean
   message?: string
 }

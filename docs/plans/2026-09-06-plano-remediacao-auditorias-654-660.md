@@ -121,6 +121,25 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   será inventada nem extraída de produção. O gate integral e essa evidência
   operacional continuam pendentes.
 
+### 1.0.8 Estado parcial por tentativa — PR em preparação sobre #678
+
+- **S07/A4:** a migration `032_customer_communication_partial_status.sql`
+  adiciona `dispatch_mode` (`real`/`simulado`) às tentativas, amplia o CHECK do
+  cabeçalho e cria `refresh_customer_communication_status`, protegido para
+  `service_role`, com trigger após inserção/atualização da tentativa. Misturas
+  de sucesso, simulação e falha passam a resultar em `parcial` sem perder o
+  resultado individual de cada destinatário.
+- **S07:** `send-customer-communication` e `demurrage-dunning` registram o modo
+  da tentativa e consultam a projeção SQL em vez de sobrescrever o cabeçalho
+  com um status agregado local. O resumo de CE Mercante, o histórico e o
+  status da célula de faturamento exibem/filtram `Parcial`.
+- **Evidência local:** 27 testes focados S07 verdes e a integração PostgreSQL
+  descartável confirmou a transição `enviado → parcial` ao inserir uma falha
+  após uma entrega real. `typecheck` e `git diff --check` também passaram.
+- **Residual:** deploy/execução dos Edge Functions, prova com o provedor e
+  ativação de envio continuam pendentes; nenhum worker, cron, Vault, Resend ou
+  `communications_enabled` foi ativado nesta execução.
+
 ### 1.0.2 Fechamento da revisão da PR #670
 
 - O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
@@ -323,7 +342,7 @@ Categorias utilizadas literalmente: **Já corrigido**, **Mitigado parcialmente**
 | A1 | Já corrigido | Migration 010 restringe o reparo ao principal elegível, sem escolher contato arbitrário; o alerta cadastral e a auditoria permanecem. | Regressão S06 |
 | A2 | Mitigado parcialmente | Webhook, inbox, claim/lease, processador server-only e investigação de tentativa sem vínculo estão implementados e testados. A prova de deploy remoto, retry real e observabilidade do provedor permanece pendente. | S07 / D10 |
 | A3 | Já corrigido | Claim filtra elegibilidade, respeita caixas/supressões, libera claims e permite que elegíveis após inelegíveis entrem no lote; revalidação ocorre antes do envio. | Regressão S06/S07 |
-| A4 | Mitigado parcialmente | `simulado` só é emitido quando o canal está desativado e o caminho termina; o laço agora fecha contadores e libera claims. Ainda falta persistir estado explícito de `parcial` para mistura de entrega/simulação/falha. | S07 |
+| A4 | Mitigado parcialmente | `simulado` só é emitido quando o canal está desativado e o caminho termina; tentativas agora persistem o modo e o cabeçalho é recalculado como `parcial` quando há mistura de entrega, simulação e falha. Prova de deploy/provedor continua pendente. | S07 |
 | A5 | Mitigado parcialmente | Novas tentativas usam comunicação, contato e versão do destinatário, sem email na chave; identidades históricas e a migração completa da unicidade lógica ainda precisam ser fechadas. | S07 |
 | A6 — volume por cliente | Já corrigido | D11 está implementada: grupo por cliente/ciclo, membership por invoice, uma mensagem por destinatário e faturas individuais preservadas; integração cobre 12 faturas/3 contatos e grupos que cruzam o limite do claim. | Regressão S06; ativação D10 |
 | Régua contínua até liquidação | Aceito | Preservar repetição semanal sem máximo de semanas, conforme CONTEXT; decisão de volume por cliente em A6 é separada. | §8 |
@@ -663,7 +682,7 @@ export type ImportEffectKind = 'physical_flags' | 'provisional_charges' |
 - [x] Testar evento antes do vínculo da tentativa, dedup pendente/processada, falha entre etapas, repetição e evento desconhecido; evento sem tentativa vira investigação/alerta.
 - [x] Persistir envelope validado antes do ACK; erro de persistência retorna não-2xx; claim/processamento/supressão/reparo usam transações e efeitos secundários idempotentes.
 - [x] Aplicar transições por evento/horário sem regressão; bounce/complaint preservam natureza da supressão e stale transitions são ignoradas.
-- [ ] Persistir estado explícito `parcial` quando uma comunicação tem destinatários mistos; hoje o estado final pode ficar `falha`/`enviado`/`simulado` sem representar cada combinação.
+- [x] Persistir estado explícito `parcial` quando uma comunicação tem destinatários mistos; `dispatch_mode` fica na tentativa e a RPC/trigger recalcula o cabeçalho sem achatar combinações distintas. A prova de deploy/provedor permanece pendente.
 - [x] Trocar novas chaves de dunning para comunicação/contato/versão do destinatário, sem email em claro; não reescrever identidades históricas.
 - [ ] Remover `status` mutável da unicidade lógica de `customer_communications` após preflight/reconciliação das referências antigas; a membership D11 reduz o risco, mas não substitui esta contração.
 - [ ] Fechar readiness de `ce_mercante_taxas` na criação/claim/envio; esta fronteira pertence a S10 e não deve ser inferida do inbox.
