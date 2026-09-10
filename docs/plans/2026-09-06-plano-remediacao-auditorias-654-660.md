@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial na PR #670 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e esta branch integra correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial após as PRs #670–#672 (2026-09-10).** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -39,6 +39,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **S03/P0-2/P0-3:** a detecção de formato agora é separada do decode: XLSX/XLS são reconhecidos pelo conteúdo binário, CSV e EDI pelo conteúdo textual, e texto desconhecido ou ambíguo é recusado. O decode permanece UTF-8 estrito por padrão, aceita BOM UTF-8/UTF-16, e só usa Windows-1252 quando o parser da origem autoriza explicitamente.
 - **Round-trip e preview:** o resultado mantém os bytes textuais de origem para reconstituição byte a byte; `inspectImportFile` expõe formato, encoding, BOM, tamanho e prévia limitada. O `FileImportModal` mostra esse diagnóstico, e os modais de Baplie/CE exibem o encoding selecionado.
 - **Integração:** `readSheet` não encaminha EDI ao leitor de planilhas; Baplie e CE Mercante validam o formato antes de parsear; os callers de planilha usam a inspeção comum sem enviar conteúdo à telemetria. Evidência: `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`, `baplieParser.test.ts` e `FileImportModal.test.tsx`, com vetores UTF-8/BOM, Windows-1252, bytes inválidos, formatos binários/textuais, ambiguidades e round-trip.
+- **S03/Baplie:** o scanner agora respeita `UNA`, separadores e release character; limita a ingestão ao conteúdo antes do trailer, isola os segmentos entre EQDs consecutivos e associa `DGS`/`DIM` à unidade correta. Duplicatas continuam bloqueantes. Evidência: `baplieParserS03.test.ts` com dialetos LOC→EQD/EQD→LOC, múltiplos EQD, OOG/IMO, EOF, duplicata e UNA customizada.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -122,8 +123,8 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   limitada com formato/encoding/BOM no modal compartilhado. Evidência: vetores
   em `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`,
   `baplieParser.test.ts` e `FileImportModal.test.tsx`.
-- [ ] **S03 restante:** concluir scanner Baplie por dialeto,
-  schemas/contratos de Granito/Vazios/COSCO, validação uniforme de datas/portos
+- [ ] **S03 restante:** concluir schemas/contratos de Granito/Vazios/COSCO,
+  validação uniforme de datas/portos
   e relatório integral/progresso. Os itens já marcados como mitigados não devem
   ser reimplementados; executar somente os bullets vazios de S03.
 - [ ] **S04/S05 residual:** completar as caudas de veículo, Granite e
@@ -473,7 +474,7 @@ export type ParsedNumber =
 | negativo em peso/tara | coluna não negativa | erro de domínio |
 
 - [x] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM e round-trip byte a byte. Evidência: `detectImportFormat`, `decodeImportBytes`, `encodeImportText`, `inspectImportFile` e vetores em `importText.test.ts`; o preview mostra o formato e encoding selecionados.
-- [ ] Completar scanner Baplie por UNA/separadores/release character e por dialeto, com isolamento de grupos LOC/EQD, DGS/OOG, EOF e duplicata. A UI já bloqueia issue inválida, mas a semântica completa do scanner continua aberta.
+- [x] Completar scanner Baplie por UNA/separadores/release character e por dialeto, com isolamento de grupos LOC/EQD, DGS/OOG, EOF e duplicata. Evidência: `baplieParserS03.test.ts` cobre ambos os sentidos LOC→EQD/EQD→LOC, separador de componente definido por UNA, DGS/DIM por EQD, trailer com conteúdo posterior e duplicata bloqueante.
 - [ ] Completar schemas concretos de Granito/Vazios/Vazios IMP/COSCO, marcadores fixos, ISO/case, tara, datas/ordem temporal e portos; `locateHeaderRowIndex` e `resolvePortCode` já estão conectados e não devem ser refeitos.
 - [x] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`; evidência nos testes `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`.
 - [x] Baplie já expõe issues bloqueantes, contagens e relatório de preview.
@@ -806,7 +807,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 05 | `[x]` + `[ ]` runtime | Preservar procedência e recálculo diário | S09; `018_exchange_rate_provenance.sql` + `024_demurrage_ptax_alert.sql` | Código, retry/alerta e configuração fail-closed estão prontos; Preview/Vault/Edge/cron e execução agendada real continuam pendentes. |
 | 06 | `[x]` | Restaurar Inspeção de disputas, páginas e tipos | S11; `013_portal_disputes_inspection.sql` + `021_portal_billing_pages.sql` | Paridade de escopo, paginação, tipos e adapters passaram; regenerar apenas após nova migration. |
 | 07 | `[x]` | Corrigir coerção numérica | S03/P0-1; sem migration | Callers e vetores numéricos estão corrigidos/testados. |
-| 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Baplie bloqueante, issues/preview, header/portos estão entregues; encoding completo, dialetos/schemas e relatório uniforme continuam abertos. |
+| 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Encoding e scanner Baplie (UNA/dialetos/grupos/EOF) estão entregues, com issues bloqueantes; schemas concretos e relatório uniforme continuam abertos. |
 | 09 | `[ ]` | Unificar identidade de navio/viagem | S03/P0-4; sem migration | Implementar alias canônico com IMO prioritário, conflito explícito e regressão de IMOs distintos em `vesselAlias.ts`/`voyages.ts`. |
 | 10 | `mitigado` + `[ ]` | Fixar snapshot de Demurrage e escritor PIX | S08-B/C; `023_demurrage_calculation_snapshot.sql` + `030_fix_demurrage_snapshot_ptax_column.sql` | Autoridade server-side, snapshot e QR SQL estão implementados; decoder/manual BCB independente e aceite normativo F8 ainda faltam. |
 | 11 | `[x]` | Aplicar datas/flags em transação | S04/P1-01; `015_import_dates_and_flags_atomic.sql` | Atomicidade por B/L, auditoria e flags físicas estão cobertas; não repetir. |
