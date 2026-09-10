@@ -161,6 +161,26 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   continuam separados; esta PR fecha a guarda de comunicação de CE, não a
   ativação de envio.
 
+### 1.0.10 BR Code/Pix estático — PR em preparação sobre #680
+
+- **S08-C/F8:** a conferência do Manual de Padrões para Iniciação do Pix
+  versão 2.10.0 e do Manual BR Code versão 2.0.1 confirmou que o txid estático
+  fica em `62-05`, com `***` como ausência e limite de 25 caracteres; o
+  Merchant Account 26 não recebe esse campo. O campo 54 continua opcional,
+  decimal e limitado a 13 caracteres.
+- **Decoder independente:** `src/lib/pixDecoder.ts` valida a árvore TLV, o
+  CRC-16/CCITT-FALSE, GUI/chave, moeda, país, limites e charset do subconjunto
+  Pix estático emitido pela aplicação. O vetor oficial do Manual Pix termina
+  em `63041D3D` e passa; CRC adulterado, txid inválido/longo e campo 05 em 26
+  falham.
+- **Evidência local:** builder TS e builder SQL passaram pelo decoder
+  independente; a integração PostgreSQL validou o payload SQL, o CRC oficial,
+  truncamento do txid e falha fechada para valor fora do limite. `typecheck`,
+  `docs:check` e `git diff --check` passaram.
+- **Residual:** a prova cobre QR Code Pix estático. Fluxos dinâmicos,
+  compostos, Pix Automático, DICT, decoder de terceiro e execução em PSP
+  continuam fora deste contrato e não são declarados conformes por ele.
+
 ### 1.0.2 Fechamento da revisão da PR #670
 
 - O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
@@ -262,17 +282,18 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   tarefas novas; D04 e D11 já possuem implementação e testes.
 - [ ] **S06/S07 runtime:** provar limites/provedor/Edge e eventual liberação de
   envio, bloqueada por D10; não ativar `communications_enabled` nesta execução.
-- [ ] **S08-C/F8:** conferir o manual vigente do BCB, registrar versão e vetores,
-  validar 01/26/05/62/54/txid/charset com decoder independente e corrigir o
-  builder apenas se a prova falhar. Não declarar “PIX conforme BCB” antes dessa
-  evidência.
+- [x] **S08-C/F8 — escopo Pix estático:** Manual Pix 2.10.0 e Manual BR Code
+  2.0.1 conferidos; builder TS/SQL corrigido para 26/00+01 e 62/05, com
+  limite/charset de txid, campo 54 e CRC validados pelo decoder independente.
+  O resultado não cobre QR dinâmico/composto nem execução em PSP.
 - [ ] **S08/S09 runtime:** repetir prova sob roles reais no Preview para ACL,
   gateway, Vault e Edge; verificar falha/recuperação de PTAX e uma execução
   agendada. O job deve continuar inativo até esse aceite.
-- [ ] **S10 residual:** implementar o núcleo completo de readiness de emissão e
-  comunicação (Portal, revisão, CE e conta), mantendo cálculo conferível quando
-  emissão estiver bloqueada; diagnosticar compartilhamento tardio de irmãos sem
-  reescrever pagamentos.
+- [x] **S10/F12 — comunicação:** criação, claim e dispatch de CE Mercante
+  revalidam no servidor CE, revisão e financeiro dos B/Ls ativos, com lock e
+  identidade de serviço. **Residual:** o gate de emissão/Portal e a prova
+  operacional remota permanecem separados; não reescrever pagamentos nem
+  ativar envio.
 - [ ] **S12 residual:** medir 100/1.000/10.000 B/Ls, requests/bytes/EXPLAIN/p95,
   remover fallbacks full-scan e waterfalls ainda existentes e completar resumo de
   viagens/EmbarqueVazios/agencyDepartureReport sem N+1.
@@ -739,9 +760,9 @@ export type ImportEffectKind = 'physical_flags' | 'provisional_charges' |
 
 **S08-C — BR Code e escritor único (F7/F8).**
 
-- [ ] Conferir manual oficial BCB vigente, registrar versão/vetores e validar 01/26/05/62/54/txid/charset com decoder independente; não declarar conformidade normativa antes disso.
+- [x] Conferir o Manual Pix 2.10.0 e o Manual BR Code 2.0.1, registrar versão/vetores e validar 01/26/05/62/54/txid/charset com decoder independente para o QR Code estático da aplicação; o escopo não declara conformidade para QR dinâmico/composto.
 - [x] SQL é a autoridade do payload persistido em emissão/recálculo/desconto e TS não grava uma versão financeira paralela.
-- [ ] Validar o decoder independente normativo; CRC/testes dourados do builder não bastam para F8.
+- [x] Validar decoder independente contra o vetor oficial estático, CRC conhecido, limites de txid/campo 54 e árvore 26/62; testes dourados do builder permanecem apenas como regressão complementar.
 - [x] Preservar `txid=doc_number`, QR antigo na janela ADR 0015, ausência de campo 54 para saldo zero e falha para limites inválidos; manter esses testes como regressão.
 
 **Vetores mínimos a implementar na suíte SQL/TS:**
@@ -955,7 +976,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 07 | `[x]` | Corrigir coerção numérica | S03/P0-1; sem migration | Callers e vetores numéricos estão corrigidos/testados. |
 | 08 | `mitigado` + `[ ]` | Corrigir bytes, grupos Baplie e schemas | S03/P0-2/P0-3 | Encoding, scanner Baplie (UNA/dialetos/grupos/EOF), schemas concretos, relatório uniforme e progresso/cancelamento nas superfícies cobertas estão entregues; marcadores/fixtures residuais continuam abertos. |
 | 09 | `[x]` | Unificar identidade de navio/viagem | S03/P0-4; sem migration | Alias canônico com IMO prioritário, conflito explícito e regressão de IMOs distintos em `vesselAlias.ts`/`voyages.ts` foram implementados e testados. |
-| 10 | `mitigado` + `[ ]` | Fixar snapshot de Demurrage e escritor PIX | S08-B/C; `023_demurrage_calculation_snapshot.sql` + `030_fix_demurrage_snapshot_ptax_column.sql` | Autoridade server-side, snapshot e QR SQL estão implementados; decoder/manual BCB independente e aceite normativo F8 ainda faltam. |
+| 10 | `[x]` + `[ ]` escopo externo | Fixar snapshot de Demurrage e escritor PIX | S08-B/C; `023_demurrage_calculation_snapshot.sql` + `030_fix_demurrage_snapshot_ptax_column.sql` + `034_pix_static_payload_normative_fixes.sql` | Autoridade server-side, snapshot, QR SQL e decoder independente do QR estático estão implementados/testados; runtime em PSP e QR dinâmico/composto permanecem fora do escopo. |
 | 11 | `[x]` | Aplicar datas/flags em transação | S04/P1-01; `015_import_dates_and_flags_atomic.sql` | Atomicidade por B/L, auditoria e flags físicas estão cobertas; não repetir. |
 | 12 | `[x]` | Fechar metadados e conflito de omissão | S04/P2-01/P3-01; `016_import_metadata_and_omission_conflicts.sql` | Metadados, CE e omissão/conflitos estão implementados/testados; não repetir o núcleo. |
 | 13 | `mitigado` + `[ ] runtime` | Persistir efeitos e relatório de import | S05; `017_import_effects_outbox.sql` + `025_import_effect_worker.sql` + `026_import_effect_alert.sql` + `031_import_effect_consumers.sql` | Outbox/claim/lease/retry, consumidores server-side e painel reabrível por unidade passaram na prova local; Preview, secrets/Vault/Edge e ativação controlada do worker continuam pendentes. |
