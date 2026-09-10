@@ -23,6 +23,8 @@ describe('vesselAlias S03', () => {
     expect(canonicalizeVesselName('CS. ALGOL')).toBe('COSCO SHIPPING ALGOL')
     expect(canonicalizeVesselName('C S ALGOL')).toBe('COSCO SHIPPING ALGOL')
     expect(canonicalizeVesselName('M/V ZYHY JIN QU')).toBe('ZHONG YUAN HAI YUN JIN QU')
+    expect(canonicalizeVesselName('VSL ZYHY JIN QU')).toBe('ZHONG YUAN HAI YUN JIN QU')
+    expect(canonicalizeVesselName('VESSEL ZYHY JIN QU')).toBe('ZHONG YUAN HAI YUN JIN QU')
     expect(canonicalizeVesselName('CSCL ALGOL')).toBe('CSCL ALGOL')
   })
 })

@@ -156,3 +156,64 @@ it('salva IMO quando a viagem usa um navio ja existente sem IMO', async () => {
   expect(vesselsUpdate).toHaveBeenCalledWith({ imo: '9846495', carrier_id: 7 })
   expect(vesselsUpdateEq).toHaveBeenCalledWith('id', 9)
 })
+
+it('reaproveita IMO legado rotulado em vez de criar ou rejeitar o mesmo navio', async () => {
+  const vesselsUpdateEq = vi.fn(() => Promise.resolve({ error: null }))
+  const vesselsUpdate = vi.fn(() => ({ eq: vesselsUpdateEq }))
+  const voyagesInsertSingle = vi.fn(() => Promise.resolve({ data: { id: 43 }, error: null }))
+  const auditInsert = vi.fn(() => Promise.resolve({ error: null }))
+  const legacyVessel = { id: 9, imo: 'IMO: 9846495', name: 'REGISTERED NAME', carrier_id: 7 }
+
+  fromMock.mockImplementation((table: string) => {
+    if (table === 'carriers') {
+      return {
+        select: () => ({
+          limit: () => ({
+            eq: () => Promise.resolve({ data: [{ id: 7 }], error: null }),
+          }),
+        }),
+      }
+    }
+
+    if (table === 'vessels') {
+      return {
+        select: () => ({
+          eq: (field: string) => ({
+            limit: () => Promise.resolve({
+              data: field === 'imo' ? [] : [legacyVessel],
+              error: null,
+            }),
+          }),
+          ilike: () => ({ limit: () => Promise.resolve({ data: [legacyVessel], error: null }) }),
+        }),
+        update: vesselsUpdate,
+      }
+    }
+
+    if (table === 'voyages') {
+      return {
+        insert: () => ({
+          select: () => ({
+            single: voyagesInsertSingle,
+          }),
+        }),
+      }
+    }
+
+    if (table === 'audit_logs') return { insert: auditInsert }
+
+    throw new Error(`Tabela nao mockada: ${table}`)
+  })
+
+  await expect(createVoyage({
+    carrierName: 'COSCO',
+    carrierScac: 'COSU',
+    vesselName: 'PLANILHA NAME',
+    vesselImo: 'IMO: 9846495',
+    voyageNumber: '40',
+    status: 'active',
+  }, 'user-1')).resolves.toEqual({ id: 43 })
+
+  expect(vesselsUpdate).toHaveBeenCalledWith({ name: 'PLANILHA NAME', imo: '9846495' })
+  expect(vesselsUpdateEq).toHaveBeenCalledWith('id', 9)
+})

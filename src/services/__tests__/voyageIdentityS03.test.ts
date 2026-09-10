@@ -46,6 +46,13 @@ describe('voyage identity S03', () => {
     await expect(findVoyageByNumberAndVessel('14', '2222222', 'GREEN SANTOS')).resolves.toBeNull()
   })
 
+  it('sem IMO usa fallback nominal para um único navio já identificado', async () => {
+    state.rows = [
+      { id: 1, voyage_number: '14', vessel: { name: 'GREEN SANTOS', imo: '1111111' } },
+    ]
+    await expect(findVoyageByNumberAndVessel('14', '', 'GREEN SANTOS')).resolves.toBe(1)
+  })
+
   it('conflito explícito em vez de .find arbitrário', async () => {
     state.rows = [
       { id: 1, voyage_number: '14', vessel: { name: 'GREEN SANTOS', imo: null } },

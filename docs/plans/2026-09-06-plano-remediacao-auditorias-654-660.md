@@ -34,7 +34,7 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **Gate SQL:** as cinco suítes antes fora do gate foram corrigidas e incorporadas ao CI. Replay local do zero: 17 arquivos / 64 testes verdes. A correção adicional de `upsert_alert_item_before_milestone_hardening` impede eventos `updated` espúrios em reconciliação idempotente.
 - **S02:** o skip observado em runs de `workflow_run` sem PR é explicado pelo `if` do workflow para pushes em `main`; na execução da PR, o check Supabase passou. O segredo operacional foi corrigido fora do código e o smoke autenticado do Preview foi concluído. O workflow continua fail-closed e nenhum job foi ativado.
 - **S11/S14:** o catálogo e os documentos foram atualizados; `src/types/database.ts` foi regenerado oficialmente contra o schema do Preview, preservando os aliases de domínio. A inspeção das 14 candidatas legadas encontrou zero dependências `pg_depend`, zero referências nos corpos de outras funções e zero jobs locais; sem telemetria de consumidores externos, nenhum `DROP` foi aplicado.
-- **S03/P0-4:** a identidade de navio/viagem agora normaliza tokens e designações (`M/V`, `VSL`), aceita variantes pontuadas dos aliases sem casar prefixos como `CSCL`, normaliza o rótulo textual do IMO e resolve primeiro pelo IMO exato. O fallback nominal só considera cadastros sem IMO e recusa conflito com outro IMO; os testes S03 cobrem prioridade, IMOs distintos, ambiguidade e grafias do alias.
+- **S03/P0-4:** a identidade de navio/viagem agora normaliza tokens e designações (`M/V`, `VSL`), aceita variantes pontuadas dos aliases sem casar prefixos como `CSCL`, normaliza o rótulo textual do IMO e resolve primeiro pelo IMO exato. Quando a entrada não traz IMO, um único fallback nominal canônico é permitido; múltiplas candidatas são ambíguas. Com IMO informado, o fallback só considera cadastro sem IMO e recusa conflito com outro IMO; os testes S03 cobrem prioridade, IMOs distintos, ambiguidade e grafias do alias.
 
 ### 1.0.2 Fechamento da revisão da PR #670
 
@@ -107,10 +107,11 @@ ser promovido a concluído apenas porque o caminho principal está verde.
 
 - [x] **S03/P0-4:** identidade canônica concluída em `src/lib/vesselAlias.ts`
   e `src/services/voyages.ts`: IMO exato tem prioridade sobre grafia e
-  cadastros sem IMO, aliases são comparados por tokens com designações de navio
-  removidas, conflito com IMO distinto retorna ausência e ambiguidade gera erro
-  explícito. Evidência: `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`
-  (11 testes focados verdes); não há `.find()` na resolução.
+  cadastros sem IMO quando necessário, aliases são comparados por tokens com
+  designações de navio removidas, conflito com IMO distinto retorna ausência e
+  ambiguidade gera erro explícito. Evidência: `vesselAliasS03.test.ts` e
+  `voyageIdentityS03.test.ts` (12 testes de identidade verdes); não há `.find()`
+  na resolução.
 - [ ] **S03 restante:** concluir bytes/encoding, scanner Baplie por dialeto,
   schemas/contratos de Granito/Vazios/COSCO, validação uniforme de datas/portos
   e relatório integral/progresso. Os itens já marcados como mitigados não devem

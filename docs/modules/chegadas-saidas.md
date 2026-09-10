@@ -1,6 +1,6 @@
 # Chegadas e Saídas
 
-> **Status:** ativo · **Atualizado:** 2026-07-09 · **Rota interna:** `/chegadas-saidas` · **Consumidor:** widget do Dashboard do Portal
+> **Status:** ativo · **Atualizado:** 2026-09-10 · **Rota interna:** `/chegadas-saidas` · **Consumidor:** widget do Dashboard do Portal
 
 ## Propósito e escopo
 

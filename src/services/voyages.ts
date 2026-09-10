@@ -157,20 +157,16 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
   const canonical = canonicalizeVesselName(name.trim())
   // IMO prevalece sobre grafia: mesmo IMO, grafias distintas são o mesmo navio.
   if (normalizedImo) {
-    const { data: byImo, error: byImoError } = await supabase
-      .from('vessels')
-      .select('id, imo, name, carrier_id')
-      .eq('imo', normalizedImo)
-      .limit(2)
-    if (byImoError) throw byImoError
+    const byImo = await findVesselsByNormalizedImo(normalizedImo)
     if (byImo?.length > 1) {
       throw new Error(`Navio com IMO ${normalizedImo} ambíguo: mais de um cadastro. Corrija antes de importar.`)
     }
     if (byImo?.[0] && normalizeVesselImo(byImo[0].imo) === normalizedImo) {
       const vessel = byImo[0]
-      const updates: { name?: string; carrier_id?: number } = {}
+      const updates: { name?: string; imo?: string; carrier_id?: number } = {}
       if (vessel.name && vessel.name !== canonical) updates.name = canonical
       if (vessel.carrier_id !== carrierId) updates.carrier_id = carrierId
+      if (vessel.imo !== normalizedImo) updates.imo = normalizedImo
       if (Object.keys(updates).length > 0) {
         const { error: updateError } = await supabase.from('vessels').update(updates).eq('id', vessel.id)
         if (updateError) throw updateError
@@ -192,11 +188,12 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
   if (existing?.[0]) {
     const vessel = existing[0]
     // IMOs distintos nunca se fundem: nome igual com IMO diferente é conflito explícito.
-    if (normalizedImo && vessel.imo && vessel.imo !== normalizedImo) {
-      throw new Error(`Navio ${canonical} com IMO conflitante (${vessel.imo} vs ${normalizedImo}). Corrija antes de importar.`)
+    const existingImo = normalizeVesselImo(vessel.imo)
+    if (normalizedImo && existingImo && existingImo !== normalizedImo) {
+      throw new Error(`Navio ${canonical} com IMO conflitante (${existingImo} vs ${normalizedImo}). Corrija antes de importar.`)
     }
     const updates: { imo?: string; carrier_id?: number } = {}
-    if (normalizedImo && vessel.imo !== normalizedImo) updates.imo = normalizedImo
+    if (normalizedImo && existingImo !== normalizedImo) updates.imo = normalizedImo
     if (vessel.carrier_id !== carrierId) updates.carrier_id = carrierId
 
     if (Object.keys(updates).length > 0) {
@@ -215,6 +212,31 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
 
   if (createError || !created) throw createError
   return created.id
+}
+
+async function findVesselsByNormalizedImo(normalizedImo: string) {
+  const exact = await supabase
+    .from('vessels')
+    .select('id, imo, name, carrier_id')
+    .eq('imo', normalizedImo)
+    .limit(2)
+  if (exact.error) throw exact.error
+
+  const exactMatches = (exact.data ?? []).filter((vessel) => normalizeVesselImo(vessel.imo) === normalizedImo)
+  if ((exact.data ?? []).length > 0 || !/^\d{7}$/.test(normalizedImo)) return exactMatches
+
+  // Cadastros anteriores podem guardar "IMO: 1234567". O filtro amplo só é
+  // usado para um IMO numérico válido e a igualdade canônica é revalidada em
+  // memória, evitando aceitar uma coincidência parcial ou um valor inválido.
+  // ponytail: consulta no máximo 20 candidatos legados; upgrade path =
+  // canonicalizar o legado e criar índice/expressão ou RPC de igualdade.
+  const legacy = await supabase
+    .from('vessels')
+    .select('id, imo, name, carrier_id')
+    .ilike('imo', `%${normalizedImo}%`)
+    .limit(20)
+  if (legacy.error) throw legacy.error
+  return (legacy.data ?? []).filter((vessel) => normalizeVesselImo(vessel.imo) === normalizedImo)
 }
 
 function makeVoyageAuditRow(
