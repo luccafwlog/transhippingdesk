@@ -5,7 +5,9 @@ import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import type { ImportFileInspection } from '../../services/importText'
 import type { ImportIssue } from '../../services/importValidation'
+import type { FileReadProgress } from '../../hooks/useCancellableFileRead'
 import { ImportIssuesPanel } from './ImportIssuesPanel'
+import { ImportReadProgress } from './ImportReadProgress'
 
 export type FilePreviewEntry<T> = {
   file: File
@@ -58,7 +60,7 @@ export function FileImportModal<T, TResult = void>({
   const [entries, setEntries] = useState<FilePreviewEntry<T>[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [parsing, setParsing] = useState(false)
-  const [parseProgress, setParseProgress] = useState({ completed: 0, total: 0 })
+  const [parseProgress, setParseProgress] = useState<FileReadProgress>({ completed: 0, total: 0, currentFile: null })
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<TResult | undefined>(undefined)
   const parseControllerRef = useRef<AbortController | null>(null)
@@ -81,7 +83,7 @@ export function FileImportModal<T, TResult = void>({
     setEntries([])
     setActiveIndex(0)
     setImportResult(undefined)
-    setParseProgress({ completed: 0, total: files.length })
+    setParseProgress({ completed: 0, total: files.length, currentFile: files[0]?.name ?? null })
     if (!files.length) {
       parseControllerRef.current = null
       setParsing(false)
@@ -98,11 +100,19 @@ export function FileImportModal<T, TResult = void>({
         const preview = await parser(file)
         if (controller.signal.aborted) break
         parsedEntries.push({ file, preview, inspection })
-        setParseProgress((progress) => ({ ...progress, completed: progress.completed + 1 }))
+        setParseProgress((progress) => ({
+          ...progress,
+          completed: progress.completed + 1,
+          currentFile: files[progress.completed + 1]?.name ?? file.name,
+        }))
       } catch (err) {
         if (controller.signal.aborted) break
         showToast(`${file.name}: ${err instanceof Error ? err.message : 'Falha ao ler arquivo.'}`, 'error')
-        setParseProgress((progress) => ({ ...progress, completed: progress.completed + 1 }))
+        setParseProgress((progress) => ({
+          ...progress,
+          completed: progress.completed + 1,
+          currentFile: files[progress.completed + 1]?.name ?? file.name,
+        }))
       }
     }
     if (!controller.signal.aborted) setEntries(parsedEntries)
@@ -158,21 +168,7 @@ export function FileImportModal<T, TResult = void>({
         <Field label={`Arquivo ${accept}`}>
           <Input accept={accept} disabled={!ready || importing} multiple={multiple} type="file" onChange={handleFile} />
         </Field>
-        {parsing ? (
-          <div className="app-panel app-panel--padded grid gap-2 text-sm" role="status" aria-live="polite">
-            <div>Processando arquivo {Math.min(parseProgress.completed + 1, parseProgress.total)} de {parseProgress.total}...</div>
-            <div
-              role="progressbar"
-              aria-label="Progresso da leitura"
-              aria-valuemin={0}
-              aria-valuemax={parseProgress.total}
-              aria-valuenow={parseProgress.completed}
-              className="h-2 overflow-hidden rounded bg-[var(--app-border)]"
-            >
-              <div className="h-full bg-[var(--app-blue-btn)] transition-[width]" style={{ width: `${parseProgress.total ? (parseProgress.completed / parseProgress.total) * 100 : 0}%` }} />
-            </div>
-          </div>
-        ) : null}
+        {parsing ? <ImportReadProgress progress={parseProgress} /> : null}
         {entries.length > 0 && renderBatchSummary ? renderBatchSummary(entries) : null}
         {activeEntry && entries.length > 1 ? (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm">

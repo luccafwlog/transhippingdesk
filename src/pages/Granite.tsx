@@ -13,6 +13,7 @@ import { TruncationNote } from '../components/shared/TruncationNote'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
+import { useCancellableFileRead } from '../hooks/useCancellableFileRead'
 import { PAGE_SIZES, usePageFilters } from '../hooks/usePageFilters'
 import {
   parseGraniteManifestFile,
@@ -26,6 +27,7 @@ import { canonicalizeDocument, normalizeCnpj } from '../lib/cnpj'
 import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../services/customerReconciliation'
 import { rowErrorsToImportIssues } from '../services/importValidation'
 import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
+import { ImportReadProgress } from '../components/shared/ImportReadProgress'
 
 type Filters = {
   search: string
@@ -54,9 +56,7 @@ export function Granite() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
-  const [file, setFile] = useState<File | null>(null)
-  const [manifest, setManifest] = useState<ParsedGraniteManifest | null>(null)
-  const [parsing, setParsing] = useState(false)
+  const { file, preview: manifest, parsing, progress, readFile, cancel: cancelReading, updatePreview } = useCancellableFileRead<ParsedGraniteManifest>(parseGraniteManifestFile)
   const [submitting, setSubmitting] = useState(false)
   // Overrides de CNPJ feitos inline no preview
   const [cnpjOverrides, setCnpjOverrides] = useState<Record<number, string>>({})
@@ -72,18 +72,13 @@ export function Granite() {
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null
-    setFile(nextFile)
-    setManifest(null)
     setCnpjOverrides({})
-    if (!nextFile) return
-    setParsing(true)
     try {
-      setManifest(await parseGraniteManifestFile(nextFile))
+      const parsed = await readFile(nextFile)
+      if (!parsed) return
       showToast('Preview carregado.', 'success')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao ler arquivo.', 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -97,18 +92,20 @@ export function Granite() {
     const match = findMatchedCustomer({ cnpjCpf: cnpj, consignee: bl.shipper_name ?? '' }, maps)
     const link = resolveCustomerLink(match)
     if (link.status !== 'missing_customer') {
-      const updated = manifest.bls.map((b, i) =>
-        i === rowIndex
-          ? {
-              ...b,
-              shipper_cnpj: cnpj,
-              clientId: link.customerId,
-              suggestedClientId: link.suggestedCustomerId,
-              reconciliationStatus: link.status === 'matched_document' ? 'matched' as ReconciliationStatus : 'suggested_name' as ReconciliationStatus,
-            }
-          : b,
-      )
-      setManifest({ ...manifest, bls: updated })
+      updatePreview((currentManifest) => ({
+        ...currentManifest,
+        bls: currentManifest.bls.map((b, i) =>
+          i === rowIndex
+            ? {
+                ...b,
+                shipper_cnpj: cnpj,
+                clientId: link.customerId,
+                suggestedClientId: link.suggestedCustomerId,
+                reconciliationStatus: link.status === 'matched_document' ? 'matched' as ReconciliationStatus : 'suggested_name' as ReconciliationStatus,
+              }
+            : b,
+        ),
+      }))
     }
   }
 
@@ -130,16 +127,19 @@ export function Granite() {
         ? `Importado com ${manifest.bls.length} B/Ls. ${pendingCount} com reconciliação pendente.`
         : `${manifest.bls.length} B/Ls importados com sucesso.`
       showToast(msg, 'success')
-      setUploadOpen(false)
+      closeUpload()
       setVoyageId('')
-      setFile(null)
-      setManifest(null)
       setCnpjOverrides({})
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao importar.', 'error')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function closeUpload() {
+    cancelReading()
+    setUploadOpen(false)
   }
 
   async function handleCalculateCharges(blId: string) {
@@ -372,7 +372,7 @@ export function Granite() {
       </Modal>
 
       {/* Modal de importação */}
-      <Modal open={uploadOpen && canWrite} onClose={() => setUploadOpen(false)} title="Importar Planilha COSCO — Granito">
+      <Modal open={uploadOpen && canWrite} onClose={closeUpload} title="Importar Planilha COSCO — Granito">
         <div className="grid gap-5">
           <div className="app-panel app-panel--padded text-sm">
             <div className="app-panel__title">Formato esperado</div>
@@ -393,7 +393,7 @@ export function Granite() {
             <Input accept=".xlsx,.xls" type="file" onChange={handleFile} />
           </Field>
 
-          {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
+          {parsing ? <ImportReadProgress progress={progress} /> : null}
 
           {manifest ? (
             <div className="grid gap-4">
@@ -458,7 +458,7 @@ export function Granite() {
           ) : null}
 
           <div className="app-modal__actions">
-            <Button variant="secondary" onClick={() => setUploadOpen(false)}>Cancelar</Button>
+            <Button variant="secondary" disabled={submitting} onClick={parsing ? cancelReading : closeUpload}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
             <Button disabled={!manifest || manifest.rowErrors.length > 0 || !voyageId || !user} loading={submitting} onClick={handleImport}>
               Confirmar importação
             </Button>

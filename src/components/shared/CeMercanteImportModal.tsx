@@ -7,6 +7,7 @@ import { Modal } from '../ui/Modal'
 import { PreviewBox } from '../ui/PreviewBox'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
+import { useCancellableFileRead } from '../../hooks/useCancellableFileRead'
 import {
   importCeMercanteEdi,
   importCeMercanteRows,
@@ -22,6 +23,7 @@ import {
   type ParsedCeMercanteEdi,
 } from '../../services/ceMercanteEdiParser'
 import { queryKeys } from '../../services/queryKeys'
+import { ImportReadProgress } from './ImportReadProgress'
 
 const SHEET_EXTENSIONS = /\.(xlsx|xls|csv)$/i
 
@@ -39,12 +41,48 @@ export function CeMercanteImportModal({
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { user } = useAuth()
-  const [file, setFile] = useState<File | null>(null)
+  const { file, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<
+    { kind: 'sheet'; preview: ParsedCeMercanteFile } | { kind: 'edi'; preview: ParsedCeMercanteEdi }
+  >(async (nextFile) => {
+    if (SHEET_EXTENSIONS.test(nextFile.name)) {
+      const parsed = await parseCeMercanteFile(nextFile)
+      if (lockedVoyageId == null) return { kind: 'sheet', preview: parsed }
+      const partition = target === 'bls'
+        ? await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+        : await partitionRowsByVoyage(parsed.rows, lockedVoyageId, target)
+      return {
+        kind: 'sheet',
+        preview: {
+          rows: partition.rows,
+          rowErrors: [
+            ...parsed.rowErrors,
+            ...partition.blocked.map((item) => ({ row: item.row, message: item.message, raw: item.bl_id })),
+          ],
+        },
+      }
+    }
+
+    const parsed = await parseCeMercanteEdiFile(nextFile)
+    if (lockedVoyageId == null) return { kind: 'edi', preview: parsed }
+    const partition = target === 'bls'
+      ? await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
+      : await partitionRowsByVoyage(parsed.rows, lockedVoyageId, target)
+    return {
+      kind: 'edi',
+      preview: {
+        ...parsed,
+        rows: partition.rows,
+        rowErrors: [
+          ...parsed.rowErrors,
+          ...partition.blocked.map((item) => ({ line: item.row, message: item.message, raw: item.bl_id })),
+        ],
+      },
+    }
+  })
   const [preview, setPreview] = useState<ParsedCeMercanteFile | null>(null)
   const [report, setReport] = useState<CeMercanteImportResult | null>(null)
   const [ediPreview, setEdiPreview] = useState<ParsedCeMercanteEdi | null>(null)
   const [ediErrors, setEdiErrors] = useState<CeMercanteEdiImportResult | null>(null)
-  const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const combinedErrorCount = (preview?.rowErrors.length ?? 0) + (report?.errorCount ?? 0)
@@ -62,53 +100,16 @@ export function CeMercanteImportModal({
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null
-    setFile(nextFile)
     resetState()
-
-    if (!nextFile) return
-
-    setParsing(true)
     try {
-      if (SHEET_EXTENSIONS.test(nextFile.name)) {
-        const parsed = await parseCeMercanteFile(nextFile)
-        if (lockedVoyageId == null) {
-          setPreview(parsed)
-        } else {
-          const partition = target === 'bls'
-            ? await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
-            : await partitionRowsByVoyage(parsed.rows, lockedVoyageId, target)
-          setPreview({
-            rows: partition.rows,
-            rowErrors: [
-              ...parsed.rowErrors,
-              ...partition.blocked.map((item) => ({ row: item.row, message: item.message, raw: item.bl_id })),
-            ],
-          })
-        }
-      } else {
-        const parsed = await parseCeMercanteEdiFile(nextFile)
-        if (lockedVoyageId == null) {
-          setEdiPreview(parsed)
-        } else {
-          const partition = target === 'bls'
-            ? await partitionRowsByVoyage(parsed.rows, lockedVoyageId)
-            : await partitionRowsByVoyage(parsed.rows, lockedVoyageId, target)
-          setEdiPreview({
-            ...parsed,
-            rows: partition.rows,
-            rowErrors: [
-              ...parsed.rowErrors,
-              ...partition.blocked.map((item) => ({ line: item.row, message: item.message, raw: item.bl_id })),
-            ],
-          })
-        }
-      }
+      const result = await readFile(nextFile)
+      if (!result) return
+      if (result.kind === 'sheet') setPreview(result.preview)
+      else setEdiPreview(result.preview)
       showToast('Preview de CE Mercante carregado.', 'success')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível ler o arquivo.'
       showToast(message, 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -220,7 +221,7 @@ export function CeMercanteImportModal({
   }
 
   function resetAndClose() {
-    setFile(null)
+    cancelReading()
     resetState()
     onClose()
   }
@@ -266,7 +267,7 @@ export function CeMercanteImportModal({
         </Field>
 
         {file ? <div className="app-panel__meta">Arquivo selecionado: {file.name}</div> : null}
-        {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
+        {parsing ? <ImportReadProgress progress={progress} /> : null}
 
         {preview ? (
           <div className="grid gap-4">
@@ -330,8 +331,8 @@ export function CeMercanteImportModal({
         ) : null}
 
         <div className="app-modal__actions">
-          <Button variant="secondary" onClick={resetAndClose}>
-            Cancelar
+          <Button variant="secondary" disabled={submitting} onClick={parsing ? cancelReading : resetAndClose}>
+            {parsing ? 'Cancelar leitura' : 'Cancelar'}
           </Button>
           <Button disabled={!canSubmit} loading={submitting} onClick={handleImport}>
             <Upload size={16} />

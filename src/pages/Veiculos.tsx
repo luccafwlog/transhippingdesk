@@ -16,6 +16,7 @@ import { useConfirm } from '../components/ui/ConfirmDialog'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
+import { useCancellableFileRead } from '../hooks/useCancellableFileRead'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { usePageFilters } from '../hooks/usePageFilters'
 import { useVehicleOptions, useVehicles, useVoyageVehicleStats, type VehiclePageFilters } from '../hooks/useVehicles'
@@ -29,6 +30,7 @@ import { buildVoyageRailItems, type VoyageRailModuleStats } from '../services/vo
 import { VoyageRail } from '../components/voyages/VoyageRail'
 import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
 import { rowErrorsToImportIssues } from '../services/importValidation'
+import { ImportReadProgress } from '../components/shared/ImportReadProgress'
 
 export function Veiculos() {
   const [searchParams] = useSearchParams()
@@ -64,8 +66,7 @@ export function Veiculos() {
   const selection = useRowSelection<number>(`${selectedVoyageId}:${JSON.stringify({ ...filters, page: undefined, pageSize: undefined })}`)
   const [importOpen, setImportOpen] = useState(false)
   const [fileName, setFileName] = useState('')
-  const [parsedImport, setParsedImport] = useState<ParsedVehicleImport | null>(null)
-  const [parsing, setParsing] = useState(false)
+  const { preview: parsedImport, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<ParsedVehicleImport>(parseVehicleImportFile)
   const [importing, setImporting] = useState(false)
   const [autoSelectedImportOpen, setAutoSelectedImportOpen] = useState(false)
   const [importReport, setImportReport] = useState<{
@@ -132,9 +133,8 @@ export function Veiculos() {
     setImportOpen(false)
     setImportVoyageId('')
     setFileName('')
-    setParsedImport(null)
+    cancelReading()
     setImportReport(null)
-    setParsing(false)
     setImporting(false)
     setAutoSelectedImportOpen(false)
   }
@@ -142,15 +142,11 @@ export function Veiculos() {
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null
     setFileName(file?.name ?? '')
-    setParsedImport(null)
     setImportReport(null)
 
-    if (!file) return
-
-    setParsing(true)
     try {
-      const parsed = await parseVehicleImportFile(file)
-      setParsedImport(parsed)
+      const parsed = await readFile(file)
+      if (!parsed) return
       showToast(
         parsed.rowErrors.length
           ? `Preview carregado com ${parsed.rows.length} linha(s) valida(s) e ${parsed.rowErrors.length} erro(s).`
@@ -160,8 +156,6 @@ export function Veiculos() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Falha ao ler arquivo.'
       showToast(message, 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -603,7 +597,7 @@ export function Veiculos() {
           </Field>
 
           {fileName ? <div className="app-panel__meta">Arquivo selecionado: {fileName}</div> : null}
-          {parsing ? <div className="app-panel__meta">Lendo arquivo com SheetJS...</div> : null}
+          {parsing ? <ImportReadProgress progress={progress} /> : null}
 
           {parsedImport ? (
             <div className="grid gap-4">
@@ -670,8 +664,8 @@ export function Veiculos() {
           ) : null}
 
           <div className="app-modal__actions">
-            <Button variant="secondary" onClick={resetImportState}>
-              Fechar
+            <Button variant="secondary" disabled={importing} onClick={parsing ? cancelReading : resetImportState}>
+              {parsing ? 'Cancelar leitura' : 'Fechar'}
             </Button>
             <Button disabled={!importTargetVoyageId || !parsedImport?.rows.length || Boolean(parsedImport.rowErrors.length) || Boolean(importReport)} loading={importing} onClick={handleImport}>
               Confirmar importação

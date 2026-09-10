@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
+import { useCancellableFileRead } from '../hooks/useCancellableFileRead'
 import { supabase } from '../services/supabase'
 import { parseBaplieFile } from '../services/baplieParser'
 import { importBaplieStaging } from '../services/baplieImport'
@@ -30,6 +31,9 @@ import { formatDate } from '../lib/utils'
 import { listVoyageEscalaSchedulesByVoyageIds } from '../services/voyageRouteSchedules'
 import { buildVoyageRailItems, type VoyageRailItem } from '../services/voyageSummaries'
 import { VoyageRail } from '../components/voyages/VoyageRail'
+import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
+import { ImportReadProgress } from '../components/shared/ImportReadProgress'
+import { canImportPreview } from '../services/importValidation'
 
 export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -719,8 +723,7 @@ function BaplieUploadModal({
   const { user } = useAuth()
   const { showToast } = useToast()
   const [voyageId, setVoyageId] = useState(initialVoyageId)
-  const [parsed, setParsed] = useState<Awaited<ReturnType<typeof parseBaplieFile>> | null>(null)
-  const [parsing, setParsing] = useState(false)
+  const { preview: parsed, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<Awaited<ReturnType<typeof parseBaplieFile>>>(parseBaplieFile)
   const [submitting, setSubmitting] = useState(false)
   const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
 
@@ -733,24 +736,18 @@ function BaplieUploadModal({
   }
 
   function handleClose() {
-    setParsed(null)
+    cancelReading()
     setExcludedPods(new Set())
     onClose()
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
-    setParsed(null)
     setExcludedPods(new Set())
-    if (!f) return
-    setParsing(true)
     try {
-      const result = await parseBaplieFile(f)
-      setParsed(result)
+      await readFile(f)
     } catch {
       showToast('Não foi possível ler o arquivo. Verifique o formato EDI.', 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -764,9 +761,10 @@ function BaplieUploadModal({
   }
 
   const filteredContainers = (parsed?.containers ?? []).filter((c) => !c.pod || !excludedPods.has(c.pod))
+  const canImport = Boolean(parsed && voyageId && canImportPreview(filteredContainers.length > 0, parsed.issues))
 
   async function handleImport() {
-    if (!parsed || !voyageId || !user) return
+    if (!canImport || !user) return
     setSubmitting(true)
     try {
       const { staged } = await importBaplieStaging(Number(voyageId), filteredContainers, user.id)
@@ -795,7 +793,7 @@ function BaplieUploadModal({
           <Input accept=".edi,.txt,.edi2" type="file" onChange={handleFile} />
         </Field>
 
-        {parsing ? <div className="text-sm text-slate-400">Processando arquivo EDI...</div> : null}
+        {parsing ? <ImportReadProgress progress={progress} /> : null}
 
         {parsed ? (
           <div className="grid gap-3">
@@ -846,13 +844,14 @@ function BaplieUploadModal({
                 <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.filter((c) => c.is_oog).length}</div>
               </div>
             </div>
+            <ImportIssuesPanel issues={parsed.issues} filename="baplie-issues.csv" />
           </div>
         ) : null}
 
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
+          <Button variant="secondary" disabled={submitting} onClick={parsing ? cancelReading : handleClose}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
           <Button
-            disabled={!parsed || !voyageId || filteredContainers.length === 0}
+            disabled={!canImport}
             loading={submitting}
             onClick={handleImport}
           >

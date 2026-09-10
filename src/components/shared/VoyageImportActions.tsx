@@ -7,6 +7,7 @@ import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
+import { useCancellableFileRead } from '../../hooks/useCancellableFileRead'
 import { FileImportModal } from './FileImportModal'
 import { BlImportModal } from './BlImportModal'
 import { BlDocumentImportModal } from './BlDocumentImportModal'
@@ -17,8 +18,10 @@ import { importVaziosImportacaoManifest, parseVaziosImportacaoFile } from '../..
 import { importVehicleRows, parseVehicleImportFile } from '../../services/vehicleImport'
 import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
-import { canImportPreview, downloadIssuesCsv, hasBlockingIssues, rowErrorsToImportIssues } from '../../services/importValidation'
+import { canImportPreview, rowErrorsToImportIssues } from '../../services/importValidation'
 import { inspectImportUpload } from '../../services/importText'
+import { ImportIssuesPanel } from './ImportIssuesPanel'
+import { ImportReadProgress } from './ImportReadProgress'
 
 type ImportType = 'bb' | 'granite' | 'ceMercanteGranite' | 'vaziosImp' | 'vaziosExp' | 'vehicles' | 'baplie' | 'blFreight' | 'blBreakbulk' | 'ceMercante'
 
@@ -280,24 +283,23 @@ function BaplieImportModal({
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const [parsed, setParsed] = useState<Awaited<ReturnType<typeof parseBaplieFile>> | null>(null)
-  const [parsing, setParsing] = useState(false)
+  const { preview: parsed, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<Awaited<ReturnType<typeof parseBaplieFile>>>(parseBaplieFile)
   const [importing, setImporting] = useState(false)
   const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
-    setParsed(null)
     setExcludedPods(new Set())
-    if (!f) return
-    setParsing(true)
     try {
-      setParsed(await parseBaplieFile(f))
+      await readFile(f)
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Não foi possível ler o arquivo. Verifique o formato EDI.', 'error')
-    } finally {
-      setParsing(false)
     }
+  }
+
+  function handleClose() {
+    cancelReading()
+    onClose()
   }
 
   function togglePod(pod: string) {
@@ -313,7 +315,6 @@ function BaplieImportModal({
   const filteredContainers = (parsed?.containers ?? []).filter((c) => !c.pod || !excludedPods.has(c.pod))
   const includedPods = pods.filter((pod) => !excludedPods.has(pod)).length
   const issues = parsed?.issues ?? []
-  const blockingIssues = hasBlockingIssues(issues)
   const canImport = canImportPreview(filteredContainers.length > 0, issues)
 
   async function handleImport() {
@@ -326,7 +327,7 @@ function BaplieImportModal({
         queryClient.invalidateQueries({ queryKey: ['baplie-reconciliation', voyageId] }),
       ])
       showToast(`Baplie importado: ${staged} container(s) em staging.`, 'success')
-      onClose()
+      handleClose()
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao importar Baplie EDI.', 'error')
     } finally {
@@ -335,7 +336,7 @@ function BaplieImportModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Importar Baplie EDI">
+    <Modal open onClose={handleClose} title="Importar Baplie EDI">
       <div className="grid gap-4">
         <div className="app-panel app-panel--padded text-sm">
           Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
@@ -343,7 +344,7 @@ function BaplieImportModal({
         <Field label="Arquivo .edi,.txt,.bpl">
           <Input accept=".edi,.txt,.bpl" type="file" onChange={handleFile} />
         </Field>
-        {parsing ? <div className="app-panel__meta">Processando...</div> : null}
+        {parsing ? <ImportReadProgress progress={progress} /> : null}
         {parsed ? (
           <div className="grid gap-3">
             {pods.length > 0 ? (
@@ -379,24 +380,11 @@ function BaplieImportModal({
             <div className="app-panel__meta text-sm">
               Encoding detectado: <span className="font-semibold text-[var(--app-text-strong)]">{parsed.encoding}</span>
             </div>
-            {issues.length > 0 ? (
-              <div role="alert" className="app-panel app-panel--padded grid gap-2 border border-[var(--app-gold)] bg-[var(--app-gold-soft)] text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <strong>{blockingIssues ? 'Corrija os problemas antes de importar.' : 'Revise os avisos da prévia.'}</strong>
-                  <Button variant="secondary" onClick={() => downloadIssuesCsv('baplie-issues.csv', issues)}>Baixar relatório</Button>
-                </div>
-                <div className="text-xs text-[var(--app-muted)]">
-                  {issues.filter((issue) => issue.severity === 'error').length} erro(s), {issues.filter((issue) => issue.severity === 'warning').length} aviso(s)
-                </div>
-                <ul className="grid gap-1 pl-5 text-xs" aria-label="Problemas da prévia">
-                  {issues.map((issue, index) => <li key={`${issue.row}-${issue.field}-${issue.code}-${index}`}>{issue.message}</li>)}
-                </ul>
-              </div>
-            ) : null}
+            <ImportIssuesPanel issues={issues} filename="baplie-issues.csv" />
           </div>
         ) : null}
         <div className="app-modal__actions">
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" disabled={importing} onClick={parsing ? cancelReading : handleClose}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
           <Button disabled={!canImport} loading={importing} onClick={() => void handleImport()}>
             Confirmar{excludedPods.size > 0 ? ` (${filteredContainers.length} containers)` : ''}
           </Button>
@@ -430,22 +418,21 @@ function VehiclesImportModal({
 }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const [preview, setPreview] = useState<Awaited<ReturnType<typeof parseVehicleImportFile>> | null>(null)
-  const [parsing, setParsing] = useState(false)
+  const { preview, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<Awaited<ReturnType<typeof parseVehicleImportFile>>>(parseVehicleImportFile)
   const [importing, setImporting] = useState(false)
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
-    setPreview(null)
-    if (!f) return
-    setParsing(true)
     try {
-      setPreview(await parseVehicleImportFile(f))
+      await readFile(f)
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao ler arquivo.', 'error')
-    } finally {
-      setParsing(false)
     }
+  }
+
+  function handleClose() {
+    cancelReading()
+    onClose()
   }
 
   async function handleImport() {
@@ -471,7 +458,7 @@ function VehiclesImportModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Importar Planilha de Veiculos">
+    <Modal open onClose={handleClose} title="Importar Planilha de Veiculos">
       <div className="grid gap-4">
         <div className="app-panel app-panel--padded text-sm">
           Viagem: <span className="font-semibold text-[var(--app-text-strong)]">{voyageLabel}</span>
@@ -480,15 +467,18 @@ function VehiclesImportModal({
         <Field label="Arquivo .xlsx / .xls / .csv">
           <Input accept=".xlsx,.xls,.csv" type="file" onChange={handleFile} />
         </Field>
-        {parsing ? <div className="app-panel__meta">Processando...</div> : null}
+        {parsing ? <ImportReadProgress progress={progress} /> : null}
         {preview ? (
-          <div className="grid grid-cols-2 gap-3">
-            <Stat label="Veículos" value={preview.rows.length} />
-            <Stat label="Erros" value={preview.rowErrors.length} />
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Stat label="Veículos" value={preview.rows.length} />
+              <Stat label="Erros" value={preview.rowErrors.length} />
+            </div>
+            <ImportIssuesPanel issues={rowErrorsToImportIssues(preview.rowErrors)} filename="veiculos-issues.csv" />
           </div>
         ) : null}
         <div className="app-modal__actions">
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="secondary" disabled={importing} onClick={parsing ? cancelReading : handleClose}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
           <Button disabled={!preview?.rows.length || preview.rowErrors.length > 0} loading={importing} onClick={() => void handleImport()}>Confirmar</Button>
         </div>
       </div>

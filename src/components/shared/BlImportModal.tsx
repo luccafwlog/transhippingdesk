@@ -2,6 +2,7 @@ import { useMemo, useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useCancellableFileRead } from '../../hooks/useCancellableFileRead'
 import { parseBLFile } from '../../services/blParser'
 import {
   confirmBlFreightImport,
@@ -18,6 +19,7 @@ import { Modal } from '../ui/Modal'
 import { PreviewBox } from '../ui/PreviewBox'
 import { useToast } from '../ui/Toast'
 import { VoyageCombobox } from './VoyageCombobox'
+import { ImportReadProgress } from './ImportReadProgress'
 
 export function BlImportModal({
   open,
@@ -36,8 +38,8 @@ export function BlImportModal({
   const { user } = useAuth()
   const { showToast } = useToast()
   const [files, setFiles] = useState<File[]>([])
+  const { parsing, progress, readFiles, cancel: cancelReading } = useCancellableFileRead<Awaited<ReturnType<typeof parseBLFile>>>(parseBLFile)
   const [preview, setPreview] = useState<BlFreightImportPreview | null>(null)
-  const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [overrideBilling, setOverrideBilling] = useState(false)
   const [confirmCustomerChange, setConfirmCustomerChange] = useState(false)
@@ -57,7 +59,7 @@ export function BlImportModal({
   function resetAndClose() {
     setFiles([])
     setPreview(null)
-    setParsing(false)
+    cancelReading()
     setSubmitting(false)
     setOverrideBilling(false)
     setConfirmCustomerChange(false)
@@ -66,6 +68,7 @@ export function BlImportModal({
   }
 
   function handleVoyageSelect(nextVoyageId: number | null) {
+    cancelReading()
     setSelectedVoyageId(nextVoyageId)
     setPreview(null)
     setOverrideBilling(false)
@@ -84,17 +87,11 @@ export function BlImportModal({
       return
     }
 
-    setParsing(true)
     try {
-      const documents = []
-      for (const file of selectedFiles) {
-        try {
-          documents.push(await parseBLFile(file))
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Falha ao ler arquivo.'
-          showToast(`${file.name}: ${message}`, 'error')
-        }
-      }
+      const documents = (await readFiles(selectedFiles, (error, file) => {
+        const message = error instanceof Error ? error.message : 'Falha ao ler arquivo.'
+        showToast(`${file.name}: ${message}`, 'error')
+      })) ?? []
 
       if (!documents.length) return
 
@@ -117,8 +114,6 @@ export function BlImportModal({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao preparar preview de B/L.'
       showToast(message, 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -199,7 +194,7 @@ export function BlImportModal({
             {files.length} arquivo(s) selecionado(s): {files.map((file) => file.name).join(', ')}
           </div>
         ) : null}
-        {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
+        {parsing ? <ImportReadProgress progress={progress} /> : null}
 
         {preview ? <BlImportPreview preview={preview} /> : null}
 
@@ -246,8 +241,8 @@ export function BlImportModal({
         ) : null}
 
         <div className="app-modal__actions">
-          <Button variant="secondary" onClick={resetAndClose}>
-            Cancelar
+          <Button variant="secondary" disabled={submitting} onClick={parsing ? cancelReading : resetAndClose}>
+            {parsing ? 'Cancelar leitura' : 'Cancelar'}
           </Button>
           <Button disabled={!selectedVoyageId || importableCount === 0} loading={submitting || parsing} onClick={() => void handleConfirm()}>
             <Upload size={16} />
