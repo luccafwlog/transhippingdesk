@@ -504,31 +504,6 @@ export async function confirmBlFreightImport(
   const wrapped = rawData as { result?: unknown } | null
   const data = usesBatchContract && wrapped && 'result' in wrapped ? wrapped.result : rawData
 
-  const importedIds = payload.map((bl) => bl.id)
-  if (!usesBatchContract && voyageId != null && importedIds.length > 0) {
-    const { data: batch, error: batchError } = await supabase
-      .from('import_batches')
-      .insert({
-        filename,
-        voyage_id: voyageId,
-        cargo_mode: 'container',
-        uploaded_by: changedBy,
-        status: 'completed',
-        total_bls: importedIds.length,
-        total_containers: null,
-      })
-      .select('id')
-      .single()
-    if (batchError) throw batchError
-
-    const { error: linkError } = await supabase
-      .from('bls')
-      .update({ batch_id: batch.id })
-      .in('id', importedIds)
-      .eq('voyage_id', voyageId)
-    if (linkError) throw linkError
-  }
-
   return { result: data, refusedCustomerRelinks: readRefusedCustomerRelinks(data) }
 }
 

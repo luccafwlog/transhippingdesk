@@ -114,7 +114,9 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
   const seenBlNumbers = new Set<string>()
 
   rows.forEach((row, idx) => {
-    const rowNumber = headerRowIndex + idx + 2 // preserva a linha física quando há preâmbulo
+    const rowNumber = typeof (row as { __rowNum__?: unknown }).__rowNum__ === 'number'
+      ? (row as { __rowNum__: number }).__rowNum__ + 1
+      : headerRowIndex + idx + 2
 
     const mapped = mapRow(row)
 

@@ -77,7 +77,9 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
   const rowErrors = createRowErrorCollector()
 
   rows.forEach((row, idx) => {
-    const rowNumber = headerRowIndex + idx + 2
+    const rowNumber = typeof (row as { __rowNum__?: unknown }).__rowNum__ === 'number'
+      ? (row as { __rowNum__: number }).__rowNum__ + 1
+      : headerRowIndex + idx + 2
     const mapped = mapRow(row)
 
     const containerNumber = String(mapped['container_number'] ?? '').trim().toUpperCase()
@@ -151,6 +153,7 @@ export type ImportVaziosImportacaoArgs = {
   uploadedBy: string
   voyageId: number
   description?: string
+  allowPending?: boolean
 }
 
 export async function importVaziosImportacaoManifest({
@@ -158,8 +161,9 @@ export async function importVaziosImportacaoManifest({
   uploadedBy,
   voyageId,
   description,
+  allowPending = false,
 }: ImportVaziosImportacaoArgs): Promise<{ manifestId: string }> {
-  if (manifest.rowErrors.length) throw new Error(formatImportacaoRowErrors(manifest.rowErrors))
+  if (manifest.rowErrors.length && !allowPending) throw new Error(formatImportacaoRowErrors(manifest.rowErrors))
 
   const containers = manifest.containers.map((container) => ({
     container_number: container.container_number,

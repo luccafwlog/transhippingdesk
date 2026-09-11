@@ -28,9 +28,9 @@ type Props<T, TResult = void> = {
   multiple?: boolean
   parser: (file: File) => Promise<T>
   inspectFile?: (file: File) => Promise<ImportFileInspection>
-  importer?: (preview: T, file: File) => Promise<TResult>
-  batchImporter?: (entries: FilePreviewEntry<T>[]) => Promise<void>
-  canImport: (preview: T) => boolean
+  importer?: (preview: T, file: File, allowOverride?: boolean) => Promise<TResult>
+  batchImporter?: (entries: FilePreviewEntry<T>[], allowOverride?: boolean) => Promise<void>
+  canImport: (preview: T, allowOverride?: boolean) => boolean
   getIssues?: (preview: T) => readonly ImportIssue[]
   issuesFilename?: string
   renderPreview: (preview: T, file: File) => ReactNode
@@ -66,6 +66,7 @@ export function FileImportModal<T, TResult = void>({
   const [parsing, setParsing] = useState(false)
   const [parseProgress, setParseProgress] = useState<FileReadProgress>({ completed: 0, total: 0, currentFile: null })
   const [importing, setImporting] = useState(false)
+  const [allowOverride, setAllowOverride] = useState(false)
   const [importResult, setImportResult] = useState<TResult | undefined>(undefined)
   const parseControllerRef = useRef<AbortController | null>(null)
   const importControllerRef = useRef<AbortController | null>(null)
@@ -86,6 +87,7 @@ export function FileImportModal<T, TResult = void>({
     parseControllerRef.current?.abort()
     setEntries([])
     setActiveIndex(0)
+    setAllowOverride(false)
     setImportResult(undefined)
     setParseProgress({ completed: 0, total: files.length, currentFile: files[0]?.name ?? null })
     if (!files.length) {
@@ -128,7 +130,7 @@ export function FileImportModal<T, TResult = void>({
   }
 
   async function handleImport() {
-    const importableEntries = entries.filter((entry) => canImport(entry.preview))
+    const importableEntries = entries.filter((entry) => canImport(entry.preview, allowOverride))
     if (!importableEntries.length) return
     const controller = new AbortController()
     importControllerRef.current = controller
@@ -136,11 +138,11 @@ export function FileImportModal<T, TResult = void>({
     let hasImportResult = false
     try {
       if (batchImporter) {
-        await batchImporter(importableEntries)
+        await batchImporter(importableEntries, allowOverride)
       } else if (importer) {
         for (const entry of importableEntries) {
           if (controller.signal.aborted) return
-          const result = await importer(entry.preview, entry.file)
+          const result = await importer(entry.preview, entry.file, allowOverride)
           if (renderImportResult && result !== undefined) {
             hasImportResult = true
             setImportResult(result as TResult)
@@ -194,10 +196,23 @@ export function FileImportModal<T, TResult = void>({
         {activeEntry ? renderPreview(activeEntry.preview, activeEntry.file) : null}
         {activeIssues.length ? <ImportIssuesPanel issues={activeIssues} filename={issuesFilename} /> : null}
         {importResult !== undefined && renderImportResult ? renderImportResult(importResult) : null}
+        {entries.length > 0 && importResult === undefined && !entries.every((entry) => canImport(entry.preview, false)) && entries.some((entry) => canImport(entry.preview, true)) ? (
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--app-gold)] bg-[var(--app-gold-soft)] p-3 text-xs text-[var(--app-gold-strong)]">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allowOverride}
+                onChange={(e) => setAllowOverride(e.target.checked)}
+                className="rounded border-[var(--app-border)]"
+              />
+              <span><b>Estou ciente das divergências/erros encontrados e desejo forçar a importação</b></span>
+            </label>
+          </div>
+        ) : null}
         <div className="app-modal__actions">
           <Button variant="secondary" disabled={importing} onClick={parsing ? cancelParsing : closeModal}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
           <Button
-            disabled={importResult !== undefined ? false : !ready || !entries.some((entry) => canImport(entry.preview))}
+            disabled={importResult !== undefined ? false : !ready || !entries.some((entry) => canImport(entry.preview, allowOverride))}
             loading={importing}
             onClick={() => importResult !== undefined ? onClose() : void handleImport()}
           >

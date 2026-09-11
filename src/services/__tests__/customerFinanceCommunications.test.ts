@@ -206,4 +206,14 @@ describe('automação de comunicados financeiros', () => {
 
     expect(result.status).toBe('parcial')
   })
+
+  it('retorna falha quando todos os destinatários falham', async () => {
+    configureQueries()
+    mockDispatch.mockResolvedValue({ communicationId: 12, status: 'falha' })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('falha')
+    expect(result.reason).toBe('Falha no envio de todos os destinatários.')
+  })
 })

@@ -149,7 +149,7 @@ export function EmbarqueVazios() {
   });
   const voyagePortOptions = Array.isArray(voyagePorts.data) ? voyagePorts.data : [];
   const operations = useQuery({
-    queryKey: ["vazios-export-operations"],
+    queryKey: ["vazios-export-operations", voyageId ?? null],
     queryFn: async () => {
       let query = supabase
         .from("vazios_export_operations")

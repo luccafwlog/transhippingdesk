@@ -43,6 +43,22 @@ UPDATE public.customer_communication_attempts AS a
  WHERE a.recipient_key IS NULL
    AND a.idempotency_key ~ '^comunicado:[^:]+:[^:]+:[^@[:space:]]+@[^@[:space:]]+$';
 
+-- Demurrage: vincula pelo contact_id da idempotência para obter o e-mail cadastrado
+-- e computar o hash SHA-256 sobre lower(btrim(email)), exatamente compatível
+-- com a função recipientKey() do runtime (_shared/email.ts).
+UPDATE public.customer_communication_attempts AS a
+   SET recipient_key = 'sha256:' || encode(
+     extensions.digest(
+       lower(btrim(cc.email)),
+       'sha256'
+     ),
+     'hex'
+   )
+  FROM public.customer_contacts AS cc
+ WHERE a.recipient_key IS NULL
+   AND lower(a.idempotency_key) ~ '^(demurrage|demurrage:group):'
+   AND cc.id = substring(a.idempotency_key FROM '^(?:demurrage|demurrage:group):[^:]+:([0-9]+):')::bigint;
+
 UPDATE public.customer_communication_attempts AS a
    SET recipient_key = 'sha256:' || lower(substring(a.idempotency_key FROM '([0-9a-f]{64})$'))
  WHERE a.recipient_key IS NULL

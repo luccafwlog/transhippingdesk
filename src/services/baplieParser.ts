@@ -132,7 +132,9 @@ export function parseBaplieText(text: string): ParsedBaplie {
   const { delimiters, body } = parseDelimiters(text)
   const rawSegments = splitSegments(body, delimiters)
   const segments = rawSegments.map((seg, index) => ({ ...parseSegment(seg, delimiters), index }))
-  const terminalIndex = segments.findIndex(({ tag }) => tag === 'UNT' || tag === 'UNZ' || tag === 'UNE')
+  const terminalIndex = segments.findLastIndex(({ tag }) => tag === 'UNZ' || tag === 'UNE') >= 0
+    ? segments.findLastIndex(({ tag }) => tag === 'UNZ' || tag === 'UNE')
+    : segments.findLastIndex(({ tag }) => tag === 'UNT')
   const contentSegments = terminalIndex >= 0 ? segments.slice(0, terminalIndex) : segments
   const trailingSegments = terminalIndex >= 0
     ? segments.slice(terminalIndex + 1).filter(({ tag }) => tag !== 'UNT' && tag !== 'UNZ' && tag !== 'UNE')

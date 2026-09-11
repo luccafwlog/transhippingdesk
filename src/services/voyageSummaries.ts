@@ -454,6 +454,7 @@ type EscalaScheduleRow = {
 export type VoyageRailModuleStats = {
   hasVehicles?: boolean
   vehicleContainerNumbers?: string[]
+  vehiclePorts?: string[]
   hasVaziosImportacao?: boolean
   hasGranite?: boolean
   hasVaziosExportacao?: boolean
@@ -532,12 +533,15 @@ export function buildVoyageRailItems(
       ceCoverage: { filled, total },
       escalasBrasileiras: collectEscalasBrasileiras(escalaRows).map((escala) => {
         const vehicleContainers = new Set((moduleStats?.vehicleContainerNumbers ?? []).map((number) => String(number).trim().toUpperCase()))
+        const vehiclePorts = new Set((moduleStats?.vehiclePorts ?? []).map((p) => canonicalPort(p)))
         const hasVehiclesAtPort = detailedBls
           ? containerBls
               .filter((bl) => canonicalPort(bl.pod) === canonicalPort(escala.port))
               .flatMap((bl) => bl.bl_containers ?? [])
               .some((container) => vehicleContainers.has(String(container.container_number ?? '').trim().toUpperCase()))
-          : Boolean(moduleStats?.hasVehicles)
+          : vehiclePorts.size > 0
+            ? vehiclePorts.has(canonicalPort(escala.port))
+            : Boolean(moduleStats?.hasVehicles)
         const modules: Partial<VoyageRailItem['modules']> = { ...(escala.modules ?? {}) }
         if (moduleStats?.hasVehicles) modules.veiculos = hasVehiclesAtPort
         if (moduleStats?.hasVaziosExportacao) modules.vaziosExp = Boolean(modules.vaziosExp)

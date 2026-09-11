@@ -91,6 +91,7 @@ export function Veiculos() {
       moduleStats.set(voyage.id, {
         hasVehicles: (stats?.totalVehicles ?? 0) > 0,
         vehicleContainerNumbers: stats?.containerNumbers ?? [],
+        vehiclePorts: Object.keys(stats?.byPod ?? {}),
       })
     }
     return buildVoyageRailItems(

@@ -76,12 +76,30 @@ describe('detectImportFormat', () => {
     expect(detectImportFormat(bytes)).toBe('csv')
   })
 
+  it('desambigua CSV pt-BR com ponto e vírgula e vírgula decimal', () => {
+    const bytes = new TextEncoder().encode('Item;Preco;Taxa\n1;1,50;2,30\n2;3,40;4,50').buffer as ArrayBuffer
+    expect(detectImportFormat(bytes)).toBe('csv')
+  })
+
+  it('detecta CSV de coluna única estruturado', () => {
+    const bytes = new TextEncoder().encode('Container\nMSCU1234567\nTEMU7654321').buffer as ArrayBuffer
+    expect(detectImportFormat(bytes)).toBe('csv')
+  })
+
+  it('preserva campos entre aspas com quebra de linha na detecção de CSV', () => {
+    const bytes = new TextEncoder().encode('BL;Obs\nBL-1;"linha 1\nlinha 2"\nBL-2;"obs normal"').buffer as ArrayBuffer
+    expect(detectImportFormat(bytes)).toBe('csv')
+  })
+
   it('detecta EDI EDIFACT e arquivo posicional do Mercante', () => {
     const edifact = new TextEncoder().encode("UNB+UNOA:2+X+Y'UNH+1+BAPLIE:D:95B:UN:SMDG22'").buffer as ArrayBuffer
     expect(detectImportFormat(edifact)).toBe('edi')
 
     const mercante = new TextEncoder().encode('M50001226501030729                       CNTAGBRVIXCN001321\nC50001226501030729  122605179628557                              CSC45360805C00').buffer as ArrayBuffer
     expect(detectImportFormat(mercante)).toBe('edi')
+
+    const mercanteSingleSpace = new TextEncoder().encode('M50001226501030729 CNTAGBRVIX\nC50001226501030729 122605179628557 CSC45360805C00').buffer as ArrayBuffer
+    expect(detectImportFormat(mercanteSingleSpace)).toBe('edi')
   })
 
   it('recusa texto sem formato reconhecível e delimitadores ambíguos', () => {

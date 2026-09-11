@@ -341,7 +341,7 @@ export function useVoyages() {
 
 export function useVoyageDetail(voyageId?: number | null) {
   return useQuery<VoyageDetail | null>({
-    queryKey: ['voyage-detail', voyageId],
+    queryKey: queryKeys.voyages.detail(voyageId),
     enabled: Number.isInteger(voyageId) && Number(voyageId) > 0,
     queryFn: async () => {
       const { data, error } = await supabase

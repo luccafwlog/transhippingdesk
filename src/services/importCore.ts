@@ -94,7 +94,7 @@ export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions =
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
     header: 1,
     defval: '',
-    blankrows: false,
+    blankrows: true,
     raw,
   })
   if (!matrix.length) throw new Error('Planilha vazia.')
@@ -113,6 +113,14 @@ export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions =
   const rows = rowsWithSheetMetadata.map((row) => {
     const data = { ...row }
     delete data.__rowNum__
+    if (typeof row.__rowNum__ === 'number') {
+      Object.defineProperty(data, '__rowNum__', {
+        value: row.__rowNum__,
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      })
+    }
     return data
   })
   if (!rows.length) throw new Error('Planilha vazia.')

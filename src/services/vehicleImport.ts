@@ -114,7 +114,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
   for (let sheetIndex = 0; ; sheetIndex += 1) {
     let content
     try {
-      content = await readSheet(buffer, { sheetIndex, values: 'cru' })
+      content = await readSheet(buffer, { sheetIndex })
     } catch (error) {
       if (error instanceof Error && error.message === 'Arquivo sem abas validas.') break
       if (error instanceof Error && error.message === 'Planilha vazia.') continue
@@ -408,12 +408,19 @@ function mapRow(row: Record<string, unknown>) {
 }
 
 function parseSpreadsheetNumber(value: unknown, format: ImportNumberFormat) {
-  const parsed = parseImportNumber(value, format)
+  let parsed = parseImportNumber(value, format)
+  if (parsed.kind !== 'value') {
+    parsed = parseImportNumber(value, 'unknown')
+  }
   if (parsed.kind !== 'value') return null
   const number = Number(parsed.decimal)
   return Number.isFinite(number) ? number : null
 }
 
+// ponytail: heurística por palavras-chave em cabeçalhos para inferir formato numérico (en-US vs pt-BR).
+// Teto: arquivos com termos de peso/volume em outros idiomas ou layouts não mapeados caem em pt-BR.
+// Caminho de upgrade: inspecionar amostra dos valores numéricos das primeiras linhas para inferir
+// os separadores de milhar e decimal a partir do padrão real dos dados.
 function inferVehicleNumberFormat(headers: readonly string[]): ImportNumberFormat {
   const normalized = headers.map(normalizeHeader)
   const carrierMarkers = new Set([

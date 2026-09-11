@@ -216,7 +216,8 @@ async function currentEligibleRecipient(
 }
 
 async function recipientVersion(email: string): Promise<string> {
-  const bytes = new TextEncoder().encode(email)
+  const normalized = email.trim().toLowerCase()
+  const bytes = new TextEncoder().encode(normalized)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
@@ -641,6 +642,7 @@ async function handler(req: Request): Promise<Response> {
   const groups = groupDunningCandidatesByCustomerCycle(candidates)
   let sent = 0
   let simulated = 0
+  let partial = 0
   let failed = 0
   let paused = 0
   let releaseFailures = 0
@@ -652,9 +654,12 @@ async function handler(req: Request): Promise<Response> {
       try {
         const result = await sendCandidate(admin, candidate, communicationsEnabled)
         if (result === 'enviado') sent += 1
-        else if (result === 'falha' || result === 'parcial' || result === 'pausado') {
+        else if (result === 'parcial') {
+          // Não solta o claim: contatos que já receberam não devem receber reenvio duplicado.
+          partial += 1
+        } else if (result === 'falha' || result === 'pausado') {
           if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
-          if (result === 'falha' || result === 'parcial') failed += 1
+          if (result === 'falha') failed += 1
           else paused += 1
         } else {
           simulated += 1
@@ -669,11 +674,14 @@ async function handler(req: Request): Promise<Response> {
     try {
       const result = await sendCandidateGroup(admin, group, communicationsEnabled)
       if (result === 'enviado') sent += 1
-      else if (result === 'falha' || result === 'parcial' || result === 'pausado') {
+      else if (result === 'parcial') {
+        // Não solta o claim: contatos que já receberam não devem receber reenvio duplicado.
+        partial += 1
+      } else if (result === 'falha' || result === 'pausado') {
         for (const candidate of group) {
           if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
         }
-        if (result === 'falha' || result === 'parcial') failed += 1
+        if (result === 'falha') failed += 1
         else paused += 1
       } else {
         simulated += 1
@@ -686,7 +694,7 @@ async function handler(req: Request): Promise<Response> {
       console.error('[demurrage-dunning] grupo inválido', group[0]?.customer_id, group[0]?.attempt_discriminator, error)
     }
   }
-  return json(releaseFailures ? 500 : 200, { claimed: candidates.length, sent, simulated, failed, paused, releaseFailures })
+  return json(releaseFailures ? 500 : 200, { claimed: candidates.length, sent, simulated, partial, failed, paused, releaseFailures })
 }
 
 if (typeof Deno !== 'undefined') Deno.serve(handler)

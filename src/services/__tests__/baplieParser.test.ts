@@ -74,4 +74,31 @@ describe('baplieParser', () => {
     expect(parsed.containers[1]).toMatchObject({ pol: 'CNNSA', pod: 'BRSEP', weight_kg: 17300 })
     expect(parsed.pods).toEqual(['BRSEP', 'BRVIX'])
   })
+
+  it('processa múltiplas mensagens dentro do mesmo interchange UNB...UNZ', async () => {
+    const parsed = await parseBaplieFile(baplieFile([
+      "UNB+UNOA:2+X+Y+260701:1200+1'",
+      "UNH+1+BAPLIE:D:95B:UN:SMDG22'",
+      "TDT+20+14+++:::GREEN SANTOS'",
+      "LOC+147+010101'",
+      "MEA+VGM++KGM:12000'",
+      "LOC+6+CNTAC'",
+      "LOC+12+BRVIX'",
+      "EQD+CN+UETU7016802+45G1+++5'",
+      "UNT+7+1'",
+      "UNH+2+BAPLIE:D:95B:UN:SMDG22'",
+      "LOC+147+010102'",
+      "MEA+VGM++KGM:14000'",
+      "LOC+6+CNTAC'",
+      "LOC+12+BRSSZ'",
+      "EQD+CN+MSCU9999999+45G1+++5'",
+      "UNT+7+2'",
+      "UNZ+2+1'",
+    ].join('\n')))
+
+    expect(parsed.containers).toHaveLength(2)
+    expect(parsed.containers[0].container_number).toBe('UETU7016802')
+    expect(parsed.containers[1].container_number).toBe('MSCU9999999')
+    expect(parsed.issues.filter((i) => i.severity === 'error')).toHaveLength(0)
+  })
 })

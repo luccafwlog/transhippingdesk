@@ -20,6 +20,7 @@ import { parseBaplieFile } from '../../services/baplieParser'
 import { importBaplieStaging } from '../../services/baplieImport'
 import { canImportPreview, rowErrorsToImportIssues } from '../../services/importValidation'
 import { inspectImportUpload } from '../../services/importText'
+import { queryKeys } from '../../services/queryKeys'
 import { ImportIssuesPanel } from './ImportIssuesPanel'
 import { ImportReadProgress } from './ImportReadProgress'
 
@@ -104,6 +105,7 @@ export function VoyageImportActions({
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['bls'] }),
       queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.voyages.detail(voyageId) }),
       queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
       queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
     ])
@@ -162,12 +164,13 @@ export function VoyageImportActions({
           accept=".xlsx,.xls"
           parser={parseGraniteManifestFile}
           inspectFile={inspectImportUpload}
-          canImport={(p) => p.bls.length > 0 && p.rowErrors.length === 0}
+          canImport={(p, override) => p.bls.length > 0 && (p.rowErrors.length === 0 || Boolean(override))}
           getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
-          importer={async (preview, file) => {
-            const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
+          importer={async (preview, file, override) => {
+            const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, allowPending: Boolean(override) })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+              queryClient.invalidateQueries({ queryKey: queryKeys.voyages.detail(voyageId) }),
               queryClient.invalidateQueries({ queryKey: ['granite-manifests'] }),
             ])
             showToast(`Manifesto Granito importado: ${preview.bls.length} B/L(s).`, 'success')
@@ -205,12 +208,13 @@ export function VoyageImportActions({
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosImportacaoFile}
           inspectFile={inspectImportUpload}
-          canImport={(p) => p.containers.length > 0 && p.rowErrors.length === 0}
+          canImport={(p, override) => p.containers.length > 0 && (p.rowErrors.length === 0 || Boolean(override))}
           getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
-          importer={async (preview) => {
-            await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId })
+          importer={async (preview, _file, override) => {
+            await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId, allowPending: Boolean(override) })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+              queryClient.invalidateQueries({ queryKey: queryKeys.voyages.detail(voyageId) }),
               queryClient.invalidateQueries({ queryKey: ['vazios-importacao-stats'] }),
               queryClient.invalidateQueries({ queryKey: ['vazios-importacao-manifests'] }),
               queryClient.invalidateQueries({ queryKey: ['vazios-importacao-containers'] }),
@@ -420,9 +424,11 @@ function VehiclesImportModal({
   const { showToast } = useToast()
   const { preview, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<Awaited<ReturnType<typeof parseVehicleImportFile>>>(parseVehicleImportFile)
   const [importing, setImporting] = useState(false)
+  const [allowOverride, setAllowOverride] = useState(false)
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
+    setAllowOverride(false)
     try {
       await readFile(f)
     } catch (err) {
@@ -436,7 +442,7 @@ function VehiclesImportModal({
   }
 
   async function handleImport() {
-    if (!preview?.rows.length || preview.rowErrors.length) return
+    if (!preview?.rows.length || (preview.rowErrors.length > 0 && !allowOverride)) return
     setImporting(true)
     try {
       const result = await importVehicleRows({ voyageId, rows: preview.rows })
@@ -445,6 +451,7 @@ function VehiclesImportModal({
         queryClient.invalidateQueries({ queryKey: ['vehicle-stats'] }),
         queryClient.invalidateQueries({ queryKey: ['voyage-vehicle-stats'] }),
         queryClient.invalidateQueries({ queryKey: ['voyages'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.voyages.detail(voyageId) }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-v3'] }),
         queryClient.invalidateQueries({ queryKey: ['lineup-tv-display-v2'] }),
       ])
@@ -475,11 +482,24 @@ function VehiclesImportModal({
               <Stat label="Erros" value={preview.rowErrors.length} />
             </div>
             <ImportIssuesPanel issues={rowErrorsToImportIssues(preview.rowErrors)} filename="veiculos-issues.csv" />
+            {preview.rows.length > 0 && preview.rowErrors.length > 0 ? (
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--app-gold)] bg-[var(--app-gold-soft)] p-3 text-xs text-[var(--app-gold-strong)]">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={allowOverride}
+                    onChange={(e) => setAllowOverride(e.target.checked)}
+                    className="rounded border-[var(--app-border)]"
+                  />
+                  <span><b>Estou ciente das divergências/erros encontrados e desejo forçar a importação</b></span>
+                </label>
+              </div>
+            ) : null}
           </div>
         ) : null}
         <div className="app-modal__actions">
           <Button variant="secondary" disabled={importing} onClick={parsing ? cancelReading : handleClose}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
-          <Button disabled={!preview?.rows.length || preview.rowErrors.length > 0} loading={importing} onClick={() => void handleImport()}>Confirmar</Button>
+          <Button disabled={!preview?.rows.length || (preview.rowErrors.length > 0 && !allowOverride)} loading={importing} onClick={() => void handleImport()}>Confirmar</Button>
         </div>
       </div>
     </Modal>

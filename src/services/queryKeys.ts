@@ -59,6 +59,10 @@ export const queryKeys = {
   voyages: {
     all: () => ['voyages'] as const,
     options: () => ['voyage-options'] as const,
+    detail: (voyageId?: number | null) =>
+      voyageId === undefined || voyageId === null
+        ? (['voyage-detail'] as const)
+        : (['voyage-detail', Number(voyageId)] as const),
     billingStatus: (voyageIds: number[]) => ['voyage-billing-status', voyageIds] as const,
     polSchedules: (entityIds: string[]) => ['voyage-pol-schedules', entityIds] as const,
     podSchedules: (voyageIds: number[]) => ['voyage-pod-schedules', voyageIds] as const,

@@ -126,3 +126,42 @@ it('permite cancelar a leitura de uma seleção em andamento', async () => {
   await waitFor(() => expect(screen.queryByText('Linhas: 1')).toBeNull())
   expect(parser).toHaveBeenCalledTimes(1)
 })
+
+it('permite override manual quando há pendências/erros na prévia', async () => {
+  const importer = vi.fn().mockResolvedValue(undefined)
+  const { container } = render(
+    <ToastProvider>
+      <FileImportModal
+        title="Importar arquivo"
+        accept=".csv"
+        parser={async () => ({ rows: 2, rowErrors: [{ row: 2, message: 'erro de porta', raw: {} }] })}
+        canImport={(preview, allowOverride) => (preview.rowErrors.length > 0 ? Boolean(allowOverride) : true)}
+        importer={importer}
+        renderPreview={(preview) => <div>Linhas: {preview.rows}</div>}
+        onClose={vi.fn()}
+      />
+    </ToastProvider>,
+  )
+
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['conteudo'], 'dados.csv')] },
+  })
+
+  await waitFor(() => expect(screen.getByText('Linhas: 2')).toBeTruthy())
+  const confirmBtn = screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement
+  expect(confirmBtn.disabled).toBe(true)
+
+  const checkbox = screen.getByLabelText(/Estou ciente das divergências\/erros/i) as HTMLInputElement
+  expect(checkbox.checked).toBe(false)
+
+  fireEvent.click(checkbox)
+  expect(checkbox.checked).toBe(true)
+  expect(confirmBtn.disabled).toBe(false)
+
+  fireEvent.click(confirmBtn)
+  await waitFor(() => expect(importer).toHaveBeenCalledWith(
+    expect.objectContaining({ rows: 2 }),
+    expect.any(File),
+    true,
+  ))
+})

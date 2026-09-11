@@ -22,6 +22,10 @@ const nullStatusMigration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/037_operational_voyage_summary_null_status.sql'),
   'utf8',
 )
+const driftToleranceMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/040_operational_breakbulk_drift_tolerance.sql'),
+  'utf8',
+)
 
 describe('lista resumida de viagens', () => {
   beforeEach(() => mockRpc.mockReset())
@@ -144,5 +148,15 @@ describe('migration 037 — status nullable do resumo operacional', () => {
     expect(nullStatusMigration).toMatch(/COALESCE\(v\.status, 'active'\) IN/i)
     expect(nullStatusMigration).toMatch(/REVOKE ALL ON FUNCTION/i)
     expect(nullStatusMigration).toMatch(/GRANT EXECUTE ON FUNCTION public\.operational_list_voyage_summaries\([\s\S]*TO authenticated/i)
+  })
+})
+
+describe('migration 040 — tolerância a drift em charge_status', () => {
+  it('aplica LOWER(BTRIM(COALESCE(...))) nos blocos FILTER da contagem dos tiles', () => {
+    expect(driftToleranceMigration).toMatch(/CREATE OR REPLACE FUNCTION public\.operational_list_bl_summary\(/i)
+    expect(driftToleranceMigration).toMatch(/COUNT\(\*\)\s+FILTER\s+\(WHERE\s+LOWER\(BTRIM\(COALESCE\(charge_status,\s*''\)\)\)\s+=\s*'ready_for_billing'\)/i)
+    expect(driftToleranceMigration).toMatch(/COUNT\(\*\)\s+FILTER\s+\(WHERE\s+LOWER\(BTRIM\(COALESCE\(charge_status,\s*''\)\)\)\s+=\s*'exempt'\)/i)
+    expect(driftToleranceMigration).toMatch(/REVOKE ALL ON FUNCTION/i)
+    expect(driftToleranceMigration).toMatch(/GRANT EXECUTE ON FUNCTION public\.operational_list_bl_summary\([\s\S]*TO authenticated/i)
   })
 })

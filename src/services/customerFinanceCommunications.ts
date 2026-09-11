@@ -61,7 +61,7 @@ export type CustomerVoyageCommunicationStatus = {
 }
 
 export type CeMercanteCommunicationDispatchSummary = {
-  status: 'enviado' | 'simulado' | 'parcial' | 'bloqueado' | 'ignorado'
+  status: 'enviado' | 'simulado' | 'parcial' | 'falha' | 'bloqueado' | 'ignorado'
   readiness: CustomerLocalChargesCommunicationReadiness
   sentCount: number
   simulatedCount: number
@@ -352,7 +352,9 @@ export async function dispatchCeMercanteTaxasCommunication(
       ? 'simulado'
       : hasSent || hasSimulated || hasPartial
         ? 'parcial'
-        : 'bloqueado'
+        : hasFailed
+          ? 'falha'
+          : 'bloqueado'
   return {
     status,
     readiness,
@@ -360,6 +362,8 @@ export async function dispatchCeMercanteTaxasCommunication(
     simulatedCount,
     communicationIds,
     attemptDiscriminator,
-    reason: results.length ? null : 'Nenhum contato válido habilitado para Documentação.',
+    reason: results.length
+      ? (status === 'falha' ? 'Falha no envio de todos os destinatários.' : null)
+      : 'Nenhum contato válido habilitado para Documentação.',
   }
 }
