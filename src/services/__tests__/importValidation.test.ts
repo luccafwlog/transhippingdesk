@@ -48,6 +48,7 @@ describe('adaptação segura dos relatórios de importação', () => {
     expect(isValidCalendarDate('2026-02-31')).toBe(false) // dia inexistente
     expect(isValidCalendarDate('2026-04-31')).toBe(false) // abril tem 30 dias
     expect(isValidCalendarDate('2026-13-01')).toBe(false) // mês inválido
+    expect(isValidCalendarDate('0001-01-01')).toBe(true) // Date.UTC trata anos 1–99 como 1901–1999
   })
 
   it('IsoDateSchema valida formato e calendário', () => {
