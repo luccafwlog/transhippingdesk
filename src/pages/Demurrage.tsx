@@ -10,6 +10,7 @@ import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { ContainerDatesImportModal } from '../components/shared/ContainerDatesImportModal'
 import { CustomerReportModal } from '../components/demurrage/CustomerReportModal'
+import { TabButton } from '../components/ui/TabButton'
 import { DemurrageContainersTab } from '../components/demurrage/DemurrageContainersTab'
 import { DemurrageCustomersTab } from '../components/demurrage/DemurrageCustomersTab'
 import { DemurrageDunningSettingsModal } from '../components/demurrage/DemurrageDunningSettingsModal'
@@ -337,9 +338,9 @@ export function Demurrage() {
       ) : null}
       <DemurrageDisputeConversation />
 
-      <div className="mb-4 flex gap-2 border-b border-[#30363d]">
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Seções de Demurrage">
         {TAB_LABELS.map((item) => (
-          <button key={item.key} type="button" className={`px-4 py-2 text-sm font-medium transition-colors ${tab === item.key ? 'border-b-2 border-blue-500 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`} onClick={() => setTab(item.key)}>{item.label}</button>
+          <TabButton key={item.key} active={tab === item.key} label={item.label} onClick={() => setTab(item.key)} />
         ))}
       </div>
 

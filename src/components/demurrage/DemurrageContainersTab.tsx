@@ -134,6 +134,13 @@ export function DemurrageContainersTab({
               </tbody>
             </table>
           </div>
+          {/* Mesma legenda de rodapé que o Line Up do Painel usa: P1/P2 são as
+              faixas tarifárias do CONTEXT.md, não abreviação de interface. */}
+          <p className="border-t border-[var(--app-border)] px-4 py-2 text-[11px] text-[var(--app-muted)]">
+            Free time = dias livres antes do início da cobrança · Dias excedidos = dias além do free time ·
+            P1 = 1ª faixa tarifária após o free time · P2 = 2ª faixa, com diária superior a P1 ·
+            USD = sobreestadia acumulada no período
+          </p>
         </Card>
       ) : null}
     </>
