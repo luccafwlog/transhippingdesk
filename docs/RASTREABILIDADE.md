@@ -93,16 +93,17 @@ usa `listBaplieStaging` com projeção explícita, paginação por viagem e
 explicitamente solicitado pelo operador.
 
 O harness `scripts/perf/measure-operational-read-model.mjs` executado em
-PostgreSQL local vazio, com cinco rodadas e rollback por cenário, registrou:
+PostgreSQL local vazio, com cinco rodadas, `ANALYZE` das tabelas sintéticas
+dentro da transação e rollback por cenário, registrou:
 
 | B/Ls | resumo p95 / bytes | baseline pesado p95 / bytes |
 |---:|---:|---:|
-| 100 | 0,987 ms / 3.023 B | 2,840 ms / 205.971 B |
-| 1.000 | 2,053 ms / 3.085 B | 30,050 ms / 2.055.752 B |
-| 10.000 | 8,550 ms / 3.147 B | 317,485 ms / 20.589.687 B |
+| 100 | 3,846 ms / 3.023 B | 7,534 ms / 205.971 B |
+| 1.000 | 4,827 ms / 3.085 B | 76,544 ms / 2.055.752 B |
+| 10.000 | 16,225 ms / 3.147 B | 614,319 ms / 20.589.687 B |
 
-O `EXPLAIN (ANALYZE, BUFFERS)` do cenário de 10.000 B/Ls mediu 8,288 ms
-(`summary`) contra 291,244 ms (baseline). “Requests” no relatório significa
+O `EXPLAIN (ANALYZE, BUFFERS)` do cenário de 10.000 B/Ls mediu 15,462 ms
+(`summary`) contra 560,075 ms (baseline). “Requests” no relatório significa
 uma instrução SQL local por leitura, não uma contagem HTTP do PostgREST. O
 artefato detalhado fica em `artifacts/perf/`, fora do versionamento; os dados
 sintéticos não são persistidos.

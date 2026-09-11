@@ -207,12 +207,14 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   no cliente somente a exportação solicitada pelo usuário. A leitura de detalhe
   do Baplie foi extraída para `baplieReadModel.ts`, com projeção explícita,
   paginação por viagem e teste do contrato de existência de B/L.
-- **Medição local reproduzível:** com cinco rodadas, rollback por cenário e
-  três viagens/quatro rotas, o resumo teve p95 de `0,987/2,053/8,550 ms` para
-  `100/1.000/10.000` B/Ls, contra `2,840/30,050/317,485 ms` do baseline
+- **Medição local reproduzível:** com cinco rodadas, rollback por cenário,
+  `ANALYZE` das tabelas sintéticas dentro da transação e três viagens/quatro
+  rotas, o resumo teve p95 de `3,846/4,827/16,225 ms` para
+  `100/1.000/10.000` B/Ls, contra `7,534/76,544/614,319 ms` do baseline
   pesado. Os bytes p95 foram `3.023/3.085/3.147` contra
-  `205.971/2.055.752/20.589.687`; o `EXPLAIN` de 10.000 mediu `8,288 ms`
-  contra `291,244 ms`.
+  `205.971/2.055.752/20.589.687`; o `EXPLAIN` de 10.000 mediu `15,462 ms`
+  contra `560,075 ms`. O `ANALYZE` evita que a medição escolha um plano
+  baseado em cardinalidade vazia para os dados recém-inseridos.
 - **S13:** `npm run a11y:contrast` passou 20 pares de tokens nos temas light e
   dark com mínimo 4,5:1, ajustando `muted-soft` e verde no light e
   `muted-soft` no dark. O roteiro manual de Preview, leitor de tela, foco,
