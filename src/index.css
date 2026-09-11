@@ -249,9 +249,33 @@ textarea {
   position: relative;
 }
 
-/* Identidade e ações ficam no cabeçalho principal. */
-.app-market-strip__right {
-  display: none !important;
+/* Identidade e ações do usuário ficam no cabeçalho principal (AppLayout).
+   Esta zona carrega a versão publicada da build. */
+.app-version-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--app-font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.app-version-badge:hover {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.app-version-badge:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
 
 /* HeaderInfoBar — alert buttons */
@@ -1506,6 +1530,23 @@ textarea {
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
+}
+
+/* Padrão da tela que já recorta a lista. Fica discreto ao lado do título com a
+   barra recolhida, para que um total reduzido nunca apareça sem explicação. */
+.app-filter-bar__applied {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  background: var(--app-surface-muted);
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .app-filter-bar__clear {
@@ -5448,4 +5489,104 @@ textarea {
 
 .app-lineup-display-board__row--cycle-start {
   border-top: 2px solid var(--app-accent, #f59e0b);
+}
+
+/* ===========================================================================
+   Navegação para outros ambientes gerenciais
+   ---------------------------------------------------------------------------
+   Destinos de mesma natureza (sair da tela para outro contexto de trabalho)
+   recebem o mesmo peso. Antes, "Provisionamento do Portal" era um banner ciano
+   fora da paleta e "Comunicação" um botão secundário no cabeçalho — mesma
+   função, hierarquias opostas.
+   =========================================================================== */
+.app-workspace-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.app-workspace-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+  text-decoration: none;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.app-workspace-nav__item:hover {
+  border-color: var(--app-link);
+  background: var(--app-surface-hover);
+  box-shadow: var(--app-shadow);
+}
+
+.app-workspace-nav__item:focus-visible {
+  outline: 2px solid var(--app-link);
+  outline-offset: 2px;
+}
+
+.app-workspace-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: var(--app-blue-soft);
+  color: var(--app-link);
+}
+
+.app-workspace-nav__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.app-workspace-nav__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--app-text-strong);
+}
+
+.app-workspace-nav__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--app-blue-btn);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.app-workspace-nav__description {
+  font-size: 0.8rem;
+  color: var(--app-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-workspace-nav__arrow {
+  flex: 0 0 auto;
+  color: var(--app-muted);
+}
+
+.app-workspace-nav__item:hover .app-workspace-nav__arrow {
+  color: var(--app-link);
 }
