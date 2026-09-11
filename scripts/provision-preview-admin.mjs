@@ -12,6 +12,10 @@ function errorMessage(error) {
   return String(error)
 }
 
+function isPasswordPolicyError(error) {
+  return errorMessage(error).toLowerCase().includes('password should contain at least one character of each')
+}
+
 function assertValidInput({ email, password, fullName }) {
   if (!email || !email.includes('@')) throw new Error('PREVIEW_ADMIN_EMAIL inválido.')
   if (!password || password.length < 8) throw new Error('PREVIEW_ADMIN_PASSWORD deve ter pelo menos 8 caracteres.')
@@ -45,8 +49,26 @@ export async function provisionPreviewAdmin({ authAdmin, profiles, email, passwo
 
   if (matchingUsers[0]) {
     const { data, error } = await authAdmin.updateUserById(matchingUsers[0].id, attributes)
-    if (error) throw new Error(`Não foi possível atualizar o usuário de Preview: ${errorMessage(error)}`)
-    user = data?.user
+    if (error && isPasswordPolicyError(error)) {
+      // A senha pode ter sido aceita quando o fixture foi criado e passar a ser
+      // rejeitada em um rerun após uma mudança na política do Auth. Preserve a
+      // senha existente, mas ainda repare a confirmação do e-mail e metadados.
+      console.warn(
+        'A senha existente do usuário de Preview não foi reaplicada porque a política atual do Auth a rejeitou; ' +
+          'mantendo a senha e reparando o restante do fixture.',
+      )
+      const metadataUpdate = await authAdmin.updateUserById(matchingUsers[0].id, {
+        email_confirm: true,
+        user_metadata: attributes.user_metadata,
+      })
+      if (metadataUpdate.error) {
+        throw new Error(`Não foi possível atualizar o usuário de Preview: ${errorMessage(metadataUpdate.error)}`)
+      }
+      user = metadataUpdate.data?.user ?? matchingUsers[0]
+    } else {
+      if (error) throw new Error(`Não foi possível atualizar o usuário de Preview: ${errorMessage(error)}`)
+      user = data?.user
+    }
   } else {
     const { data, error } = await authAdmin.createUser({ email, ...attributes })
     if (error) throw new Error(`Não foi possível criar o usuário de Preview: ${errorMessage(error)}`)
