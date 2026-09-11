@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, withCors } from '../_shared/cors.ts'
-import { maskEmail, sendEmail, type EmailAttachment, type EmailAttemptRecord } from '../_shared/email.ts'
+import { maskEmail, recipientKey, sendEmail, type EmailAttachment, type EmailAttemptRecord } from '../_shared/email.ts'
 import {
   assertValidCommunicationAttachments,
   renderCeMercanteTaxasTemplate,
@@ -485,6 +485,10 @@ async function handler(req: Request): Promise<Response> {
       p_customer_id: customerId,
     })
     if (dispatchReadinessError) {
+      const { error: blockedStatusError } = await admin.rpc('mark_customer_communication_dispatch_blocked', {
+        p_communication_id: Number(communicationId),
+      })
+      if (blockedStatusError) console.error('customer communication blocked status persistence failed', blockedStatusError)
       console.error('customer communication dispatch readiness failed', dispatchReadinessError)
       return json(422, { error: 'Prontidão financeira bloqueada para este cliente e viagem.' }, origin)
     }
@@ -515,6 +519,7 @@ async function handler(req: Request): Promise<Response> {
         const { data, error } = await admin.from('customer_communication_attempts').insert({
           communication_id: communicationId,
           recipient_masked: maskEmail(to),
+          recipient_key: await recipientKey(to),
           status: 'aceito',
           dispatch_mode: enabled ? 'real' : 'simulado',
           idempotency_key: idempotencyKey,
@@ -522,10 +527,17 @@ async function handler(req: Request): Promise<Response> {
         if (error?.code === '23505') {
           const { data: existing, error: existingError } = await admin
             .from('customer_communication_attempts')
-            .select('id, status, provider_message_id')
+            .select('id, status, provider_message_id, dispatch_mode')
             .eq('idempotency_key', idempotencyKey)
             .single()
           if (existingError || !existing) throw existingError ?? error
+          if (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null) {
+            const { error: repairError } = await admin.from('customer_communication_attempts').update({
+              recipient_key: await recipientKey(to),
+              dispatch_mode: enabled ? 'real' : 'simulado',
+            }).eq('id', existing.id)
+            if (repairError) throw repairError
+          }
           return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
         }
         if (error || !data) throw error ?? new Error(`Não foi possível registrar a tentativa ${attemptKind}.`)

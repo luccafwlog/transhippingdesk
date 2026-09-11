@@ -20,6 +20,7 @@ function cleanup(): void {
     DELETE FROM public.customer_communications WHERE id = ${communicationId};
     SET session_replication_role = replica;
     DELETE FROM public.portal_provisioning_events WHERE customer_id = ${customerId};
+    DELETE FROM public.customer_portal_accounts WHERE customer_id = ${customerId};
     DELETE FROM public.customers WHERE id = ${customerId};
     SET session_replication_role = origin;
   `)
@@ -41,23 +42,37 @@ describeLocal('S07 — estado parcial por tentativa', () => {
 
   afterAll(cleanup)
 
-  it('muda de enviado para parcial quando outra tentativa falha', () => {
+  it('persiste bloqueio sem tentativas como falha retryable', () => {
+    expect(psql(`SELECT public.mark_customer_communication_dispatch_blocked(${communicationId});`)).toBe('falha')
+    expect(psql(`SELECT status FROM public.customer_communications WHERE id = ${communicationId};`)).toBe('falha')
+  })
+
+  it('muda de enviado para parcial quando outra tentativa falha mesmo com a mesma máscara', () => {
     psql(`
       INSERT INTO public.customer_communication_attempts (
-        communication_id, recipient_masked, status, provider_message_id, idempotency_key, dispatch_mode
+        communication_id, recipient_masked, recipient_key, status, provider_message_id, idempotency_key, dispatch_mode
       ) VALUES (
-        ${communicationId}, 'f***@example.test', 'aceito', 'provider-9701', 's07-partial-real', 'real'
+        ${communicationId}, 'f***@example.test', 'sha256:recipient-a', 'aceito', 'provider-9701', 's07-partial-real', 'real'
       );
     `)
     expect(psql(`SELECT status FROM public.customer_communications WHERE id = ${communicationId};`)).toBe('enviado')
 
     psql(`
       INSERT INTO public.customer_communication_attempts (
-        communication_id, recipient_masked, status, idempotency_key, dispatch_mode
+        communication_id, recipient_masked, recipient_key, status, idempotency_key, dispatch_mode
       ) VALUES (
-        ${communicationId}, 'o***@example.test', 'falha_permanente', 's07-partial-failed', 'real'
+        ${communicationId}, 'f***@example.test', 'sha256:recipient-b', 'falha_permanente', 's07-partial-failed', 'real'
       );
     `)
     expect(psql(`SELECT status FROM public.customer_communications WHERE id = ${communicationId};`)).toBe('parcial')
+
+    psql(`
+      INSERT INTO public.customer_communication_attempts (
+        communication_id, recipient_masked, recipient_key, status, provider_message_id, idempotency_key, dispatch_mode
+      ) VALUES (
+        ${communicationId}, 'f***@example.test', 'sha256:recipient-b', 'aceito', 'provider-9701-retry', 's07-partial-retry', 'real'
+      );
+    `)
+    expect(psql(`SELECT status FROM public.customer_communications WHERE id = ${communicationId};`)).toBe('enviado')
   })
 })

@@ -343,13 +343,14 @@ export async function dispatchCeMercanteTaxasCommunication(
   const sentCount = results.filter((result) => result.status === 'enviado').length
   const simulatedCount = results.filter((result) => result.status === 'simulado').length
   const hasFailed = results.some((result) => result.status === 'falha')
+  const hasPartial = results.some((result) => result.status === 'parcial')
   const hasSent = sentCount > 0
   const hasSimulated = simulatedCount > 0
-  const status = hasSent && !hasSimulated && !hasFailed
+  const status = hasSent && !hasSimulated && !hasFailed && !hasPartial
     ? 'enviado'
-    : hasSimulated && !hasSent && !hasFailed
+    : hasSimulated && !hasSent && !hasFailed && !hasPartial
       ? 'simulado'
-      : hasSent || hasSimulated
+      : hasSent || hasSimulated || hasPartial
         ? 'parcial'
         : 'bloqueado'
   return {

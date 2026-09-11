@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { sendEmail } from '../../../supabase/functions/_shared/email.ts'
+import { recipientKey, sendEmail } from '../../../supabase/functions/_shared/email.ts'
 
 const baseInput = {
   kind: 'convite',
@@ -21,6 +21,16 @@ afterEach(() => {
 })
 
 describe('sendEmail', () => {
+  it('gera uma identidade estável e não reversível para cada destinatário', async () => {
+    const first = await recipientKey(' Cliente@Example.com ')
+    const equivalent = await recipientKey('cliente@example.com')
+    const different = await recipientKey('outro@example.com')
+
+    expect(first).toBe(equivalent)
+    expect(first).not.toBe(different)
+    expect(first).toMatch(/^sha256:[0-9a-f]{64}$/)
+  })
+
   it.each([429, 500, 502, 503, 504])('repete status transitório %s com backoff', async (status) => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(null, { status }))

@@ -53,6 +53,12 @@ export function maskEmail(email: string): string {
   return `${local[0]}***@${domainName[0]}***${dot > 0 ? domain.slice(dot) : ''}`
 }
 
+export async function recipientKey(email: string): Promise<string> {
+  const normalized = email.trim().toLowerCase()
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalized))
+  return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+}
+
 export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean }> {
   const suppression = await input.checkSuppression(input.to.toLowerCase())
   if (suppression.suppressed) return { ok: false }

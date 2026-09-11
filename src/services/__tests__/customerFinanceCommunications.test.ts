@@ -177,4 +177,33 @@ describe('automação de comunicados financeiros', () => {
     expect(result.status).toBe('parcial')
     expect(result.sentCount).toBe(1)
   })
+
+  it('preserva parcial quando um resultado já parcial acompanha um envio', async () => {
+    configureQueries([], {
+      contacts: [
+        { id: 1, customer_id: 99, name: 'Financeiro', email: 'financeiro@example.com', phone: null, purpose: 'faturamento', is_primary: true, created_at: null },
+        { id: 2, customer_id: 99, name: 'Operação', email: 'operacao@example.com', phone: null, purpose: 'operacao', is_primary: false, created_at: null },
+      ],
+      boxLinks: [
+        { contact_id: 1, box_code: 'documentacao_operacao' },
+        { contact_id: 2, box_code: 'documentacao_operacao' },
+      ],
+    })
+    mockDispatch
+      .mockResolvedValueOnce({ communicationId: 12, status: 'enviado' })
+      .mockResolvedValueOnce({ communicationId: 12, status: 'parcial' })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('parcial')
+  })
+
+  it('retorna parcial quando o backend não tem nenhum destinatário totalmente concluído', async () => {
+    configureQueries()
+    mockDispatch.mockResolvedValue({ communicationId: 12, status: 'parcial' })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('parcial')
+  })
 })

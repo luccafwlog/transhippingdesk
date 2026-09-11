@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderDemurrageTemplate } from '../_shared/customerCommunicationTemplates.ts'
-import { maskEmail, sendEmail, type EmailAttemptRecord } from '../_shared/email.ts'
+import { maskEmail, recipientKey, sendEmail, type EmailAttemptRecord } from '../_shared/email.ts'
 
 type DunningCandidate = {
   invoice_id: number
@@ -406,6 +406,7 @@ async function sendCandidateGroup(
           const { data, error } = await admin.from('customer_communication_attempts').insert({
             communication_id: communicationId,
             recipient_masked: maskEmail(to),
+            recipient_key: await recipientKey(to),
             status: 'aceito',
             dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
             idempotency_key: attemptKey,
@@ -413,10 +414,17 @@ async function sendCandidateGroup(
           if (error?.code === '23505') {
             const { data: existing, error: existingError } = await admin
               .from('customer_communication_attempts')
-              .select('id, status, provider_message_id')
+              .select('id, status, provider_message_id, dispatch_mode')
               .eq('idempotency_key', attemptKey)
               .single()
             if (existingError || !existing) throw existingError ?? error
+            if (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null) {
+              const { error: repairError } = await admin.from('customer_communication_attempts').update({
+                recipient_key: await recipientKey(to),
+                dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
+              }).eq('id', existing.id)
+              if (repairError) throw repairError
+            }
             return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
           }
           if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
@@ -525,6 +533,7 @@ async function sendCandidate(
           const { data, error } = await admin.from('customer_communication_attempts').insert({
             communication_id: communicationId,
             recipient_masked: maskEmail(to),
+            recipient_key: await recipientKey(to),
             status: 'aceito',
             dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
             idempotency_key: attemptKey,
@@ -532,10 +541,17 @@ async function sendCandidate(
           if (error?.code === '23505') {
             const { data: existing, error: existingError } = await admin
               .from('customer_communication_attempts')
-              .select('id, status, provider_message_id')
+              .select('id, status, provider_message_id, dispatch_mode')
               .eq('idempotency_key', attemptKey)
               .single()
             if (existingError || !existing) throw existingError ?? error
+            if (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null) {
+              const { error: repairError } = await admin.from('customer_communication_attempts').update({
+                recipient_key: await recipientKey(to),
+                dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
+              }).eq('id', existing.id)
+              if (repairError) throw repairError
+            }
             return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
           }
           if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
