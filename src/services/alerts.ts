@@ -226,7 +226,11 @@ export function getEffectiveAlertType(alert: {
 }
 
 export function getAlertTypeLabel(type: string): string {
-  return TYPE_LABELS[type] ?? type
+  // `AlertasCatalogContract` garante rótulo para todo tipo do catálogo. Se
+  // mesmo assim chegar um tipo desconhecido (registro histórico, tipo novo
+  // ainda não catalogado), a fila mostra algo legível em vez da chave crua
+  // em snake_case, que não diz nada a quem opera.
+  return TYPE_LABELS[type] ?? 'Alerta não catalogado'
 }
 
 export function alertEntityLink(alert: {

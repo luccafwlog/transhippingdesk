@@ -105,6 +105,9 @@ export type LineUpTerminalCode = {
  * Projects terminal assignments into the single import/export row of a scale.
  * TBC is a display value only: this function never creates or persists a row.
  */
+/** Rótulo exibido quando um terminal atribuído não tem código cadastrado. */
+export const TERMINAL_CODE_UNKNOWN = '—'
+
 export function projectLineUpTerminals({
   fronts,
   terminalStates,
@@ -139,7 +142,10 @@ export function projectLineUpTerminals({
     if (assigned.has(front.terminalId)) continue
     assigned.set(front.terminalId, {
       id: front.terminalId,
-      code: terminalCodes.get(front.terminalId) ?? front.terminalId,
+      // Sem código cadastrado, mostrar o UUID do terminal não informa nada a
+      // quem lê o Line Up. A FK validada torna o caso improvável, mas o
+      // fallback existe — então que seja legível.
+      code: terminalCodes.get(front.terminalId) ?? TERMINAL_CODE_UNKNOWN,
       etb: stateByTerminal.get(front.terminalId)?.terminalEtb ?? null,
       atb: stateByTerminal.get(front.terminalId)?.terminalAtb ?? null,
     })
