@@ -105,23 +105,24 @@ export function parseCustomerBaseRows(rows: Record<string, unknown>[]): ParsedCu
   const rowErrors: ParsedCustomerBase['rowErrors'] = []
 
   rows.forEach((row, index) => {
+    const rowNumber = typeof row.rowNumber === 'number' ? row.rowNumber : index + 2
     const mapped = mapRow(row)
     const cnpjCpf = normalizeDocument(asString(mapped.cnpj_cpf))
     const name = asString(mapped.name)
 
     if (!cnpjCpf) {
-      rowErrors.push({ row: index + 2, message: 'Linha sem CNPJ válido.', raw: row })
+      rowErrors.push({ row: rowNumber, message: 'Linha sem CNPJ válido.', raw: row })
       return
     }
 
     if (!name) {
-      rowErrors.push({ row: index + 2, message: 'Linha sem Razao Social.', raw: row })
+      rowErrors.push({ row: rowNumber, message: 'Linha sem Razao Social.', raw: row })
       return
     }
 
     const emails = extractEmails(asString(mapped.email))
     if (!emails.length) {
-      rowErrors.push({ row: index + 2, message: 'Linha sem e-mail válido.', raw: row })
+      rowErrors.push({ row: rowNumber, message: 'Linha sem e-mail válido.', raw: row })
       return
     }
 

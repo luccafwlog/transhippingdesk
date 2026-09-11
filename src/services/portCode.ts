@@ -53,6 +53,9 @@ const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
   ['yantian', 'CNYTN'],
   ['hong kong', 'HKHKG'],
   ['hongkong', 'HKHKG'],
+  ['singapore', 'SGSIN'],
+  ['new york', 'USNYC'],
+  ['hamburg', 'DEHAM'],
 ]
 
 // Códigos que já fazem parte do cadastro de escalas/rotas, mas que não
@@ -60,6 +63,7 @@ const PORT_NAME_TO_LOCODE: Array<[string, string]> = [
 const KNOWN_PORT_CODES = new Set([
   ...PORT_NAME_TO_LOCODE.map(([, code]) => code),
   'BRVIX', 'BRVIT', 'BRBEL', 'BRFOR', 'BRIGI', 'BRIOS', 'BRMCZ', 'BRNAT',
+  'BRSEP',
   'BRNVT', 'BRREC', 'BRSLZ', 'BRSFS', 'ITGOA', 'NLRTM',
 ])
 
@@ -81,17 +85,20 @@ export function resolvePortCode(value: string | null | undefined): { code: strin
   if (match) return { code: match.code, recognized: true }
 
   if (/^[A-Z]{5}$/.test(normalized)) {
-    // 5 letras desconhecidas: devolve o texto mas sinaliza não reconhecido,
-    // nunca inventa que é LOCODE válido.
-    return { code: normalized, recognized: KNOWN_PORT_CODES.has(normalized) }
+    // Um LOCODE não reconhecido não pode virar texto persistido: o chamador
+    // deve registrar a divergência e deixar o campo nulo no payload forçado.
+    return KNOWN_PORT_CODES.has(normalized)
+      ? { code: normalized, recognized: true }
+      : { code: null, recognized: false }
   }
-  const embeddedLocode = normalized.match(/\b(?:BR|CN|HK)[A-Z0-9]{3}\b/)?.[0]
+  const embeddedLocode = (normalized.match(/\b[A-Z]{2}[A-Z0-9]{3}\b/g) ?? [])
+    .map((code) => (code === 'BRVIT' ? 'BRVIX' : code))
+    .find((code) => KNOWN_PORT_CODES.has(code))
   if (embeddedLocode) {
-    const code = embeddedLocode === 'BRVIT' ? 'BRVIX' : embeddedLocode
-    return { code, recognized: KNOWN_PORT_CODES.has(code) || code === 'BRVIX' }
+    return { code: embeddedLocode, recognized: true }
   }
 
-  return { code: normalized, recognized: false }
+  return { code: null, recognized: false }
 }
 
 /** Todas as formas persistidas historicamente para o mesmo porto. */

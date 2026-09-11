@@ -1,6 +1,6 @@
 # Demurrage
 
-> **Status:** ativo · **Atualizado:** 2026-09-01 · **Rotas:** `/demurrage`, `/demurrage/taxas`
+> **Status:** ativo · **Atualizado:** 2026-09-11 · **Rotas:** `/demurrage`, `/demurrage/taxas`
 
 ## Propósito e escopo
 
@@ -197,14 +197,18 @@ excluir para admin, conforme
   `recalculate_demurrage_invoices_manual` (autenticada). Um banner de staleness
   aparece quando há faturas aguardando pagamento e o último recálculo é anterior ao
   último dia útil.
-- **Régua de cobrança:** as migrations `378_demurrage_dunning_communication.sql`
-  e `379_demurrage_dunning_claim_recovery.sql`
+- **Régua de cobrança:** as migrations `378_demurrage_dunning_communication.sql`,
+  `379_demurrage_dunning_claim_recovery.sql` e a correção `041_dunning_partial_claim_recovery.sql`
   agenda `demurrage-dunning` de hora em hora. O primeiro envio usa
   `first_billed_at` e cada tentativa seguinte soma o intervalo configurado em
   `app_settings.demurrage_dunning_interval_days` (padrão de 7 dias), sem teto;
   cada execução reivindica um lote limitado e libera a posição quando a
-  cobrança não chega a envio concluído. A UI lê o contador pela RPC
-  `list_demurrage_dunning_claim_statuses`.
+  cobrança não chega a envio concluído, exceto quando a tentativa termina em
+  `parcial`, que é terminal para o scanner de claims órfãos. O handler procura
+  tentativas anteriores pela chave nova, pela identidade do destinatário e pela
+  chave legada do contato; quando encontra uma tentativa histórica, reutiliza
+  a `idempotency_key` persistida em vez de reescrevê-la. A UI lê o contador pela
+  RPC `list_demurrage_dunning_claim_statuses`.
   Disputa aberta, bounce sem alternativa ou ausência de contato válido pausam a
   régua; a regularização retoma no próximo discriminador. O comunicado mostra
   USD, BRL informativo com ROE/data e o link do Portal, sem PIX ou anexo.

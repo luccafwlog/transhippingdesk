@@ -20,6 +20,8 @@ export type EmailAttemptRecord = {
   id: string | number
   status: EmailAttemptUpdate['status'] | 'entregue' | 'bounce' | 'complaint'
   providerMessageId?: string | null
+  /** Chave persistida; tentativas legadas podem ter hash de email sem canonicalização. */
+  idempotencyKey?: string
   existing?: boolean
 }
 
@@ -81,13 +83,14 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean }>
   if (attempt.existing && ['falha_permanente', 'bounce', 'complaint'].includes(attempt.status)) return { ok: false }
 
   const fetchImpl = input.fetchImpl ?? fetch
+  const providerIdempotencyKey = attempt.idempotencyKey ?? input.idempotencyKey
   for (let index = 0; index < 3; index += 1) {
     const response = await fetchImpl('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${input.resendApiKey}`,
         'Content-Type': 'application/json',
-        'Idempotency-Key': input.idempotencyKey,
+        'Idempotency-Key': providerIdempotencyKey,
       },
       body: JSON.stringify({
         from: input.from,

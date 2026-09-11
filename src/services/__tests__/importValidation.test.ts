@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   IsoDateSchema,
   isValidCalendarDate,
-  messagesToImportIssues,
   rowErrorsToImportIssues,
 } from '../importValidation'
 
@@ -30,15 +29,6 @@ describe('adaptação segura dos relatórios de importação', () => {
       },
     ])
     expect(issues[0]).not.toHaveProperty('raw')
-  })
-
-  it('preserva erro e aviso textuais sem misturar mensagens ao raw', () => {
-    expect(messagesToImportIssues(['não encontrado'], 'error', { row: 4, field: 'document' })).toEqual([
-      { row: 4, field: 'document', code: 'invalid_group', severity: 'error', message: 'não encontrado' },
-    ])
-    expect(messagesToImportIssues(['confira'], 'warning', { row: 1, field: 'document' })).toEqual([
-      { row: 1, field: 'document', code: 'invalid_group', severity: 'warning', message: 'confira' },
-    ])
   })
 
   it('valida datas de calendário reais e rejeita dias/meses inválidos', () => {

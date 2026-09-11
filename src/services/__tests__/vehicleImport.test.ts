@@ -59,7 +59,7 @@ describe('vehicleImport', () => {
     expect(parsed.rows[0]?.unpacking_location).toBe('Terminal Rio')
   })
 
-  it('mapeia o modelo do armador (COSCO Daily Report) escolhendo a aba de veiculos', async () => {
+	it('mapeia o modelo do armador (COSCO Daily Report) escolhendo a aba de veiculos', async () => {
     // 1a aba: resumo (pivot) sem colunas de veiculo. 2a aba: dados reais.
     const buffer = sheetsToBuffer([
       {
@@ -101,8 +101,26 @@ describe('vehicleImport', () => {
       container_type: '48FR',
       seal_number: '035744',
       bl_id: 'CSC07870X00V00',
-    })
-  })
+		})
+	})
+
+		it('preserva números Excel nativos mesmo quando a formatação usa vírgula de milhar', async () => {
+		const XLSX = await import('@e965/xlsx')
+		const workbook = XLSX.utils.book_new()
+		const sheet = XLSX.utils.aoa_to_sheet([
+			['CHASSI', 'MARCA', 'MODELO', 'PESO', 'CUBAGEM', 'CONTAINER', 'TIPO_CONTAINER', 'LACRE', 'BL'],
+			['9BWZZZ377VT004251', 'BYD', 'DOLPHIN', 1234, 12, 'CAXU1234567', '40FM', 'SEL123', 'BL001'],
+		])
+		sheet.D2.z = '#,##0'
+		sheet.E2.z = '#,##0'
+		XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1')
+		const buffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+
+		const parsed = await parseVehicleImportBuffer(buffer)
+
+		expect(parsed.rowErrors).toEqual([])
+			expect(parsed.rows[0]).toMatchObject({ weight_kg: 1234, cbm: 12 })
+		})
 
   it('mapeia a lista de VINs dos terminais chineses da COSCO (cabecalhos em chines)', async () => {
     const buffer = jsonToBuffer([

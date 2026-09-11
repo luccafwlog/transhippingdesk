@@ -21,12 +21,17 @@ export async function importBreakbulkManifest({
   voyageId,
   manifest,
   uploadedBy,
+  allowRowErrors = false,
 }: {
   filename: string
   voyageId: number
   manifest: ParsedBreakbulkManifest
   uploadedBy: string
+  /** Permite persistir as linhas válidas quando o preview tem erros de linha. */
+  allowRowErrors?: boolean
 }) {
+  if (manifest.rowErrors.length && !allowRowErrors) throw new Error(formatBreakbulkRowErrors(manifest.rowErrors))
+
   const { error: voyageError } = await supabase.from('voyages').select('id').eq('id', voyageId).single()
   if (voyageError) throw voyageError
 
@@ -157,4 +162,11 @@ export async function importBreakbulkManifest({
   }
 
   return batchId
+}
+
+function formatBreakbulkRowErrors(rowErrors: ParsedBreakbulkManifest['rowErrors']): string {
+  const shown = rowErrors.slice(0, 20).map((error) => `Linha ${error.row}: ${error.message}`)
+  const hidden = rowErrors.length - shown.length
+  if (hidden > 0) shown.push(`... e mais ${hidden} linha${hidden === 1 ? '' : 's'} com divergências.`)
+  return shown.join('\n')
 }

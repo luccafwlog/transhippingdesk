@@ -98,7 +98,7 @@ describe('parser de vazios — novo contrato', () => {
     await expect(parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567' }]))).rejects.toThrow(/Local.*Condition|Condition.*Local/)
   })
 
-  it('S03: localiza cabeçalho de Vazios após o preâmbulo e preserva a linha de origem', async () => {
+	it('S03: localiza cabeçalho de Vazios após o preâmbulo e preserva a linha de origem', async () => {
     const parsed = await parseVaziosManifestBuffer(await (async () => {
       const XLSX = await import('@e965/xlsx')
       const workbook = XLSX.utils.book_new()
@@ -113,8 +113,28 @@ describe('parser de vazios — novo contrato', () => {
     })())
 
     expect(parsed.rowErrors).toEqual([])
-    expect(parsed.bookings[0]).toMatchObject({ rowNumber: 4, container_number: 'ABCD1234582' })
-  })
+		expect(parsed.bookings[0]).toMatchObject({ rowNumber: 4, container_number: 'ABCD1234582' })
+	})
+
+	it('S03: não renumera uma linha após um vazio físico', async () => {
+		const parsed = await parseVaziosManifestBuffer(await (async () => {
+			const XLSX = await import('@e965/xlsx')
+			const workbook = XLSX.utils.book_new()
+			const sheet = XLSX.utils.aoa_to_sheet([
+				['UNIDADES EMBARCADAS'],
+				[''],
+				['Container', 'Tipo', 'Local', 'Condition'],
+				['ABCD1234583', '40HC', 'VBR', 'vazio'],
+				[''],
+				['ABCD1234584', '40HC', 'VBR', 'vazio'],
+			])
+			XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1')
+			return XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+		})())
+
+		expect(parsed.rowErrors).toEqual([])
+		expect(parsed.bookings.map((booking) => booking.rowNumber)).toEqual([4, 6])
+	})
 })
 
 describe('parser de vazios — divergência apontada por linha contra o Cadastro de Terminais', () => {

@@ -8,7 +8,9 @@ Quando um plano é totalmente executado, ele é movido para
 
 ## Planos ativos
 
-Nenhum plano ativo no momento. O plano [2026-09-03 — Issue 609: contatos e caixas de comunicação](../archive/plans/2026-09-03-issue-609-contatos-caixas-comunicacao.md) foi concluído e arquivado.
+- [2026-09-06 — Remediação das auditorias #654–#660](2026-09-06-plano-remediacao-auditorias-654-660.md) — execução parcial; os residuais de S03, S05, S06/S07 e a prova de runtime continuam abertos.
+
+O plano [2026-09-03 — Issue 609: contatos e caixas de comunicação](../archive/plans/2026-09-03-issue-609-contatos-caixas-comunicacao.md) foi concluído e arquivado.
 
 ### Sincronização de 2026-09-01
 

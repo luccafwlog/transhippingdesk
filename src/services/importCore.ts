@@ -63,9 +63,12 @@ export type SheetReadOptions = {
 export type SheetContent = {
   headers: string[]
   matrix: unknown[][]
-  rows: Record<string, unknown>[]
+  rows: SheetRow[]
   headerRowIndex: number
 }
+
+/** Linha de planilha com a linha física 1-based preservada da origem. */
+export type SheetRow = Record<string, unknown> & { readonly rowNumber: number }
 
 export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions = {}): Promise<SheetContent> {
   const wantDates = options.dates === 'date'
@@ -110,24 +113,30 @@ export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions =
     blankrows: !(options.skipBlankRows ?? true),
     range: headerRowIndex,
   })
-  const rows = rowsWithSheetMetadata.map((row) => {
+  const rows = rowsWithSheetMetadata.map((row, index): SheetRow | null => {
+    const rowNumber = typeof row.__rowNum__ === 'number'
+      ? row.__rowNum__ + 1
+      : headerRowIndex + index + 2
     const data = { ...row }
     delete data.__rowNum__
-    if (typeof row.__rowNum__ === 'number') {
-      Object.defineProperty(data, '__rowNum__', {
-        value: row.__rowNum__,
-        enumerable: false,
-        configurable: true,
-        writable: true,
-      })
-    }
-    return data
-  })
+    const hasValue = Object.values(data).some((value) => {
+      if (value === null || value === undefined) return false
+      return typeof value === 'string' ? value.trim() !== '' : true
+    })
+    if ((options.skipBlankRows ?? true) && !hasValue) return null
+    Object.defineProperty(data, 'rowNumber', {
+      value: rowNumber,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    })
+    return data as SheetRow
+  }).filter((row): row is SheetRow => row !== null)
   if (!rows.length) throw new Error('Planilha vazia.')
   return { headers, matrix, rows, headerRowIndex }
 }
 
-export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<Record<string, unknown>[]> {
+export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<SheetRow[]> {
   const { rows } = await readSheet(buffer)
   return rows
 }

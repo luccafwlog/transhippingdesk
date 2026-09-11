@@ -60,14 +60,14 @@ describe('parseVaziosImportacaoBuffer', () => {
       container_number: 'MSCU1234567',
       container_type: '40HC',
       pol: 'BRVIX',
-      pod: 'PORTO INEXISTENTE',
+      pod: null,
     })
     expect(manifest.rowErrors).toEqual([
       expect.objectContaining({ row: 2, message: expect.stringContaining('POD') }),
     ])
   })
 
-  it('ignora linha sem container e sinaliza formato ISO invalido sem descartar a linha', async () => {
+  it('ignora linhas sem container ou com formato ISO invalido e sinaliza ambas', async () => {
     const buffer = jsonToBuffer([
       { 'Container': '', 'Tipo': '20DV' },
       { 'Container': 'ABC123', 'Tipo': '20DV' },
@@ -75,8 +75,7 @@ describe('parseVaziosImportacaoBuffer', () => {
 
     const manifest = await parseVaziosImportacaoBuffer(buffer)
 
-    expect(manifest.containers).toHaveLength(1)
-    expect(manifest.containers[0].container_number).toBe('ABC123')
+    expect(manifest.containers).toEqual([])
     expect(manifest.rowErrors).toEqual([
       { row: 2, message: 'Container ausente — linha ignorada.', raw: expect.anything() },
       { row: 3, message: 'Container ABC123: formato ISO esperado (XXXX0000000).', raw: expect.anything() },
@@ -91,7 +90,7 @@ describe('parseVaziosImportacaoBuffer', () => {
     await expect(parseVaziosImportacaoBuffer(jsonToBuffer([{ Tipo: '40HC', Tara: 3800 }]))).rejects.toThrow(/Container/)
   })
 
-  it('S03: localiza o cabeçalho de Vazios IMP após o preâmbulo e preserva a linha de origem', async () => {
+	it('S03: localiza o cabeçalho de Vazios IMP após o preâmbulo e preserva a linha de origem', async () => {
     const manifest = await parseVaziosImportacaoBuffer(aoaToBuffer([
       ['VAZIOS IMP — COSCO'],
       ['Atualizado em 09/09/2026'],
@@ -100,8 +99,22 @@ describe('parseVaziosImportacaoBuffer', () => {
     ]))
 
     expect(manifest.rowErrors).toEqual([])
-    expect(manifest.containers[0]).toMatchObject({ rowNumber: 4, container_number: 'MSCU1234567' })
-  })
+		expect(manifest.containers[0]).toMatchObject({ rowNumber: 4, container_number: 'MSCU1234567' })
+	})
+
+	it('S03: não renumera dados depois de uma linha vazia física', async () => {
+		const manifest = await parseVaziosImportacaoBuffer(aoaToBuffer([
+			['VAZIOS IMP — COSCO'],
+			[''],
+			['Container', 'Tipo', 'Tara'],
+			['MSCU1234567', '40HC', 3800],
+			[''],
+			['TGHU7654321', '40HC', 3900],
+		]))
+
+		expect(manifest.rowErrors).toEqual([])
+		expect(manifest.containers.map((container) => container.rowNumber)).toEqual([4, 6])
+	})
 
   it('S03: valida a fixture QA anonimizada em CSV do fluxo de Vazios IMP', async () => {
     const file = readFileSync(resolve(process.cwd(), 'test-fixtures/qa-vazios-importacao.csv'))
@@ -112,7 +125,7 @@ describe('parseVaziosImportacaoBuffer', () => {
     expect(manifest.containers.map((container) => container.container_number)).toEqual(['TEMU1234567', 'TGHU7654325'])
   })
 
-  it('S03: o importador não chama a RPC quando o preview traz divergências', async () => {
+	it('S03: o importador não chama a RPC quando o preview traz divergências', async () => {
     rpcMock.mockReset()
 
     await expect(importVaziosImportacaoManifest({
@@ -124,6 +137,22 @@ describe('parseVaziosImportacaoBuffer', () => {
       voyageId: 7,
     })).rejects.toThrow('Linha 2')
 
-    expect(rpcMock).not.toHaveBeenCalled()
-  })
+		expect(rpcMock).not.toHaveBeenCalled()
+	})
+
+	it('só permite importar divergências quando o override de erros de linha é explícito', async () => {
+		rpcMock.mockResolvedValue({ data: { manifest_id: 'manifest-1' }, error: null })
+
+		await importVaziosImportacaoManifest({
+			manifest: {
+				containers: [{ rowNumber: 2, container_number: 'MSCU1234567', container_type: '40HC', tare_kg: 3800 }],
+				rowErrors: [{ row: 2, message: 'Container inválido.', raw: { Container: 'MSCU1234567' } }],
+			},
+			uploadedBy: 'user-1',
+			voyageId: 7,
+			allowRowErrors: true,
+		})
+
+		expect(rpcMock).toHaveBeenCalledWith('import_vazios_importacao_transactional', expect.anything())
+	})
 })

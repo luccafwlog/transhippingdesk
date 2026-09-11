@@ -2,7 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { asString, chunkArray, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { CeMercanteEdiRow } from './ceMercanteEdiParser'
-import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { matchHeaders, readSheet, type HeaderSpec, type SheetRow } from './importCore'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading', 'numero bl', 'n bl', 'no bl', 'no. bl'],
@@ -272,14 +272,14 @@ export async function importCeMercanteEdi(
   }
 }
 
-function parseRows(rows: Record<string, unknown>[]): ParsedCeMercanteFile {
+function parseRows(rows: SheetRow[]): ParsedCeMercanteFile {
   const rowErrors: ParsedCeMercanteFile['rowErrors'] = []
   const validRows: CeMercanteRow[] = []
   const seenBls = new Set<string>()
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const mapped = mapRow(row)
-    const rowNumber = index + 2
+    const rowNumber = row.rowNumber
     const bl_id = normalizeBlId(mapped.bl_id)
     const ce_mercante = normalizeCeMercante(mapped.ce_mercante)
 

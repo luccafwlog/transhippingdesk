@@ -64,7 +64,7 @@ export async function parseVaziosManifestFile(file: File, depots?: readonly Depo
 }
 
 export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: readonly DepotLookup[]): Promise<ParsedVaziosManifest> {
-  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+  const { headers, rows } = await readSheet(buffer, {
     dates: 'texto',
     expectedHeaders: Object.keys(HEADER_MAP),
   })
@@ -85,8 +85,8 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
   const bookings: ParsedVaziosBooking[] = []
   const rowErrors = createRowErrorCollector()
   mappedRows.forEach((mapped, idx) => {
-    const rowNumber = headerRowIndex + idx + 2
-    const row = rows[idx]
+    const row = rows[idx]!
+    const rowNumber = row.rowNumber
     const containerNumber = String(mapped.container_number ?? '').trim().toUpperCase()
     if (!containerNumber) { rowErrors.add(rowNumber, 'Container ausente.', row); return }
     if (!IsoContainerSchema.safeParse(containerNumber).success) rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)

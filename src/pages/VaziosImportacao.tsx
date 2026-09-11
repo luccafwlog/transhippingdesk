@@ -423,13 +423,13 @@ export function VaziosImportacao() {
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosImportacaoFile}
           inspectFile={inspectImportUpload}
-          importer={async (nextManifest) => {
+          importer={async (nextManifest, _file, override) => {
             if (!user || !voyageId) return
-            await importVaziosImportacaoManifest({ manifest: nextManifest, uploadedBy: user.id, voyageId: Number(voyageId), description: description.trim() || undefined })
+            await importVaziosImportacaoManifest({ manifest: nextManifest, uploadedBy: user.id, voyageId: Number(voyageId), description: description.trim() || undefined, allowRowErrors: Boolean(override) })
             await afterManifestoImportado(queryClient, { voyageId })
             showToast(`${nextManifest.containers.length} containers importados.`, 'success')
           }}
-          canImport={(nextManifest) => nextManifest.containers.length > 0 && nextManifest.rowErrors.length === 0}
+          canImport={(nextManifest, override) => nextManifest.containers.length > 0 && (nextManifest.rowErrors.length === 0 || Boolean(override))}
           getIssues={(nextManifest) => rowErrorsToImportIssues(nextManifest.rowErrors)}
           ready={Boolean(voyageId && user)}
           prerequisite={<VoyageCombobox required label="Viagem de destino" selectedVoyageId={voyageId} onSelect={(id) => setVoyageId(id == null ? '' : String(id))} />}

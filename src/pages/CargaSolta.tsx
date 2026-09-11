@@ -345,14 +345,14 @@ export function CargaSolta() {
           accept=".xlsx,.xls,.csv"
           parser={parseBreakbulkManifestFile}
           inspectFile={inspectImportUpload}
-          importer={async (nextManifest, file) => {
+          importer={async (nextManifest, file, override) => {
             if (!user || !voyageId) return
-            await importBreakbulkManifest({ filename: file.name, voyageId: Number(voyageId), manifest: nextManifest, uploadedBy: user.id })
+            await importBreakbulkManifest({ filename: file.name, voyageId: Number(voyageId), manifest: nextManifest, uploadedBy: user.id, allowRowErrors: Boolean(override) })
             await afterManifestoImportado(queryClient, { voyageId })
             showToast('Manifesto BB importado com sucesso.', 'success')
             setVoyageId('')
           }}
-          canImport={(nextManifest) => nextManifest.bls.length > 0 && nextManifest.rowErrors.length === 0}
+          canImport={(nextManifest, override) => nextManifest.bls.length > 0 && (nextManifest.rowErrors.length === 0 || Boolean(override))}
           getIssues={(nextManifest) => rowErrorsToImportIssues(nextManifest.rowErrors)}
           ready={Boolean(voyageId && user)}
           prerequisite={<VoyageCombobox required label="Viagem de destino" selectedVoyageId={voyageId} onSelect={(id) => setVoyageId(id == null ? '' : String(id))} />}

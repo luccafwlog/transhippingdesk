@@ -166,4 +166,36 @@ describe('importBlDocument', () => {
     expect(mockImportBreakbulkManifest).toHaveBeenCalledTimes(1)
     expect(mockImportBreakbulkManifest.mock.calls[0]?.[0].manifest.bls).toHaveLength(2)
   })
+
+  it('exige override para avisos, mantendo erros documentais e divergência como bloqueios', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({ data: { voyage_number: '75', vessel: { name: 'DA XIN' } }, error: null }),
+          ),
+        })),
+      })),
+    })
+
+    const document = blDocument({ warnings: ['Peso extraído com baixa confiança.'] })
+    await expect(importBlDocuments({
+      filename: 'bls.zip',
+      voyageId: 10,
+      documents: [document],
+      uploadedBy: 'user-1',
+    })).rejects.toThrow('bls.zip')
+    expect(mockImportBreakbulkManifest).not.toHaveBeenCalled()
+
+    mockImportBreakbulkManifest.mockResolvedValue(77)
+    await importBlDocuments({
+      filename: 'bls.zip',
+      voyageId: 10,
+      documents: [document],
+      uploadedBy: 'user-1',
+      allowRowErrors: true,
+    })
+
+    expect(mockImportBreakbulkManifest).toHaveBeenCalledWith(expect.objectContaining({ allowRowErrors: true }))
+  })
 })

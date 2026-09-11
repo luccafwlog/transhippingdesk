@@ -12,7 +12,7 @@
 
 ## 1. Resumo executivo e recomendação de ordem
 
-**Estado deste documento: execução parcial após as PRs #670–#682 (2026-09-10), com a PR #683 aberta para a entrega complementar S12/S13 desta branch.** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
+**Estado deste documento: execução parcial após as PRs #670–#683 (2026-09-10), com as correções de recebimento da revisão da PR #684 em 2026-09-11.** O plano continua aberto: a PR #669 foi usada como baseline e as branches subsequentes integram correções focais, mas os itens residuais permanecem tarefas obrigatórias. O histórico da auditoria e as decisões ainda não executadas não devem ser lidos como comportamento já entregue.
 
 ### 1.0 Registro de execução desta branch
 
@@ -40,8 +40,8 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **S03/P0-4:** a identidade de navio/viagem agora normaliza tokens e designações (`M/V`, `VSL`), aceita variantes pontuadas dos aliases sem casar prefixos como `CSCL`, normaliza o rótulo textual do IMO e resolve primeiro pelo IMO exato. Quando a entrada não traz IMO, um único fallback nominal canônico é permitido; múltiplas candidatas são ambíguas. Com IMO informado, o fallback só considera cadastro sem IMO e recusa conflito com outro IMO; os testes S03 cobrem prioridade, IMOs distintos, ambiguidade e grafias do alias.
 
 - **S03/P0-2/P0-3:** a detecção de formato agora é separada do decode: XLSX/XLS são reconhecidos pelo conteúdo binário, CSV e EDI pelo conteúdo textual, e texto desconhecido ou ambíguo é recusado. O decode permanece UTF-8 estrito por padrão, aceita BOM UTF-8/UTF-16, e só usa Windows-1252 quando o parser da origem autoriza explicitamente.
-- **Round-trip e preview:** o resultado mantém os bytes textuais de origem para reconstituição byte a byte; `inspectImportFile` expõe formato, encoding, BOM, tamanho e prévia limitada. O `FileImportModal` mostra esse diagnóstico, e os modais de Baplie/CE exibem o encoding selecionado.
-- **Integração:** `readSheet` não encaminha EDI ao leitor de planilhas; Baplie e CE Mercante validam o formato antes de parsear; os callers de planilha usam a inspeção comum sem enviar conteúdo à telemetria. Evidência: `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`, `baplieParser.test.ts` e `FileImportModal.test.tsx`, com vetores UTF-8/BOM, Windows-1252, bytes inválidos, formatos binários/textuais, ambiguidades e round-trip.
+- **Preview:** `inspectImportFile` expõe formato, encoding, BOM, tamanho e prévia limitada; o resultado não promete reconstituir byte a byte o texto decodificado. O `FileImportModal` mostra esse diagnóstico, e os modais de Baplie/CE exibem o encoding selecionado.
+- **Integração:** `readSheet` não encaminha EDI ao leitor de planilhas; Baplie e CE Mercante validam o formato antes de parsear; os callers de planilha usam a inspeção comum sem enviar conteúdo à telemetria. CSV de uma coluna só é aceito quando o cabeçalho é operacionalmente plausível, e a assinatura Mercante exige registros posicionais; texto arbitrário continua recusado. Evidência: `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`, `baplieParser.test.ts` e `FileImportModal.test.tsx`, com vetores UTF-8/BOM, Windows-1252, bytes inválidos, formatos binários/textuais e falsos positivos de CSV/EDI.
 - **S03/Baplie:** o scanner agora respeita `UNA`, separadores e release character; limita a ingestão ao conteúdo antes do trailer, isola os segmentos entre EQDs consecutivos e associa `DGS`/`DIM` à unidade correta. Duplicatas continuam bloqueantes. Evidência: `baplieParserS03.test.ts` com dialetos LOC→EQD/EQD→LOC, múltiplos EQD, OOG/IMO, EOF, duplicata e UNA customizada.
 
 ### 1.0.4 Contratos concretos de planilhas — PR em preparação sobre #674
@@ -132,7 +132,10 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
 - **S07:** `send-customer-communication` e `demurrage-dunning` registram o modo
   da tentativa e consultam a projeção SQL em vez de sobrescrever o cabeçalho
   com um status agregado local. O resumo de CE Mercante, o histórico e o
-  status da célula de faturamento exibem/filtram `Parcial`.
+  status da célula de faturamento exibem/filtram `Parcial`. A migration corretiva
+  `041_dunning_partial_claim_recovery.sql` trata `parcial` como estado terminal
+  para recuperação de claims órfãos; o dunning reutiliza a chave histórica
+  persistida quando a forma canônica nova não encontra a tentativa legada.
 - **Evidência local:** 27 testes focados S07 verdes e a integração PostgreSQL
   descartável confirmou a transição `enviado → parcial` ao inserir uma falha
   após uma entrega real. `typecheck` e `git diff --check` também passaram.
@@ -226,6 +229,24 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   `PERF_USER_EMAIL` e `PERF_USER_PASSWORD`; nenhuma credencial foi inventada
   ou persistida.
 
+### 1.0.13 Recebimento da segunda revisão — PR #684
+
+- **S03/importação:** a detecção de formato deixou de aceitar qualquer linha
+  `M<dígitos>` como EDI e deixou de promover prosa a CSV; CSV de uma coluna
+  exige cabeçalho operacional plausível. `readFirstSheetRows` entrega `rowNumber`
+  físico 1-based, inclusive após linhas vazias, e os parsers usam esse valor sem
+  renumerar a prévia.
+- **S03/override:** `allowRowErrors` é separado de `allowPending`. As seis
+  superfícies de importação previstas oferecem o override de erros de linha
+  quando aplicável; erros de documento e de viagem continuam bloqueantes, e
+  portos desconhecidos não são persistidos como texto cru.
+- **S07/S14:** `parcial` permanece terminal para recuperação de claims de
+  dunning na migration corretiva `041_dunning_partial_claim_recovery.sql`.
+  Tentativas legadas reutilizam a chave de idempotência persistida, mesmo após
+  a normalização da identidade do destinatário. A migration `040` e a nova
+  migration `041` têm testes de contrato e linhas próprias em
+  `docs/RASTREABILIDADE.md`; helpers sem caller de produção foram removidos.
+
 ### 1.0.2 Fechamento da revisão da PR #670
 
 - O import de datas agora rejeita datas de calendário impossíveis e duplicatas conflitantes BL+container; quando um container não existe, o B/L inteiro é ignorado antes do RPC para preservar a atomicidade. Duplicatas idênticas continuam idempotentes.
@@ -305,20 +326,25 @@ ser promovido a concluído apenas porque o caminho principal está verde.
   na resolução.
 - [x] **S03 — formato e encoding:** `detectImportFormat` separa XLS/XLSX binário
   de CSV/EDI textual, recusa conteúdo desconhecido/ambíguo, mantém UTF-8 estrito
-  e fallback 1252 explícito, preserva round-trip byte a byte e fornece prévia
-  limitada com formato/encoding/BOM no modal compartilhado. Evidência: vetores
+  e fallback 1252 explícito, aceita CSV de uma coluna apenas com cabeçalho
+  operacional plausível e fornece prévia limitada com formato/encoding/BOM no
+  modal compartilhado. Evidência: vetores
   em `importText.test.ts`, `importCore.test.ts`, `ceMercanteEdiParser.test.ts`,
   `baplieParser.test.ts` e `FileImportModal.test.tsx`.
 - [x] **S03 — contratos estruturais:** Granito/COSCO, Vazios e Vazios IMP
   recusam marcadores obrigatórios ausentes, aceitam preâmbulo sem deslocar a
   linha física e mantêm o gate antes da RPC; o leitor de veículos preserva
-  números Excel nativos. Evidência: 114 testes focados, incluindo template,
+  números Excel nativos. Erros de linha bloqueiam por padrão e só são aceitos
+  com `allowRowErrors` explícito; `allowPending` continua reservado à
+  reconciliação de cliente em Granito. Evidência: testes focados de importação,
   fixture QA de veículos, fixture QA de Vazios IMP, Baplie, encoding e
   identidade.
 - [ ] **S03 residual:** fechar o gate com uma planilha COSCO/Granito real
   anonimizada autorizada e executar a suíte integral nesta linha. Os contratos
-  de ISO, tara, datas/ordem, portos, confirmação sem `rowErrors` e relatório
-  compartilhado já foram entregues; não reimplementar esses itens.
+  de ISO, tara, datas/ordem, portos, linha física, detecção de formato e
+  relatório compartilhado já foram entregues; o bloqueio padrão de
+  `rowErrors` tem override explícito nas superfícies aplicáveis e não substitui
+  os bloqueios de documento/viagem.
 - [x] **S04/S05 código:** caudas de veículo, Granite e Breakbulk, relatório
   durável por unidade e consumidores server-side foram completados na migration
   `031_import_effect_consumers.sql`, com teste focado e integração de Granito.
@@ -367,7 +393,7 @@ uma decisão registrada.
 
 ### 1.1 Baseline e alcance da evidência
 
-- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`037` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
+- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`041` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
 - Fonte dos identificadores: [auditoria consolidada](../archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md). Preservar esse registro integralmente. Nas seções sem ID, usar o número e o título original; os sufixos deste plano apenas desdobram causas diferentes.
 - Fontes de decisão: [CLAUDE.md](../../CLAUDE.md), [CONTEXT.md](../../CONTEXT.md), [WORKFLOW.md](../../WORKFLOW.md), [arquitetura](../ARCHITECTURE.md), [rastreabilidade](../RASTREABILIDADE.md), [convenções](../CONVENCOES.md) e [índice de ADRs](../adr/README.md).
 - **Código** significa confirmação estática no baseline. **Teste de contrato SQL** significa inspeção textual de SQL; não prova execução, concorrência, grants efetivos ou PostgREST. Testes citados abaixo são existentes ou propostos, com essa distinção explícita; não foram executados para afirmar que uma remediação funciona.
@@ -674,11 +700,11 @@ export type ParsedNumber =
 | `1.234,56`, `1,234.56` | formato correspondente | decimal canônico `1234.56` |
 | negativo em peso/tara | coluna não negativa | erro de domínio |
 
-- [x] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM e round-trip byte a byte. Evidência: `detectImportFormat`, `decodeImportBytes`, `encodeImportText`, `inspectImportFile` e vetores em `importText.test.ts`; o preview mostra o formato e encoding selecionados.
+- [x] Separar completamente detecção de tipo e decode de XLS/XLSX, CSV e EDI, incluindo UTF-8/1252 estrito, bytes inválidos, BOM, assinatura posicional Mercante e heurística restrita para CSV de uma coluna. Evidência: `detectImportFormat`, `decodeImportBytes`, `inspectImportFile` e vetores em `importText.test.ts`; o preview mostra o formato e encoding selecionados.
 - [x] Completar scanner Baplie por UNA/separadores/release character e por dialeto, com isolamento de grupos LOC/EQD, DGS/OOG, EOF e duplicata. Evidência: `baplieParserS03.test.ts` cobre ambos os sentidos LOC→EQD/EQD→LOC, separador de componente definido por UNA, DGS/DIM por EQD, trailer com conteúdo posterior e duplicata bloqueante.
-- [x] Completar a validação estrutural dos marcadores fixos de Granito/Vazios/Vazios IMP/COSCO: cabeçalhos obrigatórios são conferidos, preâmbulos são localizados sem perder a linha física e preview com erro não chega à RPC. `locateHeaderRowIndex` e `resolvePortCode` foram reutilizados, sem duplicação. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts` e fixture QA de veículos.
+- [x] Completar a validação estrutural dos marcadores fixos de Granito/Vazios/Vazios IMP/COSCO: cabeçalhos obrigatórios são conferidos, preâmbulos são localizados sem perder a linha física e preview com erro só chega à RPC com `allowRowErrors` explícito. `locateHeaderRowIndex`, `readFirstSheetRows` e `resolvePortCode` foram reutilizados, sem duplicação. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts`, `graniteImportAtomic.test.ts` e fixture QA de veículos.
 - [ ] Completar a prova com fixture COSCO/Granito real anonimizada autorizada; não inventar nem copiar dados de produção para teste.
-- [x] Aplicar os contratos primitivos aos quatro fluxos: `IsoContainerSchema`/`IsoDateSchema`/`LocodeSchema`, parser numérico por origem e bloqueio de confirmação quando houver `rowErrors`. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts`, `vehicleImport.test.ts`, `portCode.test.ts`, `FileImportModal.test.tsx`, `VoyageImportActions.behavior.test.tsx` e `Granite.behavior.test.tsx`.
+- [x] Aplicar os contratos primitivos aos quatro fluxos: `IsoContainerSchema`/`IsoDateSchema`/`LocodeSchema`, parser numérico por origem e bloqueio de confirmação com override explícito de `rowErrors` nas superfícies que o oferecem. Erros de documento ou de viagem continuam bloqueantes, e `allowPending` não é usado como atalho para erros de linha. Evidência: `graniteParse.test.ts`, `vaziosImportacaoImport.test.ts`, `vaziosImportAdrColumns.test.ts`, `vehicleImport.test.ts`, `portCode.test.ts`, `importOverrideWiring.test.ts`, `FileImportModal.test.tsx`, `VoyageImportActions.behavior.test.tsx` e `Granite.behavior.test.tsx`.
 - [x] Canonicalizar tokens de navio em `vesselAlias.ts`/`voyages.ts` com IMO prioritário, conflito explícito e regressão de IMOs distintos. Não resolver ambiguidade com `.find()`; evidência nos testes `vesselAliasS03.test.ts` e `voyageIdentityS03.test.ts`.
 - [x] Baplie já expõe issues bloqueantes, contagens e relatório de preview.
 - [x] Tornar feedback integral/exportável nos importadores que usam o modal/painel
@@ -1015,7 +1041,7 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 
 ## 5. Sequência recomendada de PRs
 
-Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`037`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
+Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`041`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
 
 | Ordem | Estado | Entrega / ação | Referência atual | O que o próximo agente deve considerar concluído ou pendente |
 |---|---|---|---|---|

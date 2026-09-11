@@ -57,7 +57,7 @@ describe('atomic Granite manifest import', () => {
     mockRpc.mockReset()
   })
 
-  it('persists the manifest header and B/L rows through one RPC', async () => {
+	it('persists the manifest header and B/L rows through one RPC', async () => {
     mockRpc.mockResolvedValue({
       data: { manifest_id: 'manifest-1', inserted_bls: 1 },
       error: null,
@@ -86,8 +86,29 @@ describe('atomic Granite manifest import', () => {
         })],
       }),
     )
-    expect(result).toEqual({ manifestId: 'manifest-1', pendingCount: 0 })
-  })
+		expect(result).toEqual({ manifestId: 'manifest-1', pendingCount: 0 })
+	})
+
+	it('bloqueia erros de linha no service sem o override explícito', async () => {
+		await expect(importGraniteManifest({
+			filename: 'granite.xlsx',
+			voyageId: 12,
+			manifest: {
+				...manifest,
+				rowErrors: [{ row: 2, message: 'Porto inválido.', raw: {} }],
+			},
+			uploadedBy: 'user-1',
+		})).rejects.toThrow('Linha 2')
+
+		expect(mockRpc).not.toHaveBeenCalled()
+	})
+
+	it('a UI passa o override de erros de linha sem alterar o allowPending de reconciliação', () => {
+		const source = fs.readFileSync(path.resolve(process.cwd(), 'src/components/shared/VoyageImportActions.tsx'), 'utf8')
+
+		expect(source).toContain('allowRowErrors: Boolean(override)')
+		expect(source).not.toContain('allowPending: Boolean(override)')
+	})
 
   it('has one SQL function that inserts the header and B/L rows transactionally', () => {
     // Contrato histórico: o `.find` deve achar a migration original, não o
