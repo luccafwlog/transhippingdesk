@@ -55,7 +55,22 @@ type PixExceptionRpcRow = {
 }
 
 type PixRpcResult = { data: unknown; error: { message: string } | null }
-const callPixRpc = supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<PixRpcResult>
+
+const pixRpcClient = supabase as unknown as {
+  rpc: (name: string, args?: Record<string, unknown>) => Promise<PixRpcResult>
+}
+
+async function callPixRpc(name: string, args: Record<string, unknown>): Promise<PixRpcResult> {
+  try {
+    return await pixRpcClient.rpc(name, args)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return {
+      data: null,
+      error: { message: `Falha na chamada da operação ${name}: ${msg}` },
+    }
+  }
+}
 
 export type PixExceptionResolution = {
   source: 'local' | 'demurrage'

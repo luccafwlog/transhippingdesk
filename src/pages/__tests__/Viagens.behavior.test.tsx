@@ -30,6 +30,22 @@ vi.mock('../../hooks/useBls', () => ({
     isLoading: false,
     error: null,
   }),
+  useVoyageDetail: (id: number | null) => ({
+    data: id === 41 || id === 42 ? {
+      id,
+      voyage_number: id === 41 ? 'ACTIVE-41' : 'CANCEL-42',
+      status: id === 41 ? 'active' : 'cancelled',
+      vessel: { name: id === 41 ? 'Navio ativo' : 'Navio cancelado', carrier: null },
+      pol: null,
+      pod: null,
+      bls: [],
+      import_batches: [],
+      granite_manifests: [],
+      vazios_manifests: [],
+    } : null,
+    isLoading: false,
+    error: null,
+  }),
 }))
 vi.mock('../../hooks/useVehicles', () => ({ useVoyageVehicleStats: () => ({ data: { byVoyageId: {} } }) }))
 vi.mock('../../hooks/useVaziosImportacaoStats', () => ({ useVaziosImportacaoStats: () => ({ data: { byVoyageId: {} } }) }))

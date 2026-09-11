@@ -5,6 +5,9 @@ import { Field, Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { PreviewBox } from '../ui/PreviewBox'
 import { useToast } from '../ui/Toast'
+import { useCancellableFileRead } from '../../hooks/useCancellableFileRead'
+import { ImportIssuesPanel } from './ImportIssuesPanel'
+import { ImportReadProgress } from './ImportReadProgress'
 import {
   importContainerDates,
   parseContainerDatesFile,
@@ -17,29 +20,19 @@ import { classifyDbError } from '../../lib/errors'
 export function ContainerDatesImportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<ParsedContainerDatesImport | null>(null)
+  const { file, preview, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<ParsedContainerDatesImport>(parseContainerDatesFile)
   const [report, setReport] = useState<ContainerDatesImportResult | null>(null)
-  const [parsing, setParsing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const sampleRows = useMemo(() => preview?.rows.slice(0, 25) ?? [], [preview?.rows])
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null
-    setFile(nextFile)
-    setPreview(null)
     setReport(null)
-    if (!nextFile) return
-
-    setParsing(true)
     try {
-      const parsed = await parseContainerDatesFile(nextFile)
-      setPreview(parsed)
+      await readFile(nextFile)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Não foi possível ler o arquivo.', 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -71,8 +64,7 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
   }
 
   function resetAndClose() {
-    setFile(null)
-    setPreview(null)
+    cancelReading()
     setReport(null)
     onClose()
   }
@@ -93,7 +85,7 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
         </Field>
 
         {file ? <div className="app-panel__meta">Arquivo: {file.name}</div> : null}
-        {parsing ? <div className="app-panel__meta">Processando...</div> : null}
+        {parsing ? <ImportReadProgress progress={progress} /> : null}
 
         {preview ? (
           <div className="grid gap-4">
@@ -149,13 +141,16 @@ export function ContainerDatesImportModal({ open, onClose }: { open: boolean; on
               </table>
             </div>
 
-            {preview.rowErrors.length ? (
-              <div className="max-h-40 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                {preview.rowErrors.map((item, i) => (
-                  <div key={`${item.row}-${i}`}>Linha {item.row}: {item.message}</div>
-                ))}
-              </div>
-            ) : null}
+            <ImportIssuesPanel
+              issues={preview.rowErrors.map((item) => ({
+                row: item.row,
+                field: 'row',
+                code: 'invalid_group' as const,
+                severity: 'error' as const,
+                message: item.message,
+              }))}
+              filename="container-dates-issues.csv"
+            />
           </div>
         ) : null}
 

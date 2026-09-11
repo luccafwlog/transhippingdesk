@@ -2,7 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { normalizeIsoContainerNumber } from '../lib/containerNumber'
 import { parseImportNumber } from '../lib/importNumber'
 import { resolvePortCode } from './portCode'
-import { decodeImportBytes, type ImportTextEncoding } from './importText'
+import { decodeImportBytes, detectImportFormat, type ImportTextEncoding } from './importText'
 import type { ImportIssue } from './importValidation'
 
 export type BaplieContainer = {
@@ -39,8 +39,9 @@ const SLOT_QUALIFIER = '147'
 type Delimiters = { component: string; element: string; release: string; terminator: string }
 
 function parseDelimiters(text: string): { delimiters: Delimiters; body: string } {
-  if (text.startsWith('UNA') && text.length >= 9) {
-    const chars = text.slice(3, 9)
+  const bodyText = text.replace(/^\uFEFF/, '').trimStart()
+  if (bodyText.startsWith('UNA') && bodyText.length >= 9) {
+    const chars = bodyText.slice(3, 9)
     return {
       delimiters: {
         component: chars[0] ?? ':',
@@ -48,10 +49,10 @@ function parseDelimiters(text: string): { delimiters: Delimiters; body: string }
         release: chars[3] ?? '?',
         terminator: chars[5] ?? "'",
       },
-      body: text.slice(9),
+      body: bodyText.slice(9),
     }
   }
-  return { delimiters: { component: ':', element: '+', release: '?', terminator: "'" }, body: text }
+  return { delimiters: { component: ':', element: '+', release: '?', terminator: "'" }, body: bodyText }
 }
 
 function splitRespectingRelease(input: string, delimiter: string, release: string): string[] {
@@ -120,6 +121,8 @@ export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
 }
 
 export function parseBaplieBuffer(buffer: ArrayBuffer): ParsedBaplie {
+  const format = detectImportFormat(buffer, { allowWindows1252Fallback: true })
+  if (format !== 'edi') throw new Error('Arquivo Baplie não reconhecido como EDI.')
   const decoded = decodeImportBytes(buffer, { allowWindows1252Fallback: true })
   const parsed = parseBaplieText(decoded.text)
   return { ...parsed, encoding: decoded.encoding }
@@ -128,12 +131,19 @@ export function parseBaplieBuffer(buffer: ArrayBuffer): ParsedBaplie {
 export function parseBaplieText(text: string): ParsedBaplie {
   const { delimiters, body } = parseDelimiters(text)
   const rawSegments = splitSegments(body, delimiters)
-  const segments = rawSegments.map((seg) => parseSegment(seg, delimiters))
+  const segments = rawSegments.map((seg, index) => ({ ...parseSegment(seg, delimiters), index }))
+  const terminalIndex = segments.findLastIndex(({ tag }) => tag === 'UNZ' || tag === 'UNE') >= 0
+    ? segments.findLastIndex(({ tag }) => tag === 'UNZ' || tag === 'UNE')
+    : segments.findLastIndex(({ tag }) => tag === 'UNT')
+  const contentSegments = terminalIndex >= 0 ? segments.slice(0, terminalIndex) : segments
+  const trailingSegments = terminalIndex >= 0
+    ? segments.slice(terminalIndex + 1).filter(({ tag }) => tag !== 'UNT' && tag !== 'UNZ' && tag !== 'UNE')
+    : []
 
   let vessel_name: string | null = null
   let voyage_number: string | null = null
 
-  for (const seg of segments) {
+  for (const seg of contentSegments) {
     if (seg.tag !== 'TDT') continue
     voyage_number = seg.components[2]?.[0]?.trim() || null
     const flat = seg.components.flat().map((c) => c.trim()).filter(Boolean)
@@ -154,7 +164,7 @@ export function parseBaplieText(text: string): ParsedBaplie {
     current = null
   }
 
-  for (const seg of segments) {
+  for (const seg of contentSegments) {
     if (seg.tag === 'LOC' && qualifierOf(seg) === SLOT_QUALIFIER) {
       closeCurrent()
       groupOrder += 1
@@ -184,6 +194,15 @@ export function parseBaplieText(text: string): ParsedBaplie {
 
   const containers: BaplieContainer[] = []
   const issues: ImportIssue[] = []
+  for (const segment of trailingSegments) {
+    issues.push({
+      row: segment.index + 1,
+      field: 'eof',
+      code: 'invalid_group',
+      severity: 'error',
+      message: `Segmento ${segment.tag || 'desconhecido'} encontrado após o trailer do EDI.`,
+    })
+  }
   const seen = new Map<string, number>()
 
   const upsert = (next: BaplieContainer) => {
@@ -220,21 +239,28 @@ export function parseBaplieText(text: string): ParsedBaplie {
       continue
     }
 
-    // Grupo completo antes de emitir: coleta campos do grupo inteiro para o
-    // caso de 1 EQD (cobre LOC→EQD e EQD→LOC); com EQDs consecutivos cada EQD
-    // após o primeiro não herda nada do anterior.
-    const groupPol = lastPort(group.items, POL_QUALIFIERS)
-    const groupPod = lastPort(group.items, POD_QUALIFIERS)
-    const groupFinal = lastPort(group.items, FINAL_DEST_QUALIFIERS)
-    const groupBl = lastValue(group.items.filter((i) => i.tag === 'RFF' && (i.components[1]?.[0] ?? '') === 'BM').map((i) => i.components[1]?.[1]?.trim() || null))
-    const weightValues = group.items
-      .filter((i) => i.tag === 'MEA' && WEIGHT_QUALIFIERS.has((i.components[1]?.[0] ?? '').trim()))
-      .map((i) => parseWeight(i))
-    const groupWeightResult = lastValue(weightValues)
-    const groupWeight = groupWeightResult?.value ?? null
-    const groupOog = group.items.some((i) => i.tag === 'DIM' && hasOogDims(i))
-
     eqdIndices.forEach(({ item: eqd }, eqdPos) => {
+      const eqdIndex = eqdIndices[eqdPos]?.idx ?? 0
+      const nextEqdIndex = eqdIndices[eqdPos + 1]?.idx ?? group.items.length
+      // Campos antes do primeiro EQD pertencem à primeira unidade (dialeto
+      // LOC→EQD). Depois de cada EQD, o trecho até o próximo EQD pertence
+      // somente à unidade corrente; isso evita que DGS/DIM de uma unidade
+      // contaminem a seguinte.
+      const ownItems = [
+        ...(eqdPos === 0 ? group.items.slice(0, eqdIndex) : []),
+        ...group.items.slice(eqdIndex, nextEqdIndex),
+      ]
+      const ownPol = lastPort(ownItems, POL_QUALIFIERS)
+      const ownPod = lastPort(ownItems, POD_QUALIFIERS)
+      const ownFinal = lastPort(ownItems, FINAL_DEST_QUALIFIERS)
+      const ownBl = lastValue(ownItems.filter((i) => i.tag === 'RFF' && (i.components[1]?.[0] ?? '') === 'BM').map((i) => i.components[1]?.[1]?.trim() || null))
+      const weightValues = ownItems
+        .filter((i) => i.tag === 'MEA' && WEIGHT_QUALIFIERS.has((i.components[1]?.[0] ?? '').trim()))
+        .map((i) => parseWeight(i, delimiters))
+      const ownWeightResult = lastValue(weightValues)
+      const ownWeight = ownWeightResult?.value ?? null
+      const ownOog = ownItems.some((i) => i.tag === 'DIM' && hasOogDims(i, delimiters))
+      const dgs = lastValue(ownItems.filter((i) => i.tag === 'DGS').map((i) => parseDgs(i)))
       const rawNumber = (eqd.components[2]?.[0] ?? '').trim()
       const container_number = normalizeIsoContainerNumber(rawNumber)
       if (!container_number) {
@@ -260,35 +286,27 @@ export function parseBaplieText(text: string): ParsedBaplie {
       }
 
       const size_type = eqd.components[3]?.[0]?.trim() || null
-      const statusCode = (eqd.components[5]?.[0] ?? eqd.components[6]?.[0] ?? '').trim()
+      const statusCode = [eqd.components[5]?.[0], eqd.components[6]?.[0]]
+        .find((value) => Boolean(value?.trim()))?.trim() ?? ''
       const status: BaplieContainer['status'] = statusCode === '4' ? 'empty' : 'full'
 
-      // EQDs consecutivos no mesmo slot: só o primeiro recebe os campos do
-      // grupo; os demais partem de nulo (sem herança).
-      const isFirst = eqdPos === 0
-      const dgsList = group.items.filter((i) => i.tag === 'DGS')
-      // DGS pertence ao EQD imediatamente anterior: com 1 EQD usa o (último)
-      // DGS do grupo; com N EQDs cada DGS após o k-ésimo EQD vai para ele.
-      const dgsForThis = pickDgsForEqd(group.items, eqd, dgsList)
-
+      // EQDs consecutivos no mesmo slot não herdam campos da unidade anterior;
+      // cada unidade só recebe os segmentos do seu próprio trecho.
       const next: BaplieContainer = {
         container_number,
         size_type,
         status,
-        weight_kg: isFirst ? groupWeight : null,
-        pol: isFirst ? groupPol.code : null,
-        pod: isFirst ? groupPod.code : null,
-        final_dest: isFirst ? groupFinal.code : null,
-        bl_ref: isFirst ? groupBl : null,
+        weight_kg: ownWeight,
+        pol: ownPol.code,
+        pod: ownPod.code,
+        final_dest: ownFinal.code,
+        bl_ref: ownBl,
         slot: group.slot,
-        is_imo: Boolean(dgsForThis),
-        imo_class: dgsForThis?.imo_class ?? null,
-        un_number: dgsForThis?.un_number ?? null,
-        is_oog: groupOog && isFirst ? true : dgsForThis ? groupOog : group.items.some((i) => i.tag === 'DIM' && hasOogDims(i) && isFirst),
+        is_imo: Boolean(dgs),
+        imo_class: dgs?.imo_class ?? null,
+        un_number: dgs?.un_number ?? null,
+        is_oog: ownOog,
       }
-      // OOG: qualquer DIM com valor no grupo marca o primeiro; em grupos com
-      // vários EQDs o DIM entre eles já foi atribuído ao anterior via ordem —
-      // aqui simplificado para o primeiro não herdar falso positivo.
       const created = upsert(next)
       // Garante que duplicata preserve atributos físicos (compat) sem herdar
       // POL/POD/peso para unidades distintas.
@@ -296,25 +314,29 @@ export function parseBaplieText(text: string): ParsedBaplie {
         created.is_oog = created.is_oog || next.is_oog
       }
 
-      if (isFirst && (!groupPol.code || !groupPol.recognized)) {
+      // O dialeto LOC→EQD pode colocar rota/peso uma única vez antes de EQDs
+      // consecutivos. Preserve a validação histórica do conjunto no primeiro
+      // equipamento, sem transformar a ausência de repetição nos seguintes em
+      // uma troca silenciosa de atributos.
+      if (eqdPos === 0 && (!ownPol.code || !ownPol.recognized)) {
         issues.push({
           row: group.order,
           field: 'pol',
           code: 'unknown_port',
           severity: 'error',
-          message: `Container ${container_number}: POL ${groupPol.code ? 'não reconhecido' : 'ausente'} no conjunto ${group.order}.`,
+          message: `Container ${container_number}: POL ${ownPol.code ? 'não reconhecido' : 'ausente'} no conjunto ${group.order}.`,
         })
       }
-      if (isFirst && (!groupPod.code || !groupPod.recognized)) {
+      if (eqdPos === 0 && (!ownPod.code || !ownPod.recognized)) {
         issues.push({
           row: group.order,
           field: 'pod',
           code: 'unknown_port',
           severity: 'error',
-          message: `Container ${container_number}: POD ${groupPod.code ? 'não reconhecido' : 'ausente'} no conjunto ${group.order}.`,
+          message: `Container ${container_number}: POD ${ownPod.code ? 'não reconhecido' : 'ausente'} no conjunto ${group.order}.`,
         })
       }
-      if (isFirst && groupWeightResult?.issue) {
+      if (eqdPos === 0 && ownWeightResult?.issue) {
         issues.push({
           row: group.order,
           field: 'weight_kg',
@@ -322,7 +344,7 @@ export function parseBaplieText(text: string): ParsedBaplie {
           severity: 'error',
           message: `Container ${container_number}: peso inválido no conjunto ${group.order}.`,
         })
-      } else if (isFirst && next.status === 'full' && next.weight_kg == null) {
+      } else if (eqdPos === 0 && next.status === 'full' && next.weight_kg == null) {
         issues.push({
           row: group.order,
           field: 'weight_kg',
@@ -358,9 +380,9 @@ function lastPort(items: ParsedSegment[], qualifiers: ReadonlySet<string>): Pars
 
 type ParsedWeight = { value: number | null; issue: 'invalid' | null }
 
-function parseWeight(segment: ParsedSegment): ParsedWeight {
+function parseWeight(segment: ParsedSegment, delimiters: Delimiters): ParsedWeight {
   const valueField = segment.rawElements[3] ?? segment.rawElements[2] ?? ''
-  const parts = splitRespectingRelease(valueField, ':', '?')
+  const parts = splitRespectingRelease(valueField, delimiters.component, delimiters.release)
   const value = (parts[1] ?? parts[0] ?? '').trim()
   if (!value) return { value: null, issue: null }
 
@@ -371,26 +393,10 @@ function parseWeight(segment: ParsedSegment): ParsedWeight {
   return { value: number, issue: null }
 }
 
-function hasOogDims(segment: ParsedSegment): boolean {
+function hasOogDims(segment: ParsedSegment, delimiters: Delimiters): boolean {
   const dimsRaw = segment.rawElements[2] ?? ''
-  const dims = splitRespectingRelease(dimsRaw, ':', '?')
+  const dims = splitRespectingRelease(dimsRaw, delimiters.component, delimiters.release)
   return dims.some((d) => d.trim() !== '' && d.trim() !== '0')
-}
-
-function pickDgsForEqd(
-  items: ParsedSegment[],
-  eqd: ParsedSegment,
-  dgsList: ParsedSegment[],
-): { imo_class: string | null; un_number: string | null } | null {
-  if (!dgsList.length) return null
-  if (dgsList.length === 1) {
-    return parseDgs(dgsList[0]!)
-  }
-  // Vários DGS: usa o primeiro DGS após este EQD; se nenhum após, usa o anterior.
-  const eqdIndex = items.indexOf(eqd)
-  const after = items.slice(eqdIndex + 1).find((i) => i.tag === 'DGS')
-  const target = after ?? [...items.slice(0, eqdIndex)].reverse().find((i) => i.tag === 'DGS')
-  return target ? parseDgs(target) : parseDgs(dgsList[0]!)
 }
 
 function parseDgs(segment: ParsedSegment): { imo_class: string | null; un_number: string | null } {

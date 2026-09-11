@@ -12,9 +12,11 @@ import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
-import { supabase } from '../services/supabase'
+import { useVoyages } from '../hooks/useBls'
+import { useCancellableFileRead } from '../hooks/useCancellableFileRead'
 import { parseBaplieFile } from '../services/baplieParser'
 import { importBaplieStaging } from '../services/baplieImport'
+import { hasBlsForVoyage, listBaplieStaging } from '../services/baplieReadModel'
 import {
   reconcileBaplieWithManifest,
   applyBapliePhysicalFlags,
@@ -30,6 +32,9 @@ import { formatDate } from '../lib/utils'
 import { listVoyageEscalaSchedulesByVoyageIds } from '../services/voyageRouteSchedules'
 import { buildVoyageRailItems, type VoyageRailItem } from '../services/voyageSummaries'
 import { VoyageRail } from '../components/voyages/VoyageRail'
+import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
+import { ImportReadProgress } from '../components/shared/ImportReadProgress'
+import { canImportPreview } from '../services/importValidation'
 
 export function Baplie() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -43,29 +48,10 @@ export function Baplie() {
   const [exporting, setExporting] = useState(false)
   const [containerFilters, setContainerFilters] = useState<ContainerFilters>(EMPTY_CONTAINER_FILTERS)
 
-  const { data: voyageRows = [], isLoading: voyagesLoading } = useQuery({
-    queryKey: ['baplie-voyage-cards'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('voyages')
-        .select('id, voyage_number, vessel:vessels(name, carrier:carriers(name))')
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return (data ?? []) as Array<{
-        id: number
-        voyage_number: string
-        vessel: { name: string | null; carrier: { name: string | null } | null } | null
-      }>
-    },
-  })
-  const { data: baplieVoyageIds = [] } = useQuery({
-    queryKey: ['baplie-voyage-card-staging'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('baplie_containers').select('voyage_id').not('voyage_id', 'is', null)
-      if (error) throw error
-      return Array.from(new Set((data ?? []).map((row) => Number(row.voyage_id))))
-    },
-  })
+  // O rail reaproveita a projeção resumida de Viagens. A presença de Baplie
+  // também vem do agregado server-side, portanto a tela não precisa varrer
+  // `baplie_containers` inteiro apenas para desenhar os cards.
+  const { data: voyageRows = [], isLoading: voyagesLoading } = useVoyages()
   const voyageIds = useMemo(() => voyageRows.map((voyage) => voyage.id), [voyageRows])
   const { data: schedulesByVoyage = new Map() } = useQuery({
     queryKey: ['baplie-voyage-card-schedules', voyageIds],
@@ -74,58 +60,28 @@ export function Baplie() {
   })
   const voyageCards = useMemo(() => {
     const items = buildVoyageRailItems(
-      voyageRows.map((voyage) => ({
-        id: voyage.id,
-        voyage_number: voyage.voyage_number,
-        status: 'active',
-        vessel: {
-          name: voyage.vessel?.name ?? 'Navio não informado',
-          carrier: voyage.vessel?.carrier ? { name: voyage.vessel.carrier.name ?? '' } : null,
-        },
-      })),
+      voyageRows,
       schedulesByVoyage,
     )
     return items.map((item): VoyageRailItem => ({
       ...item,
-      modules: { ...item.modules, container: baplieVoyageIds.includes(item.id) },
+      modules: {
+        ...item.modules,
+        container: item.modules.container || (voyageRows.find((voyage) => voyage.id === item.id)?.baplieCount ?? 0) > 0,
+      },
     }))
-  }, [baplieVoyageIds, schedulesByVoyage, voyageRows])
+  }, [schedulesByVoyage, voyageRows])
 
   const { data: stagingData, isLoading: stagingLoading } = useQuery({
     queryKey: ['baplie-staging', voyageId],
     enabled: !!voyageId,
-    queryFn: async () => {
-      const PAGE = 1000
-      let all: BaplieContainer[] = []
-      let from = 0
-      while (true) {
-        const { data, error } = await supabase
-          .from('baplie_containers')
-          .select('*')
-          .eq('voyage_id', Number(voyageId))
-          .order('container_number')
-          .range(from, from + PAGE - 1)
-        if (error) throw error
-        all = all.concat(data ?? [])
-        if (!data || data.length < PAGE) break
-        from += PAGE
-      }
-      return all
-    },
+    queryFn: () => listBaplieStaging(Number(voyageId)),
   })
 
   const { data: blsExist } = useQuery({
     queryKey: ['baplie-bls-exist', voyageId],
     enabled: !!voyageId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('bls')
-        .select('id')
-        .eq('voyage_id', Number(voyageId))
-        .limit(1)
-      if (error) throw error
-      return (data ?? []).length > 0
-    },
+    queryFn: () => hasBlsForVoyage(Number(voyageId)),
   })
 
   const { data: existingVaziosManifest, isLoading: existingVaziosManifestLoading } = useQuery({
@@ -719,8 +675,7 @@ function BaplieUploadModal({
   const { user } = useAuth()
   const { showToast } = useToast()
   const [voyageId, setVoyageId] = useState(initialVoyageId)
-  const [parsed, setParsed] = useState<Awaited<ReturnType<typeof parseBaplieFile>> | null>(null)
-  const [parsing, setParsing] = useState(false)
+  const { preview: parsed, parsing, progress, readFile, cancel: cancelReading } = useCancellableFileRead<Awaited<ReturnType<typeof parseBaplieFile>>>(parseBaplieFile)
   const [submitting, setSubmitting] = useState(false)
   const [excludedPods, setExcludedPods] = useState<Set<string>>(new Set())
 
@@ -733,24 +688,18 @@ function BaplieUploadModal({
   }
 
   function handleClose() {
-    setParsed(null)
+    cancelReading()
     setExcludedPods(new Set())
     onClose()
   }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const f = event.target.files?.[0] ?? null
-    setParsed(null)
     setExcludedPods(new Set())
-    if (!f) return
-    setParsing(true)
     try {
-      const result = await parseBaplieFile(f)
-      setParsed(result)
+      await readFile(f)
     } catch {
       showToast('Não foi possível ler o arquivo. Verifique o formato EDI.', 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -764,9 +713,10 @@ function BaplieUploadModal({
   }
 
   const filteredContainers = (parsed?.containers ?? []).filter((c) => !c.pod || !excludedPods.has(c.pod))
+  const canImport = Boolean(parsed && voyageId && canImportPreview(filteredContainers.length > 0, parsed.issues))
 
   async function handleImport() {
-    if (!parsed || !voyageId || !user) return
+    if (!canImport || !user) return
     setSubmitting(true)
     try {
       const { staged } = await importBaplieStaging(Number(voyageId), filteredContainers, user.id)
@@ -795,7 +745,7 @@ function BaplieUploadModal({
           <Input accept=".edi,.txt,.edi2" type="file" onChange={handleFile} />
         </Field>
 
-        {parsing ? <div className="text-sm text-slate-400">Processando arquivo EDI...</div> : null}
+        {parsing ? <ImportReadProgress progress={progress} /> : null}
 
         {parsed ? (
           <div className="grid gap-3">
@@ -846,13 +796,14 @@ function BaplieUploadModal({
                 <div className="mt-1 text-2xl font-bold text-white">{filteredContainers.filter((c) => c.is_oog).length}</div>
               </div>
             </div>
+            <ImportIssuesPanel issues={parsed.issues} filename="baplie-issues.csv" />
           </div>
         ) : null}
 
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={handleClose}>Cancelar</Button>
+          <Button variant="secondary" disabled={submitting} onClick={parsing ? cancelReading : handleClose}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
           <Button
-            disabled={!parsed || !voyageId || filteredContainers.length === 0}
+            disabled={!canImport}
             loading={submitting}
             onClick={handleImport}
           >

@@ -2,8 +2,9 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { canonicalizeDocument } from '../lib/cnpj'
 import { parseImportNumber } from '../lib/importNumber'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
-import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
-import { normalizePortCode } from './portCode'
+import { createHeaderMapper, createRowErrorCollector, matchHeaders, readSheet, type HeaderSpec, type RowError } from './importCore'
+import { IsoDateSchema, LocodeSchema } from './importValidation'
+import { resolvePortCode } from './portCode'
 import { supabase } from './supabase'
 
 // Mapeamento de cabeçalhos da planilha COSCO "Relatório de Cargas/Booking"
@@ -34,6 +35,20 @@ const HEADER_MAP: Record<string, string> = {
   'cssc selection': 'cssc_selection',
   'prontidao de carga': 'cargo_readiness_date',
   'fase': 'phase',
+}
+
+type GraniteHeaderField = 'bl_number' | 'real_weight_kg'
+const GRANITE_HEADER_SPEC: HeaderSpec<GraniteHeaderField> = {
+  aliases: {
+    bl_number: ['bl'],
+    real_weight_kg: ['real weight'],
+  },
+  required: ['bl_number', 'real_weight_kg'],
+}
+const GRANITE_HEADER_MARKERS = Object.keys(HEADER_MAP)
+const GRANITE_HEADER_LABELS: Record<GraniteHeaderField, string> = {
+  bl_number: 'BL',
+  real_weight_kg: 'Real Weight',
 }
 
 export type ReconciliationStatus = 'matched' | 'suggested_name' | 'missing_cnpj' | 'not_found'
@@ -83,7 +98,14 @@ export async function parseGraniteManifestFile(file: File): Promise<ParsedGranit
 }
 
 async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
-  const rows = await readFirstSheetRows(buffer)
+  const { headers, rows } = await readSheet(buffer, {
+    expectedHeaders: GRANITE_HEADER_MARKERS,
+  })
+  const { missing } = matchHeaders(headers, GRANITE_HEADER_SPEC)
+  if (missing.length) {
+    const labels = missing.map((field) => GRANITE_HEADER_LABELS[field])
+    throw new Error(`Planilha invalida. Colunas obrigatorias: ${labels.join(', ')}.`)
+  }
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
 
   const customerMaps = await loadCustomerMaps()
@@ -91,8 +113,8 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
   const rowErrors = createRowErrorCollector()
   const seenBlNumbers = new Set<string>()
 
-  rows.forEach((row, idx) => {
-    const rowNumber = idx + 2 // linha 1 = cabeçalho, dados começam na 2
+  rows.forEach((row) => {
+    const rowNumber = row.rowNumber
 
     const mapped = mapRow(row)
 
@@ -133,6 +155,32 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
           : cnpjCanonical ? 'not_found' : 'missing_cnpj'
     }
 
+    const loadingPort = resolveGranitePort(
+      String(mapped['loading_port'] ?? '').trim() || null,
+      'L/PORT',
+      blNumber,
+      rowNumber,
+      rowErrors,
+      row,
+    )
+    const dischargePort = resolveGranitePort(
+      String(mapped['discharge_port'] ?? '').trim() || null,
+      'D/PORT',
+      blNumber,
+      rowNumber,
+      rowErrors,
+      row,
+    )
+    const cargoReadinessRaw = String(mapped['cargo_readiness_date'] ?? '').trim()
+    const cargoReadinessDate = parseDateBR(cargoReadinessRaw)
+    if (cargoReadinessRaw && cargoReadinessDate === null) {
+      rowErrors.add(
+        rowNumber,
+        `BL ${blNumber}: Cargo Readiness Date inválida (${cargoReadinessRaw}). Use DD/MM/AAAA.`,
+        row,
+      )
+    }
+
     bls.push({
       rowNumber,
       sequence: parseGraniteNumber(mapped['sequence'], 'sequence', rowNumber, rowErrors),
@@ -143,8 +191,8 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       // Task 6 (ADR 2026-07-31): normaliza para LOCODE aqui, na entrada, para
       // que o casamento com a escala (agencyDepartureReport.ts) funcione sem
       // depender de correção retroativa dos dados já gravados.
-      loading_port: normalizePortCode(String(mapped['loading_port'] ?? '').trim() || null),
-      discharge_port: normalizePortCode(String(mapped['discharge_port'] ?? '').trim() || null),
+      loading_port: loadingPort,
+      discharge_port: dischargePort,
       shipper_name: shipperName,
       shipper_cnpj: cnpjCanonical || cnpjRaw || null,
       consignee_name: String(mapped['consignee_name'] ?? '').trim() || null,
@@ -161,7 +209,7 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
       cosco_transport: String(mapped['cosco_transport'] ?? '').trim() || null,
       fragile_blocks: parseGraniteNumber(mapped['fragile_blocks'], 'fragile_blocks', rowNumber, rowErrors),
       cssc_selection: String(mapped['cssc_selection'] ?? '').trim() || null,
-      cargo_readiness_date: parseDateBR(String(mapped['cargo_readiness_date'] ?? '')),
+      cargo_readiness_date: cargoReadinessDate,
       phase: String(mapped['phase'] ?? '').trim() || null,
       clientId,
       suggestedClientId,
@@ -206,7 +254,42 @@ function parseDateBR(value: string): string | null {
   if (!match) return null
   const [, d, m, y] = match
   const year = y.length === 2 ? `20${y}` : y
-  return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  const isoDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  if (!IsoDateSchema.safeParse(isoDate).success) return null
+  const parsed = new Date(Date.UTC(Number(year), Number(m) - 1, Number(d)))
+  if (
+    parsed.getUTCFullYear() !== Number(year)
+    || parsed.getUTCMonth() !== Number(m) - 1
+    || parsed.getUTCDate() !== Number(d)
+  ) return null
+  return isoDate
+}
+
+function resolveGranitePort(
+  value: string | null,
+  field: 'L/PORT' | 'D/PORT',
+  blNumber: string,
+  rowNumber: number,
+  rowErrors: ReturnType<typeof createRowErrorCollector>,
+  raw: unknown,
+): string | null {
+  if (!value) return null
+  const resolved = resolvePortCode(value)
+  if (!resolved.code || !resolved.recognized || !LocodeSchema.safeParse(resolved.code).success) {
+    rowErrors.add(
+      rowNumber,
+      `BL ${blNumber}: ${field} ${resolved.code ?? value} não reconhecido como LOCODE.`,
+      raw,
+    )
+  }
+  return resolved.code
+}
+
+function formatGraniteRowErrors(rowErrors: readonly RowError[]): string {
+  const shown = rowErrors.slice(0, 20).map((error) => `Linha ${error.row}: ${error.message}`)
+  const hidden = rowErrors.length - shown.length
+  if (hidden > 0) shown.push(`... e mais ${hidden} linha${hidden === 1 ? '' : 's'} com divergências.`)
+  return shown.join('\n')
 }
 
 export type ImportGraniteArgs = {
@@ -214,6 +297,8 @@ export type ImportGraniteArgs = {
   voyageId: number
   manifest: ParsedGraniteManifest
   uploadedBy: string
+  /** Permite persistir as linhas válidas quando o preview tem erros de linha. */
+  allowRowErrors?: boolean
   /** Permite importar BLs sem client_id resolvido; esses ficarão sem faturamento */
   allowPending?: boolean
 }
@@ -223,8 +308,11 @@ export async function importGraniteManifest({
   voyageId,
   manifest,
   uploadedBy,
+  allowRowErrors = false,
   allowPending = true,
 }: ImportGraniteArgs): Promise<{ manifestId: string; pendingCount: number }> {
+  if (manifest.rowErrors.length && !allowRowErrors) throw new Error(formatGraniteRowErrors(manifest.rowErrors))
+
   const totalWeightKg = manifest.bls.reduce((sum, bl) => sum + bl.real_weight_kg, 0)
   const vesselVoyage = manifest.vesselVoyage || manifest.bls[0]?.vessel_voyage || filename
 

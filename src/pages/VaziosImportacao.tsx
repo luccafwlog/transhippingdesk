@@ -25,12 +25,15 @@ import {
   type ParsedVaziosImportacaoManifest,
 } from '../services/vaziosImportacaoImport'
 import { exportVaziosImportacaoWorkbook } from '../services/exports'
+import { rowErrorsToImportIssues } from '../services/importValidation'
+import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
 import {
   fetchVaziosImportacaoContainerIds,
   setVazioImportacaoNatureza,
   setVaziosImportacaoNaturezaMany,
 } from '../services/vaziosNatureza'
 import { afterManifestoImportado } from '../services/cacheEffects'
+import { inspectImportUpload } from '../services/importText'
 
 const exportPageSize = 200
 
@@ -57,7 +60,7 @@ function VaziosImportacaoPreview({ manifest }: { manifest: ParsedVaziosImportaca
         </table>
       </div>
       <TruncationNote shown={25} total={manifest.containers.length} noun="container" nounPlural="containers" />
-      {manifest.rowErrors.length ? <div className="max-h-32 overflow-auto rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{manifest.rowErrors.slice(0, 10).map((error, index) => <div key={`${error.row}-${index}`}>Linha {error.row}: {error.message}</div>)}</div> : null}
+      <ImportIssuesPanel issues={rowErrorsToImportIssues(manifest.rowErrors)} filename="vazios-importacao-issues.csv" />
     </div>
   )
 }
@@ -419,13 +422,15 @@ export function VaziosImportacao() {
           title="Importar Planilha de Vazios (Importacao)"
           accept=".xlsx,.xls,.csv"
           parser={parseVaziosImportacaoFile}
-          importer={async (nextManifest) => {
+          inspectFile={inspectImportUpload}
+          importer={async (nextManifest, _file, override) => {
             if (!user || !voyageId) return
-            await importVaziosImportacaoManifest({ manifest: nextManifest, uploadedBy: user.id, voyageId: Number(voyageId), description: description.trim() || undefined })
+            await importVaziosImportacaoManifest({ manifest: nextManifest, uploadedBy: user.id, voyageId: Number(voyageId), description: description.trim() || undefined, allowRowErrors: Boolean(override) })
             await afterManifestoImportado(queryClient, { voyageId })
             showToast(`${nextManifest.containers.length} containers importados.`, 'success')
           }}
-          canImport={(nextManifest) => nextManifest.containers.length > 0}
+          canImport={(nextManifest, override) => nextManifest.containers.length > 0 && (nextManifest.rowErrors.length === 0 || Boolean(override))}
+          getIssues={(nextManifest) => rowErrorsToImportIssues(nextManifest.rowErrors)}
           ready={Boolean(voyageId && user)}
           prerequisite={<VoyageCombobox required label="Viagem de destino" selectedVoyageId={voyageId} onSelect={(id) => setVoyageId(id == null ? '' : String(id))} />}
           helper={

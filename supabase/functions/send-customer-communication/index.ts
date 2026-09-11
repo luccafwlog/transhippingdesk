@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, withCors } from '../_shared/cors.ts'
-import { maskEmail, sendEmail, type EmailAttachment, type EmailAttemptRecord } from '../_shared/email.ts'
+import { maskEmail, recipientKey, sendEmail, type EmailAttachment, type EmailAttemptRecord } from '../_shared/email.ts'
 import {
   assertValidCommunicationAttachments,
   renderCeMercanteTaxasTemplate,
@@ -479,6 +479,21 @@ async function handler(req: Request): Promise<Response> {
     return json(500, { error: 'RESEND_API_KEY não está configurada para envio real.' }, origin)
   }
 
+  if (kind === 'ce_mercante_taxas') {
+    const { error: dispatchReadinessError } = await admin.rpc('customer_local_charges_communication_dispatch_ready', {
+      p_voyage_id: Number(body.anchor_voyage_id),
+      p_customer_id: customerId,
+    })
+    if (dispatchReadinessError) {
+      const { error: blockedStatusError } = await admin.rpc('mark_customer_communication_dispatch_blocked', {
+        p_communication_id: Number(communicationId),
+      })
+      if (blockedStatusError) console.error('customer communication blocked status persistence failed', blockedStatusError)
+      console.error('customer communication dispatch readiness failed', dispatchReadinessError)
+      return json(422, { error: 'Prontidão financeira bloqueada para este cliente e viagem.' }, origin)
+    }
+  }
+
   let sent: { ok: boolean }
   try {
     sent = await sendEmail({
@@ -504,16 +519,25 @@ async function handler(req: Request): Promise<Response> {
         const { data, error } = await admin.from('customer_communication_attempts').insert({
           communication_id: communicationId,
           recipient_masked: maskEmail(to),
+          recipient_key: await recipientKey(to),
           status: 'aceito',
+          dispatch_mode: enabled ? 'real' : 'simulado',
           idempotency_key: idempotencyKey,
         }).select('id').single()
         if (error?.code === '23505') {
           const { data: existing, error: existingError } = await admin
             .from('customer_communication_attempts')
-            .select('id, status, provider_message_id')
+            .select('id, status, provider_message_id, dispatch_mode')
             .eq('idempotency_key', idempotencyKey)
             .single()
           if (existingError || !existing) throw existingError ?? error
+          if (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null) {
+            const { error: repairError } = await admin.from('customer_communication_attempts').update({
+              recipient_key: await recipientKey(to),
+              dispatch_mode: enabled ? 'real' : 'simulado',
+            }).eq('id', existing.id)
+            if (repairError) throw repairError
+          }
           return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
         }
         if (error || !data) throw error ?? new Error(`Não foi possível registrar a tentativa ${attemptKind}.`)
@@ -535,12 +559,14 @@ async function handler(req: Request): Promise<Response> {
     return json(500, { error: 'Falha no envio do comunicado.' }, origin)
   }
 
-  const status = sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'
-  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const { data: refreshedStatus, error: statusError } = await admin.rpc('refresh_customer_communication_status', {
+    p_communication_id: Number(communicationId),
+  })
   if (statusError) {
     console.error('customer communication status persistence failed', statusError)
     return json(500, { error: 'Não foi possível persistir o status do comunicado.' }, origin)
   }
+  const status = String(refreshedStatus ?? (sent.ok ? (enabled ? 'enviado' : 'simulado') : 'falha'))
   const { data: attempt } = await admin
     .from('customer_communication_attempts')
     .select('id')

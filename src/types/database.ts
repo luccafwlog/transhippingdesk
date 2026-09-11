@@ -1718,6 +1718,7 @@ export type Database = {
         Row: {
           communication_id: number
           created_at: string
+          dispatch_mode: string
           id: number
           idempotency_key: string
           last_error: string | null
@@ -1730,6 +1731,7 @@ export type Database = {
         Insert: {
           communication_id: number
           created_at?: string
+          dispatch_mode?: string
           id?: number
           idempotency_key: string
           last_error?: string | null
@@ -1742,6 +1744,7 @@ export type Database = {
         Update: {
           communication_id?: number
           created_at?: string
+          dispatch_mode?: string
           id?: number
           idempotency_key?: string
           last_error?: string | null
@@ -6860,6 +6863,10 @@ export type Database = {
         Args: { p_value: string }
         Returns: string
       }
+      customer_local_charges_communication_dispatch_ready: {
+        Args: { p_customer_id: number; p_raise?: boolean; p_voyage_id: number }
+        Returns: Json
+      }
       customer_local_charges_communication_payload: {
         Args: { p_customer_id: number; p_voyage_id: number }
         Returns: Json
@@ -7555,6 +7562,13 @@ export type Database = {
         }
         Returns: Json
       }
+      operational_list_voyage_summaries: {
+        Args: {
+          p_page?: number
+          p_page_size?: number
+        }
+        Returns: Json
+      }
       pix_crc16_ccitt: { Args: { p_payload: string }; Returns: string }
       pix_reconciliation_authority_holds: {
         Args: { p_exception_id: number }
@@ -8088,6 +8102,10 @@ export type Database = {
       refresh_alert_aggregate: {
         Args: { p_alert_id: number }
         Returns: undefined
+      }
+      refresh_customer_communication_status: {
+        Args: { p_communication_id: number }
+        Returns: string
       }
       refresh_customer_reconciliation_queue_for_bl: {
         Args: { p_bl_id: string }
@@ -8971,7 +8989,8 @@ export type CustomerCommunicationKind =
   | 'cobranca_demurrage'
   | 'institucional'
   | 'livre'
-export type CustomerCommunicationStatus = 'enviado' | 'simulado' | 'falha'
+export type CustomerCommunicationStatus = 'enviado' | 'simulado' | 'parcial' | 'falha'
+export type CustomerCommunicationDispatchMode = 'real' | 'simulado'
 export type CustomerCommunicationAttemptStatus =
   | 'aceito'
   | 'entregue'

@@ -44,4 +44,17 @@ describe('parseScheduleRows', () => {
     expect(row.lanes.find((lane) => lane.code === 'BRSSA')?.date).toBe(null)
     expect(row.invalidCells).toContain('SALVADOR ETA')
   })
+
+  it('rejeita data de calendário impossível (e.g. 31/02 ou 2026-02-31) e aponta como inválida', () => {
+    const [row] = parseScheduleRows([{
+      'VESSEL NAME': 'GREEN PECEM',
+      VOY: '6',
+      IMO: '9976501',
+      'SALVADOR ETA': '31/02/2026',
+      'QINGDAO ETD': '2026-02-31',
+    }])
+    expect(row.lanes.find((lane) => lane.code === 'BRSSA')?.date).toBe(null)
+    expect(row.lanes.find((lane) => lane.code === 'CNTAO')?.date).toBe(null)
+    expect(row.invalidCells).toEqual(expect.arrayContaining(['SALVADOR ETA', 'QINGDAO ETD']))
+  })
 })

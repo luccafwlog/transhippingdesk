@@ -8,10 +8,14 @@ import { fetchAllBls, useBls, useVoyages, type BlFilters } from '../useBls'
 const { mockFrom } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
 }))
+const { mockRpc } = vi.hoisted(() => ({
+  mockRpc: vi.fn(),
+}))
 
 vi.mock('../../services/supabase', () => ({
   supabase: {
     from: mockFrom,
+    rpc: mockRpc,
   },
 }))
 
@@ -55,16 +59,6 @@ function createBlQuery(rows: unknown[]) {
   return builder
 }
 
-function createVoyageQuery(rows: unknown[]) {
-  const builder = {
-    order: vi.fn(() => builder),
-    range: vi.fn(() => builder),
-    then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-      Promise.resolve({ data: rows, error: null }).then(resolve, reject),
-  }
-  return builder
-}
-
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -75,6 +69,7 @@ function createWrapper() {
 describe('fetchAllBls', () => {
   beforeEach(() => {
     mockFrom.mockReset()
+    mockRpc.mockReset()
   })
 
   it('filtra Standard como BL sem containers IMO ou OOG', async () => {
@@ -90,6 +85,10 @@ describe('fetchAllBls', () => {
         return { select: vi.fn(() => createBlQuery(rows)) }
       }
       throw new Error(`Tabela nao mockada: ${table}`)
+    })
+    mockRpc.mockResolvedValue({
+      data: { rows, count: rows.length },
+      error: null,
     })
 
     const result = await fetchAllBls({ ...baseFilters, cargoProfile: 'standard' })
@@ -109,6 +108,10 @@ describe('fetchAllBls', () => {
       }
       throw new Error(`Tabela nao mockada: ${table}`)
     })
+    mockRpc.mockResolvedValue({
+      data: { rows: [rows[0]], count: 1 },
+      error: null,
+    })
 
     const { result } = renderHook(() => useBls({ ...baseFilters, cargoProfile: 'standard' }), {
       wrapper: createWrapper(),
@@ -122,48 +125,54 @@ describe('fetchAllBls', () => {
 describe('useVoyages', () => {
   beforeEach(() => {
     mockFrom.mockReset()
+    mockRpc.mockReset()
   })
 
-  it('busca a cubagem individual dos containers para o EDI Mercante', async () => {
-    let voyageSelect = ''
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'voyages') {
-        return {
-          select: vi.fn((select: string) => {
-            voyageSelect = select
-            return createVoyageQuery([])
-          }),
-        }
-      }
-      throw new Error(`Tabela nao mockada: ${table}`)
+  it('consulta somente o envelope paginado do rail, sem embeds de detalhe', async () => {
+    mockRpc.mockResolvedValue({
+      data: { rows: [], count: 0 },
+      error: null,
     })
 
     const { result } = renderHook(() => useVoyages(), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(voyageSelect.match(/bl_containers\(([^)]*)\)/)?.[1]).toContain('cbm')
+    expect(mockRpc).toHaveBeenCalledWith('operational_list_voyage_summaries', {
+      p_page: 1,
+      p_page_size: 100,
+    })
   })
 
-  it('consulta as Unidades Embarcadas pelo local atual, sem colunas aposentadas', async () => {
-    let voyageSelect = ''
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'voyages') {
-        return {
-          select: vi.fn((select: string) => {
-            voyageSelect = select
-            return createVoyageQuery([])
-          }),
-        }
-      }
-      throw new Error(`Tabela nao mockada: ${table}`)
-    })
+  it('continua buscando páginas até o total do envelope', async () => {
+    mockRpc
+      .mockResolvedValueOnce({
+        data: {
+          rows: Array.from({ length: 100 }, (_value, index) => ({
+            id: index + 1,
+            voyage_number: `V-${index + 1}`,
+            status: 'active',
+            blCount: 0,
+            containerCount: 0,
+            baplieCount: 0,
+            ceCoverage: { filled: 0, total: 0 },
+            routes: [],
+          })),
+          count: 101,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { rows: [], count: 101 },
+        error: null,
+      })
 
     const { result } = renderHook(() => useVoyages(), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(voyageSelect).toContain('local:depots(id, code, name, tipo)')
-    expect(voyageSelect).not.toMatch(/\b(origin_terminal|destination)\b/)
+    expect(mockRpc).toHaveBeenCalledTimes(2)
+    expect(mockRpc).toHaveBeenLastCalledWith('operational_list_voyage_summaries', {
+      p_page: 2,
+      p_page_size: 100,
+    })
   })
 })

@@ -1,8 +1,9 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { asString, chunkArray } from '../lib/utils'
+import { asString, chunkArray, normalizeHeader } from '../lib/utils'
+import { parseImportNumber, type ImportNumberFormat } from '../lib/importNumber'
+import { IsoContainerSchema } from './importValidation'
 import { supabase } from './supabase'
-import { calculateBlLocalCharges } from './charges/chargeOperationsService'
-import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { matchHeaders, readSheet, type HeaderSpec, type SheetRow } from './importCore'
 
 // Aliases por campo. Cobrem tres formatos de origem:
 // 1) Planilha modelo do sistema (cabecalhos em portugues: CHASSI, MARCA, ...).
@@ -106,13 +107,14 @@ export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleI
 export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<ParsedVehicleImport> {
   // O modelo do armador pode manter os veiculos na segunda aba; percorremos as
   // abas pelo leitor compartilhado ate encontrar o cabecalho completo.
-  let chosenRows: Record<string, unknown>[] | undefined
+  let chosenRows: SheetRow[] | undefined
+  let chosenNumberFormat: ImportNumberFormat = 'pt-BR'
   let lastMissing: string[] = Object.values(requiredHeaders)
 
   for (let sheetIndex = 0; ; sheetIndex += 1) {
     let content
     try {
-      content = await readSheet(buffer, { sheetIndex })
+      content = await readSheet(buffer, { sheetIndex, values: 'cru' })
     } catch (error) {
       if (error instanceof Error && error.message === 'Arquivo sem abas validas.') break
       if (error instanceof Error && error.message === 'Planilha vazia.') continue
@@ -121,6 +123,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
     const { missing } = matchHeaders(content.headers, SPEC)
     if (!missing.length) {
       chosenRows = content.rows
+      chosenNumberFormat = inferVehicleNumberFormat(content.headers)
       break
     }
     lastMissing = missing.map((field) => requiredHeaders[field as keyof typeof requiredHeaders] ?? field)
@@ -129,7 +132,7 @@ export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<Par
   if (!chosenRows) {
     throw new Error(`Planilha invalida. Colunas obrigatorias: ${lastMissing.join(', ')}.`)
   }
-  return parseVehicleImportRows(chosenRows)
+  return parseVehicleImportRows(chosenRows, chosenNumberFormat)
 }
 
 export async function importVehicleRows({
@@ -323,38 +326,6 @@ export async function importVehicleRows({
     })
     if (insertError) throw insertError
 
-    // Veiculos sao cadastrados depois dos containers/BLs: no momento do manifesto
-    // as taxas locais ja foram calculadas e a fatura individual pode ja ter sido
-    // emitida (gatilho emit_invoice_on_bl_ready). Ao vincular veiculos, o BL passa
-    // a ser isento, entao para cada BL impactado: (1) cancelamos qualquer fatura
-    // ativa do BL e (2) recalculamos as taxas via RPC, que remove as linhas "auto"
-    // e marca o BL como isento. Apenas setar charge_status='exempt' (como era feito
-    // antes) deixava as taxas calculadas e a fatura emitida ativas.
-    const impactedBlIds = Array.from(new Set(rowsToInsert.map((row) => row.bl_id)))
-    const blRowNumber = new Map<string, number>()
-    for (const row of validRows) {
-      if (!blRowNumber.has(row.bl_id)) blRowNumber.set(row.bl_id, row.rowNumber)
-    }
-
-    const activeInvoicesByBl = await loadActiveInvoicesByBl(impactedBlIds)
-
-    for (const blId of impactedBlIds) {
-      try {
-        for (const invoiceId of activeInvoicesByBl.get(blId) ?? []) {
-          const { error: cancelError } = await supabase.rpc('cancel_invoice', {
-            p_invoice_id: invoiceId,
-            p_reason: 'Carga de veiculos: BL isento de taxas locais.',
-          })
-          if (cancelError) throw cancelError
-        }
-        await calculateBlLocalCharges(blId, { recalculate: true })
-      } catch (err) {
-        errors.push({
-          row: blRowNumber.get(blId) ?? 0,
-          message: `BL ${blId}: veiculos cadastrados, mas falha ao isentar/cancelar fatura (${err instanceof Error ? err.message : 'erro desconhecido'}). Ajuste manual no Faturamento.`,
-        })
-      }
-    }
   }
 
   return {
@@ -365,59 +336,19 @@ export async function importVehicleRows({
   }
 }
 
-// Faturas ativas (nao canceladas) vinculadas a cada BL impactado, para serem
-// canceladas antes de marcar o BL como isento de taxas.
-const ACTIVE_INVOICE_STATUSES = new Set(['draft', 'issued', 'partially_paid', 'overdue', 'paid'])
-
-async function loadActiveInvoicesByBl(blIds: string[]): Promise<Map<string, Set<number>>> {
-  const byBl = new Map<string, Set<number>>()
-  if (!blIds.length) return byBl
-
-  const { data: links, error: linkError } = await supabase
-    .from('invoice_bls')
-    .select('bl_id, invoice_id')
-    .in('bl_id', blIds)
-  if (linkError) throw linkError
-
-  const linkRows = (links ?? []) as Array<{ bl_id: string; invoice_id: number }>
-  const invoiceIds = Array.from(new Set(linkRows.map((link) => link.invoice_id)))
-  if (!invoiceIds.length) return byBl
-
-  const { data: invoices, error: invoiceError } = await supabase
-    .from('invoices')
-    .select('id, status')
-    .in('id', invoiceIds)
-  if (invoiceError) throw invoiceError
-
-  const activeIds = new Set(
-    ((invoices ?? []) as Array<{ id: number; status: string | null }>)
-      .filter((invoice) => ACTIVE_INVOICE_STATUSES.has(invoice.status ?? 'issued'))
-      .map((invoice) => invoice.id),
-  )
-
-  for (const link of linkRows) {
-    if (!activeIds.has(link.invoice_id)) continue
-    const set = byBl.get(link.bl_id) ?? new Set<number>()
-    set.add(link.invoice_id)
-    byBl.set(link.bl_id, set)
-  }
-
-  return byBl
-}
-
-function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleImport {
+function parseVehicleImportRows(rows: SheetRow[], numberFormat: ImportNumberFormat): ParsedVehicleImport {
   const parsedRows: VehicleImportRow[] = []
   const rowErrors: ParsedVehicleImport['rowErrors'] = []
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const mapped = mapRow(row)
-    const rowNumber = index + 2
+    const rowNumber = row.rowNumber
 
     const chassis = normalizeKey(mapped.chassis)
     const brand = translateBrand(asString(mapped.brand))
     const model = asString(mapped.model)
-    const weight = parseSpreadsheetNumber(mapped.weight_kg)
-    const cbm = parseSpreadsheetNumber(mapped.cbm)
+    const weight = parseSpreadsheetNumber(mapped.weight_kg, numberFormat)
+    const cbm = parseSpreadsheetNumber(mapped.cbm, numberFormat)
     const containerNumber = normalizeKey(mapped.container_number)
     const containerType = normalizeKey(mapped.container_type)
     const sealNumber = normalizeKey(mapped.seal_number)
@@ -441,6 +372,11 @@ function parseVehicleImportRows(rows: Record<string, unknown>[]): ParsedVehicleI
 
     if (weight <= 0 || cbm <= 0) {
       rowErrors.push({ row: rowNumber, message: 'Peso e cubagem devem ser numericos e maiores que zero.', raw: row })
+      return
+    }
+
+    if (!IsoContainerSchema.safeParse(containerNumber).success) {
+      rowErrors.push({ row: rowNumber, message: `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, raw: row })
       return
     }
 
@@ -471,27 +407,34 @@ function mapRow(row: Record<string, unknown>) {
   return mapped
 }
 
-function parseSpreadsheetNumber(value: unknown) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null
+function parseSpreadsheetNumber(value: unknown, format: ImportNumberFormat) {
+  let parsed = parseImportNumber(value, format)
+  if (parsed.kind !== 'value') {
+    parsed = parseImportNumber(value, 'unknown')
   }
-
-  const text = asString(value)
-  if (!text) return null
-
-  if (text.includes(',') && text.includes('.')) {
-    const normalized = text.replace(/\./g, '').replace(',', '.')
-    const number = Number(normalized)
-    return Number.isFinite(number) ? number : null
-  }
-
-  if (text.includes(',')) {
-    const number = Number(text.replace(',', '.'))
-    return Number.isFinite(number) ? number : null
-  }
-
-  const number = Number(text)
+  if (parsed.kind !== 'value') return null
+  const number = Number(parsed.decimal)
   return Number.isFinite(number) ? number : null
+}
+
+// ponytail: heurística por palavras-chave em cabeçalhos para inferir formato numérico (en-US vs pt-BR).
+// Teto: arquivos com termos de peso/volume em outros idiomas ou layouts não mapeados caem em pt-BR.
+// Caminho de upgrade: inspecionar amostra dos valores numéricos das primeiras linhas para inferir
+// os separadores de milhar e decimal a partir do padrão real dos dados.
+function inferVehicleNumberFormat(headers: readonly string[]): ImportNumberFormat {
+  const normalized = headers.map(normalizeHeader)
+  const carrierMarkers = new Set([
+    'vin no.',
+    'vin no',
+    'gw(kg)',
+    'gross weight',
+    'volume',
+    '品牌',
+    '型号',
+    '毛重',
+    '体积',
+  ])
+  return normalized.some((header) => carrierMarkers.has(header)) ? 'en-US' : 'pt-BR'
 }
 
 function normalizeKey(value: unknown) {

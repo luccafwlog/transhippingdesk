@@ -63,57 +63,80 @@ export type SheetReadOptions = {
 export type SheetContent = {
   headers: string[]
   matrix: unknown[][]
-  rows: Record<string, unknown>[]
+  rows: SheetRow[]
   headerRowIndex: number
 }
+
+/** Linha de planilha com a linha física 1-based preservada da origem. */
+export type SheetRow = Record<string, unknown> & { readonly rowNumber: number }
 
 export async function readSheet(buffer: ArrayBuffer, options: SheetReadOptions = {}): Promise<SheetContent> {
   const wantDates = options.dates === 'date'
   const raw = options.values === 'cru' || wantDates
   const XLSX = await import('@e965/xlsx')
-  const { isBinarySpreadsheetBuffer, decodeImportBytes } = await import('./importText')
-  // XLS/XLSX binário nunca pelo decoder textual; CSV/texto com BOM/UTF-8
-  // estrito (fallback Windows-1252 só origem autorizada).
-  const workbook = isBinarySpreadsheetBuffer(buffer)
+  const { decodeImportBytes, detectImportFormat } = await import('./importText')
+  // XLS/XLSX binário nunca passa pelo decoder textual. CSV é texto com BOM e
+  // UTF-8 estrito; fallback Windows-1252 só pode ser optado pelo importer que
+  // conhece e autoriza essa origem. EDI não é aceito pelo leitor de planilhas.
+  const format = detectImportFormat(buffer, { allowWindows1252Fallback: options.allowWindows1252Fallback })
+  if (format === 'edi') throw new Error('Arquivo EDI recebido no leitor de planilhas. Use o parser EDI correspondente.')
+  const workbook = format === 'xlsx' || format === 'xls'
     ? XLSX.read(buffer, {
       type: 'array',
       cellText: !wantDates,
       cellDates: wantDates,
     })
-    : XLSX.read(
-      decodeImportBytes(buffer, { allowWindows1252Fallback: options.allowWindows1252Fallback }).text,
-      {
+    : XLSX.read(decodeImportBytes(buffer, { allowWindows1252Fallback: options.allowWindows1252Fallback }).text, {
         type: 'string',
         cellText: !wantDates,
         cellDates: wantDates,
-      },
-    )
+      })
   const firstSheet = workbook.Sheets[workbook.SheetNames[options.sheetIndex ?? 0]]
   if (!firstSheet) throw new Error('Arquivo sem abas validas.')
 
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
     header: 1,
     defval: '',
-    blankrows: false,
+    blankrows: true,
     raw,
   })
+  if (!matrix.length) throw new Error('Planilha vazia.')
   const headerRowIndex = options.expectedHeaders
     ? locateHeaderRowIndex(matrix, options.expectedHeaders, options.headerWindow ?? 5)
     : 0
   if (headerRowIndex < 0) throw new Error('Cabeçalho não encontrado na janela inicial da planilha.')
 
   const headers = (matrix[headerRowIndex] ?? []).map((cell) => String(cell ?? '').trim())
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+  const rowsWithSheetMetadata = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
     defval: '',
     raw,
     blankrows: !(options.skipBlankRows ?? true),
     range: headerRowIndex,
   })
+  const rows = rowsWithSheetMetadata.map((row, index): SheetRow | null => {
+    const rowNumber = typeof row.__rowNum__ === 'number'
+      ? row.__rowNum__ + 1
+      : headerRowIndex + index + 2
+    const data = { ...row }
+    delete data.__rowNum__
+    const hasValue = Object.values(data).some((value) => {
+      if (value === null || value === undefined) return false
+      return typeof value === 'string' ? value.trim() !== '' : true
+    })
+    if ((options.skipBlankRows ?? true) && !hasValue) return null
+    Object.defineProperty(data, 'rowNumber', {
+      value: rowNumber,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    })
+    return data as SheetRow
+  }).filter((row): row is SheetRow => row !== null)
   if (!rows.length) throw new Error('Planilha vazia.')
   return { headers, matrix, rows, headerRowIndex }
 }
 
-export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<Record<string, unknown>[]> {
+export async function readFirstSheetRows(buffer: ArrayBuffer): Promise<SheetRow[]> {
   const { rows } = await readSheet(buffer)
   return rows
 }

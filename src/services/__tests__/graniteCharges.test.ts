@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }))
-vi.mock('../supabase', () => ({ supabase: { from: fromMock } }))
+const { fromMock, rpcMock } = vi.hoisted(() => ({ fromMock: vi.fn(), rpcMock: vi.fn() }))
+vi.mock('../supabase', () => ({ supabase: { from: fromMock, rpc: rpcMock } }))
 
 import {
   listGraniteRates,
@@ -34,6 +34,7 @@ beforeEach(() => {
   results = {}
   builders = new Map()
   fromMock.mockReset()
+  rpcMock.mockReset()
   fromMock.mockImplementation((table: string) => builderFor(table))
 })
 
@@ -66,18 +67,14 @@ it('US-091: exclui uma taxa', async () => {
 })
 
 it('US-082: calcula as taxas do B/L aplicando per_kg sobre o peso real', async () => {
-  results.granite_bls = { data: { id: 'BL1', real_weight_kg: 1000 }, error: null }
-  results.granite_rates = {
-    data: [{ id: 'r1', description: 'Frete', charge_type: 'per_kg', unit_value: 2, currency: 'BRL', active: true, valid_from: null, valid_to: null }],
+  rpcMock.mockResolvedValue({
+    data: { charges: [{ bl_id: 'BL1', subtotal: 2000 }] },
     error: null,
-  }
-  results.granite_bl_charges = { data: [{ bl_id: 'BL1', subtotal: 2000 }], error: null }
+  })
 
   const charges = await calculateGraniteBlCharges('BL1')
   expect(charges).toEqual([{ bl_id: 'BL1', subtotal: 2000 }])
-
-  const insertArg = (builderFor('granite_bl_charges').insert.mock.calls[0] as unknown[])[0] as Array<Record<string, unknown>>
-  expect(insertArg[0]).toMatchObject({ bl_id: 'BL1', quantity: 1000, subtotal: 2000 })
+  expect(rpcMock).toHaveBeenCalledWith('calculate_granite_bl_charges', { p_bl_id: 'BL1' })
 })
 
 it('US-081: lista/pagina B/Ls de granito e retorna rows + count', async () => {

@@ -1,16 +1,33 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+const sentryMock = vi.hoisted(() => ({
+  setUser: vi.fn(),
+  setTag: vi.fn(),
+  captureException: vi.fn(),
+  addBreadcrumb: vi.fn(),
+  init: vi.fn(),
+}))
+
+vi.mock('@sentry/react', () => sentryMock)
+
 import {
   markStartupStage,
   redactVercelTelemetryEvent,
   redactUrlQueryString,
   reportBestEffortFailure,
+  reportCaughtException,
+  setTelemetryUser,
   scrubBreadcrumbData,
   scrubEventValue,
   scrubPii,
 } from '../telemetry'
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  sentryMock.setUser.mockReset()
+  sentryMock.setTag.mockReset()
+  sentryMock.captureException.mockReset()
+})
 
 describe('markStartupStage', () => {
   // Achado da revisão do PR 530: Painel refaz a query a cada 90s e
@@ -174,6 +191,43 @@ describe('scrubEventValue', () => {
       count: 2,
       ok: false,
       empty: null,
+    })
+  })
+})
+
+describe('setTelemetryUser', () => {
+  it('define o id e o papel do usuário no Sentry', () => {
+    setTelemetryUser({ id: 'user-123', role: 'administrativo' })
+
+    expect(sentryMock.setUser).toHaveBeenCalledWith({ id: 'user-123' })
+    expect(sentryMock.setTag).toHaveBeenCalledWith('user_role', 'administrativo')
+  })
+
+  it('limpa o usuário no Sentry quando recebe null', () => {
+    setTelemetryUser(null)
+    expect(sentryMock.setUser).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('reportCaughtException', () => {
+  it('envia exceção com tags contextuais mescladas', () => {
+    const error = new Error('falha de teste')
+
+    reportCaughtException(
+      error,
+      'TanStack Query',
+      { queryKey: '["bls"]' },
+      { modulo: 'Operações', tela: 'Painel de BLs', tarefa: 'Listar BLs' },
+    )
+
+    expect(sentryMock.captureException).toHaveBeenCalledWith(error, {
+      tags: {
+        context: 'TanStack Query',
+        modulo: 'Operações',
+        tela: 'Painel de BLs',
+        tarefa: 'Listar BLs',
+      },
+      extra: { queryKey: '["bls"]' },
     })
   })
 })

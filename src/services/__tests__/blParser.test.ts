@@ -244,4 +244,10 @@ describe('blParser', () => {
 
     await expect(parseBLFile(file)).rejects.toThrow(/Arquivo muito grande/)
   })
+
+  it('rejeita conteúdo CSV quando o arquivo B/L exige XLS/XLSX', async () => {
+    const file = new File(['BL;Container\nBL-1;MSCU1234567'], 'bl.xlsx')
+
+    await expect(parseBLFile(file)).rejects.toThrow(/não reconhecido como XLS\/XLSX/)
+  })
 })

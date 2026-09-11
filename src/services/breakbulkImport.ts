@@ -1,7 +1,6 @@
 import { chunkArray } from '../lib/utils'
 import { extractNcmCodes } from '../lib/ncm'
 import { findMatchedCustomer, loadCustomerMaps, resolveCustomerLink } from './customerReconciliation'
-import { calculateBlLocalCharges } from './charges/chargeOperationsService'
 import { supabase } from './supabase'
 import type { Json } from '../types/database'
 import {
@@ -22,12 +21,17 @@ export async function importBreakbulkManifest({
   voyageId,
   manifest,
   uploadedBy,
+  allowRowErrors = false,
 }: {
   filename: string
   voyageId: number
   manifest: ParsedBreakbulkManifest
   uploadedBy: string
+  /** Permite persistir as linhas válidas quando o preview tem erros de linha. */
+  allowRowErrors?: boolean
 }) {
+  if (manifest.rowErrors.length && !allowRowErrors) throw new Error(formatBreakbulkRowErrors(manifest.rowErrors))
+
   const { error: voyageError } = await supabase.from('voyages').select('id').eq('id', voyageId).single()
   if (voyageError) throw voyageError
 
@@ -157,21 +161,12 @@ export async function importBreakbulkManifest({
     throw new Error('A importacao BB nao retornou um lote valido.')
   }
 
-  // Dispara cálculo de taxas locais em background para os BLs importados com sucesso.
-  const validBlIds = blRows.map((row) => row.id)
-  if (validBlIds.length) {
-    void triggerLocalChargesForBls(validBlIds, uploadedBy)
-  }
-
   return batchId
 }
 
-async function triggerLocalChargesForBls(blIds: string[], actorId: string) {
-  const batchSize = 5
-  for (let i = 0; i < blIds.length; i += batchSize) {
-    const batch = blIds.slice(i, i + batchSize)
-    await Promise.allSettled(
-      batch.map((blId) => calculateBlLocalCharges(blId, { actorId, recalculate: false })),
-    )
-  }
+function formatBreakbulkRowErrors(rowErrors: ParsedBreakbulkManifest['rowErrors']): string {
+  const shown = rowErrors.slice(0, 20).map((error) => `Linha ${error.row}: ${error.message}`)
+  const hidden = rowErrors.length - shown.length
+  if (hidden > 0) shown.push(`... e mais ${hidden} linha${hidden === 1 ? '' : 's'} com divergências.`)
+  return shown.join('\n')
 }

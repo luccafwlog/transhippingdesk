@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderDemurrageTemplate } from '../_shared/customerCommunicationTemplates.ts'
-import { maskEmail, sendEmail, type EmailAttemptRecord } from '../_shared/email.ts'
+import { maskEmail, recipientKey, sendEmail, type EmailAttemptRecord } from '../_shared/email.ts'
 
 type DunningCandidate = {
   invoice_id: number
@@ -216,9 +216,129 @@ async function currentEligibleRecipient(
 }
 
 async function recipientVersion(email: string): Promise<string> {
-  const bytes = new TextEncoder().encode(email)
+  const normalized = email.trim().toLowerCase()
+  const bytes = new TextEncoder().encode(normalized)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+type DunningAttemptRow = {
+  id: string | number
+  status: string
+  provider_message_id: string | null
+  dispatch_mode: string
+  idempotency_key: string
+  recipient_key: string | null
+}
+
+async function findExistingDunningAttempt(
+  admin: ReturnType<typeof createClient>,
+  {
+    communicationId,
+    contactId,
+    attemptKey,
+    recipientIdentity,
+    keyPrefix,
+  }: {
+    communicationId: number
+    contactId: number
+    attemptKey: string
+    recipientIdentity: string
+    keyPrefix: string
+  },
+): Promise<DunningAttemptRow | null> {
+  const select = 'id, status, provider_message_id, dispatch_mode, idempotency_key, recipient_key'
+  const { data: exact, error: exactError } = await admin
+    .from('customer_communication_attempts')
+    .select(select)
+    .eq('idempotency_key', attemptKey)
+    .maybeSingle()
+  if (exactError) throw exactError
+  if (exact) return exact as DunningAttemptRow
+
+  // A previous version hashed the raw email. Keep its provider key intact and
+  // find it by the stable communication/contact identity instead of creating a
+  // second attempt after the canonicalization change.
+  const { data: byRecipient, error: recipientError } = await admin
+    .from('customer_communication_attempts')
+    .select(select)
+    .eq('communication_id', communicationId)
+    .eq('recipient_key', recipientIdentity)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (recipientError) throw recipientError
+  if (byRecipient) return byRecipient as DunningAttemptRow
+
+  const { data: byLegacyKey, error: legacyKeyError } = await admin
+    .from('customer_communication_attempts')
+    .select(select)
+    .eq('communication_id', communicationId)
+    .like('idempotency_key', `${keyPrefix}${contactId}:%`)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (legacyKeyError) throw legacyKeyError
+  return (byLegacyKey as DunningAttemptRow | null) ?? null
+}
+
+async function recordDunningAttempt({
+  admin,
+  communicationId,
+  contactId,
+  communicationsEnabled,
+  attemptKey,
+  to,
+  keyPrefix,
+}: {
+  admin: ReturnType<typeof createClient>
+  communicationId: number
+  contactId: number
+  communicationsEnabled: boolean
+  attemptKey: string
+  to: string
+  keyPrefix: string
+}): Promise<EmailAttemptRecord> {
+  const recipientIdentity = await recipientKey(to)
+  const { data, error } = await admin.from('customer_communication_attempts').insert({
+    communication_id: communicationId,
+    recipient_masked: maskEmail(to),
+    recipient_key: recipientIdentity,
+    status: 'aceito',
+    dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
+    idempotency_key: attemptKey,
+  }).select('id').single()
+  if (error?.code === '23505') {
+    const existing = await findExistingDunningAttempt(admin, {
+      communicationId,
+      contactId,
+      attemptKey,
+      recipientIdentity,
+      keyPrefix,
+    })
+    if (!existing) throw error
+
+    if (existing.recipient_key !== recipientIdentity || (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null)) {
+      const { error: repairError } = await admin.from('customer_communication_attempts').update({
+        recipient_key: recipientIdentity,
+        ...(existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null
+          ? { dispatch_mode: communicationsEnabled ? 'real' : 'simulado' }
+          : {}),
+      }).eq('id', existing.id)
+      if (repairError) throw repairError
+    }
+    return {
+      id: existing.id,
+      status: existing.status as EmailAttemptRecord['status'],
+      providerMessageId: existing.provider_message_id,
+      idempotencyKey: existing.idempotency_key,
+      existing: true,
+    }
+  }
+  if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
+  return { id: data.id, status: 'aceito', providerMessageId: null, idempotencyKey: attemptKey, existing: false }
 }
 
 async function createCommunication(
@@ -303,7 +423,7 @@ async function sendCandidateGroup(
   admin: ReturnType<typeof createClient>,
   group: DunningCandidate[],
   communicationsEnabled: boolean,
-): Promise<'enviado' | 'simulado' | 'falha' | 'pausado'> {
+): Promise<'enviado' | 'simulado' | 'parcial' | 'falha' | 'pausado'> {
   const first = group[0]!
   // Revalida quitação/disputa/supressão/caixa por fatura antes de compor o grupo.
   const sendable: DunningCandidate[] = []
@@ -402,25 +522,15 @@ async function sendCandidateGroup(
           ])
           return { suppressed: Boolean(communicationSuppression || portalSuppression) }
         },
-        recordAttempt: async ({ idempotencyKey: attemptKey, to }): Promise<EmailAttemptRecord> => {
-          const { data, error } = await admin.from('customer_communication_attempts').insert({
-            communication_id: communicationId,
-            recipient_masked: maskEmail(to),
-            status: 'aceito',
-            idempotency_key: attemptKey,
-          }).select('id').single()
-          if (error?.code === '23505') {
-            const { data: existing, error: existingError } = await admin
-              .from('customer_communication_attempts')
-              .select('id, status, provider_message_id')
-              .eq('idempotency_key', attemptKey)
-              .single()
-            if (existingError || !existing) throw existingError ?? error
-            return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
-          }
-          if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
-          return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
-        },
+        recordAttempt: ({ idempotencyKey: attemptKey, to }) => recordDunningAttempt({
+          admin,
+          communicationId,
+          contactId: contact.id,
+          communicationsEnabled,
+          attemptKey,
+          to,
+          keyPrefix: `demurrage:group:${communicationId}:`,
+        }),
         updateAttempt: async (attemptId, update) => {
           const { error } = await admin.from('customer_communication_attempts').update({
             provider_message_id: update.providerMessageId,
@@ -446,17 +556,19 @@ async function sendCandidateGroup(
   if (eligibleRecipients === 0) return 'pausado'
   const allDelivered = deliveredRecipients === eligibleRecipients && failedRecipients === 0
   const allSimulated = simulatedRecipients === eligibleRecipients && failedRecipients === 0
-  const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
-  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const fallbackStatus = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
+  const { data: refreshedStatus, error: statusError } = await admin.rpc('refresh_customer_communication_status', {
+    p_communication_id: communicationId,
+  })
   if (statusError) throw statusError
-  return status
+  return (refreshedStatus ?? fallbackStatus) as 'enviado' | 'simulado' | 'parcial' | 'falha'
 }
 
 async function sendCandidate(
   admin: ReturnType<typeof createClient>,
   candidate: DunningCandidate,
   communicationsEnabled: boolean,
-): Promise<'enviado' | 'simulado' | 'falha' | 'pausado'> {
+): Promise<'enviado' | 'simulado' | 'parcial' | 'falha' | 'pausado'> {
   const context = await loadInvoice(admin, candidate.invoice_id)
   if (!await revalidateInvoiceBeforeSend(admin, candidate.invoice_id)) return 'pausado'
   const contacts = await loadRecipients(admin, candidate.customer_id)
@@ -518,25 +630,15 @@ async function sendCandidate(
           ])
           return { suppressed: Boolean(communicationSuppression || portalSuppression) }
         },
-        recordAttempt: async ({ idempotencyKey: attemptKey, to }): Promise<EmailAttemptRecord> => {
-          const { data, error } = await admin.from('customer_communication_attempts').insert({
-            communication_id: communicationId,
-            recipient_masked: maskEmail(to),
-            status: 'aceito',
-            idempotency_key: attemptKey,
-          }).select('id').single()
-          if (error?.code === '23505') {
-            const { data: existing, error: existingError } = await admin
-              .from('customer_communication_attempts')
-              .select('id, status, provider_message_id')
-              .eq('idempotency_key', attemptKey)
-              .single()
-            if (existingError || !existing) throw existingError ?? error
-            return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
-          }
-          if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
-          return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
-        },
+        recordAttempt: ({ idempotencyKey: attemptKey, to }) => recordDunningAttempt({
+          admin,
+          communicationId,
+          contactId: contact.id,
+          communicationsEnabled,
+          attemptKey,
+          to,
+          keyPrefix: `demurrage:${communicationId}:`,
+        }),
         updateAttempt: async (attemptId, update) => {
           const { error } = await admin.from('customer_communication_attempts').update({
             provider_message_id: update.providerMessageId,
@@ -562,10 +664,12 @@ async function sendCandidate(
   if (eligibleRecipients === 0) return 'pausado'
   const allDelivered = deliveredRecipients === eligibleRecipients && failedRecipients === 0
   const allSimulated = simulatedRecipients === eligibleRecipients && failedRecipients === 0
-  const status = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
-  const { error: statusError } = await admin.from('customer_communications').update({ status }).eq('id', communicationId)
+  const fallbackStatus = allDelivered ? 'enviado' : allSimulated ? 'simulado' : 'falha'
+  const { data: refreshedStatus, error: statusError } = await admin.rpc('refresh_customer_communication_status', {
+    p_communication_id: communicationId,
+  })
   if (statusError) throw statusError
-  return status
+  return (refreshedStatus ?? fallbackStatus) as 'enviado' | 'simulado' | 'parcial' | 'falha'
 }
 
 async function releaseClaim(
@@ -619,6 +723,7 @@ async function handler(req: Request): Promise<Response> {
   const groups = groupDunningCandidatesByCustomerCycle(candidates)
   let sent = 0
   let simulated = 0
+  let partial = 0
   let failed = 0
   let paused = 0
   let releaseFailures = 0
@@ -630,7 +735,10 @@ async function handler(req: Request): Promise<Response> {
       try {
         const result = await sendCandidate(admin, candidate, communicationsEnabled)
         if (result === 'enviado') sent += 1
-        else if (result === 'falha' || result === 'pausado') {
+        else if (result === 'parcial') {
+          // Não solta o claim: contatos que já receberam não devem receber reenvio duplicado.
+          partial += 1
+        } else if (result === 'falha' || result === 'pausado') {
           if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
           if (result === 'falha') failed += 1
           else paused += 1
@@ -647,7 +755,10 @@ async function handler(req: Request): Promise<Response> {
     try {
       const result = await sendCandidateGroup(admin, group, communicationsEnabled)
       if (result === 'enviado') sent += 1
-      else if (result === 'falha' || result === 'pausado') {
+      else if (result === 'parcial') {
+        // Não solta o claim: contatos que já receberam não devem receber reenvio duplicado.
+        partial += 1
+      } else if (result === 'falha' || result === 'pausado') {
         for (const candidate of group) {
           if (!await releaseClaimSafely(admin, candidate)) releaseFailures += 1
         }
@@ -664,7 +775,7 @@ async function handler(req: Request): Promise<Response> {
       console.error('[demurrage-dunning] grupo inválido', group[0]?.customer_id, group[0]?.attempt_discriminator, error)
     }
   }
-  return json(releaseFailures ? 500 : 200, { claimed: candidates.length, sent, simulated, failed, paused, releaseFailures })
+  return json(releaseFailures ? 500 : 200, { claimed: candidates.length, sent, simulated, partial, failed, paused, releaseFailures })
 }
 
 if (typeof Deno !== 'undefined') Deno.serve(handler)

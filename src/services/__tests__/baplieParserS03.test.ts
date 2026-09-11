@@ -81,12 +81,73 @@ describe('baplie S03 vetores', () => {
     expect(parsed.containers[0]).toMatchObject({ is_imo: true, imo_class: '9', un_number: '3166', is_oog: true })
   })
 
+  it('isola DGS e DIM de cada EQD no mesmo conjunto físico', () => {
+    const parsed = parseBaplieText([
+      "TDT+20+14+++:::GREEN SANTOS'",
+      "LOC+147+010101'",
+      "LOC+6+CNTAC'",
+      "LOC+12+BRVIX'",
+      "MEA+WT++KGM:10000'",
+      "EQD+CN+TCLU1111111+45G1+++5'",
+      "DGS+IMD+3+1993'",
+      "DIM+9+10:20:30'",
+      "EQD+CN+TCLU2222222+45G1+++5'",
+      "DGS+IMD+8+3082'",
+      "DIM+9+0:0:0'",
+      "UNT+10+1'",
+    ].join('\n'))
+
+    expect(parsed.containers).toHaveLength(2)
+    expect(parsed.containers[0]).toMatchObject({
+      container_number: 'TCLU1111111',
+      pol: 'CNTAC',
+      pod: 'BRVIX',
+      weight_kg: 10000,
+      is_imo: true,
+      imo_class: '3',
+      un_number: '1993',
+      is_oog: true,
+    })
+    expect(parsed.containers[1]).toMatchObject({
+      container_number: 'TCLU2222222',
+      pol: null,
+      pod: null,
+      weight_kg: null,
+      is_imo: true,
+      imo_class: '8',
+      un_number: '3082',
+      is_oog: false,
+    })
+  })
+
   it('EOF sem terminador final ainda emite o último container', () => {
     const parsed = parseBaplieText(
       "TDT+20+14+++:::GREEN SANTOS'\nLOC+147+010101'\nLOC+6+CNTAC'\nLOC+12+BRVIX'\nEQD+CN+TCLU1234567+45G1+++5",
     )
     expect(parsed.containers).toHaveLength(1)
     expect(parsed.containers[0].container_number).toBe('TCLU1234567')
+  })
+
+  it('não reabre grupos depois do trailer e sinaliza conteúdo após EOF', () => {
+    const parsed = parseBaplieText([
+      "TDT+20+14+++:::GREEN SANTOS'",
+      "LOC+147+010101'",
+      "LOC+6+CNTAC'",
+      "LOC+12+BRVIX'",
+      "EQD+CN+TCLU1234567+45G1+++5'",
+      "UNT+6+1'",
+      "UNZ+1+1'",
+      "LOC+147+010102'",
+      "EQD+CN+TCLU7654321+45G1+++5'",
+    ].join('\n'))
+
+    expect(parsed.containers).toHaveLength(1)
+    expect(parsed.containers[0]?.container_number).toBe('TCLU1234567')
+    expect(parsed.issues).toContainEqual(expect.objectContaining({
+      field: 'eof',
+      code: 'invalid_group',
+      severity: 'error',
+    }))
   })
 
   it('duplicata gera issue bloqueante por conjunto físico', () => {
@@ -114,6 +175,14 @@ describe('baplie S03 vetores', () => {
     const parsed = parseBaplieText(text)
     expect(parsed.containers).toHaveLength(1)
     expect(parsed.containers[0]).toMatchObject({ container_number: 'TCLU1234567', slot: '010101', bl_ref: 'ABC*DEF' })
+  })
+
+  it('usa o separador de componente da UNA para peso e dimensões', () => {
+    // UNA: componente '^', elemento ';', decimal '.', release '!', terminador '*'.
+    const text = 'UNA^;. !*LOC;147;010101*LOC;6;CNTAC*LOC;12;BRVIX*MEA;WT;;KGM^10000*EQD;CN;TCLU1234567;45G1;;;5*DIM;9;0^0^0*'
+    const parsed = parseBaplieText(text)
+
+    expect(parsed.containers[0]).toMatchObject({ weight_kg: 10000, is_oog: false })
   })
 
   it('parseBaplieBuffer round-trip UTF-8 sem BOM com Vitória', () => {

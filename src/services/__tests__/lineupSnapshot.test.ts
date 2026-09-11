@@ -70,6 +70,46 @@ describe('fetchLineUpSnapshot', () => {
     expect(row).toMatchObject({ voyageId: 24, voyageNumber: '24W', vesselName: 'MV TESTE', rowType: 'import', ata: '2026-08-02', bbMachines: 2 })
   })
 
+  it('projeta containers pelo read-model dos B/Ls sem segunda consulta por ids', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      bls: [{
+        id: 'BL1',
+        voyage_id: 24,
+        pod: 'BRVIX',
+        cargo_mode: 'container',
+        ce_mercante: 'CE1',
+        bb_machine_qty: 0,
+        bb_packages_qty: 0,
+        bl_containers: [
+          { id: 1, bl_id: 'BL1', container_number: 'MSCU0000001', tare_weight_kg: 2000, gross_weight_kg: 12000 },
+        ],
+      }],
+    }))
+
+    const snapshot = await fetchLineUpSnapshot()
+    const row = snapshot.rows.find((candidate) => candidate.id === '24::BRVIX')
+    expect(row).toMatchObject({ total: 1, car: 0, cg: 1 })
+    expect(from.mock.calls.map(([table]) => table).filter((table) => table === 'bl_containers')).toHaveLength(1)
+  })
+
+  it('contabiliza vazios de importação por viagem em uma leitura filtrada do manifesto', async () => {
+    const { fetchLineUpSnapshot } = await import('../lineup')
+    from.mockImplementation(byTable({
+      voyages: [VOYAGE],
+      bls: [{ id: 'BL1', voyage_id: 24, pod: 'BRVIX', cargo_mode: 'container', ce_mercante: 'CE1', bb_machine_qty: 0, bb_packages_qty: 0 }],
+      vazios_importacao_containers: [
+        { manifest: { voyage_id: 24 } },
+        { manifest: { voyage_id: 24 } },
+      ],
+    }))
+
+    const row = (await fetchLineUpSnapshot()).rows.find((candidate) => candidate.voyageId === 24)
+    expect(row?.mty).toBe(2)
+    expect(from.mock.calls.map(([table]) => table)).not.toContain('vazios_importacao_manifests')
+  })
+
   it('monta linha de exportacao com datas da escala unificada', async () => {
     const { fetchLineUpSnapshot } = await import('../lineup')
     from.mockImplementation(byTable({

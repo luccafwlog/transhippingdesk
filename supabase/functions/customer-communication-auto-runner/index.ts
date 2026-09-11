@@ -116,7 +116,7 @@ async function handler(req: Request): Promise<Response> {
             } catch {
               // A successful HTTP response without the contract status is not a sent e-mail.
             }
-            const isDeliveredOrSimulated = response.ok && (result?.status === 'enviado' || result?.status === 'simulado')
+            const isDeliveredOrSimulated = response.ok && (result?.status === 'enviado' || result?.status === 'simulado' || result?.status === 'parcial')
             const isPermanentSuppression = response.status === 422 && Boolean(result?.suppressed)
             if (isDeliveredOrSimulated) count += 1
             if (isDeliveredOrSimulated || isPermanentSuppression) resolvedRecipients += 1

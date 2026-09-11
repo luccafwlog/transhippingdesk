@@ -11,7 +11,7 @@ import { Field, Input } from '../components/ui/Input'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
-import { useVoyages } from '../hooks/useBls'
+import { useVoyageDetail, useVoyages } from '../hooks/useBls'
 import { useVoyageVehicleStats } from '../hooks/useVehicles'
 import { useVaziosImportacaoStats } from '../hooks/useVaziosImportacaoStats'
 import { useViagemSchedulesAndStats } from '../hooks/useViagemSchedulesAndStats'
@@ -131,6 +131,11 @@ export function Viagens() {
     return () => { mounted = false }
   }, [editingPort, editingScaleVoyageId])
   const selectedVoyageId = voyageId ? Number(voyageId) : null
+  const {
+    data: selectedVoyageDetail,
+    isLoading: isSelectedVoyageLoading,
+    error: selectedVoyageError,
+  } = useVoyageDetail(selectedVoyageId)
 
   const voyages = useMemo(() => data ?? [], [data])
 
@@ -140,7 +145,7 @@ export function Viagens() {
         new Set(
           voyages.flatMap((voyage) =>
             [
-              ...collectVoyagePorts(voyage.bls, 'pol', voyage.pol?.name ?? null),
+              ...collectVoyagePorts(voyage.routes, 'pol', voyage.pol?.name ?? null),
               ...PORTAL_SCHEDULE_LANES.filter((lane) => lane.kind === 'pol').map(portalLaneCode),
             ].map((pol) => buildVoyagePolEntityId(voyage.id, pol)),
           ),
@@ -164,6 +169,7 @@ export function Viagens() {
       map.set(voyage.id, {
         hasVehicles: (vehicleStatsByVoyage[voyage.id]?.totalVehicles ?? 0) > 0,
         vehicleContainerNumbers: vehicleStatsByVoyage[voyage.id]?.containerNumbers ?? [],
+        vehiclePorts: Object.keys(vehicleStatsByVoyage[voyage.id]?.byPod ?? {}),
         hasVaziosImportacao: (vaziosImpStatsByVoyage[voyage.id]?.totalManifests ?? 0) > 0,
         hasGranite: Array.from(exportSchedulesData?.get(voyage.id)?.values() ?? []).some(
           (schedule) => schedule.hasGranite,
@@ -187,7 +193,7 @@ export function Viagens() {
   )
   const activeFilterCount = useMemo(() => countActiveFilters(filters), [filters])
 
-  const selectedVoyage = voyages.find((voyage) => voyage.id === selectedVoyageId)
+  const selectedVoyage = selectedVoyageDetail
   const deletingVoyage = voyages.find((voyage) => voyage.id === deletingVoyageId)
 
   async function handleDeleteVoyage() {
@@ -249,6 +255,7 @@ export function Viagens() {
       />
 
       {error ? <InlineError message="Erro ao carregar viagens." /> : null}
+      {selectedVoyageError ? <InlineError message="Erro ao carregar o detalhe da viagem." /> : null}
 
       <VoyageFilters
         filters={filters}
@@ -277,6 +284,8 @@ export function Viagens() {
             title="Selecione uma viagem"
             description="Escolha uma viagem na faixa acima para ver o detalhe, planejamento de escalas e os fluxos de importação e exportação."
           />
+        ) : isSelectedVoyageLoading ? (
+          <SkeletonCard lines={4} />
         ) : selectedVoyage ? (
           <VoyageCard
             key={selectedVoyage.id}
@@ -303,8 +312,6 @@ export function Viagens() {
             initialReportId={initialReportId}
             initialTerminalCode={initialTerminalCode}
           />
-        ) : isLoading ? (
-          <SkeletonCard lines={4} />
         ) : (
           <EmptyState
             title="Viagem não encontrada"
@@ -544,12 +551,12 @@ export function Viagens() {
 function makeVoyageInitialValues(
   voyage:
     | {
-        voyage_number: string
+      voyage_number: string
         status: string | null
-        vessel?: {
-          name: string
-          imo: string | null
-          carrier?: { name: string; scac: string | null } | null
+    vessel?: {
+        name: string | null
+        imo?: string | null
+        carrier?: { name: string | null; scac?: string | null } | null
         } | null
       }
     | undefined,

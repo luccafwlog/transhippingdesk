@@ -23,16 +23,19 @@ vi.mock('../../ui/Toast', () => ({
 }))
 
 import { VoyageCreateModal } from '../VoyageCreateModal'
+import { ConfirmDialogProvider } from '../../ui/ConfirmDialog'
 
 function renderModal(props: Partial<Parameters<typeof VoyageCreateModal>[0]> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <VoyageCreateModal
-        open={true}
-        onClose={vi.fn()}
-        {...props}
-      />
+      <ConfirmDialogProvider>
+        <VoyageCreateModal
+          open={true}
+          onClose={vi.fn()}
+          {...props}
+        />
+      </ConfirmDialogProvider>
     </QueryClientProvider>,
   )
 }
@@ -98,5 +101,31 @@ describe('VoyageCreateModal', () => {
       }),
       'user-1',
     )
+  })
+
+  it('pede confirmação antes de descartar alterações não salvas', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    renderModal({ onClose })
+
+    await user.type(screen.getByLabelText('Navio'), 'QA SCRATCH')
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.getByRole('heading', { name: 'Descartar alterações?' })).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Descartar alterações' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('fecha diretamente sem confirmação quando o formulário permanece limpo', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    renderModal({ onClose })
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('heading', { name: 'Descartar alterações?' })).toBeNull()
   })
 })

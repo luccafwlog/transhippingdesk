@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { importVehicleRows, parseVehicleImportBuffer, type VehicleImportRow } from '../vehicleImport'
 import { jsonToBuffer, sheetsToBuffer } from './testWorkbook'
 
@@ -19,6 +21,16 @@ describe('vehicleImport', () => {
     mockFrom.mockReset()
     mockRpc.mockReset()
     mockRpc.mockResolvedValue({ data: { status: 'exempt', exempt: true }, error: null })
+  })
+
+  it('S03: valida a fixture QA anonimizada do fluxo COSCO', async () => {
+    const file = readFileSync(resolve(process.cwd(), 'test-fixtures/qa-veiculos.xlsx'))
+    const parsed = await parseVehicleImportBuffer(file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength))
+
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.rows).toHaveLength(2)
+    expect(parsed.rows.map((row) => row.bl_id)).toEqual(['QABL001', 'QABL001'])
+    expect(parsed.rows.map((row) => row.container_number)).toEqual(['TEMU1234567', 'TEMU1234567'])
   })
 
   it('parseia a planilha de veiculos com o novo campo modelo', async () => {
@@ -47,7 +59,7 @@ describe('vehicleImport', () => {
     expect(parsed.rows[0]?.unpacking_location).toBe('Terminal Rio')
   })
 
-  it('mapeia o modelo do armador (COSCO Daily Report) escolhendo a aba de veiculos', async () => {
+	it('mapeia o modelo do armador (COSCO Daily Report) escolhendo a aba de veiculos', async () => {
     // 1a aba: resumo (pivot) sem colunas de veiculo. 2a aba: dados reais.
     const buffer = sheetsToBuffer([
       {
@@ -89,8 +101,26 @@ describe('vehicleImport', () => {
       container_type: '48FR',
       seal_number: '035744',
       bl_id: 'CSC07870X00V00',
-    })
-  })
+		})
+	})
+
+		it('preserva números Excel nativos mesmo quando a formatação usa vírgula de milhar', async () => {
+		const XLSX = await import('@e965/xlsx')
+		const workbook = XLSX.utils.book_new()
+		const sheet = XLSX.utils.aoa_to_sheet([
+			['CHASSI', 'MARCA', 'MODELO', 'PESO', 'CUBAGEM', 'CONTAINER', 'TIPO_CONTAINER', 'LACRE', 'BL'],
+			['9BWZZZ377VT004251', 'BYD', 'DOLPHIN', 1234, 12, 'CAXU1234567', '40FM', 'SEL123', 'BL001'],
+		])
+		sheet.D2.z = '#,##0'
+		sheet.E2.z = '#,##0'
+		XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1')
+		const buffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+
+		const parsed = await parseVehicleImportBuffer(buffer)
+
+		expect(parsed.rowErrors).toEqual([])
+			expect(parsed.rows[0]).toMatchObject({ weight_kg: 1234, cbm: 12 })
+		})
 
   it('mapeia a lista de VINs dos terminais chineses da COSCO (cabecalhos em chines)', async () => {
     const buffer = jsonToBuffer([
@@ -125,6 +155,63 @@ describe('vehicleImport', () => {
       seal_number: '156000',
       bl_id: 'CSC45350600100',
     })
+  })
+
+  it('canoniza container ISO em minusculas antes de persistir', async () => {
+    const buffer = jsonToBuffer([
+      {
+        CHASSI: '9BWZZZ377VT004251',
+        MARCA: 'BYD',
+        MODELO: 'DOLPHIN',
+        PESO: '1.650,50',
+        CUBAGEM: '12,3',
+        CONTAINER: 'caxu1234567',
+        TIPO_CONTAINER: '40fm',
+        LACRE: 'sel123',
+        BL: 'BL001',
+      },
+    ])
+
+    const parsed = await parseVehicleImportBuffer(buffer)
+
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.rows[0]).toMatchObject({
+      container_number: 'CAXU1234567',
+      container_type: '40FM',
+      seal_number: 'SEL123',
+    })
+  })
+
+  it('nao aceita expoente em peso ou cubagem do contrato COSCO', async () => {
+    const buffer = jsonToBuffer([
+      {
+        CHASSI: '9BWZZZ377VT004251',
+        MARCA: 'BYD',
+        MODELO: 'DOLPHIN',
+        PESO: '1e3',
+        CUBAGEM: '12,3',
+        CONTAINER: 'CAXU1234567',
+        TIPO_CONTAINER: '40FM',
+        LACRE: 'SEL123',
+        BL: 'BL001',
+      },
+      {
+        CHASSI: '9BWZZZ377VT004252',
+        MARCA: 'BYD',
+        MODELO: 'DOLPHIN',
+        PESO: '1.650,50',
+        CUBAGEM: '1e2',
+        CONTAINER: 'CAXU1234568',
+        TIPO_CONTAINER: '40FM',
+        LACRE: 'SEL124',
+        BL: 'BL002',
+      },
+    ])
+
+    const parsed = await parseVehicleImportBuffer(buffer)
+
+    expect(parsed.rows).toHaveLength(0)
+    expect(parsed.rowErrors).toHaveLength(2)
   })
 
   it('valida duplicidade de chassi e consistencia BL-container antes de inserir', async () => {
@@ -271,14 +358,14 @@ describe('vehicleImport', () => {
     expect(insertedRows).toHaveLength(1)
     expect(insertedRows[0]?.bl_id).toBe('BL001')
     expect(insertedRows[0]?.container_id).toBe(11)
-    // O BL com veiculo deve ter as taxas recalculadas (isencao), nao apenas o status alterado.
-    expect(mockRpc).toHaveBeenCalledWith(
-      'calculate_bl_local_charges',
-      expect.objectContaining({ p_bl_id: 'BL001', p_recalculate: true }),
-    )
+    // O RPC de origem persiste o follow-up; nenhum cálculo/cancelamento fica
+    // dependente da janela HTTP do browser.
+    expect(mockRpc).toHaveBeenCalledWith('import_vehicle_rows_transactional', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('calculate_bl_local_charges', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('cancel_invoice', expect.anything())
   })
 
-  it('cancela fatura ativa e recalcula isencao ao vincular veiculos a um BL ja faturado', async () => {
+  it('persiste o follow-up quando o BL ja estava faturado', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'vehicles') {
         return {
@@ -344,11 +431,9 @@ describe('vehicleImport', () => {
 
     expect(result.successCount).toBe(1)
     expect(result.errorCount).toBe(0)
-    expect(mockRpc).toHaveBeenCalledWith('cancel_invoice', expect.objectContaining({ p_invoice_id: 900 }))
-    expect(mockRpc).toHaveBeenCalledWith(
-      'calculate_bl_local_charges',
-      expect.objectContaining({ p_bl_id: 'BL001', p_recalculate: true }),
-    )
+    expect(mockRpc).toHaveBeenCalledWith('import_vehicle_rows_transactional', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('cancel_invoice', expect.anything())
+    expect(mockRpc).not.toHaveBeenCalledWith('calculate_bl_local_charges', expect.anything())
   })
 
   it('rejeita linha quando mais de um container atende ao mesmo tipo e lacre', async () => {

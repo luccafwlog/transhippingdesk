@@ -19,6 +19,22 @@ describe('breakbulkImport', () => {
     mockRpc.mockReset()
   })
 
+  it('bloqueia erros de linha antes de tocar no banco sem override explícito', async () => {
+    await expect(importBreakbulkManifest({
+      filename: 'bb.xlsx',
+      voyageId: 10,
+      manifest: {
+        layout: 'summary',
+        bls: [],
+        rowErrors: [{ row: 2, message: 'Porto inválido.', raw: {} }],
+      },
+      uploadedBy: 'user-1',
+    })).rejects.toThrow('Linha 2')
+
+    expect(mockFrom).not.toHaveBeenCalled()
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+
   it('parseia o layout BB resumido', async () => {
     const buffer = jsonToBuffer([
       {

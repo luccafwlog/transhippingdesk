@@ -152,13 +152,44 @@ export function initTelemetry(): void {
         if (event.request.url) event.request.url = redactUrlQueryString(event.request.url)
         if (event.request.headers?.Referer) event.request.headers.Referer = redactUrlQueryString(event.request.headers.Referer)
       }
+      if (event.tags) {
+        Object.entries(event.tags).forEach(([key, val]) => {
+          if (typeof val === 'string') event.tags![key] = scrubPii(val)
+        })
+        if (event.tags.modulo && event.tags.tarefa) {
+          event.fingerprint = [String(event.tags.modulo), String(event.tags.tarefa)]
+        }
+      }
       return event
     },
   })
 }
 
-export function reportCaughtException(error: unknown, context?: string, extra?: Record<string, unknown>): void {
-  Sentry.captureException(error, context ? { tags: { context }, extra } : undefined)
+export function setTelemetryUser(user: { id: string; role?: string } | null): void {
+  if (!user) {
+    Sentry.setUser(null)
+    return
+  }
+  Sentry.setUser({ id: user.id })
+  if (user.role) {
+    Sentry.setTag('user_role', user.role)
+  }
+}
+
+export function reportCaughtException(
+  error: unknown,
+  context?: string,
+  extra?: Record<string, unknown>,
+  tags?: Record<string, string>,
+): void {
+  const mergedTags: Record<string, string> = {
+    ...(context ? { context } : {}),
+    ...(tags ?? {}),
+  }
+  Sentry.captureException(error, {
+    tags: Object.keys(mergedTags).length > 0 ? mergedTags : undefined,
+    extra,
+  })
 }
 
 function normalizeError(error: unknown) {

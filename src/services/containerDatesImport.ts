@@ -1,9 +1,9 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { extractErrorText } from '../lib/errors'
 import { asString } from '../lib/utils'
-import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { matchHeaders, readSheet, type HeaderSpec, type SheetRow } from './importCore'
+import { isValidCalendarDate } from './importValidation'
 import { supabase } from './supabase'
-import { createInvoiceForReturnedBL } from './demurrage/demurrageInvoices'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -33,7 +33,7 @@ export type ParsedContainerDatesImport = {
 export async function parseContainerDatesFile(file: File): Promise<ParsedContainerDatesImport> {
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
-  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+  const { headers, rows } = await readSheet(buffer, {
     // Keep the source text intact. In particular, SheetJS may reinterpret a
     // CSV value such as `01/08/2026` as a JavaScript Date using the host
     // locale, turning the Brazilian date into `2026-01-08` before parseDate
@@ -43,7 +43,7 @@ export async function parseContainerDatesFile(file: File): Promise<ParsedContain
   })
   const { missing } = matchHeaders(headers, SPEC)
   if (missing.length) throw new Error(`Colunas obrigatorias ausentes: ${missing.join(', ')}.`)
-  return parseRows(rows, headerRowIndex)
+  return parseRows(rows)
 }
 
 export type ContainerDatesImportError = { bl_id: string; container_number: string; message: string }
@@ -82,7 +82,6 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
 
   // O RPC aplica cada B/L inteiro como unidade; um erro não deixa linhas
   // parcialmente gravadas e o lote continua com os demais B/Ls.
-  const blsToCheckForInvoice = new Set<string>()
   const blsWithFailedUpdates = new Set<string>()
   const rowsByBl = new Map<string, ContainerDatesImportRow[]>()
   for (const row of uniqueRows) {
@@ -140,49 +139,24 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
     const result = (applied ?? {}) as { updated_ids?: unknown[]; unchanged_ids?: unknown[]; billing_state?: string }
     updated += Array.isArray(result.updated_ids) ? result.updated_ids.length : 0
     unchanged += Array.isArray(result.unchanged_ids) ? result.unchanged_ids.length : 0
-    if (result.billing_state === 'ready_for_billing') blsToCheckForInvoice.add(blId)
-  }
-
-  // For each BL that had a container newly returned, check if ALL containers are now returned
-  // and auto-generate a demurrage invoice if any demurrage is owed.
-  for (const blId of blsToCheckForInvoice) {
-    if (blsWithFailedUpdates.has(blId)) continue
-    const blContainers = (containers as unknown as ContainerRow[]).filter((c) => c.bl_id === blId)
-    const updatesForBl = new Map(uniqueRows.filter((r) => r.bl_id === blId).map((r) => [makeKey(r.bl_id, r.container_number), r]))
-
-    const allReturned = blContainers.every((c) => {
-      const update = updatesForBl.get(makeKey(c.bl_id ?? '', c.container_number))
-      return update ? !!update.return_date : c.demurrage_status === 'returned'
-    })
-
-    if (allReturned) {
-      // Nasce 'issued' com a foto inicial (ADR 0014). Retorna null se o B/L já
-      // tem fatura ativa (não sobrescreve) ou se não há demurrage devido.
-      try {
-        await createInvoiceForReturnedBL(blId)
-      } catch (error) {
-        // Um B/L que falha ao faturar nao pode impedir o faturamento dos demais.
-        errors.push({ bl_id: blId, container_number: '', message: extractErrorText(error) })
-      }
-    }
   }
 
   return { updated, unchanged, missing, errors }
 }
 
-function parseRows(objectRows: Record<string, unknown>[], headerRowIndex = 0): ParsedContainerDatesImport {
+function parseRows(objectRows: SheetRow[]): ParsedContainerDatesImport {
   const rowsByKey = new Map<string, ContainerDatesImportRow>()
   const conflictingKeys = new Set<string>()
   const rowErrors: ParsedContainerDatesImport['rowErrors'] = []
 
-  objectRows.forEach((row, index) => {
+  objectRows.forEach((row) => {
     const mapped = mapRow(row)
     const blId = asString(mapped.bl_id).toUpperCase()
     const containerNumber = asString(mapped.container_number).toUpperCase()
     const rawDischarge = mapped.discharge_date
     const rawReturn = mapped.return_date
 
-    const rowNumber = index + headerRowIndex + 2
+    const rowNumber = row.rowNumber
     if (!blId) { rowErrors.push({ row: rowNumber, message: 'Linha sem BL.', raw: row }); return }
     if (!containerNumber) { rowErrors.push({ row: rowNumber, message: 'Linha sem Container.', raw: row }); return }
 
@@ -238,18 +212,6 @@ function parseDate(value: unknown): string | null {
   return null
 }
 
-function isValidCalendarDate(iso: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  if (!match) return false
-
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  if (year < 1 || month < 1 || month > 12 || day < 1) return false
-
-  const date = new Date(Date.UTC(year, month - 1, day))
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-}
 
 function mapRow(row: Record<string, unknown>) {
   const mapped: Partial<Record<DestinationField, unknown>> = {}

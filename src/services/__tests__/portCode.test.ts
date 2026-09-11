@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizePortCode, portCodeVariants } from '../portCode'
+import { normalizePortCode, portCodeVariants, resolvePortCode } from '../portCode'
 
 describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
   const cases: Array<[string, string]> = [
@@ -24,6 +24,9 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
     ['ITAJAÍ', 'BRITJ'],
     ['NAVEGANTES', 'BRITJ'],
     ['VITÓRIA', 'BRVIX'],
+    ['SINGAPORE', 'SGSIN'],
+    ['NEW YORK', 'USNYC'],
+    ['HAMBURG', 'DEHAM'],
   ]
 
   it.each(cases)('mapeia %s -> %s', (name, code) => {
@@ -35,6 +38,23 @@ describe('normalizePortCode - portos-vitrine do servico CSSC', () => {
     expect(normalizePortCode('TAICANG')).toBe('CNTAC')
     expect(normalizePortCode('CNTAG')).toBe('CNTAC')
     expect(normalizePortCode('CNSHA')).toBe('CNSHA')
+  })
+
+  it('reconhece codigos ja usados no cadastro de escalas', () => {
+    expect(resolvePortCode('ITGOA')).toEqual({ code: 'ITGOA', recognized: true })
+    expect(resolvePortCode('NLRTM')).toEqual({ code: 'NLRTM', recognized: true })
+    expect(resolvePortCode('BRIGI')).toEqual({ code: 'BRIGI', recognized: true })
+    expect(resolvePortCode('BRSEP')).toEqual({ code: 'BRSEP', recognized: true })
+  })
+
+  it('reconhece LOCODE embutido nas descrições operacionais', () => {
+    expect(resolvePortCode('Port of Singapore (SGSIN)')).toEqual({ code: 'SGSIN', recognized: true })
+    expect(resolvePortCode('New York / USNYC')).toEqual({ code: 'USNYC', recognized: true })
+  })
+
+  it('não devolve texto desconhecido para persistência', () => {
+    expect(resolvePortCode('PORTO INEXISTENTE')).toEqual({ code: null, recognized: false })
+    expect(normalizePortCode('PORTO INEXISTENTE')).toBeNull()
   })
 
   it('retorna aliases persistidos para consultas sem duplicar o porto', () => {

@@ -5,7 +5,7 @@ import { supabase } from '../services/supabase'
 import { signOutSupabaseClient } from '../services/supabaseAuth'
 import { extractErrorText } from '../lib/errors'
 import type { UserProfile, UserProfileRole } from '../types/database'
-import { markStartupStage } from '../lib/telemetry'
+import { markStartupStage, setTelemetryUser } from '../lib/telemetry'
 
 export function shouldHydrateProfile(nextUserId: string | null, hydratedUserId: string | null): boolean {
   return nextUserId !== null && nextUserId !== hydratedUserId
@@ -161,11 +161,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setProfile(nextProfile)
           setProfileError(null)
           setProfileStatus('ready')
+          setTelemetryUser({ id: nextSession!.user.id, role: nextProfile.role })
         } else if (!nextUserId) {
           hydratedUserId = null
           setProfile(null)
           setProfileError(null)
           setProfileStatus('signed-out')
+          setTelemetryUser(null)
         }
       } catch (error) {
         if (!mounted) return
@@ -239,6 +241,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
       },
       async signOut() {
+        setTelemetryUser(null)
         await signOutSupabaseClient(supabase)
       },
       async refreshProfile() {

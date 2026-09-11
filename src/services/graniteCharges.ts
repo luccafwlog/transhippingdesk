@@ -29,71 +29,21 @@ export async function deleteGraniteRate(id: string): Promise<void> {
 }
 
 export async function calculateGraniteBlCharges(blId: string): Promise<GraniteBlCharge[]> {
-  const { data: blRow, error: blError } = await supabase
-    .from('granite_bls')
-    .select('id, real_weight_kg')
-    .eq('id', blId)
-    .single()
-  if (blError || !blRow) throw blError ?? new Error('BL nao encontrado.')
+  // O cálculo, a seleção de tarifas vigentes e a troca das linhas precisam
+  // acontecer no mesmo lock/transação do servidor. A fila S05 chama a mesma
+  // RPC, então o botão manual e o consumidor assíncrono têm uma única fonte
+  // de verdade e não podem interpretar tarifa ausente como lista vazia.
+  const { data, error } = await supabase.rpc(
+    'calculate_granite_bl_charges' as never,
+    { p_bl_id: blId } as never,
+  )
+  if (error) throw error
 
-  const realWeightKg = Number(blRow.real_weight_kg ?? 0)
-
-  const { data: rates, error: ratesError } = await supabase
-    .from('granite_rates')
-    .select('*')
-    .eq('active', true)
-  if (ratesError) throw ratesError
-
-  const { error: delError } = await supabase.from('granite_bl_charges').delete().eq('bl_id', blId)
-  if (delError) throw delError
-
-  const today = new Date().toISOString().slice(0, 10)
-  const activeRates = (rates ?? []).filter((r: GraniteRate) => {
-    if (r.valid_from && r.valid_from > today) return false
-    if (r.valid_to && r.valid_to < today) return false
-    return true
-  }) as GraniteRate[]
-
-  if (!activeRates.length) {
-    await supabase
-      .from('granite_bls')
-      .update({ charge_status: 'calculated' })
-      .eq('id', blId)
-    return []
+  const charges = (data as { charges?: unknown } | null)?.charges
+  if (!Array.isArray(charges)) {
+    throw new Error('O cálculo de Granito não retornou linhas de cobrança válidas.')
   }
-
-  const chargeRows = activeRates.map((rate) => {
-    const quantity =
-      rate.charge_type === 'per_kg'
-        ? realWeightKg
-        : rate.charge_type === 'per_ton'
-          ? realWeightKg / 1000
-          : 1
-    const subtotal = Number((quantity * Number(rate.unit_value)).toFixed(2))
-    return {
-      bl_id: blId,
-      rate_id: rate.id,
-      description: rate.description,
-      charge_type: rate.charge_type,
-      unit_value: Number(rate.unit_value),
-      quantity: Number(quantity.toFixed(6)),
-      subtotal,
-      currency: rate.currency,
-    }
-  })
-
-  const { data: inserted, error: insertError } = await supabase
-    .from('granite_bl_charges')
-    .insert(chargeRows)
-    .select()
-  if (insertError) throw insertError
-
-  await supabase
-    .from('granite_bls')
-    .update({ charge_status: 'calculated' })
-    .eq('id', blId)
-
-  return (inserted ?? []) as GraniteBlCharge[]
+  return charges as GraniteBlCharge[]
 }
 
 export async function listGraniteBls(filters: {

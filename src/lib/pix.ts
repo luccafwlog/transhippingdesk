@@ -19,11 +19,12 @@ function buildPixPayload(chavePix: string, nomeBeneficiario: string, cidade: str
   const nome = nomeBeneficiario.substring(0, 25).replace(/[^A-Za-z0-9 ]/g, '').trim()
   const cid = cidade.substring(0, 15).replace(/[^A-Za-z0-9 ]/g, '').trim()
   const chave = chavePix.replace(/[^0-9]/g, '')
-  const tid = (txid || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 35) || '***'
+  const tid = (txid || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 25) || '***'
 
-  const merchantAccountInfo = pixTLV('00', 'br.gov.bcb.pix') + pixTLV('01', chave) + pixTLV('05', tid)
+  const merchantAccountInfo = pixTLV('00', 'br.gov.bcb.pix') + pixTLV('01', chave)
 
-  const valorStr = valor > 0 ? valor.toFixed(2) : ''
+  const valorStr = Number.isFinite(valor) && valor > 0 ? valor.toFixed(2) : ''
+  if (valorStr.length > 13) throw new Error('Valor PIX excede o limite do campo BR Code 54.')
 
   const payload =
     pixTLV('00', '01') +

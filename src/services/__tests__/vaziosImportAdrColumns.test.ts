@@ -22,6 +22,11 @@ describe('parser de vazios — novo contrato', () => {
     expect(parsed.rowErrors).toEqual([])
     expect(parsed.bookings[0]).toMatchObject({ local_code: 'VBR', condition: 'vazio', hand_in_date: '2026-07-01', hand_out_date: '2026-07-05', movement_date: '2026-07-06' })
   })
+  it('canoniza a caixa do container e do tipo antes do contrato da RPC', async () => {
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'abcd1234568', Type: '40hc', Depot: 'VBR', Condition: 'vazio' }]))
+    expect(parsed.rowErrors).toEqual([])
+    expect(parsed.bookings[0]).toMatchObject({ container_number: 'ABCD1234568', container_type: '40HC' })
+  })
   it('normaliza datas Excel no formato MM/DD/YYYY sem enviar mes invalido ao banco', async () => {
     const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ CONTAINER: 'ABCD1234570', TIPO: '40HC', LOCAL: 'VBR', Condition: 'vazio', 'Hand-in': '02/25/2026', 'Hand-out': '02/26/2026', 'Load date': '02/27/2026' }]))
     expect(parsed.rowErrors).toEqual([])
@@ -83,11 +88,53 @@ describe('parser de vazios — novo contrato', () => {
     ]))
   })
   it('recusa linha sem condição ou local', async () => {
-    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567' }]))
+    const parsed = await parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567', Local: '', Condition: '' }]))
     expect(parsed.bookings).toHaveLength(1)
     expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('condição')
     expect(parsed.rowErrors.map((error) => error.message).join(' ')).toContain('local')
   })
+
+  it('S03: rejeita arquivo sem os marcadores estruturais Local e Condition', async () => {
+    await expect(parseVaziosManifestBuffer(await makeBuffer([{ Container: 'ABCD1234567' }]))).rejects.toThrow(/Local.*Condition|Condition.*Local/)
+  })
+
+	it('S03: localiza cabeçalho de Vazios após o preâmbulo e preserva a linha de origem', async () => {
+    const parsed = await parseVaziosManifestBuffer(await (async () => {
+      const XLSX = await import('@e965/xlsx')
+      const workbook = XLSX.utils.book_new()
+      const sheet = XLSX.utils.aoa_to_sheet([
+        ['UNIDADES EMBARCADAS'],
+        ['Modelo operacional'],
+        ['Container', 'Tipo', 'Local', 'Condition'],
+        ['ABCD1234582', '40HC', 'VBR', 'vazio'],
+      ])
+      XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1')
+      return XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+    })())
+
+    expect(parsed.rowErrors).toEqual([])
+		expect(parsed.bookings[0]).toMatchObject({ rowNumber: 4, container_number: 'ABCD1234582' })
+	})
+
+	it('S03: não renumera uma linha após um vazio físico', async () => {
+		const parsed = await parseVaziosManifestBuffer(await (async () => {
+			const XLSX = await import('@e965/xlsx')
+			const workbook = XLSX.utils.book_new()
+			const sheet = XLSX.utils.aoa_to_sheet([
+				['UNIDADES EMBARCADAS'],
+				[''],
+				['Container', 'Tipo', 'Local', 'Condition'],
+				['ABCD1234583', '40HC', 'VBR', 'vazio'],
+				[''],
+				['ABCD1234584', '40HC', 'VBR', 'vazio'],
+			])
+			XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1')
+			return XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+		})())
+
+		expect(parsed.rowErrors).toEqual([])
+		expect(parsed.bookings.map((booking) => booking.rowNumber)).toEqual([4, 6])
+	})
 })
 
 describe('parser de vazios — divergência apontada por linha contra o Cadastro de Terminais', () => {

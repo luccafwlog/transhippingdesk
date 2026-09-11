@@ -107,9 +107,40 @@ describe('readSheet', () => {
       { expectedHeaders: ['bl', 'container'] },
     )
 
-    expect(headerRowIndex).toBe(2)
-    expect(headers).toEqual(['BL', 'Container'])
-    expect(rows).toEqual([{ BL: 'BL-1', Container: 'MSCU1234567' }])
+		expect(headerRowIndex).toBe(2)
+		expect(headers).toEqual(['BL', 'Container'])
+		expect(rows).toEqual([{ BL: 'BL-1', Container: 'MSCU1234567' }])
+		expect(rows[0]?.rowNumber).toBe(4)
+	})
+
+	it('mantém o número físico depois de uma linha vazia entre registros', async () => {
+		const { rows } = await readSheet(
+			aoaToBuffer([
+				['Relatorio de containers'],
+				[''],
+				['BL', 'Container'],
+				['BL-1', 'MSCU1234567'],
+				[''],
+				['BL-2', 'TEMU7654321'],
+			]),
+			{ expectedHeaders: ['bl', 'container'] },
+		)
+
+		expect(rows.map((row) => row.rowNumber)).toEqual([4, 6])
+	})
+
+  it('lê CSV Windows-1252 somente quando o fallback da origem é autorizado', async () => {
+    const bytes = Uint8Array.from([0x42, 0x4c, 0x3b, 0x43, 0x69, 0x64, 0x61, 0x64, 0x65, 0x0a, 0x31, 0x3b, 0x53, 0xe3, 0x6f])
+    const buffer = bytes.buffer as ArrayBuffer
+
+    await expect(readSheet(buffer)).rejects.toThrow(/sem fallback autorizado/)
+    const { rows } = await readSheet(buffer, { allowWindows1252Fallback: true })
+    expect(rows).toEqual([{ BL: '1', Cidade: 'São' }])
+  })
+
+  it('não envia EDI para o leitor de planilhas', async () => {
+    const buffer = new TextEncoder().encode("UNB+UNOA:2+X+Y'UNH+1+BAPLIE:D:95B:UN:SMDG22'").buffer as ArrayBuffer
+    await expect(readSheet(buffer)).rejects.toThrow(/Arquivo EDI recebido no leitor de planilhas/)
   })
 })
 

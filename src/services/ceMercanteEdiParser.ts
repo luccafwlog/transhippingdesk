@@ -1,5 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { onlyDigits } from '../lib/utils'
+import { decodeImportBytes, detectImportFormat, type ImportTextEncoding } from './importText'
 
 // Parser do arquivo EDI de CE Mercante (layout posicional do Mercante/Siscomex
 // Carga). Cada linha e um registro identificado pela primeira letra:
@@ -18,14 +19,27 @@ export type ParsedCeMercanteEdi = {
   manifestRef: string | null
   rows: CeMercanteEdiRow[]
   rowErrors: Array<{ line: number; message: string; raw: string }>
+  /** Encoding efetivamente escolhido para a prévia do arquivo. */
+  encoding?: ImportTextEncoding
 }
 
 const CE_MERCANTE_LENGTH = 15
 
 export async function parseCeMercanteEdiFile(file: File): Promise<ParsedCeMercanteEdi> {
   assertUploadFile(file, ['edi', 'txt'])
-  const text = await file.text()
-  return parseCeMercanteEdiText(text)
+  const buffer = await file.arrayBuffer()
+  let format
+  try {
+    format = detectImportFormat(buffer, { allowWindows1252Fallback: true })
+  } catch (error) {
+    if (error instanceof Error && /não reconhecido pelo conteúdo/.test(error.message)) {
+      throw new Error('Arquivo não reconhecido como EDI Mercante.', { cause: error })
+    }
+    throw error
+  }
+  if (format !== 'edi') throw new Error('Arquivo não reconhecido como EDI Mercante.')
+  const decoded = decodeImportBytes(buffer, { allowWindows1252Fallback: true })
+  return { ...parseCeMercanteEdiText(decoded.text), encoding: decoded.encoding }
 }
 
 export function parseCeMercanteEdiText(text: string): ParsedCeMercanteEdi {

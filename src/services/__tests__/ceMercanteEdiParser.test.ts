@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCeMercanteEdiText } from '../ceMercanteEdiParser'
+import { parseCeMercanteEdiFile, parseCeMercanteEdiText } from '../ceMercanteEdiParser'
 
 // Linhas reais (recortadas) do arquivo EDI do Mercante: 1 registro M de
 // cabecalho, registros C (1 por BL) e registros I (itens, ignorados).
@@ -63,5 +63,21 @@ describe('parseCeMercanteEdiText', () => {
     expect(parsed.rows).toEqual([
       { lineNumber: 1, bl_id: 'CSC45360805C00', ce_mercante: '122605179628557' },
     ])
+  })
+})
+
+describe('parseCeMercanteEdiFile', () => {
+  it('decodifica origem Windows-1252 e expõe o encoding escolhido no preview', async () => {
+    const source = 'M50001226501030729                       CNTAGBRVIXCN001321                       SãO\nC50001226501030729  122605179628557                              CSC45360805C00'
+    const bytes = Uint8Array.from([...source].map((char) => char.charCodeAt(0)))
+    const parsed = await parseCeMercanteEdiFile(new File([bytes], 'ce.edi'))
+
+    expect(parsed.encoding).toBe('windows-1252')
+    expect(parsed.rows).toHaveLength(1)
+  })
+
+  it('rejeita conteúdo textual que não é EDI, mesmo com extensão .edi', async () => {
+    const file = new File(['apenas uma observação'], 'ce.edi')
+    await expect(parseCeMercanteEdiFile(file)).rejects.toThrow(/não reconhecido como EDI/i)
   })
 })

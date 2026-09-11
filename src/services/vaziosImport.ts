@@ -1,5 +1,6 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { createHeaderMapper, createRowErrorCollector, readFirstSheetRows, type RowError } from './importCore'
+import { createHeaderMapper, createRowErrorCollector, matchHeaders, readSheet, type HeaderSpec, type RowError } from './importCore'
+import { IsoContainerSchema, IsoDateSchema } from './importValidation'
 import { supabase } from './supabase'
 import { escapeFilterTerm } from '../lib/utils'
 
@@ -11,6 +12,21 @@ const HEADER_MAP: Record<string, string> = {
   'hand-in': 'hand_in_date', 'hand in': 'hand_in_date', entrada: 'hand_in_date', 'gate in': 'hand_in_date',
   'hand-out': 'hand_out_date', 'hand out': 'hand_out_date', saida: 'hand_out_date', 'gate out': 'hand_out_date',
   embarque: 'movement_date', 'data embarque': 'movement_date', 'load date': 'movement_date', data: 'movement_date',
+}
+
+type VaziosHeaderField = 'container_number' | 'local_code' | 'condition'
+const VAZIOS_HEADER_SPEC: HeaderSpec<VaziosHeaderField> = {
+  aliases: {
+    container_number: ['container', 'conteiner', 'container number'],
+    local_code: ['local', 'origem', 'depot', 'local de origem', 'origin location'],
+    condition: ['condicao', 'condition', 'status'],
+  },
+  required: ['container_number', 'local_code', 'condition'],
+}
+const VAZIOS_HEADER_LABELS: Record<VaziosHeaderField, string> = {
+  container_number: 'Container',
+  local_code: 'Local',
+  condition: 'Condition',
 }
 
 export type ParsedVaziosBooking = {
@@ -48,7 +64,15 @@ export async function parseVaziosManifestFile(file: File, depots?: readonly Depo
 }
 
 export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: readonly DepotLookup[]): Promise<ParsedVaziosManifest> {
-  const rows = await readFirstSheetRows(buffer)
+  const { headers, rows } = await readSheet(buffer, {
+    dates: 'texto',
+    expectedHeaders: Object.keys(HEADER_MAP),
+  })
+  const { missing } = matchHeaders(headers, VAZIOS_HEADER_SPEC)
+  if (missing.length) {
+    const labels = missing.map((field) => VAZIOS_HEADER_LABELS[field])
+    throw new Error(`Planilha invalida. Colunas obrigatorias: ${labels.join(', ')}.`)
+  }
   const mapRow = createHeaderMapper(rows[0], HEADER_MAP)
   const mappedRows = rows.map(mapRow)
   // Uma planilha inteira segue uma única convenção de data (DD/MM ou MM/DD).
@@ -61,11 +85,11 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
   const bookings: ParsedVaziosBooking[] = []
   const rowErrors = createRowErrorCollector()
   mappedRows.forEach((mapped, idx) => {
-    const rowNumber = idx + 2
-    const row = rows[idx]
+    const row = rows[idx]!
+    const rowNumber = row.rowNumber
     const containerNumber = String(mapped.container_number ?? '').trim().toUpperCase()
     if (!containerNumber) { rowErrors.add(rowNumber, 'Container ausente.', row); return }
-    if (!/^[A-Z]{4}\d{7}$/.test(containerNumber)) rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
+    if (!IsoContainerSchema.safeParse(containerNumber).success) rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
     const condition = parseCondition(mapped.condition)
     if (!condition) rowErrors.add(rowNumber, `Container ${containerNumber}: condição deve ser vazio ou material.`, row)
     const localCode = text(mapped.local_code)
@@ -81,7 +105,7 @@ export async function parseVaziosManifestBuffer(buffer: ArrayBuffer, depots?: re
     if (!localCode) rowErrors.add(rowNumber, `Container ${containerNumber}: local de origem obrigatório.`, row)
     else if (depots) validateLocalAgainstDepots(rowNumber, containerNumber, localCode, handInDate, handOutDate, depots, rowErrors, row)
     bookings.push({
-      rowNumber, container_number: containerNumber, container_type: text(mapped.container_type), local_code: localCode,
+      rowNumber, container_number: containerNumber, container_type: text(mapped.container_type)?.toUpperCase() ?? null, local_code: localCode,
       condition, hand_in_date: handInDate,
       hand_out_date: handOutDate, movement_date: movementDate,
     })
@@ -196,7 +220,8 @@ function dateFromParts(year: number, month: number, day: number): string | null 
     month < 1 || month > 12 || day < 1 ||
     date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day
   ) return null
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return IsoDateSchema.safeParse(isoDate).success ? isoDate : null
 }
 
 function formatRowErrors(rowErrors: readonly RowError[]): string {

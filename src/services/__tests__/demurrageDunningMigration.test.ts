@@ -1,10 +1,11 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 const routingSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/010_contact_routing_and_dunning_eligibility.sql'), 'utf8')
 const schemaSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/001_initial_schema.sql'), 'utf8')
+const claimRecoverySql = resolve(process.cwd(), 'supabase/migrations/041_dunning_partial_claim_recovery.sql')
 
 describe('migration 010 — roteamento de caixas e elegibilidade da régua', () => {
   it('repara fallback somente pelo principal, sem contato arbitrário', () => {
@@ -45,6 +46,15 @@ describe('migration 010 — roteamento de caixas e elegibilidade da régua', () 
   })
 })
 
+describe('migration 041 — recuperação segura de claims parciais', () => {
+	it('mantém parcial como estado terminal da comunicação para não duplicar destinatários', () => {
+		const migration = readFileSync(claimRecoverySql, 'utf8')
+
+		expect(migration).toContain("comm.status IN ('enviado', 'simulado', 'parcial')")
+		expect(migration).toContain('claim_demurrage_dunning_candidates')
+	})
+})
+
 // Opt-in: exerce os contratos contra o Postgres descartável depois do replay
 // local (`LOCAL_PG_INTEGRATION=1`). O contrato textual acima continua útil para
 // a suíte padrão; este cenário pega regressões de elegibilidade, starvation e
@@ -59,6 +69,7 @@ const localVesselId = 99010604
 const localVoyageId = 99010605
 const localCustomerIds = [localEligibleCustomerId, localBouncedCustomerId]
 const localStarvationIds = Array.from({ length: 60 }, (_, index) => 99110600 + index + 1)
+const localClaimedInvoiceIds = [99010611, 99010612, ...localStarvationIds]
 
 function localPsql(sql: string): string {
   return execFileSync('psql', [
@@ -147,6 +158,13 @@ describeLocal('migration 010 — comportamento efetivo da elegibilidade no Postg
     `)
   })
 
+  afterEach(() => {
+    localPsql(`
+      DELETE FROM public.demurrage_dunning_claims
+      WHERE demurrage_invoice_id = ANY(ARRAY[${localClaimedInvoiceIds.join(',')}]::bigint[]);
+    `)
+  })
+
   afterAll(() => {
     localPsql(`
       DELETE FROM public.demurrage_dunning_claims WHERE demurrage_invoice_id = ANY(ARRAY[${localStarvationIds.join(',')}]::bigint[]);
@@ -219,6 +237,10 @@ describeLocal('migration 010 — comportamento efetivo da elegibilidade no Postg
 
   it('pausa libera sem consumir a régua; claim é server-only', () => {
     const pausedInvoiceId = localStarvationIds[localStarvationIds.length - 1]!
+    const initiallyClaimed = JSON.parse(localPsql(`
+      SELECT public.claim_demurrage_dunning_candidates('2026-09-10T12:00:00Z'::timestamptz, 50);
+    `)) as Array<{ invoice_id: number; attempt_discriminator: number }>
+    expect(initiallyClaimed).toContainEqual(expect.objectContaining({ invoice_id: pausedInvoiceId, attempt_discriminator: 1 }))
     expect(localPsql(`SELECT public.release_demurrage_dunning_claim(${pausedInvoiceId}, 1);`)).toBe('t')
     const reused = JSON.parse(localPsql(`
       SELECT public.claim_demurrage_dunning_candidates('2026-09-10T12:00:00Z'::timestamptz, 50);

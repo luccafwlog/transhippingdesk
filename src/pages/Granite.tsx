@@ -13,6 +13,7 @@ import { TruncationNote } from '../components/shared/TruncationNote'
 import { CeMercanteImportModal } from '../components/shared/CeMercanteImportModal'
 import { VoyageCombobox } from '../components/shared/VoyageCombobox'
 import { useAuth } from '../hooks/useAuth'
+import { useCancellableFileRead } from '../hooks/useCancellableFileRead'
 import { PAGE_SIZES, usePageFilters } from '../hooks/usePageFilters'
 import {
   parseGraniteManifestFile,
@@ -24,6 +25,10 @@ import { listGraniteBls, calculateGraniteBlCharges } from '../services/graniteCh
 import { describeActiveFilters, describeEmptyState, formatResultCount } from '../lib/operationalState'
 import { canonicalizeDocument, normalizeCnpj } from '../lib/cnpj'
 import { loadCustomerMaps, findMatchedCustomer, resolveCustomerLink } from '../services/customerReconciliation'
+import { rowErrorsToImportIssues } from '../services/importValidation'
+import { ImportIssuesPanel } from '../components/shared/ImportIssuesPanel'
+import { ImportReadProgress } from '../components/shared/ImportReadProgress'
+import { ImportResultPanel } from '../components/shared/ImportResultPanel'
 
 type Filters = {
   search: string
@@ -52,13 +57,12 @@ export function Granite() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [ceMercanteOpen, setCeMercanteOpen] = useState(false)
   const [voyageId, setVoyageId] = useState(initialVoyageId)
-  const [file, setFile] = useState<File | null>(null)
-  const [manifest, setManifest] = useState<ParsedGraniteManifest | null>(null)
-  const [parsing, setParsing] = useState(false)
+  const { file, preview: manifest, parsing, progress, readFile, cancel: cancelReading, updatePreview } = useCancellableFileRead<ParsedGraniteManifest>(parseGraniteManifestFile)
   const [submitting, setSubmitting] = useState(false)
   // Overrides de CNPJ feitos inline no preview
   const [cnpjOverrides, setCnpjOverrides] = useState<Record<number, string>>({})
   const [chargeBlId, setChargeBlId] = useState<string | null>(null)
+  const [resultBlId, setResultBlId] = useState<string | null>(null)
   const [chargeLines, setChargeLines] = useState<Array<{ description: string | null; charge_type: string | null; quantity: number | null; unit_value: number | null; subtotal: number | null; currency: string | null }>>([])
 
   const { data, isLoading, error } = useQuery({
@@ -70,18 +74,13 @@ export function Granite() {
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null
-    setFile(nextFile)
-    setManifest(null)
     setCnpjOverrides({})
-    if (!nextFile) return
-    setParsing(true)
     try {
-      setManifest(await parseGraniteManifestFile(nextFile))
+      const parsed = await readFile(nextFile)
+      if (!parsed) return
       showToast('Preview carregado.', 'success')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao ler arquivo.', 'error')
-    } finally {
-      setParsing(false)
     }
   }
 
@@ -95,23 +94,25 @@ export function Granite() {
     const match = findMatchedCustomer({ cnpjCpf: cnpj, consignee: bl.shipper_name ?? '' }, maps)
     const link = resolveCustomerLink(match)
     if (link.status !== 'missing_customer') {
-      const updated = manifest.bls.map((b, i) =>
-        i === rowIndex
-          ? {
-              ...b,
-              shipper_cnpj: cnpj,
-              clientId: link.customerId,
-              suggestedClientId: link.suggestedCustomerId,
-              reconciliationStatus: link.status === 'matched_document' ? 'matched' as ReconciliationStatus : 'suggested_name' as ReconciliationStatus,
-            }
-          : b,
-      )
-      setManifest({ ...manifest, bls: updated })
+      updatePreview((currentManifest) => ({
+        ...currentManifest,
+        bls: currentManifest.bls.map((b, i) =>
+          i === rowIndex
+            ? {
+                ...b,
+                shipper_cnpj: cnpj,
+                clientId: link.customerId,
+                suggestedClientId: link.suggestedCustomerId,
+                reconciliationStatus: link.status === 'matched_document' ? 'matched' as ReconciliationStatus : 'suggested_name' as ReconciliationStatus,
+              }
+            : b,
+        ),
+      }))
     }
   }
 
   async function handleImport() {
-    if (!manifest || !voyageId || !user) return
+    if (!manifest || manifest.rowErrors.length > 0 || !voyageId || !user) return
     setSubmitting(true)
     try {
       const { pendingCount } = await importGraniteManifest({
@@ -128,16 +129,19 @@ export function Granite() {
         ? `Importado com ${manifest.bls.length} B/Ls. ${pendingCount} com reconciliação pendente.`
         : `${manifest.bls.length} B/Ls importados com sucesso.`
       showToast(msg, 'success')
-      setUploadOpen(false)
+      closeUpload()
       setVoyageId('')
-      setFile(null)
-      setManifest(null)
       setCnpjOverrides({})
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Falha ao importar.', 'error')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function closeUpload() {
+    cancelReading()
+    setUploadOpen(false)
   }
 
   async function handleCalculateCharges(blId: string) {
@@ -298,12 +302,20 @@ export function Granite() {
                   </td>
                   <td className="px-4 py-3">
                     {canWrite ? (
-                      <button
-                        className="app-table__action mr-2"
-                        onClick={() => handleCalculateCharges(bl.id)}
-                      >
-                        Calcular taxas
-                      </button>
+                      <>
+                        <button
+                          className="app-table__action mr-2"
+                          onClick={() => handleCalculateCharges(bl.id)}
+                        >
+                          Calcular taxas
+                        </button>
+                        <button
+                          className="app-table__action"
+                          onClick={() => setResultBlId(bl.id)}
+                        >
+                          Ver resultado
+                        </button>
+                      </>
                     ) : null}
                   </td>
                 </tr>
@@ -369,8 +381,15 @@ export function Granite() {
         </div>
       </Modal>
 
+      <Modal open={resultBlId !== null} onClose={() => setResultBlId(null)} title="Resultado persistido do B/L">
+        <ImportResultPanel entityId={resultBlId} alwaysVisible />
+        <div className="app-modal__actions">
+          <Button variant="ghost" onClick={() => setResultBlId(null)}>Fechar</Button>
+        </div>
+      </Modal>
+
       {/* Modal de importação */}
-      <Modal open={uploadOpen && canWrite} onClose={() => setUploadOpen(false)} title="Importar Planilha COSCO — Granito">
+      <Modal open={uploadOpen && canWrite} onClose={closeUpload} title="Importar Planilha COSCO — Granito">
         <div className="grid gap-5">
           <div className="app-panel app-panel--padded text-sm">
             <div className="app-panel__title">Formato esperado</div>
@@ -391,7 +410,7 @@ export function Granite() {
             <Input accept=".xlsx,.xls" type="file" onChange={handleFile} />
           </Field>
 
-          {parsing ? <div className="app-panel__meta">Processando arquivo...</div> : null}
+          {parsing ? <ImportReadProgress progress={progress} /> : null}
 
           {manifest ? (
             <div className="grid gap-4">
@@ -451,19 +470,13 @@ export function Granite() {
               </div>
               <TruncationNote shown={50} total={manifest.bls.length} noun="B/L" nounPlural="B/Ls" />
 
-              {manifest.rowErrors.length ? (
-                <div className="max-h-32 overflow-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                  {manifest.rowErrors.slice(0, 10).map((e, i) => (
-                    <div key={i}>Linha {e.row}: {e.message}</div>
-                  ))}
-                </div>
-              ) : null}
+              <ImportIssuesPanel issues={rowErrorsToImportIssues(manifest.rowErrors)} filename="granito-issues.csv" />
             </div>
           ) : null}
 
           <div className="app-modal__actions">
-            <Button variant="secondary" onClick={() => setUploadOpen(false)}>Cancelar</Button>
-            <Button disabled={!manifest || !voyageId || !user} loading={submitting} onClick={handleImport}>
+            <Button variant="secondary" disabled={submitting} onClick={parsing ? cancelReading : closeUpload}>{parsing ? 'Cancelar leitura' : 'Cancelar'}</Button>
+            <Button disabled={!manifest || manifest.rowErrors.length > 0 || !voyageId || !user} loading={submitting} onClick={handleImport}>
               Confirmar importação
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { jsonToBuffer } from './testWorkbook'
+import { aoaToBuffer, jsonToBuffer } from './testWorkbook'
 
 vi.mock('../customerReconciliation', () => ({
   loadCustomerMaps: vi.fn(() => Promise.resolve({})),
@@ -30,6 +30,28 @@ it('US-077: parseia a planilha COSCO mapeando colunas e reconciliando CNPJ', asy
     reconciliationStatus: 'not_found',
   })
   expect(parsed.vesselVoyage).toBe('NAVIO/14')
+})
+
+it('S03: rejeita o manifesto COSCO quando o marcador estrutural Real Weight está ausente', async () => {
+  await expect(parseGraniteManifestFile(
+    cosco([{ BL: 'BL-G11', 'Navio/Viagem': 'NAVIO/14', 'Shipper': 'Granito SA' }]),
+  )).rejects.toThrow(/Real Weight/)
+})
+
+it('S03: localiza o cabeçalho COSCO após o preâmbulo e preserva a linha de origem', async () => {
+  const file = new File([
+    aoaToBuffer([
+      ['COSCO CARGO REPORT'],
+      ['Gerado em 09/09/2026'],
+      ['BL', 'Navio/Viagem', 'Real Weight'],
+      ['BL-G12', 'NAVIO/14', 5000],
+    ]),
+  ], 'cosco.xlsx')
+
+  const parsed = await parseGraniteManifestFile(file)
+
+  expect(parsed.rowErrors).toEqual([])
+  expect(parsed.bls[0]).toMatchObject({ bl_number: 'BL-G12', rowNumber: 4, real_weight_kg: 5000 })
 })
 
 it('US-077: registra erro de linha quando o Real Weight esta ausente ou zero', async () => {
@@ -74,4 +96,28 @@ it('ADR 2026-07-31 (Task 6): sem L/PORT na planilha, loading_port fica null (fal
 
   expect(parsed.bls).toHaveLength(1)
   expect(parsed.bls[0].loading_port).toBeNull()
+})
+
+it('S03: rejeita data de prontidao com calendario impossivel, sem descartar o B/L', async () => {
+  const parsed = await parseGraniteManifestFile(
+    cosco([{ BL: 'BL-G9', 'Navio/Viagem': 'NAVIO/14', 'Real Weight': 5000, 'Prontidao de Carga': '31/02/2026' }]),
+  )
+
+  expect(parsed.bls).toHaveLength(1)
+  expect(parsed.bls[0]?.cargo_readiness_date).toBeNull()
+  expect(parsed.rowErrors).toEqual([
+    expect.objectContaining({ row: 2, message: expect.stringContaining('Cargo Readiness') }),
+  ])
+})
+
+it('S03: normaliza data valida e bloqueia porto fora do contrato', async () => {
+  const parsed = await parseGraniteManifestFile(
+    cosco([{ BL: 'BL-G10', 'Navio/Viagem': 'NAVIO/14', 'Real Weight': 5000, 'Prontidao de Carga': '29/02/2024', 'D/PORT': 'porto inexistente' }]),
+  )
+
+  expect(parsed.bls[0]?.cargo_readiness_date).toBe('2024-02-29')
+  expect(parsed.bls[0]?.discharge_port).toBeNull()
+  expect(parsed.rowErrors).toEqual([
+    expect.objectContaining({ row: 2, message: expect.stringContaining('D/PORT') }),
+  ])
 })

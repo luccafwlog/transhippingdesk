@@ -106,7 +106,7 @@ it('US-223: confirmar a importacao conecta o importador ao voyageId travado', as
   fireEvent.click(screen.getByRole('button', { name: /Manifesto BB/ }))
 
   const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
-  const file = new File(['conteudo'], 'manifesto-bb.xlsx', { type: 'application/vnd.ms-excel' })
+  const file = new File(['BL;Cidade\nBL-1;Vitória'], 'manifesto-bb.csv', { type: 'text/csv' })
   fireEvent.change(fileInput, { target: { files: [file] } })
 
   // Aguarda o parser rodar e o botao Confirmar habilitar (prévia válida).
@@ -120,8 +120,27 @@ it('US-223: confirmar a importacao conecta o importador ao voyageId travado', as
     expect(mocks.importBreakbulkManifest).toHaveBeenCalledTimes(1)
   })
   expect(mocks.importBreakbulkManifest).toHaveBeenCalledWith(
-    expect.objectContaining({ voyageId: 7, filename: 'manifesto-bb.xlsx', uploadedBy: 'user-1' }),
+    expect.objectContaining({ voyageId: 7, filename: 'manifesto-bb.csv', uploadedBy: 'user-1' }),
   )
+})
+
+it('bloqueia manifesto BB quando a previa contem erro de linha', async () => {
+  mocks.parseBreakbulkManifestFile.mockResolvedValue({
+    bls: [{ id: 'BL-1' }],
+    rowErrors: [{ row: 2, message: 'Peso invalido', raw: {} }],
+  })
+
+  const { container } = render(
+    <VoyageImportActions voyageId={7} voyageLabel="GREEN SANTOS / 14N" userId="user-1" types={['bb']} />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: /Manifesto BB/ }))
+  fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+    target: { files: [new File(['BL;CE\nBL-1;CE-1'], 'manifesto-bb.csv')] },
+  })
+
+  await waitFor(() => expect(mocks.parseBreakbulkManifestFile).toHaveBeenCalledTimes(1))
+  expect((screen.getByRole('button', { name: 'Confirmar' }) as HTMLButtonElement).disabled).toBe(true)
+  expect(mocks.importBreakbulkManifest).not.toHaveBeenCalled()
 })
 
 it('bloqueia staging quando a prévia do Baplie contém issue bloqueante', async () => {

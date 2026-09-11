@@ -1,10 +1,8 @@
 import { assertUploadFile } from '../lib/fileGuard'
-import { reportBestEffortFailure } from '../lib/telemetry'
 import { asString, chunkArray, onlyDigits } from '../lib/utils'
 import { supabase } from './supabase'
 import type { CeMercanteEdiRow } from './ceMercanteEdiParser'
-import { maybeAutoBillAfterCeMercante } from './reviewBillingAutomation'
-import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { matchHeaders, readSheet, type HeaderSpec, type SheetRow } from './importCore'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading', 'numero bl', 'n bl', 'no bl', 'no. bl'],
@@ -205,11 +203,6 @@ export async function importCeMercanteRows(
         inserted += 1
         break
     }
-    if (target !== 'granite') {
-      await maybeAutoBillAfterCeMercante(row.bl_id, options.changedBy).catch((error: unknown) => {
-        reportBestEffortFailure('faturar automaticamente apos vinculo de CE Mercante', error, { blId: row.bl_id })
-      })
-    }
   }
 
   return {
@@ -263,11 +256,6 @@ export async function importCeMercanteEdi(
   } | null
 
   if (result?.ok) {
-    for (const blId of new Set(rows.map((row) => row.bl_id))) {
-      await maybeAutoBillAfterCeMercante(blId, options.changedBy).catch((error: unknown) => {
-        reportBestEffortFailure('faturar automaticamente apos vinculo de CE Mercante (EDI)', error, { blId })
-      })
-    }
     return {
       ok: true,
       batchId: Number(result.batch_id ?? 0),
@@ -284,14 +272,14 @@ export async function importCeMercanteEdi(
   }
 }
 
-function parseRows(rows: Record<string, unknown>[]): ParsedCeMercanteFile {
+function parseRows(rows: SheetRow[]): ParsedCeMercanteFile {
   const rowErrors: ParsedCeMercanteFile['rowErrors'] = []
   const validRows: CeMercanteRow[] = []
   const seenBls = new Set<string>()
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const mapped = mapRow(row)
-    const rowNumber = index + 2
+    const rowNumber = row.rowNumber
     const bl_id = normalizeBlId(mapped.bl_id)
     const ce_mercante = normalizeCeMercante(mapped.ce_mercante)
 

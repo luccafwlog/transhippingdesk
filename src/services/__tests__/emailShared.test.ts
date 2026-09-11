@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { sendEmail } from '../../../supabase/functions/_shared/email.ts'
+import { recipientKey, sendEmail } from '../../../supabase/functions/_shared/email.ts'
 
 const baseInput = {
   kind: 'convite',
@@ -21,6 +21,16 @@ afterEach(() => {
 })
 
 describe('sendEmail', () => {
+  it('gera uma identidade estável e não reversível para cada destinatário', async () => {
+    const first = await recipientKey(' Cliente@Example.com ')
+    const equivalent = await recipientKey('cliente@example.com')
+    const different = await recipientKey('outro@example.com')
+
+    expect(first).toBe(equivalent)
+    expect(first).not.toBe(different)
+    expect(first).toMatch(/^sha256:[0-9a-f]{64}$/)
+  })
+
   it.each([429, 500, 502, 503, 504])('repete status transitório %s com backoff', async (status) => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(null, { status }))
@@ -87,15 +97,33 @@ describe('sendEmail', () => {
     expect(baseInput.updateAttempt).toHaveBeenCalledWith(7, expect.objectContaining({ providerMessageId: 'provider-retry' }))
   })
 
-  it('retenta uma tentativa aceita sem provider_message_id', async () => {
+	it('retenta uma tentativa aceita sem provider_message_id', async () => {
     const recordAttempt = vi.fn(async () => ({ id: 7, status: 'aceito' as const, providerMessageId: null, existing: true }))
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'provider-after-crash' }), { status: 200 }))
 
     const result = await sendEmail({ ...baseInput, recordAttempt, fetchImpl: fetchMock })
 
     expect(result).toEqual({ ok: true })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+	})
+
+	it('reusa no provider a chave histórica quando a identidade normalizada encontra uma tentativa legada', async () => {
+		const recordAttempt = vi.fn(async () => ({
+			id: 7,
+			status: 'falha_transitoria' as const,
+			providerMessageId: null,
+			existing: true,
+			idempotencyKey: 'demurrage:1:2:sha(raw-email)',
+		}))
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'provider-legacy' }), { status: 200 }))
+
+		const result = await sendEmail({ ...baseInput, recordAttempt, fetchImpl: fetchMock })
+
+		expect(result).toEqual({ ok: true })
+		expect(fetchMock).toHaveBeenCalledWith('https://api.resend.com/emails', expect.objectContaining({
+			headers: expect.objectContaining({ 'Idempotency-Key': 'demurrage:1:2:sha(raw-email)' }),
+		}))
+	})
 
   it('aborta antes de registrar a tentativa quando o endereço está suprimido', async () => {
     const checkSuppression = vi.fn(async () => ({ suppressed: true, reason: 'bounce_permanente' }))

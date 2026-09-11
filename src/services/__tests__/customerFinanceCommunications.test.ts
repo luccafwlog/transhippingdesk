@@ -40,7 +40,7 @@ const ready = {
 
 function configureQueries(
   history: unknown[] = [],
-  options: { directInvoiceRows?: unknown[]; ledgerInvoiceRows?: unknown[]; secondPod?: string } = {},
+  options: { directInvoiceRows?: unknown[]; ledgerInvoiceRows?: unknown[]; secondPod?: string; contacts?: unknown[]; boxLinks?: unknown[] } = {},
 ) {
   mockRpc.mockResolvedValue({ data: ready, error: null })
   mockFrom.mockImplementation((table: string) => {
@@ -62,10 +62,10 @@ function configureQueries(
       { bl_id: 'BL-2', subtotal_brl: 50, invoice: { id: 11, status: 'paid' } },
     ])
     if (table === 'invoice_receivable_links') return queryResult(options.ledgerInvoiceRows ?? [])
-    if (table === 'customer_contacts') return queryResult([{
+    if (table === 'customer_contacts') return queryResult(options.contacts ?? [{
       id: 1, customer_id: 99, name: 'Contato', email: 'financeiro@example.com', phone: null, purpose: 'faturamento', is_primary: true, created_at: null,
     }])
-    if (table === 'customer_contact_box_links') return queryResult([{ contact_id: 1, box_code: 'documentacao_operacao' }])
+    if (table === 'customer_contact_box_links') return queryResult(options.boxLinks ?? [{ contact_id: 1, box_code: 'documentacao_operacao' }])
     if (table === 'customer_communication_suppressions' || table === 'portal_suppressed_emails') return queryResult([])
     throw new Error(`tabela inesperada: ${table}`)
   })
@@ -155,5 +155,65 @@ describe('automação de comunicados financeiros', () => {
       blIds: ['BL-1', 'BL-2'],
     }))
     expect(mockDispatch.mock.calls[0]?.[0].text.replace(/\u00a0/g, ' ')).toContain('Total da viagem: R$ 225,00')
+  })
+
+  it('representa envio parcial quando destinatários do mesmo comunicado têm resultados diferentes', async () => {
+    configureQueries([], {
+      contacts: [
+        { id: 1, customer_id: 99, name: 'Financeiro', email: 'financeiro@example.com', phone: null, purpose: 'faturamento', is_primary: true, created_at: null },
+        { id: 2, customer_id: 99, name: 'Operação', email: 'operacao@example.com', phone: null, purpose: 'operacao', is_primary: false, created_at: null },
+      ],
+      boxLinks: [
+        { contact_id: 1, box_code: 'documentacao_operacao' },
+        { contact_id: 2, box_code: 'documentacao_operacao' },
+      ],
+    })
+    mockDispatch
+      .mockResolvedValueOnce({ communicationId: 12, status: 'enviado' })
+      .mockResolvedValueOnce({ communicationId: 12, status: 'falha' })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('parcial')
+    expect(result.sentCount).toBe(1)
+  })
+
+  it('preserva parcial quando um resultado já parcial acompanha um envio', async () => {
+    configureQueries([], {
+      contacts: [
+        { id: 1, customer_id: 99, name: 'Financeiro', email: 'financeiro@example.com', phone: null, purpose: 'faturamento', is_primary: true, created_at: null },
+        { id: 2, customer_id: 99, name: 'Operação', email: 'operacao@example.com', phone: null, purpose: 'operacao', is_primary: false, created_at: null },
+      ],
+      boxLinks: [
+        { contact_id: 1, box_code: 'documentacao_operacao' },
+        { contact_id: 2, box_code: 'documentacao_operacao' },
+      ],
+    })
+    mockDispatch
+      .mockResolvedValueOnce({ communicationId: 12, status: 'enviado' })
+      .mockResolvedValueOnce({ communicationId: 12, status: 'parcial' })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('parcial')
+  })
+
+  it('retorna parcial quando o backend não tem nenhum destinatário totalmente concluído', async () => {
+    configureQueries()
+    mockDispatch.mockResolvedValue({ communicationId: 12, status: 'parcial' })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('parcial')
+  })
+
+  it('retorna falha quando todos os destinatários falham', async () => {
+    configureQueries()
+    mockDispatch.mockResolvedValue({ communicationId: 12, status: 'falha' })
+
+    const result = await dispatchCeMercanteTaxasCommunication(7, 99)
+
+    expect(result.status).toBe('falha')
+    expect(result.reason).toBe('Falha no envio de todos os destinatários.')
   })
 })

@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type { VoyageFormValues } from './voyageForm'
-import { canonicalizeVesselName } from '../lib/vesselAlias'
+import { canonicalizeVesselName, normalizeVesselImo } from '../lib/vesselAlias'
 
 export async function createVoyage(form: VoyageFormValues, changedBy: string | null) {
   const carrierId = await getOrCreateCarrier(form.carrierName, form.carrierScac)
@@ -153,24 +153,20 @@ async function getOrCreateCarrier(name: string, scac: string) {
 }
 
 async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
-  const normalizedImo = imo.trim() || null
+  const normalizedImo = normalizeVesselImo(imo)
   const canonical = canonicalizeVesselName(name.trim())
   // IMO prevalece sobre grafia: mesmo IMO, grafias distintas são o mesmo navio.
   if (normalizedImo) {
-    const { data: byImo, error: byImoError } = await supabase
-      .from('vessels')
-      .select('id, imo, name, carrier_id')
-      .eq('imo', normalizedImo)
-      .limit(2)
-    if (byImoError) throw byImoError
+    const byImo = await findVesselsByNormalizedImo(normalizedImo)
     if (byImo?.length > 1) {
       throw new Error(`Navio com IMO ${normalizedImo} ambíguo: mais de um cadastro. Corrija antes de importar.`)
     }
-    if (byImo?.[0] && byImo[0].imo === normalizedImo) {
+    if (byImo?.[0] && normalizeVesselImo(byImo[0].imo) === normalizedImo) {
       const vessel = byImo[0]
-      const updates: { name?: string; carrier_id?: number } = {}
+      const updates: { name?: string; imo?: string; carrier_id?: number } = {}
       if (vessel.name && vessel.name !== canonical) updates.name = canonical
       if (vessel.carrier_id !== carrierId) updates.carrier_id = carrierId
+      if (vessel.imo !== normalizedImo) updates.imo = normalizedImo
       if (Object.keys(updates).length > 0) {
         const { error: updateError } = await supabase.from('vessels').update(updates).eq('id', vessel.id)
         if (updateError) throw updateError
@@ -192,11 +188,12 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
   if (existing?.[0]) {
     const vessel = existing[0]
     // IMOs distintos nunca se fundem: nome igual com IMO diferente é conflito explícito.
-    if (normalizedImo && vessel.imo && vessel.imo !== normalizedImo) {
-      throw new Error(`Navio ${canonical} com IMO conflitante (${vessel.imo} vs ${normalizedImo}). Corrija antes de importar.`)
+    const existingImo = normalizeVesselImo(vessel.imo)
+    if (normalizedImo && existingImo && existingImo !== normalizedImo) {
+      throw new Error(`Navio ${canonical} com IMO conflitante (${existingImo} vs ${normalizedImo}). Corrija antes de importar.`)
     }
     const updates: { imo?: string; carrier_id?: number } = {}
-    if (normalizedImo && vessel.imo !== normalizedImo) updates.imo = normalizedImo
+    if (normalizedImo && existingImo !== normalizedImo) updates.imo = normalizedImo
     if (vessel.carrier_id !== carrierId) updates.carrier_id = carrierId
 
     if (Object.keys(updates).length > 0) {
@@ -215,6 +212,31 @@ async function getOrCreateVessel(name: string, imo: string, carrierId: number) {
 
   if (createError || !created) throw createError
   return created.id
+}
+
+async function findVesselsByNormalizedImo(normalizedImo: string) {
+  const exact = await supabase
+    .from('vessels')
+    .select('id, imo, name, carrier_id')
+    .eq('imo', normalizedImo)
+    .limit(2)
+  if (exact.error) throw exact.error
+
+  const exactMatches = (exact.data ?? []).filter((vessel) => normalizeVesselImo(vessel.imo) === normalizedImo)
+  if ((exact.data ?? []).length > 0 || !/^\d{7}$/.test(normalizedImo)) return exactMatches
+
+  // Cadastros anteriores podem guardar "IMO: 1234567". O filtro amplo só é
+  // usado para um IMO numérico válido e a igualdade canônica é revalidada em
+  // memória, evitando aceitar uma coincidência parcial ou um valor inválido.
+  // ponytail: consulta no máximo 20 candidatos legados; upgrade path =
+  // canonicalizar o legado e criar índice/expressão ou RPC de igualdade.
+  const legacy = await supabase
+    .from('vessels')
+    .select('id, imo, name, carrier_id')
+    .ilike('imo', `%${normalizedImo}%`)
+    .limit(20)
+  if (legacy.error) throw legacy.error
+  return (legacy.data ?? []).filter((vessel) => normalizeVesselImo(vessel.imo) === normalizedImo)
 }
 
 function makeVoyageAuditRow(
@@ -340,8 +362,9 @@ export async function findVoyageByNumberAndVessel(
   vesselName: string,
 ): Promise<number | null> {
   const number = voyageNumber.trim().toUpperCase()
-  const imo = vesselImo.trim()
+  const imo = normalizeVesselImo(vesselImo)
   const canonical = canonicalizeVesselName(vesselName)
+  if (!number || !canonical) return null
   const numberPattern = number.replace(/[\\%_]/g, (char) => `\\${char}`)
 
   const { data, error } = await supabase
@@ -351,20 +374,38 @@ export async function findVoyageByNumberAndVessel(
     .overrideTypes<Array<{ id: number; voyage_number: string; vessel: { name: string | null; imo: string | null } | null }>, { merge: false }>()
   if (error) throw error
 
-  const candidates = (data ?? []).filter((row) => {
+  const voyageCandidates = (data ?? []).filter((row) => {
     if (row.voyage_number.trim().toUpperCase() !== number) return false
-    const rowImo = (row.vessel?.imo ?? '').trim()
-    const rowCanonical = canonicalizeVesselName(row.vessel?.name ?? '')
-    if (imo) {
-      // IMO informado: só casa com mesmo IMO; IMOs distintos nunca fundem.
-      // Candidato sem IMO com mesmo nome canônico pode ser o mesmo navio ainda sem IMO.
-      if (rowImo) return rowImo === imo
-      return rowCanonical === canonical
-    }
-    return rowCanonical === canonical
+    return true
   })
-  if (candidates.length > 1) {
-    throw new Error(`Viagem ${number} / ${canonical} ambígua: ${candidates.length} candidatas. Informe o IMO.`)
+
+  if (imo) {
+    const exactImoCandidates = voyageCandidates.filter((row) => normalizeVesselImo(row.vessel?.imo) === imo)
+    if (exactImoCandidates.length > 1) {
+      throw new Error(`Viagem ${number} / IMO ${imo} ambígua: ${exactImoCandidates.length} candidatas.`)
+    }
+    // O identificador forte vence qualquer grafia, inclusive um cadastro
+    // nominal sem IMO. Isso evita que o fallback produza ambiguidade falsa.
+    if (exactImoCandidates.length === 1) return exactImoCandidates[0].id
+
+    const conflictingImo = voyageCandidates.some((row) => {
+      const rowImo = normalizeVesselImo(row.vessel?.imo)
+      return rowImo !== null && rowImo !== imo && canonicalizeVesselName(row.vessel?.name ?? '') === canonical
+    })
+    if (conflictingImo) return null
+
+    const nameCandidates = voyageCandidates.filter((row) =>
+      !normalizeVesselImo(row.vessel?.imo) && canonicalizeVesselName(row.vessel?.name ?? '') === canonical,
+    )
+    if (nameCandidates.length > 1) {
+      throw new Error(`Viagem ${number} / ${canonical} ambígua: ${nameCandidates.length} candidatas. Informe o IMO.`)
+    }
+    return nameCandidates[0]?.id ?? null
   }
-  return candidates[0]?.id ?? null
+
+  const nameCandidates = voyageCandidates.filter((row) => canonicalizeVesselName(row.vessel?.name ?? '') === canonical)
+  if (nameCandidates.length > 1) {
+    throw new Error(`Viagem ${number} / ${canonical} ambígua: ${nameCandidates.length} candidatas. Informe o IMO.`)
+  }
+  return nameCandidates[0]?.id ?? null
 }

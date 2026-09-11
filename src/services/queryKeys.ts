@@ -59,6 +59,10 @@ export const queryKeys = {
   voyages: {
     all: () => ['voyages'] as const,
     options: () => ['voyage-options'] as const,
+    detail: (voyageId?: number | null) =>
+      voyageId === undefined || voyageId === null
+        ? (['voyage-detail'] as const)
+        : (['voyage-detail', Number(voyageId)] as const),
     billingStatus: (voyageIds: number[]) => ['voyage-billing-status', voyageIds] as const,
     polSchedules: (entityIds: string[]) => ['voyage-pol-schedules', entityIds] as const,
     podSchedules: (voyageIds: number[]) => ['voyage-pod-schedules', voyageIds] as const,
@@ -130,6 +134,10 @@ export const queryKeys = {
       filters === undefined ? (['customer-demurrage-agreements'] as const) : (['customer-demurrage-agreements', filters] as const),
     invoices: (filters?: unknown) => (filters === undefined ? (['demurrage-invoices'] as const) : (['demurrage-invoices', filters] as const)),
     dunning: (invoiceIds: number[]) => ['demurrage-invoices', 'dunning', invoiceIds.slice().sort((a, b) => a - b)] as const,
+  },
+  importEffects: {
+    all: () => ['import-effects'] as const,
+    byEntity: (entityId: string) => ['import-effects', entityId] as const,
   },
   alerts: {
     all: () => ['alerts'] as const,

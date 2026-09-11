@@ -1,6 +1,6 @@
 # Chegadas e Saídas
 
-> **Status:** ativo · **Atualizado:** 2026-07-09 · **Rota interna:** `/chegadas-saidas` · **Consumidor:** widget do Dashboard do Portal
+> **Status:** ativo · **Atualizado:** 2026-09-10 · **Rota interna:** `/chegadas-saidas` · **Consumidor:** widget do Dashboard do Portal
 
 ## Propósito e escopo
 
@@ -29,9 +29,13 @@ Vitória e Pecém.
 
 O modal pede navio, VOY, IMO e uma data ISO por lane. Checkbox "não escala"
 deixa a lane sem data e, portanto, sem schedule. Ao salvar,
-`createOrAttachVoyageFromSchedule` deduplica por VOY + IMO (fallback nome),
-cria ou anexa a viagem, liga `show_on_portal` e grava somente ETD de POL e ETA
-de POD. ATA, ATD, RTW, CE status, escala e vínculo não são sobrescritos.
+`createOrAttachVoyageFromSchedule` deduplica por VOY + IMO (fallback nome
+canônico), cria ou anexa a viagem, liga `show_on_portal` e grava somente ETD de
+POL e ETA de POD. O IMO exato prevalece sobre a grafia e um IMO distinto nunca
+é fundido; sem IMO, mais de uma candidata nominal produz conflito explícito.
+Aliases de armador aceitam pontuação e designações como `M/V` sem tratar
+prefixos maiores, como `CSCL`, como `CS`. ATA, ATD, RTW, CE status, escala e
+vínculo não são sobrescritos.
 
 Na **edição**, apenas as datas da programação são editáveis — navio, VOY e IMO
 são read-only (corrigidos na tela Viagens). Marcar um porto como "não escala"
@@ -46,7 +50,10 @@ operacional continua existindo e só pode ser excluída em `/viagens`.
 O upload em lote baixa um template gerado da mesma constante de lanes. Cada
 linha da planilha (`VESSEL NAME`, `VOY`, `IMO`, lanes ETD/ETA) vira uma chamada
 ao mesmo `createOrAttachVoyageFromSchedule`. Datas aceitas: ISO ou
-`DD/MM/AAAA`; vazio/`X` significa "não escala".
+`DD/MM/AAAA`; vazio/`X` significa "não escala". Antes do parse, o arquivo é
+classificado pelo conteúdo (XLSX/XLS ou CSV), bytes inválidos são recusados sem
+fallback implícito e o diagnóstico do preview informa formato, encoding, BOM e
+tamanho do arquivo.
 
 ### Widget do Portal
 
@@ -96,6 +103,10 @@ lanes e ordena pela menor ETA de POD.
 - `src/pages/__tests__/chegadasSaidasForm.test.ts`
 - `src/pages/__tests__/ChegadasSaidas.behavior.test.tsx`
 - `src/services/__tests__/portalScheduleBulkImport.test.ts`
+- `src/services/__tests__/importText.test.ts`
+- `src/services/__tests__/importCore.test.ts`
+- `src/services/__tests__/voyageIdentityS03.test.ts`
+- `src/lib/__tests__/vesselAliasS03.test.ts`
 - `src/services/__tests__/portalScheduleVoyages.test.ts`
 - `src/services/__tests__/portalShipScheduleMigration.test.ts`
 - `src/components/portal/__tests__/ShipScheduleWidget.test.tsx`
