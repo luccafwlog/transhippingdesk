@@ -98,7 +98,7 @@ export async function parseGraniteManifestFile(file: File): Promise<ParsedGranit
 }
 
 async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGraniteManifest> {
-  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+  const { headers, rows } = await readSheet(buffer, {
     expectedHeaders: GRANITE_HEADER_MARKERS,
   })
   const { missing } = matchHeaders(headers, GRANITE_HEADER_SPEC)
@@ -113,10 +113,8 @@ async function parseGraniteManifestBuffer(buffer: ArrayBuffer): Promise<ParsedGr
   const rowErrors = createRowErrorCollector()
   const seenBlNumbers = new Set<string>()
 
-  rows.forEach((row, idx) => {
-    const rowNumber = typeof (row as { __rowNum__?: unknown }).__rowNum__ === 'number'
-      ? (row as { __rowNum__: number }).__rowNum__ + 1
-      : headerRowIndex + idx + 2
+  rows.forEach((row) => {
+    const rowNumber = row.rowNumber
 
     const mapped = mapRow(row)
 
@@ -287,11 +285,20 @@ function resolveGranitePort(
   return resolved.code
 }
 
+function formatGraniteRowErrors(rowErrors: readonly RowError[]): string {
+  const shown = rowErrors.slice(0, 20).map((error) => `Linha ${error.row}: ${error.message}`)
+  const hidden = rowErrors.length - shown.length
+  if (hidden > 0) shown.push(`... e mais ${hidden} linha${hidden === 1 ? '' : 's'} com divergências.`)
+  return shown.join('\n')
+}
+
 export type ImportGraniteArgs = {
   filename: string
   voyageId: number
   manifest: ParsedGraniteManifest
   uploadedBy: string
+  /** Permite persistir as linhas válidas quando o preview tem erros de linha. */
+  allowRowErrors?: boolean
   /** Permite importar BLs sem client_id resolvido; esses ficarão sem faturamento */
   allowPending?: boolean
 }
@@ -301,8 +308,11 @@ export async function importGraniteManifest({
   voyageId,
   manifest,
   uploadedBy,
+  allowRowErrors = false,
   allowPending = true,
 }: ImportGraniteArgs): Promise<{ manifestId: string; pendingCount: number }> {
+  if (manifest.rowErrors.length && !allowRowErrors) throw new Error(formatGraniteRowErrors(manifest.rowErrors))
+
   const totalWeightKg = manifest.bls.reduce((sum, bl) => sum + bl.real_weight_kg, 0)
   const vesselVoyage = manifest.vesselVoyage || manifest.bls[0]?.vessel_voyage || filename
 

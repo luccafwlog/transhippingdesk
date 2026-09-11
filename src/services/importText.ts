@@ -4,8 +4,6 @@ export type ImportTextEncoding = 'utf-8' | 'utf-8-sig' | 'utf-16le' | 'utf-16be'
 
 export type DecodedImportText = {
   text: string
-  /** Texto decodificado antes da normalização de line endings, sem o BOM. */
-  sourceText: string
   encoding: ImportTextEncoding
   hadBom: boolean
 }
@@ -80,7 +78,7 @@ export function detectImportFormatFromDecoded(decoded: DecodedImportText): Impor
   }
   if (csvCandidates.length === 1) return 'csv'
 
-  if (sample.length >= 2) return 'csv'
+  if (sample.length >= 2 && hasPlausibleSingleColumnHeader(sample[0] ?? '')) return 'csv'
 
   throw new Error('Formato de importação não reconhecido pelo conteúdo do arquivo.')
 }
@@ -124,26 +122,8 @@ export async function inspectImportUpload(
   return inspectImportFile(await file.arrayBuffer(), options)
 }
 
-/** Reconstitui exatamente os bytes aceitos por decodeImportBytes. */
-export function encodeImportText(decoded: DecodedImportText): ArrayBuffer {
-  const payload = encodeText(decoded.sourceText, decoded.encoding)
-  if (!decoded.hadBom) return payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength) as ArrayBuffer
-
-  const bom = decoded.encoding === 'utf-8-sig'
-    ? [0xef, 0xbb, 0xbf]
-    : decoded.encoding === 'utf-16le'
-      ? [0xff, 0xfe]
-      : decoded.encoding === 'utf-16be'
-        ? [0xfe, 0xff]
-        : []
-  const result = new Uint8Array(bom.length + payload.length)
-  result.set(bom)
-  result.set(payload, bom.length)
-  return result.buffer as ArrayBuffer
-}
-
-function makeDecodedText(sourceText: string, encoding: ImportTextEncoding, hadBom: boolean): DecodedImportText {
-  return { sourceText, text: normalizeLineEndings(sourceText), encoding, hadBom }
+function makeDecodedText(text: string, encoding: ImportTextEncoding, hadBom: boolean): DecodedImportText {
+  return { text: normalizeLineEndings(text), encoding, hadBom }
 }
 
 function hasMagic(buffer: ArrayBuffer, magic: readonly number[]): boolean {
@@ -164,9 +144,11 @@ function looksLikeEdifact(text: string): boolean {
   if (/(?:^|['\n])\s*(?:UNB|UNH|UNT|UNZ|TDT|LOC|EQD|MEA|RFF|DGS|DIM)(?=[+;:])/im.test(normalized)) return true
 
   // CE Mercante is a positional EDI variant with M/C/I records instead of
-  // EDIFACT tags. Aceita registros M ou C com espaçamento padrão.
-  if (/(?:^|\n)\s*M\d+\s+\S+/m.test(normalized)) return true
-  if (/(?:^|\n)\s*C\d+\s+\d{10,}\s+\S+/m.test(normalized)) return true
+  // EDIFACT tags. O layout consumido pelo parser usa identificador de
+  // manifesto com 17 dígitos e CE com 15; exigir as posições evita capturar
+  // planilhas comuns que usam códigos como M1/M2.
+  if (/(?:^|\n)\s*M\d{17}\s+\S+/m.test(normalized)) return true
+  if (/(?:^|\n)\s*C\d{17}\s+\d{15}\s+\S+/m.test(normalized)) return true
 
   return false
 }
@@ -254,47 +236,23 @@ function splitCsvLine(line: string, delimiter: string): string[] {
   return fields
 }
 
-const WINDOWS_1252_EXTENDED = [
-  '€', '\u0081', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u008D', 'Ž', '\u008F',
-  '\u0090', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u009D', 'ž', 'Ÿ',
-]
-const WINDOWS_1252_REVERSE = new Map(WINDOWS_1252_EXTENDED.map((char, index) => [char, 0x80 + index]))
+const SINGLE_COLUMN_OPERATIONAL_HEADERS = new Set([
+  'bl', 'b/l', 'booking', 'booking number', 'container', 'container number', 'conteiner',
+  'chassi', 'chassis', 'vin', 'ce', 'ce mercante', 'codigo', 'numero', 'id', 'tipo', 'type',
+  'tara', 'tare', 'peso', 'weight', 'cubagem', 'cbm', 'm3', 'volume', 'local', 'origem',
+  'destino', 'pol', 'pod', 'data', 'date', 'status', 'condicao', 'condition', 'descricao',
+  'description', 'ncm', 'cnpj', 'email',
+])
 
-function encodeText(text: string, encoding: ImportTextEncoding): Uint8Array {
-  if (encoding === 'utf-8' || encoding === 'utf-8-sig') return new TextEncoder().encode(text)
-  if (encoding === 'windows-1252') return encodeWindows1252(text)
-  return encodeUtf16(text, encoding === 'utf-16le')
-}
-
-function encodeWindows1252(text: string): Uint8Array {
-  const bytes: number[] = []
-  for (const char of text) {
-    const codePoint = char.codePointAt(0)!
-    if (codePoint <= 0x7f || (codePoint >= 0xa0 && codePoint <= 0xff)) {
-      bytes.push(codePoint)
-      continue
-    }
-    const byte = WINDOWS_1252_REVERSE.get(char)
-    if (byte === undefined) throw new Error(`Caractere não representável em Windows-1252: ${char}`)
-    bytes.push(byte)
-  }
-  return Uint8Array.from(bytes)
-}
-
-function encodeUtf16(text: string, littleEndian: boolean): Uint8Array {
-  const bytes = new Uint8Array(text.length * 2)
-  for (let index = 0; index < text.length; index += 1) {
-    const codeUnit = text.charCodeAt(index)
-    const offset = index * 2
-    if (littleEndian) {
-      bytes[offset] = codeUnit & 0xff
-      bytes[offset + 1] = codeUnit >> 8
-    } else {
-      bytes[offset] = codeUnit >> 8
-      bytes[offset + 1] = codeUnit & 0xff
-    }
-  }
-  return bytes
+function hasPlausibleSingleColumnHeader(value: string): boolean {
+  const normalized = value
+    .replace(/^\uFEFF/, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+  return SINGLE_COLUMN_OPERATIONAL_HEADERS.has(normalized)
 }
 
 function normalizeLineEndings(text: string): string {

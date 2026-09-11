@@ -3,7 +3,7 @@ import { asString, chunkArray, normalizeHeader } from '../lib/utils'
 import { parseImportNumber, type ImportNumberFormat } from '../lib/importNumber'
 import { IsoContainerSchema } from './importValidation'
 import { supabase } from './supabase'
-import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { matchHeaders, readSheet, type HeaderSpec, type SheetRow } from './importCore'
 
 // Aliases por campo. Cobrem tres formatos de origem:
 // 1) Planilha modelo do sistema (cabecalhos em portugues: CHASSI, MARCA, ...).
@@ -107,14 +107,14 @@ export async function parseVehicleImportFile(file: File): Promise<ParsedVehicleI
 export async function parseVehicleImportBuffer(buffer: ArrayBuffer): Promise<ParsedVehicleImport> {
   // O modelo do armador pode manter os veiculos na segunda aba; percorremos as
   // abas pelo leitor compartilhado ate encontrar o cabecalho completo.
-  let chosenRows: Record<string, unknown>[] | undefined
+  let chosenRows: SheetRow[] | undefined
   let chosenNumberFormat: ImportNumberFormat = 'pt-BR'
   let lastMissing: string[] = Object.values(requiredHeaders)
 
   for (let sheetIndex = 0; ; sheetIndex += 1) {
     let content
     try {
-      content = await readSheet(buffer, { sheetIndex })
+      content = await readSheet(buffer, { sheetIndex, values: 'cru' })
     } catch (error) {
       if (error instanceof Error && error.message === 'Arquivo sem abas validas.') break
       if (error instanceof Error && error.message === 'Planilha vazia.') continue
@@ -336,13 +336,13 @@ export async function importVehicleRows({
   }
 }
 
-function parseVehicleImportRows(rows: Record<string, unknown>[], numberFormat: ImportNumberFormat): ParsedVehicleImport {
+function parseVehicleImportRows(rows: SheetRow[], numberFormat: ImportNumberFormat): ParsedVehicleImport {
   const parsedRows: VehicleImportRow[] = []
   const rowErrors: ParsedVehicleImport['rowErrors'] = []
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const mapped = mapRow(row)
-    const rowNumber = index + 2
+    const rowNumber = row.rowNumber
 
     const chassis = normalizeKey(mapped.chassis)
     const brand = translateBrand(asString(mapped.brand))

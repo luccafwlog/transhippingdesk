@@ -61,22 +61,31 @@ export function BlDocumentImportModal({
         />
       }
       parser={parseBlDocumentFile}
-      batchImporter={async (entries) => {
+      batchImporter={async (entries, allowOverride) => {
         if (!user || !selectedVoyageId) return
         await importBlDocuments({
           filename: entries.map((entry) => entry.file.name).join(', '),
           voyageId: Number(selectedVoyageId),
           documents: entries.map((entry) => entry.preview),
           uploadedBy: user.id,
+          allowRowErrors: Boolean(allowOverride),
         })
         await afterManifestoImportado(queryClient, { voyageId: selectedVoyageId })
         showToast(`${entries.length} B/L(s) importado(s) como carga solta.`, 'success')
       }}
-      canImport={(document) => document.errors.length === 0 && !describeVoyageMismatch(document, selectedVoyage)}
+      canImport={(document, allowOverride) => (
+        document.errors.length === 0 &&
+        !describeVoyageMismatch(document, selectedVoyage) &&
+        (document.warnings.length === 0 || Boolean(allowOverride))
+      )}
       renderBatchSummary={(entries) => (
         <BatchSummary
           entries={entries}
-          canImport={(document) => document.errors.length === 0 && !describeVoyageMismatch(document, selectedVoyage)}
+          canImport={(document) => (
+            document.errors.length === 0 &&
+            !describeVoyageMismatch(document, selectedVoyage) &&
+            document.warnings.length === 0
+          )}
         />
       )}
       renderPreview={(document) => <BlDocumentPreview document={document} voyage={selectedVoyage} />}
@@ -104,10 +113,10 @@ function BatchSummary({
   canImport,
 }: {
   entries: FilePreviewEntry<ParsedBlDocument>[]
-  canImport: (document: ParsedBlDocument) => boolean
+  canImport: (document: ParsedBlDocument, allowOverride?: boolean) => boolean
 }) {
   const ready = entries.filter((entry) => canImport(entry.preview))
-  const withWarnings = ready.filter((entry) => entry.preview.warnings.length > 0)
+  const withWarnings = entries.filter((entry) => entry.preview.warnings.length > 0 && canImport(entry.preview, true))
 
   return (
     <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">

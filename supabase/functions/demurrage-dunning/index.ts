@@ -222,6 +222,125 @@ async function recipientVersion(email: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+type DunningAttemptRow = {
+  id: string | number
+  status: string
+  provider_message_id: string | null
+  dispatch_mode: string
+  idempotency_key: string
+  recipient_key: string | null
+}
+
+async function findExistingDunningAttempt(
+  admin: ReturnType<typeof createClient>,
+  {
+    communicationId,
+    contactId,
+    attemptKey,
+    recipientIdentity,
+    keyPrefix,
+  }: {
+    communicationId: number
+    contactId: number
+    attemptKey: string
+    recipientIdentity: string
+    keyPrefix: string
+  },
+): Promise<DunningAttemptRow | null> {
+  const select = 'id, status, provider_message_id, dispatch_mode, idempotency_key, recipient_key'
+  const { data: exact, error: exactError } = await admin
+    .from('customer_communication_attempts')
+    .select(select)
+    .eq('idempotency_key', attemptKey)
+    .maybeSingle()
+  if (exactError) throw exactError
+  if (exact) return exact as DunningAttemptRow
+
+  // A previous version hashed the raw email. Keep its provider key intact and
+  // find it by the stable communication/contact identity instead of creating a
+  // second attempt after the canonicalization change.
+  const { data: byRecipient, error: recipientError } = await admin
+    .from('customer_communication_attempts')
+    .select(select)
+    .eq('communication_id', communicationId)
+    .eq('recipient_key', recipientIdentity)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (recipientError) throw recipientError
+  if (byRecipient) return byRecipient as DunningAttemptRow
+
+  const { data: byLegacyKey, error: legacyKeyError } = await admin
+    .from('customer_communication_attempts')
+    .select(select)
+    .eq('communication_id', communicationId)
+    .like('idempotency_key', `${keyPrefix}${contactId}:%`)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (legacyKeyError) throw legacyKeyError
+  return (byLegacyKey as DunningAttemptRow | null) ?? null
+}
+
+async function recordDunningAttempt({
+  admin,
+  communicationId,
+  contactId,
+  communicationsEnabled,
+  attemptKey,
+  to,
+  keyPrefix,
+}: {
+  admin: ReturnType<typeof createClient>
+  communicationId: number
+  contactId: number
+  communicationsEnabled: boolean
+  attemptKey: string
+  to: string
+  keyPrefix: string
+}): Promise<EmailAttemptRecord> {
+  const recipientIdentity = await recipientKey(to)
+  const { data, error } = await admin.from('customer_communication_attempts').insert({
+    communication_id: communicationId,
+    recipient_masked: maskEmail(to),
+    recipient_key: recipientIdentity,
+    status: 'aceito',
+    dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
+    idempotency_key: attemptKey,
+  }).select('id').single()
+  if (error?.code === '23505') {
+    const existing = await findExistingDunningAttempt(admin, {
+      communicationId,
+      contactId,
+      attemptKey,
+      recipientIdentity,
+      keyPrefix,
+    })
+    if (!existing) throw error
+
+    if (existing.recipient_key !== recipientIdentity || (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null)) {
+      const { error: repairError } = await admin.from('customer_communication_attempts').update({
+        recipient_key: recipientIdentity,
+        ...(existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null
+          ? { dispatch_mode: communicationsEnabled ? 'real' : 'simulado' }
+          : {}),
+      }).eq('id', existing.id)
+      if (repairError) throw repairError
+    }
+    return {
+      id: existing.id,
+      status: existing.status as EmailAttemptRecord['status'],
+      providerMessageId: existing.provider_message_id,
+      idempotencyKey: existing.idempotency_key,
+      existing: true,
+    }
+  }
+  if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
+  return { id: data.id, status: 'aceito', providerMessageId: null, idempotencyKey: attemptKey, existing: false }
+}
+
 async function createCommunication(
   admin: ReturnType<typeof createClient>,
   candidate: DunningCandidate,
@@ -403,34 +522,15 @@ async function sendCandidateGroup(
           ])
           return { suppressed: Boolean(communicationSuppression || portalSuppression) }
         },
-        recordAttempt: async ({ idempotencyKey: attemptKey, to }): Promise<EmailAttemptRecord> => {
-          const { data, error } = await admin.from('customer_communication_attempts').insert({
-            communication_id: communicationId,
-            recipient_masked: maskEmail(to),
-            recipient_key: await recipientKey(to),
-            status: 'aceito',
-            dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
-            idempotency_key: attemptKey,
-          }).select('id').single()
-          if (error?.code === '23505') {
-            const { data: existing, error: existingError } = await admin
-              .from('customer_communication_attempts')
-              .select('id, status, provider_message_id, dispatch_mode')
-              .eq('idempotency_key', attemptKey)
-              .single()
-            if (existingError || !existing) throw existingError ?? error
-            if (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null) {
-              const { error: repairError } = await admin.from('customer_communication_attempts').update({
-                recipient_key: await recipientKey(to),
-                dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
-              }).eq('id', existing.id)
-              if (repairError) throw repairError
-            }
-            return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
-          }
-          if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
-          return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
-        },
+        recordAttempt: ({ idempotencyKey: attemptKey, to }) => recordDunningAttempt({
+          admin,
+          communicationId,
+          contactId: contact.id,
+          communicationsEnabled,
+          attemptKey,
+          to,
+          keyPrefix: `demurrage:group:${communicationId}:`,
+        }),
         updateAttempt: async (attemptId, update) => {
           const { error } = await admin.from('customer_communication_attempts').update({
             provider_message_id: update.providerMessageId,
@@ -530,34 +630,15 @@ async function sendCandidate(
           ])
           return { suppressed: Boolean(communicationSuppression || portalSuppression) }
         },
-        recordAttempt: async ({ idempotencyKey: attemptKey, to }): Promise<EmailAttemptRecord> => {
-          const { data, error } = await admin.from('customer_communication_attempts').insert({
-            communication_id: communicationId,
-            recipient_masked: maskEmail(to),
-            recipient_key: await recipientKey(to),
-            status: 'aceito',
-            dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
-            idempotency_key: attemptKey,
-          }).select('id').single()
-          if (error?.code === '23505') {
-            const { data: existing, error: existingError } = await admin
-              .from('customer_communication_attempts')
-              .select('id, status, provider_message_id, dispatch_mode')
-              .eq('idempotency_key', attemptKey)
-              .single()
-            if (existingError || !existing) throw existingError ?? error
-            if (existing.dispatch_mode === 'legado' && existing.status === 'aceito' && existing.provider_message_id == null) {
-              const { error: repairError } = await admin.from('customer_communication_attempts').update({
-                recipient_key: await recipientKey(to),
-                dispatch_mode: communicationsEnabled ? 'real' : 'simulado',
-              }).eq('id', existing.id)
-              if (repairError) throw repairError
-            }
-            return { id: existing.id, status: existing.status as EmailAttemptRecord['status'], providerMessageId: existing.provider_message_id, existing: true }
-          }
-          if (error || !data) throw error ?? new Error('Não foi possível registrar a tentativa de Demurrage.')
-          return { id: data.id, status: 'aceito', providerMessageId: null, existing: false }
-        },
+        recordAttempt: ({ idempotencyKey: attemptKey, to }) => recordDunningAttempt({
+          admin,
+          communicationId,
+          contactId: contact.id,
+          communicationsEnabled,
+          attemptKey,
+          to,
+          keyPrefix: `demurrage:${communicationId}:`,
+        }),
         updateAttempt: async (attemptId, update) => {
           const { error } = await admin.from('customer_communication_attempts').update({
             provider_message_id: update.providerMessageId,

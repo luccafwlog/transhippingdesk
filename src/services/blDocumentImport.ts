@@ -18,17 +18,20 @@ export async function importBlDocument({
   voyageId,
   document,
   uploadedBy,
+  allowRowErrors,
 }: {
   filename: string
   voyageId: number
   document: ParsedBlDocument
   uploadedBy: string
+  allowRowErrors?: boolean
 }) {
   return importBlDocuments({
     filename,
     voyageId,
     documents: [document],
     uploadedBy,
+    allowRowErrors,
   })
 }
 
@@ -37,15 +40,23 @@ export async function importBlDocuments({
   voyageId,
   documents,
   uploadedBy,
+  allowRowErrors = false,
 }: {
   filename: string
   voyageId: number
   documents: ParsedBlDocument[]
   uploadedBy: string
+  /** Permite prosseguir com avisos; erros documentais continuam bloqueando. */
+  allowRowErrors?: boolean
 }) {
   const invalidDocument = documents.find((document) => document.errors.length > 0)
   if (invalidDocument) {
     throw new Error(`${filename}: ${invalidDocument.errors.join(' ')}`)
+  }
+
+  const warnedDocument = documents.find((document) => document.warnings.length > 0)
+  if (warnedDocument && !allowRowErrors) {
+    throw new Error(`${filename}: Avisos do documento exigem confirmação explícita: ${warnedDocument.warnings.join(' ')}`)
   }
 
   const voyage = await fetchVoyage(voyageId)
@@ -68,7 +79,7 @@ export async function importBlDocuments({
     rowErrors: parsedManifests.flatMap((item) => item.rowErrors),
   }
 
-  return importBreakbulkManifest({ filename, voyageId, manifest, uploadedBy })
+  return importBreakbulkManifest({ filename, voyageId, manifest, uploadedBy, allowRowErrors })
 }
 
 async function fetchVoyage(voyageId: number): Promise<BlDocumentVoyage> {

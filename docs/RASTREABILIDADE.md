@@ -1,6 +1,6 @@
 # Rastreabilidade Técnica
 
-Verificado contra o repositório em 2026-09-10.
+Verificado contra o repositório em 2026-09-11.
 
 Este índice liga cada rota e ação relevante aos chamadores do frontend, aos
 contratos executáveis do Supabase e ao documento do módulo proprietário. Ele é
@@ -53,12 +53,14 @@ Resend reais.
 | `operational_list_voyage_summaries` | `035_operational_voyage_summaries.sql`; `voyageReadModels.test.ts`, `operationalLists.local-pg.test.ts` |
 | `operational_list_voyage_summaries` (status nullable) | `037_operational_voyage_summary_null_status.sql`; `voyageReadModels.test.ts`, `operationalLists.local-pg.test.ts` |
 | `operational_list_bl_summary` (métricas BB) | `036_operational_breakbulk_summary_metrics.sql`; `voyageReadModels.test.ts`, `operationalLists.local-pg.test.ts` |
+| `operational_list_bl_summary` (tolerância a drift de `charge_status`) | `040_operational_breakbulk_drift_tolerance.sql`; `operationalBreakbulkDriftToleranceMigration.test.ts` |
 | `portal_list_disputes`, `_portal_list_disputes_core` | `013_portal_disputes_inspection.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `portal_list_demurrage_invoices_page`, `portal_list_invoices_page`, `_portal_list_demurrage_invoices_page_core`, `_portal_list_invoices_page_core` | `021_portal_billing_pages.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `customer_billing_access_ready` | `019_local_billing_integrity.sql`; `localBillingIntegrity.local-pg.test.ts` |
 | `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql`; `auditSecurityBoundaries.local-pg.test.ts` |
 | `portal_email_event_attempts_append_only` | `022_email_inbox_and_dispatch_state.sql`; `emailInbox.local-pg.test.ts` |
 | `refresh_customer_communication_status`, `mark_customer_communication_dispatch_blocked` | `032_customer_communication_partial_status.sql`, `038_customer_communication_status_recipient_latest.sql`, `039_customer_communication_status_identity.sql`; `customerCommunicationPartialStatusMigration.test.ts`, `customerCommunicationRecipientLatestMigration.test.ts`, `customerCommunicationStatusIdentityMigration.test.ts` |
+| `claim_demurrage_dunning_candidates` (recuperação terminal de `parcial`) | `041_dunning_partial_claim_recovery.sql`; `demurrageDunningMigration.test.ts` |
 
 ### Atualização da entrega S12 — read-model de viagens e Line Up
 
@@ -245,7 +247,10 @@ agrupar destinatários pela máscara visual; tentativas anteriores à coluna sã
 marcadas como `legado` até uma nova execução confirmar o modo real ou simulado.
 Um bloqueio de prontidão depois da criação passa por
 `mark_customer_communication_dispatch_blocked`, que grava `falha` ou `parcial`
-para manter o candidato retryable. **Código**; **Teste de contrato SQL:**
+e preserva o resultado por destinatário. No dunning, a migration
+`041_dunning_partial_claim_recovery.sql` trata `parcial` como terminal para o
+scanner de claims órfãos e a Edge reutiliza a chave histórica da tentativa.
+**Código**; **Teste de contrato SQL:**
 `customerCommunicationStatusIdentityMigration.test.ts` e integração local de
 `customerCommunicationPartial.local-pg.test.ts`.
 
@@ -594,7 +599,7 @@ loops, não apenas por regex de `CREATE POLICY`.
 |---|---|---|---|---|---|
 | `alerts-detector` | `pg_cron` via `pg_net`, job `alerts-foundation-detectors` a cada 15 minutos | `POST` + Bearer comparado em tempo constante com `ALERTS_DETECTOR_SECRET`; `verify_jwt=false` | Cliente Supabase `service_role` chama `run_alert_detectors`, que executa os detectores históricos com contexto interno | Recalcula pendências ADR, revisão B/L, Portal, PIX e operação de viagem; não é chamado pelo browser. O detector de faturas vencidas saiu do runner na migration `348` (ADR 0055) | **Código:** `supabase/functions/alerts-detector/index.ts`; migrations `319`, `332`; **Teste de contrato SQL:** `alertsFoundationMigration.test.ts`, `unifiedAlertsRunnerMigration.test.ts` |
 | `send-customer-communication` | Frontend interno autorizado ou automação financeira server-side | `verify_jwt=false`; valida Bearer por Supabase Auth e perfil interno ativo para o fluxo interativo; CORS compartilhado | Cliente Supabase `service_role`; RPCs `create_customer_communication_atomic`, `customer_local_charges_communication_dispatch_ready` e `refresh_customer_communication_status` | Confere contato, natureza, preferência e supressões; grava Comunicado/tentativa; em chave desligada registra `simulado` sem chamar Resend; revalida CE Mercante imediatamente antes do dispatch; quando ligada envia via `_shared/email.ts` | **Código:** `supabase/functions/send-customer-communication/index.ts`, `src/services/customerCommunicationDispatches.ts`; migrations `032`/`033`/`039`; **Teste de contrato SQL:** `sendCustomerCommunicationFunction.test.ts`, `customerCommunicationReadinessGuardsMigration.test.ts` |
-| `demurrage-dunning` | `pg_cron` via `pg_net`, job horário | `verify_jwt=false`; Bearer de `DEMURRAGE_DUNNING_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC `claim_demurrage_dunning_candidates` em lotes; release server-only; escrita atômica da trilha de Comunicado | Reivindica a próxima cobrança por `first_billed_at`, pausa por disputa/bounce/ausência de contato válido, libera claims que não chegaram a envio concluído, não aplica teto e envia `cobranca_demurrage` respeitando a chave global | **Código:** `supabase/functions/demurrage-dunning/index.ts`, `src/services/demurrageDunning.ts`; migrations `039`, `378` e `379`; **Teste:** `demurrageDunningFunction.test.ts`, `demurrageDunningMigration.test.ts` |
+| `demurrage-dunning` | `pg_cron` via `pg_net`, job horário | `verify_jwt=false`; Bearer de `DEMURRAGE_DUNNING_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC `claim_demurrage_dunning_candidates` em lotes; release server-only; escrita atômica da trilha de Comunicado | Reivindica a próxima cobrança por `first_billed_at`, pausa por disputa/bounce/ausência de contato válido, libera claims que não chegaram a envio concluído, trata `parcial` como terminal na recuperação de órfãos, não aplica teto e envia `cobranca_demurrage` respeitando a chave global; ao reencontrar tentativa legada, reutiliza sua chave de idempotência persistida | **Código:** `supabase/functions/demurrage-dunning/index.ts`, `supabase/functions/_shared/email.ts`, `src/services/demurrageDunning.ts`; migrations `039`, `041`, `378` e `379`; **Teste:** `demurrageDunningFunction.test.ts`, `demurrageDunningMigration.test.ts`, `emailShared.test.ts` |
 | `customer-communication-auto-runner` | `pg_cron` via `pg_net`, job a cada 15 minutos | `verify_jwt=false`; header `X-Communication-Automation-Secret` comparado em tempo constante | Cliente Supabase `service_role`; RPC `evaluate_and_dispatch_automatic_communications` com lease; release server-only | Avalia NOA (ETA − 5 dias), NOR (ATA nos últimos 30 dias) e `ce_mercante_taxas` após prontidão financeira, reivindica alvos por claims transacionais idempotentes, não adquire claims sem readiness válida e trata `parcial` da chamada atual como resolvido antes de liberar retries | **Código:** `supabase/functions/customer-communication-auto-runner/index.ts`; migrations `032`/`033`/`039` e `381`–`384`; **Teste:** `customerCommunicationAutoRunner.test.ts`, `customerCommunicationAutomationMigration.test.ts`, `customerCommunicationReadinessGuardsMigration.test.ts` |
 | `portal-email-events-runner` | `pg_cron` via `pg_net`, job a cada minuto | `verify_jwt=false`; Bearer de `PORTAL_EMAIL_EVENTS_CRON_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPCs `claim_portal_email_events`, `process_portal_email_event` e `complete_portal_email_event` | Processa a inbox durável do webhook, respeita ordenação, retry, bounce/complaint, fallback e alerta de investigação; não reenvia evento legado sem payload | **Código:** `supabase/functions/portal-email-events-runner/index.ts`, `_shared/portalEmailEventProcessor.ts`; migration `022`; **Teste:** `portalEmailInboxMigration.test.ts`, `emailInbox.local-pg.test.ts` |
 | `import-effects-runner` | `pg_cron` via `pg_net`, job a cada 5 minutos | `verify_jwt=false`; Bearer de `IMPORT_EFFECTS_CRON_SECRET`; consumidor adicionalmente exige `IMPORT_EFFECTS_RUNNER_ENABLED=true` | Cliente Supabase `service_role`; claim e `process_import_effect` server-only | Executa efeitos pós-commit com lease, idempotência, retry transitório e bloqueio investigável; tipos sem consumidor completo permanecem bloqueados | **Código:** `supabase/functions/import-effects-runner/index.ts`; migration `025`; **Teste:** `importEffectsRunner.test.ts`, `importEffects.local-pg.test.ts` |

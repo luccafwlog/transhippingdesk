@@ -63,7 +63,7 @@ export async function parseVaziosImportacaoFile(file: File): Promise<ParsedVazio
 }
 
 export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<ParsedVaziosImportacaoManifest> {
-  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+  const { headers, rows } = await readSheet(buffer, {
     expectedHeaders: VAZIOS_IMPORTACAO_HEADER_MARKERS,
   })
   const { missing } = matchHeaders(headers, VAZIOS_IMPORTACAO_HEADER_SPEC)
@@ -76,10 +76,8 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
   const containers: ParsedVaziosImportacaoContainer[] = []
   const rowErrors = createRowErrorCollector()
 
-  rows.forEach((row, idx) => {
-    const rowNumber = typeof (row as { __rowNum__?: unknown }).__rowNum__ === 'number'
-      ? (row as { __rowNum__: number }).__rowNum__ + 1
-      : headerRowIndex + idx + 2
+  rows.forEach((row) => {
+    const rowNumber = row.rowNumber
     const mapped = mapRow(row)
 
     const containerNumber = String(mapped['container_number'] ?? '').trim().toUpperCase()
@@ -89,6 +87,7 @@ export async function parseVaziosImportacaoBuffer(buffer: ArrayBuffer): Promise<
     }
     if (!IsoContainerSchema.safeParse(containerNumber).success) {
       rowErrors.add(rowNumber, `Container ${containerNumber}: formato ISO esperado (XXXX0000000).`, row)
+      return
     }
 
     const parsedTare = parseImportNumber(mapped['tare_kg'], 'pt-BR')
@@ -153,7 +152,8 @@ export type ImportVaziosImportacaoArgs = {
   uploadedBy: string
   voyageId: number
   description?: string
-  allowPending?: boolean
+  /** Permite persistir as linhas válidas quando o preview tem erros de linha. */
+  allowRowErrors?: boolean
 }
 
 export async function importVaziosImportacaoManifest({
@@ -161,9 +161,9 @@ export async function importVaziosImportacaoManifest({
   uploadedBy,
   voyageId,
   description,
-  allowPending = false,
+  allowRowErrors = false,
 }: ImportVaziosImportacaoArgs): Promise<{ manifestId: string }> {
-  if (manifest.rowErrors.length && !allowPending) throw new Error(formatImportacaoRowErrors(manifest.rowErrors))
+  if (manifest.rowErrors.length && !allowRowErrors) throw new Error(formatImportacaoRowErrors(manifest.rowErrors))
 
   const containers = manifest.containers.map((container) => ({
     container_number: container.container_number,

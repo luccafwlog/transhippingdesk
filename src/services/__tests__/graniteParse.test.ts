@@ -116,7 +116,7 @@ it('S03: normaliza data valida e bloqueia porto fora do contrato', async () => {
   )
 
   expect(parsed.bls[0]?.cargo_readiness_date).toBe('2024-02-29')
-  expect(parsed.bls[0]?.discharge_port).toBe('PORTO INEXISTENTE')
+  expect(parsed.bls[0]?.discharge_port).toBeNull()
   expect(parsed.rowErrors).toEqual([
     expect.objectContaining({ row: 2, message: expect.stringContaining('D/PORT') }),
   ])

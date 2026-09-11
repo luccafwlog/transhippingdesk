@@ -20,7 +20,9 @@ describe('Edge Function demurrage-dunning', () => {
   it('respeita a chave global, contatos/supressões e o reply-to dedicado', () => {
     expect(source).toContain("communications_enabled")
     expect(source).toContain("dispatch_mode: communicationsEnabled ? 'real' : 'simulado'")
-    expect(source).toContain('recipient_key: await recipientKey(to)')
+		expect(source).toContain('recipient_key: recipientIdentity')
+		expect(source).toContain(".eq('recipient_key', recipientIdentity)")
+		expect(source).toContain('idempotencyKey: existing.idempotency_key')
     expect(source).toContain("existing.dispatch_mode === 'legado'")
     expect(source).toContain("refresh_customer_communication_status")
     expect(source).toContain("customer_communication_suppressions")

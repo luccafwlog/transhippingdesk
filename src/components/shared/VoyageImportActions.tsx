@@ -139,10 +139,10 @@ export function VoyageImportActions({
           parser={parseBreakbulkManifestFile}
           inspectFile={inspectImportUpload}
           helper={<TemplateLinks baseName="manifesto-bb-modelo" />}
-          canImport={(p) => p.bls.length > 0 && p.rowErrors.length === 0}
+          canImport={(p, override) => p.bls.length > 0 && (p.rowErrors.length === 0 || Boolean(override))}
           getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
-          importer={async (preview, file) => {
-            await importBreakbulkManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId })
+          importer={async (preview, file, override) => {
+            await importBreakbulkManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, allowRowErrors: Boolean(override) })
             await invalidateAfterBLImport()
             showToast(`Manifesto BB importado: ${preview.bls.length} B/L(s).`, 'success')
           }}
@@ -167,7 +167,7 @@ export function VoyageImportActions({
           canImport={(p, override) => p.bls.length > 0 && (p.rowErrors.length === 0 || Boolean(override))}
           getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
           importer={async (preview, file, override) => {
-            const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, allowPending: Boolean(override) })
+            const result = await importGraniteManifest({ filename: file.name, voyageId, manifest: preview, uploadedBy: userId, allowRowErrors: Boolean(override) })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
               queryClient.invalidateQueries({ queryKey: queryKeys.voyages.detail(voyageId) }),
@@ -211,7 +211,7 @@ export function VoyageImportActions({
           canImport={(p, override) => p.containers.length > 0 && (p.rowErrors.length === 0 || Boolean(override))}
           getIssues={(p) => rowErrorsToImportIssues(p.rowErrors)}
           importer={async (preview, _file, override) => {
-            await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId, allowPending: Boolean(override) })
+            await importVaziosImportacaoManifest({ manifest: preview, uploadedBy: userId, voyageId, allowRowErrors: Boolean(override) })
             await Promise.all([
               queryClient.invalidateQueries({ queryKey: ['voyages'] }),
               queryClient.invalidateQueries({ queryKey: queryKeys.voyages.detail(voyageId) }),

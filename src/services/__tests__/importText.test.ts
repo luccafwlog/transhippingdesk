@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   decodeImportBytes,
   detectImportFormat,
-  encodeImportText,
   inspectImportFile,
   isBinarySpreadsheetBuffer,
 } from '../importText'
@@ -47,22 +46,6 @@ describe('decodeImportBytes', () => {
     expect(isBinarySpreadsheetBuffer(ole)).toBe(true)
   })
 
-  it('preserva bytes UTF-8 com BOM e line endings para round-trip exato', () => {
-    const source = '\uFEFFVITÓRIA\r\nSÃO PAULO\r\n'
-    const bytes = new TextEncoder().encode(source).buffer as ArrayBuffer
-    const decoded = decodeImportBytes(bytes)
-
-    expect(decoded.text).toBe('VITÓRIA\nSÃO PAULO\n')
-    expect(new Uint8Array(encodeImportText(decoded))).toEqual(new Uint8Array(bytes))
-  })
-
-  it('preserva bytes Windows-1252 com caracteres estendidos para round-trip exato', () => {
-    const bytes = new Uint8Array([0x53, 0xe3, 0x6f, 0x20, 0x96, 0x20, 0x80]).buffer as ArrayBuffer
-    const decoded = decodeImportBytes(bytes, { allowWindows1252Fallback: true })
-
-    expect(decoded.text).toBe('São – €')
-    expect(new Uint8Array(encodeImportText(decoded))).toEqual(new Uint8Array(bytes))
-  })
 })
 
 describe('detectImportFormat', () => {
@@ -91,7 +74,7 @@ describe('detectImportFormat', () => {
     expect(detectImportFormat(bytes)).toBe('csv')
   })
 
-  it('detecta EDI EDIFACT e arquivo posicional do Mercante', () => {
+	it('detecta EDI EDIFACT e arquivo posicional do Mercante', () => {
     const edifact = new TextEncoder().encode("UNB+UNOA:2+X+Y'UNH+1+BAPLIE:D:95B:UN:SMDG22'").buffer as ArrayBuffer
     expect(detectImportFormat(edifact)).toBe('edi')
 
@@ -99,10 +82,28 @@ describe('detectImportFormat', () => {
     expect(detectImportFormat(mercante)).toBe('edi')
 
     const mercanteSingleSpace = new TextEncoder().encode('M50001226501030729 CNTAGBRVIX\nC50001226501030729 122605179628557 CSC45360805C00').buffer as ArrayBuffer
-    expect(detectImportFormat(mercanteSingleSpace)).toBe('edi')
-  })
+		expect(detectImportFormat(mercanteSingleSpace)).toBe('edi')
+	})
 
-  it('recusa texto sem formato reconhecível e delimitadores ambíguos', () => {
+	it('não confunde uma planilha com códigos M1/M2 com EDI Mercante', () => {
+		const bytes = new TextEncoder().encode([
+			'CODIGO\tDESCRICAO',
+			'M1\tCARGA GERAL',
+			'M2\tGRANEL',
+		].join('\n')).buffer as ArrayBuffer
+
+		expect(detectImportFormat(bytes)).toBe('csv')
+	})
+
+	it('aceita CSV de coluna única somente com cabeçalho operacional plausível', () => {
+		const structured = new TextEncoder().encode('Container\nMSCU1234567\nTEMU7654321').buffer as ArrayBuffer
+		const prose = new TextEncoder().encode('Relatorio operacional\nSegue em anexo para conferencia.').buffer as ArrayBuffer
+
+		expect(detectImportFormat(structured)).toBe('csv')
+		expect(() => detectImportFormat(prose)).toThrow(/não reconhecido/i)
+	})
+
+	it('recusa texto sem formato reconhecível e delimitadores ambíguos', () => {
     const unknown = new TextEncoder().encode('apenas uma observação').buffer as ArrayBuffer
     expect(() => detectImportFormat(unknown)).toThrow(/não reconhecido/i)
 

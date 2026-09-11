@@ -1,6 +1,6 @@
 # Granito
 
-> **Status:** ativo · **Atualizado:** 2026-09-10 · **Rotas:** `/granito`, `/granito/taxas`
+> **Status:** ativo · **Atualizado:** 2026-09-11 · **Rotas:** `/granito`, `/granito/taxas`
 
 ## Propósito e escopo
 
@@ -75,8 +75,11 @@ excluir.
 [`VoyageImportActions`](../../src/components/shared/VoyageImportActions.tsx)
 abre um [`FileImportModal`](../../src/components/shared/FileImportModal.tsx)
 genérico já associado à viagem. Para Granito, ele usa o mesmo parser e
-importador, mostra somente totais de B/Ls/erros e confirma a importação com
-`allowPending=true` implícito.
+importador, mostra os totais de B/Ls/erros e permite aceitar erros de linha com
+`allowRowErrors` somente após a decisão explícita do operador. `allowPending`
+continua sendo o parâmetro independente que permite persistir B/Ls ainda sem
+cliente reconciliado e permanece `true` por padrão; o override de erros não o
+altera.
 
 ### Superfícies downstream
 
@@ -94,9 +97,9 @@ importador, mostra somente totais de B/Ls/erros e confirma a importação com
 |---|---|---|---|---|---|---|---|
 | `/granito` · abrir import e selecionar viagem | Sessão interna exceto papel Equipamentos; viagem existente para confirmar | `Granite`; estado `uploadOpen`, `voyageId`; `VoyageCombobox` | A seleção só prepara os argumentos do parser/importador | Leitura de viagens pelo hook compartilhado | Estado local; após sucesso invalida `['granite-bls']` e `['voyages']` | Sem viagem, arquivo ou usuário o botão permanece desabilitado | **Código:** [`Granite.tsx`](../../src/pages/Granite.tsx), [`VoyageCombobox.tsx`](../../src/components/shared/VoyageCombobox.tsx) |
 | `/viagens/:voyageId` · importar Granito | Viagem e usuário já definidos; papel diferente de Equipamentos; arquivo com B/Ls válidos | `VoyageImportActions`; `FileImportModal` | `parseGraniteManifestFile` → `importGraniteManifest` | `granite_manifests`, `granite_bls` | Invalida `['voyages']` e `['granite-manifests']` | Erro de parse por arquivo; falha de persistência interrompe o lote | **Código:** [`VoyageImportActions.tsx`](../../src/components/shared/VoyageImportActions.tsx), [`FileImportModal.tsx`](../../src/components/shared/FileImportModal.tsx) |
-| Parsear planilha COSCO | Arquivo dentro do limite; primeira aba não vazia | `handleFile` ou parser do modal genérico | `assertUploadSize` → `readFirstSheetRows` → `createHeaderMapper`; exige B/L único e `real_weight_kg > 0` | Carrega clientes para reconciliação, sem escrita | Retorna `ParsedGraniteManifest` com `bls` e `rowErrors` | B/L ausente/duplicado, peso ausente/zero, data de prontidão impossível ou POL/POD não reconhecido viram erro de linha; planilha vazia lança erro; a confirmação fica desabilitada enquanto houver erro | **Código:** [`graniteImport.ts`](../../src/services/graniteImport.ts), [`importCore.ts`](../../src/services/importCore.ts), [`importValidation.ts`](../../src/services/importValidation.ts) · **Teste:** [`graniteParse.test.ts`](../../src/services/__tests__/graniteParse.test.ts) |
+| Parsear planilha COSCO | Arquivo dentro do limite; primeira aba não vazia | `handleFile` ou parser do modal genérico | `assertUploadSize` → `readFirstSheetRows` → `createHeaderMapper`; exige B/L único e `real_weight_kg > 0` | Carrega clientes para reconciliação, sem escrita | Retorna `ParsedGraniteManifest` com `bls` e `rowErrors` | B/L ausente/duplicado, peso ausente/zero, data de prontidão impossível ou POL/POD não reconhecido viram erro de linha; planilha vazia lança erro; a confirmação fica bloqueada por padrão e só aceita linhas válidas com `allowRowErrors` explícito | **Código:** [`graniteImport.ts`](../../src/services/graniteImport.ts), [`importCore.ts`](../../src/services/importCore.ts), [`importValidation.ts`](../../src/services/importValidation.ts) · **Teste:** [`graniteParse.test.ts`](../../src/services/__tests__/graniteParse.test.ts), `graniteImportAtomic.test.ts` |
 | Preview · reconciliar cliente/CNPJ | Manifesto parseado; CNPJ do shipper opcional | `handleCnpjOverride`; tabela de preview | `loadCustomerMaps` + `findMatchedCustomer`; normaliza documento com `onlyDigits` | SELECT na base de clientes | Atualiza apenas o manifesto em memória para `matched` | Input inline aparece apenas para `missing_cnpj`; CNPJ curto não dispara busca; `not_found` permanece pendente | **Código:** [`Granite.tsx`](../../src/pages/Granite.tsx), [`customerReconciliation.ts`](../../src/services/customerReconciliation.ts) |
-| Preview · aceitar ou rejeitar pendentes | B/L sem cliente resolvido | Confirmação dos modais; argumento `allowPending` do service | `importGraniteManifest` filtra `allowPending || clientId !== null` | INSERT/UPSERT em `granite_bls` | Com `true`, mantém B/L sem `client_id`; com `false`, exclui a linha da persistência | As UIs atuais não expõem seletor: ambas omitem o argumento e aceitam pendentes por default | **Código:** [`graniteImport.ts`](../../src/services/graniteImport.ts), [`Granite.tsx`](../../src/pages/Granite.tsx), [`VoyageImportActions.tsx`](../../src/components/shared/VoyageImportActions.tsx) |
+| Preview · aceitar ou rejeitar pendentes | B/L sem cliente resolvido | Confirmação dos modais; argumento `allowPending` do service | `importGraniteManifest` filtra `allowPending || clientId !== null` | INSERT/UPSERT em `granite_bls` | Com `true`, mantém B/L sem `client_id`; com `false`, exclui a linha da persistência | `allowPending` continua sem seletor e aceita pendentes por default; o checkbox de erros usa `allowRowErrors` e não muda a reconciliação de cliente | **Código:** [`graniteImport.ts`](../../src/services/graniteImport.ts), [`Granite.tsx`](../../src/pages/Granite.tsx), [`VoyageImportActions.tsx`](../../src/components/shared/VoyageImportActions.tsx) |
 | Confirmar importação | Viagem existente; usuário; ao menos um B/L válido | `Granite.handleImport` ou importer de `VoyageImportActions` | `importGraniteManifest` valida a viagem, soma peso e monta linhas | INSERT em `granite_manifests`; UPSERT em `granite_bls` por `(manifest_id, bl_number)` com `charge_status='not_calculated'` | Fecha/reset modal; invalida listas relacionadas; informa `pendingCount` | Viagem ausente ou erro em qualquer write lança; cabeçalho e B/Ls não estão numa RPC atômica | **Código:** [`graniteImport.ts`](../../src/services/graniteImport.ts), [`034_granite_module.sql`](../../supabase/migrations_archive/034_granite_module.sql) |
 | `/granito` · filtrar/listar/paginar | Sessão interna | Query `['granite-bls', filters]` | `listGraniteBls` monta filtros e, para viagem, resolve manifest IDs antes | SELECT em `granite_bls`, `granite_manifests`, `voyages`, `vessels`, `customers` | Paginação local por `range`; troca de filtro volta à página 1 | Erro mostra `InlineError`; viagem sem manifest retorna lista vazia | **Código:** [`Granite.tsx`](../../src/pages/Granite.tsx), [`graniteCharges.ts`](../../src/services/graniteCharges.ts) |
 | `/granito` · importar CE Mercante | Usuário interno; planilha/EDI com BL e CE válidos | `CeMercanteImportModal` com `target='granite'` | `parseCeMercanteFile` → resolução `bl_number → granite_bls.id` na viagem → `apply_granite_ce_mercante_update` | RPC audita e atualiza `granite_bls.ce_mercante`; não dispara faturamento de Granito | Invalida B/Ls e operações inclusive em resultado parcial; CE preenchido é único por B/L | B/L inexistente ou ambíguo aparece por linha; falhas ficam restritas ao lote de importação | **Código:** [`CeMercanteImportModal.tsx`](../../src/components/shared/CeMercanteImportModal.tsx), [`ceMercanteImport.ts`](../../src/services/ceMercanteImport.ts) · **Teste:** `ceMercanteImport.test.ts` |
@@ -229,10 +232,12 @@ flowchart LR
   esse caminho inseria em `invoices` sem `invoice_type`; após
   [`066_local_billing_ledger_phase1.sql`](../../supabase/migrations_archive/066_local_billing_ledger_phase1.sql)
   o default é `individual`, embora o enum aceite `granite`.
-- **Código — rejeição de pendentes não é exposta:** `allowPending=false`
-  existe no serviço, mas as duas UIs atuais usam o default `true`. O operador
-  pode corrigir CNPJ ausente ou confirmar com pendências, não excluir
-  seletivamente uma linha pendente pelo preview.
+- **Código — reconciliação e erros de linha são decisões separadas:**
+  `allowPending` continua controlando somente B/Ls sem cliente resolvido e as
+  telas mantêm o default `true`. Já `rowErrors` bloqueia por padrão; as
+  superfícies compartilhadas oferecem `allowRowErrors` para aceitar apenas as
+  linhas válidas, sem liberar erro de documento/viagem nem persistir porto
+  desconhecido.
 - **Código — importação não atômica:** o cabeçalho `granite_manifests` é criado
   antes do UPSERT de `granite_bls`; falha posterior pode deixar manifesto sem
   todos os B/Ls esperados.

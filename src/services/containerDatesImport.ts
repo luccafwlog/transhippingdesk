@@ -1,7 +1,7 @@
 import { assertUploadFile } from '../lib/fileGuard'
 import { extractErrorText } from '../lib/errors'
 import { asString } from '../lib/utils'
-import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { matchHeaders, readSheet, type HeaderSpec, type SheetRow } from './importCore'
 import { isValidCalendarDate } from './importValidation'
 import { supabase } from './supabase'
 
@@ -33,7 +33,7 @@ export type ParsedContainerDatesImport = {
 export async function parseContainerDatesFile(file: File): Promise<ParsedContainerDatesImport> {
   assertUploadFile(file, ['xlsx', 'xls', 'csv'])
   const buffer = await file.arrayBuffer()
-  const { headers, rows, headerRowIndex } = await readSheet(buffer, {
+  const { headers, rows } = await readSheet(buffer, {
     // Keep the source text intact. In particular, SheetJS may reinterpret a
     // CSV value such as `01/08/2026` as a JavaScript Date using the host
     // locale, turning the Brazilian date into `2026-01-08` before parseDate
@@ -43,7 +43,7 @@ export async function parseContainerDatesFile(file: File): Promise<ParsedContain
   })
   const { missing } = matchHeaders(headers, SPEC)
   if (missing.length) throw new Error(`Colunas obrigatorias ausentes: ${missing.join(', ')}.`)
-  return parseRows(rows, headerRowIndex)
+  return parseRows(rows)
 }
 
 export type ContainerDatesImportError = { bl_id: string; container_number: string; message: string }
@@ -144,19 +144,19 @@ export async function importContainerDates(rows: ContainerDatesImportRow[]): Pro
   return { updated, unchanged, missing, errors }
 }
 
-function parseRows(objectRows: Record<string, unknown>[], headerRowIndex = 0): ParsedContainerDatesImport {
+function parseRows(objectRows: SheetRow[]): ParsedContainerDatesImport {
   const rowsByKey = new Map<string, ContainerDatesImportRow>()
   const conflictingKeys = new Set<string>()
   const rowErrors: ParsedContainerDatesImport['rowErrors'] = []
 
-  objectRows.forEach((row, index) => {
+  objectRows.forEach((row) => {
     const mapped = mapRow(row)
     const blId = asString(mapped.bl_id).toUpperCase()
     const containerNumber = asString(mapped.container_number).toUpperCase()
     const rawDischarge = mapped.discharge_date
     const rawReturn = mapped.return_date
 
-    const rowNumber = index + headerRowIndex + 2
+    const rowNumber = row.rowNumber
     if (!blId) { rowErrors.push({ row: rowNumber, message: 'Linha sem BL.', raw: row }); return }
     if (!containerNumber) { rowErrors.push({ row: rowNumber, message: 'Linha sem Container.', raw: row }); return }
 

@@ -51,20 +51,6 @@ export function rowErrorsToImportIssues(rowErrors: readonly RowErrorLike[]): Imp
   })
 }
 
-export function messagesToImportIssues(
-  messages: readonly string[],
-  severity: ImportIssue['severity'],
-  context: { row: number; field: string },
-): ImportIssue[] {
-  return messages.map((message) => ({
-    row: context.row,
-    field: context.field,
-    code: 'invalid_group',
-    severity,
-    message,
-  }))
-}
-
 export function hasBlockingIssues(issues: readonly ImportIssue[]): boolean {
   return issues.some((issue) => issue.severity === 'error')
 }

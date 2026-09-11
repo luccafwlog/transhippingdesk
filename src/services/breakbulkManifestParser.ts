@@ -14,7 +14,7 @@ import {
   isLikelyCompanyLine,
   normalizeCarrierBreakbulkDescription,
 } from './breakbulkCargoText'
-import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { matchHeaders, readSheet, type HeaderSpec, type SheetRow } from './importCore'
 
 const headerMap = {
   bl_id: ['bl', 'b/l', 'bill of lading'],
@@ -103,7 +103,7 @@ export async function parseBreakbulkManifestBuffer(buffer: ArrayBuffer): Promise
   return parseBreakbulkRows(rows, layout)
 }
 
-function parseBreakbulkRows(rows: Record<string, unknown>[], layout: BreakbulkLayout): ParsedBreakbulkManifest {
+function parseBreakbulkRows(rows: SheetRow[], layout: BreakbulkLayout): ParsedBreakbulkManifest {
   return layout === 'summary' ? parseSummaryRows(rows) : parseLegacyRows(rows)
 }
 
@@ -226,13 +226,13 @@ function parseCarrierBreakbulkRows(rawRows: (string | number | null)[][]): Parse
   }
 }
 
-function parseSummaryRows(rows: Record<string, unknown>[]): ParsedBreakbulkManifest {
+function parseSummaryRows(rows: SheetRow[]): ParsedBreakbulkManifest {
   const rowErrors: ParsedBreakbulkManifest['rowErrors'] = []
   const parsedRows: BreakbulkImportRow[] = []
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const mapped = mapRow(row, SUMMARY_SPEC)
-    const rowNumber = index + 2
+    const rowNumber = row.rowNumber
 
     const bl_id = normalizeKey(mapped.bl_id)
     const ce_mercante = asNullableDigits(mapped.ce_mercante)
@@ -285,7 +285,7 @@ function parseSummaryRows(rows: Record<string, unknown>[]): ParsedBreakbulkManif
   }
 }
 
-function parseLegacyRows(rows: Record<string, unknown>[]): ParsedBreakbulkManifest {
+function parseLegacyRows(rows: SheetRow[]): ParsedBreakbulkManifest {
   const rowErrors: ParsedBreakbulkManifest['rowErrors'] = []
   const mappedRows: Array<{
     rowNumber: number
@@ -303,9 +303,9 @@ function parseLegacyRows(rows: Record<string, unknown>[]): ParsedBreakbulkManife
     shipper: string | null
   }> = []
 
-  rows.forEach((row, index) => {
+  rows.forEach((row) => {
     const mapped = mapRow(row, LEGACY_SPEC)
-    const rowNumber = index + 2
+    const rowNumber = row.rowNumber
 
     const bl_id = normalizeKey(mapped.bl_id)
     const consignee = asString(mapped.consignee)
