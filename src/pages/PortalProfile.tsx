@@ -132,7 +132,7 @@ function PortalProfileForm({
   return (
     <>
       <form className="grid gap-4" onSubmit={handleSubmit}>
-        <h2 className="text-lg font-semibold text-[var(--app-foreground)]">Dados cadastrais</h2>
+        <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">Dados cadastrais</h2>
         <Field label="Endereço">
           <Input
             type="text"

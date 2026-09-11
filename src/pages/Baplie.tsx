@@ -355,7 +355,7 @@ function VaziosSection({
         <div className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
           isCountMismatch
             ? 'border-amber-500/30 bg-amber-500/10'
-            : 'border-[var(--app-border)] bg-[var(--app-surface-soft)]'
+            : 'border-[var(--app-border)] bg-[var(--app-surface-muted)]'
         }`}>
           <div>
             <div className={`text-sm font-medium ${isCountMismatch ? 'text-amber-200' : 'text-slate-200'}`}>
