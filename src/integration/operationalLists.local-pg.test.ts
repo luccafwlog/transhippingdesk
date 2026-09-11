@@ -52,7 +52,9 @@ describeLocal('S12 — leituras operacionais paginadas', () => {
       INSERT INTO public.customers (id, cnpj_cpf, name) VALUES (${customerId}, '99220100000195', 'S12 Customer');
       INSERT INTO public.carriers (id, name) VALUES (${carrierId}, 'S12 Carrier');
       INSERT INTO public.vessels (id, name, imo, carrier_id) VALUES (${vesselId}, 'S12 Vessel', 'IMO992203', ${carrierId});
-      INSERT INTO public.voyages (id, vessel_id, voyage_number, status) VALUES (${voyageId}, ${vesselId}, 'S12-V', 'active');
+      -- Exercita o legado nullable: a migration 037 deve preservar a viagem
+      -- e o frontend a normaliza como ativa.
+      INSERT INTO public.voyages (id, vessel_id, voyage_number, status) VALUES (${voyageId}, ${vesselId}, 'S12-V', NULL);
       INSERT INTO public.bls (id, voyage_id, customer_id, consignee, cargo_mode, pol, pod, financial_status, review_status, charge_status, bb_machine_qty, bb_packages_qty, bb_packages_total, bb_weight_ton, total_cbm, created_at) VALUES
         ('${blIds[0]}', ${voyageId}, ${customerId}, 'Alpha', 'container', 'CNSHA', 'BRVIX', 'pending', 'ok', 'ready_for_billing', NULL, NULL, NULL, NULL, NULL, '2026-01-01T00:00:00Z'),
         ('${blIds[1]}', ${voyageId}, ${customerId}, 'Beta', 'container', 'CNSHA', 'BRVIX', 'pending', 'pending_review', 'review_required', NULL, NULL, NULL, NULL, NULL, '2026-01-02T00:00:00Z'),
@@ -124,6 +126,7 @@ describeLocal('S12 — leituras operacionais paginadas', () => {
     expect(page.count).toBeGreaterThanOrEqual(1)
     expect(voyage).toMatchObject({
       id: voyageId,
+      status: null,
       blCount: 3,
       containerCount: 2,
       baplieCount: 0,

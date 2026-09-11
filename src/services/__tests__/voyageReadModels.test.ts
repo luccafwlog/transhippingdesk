@@ -18,6 +18,10 @@ const summaryMetricsMigration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/036_operational_breakbulk_summary_metrics.sql'),
   'utf8',
 )
+const nullStatusMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/037_operational_voyage_summary_null_status.sql'),
+  'utf8',
+)
 
 describe('lista resumida de viagens', () => {
   beforeEach(() => mockRpc.mockReset())
@@ -131,5 +135,14 @@ describe('migration 036 — métricas de carga solta', () => {
     expect(summaryMetricsMigration).toMatch(/totalWeightTon/i)
     expect(summaryMetricsMigration).toMatch(/totalCbm/i)
     expect(summaryMetricsMigration).toMatch(/REVOKE ALL ON FUNCTION/i)
+  })
+})
+
+describe('migration 037 — status nullable do resumo operacional', () => {
+  it('reaplica a função com fallback de status ativo sem reescrever a migration 035', () => {
+    expect(nullStatusMigration).toMatch(/CREATE OR REPLACE FUNCTION public\.operational_list_voyage_summaries\(/i)
+    expect(nullStatusMigration).toMatch(/COALESCE\(v\.status, 'active'\) IN/i)
+    expect(nullStatusMigration).toMatch(/REVOKE ALL ON FUNCTION/i)
+    expect(nullStatusMigration).toMatch(/GRANT EXECUTE ON FUNCTION public\.operational_list_voyage_summaries\([\s\S]*TO authenticated/i)
   })
 })

@@ -206,7 +206,9 @@ As entregas desta etapa foram feitas no worktree isolado, preservando a ordem Pa
   resumo de Carga Solta passou a ser server-side na migration `036`, mantendo
   no cliente somente a exportação solicitada pelo usuário. A leitura de detalhe
   do Baplie foi extraída para `baplieReadModel.ts`, com projeção explícita,
-  paginação por viagem e teste do contrato de existência de B/L.
+  paginação por viagem e teste do contrato de existência de B/L. A correção
+  forward de status nullable do rail está em `037`, sem editar a migration
+  `035` histórica.
 - **Medição local reproduzível:** com cinco rodadas, rollback por cenário,
   `ANALYZE` das tabelas sintéticas dentro da transação e três viagens/quatro
   rotas, o resumo teve p95 de `3,846/4,827/16,225 ms` para
@@ -365,7 +367,7 @@ uma decisão registrada.
 
 ### 1.1 Baseline e alcance da evidência
 
-- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`036` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
+- **Código:** o baseline de `main` foi conferido no merge da PR #661 e a PR #669 foi adotada como baseline de integração. A árvore original estava limpa; nesta branch as migrations ativas relevantes incluem `009`–`013`, `015`–`037` (a numeração `014` permanece ausente). O arquivo histórico não é a definição final do banco.
 - Fonte dos identificadores: [auditoria consolidada](../archive/audits/2026-09-06-auditoria-consolidada-prs-654-660.md). Preservar esse registro integralmente. Nas seções sem ID, usar o número e o título original; os sufixos deste plano apenas desdobram causas diferentes.
 - Fontes de decisão: [CLAUDE.md](../../CLAUDE.md), [CONTEXT.md](../../CONTEXT.md), [WORKFLOW.md](../../WORKFLOW.md), [arquitetura](../ARCHITECTURE.md), [rastreabilidade](../RASTREABILIDADE.md), [convenções](../CONVENCOES.md) e [índice de ADRs](../adr/README.md).
 - **Código** significa confirmação estática no baseline. **Teste de contrato SQL** significa inspeção textual de SQL; não prova execução, concorrência, grants efetivos ou PostgREST. Testes citados abaixo são existentes ou propostos, com essa distinção explícita; não foram executados para afirmar que uma remediação funciona.
@@ -1013,7 +1015,7 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 
 ## 5. Sequência recomendada de PRs
 
-Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`036`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
+Os nomes abaixo registram a sequência planejada e o estado observado na linha atual. `[x]` significa implementado e evidenciado; `mitigado` significa que o caminho principal foi corrigido, mas há cauda aberta; `[ ]` significa que o próximo agente ainda precisa implementar/provar o item. As migrations ativas relevantes são `009`–`013` e `015`–`037`; `014` permanece ausente por decisão do replay atual. Não criar uma migration `014` só para preencher a lacuna nem renumerar histórico aplicado; qualquer mudança nova deve usar o próximo número livre após rebase e atualizar este plano.
 
 | Ordem | Estado | Entrega / ação | Referência atual | O que o próximo agente deve considerar concluído ou pendente |
 |---|---|---|---|---|
@@ -1033,7 +1035,7 @@ Os nomes abaixo registram a sequência planejada e o estado observado na linha a
 | 14 | `[x]` + `[ ]` runtime | Fechar readiness de emissão e comunicação | S10/F12; `033_customer_communication_readiness_guards.sql` | Guarda server-side de comunicação aplicada em criação/claim/envio, com lock e identidade de sistema; gate de emissão/Portal e prova de runtime continuam pendentes. |
 | 15 | `[x]` + `[ ]` runtime | Persistir inbox e estados de envio | S07; `022_email_inbox_and_dispatch_state.sql` + `032_customer_communication_partial_status.sql` | Inbox, dedup, stale events, recuperação e estado explícito `parcial` estão entregues; índice sem `status`, deploy/Edge e provedor continuam pendentes. |
 | 16 | `[x]` + `[ ]` | Fechar ledger, status/itens e rateio do impresso | S10/F14; `019_local_billing_integrity.sql` | D05/R$0,01 e integração local passaram; casos amplos, diagnóstico de irmãos e gate completo de comunicação continuam abertos. |
-| 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql`, `035_operational_voyage_summaries.sql`, `036_operational_breakbulk_summary_metrics.sql` e páginas Portal | Projeções, paginação/window, resumo de viagem sob demanda, Line Up sem waterfall de containers, resumo BB server-side e filtros principais estão entregues; exportações sob demanda, refresh de Preview e profiler faltam. |
+| 17 | `mitigado` + `[ ]` | Paginar listas e concluir projeção compartilhada | S12; `020_operational_read_pages.sql`, `035_operational_voyage_summaries.sql`, `036_operational_breakbulk_summary_metrics.sql`, `037_operational_voyage_summary_null_status.sql` e páginas Portal | Projeções, paginação/window, resumo de viagem sob demanda, Line Up sem waterfall de containers, resumo BB server-side, fallback forward de status nullable e filtros principais estão entregues; exportações sob demanda, refresh de Preview e profiler faltam. |
 | 18 | `mitigado` + `[ ]` | Debounce, offline, feedback e acessibilidade | S13; sem migration | Debounce, estados de erro/offline, hidratação, confirmações/menu e progresso/cancelamento nos modais múltiplos e customizados estão entregues; contraste, leitor de tela/foco manual e cessão entre blocos faltam. |
 | 19 | `[x]` + `[ ]` | Completar índice e gate de catálogo | S14/#659.7; scripts de docs/RPC catalog | `docs:check`, catálogo, replay, tipos e inspeção local das 14 candidatas passaram; famílias ausentes e prova externa ainda faltam. |
 | 20 | `[ ]` | Retirar legado confirmado / DV condicional | S14/#659.5/6/9; sem DROP ainda | Provar consumidores externos e dados das quatro colunas, decidir DV e somente então abrir migration com `DROP ... RESTRICT`. |

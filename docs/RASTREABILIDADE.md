@@ -51,6 +51,7 @@ Resend reais.
 | `recalculate_demurrage_invoices`, `recalculate_demurrage_invoices_manual`, `save_exchange_rate_reference`, `save_exchange_rate_reference_v2`, `_demurrage_roe_from_ptax`, `_demurrage_spread_version` | `018_exchange_rate_provenance.sql`; `exchangeRateIntegrity.local-pg.test.ts` |
 | `operational_list_bl_summary`, `operational_list_bls`, `operational_list_containers` | `020_operational_read_pages.sql`; `operationalLists.local-pg.test.ts` |
 | `operational_list_voyage_summaries` | `035_operational_voyage_summaries.sql`; `voyageReadModels.test.ts`, `operationalLists.local-pg.test.ts` |
+| `operational_list_voyage_summaries` (status nullable) | `037_operational_voyage_summary_null_status.sql`; `voyageReadModels.test.ts`, `operationalLists.local-pg.test.ts` |
 | `operational_list_bl_summary` (métricas BB) | `036_operational_breakbulk_summary_metrics.sql`; `voyageReadModels.test.ts`, `operationalLists.local-pg.test.ts` |
 | `portal_list_disputes`, `_portal_list_disputes_core` | `013_portal_disputes_inspection.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `portal_list_demurrage_invoices_page`, `portal_list_invoices_page`, `_portal_list_demurrage_invoices_page_core`, `_portal_list_invoices_page_core` | `021_portal_billing_pages.sql`; `portalInspectionParity.local-pg.test.ts` |

@@ -1,9 +1,9 @@
--- 035: read-model resumido para o rail de Viagens (S12).
+-- 037: forward-fix for the nullable legacy voyage status.
 --
--- A tela de Viagens precisa de rotas, cobertura de CE e presença de carga para
--- montar o rail, mas não precisa dos B/Ls, containers, fretes e bookings de
--- todas as viagens. O detalhe continua sendo lido pela página selecionada.
--- Os agregados abaixo rodam por viagem da página e preservam o RLS do ator.
+-- Migration 035 may already have been applied by an incremental Supabase
+-- Preview/production rollout. Keep 035 immutable and replace the function in
+-- a new migration so that a voyage with NULL status retains its historical
+-- frontend meaning of "active" instead of disappearing from the rail.
 
 CREATE OR REPLACE FUNCTION public.operational_list_voyage_summaries(
   p_page integer DEFAULT 1,
@@ -29,7 +29,7 @@ WITH visible AS (
     v.pod_id,
     COUNT(*) OVER () AS total_count
   FROM public.voyages AS v
-  WHERE v.status IN ('active', 'completed', 'cancelled')
+  WHERE COALESCE(v.status, 'active') IN ('active', 'completed', 'cancelled')
 ), page AS (
   SELECT *
   FROM visible
