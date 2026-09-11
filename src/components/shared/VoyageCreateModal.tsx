@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/Button'
 import { Field, Input, Select } from '../ui/Input'
+import { useConfirm } from '../ui/ConfirmDialog'
 import { Modal } from '../ui/Modal'
 import { useToast } from '../ui/Toast'
 import { useAuth } from '../../hooks/useAuth'
@@ -35,8 +36,13 @@ export function VoyageCreateModal({
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { user } = useAuth()
+  const confirm = useConfirm()
   const [form, setForm] = useState<VoyageFormValues>(initialVoyageFormValues)
   const [hasIndicatedFirstPort, setHasIndicatedFirstPort] = useState(false)
+  const [pristine, setPristine] = useState({
+    form: initialVoyageFormValues,
+    hasIndicatedFirstPort: false,
+  })
   const [errors, setErrors] = useState<VoyageFormErrors>({})
   const [saving, setSaving] = useState(false)
 
@@ -48,15 +54,38 @@ export function VoyageCreateModal({
     if (open) {
       const indicatedPort = initialValues?.indicatedFirstBrazilianPort ?? initialVoyageFormValues.indicatedFirstBrazilianPort
       const indicatedEta = initialValues?.indicatedFirstBrazilianEta ?? initialVoyageFormValues.indicatedFirstBrazilianEta
-      setForm({
+      const nextForm = {
         ...initialVoyageFormValues,
         ...initialValues,
         indicatedFirstBrazilianPort: indicatedPort,
         indicatedFirstBrazilianEta: indicatedEta,
-      })
-      setHasIndicatedFirstPort(Boolean(indicatedPort || indicatedEta))
+      }
+      const nextHasIndicatedFirstPort = Boolean(indicatedPort || indicatedEta)
+      setForm(nextForm)
+      setHasIndicatedFirstPort(nextHasIndicatedFirstPort)
+      setPristine({ form: nextForm, hasIndicatedFirstPort: nextHasIndicatedFirstPort })
       setErrors({})
     }
+  }
+
+  const isDirty =
+    JSON.stringify({ form, hasIndicatedFirstPort }) !== JSON.stringify(pristine)
+
+  async function handleClose() {
+    if (!isDirty) {
+      onClose()
+      return
+    }
+
+    const shouldDiscard = await confirm({
+      title: 'Descartar alterações?',
+      message: 'Há alterações não salvas nesta viagem. Deseja descartá-las?',
+      confirmLabel: 'Descartar alterações',
+      cancelLabel: 'Continuar editando',
+      tone: 'danger',
+    })
+
+    if (shouldDiscard) onClose()
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -115,7 +144,7 @@ export function VoyageCreateModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={title}>
+    <Modal open={open} onClose={handleClose} title={title}>
       <form className="grid gap-4" onSubmit={handleSubmit}>
         <div className="app-panel app-panel--padded text-sm">
           {note ??
@@ -229,7 +258,7 @@ export function VoyageCreateModal({
         </div>
 
         <div className="app-modal__actions">
-          <Button variant="secondary" type="button" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={handleClose}>
             Cancelar
           </Button>
           <Button loading={saving} type="submit">
