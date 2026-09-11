@@ -129,6 +129,11 @@ export function useBlSummary(filters: BlFilters) {
   })
 }
 
+/**
+ * @deprecated Não utilizar para navegação ou renderização de rails/listas operacionais.
+ * Materializa lotes sucessivos de 1.000 linhas exclusivamente para fluxos de
+ * exportação explícita (CSV/XLSX) disparados manualmente pelo operador.
+ */
 export async function fetchAllBls(filters: BlFilters) {
   const rows: BLListItem[] = []
   let from = 0
@@ -158,6 +163,11 @@ export async function fetchAllBls(filters: BlFilters) {
   return profileFiltered.filter((row) => normalizeChargeStatus(row.charge_status) === chargeStatusFilter)
 }
 
+/**
+ * @deprecated Não utilizar para navegação ou renderização de rails/listas operacionais.
+ * Materializa lotes sucessivos de 1.000 linhas exclusivamente para fluxos de
+ * exportação explícita (CSV/XLSX) disparados manualmente pelo operador.
+ */
 export async function fetchAllContainers(filters: ContainerFilters) {
   const rows = await fetchAllBls({
     search: '',

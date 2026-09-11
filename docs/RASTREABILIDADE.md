@@ -58,6 +58,7 @@ Resend reais.
 | `customer_billing_access_ready` | `019_local_billing_integrity.sql`; `localBillingIntegrity.local-pg.test.ts` |
 | `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql`; `auditSecurityBoundaries.local-pg.test.ts` |
 | `portal_email_event_attempts_append_only` | `022_email_inbox_and_dispatch_state.sql`; `emailInbox.local-pg.test.ts` |
+| `refresh_customer_communication_status` | `032_customer_communication_partial_status.sql`, `038_customer_communication_status_recipient_latest.sql`; `customerCommunicationPartialStatusMigration.test.ts`, `customerCommunicationRecipientLatestMigration.test.ts` |
 
 ### Atualização da entrega S12 — read-model de viagens e Line Up
 
