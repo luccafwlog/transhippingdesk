@@ -957,7 +957,7 @@ Este comando é somente de execução futura, para o banco descartável de §6; 
 - [x] Implementar a separação `loading`/`error`/`unauthorized` na hidratação, troca de usuário, timeout e perfil inativo/removido; erro transitório permite retry com ações bloqueadas e perfil revogado elimina acesso sem reutilizar autorização anterior.
 - [ ] Executar o roteiro completo no Preview autenticado.
 - [x] Substituir as quatro confirmações nativas por `ConfirmDialog`, com descrição da entidade/efeito, e preservar os listeners corrigidos de Containers/Manifestos.
-- [ ] Validar manualmente modal sujo, backdrop/Escape/fechar, foco previsível e ausência de confirmação quando não há alteração.
+- [x] Validar manualmente modal sujo, backdrop/Escape/fechar, foco previsível e ausência de confirmação quando não há alteração. Evidência: Preview Vercel da PR #683 no SHA `c252d7cb`, rota `/viagens`; alteração suja confirmou em Cancelar, fechar, Escape e backdrop, “Continuar editando” preservou o valor e o foco retornou a “Nova Viagem”; formulário limpo fechou sem confirmação.
 - [x] Medir contraste de texto normal >=4,5:1 nos tokens de texto, link, status e cabeçalho nos dois temas reais; `npm run a11y:contrast` passou 20 pares e ajustou tokens claros/escuros. Estados hover/disabled e confirmação de que status não depende apenas de cor continuam no roteiro manual.
 - [x] Implementar botões/menus de ação acessíveis por teclado e semântica de interação equivalente para as linhas auditadas.
 - [ ] Completar caption, `aria-sort` e retorno de foco com verificação manual de leitor de tela; não criar grid ARIA sem necessidade.
