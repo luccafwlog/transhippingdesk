@@ -29,7 +29,7 @@ WITH visible AS (
     v.pod_id,
     COUNT(*) OVER () AS total_count
   FROM public.voyages AS v
-  WHERE v.status IN ('active', 'completed', 'cancelled')
+  WHERE COALESCE(v.status, 'active') IN ('active', 'completed', 'cancelled')
 ), page AS (
   SELECT *
   FROM visible

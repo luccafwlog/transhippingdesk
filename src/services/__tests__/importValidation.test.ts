@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { messagesToImportIssues, rowErrorsToImportIssues } from '../importValidation'
+import {
+  IsoDateSchema,
+  isValidCalendarDate,
+  messagesToImportIssues,
+  rowErrorsToImportIssues,
+} from '../importValidation'
 
 describe('adaptação segura dos relatórios de importação', () => {
   it('converte erros de linha sem carregar o raw para o relatório', () => {
@@ -34,5 +39,21 @@ describe('adaptação segura dos relatórios de importação', () => {
     expect(messagesToImportIssues(['confira'], 'warning', { row: 1, field: 'document' })).toEqual([
       { row: 1, field: 'document', code: 'invalid_group', severity: 'warning', message: 'confira' },
     ])
+  })
+
+  it('valida datas de calendário reais e rejeita dias/meses inválidos', () => {
+    expect(isValidCalendarDate('2026-01-31')).toBe(true)
+    expect(isValidCalendarDate('2024-02-29')).toBe(true) // bissexto válido
+    expect(isValidCalendarDate('2025-02-29')).toBe(false) // não bissexto
+    expect(isValidCalendarDate('2026-02-31')).toBe(false) // dia inexistente
+    expect(isValidCalendarDate('2026-04-31')).toBe(false) // abril tem 30 dias
+    expect(isValidCalendarDate('2026-13-01')).toBe(false) // mês inválido
+  })
+
+  it('IsoDateSchema valida formato e calendário', () => {
+    expect(IsoDateSchema.safeParse('2026-05-15').success).toBe(true)
+    expect(IsoDateSchema.safeParse('2026-02-31').success).toBe(false)
+    expect(IsoDateSchema.safeParse('15/05/2026').success).toBe(false)
+    expect(IsoDateSchema.safeParse('not-a-date').success).toBe(false)
   })
 })

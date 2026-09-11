@@ -1,3 +1,4 @@
+import { isValidCalendarDate } from './importValidation'
 import { PORTAL_SCHEDULE_LANES, portalLaneCode, type PortalScheduleLaneKind } from './portalScheduleLanes'
 import type { ScheduleLaneInput } from './voyageFromSchedule'
 
@@ -28,13 +29,17 @@ export function scheduleTemplateColumns(): string[] {
 
 export function parseCellDate(raw: unknown): string | null {
   if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
-    return raw.toISOString().slice(0, 10)
+    const iso = raw.toISOString().slice(0, 10)
+    return isValidCalendarDate(iso) ? iso : null
   }
   const value = String(raw ?? '').trim()
   if (!value || value.toUpperCase() === 'X') return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) && isValidCalendarDate(value)) return value
   const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (match) return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
+  if (match) {
+    const iso = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`
+    if (isValidCalendarDate(iso)) return iso
+  }
   return null
 }
 

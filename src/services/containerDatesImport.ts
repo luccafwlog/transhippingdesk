@@ -2,6 +2,7 @@ import { assertUploadFile } from '../lib/fileGuard'
 import { extractErrorText } from '../lib/errors'
 import { asString } from '../lib/utils'
 import { matchHeaders, readSheet, type HeaderSpec } from './importCore'
+import { isValidCalendarDate } from './importValidation'
 import { supabase } from './supabase'
 
 const headerMap = {
@@ -211,18 +212,6 @@ function parseDate(value: unknown): string | null {
   return null
 }
 
-function isValidCalendarDate(iso: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  if (!match) return false
-
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  if (year < 1 || month < 1 || month > 12 || day < 1) return false
-
-  const date = new Date(Date.UTC(year, month - 1, day))
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-}
 
 function mapRow(row: Record<string, unknown>) {
   const mapped: Partial<Record<DestinationField, unknown>> = {}

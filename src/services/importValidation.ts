@@ -107,7 +107,23 @@ export const IsoContainerSchema = z
 
 export const LocodeSchema = z.string().regex(/^[A-Z]{5}$/, 'LOCODE esperado (5 letras)')
 
-export const IsoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO esperada (AAAA-MM-DD)')
+export function isValidCalendarDate(iso: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!match) return false
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+export const IsoDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO esperada (AAAA-MM-DD)')
+  .refine(isValidCalendarDate, 'data de calendário inválida')
 
 export const NonNegativeDecimalSchema = z
   .string()
