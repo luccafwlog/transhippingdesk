@@ -52,7 +52,21 @@ vi.mock('../../services/adminUsers', async (importActual) => {
   }
 })
 
-import { AdminUsuarios } from '../AdminUsuarios'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Admin } from '../Admin'
+
+// A aba de Administração vive na URL. Os testes montam a rota real para que
+// `useParams` devolva o mesmo que o app entrega em produção.
+function renderAdmin(tab = 'usuarios') {
+  return render(
+    <MemoryRouter initialEntries={[`/admin/${tab}`]}>
+      <Routes>
+        <Route path="/admin/:tab" element={<Admin />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -63,7 +77,7 @@ beforeEach(() => {
 afterEach(cleanup)
 
 it('US-146: lista os usuarios com nome, perfil e status', () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
 
   expect(screen.getByText('Alice Operadora')).toBeTruthy()
   expect(screen.getByText('Bruno Inativo')).toBeTruthy()
@@ -73,7 +87,7 @@ it('US-146: lista os usuarios com nome, perfil e status', () => {
 })
 
 it('US-147: alterna o status ativo de um usuario apos confirmar', async () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
 
   // Alice is active -> her action button reads "Desativar"
   fireEvent.click(screen.getAllByRole('button', { name: 'Desativar' })[0])
@@ -85,7 +99,7 @@ it('US-147: alterna o status ativo de um usuario apos confirmar', async () => {
 
 it('Task 9: cancelar a confirmacao nao desativa o usuario', async () => {
   mocks.confirm.mockResolvedValue(false)
-  render(<AdminUsuarios />)
+  renderAdmin()
 
   fireEvent.click(screen.getAllByRole('button', { name: 'Desativar' })[0])
 
@@ -94,7 +108,7 @@ it('Task 9: cancelar a confirmacao nao desativa o usuario', async () => {
 })
 
 it('US-147: altera o perfil de acesso de um usuario', async () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
 
   const select = screen.getAllByRole('combobox')[0]
   fireEvent.change(select, { target: { value: 'financeiro' } })
@@ -104,7 +118,7 @@ it('US-147: altera o perfil de acesso de um usuario', async () => {
 })
 
 it('pede confirmacao antes de trocar o setor, mostrando o escopo do destino', async () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
   fireEvent.change(screen.getAllByTitle('Setor de acesso')[0], { target: { value: 'financeiro' } })
   await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
   const args = mocks.confirm.mock.calls[0][0] as { message: string }
@@ -114,7 +128,7 @@ it('pede confirmacao antes de trocar o setor, mostrando o escopo do destino', as
 
 it('nao troca o setor quando a confirmacao e recusada', async () => {
   mocks.confirm.mockResolvedValue(false)
-  render(<AdminUsuarios />)
+  renderAdmin()
   fireEvent.change(screen.getAllByTitle('Setor de acesso')[0], { target: { value: 'financeiro' } })
   await waitFor(() => expect(mocks.confirm).toHaveBeenCalled())
   expect(mocks.updateUserProfile).not.toHaveBeenCalled()
@@ -122,41 +136,37 @@ it('nao troca o setor quando a confirmacao e recusada', async () => {
 
 it('DEF-061: surface dedicada de erro ao carregar logs de acoes', () => {
   mocks.errorByKey = { 'admin-audit-logs': new Error('logs down') }
-  render(<AdminUsuarios />)
-
-  fireEvent.click(screen.getByRole('button', { name: 'Log de Ações' }))
+  renderAdmin('logs')
 
   expect(screen.getByText('Erro ao carregar logs de ações.')).toBeTruthy()
 })
 
 it('DEF-062: surface dedicada de erro ao carregar metricas do sistema', () => {
   mocks.errorByKey = { 'admin-metrics': new Error('metrics down') }
-  render(<AdminUsuarios />)
-
-  fireEvent.click(screen.getByRole('button', { name: 'Métricas' }))
+  renderAdmin('metricas')
 
   expect(screen.getByText('Erro ao carregar métricas do sistema.')).toBeTruthy()
 })
 
 it('mostra o e-mail de login de cada usuario', () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
   expect(screen.getByText('alice@fwlog.com.br')).toBeTruthy()
 })
 
 it('destaca quem nunca acessou o sistema', () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
   expect(screen.getByText('Nunca acessou')).toBeTruthy()
 })
 
 it('filtra a lista por e-mail', () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
   fireEvent.change(screen.getByPlaceholderText('Buscar por nome ou e-mail'), { target: { value: 'bruno@' } })
   expect(screen.queryByText('Alice Operadora')).toBeNull()
   expect(screen.getByText('Bruno Inativo')).toBeTruthy()
 })
 
 it('exige o setor para criar um usuario', () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
   fireEvent.click(screen.getByRole('button', { name: 'Novo usuário' }))
   fireEvent.change(screen.getByLabelText(/Nome completo/), { target: { value: 'Carla Nova' } })
   fireEvent.change(screen.getByLabelText(/E-mail de login/), { target: { value: 'carla@fwlog.com.br' } })
@@ -168,7 +178,7 @@ it('exige o setor para criar um usuario', () => {
 })
 
 it('recusa criacao quando a confirmacao de senha nao confere', () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
   fireEvent.click(screen.getByRole('button', { name: 'Novo usuário' }))
   fireEvent.change(screen.getByLabelText(/Nome completo/), { target: { value: 'Carla Nova' } })
   fireEvent.change(screen.getByLabelText(/E-mail de login/), { target: { value: 'carla@fwlog.com.br' } })
@@ -182,7 +192,7 @@ it('recusa criacao quando a confirmacao de senha nao confere', () => {
 
 it('cria o usuario com os dados preenchidos', async () => {
   mocks.createUser.mockResolvedValue(undefined)
-  render(<AdminUsuarios />)
+  renderAdmin()
   fireEvent.click(screen.getByRole('button', { name: 'Novo usuário' }))
   fireEvent.change(screen.getByLabelText(/Nome completo/), { target: { value: 'Carla Nova' } })
   fireEvent.change(screen.getByLabelText(/E-mail de login/), { target: { value: 'Carla@FWLog.com.br' } })
@@ -200,14 +210,14 @@ it('cria o usuario com os dados preenchidos', async () => {
 
 it('desativa pela Edge Function, que tambem encerra a sessao', async () => {
   mocks.deactivateUser.mockResolvedValue(undefined)
-  render(<AdminUsuarios />)
+  renderAdmin()
   fireEvent.click(screen.getAllByRole('button', { name: 'Desativar' })[0])
   await waitFor(() => expect(mocks.deactivateUser).toHaveBeenCalledWith('u-1'))
 })
 
 it('mostra as informacoes do sistema na aba Metricas, nao no topo da tela', () => {
-  render(<AdminUsuarios />)
+  renderAdmin()
   expect(screen.queryByText('Informações do sistema')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Métricas' }))
+  fireEvent.click(screen.getByRole('tab', { name: 'Métricas' }))
   expect(screen.getByText('Informações do sistema')).toBeTruthy()
 })

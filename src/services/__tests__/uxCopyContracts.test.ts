@@ -17,7 +17,7 @@ it('uses neutral report-limit copy instead of claiming one global limit', () => 
 })
 
 it('exposes the audit author filter and clears it with the other filters', () => {
-  const source = readFileSync(resolve(process.cwd(), 'src/pages/AdminUsuarios.tsx'), 'utf8')
+  const source = readFileSync(resolve(process.cwd(), 'src/pages/Admin.tsx'), 'utf8')
   expect(source).toContain('Autor (ID)')
   expect(source).toContain('value={logFilters.changedBy}')
   expect(source).toContain('logFilters.entityType || logFilters.changedBy || logFilters.dateFrom || logFilters.dateTo')

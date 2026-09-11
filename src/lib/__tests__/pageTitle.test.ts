@@ -16,6 +16,10 @@ describe('routeTitle (WCAG 2.4.2 — título por rota)', () => {
     expect(routeTitle('/manifestos/COSU6401234501')).toBe('Detalhe do B/L · Transhipping Desk')
     expect(routeTitle('/manifestos')).toBe('BLs CNTR · Transhipping Desk')
     expect(routeTitle('/clientes/12.345.678/0001-90')).toBe('Ficha do Cliente · Transhipping Desk')
+    // /clientes/portal casava com o padrão de CNPJ e era titulado "Ficha do Cliente".
+    expect(routeTitle('/clientes/portal')).toBe('Clientes · Provisionamento do Portal · Transhipping Desk')
+    expect(routeTitle('/admin')).toBe('Administração · Transhipping Desk')
+    expect(routeTitle('/admin/logs')).toBe('Administração · Log de Ações · Transhipping Desk')
   })
 
   it('distingue portal de app interno', () => {

@@ -160,7 +160,7 @@ quando relevante e condição para reprodução.
 1. Entre em `/login` com usuário ativo.
 2. Confirme redirecionamento para `/painel`.
 3. Valide menu e rotas para cada perfil disponível.
-4. Tente abrir `/admin/usuarios` com usuário não administrativo.
+4. Tente abrir `/admin` com usuário não administrativo.
 5. Desative um usuário de QA e confirme bloqueio de sessão ou novo login.
 6. Espere ou simule expiração quando o fluxo de sessão for alterado.
 
@@ -441,7 +441,7 @@ Em `/chegadas-saidas`:
 
 ## 15. Admin, alertas, relatórios e Line Up
 
-- `/admin/usuarios`: alterar role/active de usuário de QA e revalidar acesso;
+- `/admin/usuarios` (aba Usuários): alterar role/active de usuário de QA e revalidar acesso;
 - `/alertas`: reconhecer e fechar alerta sem perder vínculo;
 - `/relatorios`: testar abas e arquivos exportados;
 - `/line-up-tv`: validar administração;
@@ -501,7 +501,7 @@ Functions.
 | `/portal/esqueci-senha` | Local sem Supabase | parcial | URL alcançada; fluxo de recovery não pôde iniciar | Browser, heading “Erro de configuração” |
 | `/portal/recuperar-senha` sem tokens | Local sem Supabase | parcial | URL alcançada; tratamento da ausência de tokens ficou bloqueado antes da montagem da página | Browser, heading “Erro de configuração” |
 | Rota desconhecida | Local sem Supabase | parcial | URL foi servida, mas o redirecionamento por estado de Auth não pôde ser observado | Browser em `/rota-inexistente-cartografia`; bootstrap bloqueado |
-| Login interno, perfil, logout e `/admin/usuarios` | Sem credenciais/Supabase | não executado | Requer sessão interna e projeto controlado | Nenhuma credencial foi solicitada ou inferida |
+| Login interno, perfil, logout e `/admin` | Sem credenciais/Supabase | não executado | Requer sessão interna e projeto controlado | Nenhuma credencial foi solicitada ou inferida |
 | Login Portal por CNPJ, logout, coexistência e recovery | Sem credenciais/Supabase | não executado | Requer Auth, Edge Function `portal-login` e ambiente controlado | Login, rate limit e recovery não foram exercitados |
 | Histórico remoto de migrations, incluindo `20260619190144` | Sem CLI vinculada | não executado | Não foi possível comparar histórico local e remoto | Supabase CLI e `.temp/project-ref` ausentes |
 | Viagem → Baplie → manifesto → reconciliação → veículos | Sem Supabase controlado | não executado | Fixtures existem, mas nenhuma entidade foi persistida | `test-fixtures/README.md`; writes bloqueadas pelo gate de ambiente |

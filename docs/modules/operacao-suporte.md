@@ -1,6 +1,6 @@
 # Operação e Suporte
 
-> **Status:** ativo · **Cartografia verificada:** 2026-08-26 · **Rotas:** `/painel`, `/revisao`, `/alertas`, `/alertas/regras`, `/relatorios`, `/line-up-tv`, `/line-up-tv/display`, `/admin/usuarios`
+> **Status:** ativo · **Cartografia verificada:** 2026-08-26 · **Rotas:** `/painel`, `/revisao`, `/alertas`, `/alertas/regras`, `/relatorios`, `/line-up-tv`, `/line-up-tv/display`, `/admin`, `/admin/:tab`
 
 ## Propósito e escopo
 
@@ -13,9 +13,9 @@ Escopo por rota:
 - `/alertas`: fila, filtros e dispensa temporária de alertas internos;
 - `/alertas/regras`: manual somente leitura das 26 regras ativas e das 2 aposentadas, com filtro por setor notificado e links para tratamento;
 - `/relatorios`: abas operacional, financeira, por cliente e demurrage, com exportação XLSX onde implementada;
-- `/line-up-tv`: sem rota nem página dedicada — cai no catch-all interno de `src/App.tsx` e redireciona para `/painel`;
+- `/line-up-tv`: sem rota nem página dedicada — cai no catch-all interno de `src/App.tsx`, que responde com a tela "Página não encontrada";
 - `/line-up-tv/display`: quadro protegido, sem o shell do `AppLayout`, para monitor/TV;
-- `/admin/usuarios`: perfis, papel, ativação, log de ações e métricas;
+- `/admin` (e `/admin/:tab`): perfis, papel, ativação, falhas de roteamento, log de ações, métricas e SLA do ADR — uma sub-rota por aba;
 - guards e shell compartilhados: `ProtectedRoute`, `AppLayout`, `HeaderInfoBar` e navegação.
 
 Rótulos usados na coluna **Evidência**:
@@ -32,7 +32,7 @@ Fontes de linguagem e arquitetura: `CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/a
 
 ### Guards, shell e navegação
 
-`src/App.tsx` coloca todas as rotas deste módulo sob `ProtectedRoute`. `/admin/usuarios` usa uma segunda árvore com `ProtectedRoute adminOnly`. `/line-up-tv/display` permanece protegido, mas fica deliberadamente fora de `AppLayout`; as demais rotas internas usam o shell com cabeçalho, barra de mercado, navegação, badges, logout e `ErrorBoundary`.
+`src/App.tsx` coloca todas as rotas deste módulo sob `ProtectedRoute`. `/admin` usa uma segunda árvore com `ProtectedRoute adminOnly`. `/line-up-tv/display` permanece protegido, mas fica deliberadamente fora de `AppLayout`; as demais rotas internas usam o shell com cabeçalho, barra de mercado, navegação, badges, logout e `ErrorBoundary`.
 
 `src/components/layout/ProtectedRoute.tsx` trata loading, ausência de sessão, falta de perfil ativo e redirecionamento de não admin. `src/components/layout/AppLayout.tsx` monta badges com `useOperationalCounts`, mostra o menu Admin somente quando `isAdmin`, executa logout e navega para `/login`. `src/components/layout/HeaderInfoBar.tsx` repete o logout no menu do usuário, exibe role, câmbio e alertas resumidos de demurrage/Granite.
 
@@ -133,7 +133,7 @@ Há exportação XLSX para operacional, financeiro e clientes. A aba demurrage a
 
 ### `/line-up-tv` e `/line-up-tv/display`
 
-`/line-up-tv` não tem rota nem página própria: o catch-all `<Route path="*" element={<Navigate to="/painel" replace />} />` de `src/App.tsx` absorve o caminho, como faz com qualquer rota interna desconhecida.
+`/line-up-tv` não tem rota nem página própria: o catch-all `<Route path="*">` de `src/App.tsx` absorve o caminho, como faz com qualquer rota interna desconhecida. Ele renderiza `NaoEncontrado` (antes redirecionava para `/painel` com `replace`, realocando o usuário sem aviso e sem histórico recuperável) e fica dentro do `ProtectedRoute`, para que visitante sem sessão continue indo para `/login`.
 
 `src/pages/LineUpTVDisplay.tsx` usa `['lineup-tv-display-v2']`, `staleTime` e auto-refresh de 30 segundos. Remove linhas com `atd`, tenta fullscreen na carga, mostra flash verde quando recebe novo snapshot e:
 
@@ -151,7 +151,7 @@ mostrada entre `GREEN SANTOS / 16` e `ZYHY JIN QU / 39`, mantendo também o text
 
 O display compartilha `fetchLineUpSnapshot` com o Painel, mas não compartilha a mesma cache key. A classe `app-lineup-display-board__row--cycle-start` pertence à ocorrência renderizada da primeira escala, inclusive no track animado e no card mobile, portanto a borda acompanha o ciclo.
 
-### `/admin/usuarios`
+### `/admin`
 
 `src/pages/AdminUsuarios.tsx` contém abas:
 
@@ -216,7 +216,7 @@ Não há lock otimista nessa atualização. A proteção efetiva para `role` e `
 | Abrir `/line-up-tv` | Sessão interna ativa | Navegação/URL | Catch-all `<Route path="*">` com `Navigate` e `replace` | Nenhuma | Redireciona para `/painel`, como qualquer caminho interno desconhecido | Guard pode redirecionar antes para login | **Código:** `src/App.tsx` |
 | Exibir quadro TV | Sessão interna ativa; rota fora do `AppLayout` | URL/atalho do Painel | `useQuery(['lineup-tv-display-v2'])` → snapshot compartilhado | Mesmas leituras do Line-Up | Auto-refresh 30 s; filtra `atd`; carrossel desktop/cards mobile; tenta fullscreen | Fullscreen pode ser negado sem bloquear; erro de dados mostra mensagem | **Código:** `src/pages/LineUpTVDisplay.tsx`, `src/services/lineup.ts`, `src/App.tsx` |
 
-### `/admin/usuarios` e shell
+### `/admin` e shell
 
 | Tela / ação | Pré-condições | Origem | Orquestração | Persistência | Efeitos e cache | Falhas | Evidência |
 |---|---|---|---|---|---|---|---|

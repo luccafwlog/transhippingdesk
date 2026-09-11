@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ExternalLink } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card, EmptyState, InlineError, PageHeader } from '../components/ui/Card'
 import { MetricCard } from '../components/ui/MetricCard'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
+import { TabButton } from '../components/ui/TabButton'
+import { NaoEncontrado } from './NaoEncontrado'
+import { ADMIN_TABS, DEFAULT_ADMIN_TAB, isAdminTab, type AdminTab } from './adminTabs'
 import { NovoUsuarioModal } from '../components/admin/NovoUsuarioModal'
 import { EditarAcessoModal } from '../components/admin/EditarAcessoModal'
 import {
@@ -32,20 +35,25 @@ import { alertEntityLink, alertEntityLinkLabel, getAlertTypeLabel } from '../ser
 import { useAgencyReportSla } from '../hooks/useAgencyReport'
 import { summarizeAgencyReportSlaByDepartment, type AgencyReportSlaDateRange } from '../services/agencyReportSla'
 import { AGENCY_REPORT_DEPARTMENT_LABELS } from '../services/agencyDepartureReport'
+import { formatAppVersion } from '../lib/appVersion'
 import { formatDate } from '../lib/utils'
 import type { UserProfileRole } from '../types/database'
 
-type AdminTab = 'usuários' | 'falhas' | 'logs' | 'métricas' | 'prazo-adr'
 
-const VERSION = '2.0.0'
-const COMMIT_SHA = String(import.meta.env.VITE_APP_COMMIT_SHA ?? 'unknown')
 
-export function AdminUsuarios() {
+export function Admin() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  // A aba vive na URL: `/admin/logs` é compartilhável e sobrevive ao refresh.
+  // `/admin` sem sufixo cai na aba padrão via redirect declarado no App.
+  const { tab: tabParam } = useParams<{ tab?: string }>()
+  // `/admin` sem sufixo abre a aba padrão; `/admin/<aba-inexistente>` não é
+  // silenciosamente corrigido — ver o retorno de NaoEncontrado mais abaixo.
+  const tab: AdminTab = isAdminTab(tabParam) ? tabParam : DEFAULT_ADMIN_TAB
+  const unknownTab = tabParam !== undefined && !isAdminTab(tabParam)
   const { showToast } = useToast()
   const confirm = useConfirm()
   const [pendingId, setPendingId] = useState<string | null>(null)
-  const [tab, setTab] = useState<AdminTab>('usuários')
   const [search, setSearch] = useState('')
   const [novoAberto, setNovoAberto] = useState(false)
   const [editando, setEditando] = useState<AdminUserRow | null>(null)
@@ -83,7 +91,7 @@ export function AdminUsuarios() {
   const { data: metrics, error: metricsError } = useQuery({
     queryKey: ['admin-metrics'],
     queryFn: fetchSystemMetrics,
-    enabled: tab === 'métricas',
+    enabled: tab === 'metricas',
     staleTime: 60_000,
   })
 
@@ -176,6 +184,8 @@ export function AdminUsuarios() {
         u.full_name.toLowerCase().includes(term) || (u.email ?? '').toLowerCase().includes(term))
     : users
 
+  if (unknownTab) return <NaoEncontrado />
+
   return (
     <>
       <PageHeader
@@ -183,28 +193,18 @@ export function AdminUsuarios() {
         description="Painel administrativo: usuários, falhas de roteamento, logs de ações e métricas operacionais."
       />
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {(['usuários', 'falhas', 'logs', 'métricas', 'prazo-adr'] as AdminTab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`app-tab capitalize ${tab === t ? 'app-tab--active' : ''}`}
-          >
-            {t === 'usuários'
-              ? 'Usuários'
-              : t === 'falhas'
-                ? 'Falhas de Roteamento'
-                : t === 'logs'
-                  ? 'Log de Ações'
-                  : t === 'métricas'
-                    ? 'Métricas'
-                    : 'Relatório SLA ADR'}
-          </button>
+      <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Seções da administração">
+        {ADMIN_TABS.map((entry) => (
+          <TabButton
+            key={entry.slug}
+            active={tab === entry.slug}
+            label={entry.label}
+            onClick={() => navigate(`/admin/${entry.slug}`)}
+          />
         ))}
       </div>
 
-      {tab === 'usuários' ? (
+      {tab === 'usuarios' ? (
         <>
           {error ? <InlineError message="Erro ao carregar usuários." /> : null}
 
@@ -420,7 +420,7 @@ export function AdminUsuarios() {
                             {link ? (
                               <Link
                                 to={link}
-                                className="inline-flex items-center gap-1 text-xs text-[var(--app-primary)] hover:underline"
+                                className="inline-flex items-center gap-1 text-xs text-[var(--app-link)] hover:underline"
                               >
                                 <span>{linkLabel}</span>
                                 <ExternalLink size={12} />
@@ -578,14 +578,14 @@ export function AdminUsuarios() {
         </>
       ) : null}
 
-      {tab === 'métricas' ? (
+      {tab === 'metricas' ? (
         <>
           <div className="mb-6 app-panel app-panel--padded">
             <div className="app-metric-tile__label">Informações do sistema</div>
             <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
               <div className="app-metric-tile grid-cols-[auto_1fr]">
                 <span className="text-[var(--app-muted)]">Versão</span>
-                <span className="text-right font-semibold text-[var(--app-text-strong)]">{`${VERSION} (${COMMIT_SHA})`}</span>
+                <span className="text-right font-semibold text-[var(--app-text-strong)]">{formatAppVersion()}</span>
               </div>
               <div className="app-metric-tile grid-cols-[auto_1fr]">
                 <span className="text-[var(--app-muted)]">Ambiente</span>
