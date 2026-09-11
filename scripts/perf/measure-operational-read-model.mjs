@@ -220,6 +220,11 @@ function scenario(size, index) {
   ]
   let sql = `BEGIN; SET LOCAL statement_timeout = '120s';\n`
   sql += buildSyntheticSql({ size, token, ids })
+  // As linhas são inseridas dentro da transação e, portanto, não passam pelo
+  // autovacuum/analyze antes da leitura. Atualizar as estatísticas aqui evita
+  // medir um plano baseado em cardinalidade vazia, que pode transformar a
+  // comparação em um falso regressivo nos cenários maiores.
+  sql += `ANALYZE public.bls;\nANALYZE public.bl_containers;\nANALYZE public.voyages;\n`
   for (let sample = 1; sample <= rounds; sample += 1) {
     sql += summaryMeasurement(sample)
     sql += baselineMeasurement(sample)
