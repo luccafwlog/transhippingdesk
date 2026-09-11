@@ -80,6 +80,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       manifest: true,
+      sourcemap: 'hidden',
       rollupOptions: {
         output: {
           // Isola vendors estáveis em chunks próprios para melhorar o cache do

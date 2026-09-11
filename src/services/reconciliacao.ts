@@ -56,10 +56,20 @@ type PixExceptionRpcRow = {
 
 type PixRpcResult = { data: unknown; error: { message: string } | null }
 
+const pixRpcClient = supabase as unknown as {
+  rpc: (name: string, args?: Record<string, unknown>) => Promise<PixRpcResult>
+}
+
 async function callPixRpc(name: string, args: Record<string, unknown>): Promise<PixRpcResult> {
-  // O cliente supabase-js lê o receptor em `this.rest`; a chamada precisa
-  // permanecer vinculada ao objeto para que a requisição realmente saia.
-  return (supabase.rpc.bind(supabase) as unknown as (rpcName: string, rpcArgs: Record<string, unknown>) => Promise<PixRpcResult>)(name, args)
+  try {
+    return await pixRpcClient.rpc(name, args)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return {
+      data: null,
+      error: { message: `Falha na chamada da operação ${name}: ${msg}` },
+    }
+  }
 }
 
 export type PixExceptionResolution = {
