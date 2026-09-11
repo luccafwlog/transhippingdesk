@@ -1,13 +1,14 @@
 import { useEffect, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
-import { Download, Mail, Plus, Upload } from 'lucide-react'
+import { Download, Mail, Plus, ShieldCheck, Upload } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { FilterBar } from '../components/ui/FilterBar'
 import { Field, Input, Select } from '../components/ui/Input'
 import { MetricCard } from '../components/ui/MetricCard'
 import { PageHeader } from '../components/ui/Card'
+import { WorkspaceNav } from '../components/ui/WorkspaceNav'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { BulkActionsBar } from '../components/shared/BulkActionsBar'
@@ -383,38 +384,45 @@ export function Clientes() {
         description="Cadastro mestre de consignatários. Importe a base antes dos manifestos para vínculo automático por CNPJ."
         action={
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            {/* Importar/Exportar são utilitários de manutenção da base: ficam em
+                `ghost` para não disputar atenção com a ação principal da tela. */}
+            <Button variant="ghost" onClick={() => setImportOpen(true)}>
               <Upload size={16} />
               Importar base
             </Button>
-            <Button variant="secondary" onClick={handleExportBase}>
+            <Button variant="ghost" onClick={handleExportBase}>
               <Download size={16} />
               Exportar base
             </Button>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus size={16} />
-            Novo Cliente
-          </Button>
-          {can('customer_communications') ? (
-            <Link to="/clientes/comunicacao" className="app-btn app-btn--secondary">
-              <Mail size={16} />
-              Comunicação
-            </Link>
-          ) : null}
-        </div>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus size={16} />
+              Novo Cliente
+            </Button>
+          </div>
         }
       />
 
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-cyan-400/30 bg-cyan-400/5 px-4 py-3">
-        <div>
-          <div className="font-semibold text-white">Provisionamento do Portal</div>
-          <div className="text-sm text-[var(--app-muted)]">Revise convites, emails e situações dos Clientes.</div>
-        </div>
-        <Link to="/clientes/portal" className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400">
-          Provisionamento do Portal
-          {awaitingPortalAnalysis !== null ? <span aria-label="Clientes aguardando análise" className="rounded-full bg-slate-950/20 px-2 py-0.5 text-xs">{awaitingPortalAnalysis}</span> : null}
-        </Link>
-      </div>
+      <WorkspaceNav
+        ariaLabel="Outros ambientes de Clientes"
+        items={[
+          {
+            to: '/clientes/portal',
+            label: 'Provisionamento do Portal',
+            description: 'Convites, e-mails e situações de conta.',
+            icon: ShieldCheck,
+            count: awaitingPortalAnalysis,
+            countLabel: 'Clientes aguardando análise',
+          },
+          ...(can('customer_communications')
+            ? [{
+                to: '/clientes/comunicacao',
+                label: 'Comunicação',
+                description: 'Comunicados e histórico de envios.',
+                icon: Mail,
+              } as const]
+            : []),
+        ]}
+      />
 
       <div className="mb-5 flex flex-col gap-4">
         <div>
