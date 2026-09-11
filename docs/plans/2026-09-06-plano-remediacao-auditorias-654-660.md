@@ -1138,7 +1138,7 @@ Os testes existentes de listeners, guarda de Preview e HSTS são **regressão**,
 - [ ] SQL e Edge Functions correspondem ao contrato novo; conferir status da integração e testar RPC via PostgREST. Um frontend verde não prova migration ou Edge publicada.
 - [ ] Usar clientes A/B e perfis internos sintéticos, faturas/containers e endereços QA controlados. Exercitar Inspeção sem sessão de Portal emprestada.
 - [ ] Executar roteiro por domínio, registrando SHA, migration, ambiente, passos, resultado e evidência; falha impeditiva permanece aberta. “Não executado” deve ter motivo, nunca ser apresentado como PASS.
-- [ ] No PR, reportar checks do SHA efetivamente enviado. Seguir CLAUDE: acompanhar CI até concluir, corrigir falhas; não manter monitoramento até merge nem criar automação sem pedido.
+- [x] No PR, reportar checks do SHA efetivamente enviado. Seguir CLAUDE: acompanhar CI até concluir, corrigir falhas; não manter monitoramento até merge nem criar automação sem pedido. Evidência: PR #683 reporta o SHA `a2cb627c` e o run `34553981173`, acompanhado até todos os checks concluírem com sucesso.
 - [ ] Após deploy autorizado, produção recebe preflight somente leitura e smoke do fluxo permitido, sem fixtures QA nem mensagens reais de teste. Operação financeira real ou envio ao cliente exige autorização e caso de negócio apropriado.
 
 ## 7. Estratégia de rollout, migração e rollback
