@@ -58,6 +58,9 @@ Nenhum gate do `WORKFLOW.md` §11 falha. Essa é a linha de base positiva.
 
 Ordenados por risco real, independentemente da frente de origem.
 
+As frentes de design visual, UX e acessibilidade, interrompidas na primeira
+passagem, foram retomadas e concluídas na mesma data (ver seção 3).
+
 ### 1. O verde da suíte não cobre dinheiro, PIX nem autorização · `alto`
 
 Os 98 testes "pulados" do `npm test` são as 20 suítes
@@ -107,14 +110,19 @@ de dado corrompido: basta a RLS filtrar o depot para aquele perfil, o depot esta
 desativado, ou a leitura de `depots` falhar. O rótulo correto (`TBC`) já existe e
 está na legenda da própria tabela. → [UX-01]
 
-### 5. Valor ausente e zero genuíno são idênticos na fatura · `médio`
+### 5. Dois defeitos distintos fazem um valor monetário mentir na tela · `médio` / `alto`
 
-`fmtBRL`/`fmtUSD` fazem `Number(v ?? 0)`, então `null`, `undefined` e `''` saem
-como **`R$ 0,00`** — iguais a um zero legítimo. Num documento que sai da empresa
-para o cliente, "não temos esse valor" e "esse valor é zero" não são a mesma
-coisa. Um campo que deveria estar preenchido e veio nulo (conversão falha, tarifa
-não resolvida, ROE ausente) vira uma cobrança de R$ 0,00 sem nenhum sinal para
-quem confere. → [DOC-01]
+Chegaram por frentes diferentes e têm a mesma consequência: o número em reais que
+a pessoa lê não corresponde ao que o sistema sabe.
+
+- `fmtBRL`/`fmtUSD` fazem `Number(v ?? 0)`, então `null`, `undefined` e `''` saem
+  como **`R$ 0,00`** — iguais a um zero legítimo. Num documento que vai ao
+  cliente, "não temos esse valor" e "esse valor é zero" não são a mesma coisa: um
+  campo que veio nulo (conversão falha, tarifa não resolvida, ROE ausente) vira
+  uma cobrança de R$ 0,00 sem sinal nenhum para quem confere. → [DOC-01]
+- Na Conciliação PIX, a coluna de valor do B/L usa `text-[#d2a8ff]`, uma cor que
+  escapou da camada de compatibilidade de tema e renderiza a **1,73:1** no tema
+  padrão — texto praticamente invisível sobre o fundo creme. → [UI-01]
 
 ### O que está sólido (registrado com a mesma seriedade)
 
@@ -234,6 +242,30 @@ todos verificados e registrados como resultado negativo.
 | A11Y-02 | alto | `/viagens`: o campo de busca principal zera o foco explicitamente |
 | A11Y-03 | médio | Menu de usuário — que contém "Sair" — também remove o contorno de foco |
 | A11Y-04 | médio | Badges de pendência da navegação: branco sobre dourado a 2,85:1 |
+| A11Y-05 | alto | O `Combobox` de viagem não tem nome acessível (`ui/Combobox.tsx:154-156` usa `<div>`+`<span>` em vez de `<label>`). Causa única, cinco telas: `/baplie`, `/veiculos`, `/granito`, `/embarquevazios` (2×) |
+| A11Y-06 | médio | Campos avulsos sem rótulo em `/revisao` (3×), `/admin/usuarios` (3×) e `/carga-solta` (1×) — três deles `<select>` sem rótulo **e** sem placeholder |
+| A11Y-07 | médio | `/manifestos/:blId` e `/clientes/:cnpj` não têm **nenhum** título (`h1`/`h2`/`h3`) na página |
+| A11Y-08 | médio | Caixas de seleção das tabelas têm 13×13 px; WCAG 2.5.8 pede 24×24 |
+| A11Y-09 | baixo | `<th>` sem `scope` em `/chegadas-saidas` (11/11), `/alertas` (7/7) e `/clientes/comunicacao` (6/6) |
+
+Resultados negativos medidos em 29 rotas: **zero** código de máquina cru na
+interface, zero botão sem nome acessível, zero `<img>` sem `alt`, zero overflow
+horizontal (1440px e 390px) e **toda** tabela larga rolando em container próprio
+no mobile.
+
+### Frente 3 — Design visual, consistência de UI e dark mode
+
+| Id | Sev. | Achado |
+|---|---|---|
+| UI-01 | alto | A paleta escura do GitHub está hardcoded em ~120 utilitários Tailwind (18 arquivos) e o que a corrige no tema claro é uma **allowlist enumerada à mão** em `index.css:4782`. Duas cores escaparam: `text-[#d2a8ff]` pinta um **valor em R$** da Conciliação PIX a **1,73:1**, e `bg-[#111820]` deixa um card quase preto sobre o fundo creme |
+| UI-02 | médio | `--app-accent` **nunca é definido**; os dois consumidores caem em fallbacks **diferentes** (azul e âmbar). No tema escuro o fallback azul dá 2,86:1 em texto — o token correto daria 9,71:1 |
+| UI-03 | baixo | `--app-radius` muda entre temas (8px claro, 12px escuro): token estrutural tratado como decisão de tema |
+| UI-04 | baixo | A paleta da timeline de viagem tem 18 hex fora dos tokens e não acompanha o tema (14/18 abaixo de 4,5:1 no escuro). **Não é falha WCAG** — a faixa é decoração redundante, o título em texto carrega o significado |
+| UI-05 | baixo | A aplicação ignora `prefers-color-scheme`: quem usa o SO no escuro abre no tema creme |
+
+**O tema escuro não está quebrado:** dos 40 tokens, os 34 cromáticos são
+redefinidos por completo no bloco `dark`, e os 6 que permanecem iguais são
+estruturais e de tipografia — exatamente o que deve permanecer.
 
 ### Frente 12 — Observabilidade e configuração (frente adicional)
 
@@ -253,21 +285,31 @@ efeitos e segredos de cron no Vault: todos verificados **sem achado**.
 
 ---
 
-## 3. Frentes não concluídas
+## 3. Cobertura das frentes e o que continua pendente
 
-Registradas como pendência explícita, **não** como "sem achados":
+As frentes 3, 2 e 11, interrompidas na primeira passagem por limite de sessão da
+conta, **foram retomadas e concluídas** na mesma data. A cobertura final:
 
-- **Frente 3 — Design visual e consistência de UI.** O sub-agente foi
-  interrompido pelo limite de sessão da conta após percorrer `/login` e
-  `/painel`, antes de registrar qualquer achado. Consistência de espaçamento,
-  tipografia e cor entre telas, componentes divergentes do design system e
-  integridade do **dark mode** permanecem não auditados.
-- **Frentes 2 e 11 — cobertura parcial.** A varredura cobriu `/login`,
-  `/painel` e `/viagens`. As demais ~24 rotas do roteiro, o passe mobile
-  (390×844) e os estados de erro/vazio de cada tela não foram percorridos.
+- **Frente 3 — Design visual e dark mode: concluída.** Tokens extraídos e
+  comparados nos três temas (`current`, `dark`, `light`), cores hardcoded
+  inventariadas e testadas uma a uma contra a camada de compatibilidade do CSS.
+  Cinco achados (UI-01 a UI-05).
+- **Frentes 2 e 11 — concluídas.** 29 rotas percorridas a 1440×900 e 10 delas
+  também a 390×844, com sonda programática de acessibilidade por rota. Cinco
+  achados novos de acessibilidade (A11Y-05 a A11Y-09) e três de UX (UX-02 a
+  UX-04).
+
+Continua pendente, declarado:
+
 - **Frente 5 — verificação de impressão.** Nenhum documento foi realmente
   impresso ou renderizado em PDF. Quebra de página, estouro de largura em A4 e
   truncamento de texto longo continuam **Suspeita**.
+- **Portal do cliente e modo Inspeção** (`/portal/*`,
+  `/clientes/portal/inspecao/*`) não foram percorridos: exigem uma conta de
+  Portal provisionada, que o seed sintético não cria.
+- **Estados de erro e validação de formulário.** Modais e formulários foram
+  vistos apenas onde abriam sem dado adicional; o roteiro de estados de erro por
+  tela não foi executado.
 
 O ambiente está montado e documentado — retomar não exige remontar nada.
 
@@ -329,6 +371,13 @@ produto — por isso não foi aplicada sem decisão.
 | DOC-02, DOC-04, DOC-05 | baixo | Tratar `NaN` como ausência, limitar o nome do arquivo e usar `Intl.NumberFormat`. São triviais, mas alteram **documento que vai ao cliente** |
 | DRIFT-03, DRIFT-04, DRIFT-05 | baixo/médio | As contagens vivem em blocos datados de PR dentro da `RASTREABILIDADE.md`. Corrigir número dentro de registro datado ou marcá-lo como snapshot é escolha editorial de vocês |
 | CQ-01 | baixo | Reformatar `DepotCadastro.tsx` gera diff grande em arquivo que ninguém pediu para tocar |
+| UI-01 (parte) | alto | Acrescentar `text-[#d2a8ff]` e `bg-[#111820]` à camada de compatibilidade do CSS resolve os dois defeitos hoje — mas mexe em `index.css`, que governa a aparência inteira |
+| UI-02 | médio | Trocar `var(--app-accent, …)` pelos tokens reais (`--app-link` e `--app-gold`) nos dois consumidores |
+| A11Y-05 | alto | Dar `id` ao `Combobox` e trocar `<span>` por `<label htmlFor>`: uma correção, cinco telas |
+| A11Y-06 | médio | `aria-label` nos três `<select>` sem rótulo e nos campos de busca |
+| A11Y-07, UX-02, UX-03 | médio/baixo | Título de página e `h1`/`h2` nas rotas de detalhe, e título próprio para o Cadastro de Terminais |
+| A11Y-09 | baixo | `scope="col"` nos `<th>` das três tabelas |
+| UX-04 | alto | Mesma correção do UX-01 em `lineup.ts:142` — cobre `/painel`, `/line-up-tv/display` e os dois pontos de `VoyageScheduleModals.tsx` |
 
 ### 5.3 Requer decisão humana
 
@@ -346,6 +395,11 @@ produto — por isso não foi aplicada sem decisão.
 | FLUXO-01 | baixo | Só se quiserem atomicidade de lote; a fronteira por B/L é defensável |
 | FLUXO-02 | baixo | Direção arquitetural incremental, a aplicar quando cada tela for tocada |
 | ENV-03 | baixo | `engines` é contrato (travar com `.nvmrc`) ou orientação (relaxar para `>=22`) |
+| UI-01 (raiz) | alto | Fechar a classe do problema exige uma regra de lint proibindo `(text\|bg\|border)-[#…]` em `src/components` e `src/pages`. Deixa de ser allowlist mantida à mão, mas obriga a migrar ~120 ocorrências |
+| UI-03 | baixo | Fixar `--app-radius` igual nos três temas muda a aparência nos dois |
+| UI-04 | baixo | Derivar a paleta categórica da timeline de tokens por tema é escolha de design |
+| UI-05 | baixo | Usar `prefers-color-scheme` como padrão na primeira visita muda o que o usuário novo vê |
+| A11Y-08 | médio | Alvo de toque de 24×24 nas caixas de seleção mexe na densidade da tabela, que é deliberada num produto operacional |
 
 ---
 
