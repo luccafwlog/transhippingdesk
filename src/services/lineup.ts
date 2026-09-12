@@ -139,7 +139,7 @@ export function projectLineUpTerminals({
     if (assigned.has(front.terminalId)) continue
     assigned.set(front.terminalId, {
       id: front.terminalId,
-      code: terminalCodes.get(front.terminalId) ?? front.terminalId,
+      code: terminalCodes.get(front.terminalId) ?? 'TBC',
       etb: stateByTerminal.get(front.terminalId)?.terminalEtb ?? null,
       atb: stateByTerminal.get(front.terminalId)?.terminalAtb ?? null,
     })

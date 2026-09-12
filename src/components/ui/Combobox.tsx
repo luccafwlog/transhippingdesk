@@ -7,7 +7,8 @@ export type ComboOption = {
   meta?: string
 }
 
-type ComboboxProps = {
+export type ComboboxProps = {
+  id?: string
   label: string
   /** Texto inicial exibido no campo (semeado uma vez). */
   initialValue?: string
@@ -31,6 +32,7 @@ const DEBOUNCE_MS = 300
 // internamente e propaga as mudancas ja com debounce, evitando refazer a query a
 // cada tecla.
 export function Combobox({
+  id,
   label,
   initialValue = '',
   placeholder,
@@ -41,6 +43,8 @@ export function Combobox({
   refreshKey = null,
   disabled = false,
 }: ComboboxProps) {
+  const generatedId = useId()
+  const inputId = id ?? generatedId
   const [text, setText] = useState(initialValue)
   const [touched, setTouched] = useState(false)
   const [options, setOptions] = useState<ComboOption[]>([])
@@ -152,8 +156,9 @@ export function Combobox({
 
   return (
     <div className="app-field" ref={containerRef} style={{ position: 'relative' }}>
-      <span className="app-field__label">{label}</span>
+      <label htmlFor={inputId} className="app-field__label">{label}</label>
       <input
+        id={inputId}
         ref={inputRef}
         className="app-input app-input--full"
         role="combobox"

@@ -273,7 +273,7 @@ export function ReconciliationHistoryTable({
                       <div className="app-table__cell-meta">{row.customerCnpj || ''}</div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[#d2a8ff]">{formatBRL(row.blAmount)}</td>
+                  <td className="px-4 py-3 font-medium text-[var(--app-link)]">{formatBRL(row.blAmount)}</td>
                   <td className="px-4 py-3 text-green-400">{formatBRL(row.totalAmount)}</td>
                   <td className="px-4 py-3 text-slate-300">{row.vesselName || '—'}</td>
                   <td className="px-4 py-3 text-slate-300">{row.voyageNumber || '—'}</td>

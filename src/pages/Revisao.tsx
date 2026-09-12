@@ -491,6 +491,7 @@ export function Revisao() {
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
             placeholder="Buscar B/L, cliente, consignatário..."
+            aria-label="Buscar B/L, cliente, consignatário..."
             className="app-review-search__input"
           />
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted-soft)]" size={15} />

@@ -1723,6 +1723,7 @@ export type Database = {
           idempotency_key: string
           last_error: string | null
           provider_message_id: string | null
+          recipient_key: string | null
           recipient_masked: string
           retry_count: number
           status: string
@@ -1736,6 +1737,7 @@ export type Database = {
           idempotency_key: string
           last_error?: string | null
           provider_message_id?: string | null
+          recipient_key?: string | null
           recipient_masked: string
           retry_count?: number
           status?: string
@@ -1749,6 +1751,7 @@ export type Database = {
           idempotency_key?: string
           last_error?: string | null
           provider_message_id?: string | null
+          recipient_key?: string | null
           recipient_masked?: string
           retry_count?: number
           status?: string

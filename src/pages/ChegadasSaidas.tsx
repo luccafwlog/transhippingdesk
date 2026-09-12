@@ -345,14 +345,14 @@ export function ChegadasSaidas() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-[var(--app-navy)] text-white">
-                <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider border-r border-white/10">Navio</th>
-                <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider border-r border-white/10 w-14">VOY</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider border-r border-white/10">Navio</th>
+                <th scope="col" className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider border-r border-white/10 w-14">VOY</th>
                 {PORTAL_SCHEDULE_LANES.map((lane) => (
-                  <th key={lane.label} className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider border-r border-white/10">
+                  <th scope="col" key={lane.label} className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider border-r border-white/10">
                     {lane.label}
                   </th>
                 ))}
-                {canWrite ? <th className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider">Ações</th> : null}
+                {canWrite ? <th scope="col" className="px-3 py-3 text-center text-xs font-bold uppercase tracking-wider">Ações</th> : null}
               </tr>
             </thead>
             <tbody>

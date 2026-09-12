@@ -349,13 +349,13 @@ export function Alertas() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-[var(--app-border)] bg-[var(--app-card-bg)] text-[var(--app-muted)]">
-                <th className="px-4 py-3 font-medium">Severidade</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 font-medium">Responsável</th>
-                <th className="px-4 py-3 font-medium">Mensagem</th>
-                <th className="px-4 py-3 font-medium">Entidade</th>
-                <th className="px-4 py-3 font-medium">Criação</th>
-                <th className="px-4 py-3 font-medium">Status / Ação</th>
+                <th scope="col" className="px-4 py-3 font-medium">Severidade</th>
+                <th scope="col" className="px-4 py-3 font-medium">Tipo</th>
+                <th scope="col" className="px-4 py-3 font-medium">Responsável</th>
+                <th scope="col" className="px-4 py-3 font-medium">Mensagem</th>
+                <th scope="col" className="px-4 py-3 font-medium">Entidade</th>
+                <th scope="col" className="px-4 py-3 font-medium">Criação</th>
+                <th scope="col" className="px-4 py-3 font-medium">Status / Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--app-border)]">

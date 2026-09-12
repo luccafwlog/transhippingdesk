@@ -558,7 +558,7 @@ function VoyageTimeline({
               <button
                 type="button"
                 onClick={() => setExpanded((value) => !value)}
-                className="mt-3 text-sm font-medium text-[var(--app-accent,#2563a8)] hover:underline"
+                className="mt-3 text-sm font-medium text-[var(--app-link)] hover:underline"
               >
                 {expanded ? 'Mostrar menos' : `Mostrar todos os ${events.length} eventos`}
               </button>

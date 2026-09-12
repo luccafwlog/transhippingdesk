@@ -6,14 +6,20 @@ import type React from 'react'
 // Helpers de formatação e estilos compartilhados pelos documentos imprimíveis
 // de fatura (ver InvoiceDocumentKit.tsx para os blocos JSX compartilhados).
 
-export function fmtBRL(v: number | null | undefined) {
-  const n = Number(v ?? 0)
-  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+export function fmtBRL(v: number | null | undefined): string {
+  if (v == null) return '—'
+  const n = Number(v)
+  if (Number.isNaN(n)) return '—'
+  const formatted = Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return n < 0 ? `-R$ ${formatted}` : `R$ ${formatted}`
 }
 
-export function fmtUSD(v: number | null | undefined) {
-  const n = Number(v ?? 0)
-  return 'US$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+export function fmtUSD(v: number | null | undefined): string {
+  if (v == null) return '—'
+  const n = Number(v)
+  if (Number.isNaN(n)) return '—'
+  const formatted = Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return n < 0 ? `-US$ ${formatted}` : `US$ ${formatted}`
 }
 
 // Etapa 11 do plano de faturamento (ADR 0038 decisão 6, achado 7): item
@@ -102,10 +108,17 @@ export function buildInvoiceFileBaseName(detail: InvoiceDetail): string {
   const invoice = detail.invoice
   const invoiceNumber = invoice?.invoice_number ?? (invoice ? `INV-${invoice.id}` : 'Fatura')
   const firstName = (invoice?.customer_name ?? '').trim().split(/\s+/)[0] ?? ''
-  const blPart = detail.bls.map((b) => b.bl_id).filter(Boolean).join(', ')
+  const validBls = detail.bls.map((b) => b.bl_id).filter(Boolean) as string[]
+  let blPart = ''
+  if (validBls.length <= 3) {
+    blPart = validBls.join(', ')
+  } else {
+    blPart = `${validBls.slice(0, 3).join(', ')} e mais ${validBls.length - 3}`
+  }
   const base = [invoiceNumber, 'FATURA TAXAS LOCAIS', firstName, blPart]
     .filter((part) => part && part.trim().length > 0)
     .join(' - ')
-  // Remove caracteres invalidos em nomes de arquivo e normaliza espacos.
-  return base.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+  // Remove caracteres invalidos em nomes de arquivo, normaliza espacos e limita tamanho a 200 caracteres.
+  const sanitized = base.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+  return sanitized.length > 200 ? sanitized.slice(0, 200).trim() : sanitized
 }

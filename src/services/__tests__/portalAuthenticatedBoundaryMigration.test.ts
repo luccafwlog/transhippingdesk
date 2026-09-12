@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 // Auditoria de seguranca 2026-08-05 (docs/archive/audits/): o cliente do Portal
 // recebe o MESMO role `authenticated` do usuario interno, entao objeto que
@@ -89,9 +89,10 @@ describe('fronteira do Portal sobre o role authenticated (migration 257)', () =>
   // ponytail: parser por regex, nao um parser SQL real — assume que nenhum
   // corpo de CREATE/ALTER POLICY deste schema tem ';' embutido (verdade hoje
   // em todas as ~160 policies). Upgrade: node-sql-parser se isso mudar.
-  it('nenhuma policy viva no schema concede SELECT (ou ALL) com USING (true) / sem USING', () => {
+  it('nenhuma policy viva no schema concede SELECT (ou ALL) com USING (true) / sem USING', async () => {
+    const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
     const dir = path.resolve(process.cwd(), 'supabase/migrations')
-    const files = fs.readdirSync(dir).filter((file) => file.endsWith('.sql')).sort()
+    const files = realFs.readdirSync(dir).filter((file: string) => file.endsWith('.sql')).sort()
 
     const policyName = '(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*))'
     const createRe = new RegExp(`CREATE POLICY\\s+${policyName}\\s+ON\\s+(?:public\\.)?([A-Za-z_][A-Za-z0-9_]*)([\\s\\S]*?);`, 'gi')
@@ -102,7 +103,7 @@ describe('fronteira do Portal sobre o role authenticated (migration 257)', () =>
     const live = new Map<string, PolicyState>()
 
     for (const file of files) {
-      const sql = fs.readFileSync(path.join(dir, file), 'utf8')
+      const sql = realFs.readFileSync(path.join(dir, file), 'utf8')
       const ops: { index: number; kind: 'create' | 'drop' | 'alter'; name: string; table: string; body: string }[] = []
 
       for (const re of [createRe, dropRe, alterRe]) re.lastIndex = 0

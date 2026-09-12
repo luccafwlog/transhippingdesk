@@ -36,6 +36,7 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/reconciliacao/, 'Conciliação PIX'],
   [/^\/granito\/taxas/, 'Tarifas de Granito'],
   [/^\/granito/, 'Granito'],
+  [/^\/embarquevazios\/depots/, 'Cadastro de Terminais'],
   [/^\/embarquevazios/, 'Embarque de Vazios'],
   [/^\/vazios-importacao/, 'Vazios de Importação'],
   [/^\/baplie/, 'Baplie EDI'],
