@@ -7,8 +7,11 @@
   usuários internos nem o Portal do Cliente estão ativos; o lançamento é
   previsto para algumas semanas. Isto muda a estratégia de execução mais do que
   qualquer detalhe técnico deste documento — ver §4.2.
-- **Acoplado, não adiável:** a migração do Portal para `portal.fwlog.com.br` e a
+- **Acoplado, não adiável:** a migração do Portal para `portalfwlog.com.br` e a
   identidade FWLog são de outra sessão, mas têm o **mesmo prazo** (§5.0).
+- **Domínios reservados** (pagamento pendente): `vela.app.br` para o sistema
+  interno, `portalfwlog.com.br` para o Portal do Cliente. Ver §5.6 sobre a
+  escolha de domínio próprio em vez de subdomínio.
 
 ## 1. As três marcas
 
@@ -75,7 +78,7 @@ qualquer um deles produz um incidente.
 build**; o que separa os dois é o hostname, não o artefato.
 
 Consequência: a separação "Vela em `vela.app.br`" e "FWLog em
-`portal.fwlog.com.br`" não é uma mudança de DNS. É uma decisão de arquitetura
+`portalfwlog.com.br`" não é uma mudança de DNS. É uma decisão de arquitetura
 de entrega — ou dois domínios continuam servindo o mesmo app com branding
 resolvido por hostname, ou o build é dividido em dois. Essa decisão pertence à
 sessão do Portal FWLog, mas **precede** o corte de domínio deste plano, porque
@@ -149,8 +152,10 @@ sair **antes** do lançamento, não depois.
 
 ### 5.1 Pré-requisitos (fora do código)
 
-1. Concluir a aquisição de `vela.app.br` e confirmar no registro.br a exigência
-   de HTTPS/HSTS antes de apontar produção.
+1. Concluir o pagamento de `vela.app.br` e `portalfwlog.com.br` — ambos
+   reservados no registro.br em 2026-09-12. A exigência de HSTS preload que
+   pesa sobre o TLD genérico `.app` **não** se aplica à categoria `app.br` do
+   registro.br; não há restrição a planejar aqui.
 2. Busca no INPI para a marca nominativa "Vela". É palavra comum, e **este é o
    momento mais barato da vida do projeto para trocar de nome** — nenhum
    usuário, nenhum material impresso, nenhum link em circulação. Depois do
@@ -249,6 +254,35 @@ adicional.
 Depende do INPI (§5.1.2) apenas para virar definitiva; explorações de forma
 podem começar antes.
 
+### 5.6 Domínio próprio em vez de subdomínio: o que isso implica
+
+`portalfwlog.com.br` é um domínio de segundo nível independente, não
+`portal.fwlog.com.br`. Se a escolha foi deliberada — por exemplo, por não haver
+`fwlog.com.br` sob controle —, ela é viável, mas cobra três coisas que um
+subdomínio daria de graça. Vale conferir antes do pagamento, porque depois do
+lançamento trocar o domínio do Portal é a migração cara de novo.
+
+**Reputação de envio.** Um domínio recém-registrado envia e-mail sem histórico.
+Provedores tratam remetente novo com desconfiança, e as primeiras mensagens do
+Portal são justamente convite de ativação e cobrança — as que não podem cair em
+spam. Um subdomínio de um domínio já estabelecido herda parte dessa reputação;
+um domínio novo começa do zero e exige aquecimento. SPF, DKIM e DMARC precisam
+ser configurados e verificados no Resend antes do primeiro envio real, e o
+aquecimento deve começar semanas antes do lançamento, não no dia.
+
+**Reconhecimento pelo cliente.** O cliente que conhece `fwlog.com.br` recebe um
+link para `portalfwlog.com.br` pedindo login e exibindo fatura. Esse é
+exatamente o padrão que treinamento antifraude ensina a desconfiar: o nome da
+empresa presente, mas fora do domínio dela. Com subdomínio o problema não
+existe. Com domínio próprio, mitiga-se comunicando o endereço pelos canais que
+o cliente já usa antes do primeiro envio automático.
+
+**Isolamento — a vantagem.** `vela.app.br` e `portalfwlog.com.br` não
+compartilham domínio registrável, então não há como cookie ou storage de um
+vazar para o outro. Para um sistema em que o Portal é superfície pública e o
+app interno é operação, essa separação é positiva e vale registrar como
+decisão, não como acidente.
+
 ## 6. Riscos
 
 O risco dominante deixou de ser técnico. Não há produção para quebrar; há um
@@ -261,6 +295,8 @@ prazo para cumprir, e uma janela que fecha no lançamento.
 | Lançar meio renomeado, com os dois nomes convivîndo | Média | Renomeação única (§5.2), não faseada |
 | Regex de preview do Vercel desatualizado derruba os Previews | Média | Renomear projeto e regex no mesmo commit; afeta a equipe, não o cliente |
 | Nome Vela vazar para o Portal do Cliente | Média | Teste que falha se `Vela` aparecer em rotas `/portal/*` ou templates de e-mail |
+| Domínio novo do Portal sem reputação derruba entregabilidade de convite e cobrança | Alta | §5.6 — SPF/DKIM/DMARC e aquecimento semanas antes do lançamento |
+| Cliente ler `portalfwlog.com.br` como phishing | Média | §5.6 — comunicar o endereço pelos canais já conhecidos antes do primeiro envio |
 | Premissa de "nenhum e-mail enviado" estar errada | Baixa | Conferir o log do Resend (§5.1.4) |
 
 Riscos que a versão anterior listava e que **deixam de existir**: quebra de
