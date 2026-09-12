@@ -238,7 +238,7 @@ export function Alertas() {
       {/* Barra de Filtros e Busca */}
       <Card className="p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card-bg)] p-1">
+          <div className="flex gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-1">
             {FILTER_TABS.map((tab) => (
               <Button
                 key={tab.value}
@@ -348,7 +348,7 @@ export function Alertas() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-[var(--app-border)] bg-[var(--app-card-bg)] text-[var(--app-muted)]">
+              <tr className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] text-[var(--app-muted)]">
                 <th className="px-4 py-3 font-medium">Severidade</th>
                 <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium">Responsável</th>

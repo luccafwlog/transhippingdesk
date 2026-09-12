@@ -292,6 +292,12 @@ O uso normal é automático pelo workflow
 está saudável. A senha vem de `PREVIEW_ADMIN_PASSWORD` e nunca deve ser
 colocada em `VITE_*` ou no repositório.
 
+O upsert de `user_profiles` usa `service_role` server-side e depende da
+migration `042_preview_admin_service_role_grant.sql`, que concede somente
+`SELECT`, `INSERT` e `UPDATE` nessa tabela. Em um rerun, se a política atual do
+Auth rejeitar a senha que já existe, o script preserva a senha e repara o
+restante do fixture sem expor ou substituir a credencial silenciosamente.
+
 > O step `Load branch credentials` do workflow não anexa a saída do CLI
 > direto ao `$GITHUB_ENV`: o `supabase branches get -o env` emite formato
 > dotenv (`KEY="valor"`) e o `$GITHUB_ENV` espera valor cru — sem decodificar,

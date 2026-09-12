@@ -2,6 +2,8 @@
 // produto como sufixo e antepõe o nome da tela, ajudando leitores de tela e o
 // histórico do navegador a distinguir rotas. Ordene do mais específico para o
 // mais genérico (o primeiro match vence).
+import { ADMIN_TABS } from '../pages/adminTabs'
+
 const BASE = 'Transhipping Desk'
 
 const ROUTE_TITLES: Array<[RegExp, string]> = [
@@ -15,6 +17,7 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/portal\/operacao/, 'Portal · Operação'],
   [/^\/portal\/perfil/, 'Portal · Perfil'],
   [/^\/portal$/, 'Portal · Painel'],
+  [/^\/line-up-tv\/display/, 'Line Up · Tela TV'],
   [/^\/painel/, 'Painel'],
   [/^\/viagens/, 'Viagens'],
   [/^\/manifestos\/[^/]+/, 'Detalhe do B/L'],
@@ -24,6 +27,8 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/veiculos/, 'Veículos'],
   [/^\/revisao/, 'Revisão'],
   [/^\/clientes\/comunicacao/, 'Clientes · Comunicação'],
+  // Precisam vir antes do padrão de CNPJ, senão caem em "Ficha do Cliente".
+  [/^\/clientes\/portal/, 'Clientes · Provisionamento do Portal'],
   [/^\/clientes\/[^/]+/, 'Ficha do Cliente'],
   [/^\/clientes/, 'Clientes'],
   [/^\/taxas-locais\/tabelas/, 'Tabelas de Taxas Locais'],
@@ -40,7 +45,11 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/vazios-importacao/, 'Vazios de Importação'],
   [/^\/baplie/, 'Baplie EDI'],
   [/^\/chegadas-saidas/, 'Chegadas e Saídas'],
-  [/^\/admin\/usuarios/, 'Administração · Usuários'],
+  // Cada aba de Administração tem rota própria e, portanto, título próprio.
+  ...ADMIN_TABS.map(({ slug, label }) => [
+    new RegExp(`^/admin/${slug}`), `Administração · ${label}`,
+  ] as [RegExp, string]),
+  [/^\/admin/, 'Administração'],
 ]
 
 export function routeTitle(pathname: string): string {

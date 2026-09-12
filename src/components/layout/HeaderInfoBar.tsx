@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, LogOut, RefreshCw, UserCircle } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { useOperationalAlerts } from '../../hooks/useOperationalAlerts'
 import { useRoeHeaderRate } from '../../hooks/useRoeHeaderRate'
-import type { UserProfileRole } from '../../types/database'
+import { AppVersionBadge } from './AppVersionBadge'
 
 function formatRate(value: number | null): string {
   if (value === null) return '—'
@@ -20,56 +18,13 @@ function formatEffectiveDate(value: string | null): string {
   return year && month && day ? `${day}/${month}/${year}` : value
 }
 
-function roleLabel(role: UserProfileRole | null | undefined): string {
-  switch (role) {
-    case 'admin':
-    case 'administrativo':
-      return 'Administrativo'
-    case 'financeiro':
-      return 'Financeiro'
-    case 'operacoes':
-      return 'Operações'
-    case 'equipamentos':
-      return 'Equipamentos'
-    case 'operator':
-    case 'documentacao':
-      return 'Documentação'
-    default:
-      return ''
-  }
-}
 
 export function HeaderInfoBar() {
-  const { profile, signOut } = useAuth()
   const navigate = useNavigate()
   const rates = useRoeHeaderRate()
   const alerts = useOperationalAlerts()
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const userZoneRef = useRef<HTMLDivElement>(null)
 
   const hasDemurrage = alerts.demurrageOverdue > 0
-
-  useEffect(() => {
-    if (!userMenuOpen) return
-    function handleOutside(e: MouseEvent) {
-      if (userZoneRef.current && !userZoneRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleOutside)
-    return () => document.removeEventListener('mousedown', handleOutside)
-  }, [userMenuOpen])
-
-  async function handleSignOut() {
-    setUserMenuOpen(false)
-    await signOut()
-    navigate('/login', { replace: true })
-  }
-
-  const label = roleLabel(profile?.role)
-  const commitSha = import.meta.env.VITE_APP_COMMIT_SHA
-    ? String(import.meta.env.VITE_APP_COMMIT_SHA).substring(0, 7)
-    : 'unknown'
 
   const ratesHint = rates.unavailable
     ? 'Cotação PTAX indisponível no momento — tente atualizar mais tarde.'
@@ -123,64 +78,12 @@ export function HeaderInfoBar() {
           </button>
         </div>
 
-        {/* Zona direita — usuário logado */}
-        <div className="app-market-strip__right" ref={userZoneRef} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            className="hib-user-btn"
-            onClick={() => setUserMenuOpen((o) => !o)}
-            aria-expanded={userMenuOpen}
-            aria-haspopup="menu"
-          >
-            <UserCircle size={13} aria-hidden="true" />
-            <span className="hib-user-name">{profile?.full_name ?? '—'}</span>
-            {label && (
-              <>
-                <span className="hib-sep" aria-hidden="true">·</span>
-                <span className="hib-user-role">{label}</span>
-              </>
-            )}
-          </button>
-
-          {userMenuOpen && (
-            <div className="hib-user-menu" role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                className="hib-user-menu__item"
-                onClick={() => {
-                  setUserMenuOpen(false)
-                  navigate('/perfil')
-                }}
-              >
-                <UserCircle size={13} aria-hidden="true" />
-                Meu perfil
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="hib-user-menu__item"
-                onClick={() => void handleSignOut()}
-              >
-                <LogOut size={13} aria-hidden="true" />
-                Sair
-              </button>
-              {commitSha !== 'unknown' && (
-                <div
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '11px',
-                    fontFamily: 'var(--app-font-mono)',
-                    color: 'rgba(255, 255, 255, 0.38)',
-                    borderTop: '1px solid rgba(255,255,255,0.08)',
-                  }}
-                  title={`Commit: ${String(import.meta.env.VITE_APP_COMMIT_SHA)}`}
-                >
-                  versão {commitSha}
-                </div>
-              )}
-            </div>
-          )}
+        {/* Zona direita — identidade da build.
+            O menu de usuário vive no cabeçalho principal (AppLayout); esta
+            zona ficou anos com `display: none` carregando uma cópia morta
+            dele. Agora ela mostra a versão publicada, visível em toda tela. */}
+        <div className="app-market-strip__right">
+          <AppVersionBadge />
         </div>
 
       </div>

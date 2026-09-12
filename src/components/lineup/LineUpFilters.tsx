@@ -13,13 +13,23 @@ type LineUpFiltersProps = {
   loading?: boolean
 }
 
+// `status` nasce em 'active' e, por isso, não entra em `countActiveLineUpFilters`.
+// Com a barra recolhida ele continuaria recortando a lista sem aparecer em lugar
+// nenhum — daí o rótulo explícito em `appliedDefaults`.
+const STATUS_LABELS: Record<LineUpStatusFilter, string> = {
+  active: 'Escalas ativas',
+  completed: 'Escalas concluídas',
+  cancelled: 'Escalas canceladas',
+  all: 'Todas as escalas',
+}
+
 export function LineUpFilters({ filters, onChange, onClear, activeCount, visibleCount, totalCount, loading }: LineUpFiltersProps) {
   return (
     <FilterBar
       title={loading ? '—' : `${visibleCount} de ${totalCount} escalas`}
       activeCount={activeCount}
+      appliedDefaults={filters.status === 'all' ? undefined : [STATUS_LABELS[filters.status]]}
       onClear={onClear}
-      defaultOpen
     >
       <div className="app-filter-grid">
         <Field label="Busca">

@@ -121,6 +121,14 @@ não fica no repositório nem em variáveis `VITE_*`. O usuário é recriado qua
 PR gera uma nova branch; ao fechar a PR, o próprio Supabase remove a Preview
 Branch e seus dados.
 
+A migration [`042_preview_admin_service_role_grant.sql`](../../supabase/migrations/042_preview_admin_service_role_grant.sql)
+concede ao `service_role` somente `SELECT`, `INSERT` e `UPDATE` em
+`public.user_profiles`, necessários para esse upsert server-side. As policies e
+os grants dos roles do navegador permanecem inalterados. Se um rerun encontrar
+um fixture cuja senha deixou de atender à política atual do Auth, o script
+preserva a senha existente e repara o e-mail, metadados e perfil; a rotação da
+senha continua sendo uma ação explícita de configuração.
+
 Configure uma vez, em **Settings → Secrets and variables → Actions** do
 repositório, os secrets:
 

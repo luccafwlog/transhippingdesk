@@ -238,7 +238,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
     <div className="mt-8 border-t border-[var(--app-border)] pt-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--app-foreground)]">
+          <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">
             Contatos e recebimento
           </h2>
           <p className="mt-1 text-sm text-[var(--app-muted)]">
@@ -351,7 +351,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
               </div>
 
               <div className="mt-4 pt-3 border-t border-[var(--app-border)]/60">
-                <span className="text-xs font-semibold text-[var(--app-foreground)]">
+                <span className="text-xs font-semibold text-[var(--app-text-strong)]">
                   Caixas de recebimento:
                 </span>
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -374,7 +374,7 @@ export function PortalContactConfiguration({ readOnly = false }: { readOnly?: bo
                           onChange={() => handleToggleBox(index, box.code)}
                         />
                         <div>
-                          <div className="font-medium text-[var(--app-foreground)]">
+                          <div className="font-medium text-[var(--app-text-strong)]">
                             {box.label}
                           </div>
                           <div className="text-[10px] text-[var(--app-muted)] mt-0.5">

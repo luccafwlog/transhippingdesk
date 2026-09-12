@@ -11,6 +11,12 @@ type FilterBarProps = {
   onClear?: () => void
   /** Rótulo do cabeçalho. */
   title?: string
+  /**
+   * Filtros que já estão recortando a lista mas não contam como "ativos" —
+   * tipicamente um padrão da tela. Fica visível com a barra recolhida para que
+   * o usuário nunca veja um total reduzido sem saber o motivo.
+   */
+  appliedDefaults?: string[]
   /** Estado inicial. Por padrão abre quando há filtros ativos. */
   defaultOpen?: boolean
 }
@@ -22,6 +28,7 @@ export function FilterBar({
   activeCount = 0,
   onClear,
   title = 'Filtros',
+  appliedDefaults,
   defaultOpen,
 }: FilterBarProps) {
   const [open, setOpen] = useState(defaultOpen ?? activeCount > 0)
@@ -38,6 +45,11 @@ export function FilterBar({
           <SlidersHorizontal size={16} className="shrink-0" />
           <span>{title}</span>
           {activeCount > 0 ? <span className="app-filter-bar__count">{activeCount}</span> : null}
+          {!open && appliedDefaults?.length
+            ? appliedDefaults.map((label) => (
+                <span key={label} className="app-filter-bar__applied">{label}</span>
+              ))
+            : null}
           <ChevronDown size={16} className="app-filter-bar__chevron" aria-hidden="true" />
         </button>
         {activeCount > 0 && onClear ? (
