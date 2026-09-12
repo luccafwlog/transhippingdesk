@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { cleanup, render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockFailures = [
@@ -38,20 +38,27 @@ vi.mock('../../components/ui/Toast', () => ({ useToast: () => ({ showToast: vi.f
 vi.mock('../../components/ui/ConfirmDialog', () => ({ useConfirm: () => vi.fn() }))
 vi.mock('../../hooks/useAgencyReport', () => ({ useAgencyReportSla: () => ({ data: [], isLoading: false, error: null }) }))
 
-import { AdminUsuarios } from '../AdminUsuarios'
+import { Admin } from '../Admin'
+
+// A aba de Administração vive na URL. Os testes montam a rota real para que
+// `useParams` devolva o mesmo que o app entrega em produção.
+function renderAdmin(tab = 'usuarios') {
+  return render(
+    <MemoryRouter initialEntries={[`/admin/${tab}`]}>
+      <Routes>
+        <Route path="/admin/:tab" element={<Admin />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 
 afterEach(cleanup)
 beforeEach(() => vi.clearAllMocks())
 
-describe('AdminUsuarios — Falhas de Roteamento e Audiência', () => {
+describe('Admin — Falhas de Roteamento e Audiência', () => {
   it('renderiza a aba de falhas de roteamento e lista as ocorrências', () => {
-    render(
-      <MemoryRouter>
-        <AdminUsuarios />
-      </MemoryRouter>,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Falhas de Roteamento' }))
+    renderAdmin('falhas')
 
     expect(screen.getByText('Tipo do Alerta')).toBeTruthy()
     expect(screen.getByText('Setor Esperado')).toBeTruthy()
@@ -61,11 +68,7 @@ describe('AdminUsuarios — Falhas de Roteamento e Audiência', () => {
   })
 
   it('exibe a explicação clara dos papéis e audiência do catálogo na aba de usuários', () => {
-    render(
-      <MemoryRouter>
-        <AdminUsuarios />
-      </MemoryRouter>,
-    )
+    renderAdmin()
 
     expect(screen.getByText('Audiência de Alertas e Notificações')).toBeTruthy()
     expect(screen.getByText(/Os papéis que recebem Notificações Internas diretamente das regras ativas/)).toBeTruthy()

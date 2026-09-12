@@ -130,7 +130,7 @@ export function useReopenAgencyReport(reportId?: string | null) {
 
 // Agregado de SLA do Prazo de Conclusão do ADR (Task 5 do ADR 0039), exibido
 // em Administração ("Prazo do ADR"). `enabled` fica a cargo da chamadora
-// (tab === '...'), mesmo padrão lazy-load de logs/métricas em AdminUsuarios.
+// (tab === '...'), mesmo padrão lazy-load de logs/métricas em Admin.
 export function useAgencyReportSla(range: AgencyReportSlaDateRange | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ['agency-report-sla', range?.from ?? null, range?.to ?? null],

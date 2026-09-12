@@ -180,7 +180,7 @@ export function AlertasRegras() {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(250px,0.78fr)_minmax(0,1.5fr)] lg:items-start">
         <Card className="overflow-hidden p-0">
-          <div className="border-b border-[var(--app-border)] bg-[var(--app-card-bg)] px-4 py-3">
+          <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
             <h2 className="text-sm font-semibold text-[var(--app-text-strong)]">Catálogo de regras</h2>
             <p className="mt-1 text-[11px] text-[var(--app-muted)]">As regras do sistema, agrupadas para consulta.</p>
           </div>
@@ -251,8 +251,8 @@ function RuleListItem({
       aria-current={selected ? 'true' : undefined}
       aria-controls={`regra-${rule.type}`}
       className={`group flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${selected
-        ? 'border-[var(--app-primary)] bg-[var(--app-primary)]/10'
-        : 'border-transparent hover:border-[var(--app-border)] hover:bg-[var(--app-card-bg)]'}`}
+        ? 'border-[var(--app-link)] bg-[var(--app-blue-soft)]'
+        : 'border-transparent hover:border-[var(--app-border)] hover:bg-[var(--app-surface-hover)]'}`}
       onClick={onSelect}
     >
       <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${rule.severity === 'critical' ? 'bg-rose-400' : 'bg-amber-400'}`} aria-hidden="true" />
@@ -262,7 +262,7 @@ function RuleListItem({
           {departmentList(rule.notifiedDepartments)} · {rule.domain}
         </span>
       </span>
-      <ChevronRight size={15} className={`mt-1 shrink-0 ${selected ? 'text-[var(--app-primary)]' : 'text-[var(--app-muted)] group-hover:text-[var(--app-text)]'}`} aria-hidden="true" />
+      <ChevronRight size={15} className={`mt-1 shrink-0 ${selected ? 'text-[var(--app-link)]' : 'text-[var(--app-muted)] group-hover:text-[var(--app-text)]'}`} aria-hidden="true" />
     </button>
   )
 }
@@ -303,21 +303,21 @@ function RuleDetail({ rule }: { rule: AlertRule }) {
       </dl>
 
       {rule.routingNote ? (
-        <div className="mt-5 rounded-lg border border-[var(--app-border)] bg-[var(--app-card-bg)] p-4">
+        <div className="mt-5 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--app-muted)]">Como o alerta é distribuído</p>
           <p className="mt-2 text-sm leading-6 text-[var(--app-text)]">{rule.routingNote}</p>
         </div>
       ) : null}
 
       <div className="mt-6 grid gap-4 border-t border-[var(--app-border)] pt-5 sm:grid-cols-2">
-        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card-bg)] p-4">
+        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--app-muted)]">Onde resolver</p>
           <p className="mt-2 text-sm text-[var(--app-text)]">{rule.destinationLabel}</p>
           <p className="mt-1 font-mono text-[11px] text-[var(--app-muted)]">{rule.destination}</p>
           {rule.destinationNote ? <p className="mt-2 text-xs leading-5 text-[var(--app-muted)]">{rule.destinationNote}</p> : null}
           <Link
             to={rule.destination}
-            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--app-primary)] hover:underline"
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--app-link)] hover:underline"
           >
             Abrir tela de resolução
             <ExternalLink size={13} aria-hidden="true" />

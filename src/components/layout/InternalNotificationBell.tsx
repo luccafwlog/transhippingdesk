@@ -82,7 +82,7 @@ export function InternalNotificationBell() {
             {unreadCount > 0 ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-1 text-xs text-[var(--app-primary)] hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-xs text-[var(--app-link)] hover:underline disabled:opacity-50"
                 disabled={markAllRead.isPending}
                 onClick={() => void markAllRead.mutateAsync().catch(() => showToast('Não foi possível marcar todas como lidas. Tente de novo.', 'error'))}
               >
@@ -185,7 +185,7 @@ export function InternalNotificationBell() {
             <div className="flex items-center justify-between border-t border-[var(--app-border)] px-3 py-2 text-xs text-[var(--app-muted)]">
               <button
                 type="button"
-                className="text-[var(--app-primary)] hover:underline disabled:opacity-40"
+                className="text-[var(--app-link)] hover:underline disabled:opacity-40"
                 disabled={page === 0}
                 onClick={() => setPage((current) => Math.max(0, current - 1))}
               >
@@ -194,7 +194,7 @@ export function InternalNotificationBell() {
               <span>Página {page + 1}</span>
               <button
                 type="button"
-                className="text-[var(--app-primary)] hover:underline disabled:opacity-40"
+                className="text-[var(--app-link)] hover:underline disabled:opacity-40"
                 disabled={data.length < 20}
                 onClick={() => {
                   const last = data[data.length - 1]

@@ -41,7 +41,8 @@ const Alertas = lazyPage(() => import('./pages/Alertas'), 'Alertas')
 const AlertasRegras = lazyPage(() => import('./pages/AlertasRegras'), 'AlertasRegras')
 const Relatorios = lazyPage(() => import('./pages/Relatorios'), 'Relatorios')
 const LineUpTVDisplay = lazyPage(() => import('./pages/LineUpTVDisplay'), 'LineUpTVDisplay')
-const AdminUsuarios = lazyPage(() => import('./pages/AdminUsuarios'), 'AdminUsuarios')
+const Admin = lazyPage(() => import('./pages/Admin'), 'Admin')
+const NaoEncontrado = lazyPage(() => import('./pages/NaoEncontrado'), 'NaoEncontrado')
 const Demurrage = lazyPage(() => import('./pages/Demurrage'), 'Demurrage')
 const Reconciliacao = lazyPage(() => import('./pages/Reconciliacao'), 'Reconciliacao')
 const Granite = lazyPage(() => import('./pages/Granite'), 'Granite')
@@ -115,7 +116,7 @@ const routePreloads: RoutePreloadTable = [
   ['/granito/taxas', GraniteRates.preload], ['/granito', Granite.preload], ['/demurrage/taxas', DemurrageRates.preload],
   ['/embarquevazios/depots', DepotCadastro.preload], ['/embarquevazios', EmbarqueVazios.preload],
   ['/vazios-importacao', VaziosImportacao.preload], ['/baplie', BaplieEDI.preload], ['/chegadas-saidas', ChegadasSaidas.preload],
-  ['/perfil', Profile.preload], ['/admin/usuarios', AdminUsuarios.preload],
+  ['/perfil', Profile.preload], ['/admin/:tab', Admin.preload], ['/admin', Admin.preload],
   ['/', defaultPreload], ['*', defaultPreload],
 ]
 
@@ -201,14 +202,21 @@ export default function App() {
           <Route path="/baplie" element={withSuspense(<BaplieEDI />)} />
           <Route path="/chegadas-saidas" element={withSuspense(<ChegadasSaidas />)} />
           <Route path="/perfil" element={withSuspense(<Profile />)} />
+          {/* Rota desconhecida se identifica em vez de realocar o usuário em
+              silêncio para /painel. Fica dentro do ProtectedRoute para que
+              visitante sem sessão continue caindo no /login, não na casca do
+              app. Ver src/pages/NaoEncontrado.tsx. */}
+          <Route path="*" element={withSuspense(<NaoEncontrado />)} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>
         <Route element={<AppLayout />}>
-          <Route path="/admin/usuarios" element={withSuspense(<AdminUsuarios />)} />
+          {/* `/admin` é a tela; cada aba tem sua sub-rota, então o endereço
+              é compartilhável e sobrevive ao refresh. */}
+          <Route path="/admin" element={withSuspense(<Admin />)} />
+          <Route path="/admin/:tab" element={withSuspense(<Admin />)} />
         </Route>
       </Route>
-      <Route path="*" element={<Navigate to="/painel" replace />} />
       </>
       )}
       </Routes>

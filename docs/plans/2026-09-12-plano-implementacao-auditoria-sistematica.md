@@ -106,13 +106,13 @@ Os achados da revisão sistemática estão organizados em 4 blocos de execução
   - **Verificação:** Executado contra as 41 migrations ativas; 282 policies vivas sem vazamento.
 
 - [x] **C2. Correção da falha aberta de autorização em contatos (`SEC-02`)**
-  - **Arquivo:** `supabase/migrations/042_security_and_indexes_hardening.sql`.
+  - **Arquivo:** `supabase/migrations/043_security_and_indexes_hardening.sql`.
   - **Problema:** `ensure_customer_contact_email` e `customer_communication_recipient_allowed` checam `IF auth.uid() IS NOT NULL AND NOT is_active_user() THEN RAISE EXCEPTION ...`. Se chamado sem contexto de `auth.uid()`, a guarda é ignorada.
   - **Ação:** Padronizar a guarda conforme `register_portal_login_abuse`: `IF auth.role() IS DISTINCT FROM 'service_role' AND (auth.uid() IS NULL OR NOT public.is_active_user()) THEN RAISE EXCEPTION 'Acesso negado' USING ERRCODE = '42501'; END IF;` (comportamento seguro fechado).
   - **Verificação:** Validado por `python3 scripts/security/verificar_guardas.py`.
 
 - [x] **C3. Saneamento da RPC obsoleta `list_alert_queue` (`SEC-03`)**
-  - **Arquivo:** `supabase/migrations/042_security_and_indexes_hardening.sql`.
+  - **Arquivo:** `supabase/migrations/043_security_and_indexes_hardening.sql`.
   - **Problema:** `list_alert_queue` invoca `list_alert_queue_page` com `p_limit=200`, mas a função receptora exige `p_limit <= 100`, gerando erro sistemático de paginação.
   - **Ação:** Ajustar o limite para 100 em `list_alert_queue`.
   - **Verificação:** `python3 scripts/security/verificar_guardas.py`.
@@ -135,22 +135,22 @@ Os achados da revisão sistemática estão organizados em 4 blocos de execução
   - **Verificação:** Arquivo tipado e validado.
 
 - [x] **D2. Criação de índices em chaves estrangeiras críticas (`DB-01`, `DB-02`)**
-  - **Arquivo:** `supabase/migrations/042_security_and_indexes_hardening.sql`.
+  - **Arquivo:** `supabase/migrations/043_security_and_indexes_hardening.sql`.
   - **Problema:** Exclusão de containers e queries de cálculo realizam varreduras sequenciais em `charge_calculations.container_id` e `demurrage_invoice_items.container_id`.
   - **Ação:** Criados índices:
     ```sql
     CREATE INDEX IF NOT EXISTS idx_charge_calculations_container_id ON public.charge_calculations (container_id);
     CREATE INDEX IF NOT EXISTS idx_demurrage_invoice_items_container_id ON public.demurrage_invoice_items (container_id);
     ```
-  - **Verificação:** Validado na migration 042.
+  - **Verificação:** Validado na migration 043.
 
 - [x] **D3. Restrição de unicidade em `bl_containers` (`DB-04`)**
-  - **Arquivo:** `supabase/migrations/042_security_and_indexes_hardening.sql`.
+  - **Arquivo:** `supabase/migrations/043_security_and_indexes_hardening.sql`.
   - **Ação:**
     ```sql
     CREATE UNIQUE INDEX IF NOT EXISTS uq_bl_containers_bl_id_container_number ON public.bl_containers (bl_id, container_number);
     ```
-  - **Verificação:** Validado na migration 042.
+  - **Verificação:** Validado na migration 043.
 
 - [ ] **D4. Transacionalidade em lote na importação de clientes (`PERF-01`)**
   - **Arquivos:** `src/services/customerBase.ts` e nova RPC `import_customer_base_batch_atomic`.

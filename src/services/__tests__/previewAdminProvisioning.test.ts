@@ -60,6 +60,41 @@ describe('provisionPreviewAdmin', () => {
       user_metadata: { full_name: input.fullName, preview_fixture: true },
     })
   })
+
+  it('preserves an existing fixture when Auth rejects reapplying its password policy', async () => {
+    const authAdmin = {
+      listUsers: vi.fn().mockResolvedValue({
+        data: { users: [{ id: 'user-preview-1', email: input.email }] },
+        error: null,
+      }),
+      createUser: vi.fn(),
+      updateUserById: vi
+        .fn()
+        .mockResolvedValueOnce({
+          data: null,
+          error: {
+            message: 'Password should contain at least one character of each: abcdefghijklmnopqrstuvwxyz, ABCDEFGHIJKLMNOPQRSTUVWXYZ, 0***9.',
+          },
+        })
+        .mockResolvedValueOnce({
+          data: { user: { id: 'user-preview-1', email: input.email } },
+          error: null,
+        }),
+    }
+    const profiles = { upsert: vi.fn().mockResolvedValue({ error: null }) }
+
+    const result = await provisionPreviewAdmin({ authAdmin, profiles, ...input })
+
+    expect(result).toEqual({ id: 'user-preview-1', email: input.email })
+    expect(authAdmin.updateUserById).toHaveBeenNthCalledWith(2, 'user-preview-1', {
+      email_confirm: true,
+      user_metadata: { full_name: input.fullName, preview_fixture: true },
+    })
+    expect(profiles.upsert).toHaveBeenCalledWith(
+      { id: 'user-preview-1', full_name: input.fullName, role: 'admin', active: true },
+      { onConflict: 'id' },
+    )
+  })
 })
 
 describe('assertPreviewTarget', () => {

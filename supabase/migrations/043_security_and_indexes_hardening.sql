@@ -1,4 +1,4 @@
--- 042: Hardening de segurança nas RPCs de contatos/alertas e índices de containers.
+-- 043: Hardening de segurança nas RPCs de contatos/alertas e índices de containers.
 --
 -- 1. SEC-02: Fecha brecha de autorização aberta em ensure_customer_contact_email
 --    e customer_communication_recipient_allowed. Anteriormente a checagem

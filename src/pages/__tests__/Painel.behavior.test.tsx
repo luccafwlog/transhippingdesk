@@ -195,6 +195,12 @@ function renderPainel() {
   )
 }
 
+// A barra de filtros do Painel nasce recolhida (como nas demais telas). Quem
+// for mexer nos campos precisa abri-la primeiro, igual ao usuário.
+function abrirFiltros() {
+  fireEvent.click(screen.getByRole('button', { expanded: false }))
+}
+
 it('US-120: as celulas do Line-Up navegam para os destinos corretos', () => {
   renderPainel()
 
@@ -225,6 +231,7 @@ it('exibe terminal por sentido na mesma linha da escala e preserva TBC', () => {
 
 it('usa ATA na coluna ETA e destaca somente a escala atracada', () => {
   renderPainel()
+  abrirFiltros()
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'all' } })
 
   const actualArrival = screen.getByText('10/07')
@@ -238,6 +245,7 @@ it('usa ATA na coluna ETA e destaca somente a escala atracada', () => {
 
 it('US-122: filtra o Line-Up por status de escala', () => {
   renderPainel()
+  abrirFiltros()
 
   expect(screen.getByRole('link', { name: 'Navio ativo' })).toBeTruthy()
 
@@ -251,6 +259,7 @@ it('US-122: filtra o Line-Up por status de escala', () => {
 
 it('filtra o Line-Up por escalas canceladas', () => {
   renderPainel()
+  abrirFiltros()
 
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'cancelled' } })
 
@@ -260,6 +269,7 @@ it('filtra o Line-Up por escalas canceladas', () => {
 
 it('combina busca por navio e filtro de veículos no Line-Up', () => {
   renderPainel()
+  abrirFiltros()
 
   fireEvent.change(screen.getByLabelText('Busca'), { target: { value: 'navio' } })
   fireEvent.change(screen.getByLabelText('Veículos'), { target: { value: 'with' } })

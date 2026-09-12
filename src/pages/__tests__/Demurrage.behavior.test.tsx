@@ -206,7 +206,7 @@ function renderPage() {
 }
 
 async function openIssuedInvoices(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Faturas' }))
+  await user.click(screen.getByRole('tab', { name: 'Faturas' }))
   await screen.findByText('DEM-001')
 }
 
@@ -253,7 +253,7 @@ describe('Demurrage page behaviours', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(screen.getByRole('button', { name: 'Por Cliente' }))
+    await user.click(screen.getByRole('tab', { name: 'Por Cliente' }))
     const customerTrigger = await screen.findByRole('button', { name: /Cliente Teste/ })
     expect(customerTrigger.getAttribute('aria-expanded')).toBe('false')
     await user.click(customerTrigger)
@@ -365,7 +365,7 @@ describe('Demurrage page behaviours', () => {
     const user = userEvent.setup()
     const { invalidateQueries } = renderPage()
 
-    await user.click(screen.getByRole('button', { name: 'Pagas' }))
+    await user.click(screen.getByRole('tab', { name: 'Pagas' }))
     await screen.findByText('DEM-002')
     await user.click(screen.getByRole('button', { name: 'Detalhes' }))
     expect(await screen.findByRole('dialog', { name: 'Detalhes da invoice' })).toBeTruthy()

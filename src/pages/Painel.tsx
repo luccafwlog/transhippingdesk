@@ -140,7 +140,7 @@ export function Painel() {
               Pendências por Setor Responsável
             </h2>
           </div>
-          <Link to="/alertas" className="inline-flex items-center gap-1 text-xs text-[var(--app-primary)] hover:underline">
+          <Link to="/alertas" className="inline-flex items-center gap-1 text-xs text-[var(--app-link)] hover:underline">
             <span>Fila completa de alertas</span>
             <ArrowRight size={12} />
           </Link>
@@ -154,7 +154,7 @@ export function Painel() {
               <Link
                 key={card.department}
                 to={`/alertas?departamento=${encodeURIComponent(card.department)}`}
-                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
+                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3 transition-all hover:border-[var(--app-link)] hover:bg-[var(--app-surface-hover)]"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-[var(--app-muted)]">{card.label}</span>
@@ -170,7 +170,7 @@ export function Painel() {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
                   <span>{card.dismissedCount > 0 ? `+ ${card.dismissedCount} dispensada(s)` : 'Nenhuma dispensa'}</span>
-                  <span className="text-[var(--app-primary)]">Ver fila →</span>
+                  <span className="text-[var(--app-link)]">Ver fila →</span>
                 </div>
               </Link>
             ))}
@@ -178,7 +178,7 @@ export function Painel() {
             {legacyActiveCount > 0 || legacyDismissedCount > 0 ? (
               <Link
                 to="/alertas?departamento=sem_departamento"
-                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-card-bg)] p-3 transition-all hover:border-[var(--app-primary)] hover:bg-[var(--app-surface)]"
+                className="flex flex-col justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3 transition-all hover:border-[var(--app-link)] hover:bg-[var(--app-surface-hover)]"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-[var(--app-muted)]">Sem setor / Legado</span>
@@ -188,7 +188,7 @@ export function Painel() {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--app-muted)]">
                   <span>{legacyDismissedCount > 0 ? `+ ${legacyDismissedCount} dispensado(s)` : 'Linhas históricas'}</span>
-                  <span className="text-[var(--app-primary)]">Ver fila →</span>
+                  <span className="text-[var(--app-link)]">Ver fila →</span>
                 </div>
               </Link>
             ) : null}

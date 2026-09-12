@@ -658,10 +658,11 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/alertas` | Fila de alertas internos |
 | `/alertas/regras` | Manual somente leitura das regras de alertas, com setores notificados, filtros e links para as telas de resolução |
 | `/relatorios` | Relatórios e exportações |
-| `/line-up-tv` | Sem rota própria: cai no catch-all interno e redireciona para `/painel` |
+| `/line-up-tv` | Sem rota própria: cai no catch-all interno, que responde com a tela "Página não encontrada" |
 | `/line-up-tv/display` | Display protegido para TV |
 | `/chegadas-saidas` | Programação exibida no Portal |
-| `/admin/usuarios` | Administração de usuários: criação com senha definida pelo admin, edição de e-mail/senha, setor, ativação e auditoria |
+| `/admin` | Administração: abre a tela completa na aba padrão (Usuários) |
+| `/admin/:tab` | Uma sub-rota por aba (`usuarios`, `falhas`, `logs`, `metricas`, `prazo-adr`): o endereço é compartilhável e sobrevive ao refresh. Aba inexistente responde "Página não encontrada" em vez de cair na aba padrão |
 | `/perfil` | Perfil do usuário interno: nome, e-mail e troca da própria senha |
 
 `/revisao` trabalha visualmente por grupo de cliente, embora o gate canônico
