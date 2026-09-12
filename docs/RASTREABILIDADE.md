@@ -9,7 +9,7 @@ vigente é a última definição aplicável por assinatura e ordem de migration;
 snapshots e planos datados servem apenas como histórico.
 Nesta etapa foram inventariados 130 nomes literais de RPC, 60 tabelas acessadas
 diretamente pelo frontend e 2 buckets de Storage usados pelos serviços, além
-dos diretórios de `supabase/functions` (hoje 15 Edge Functions além de
+dos diretórios de `supabase/functions` (hoje 17 Edge Functions além de
 `_shared`). O índice cobre a superfície navegável, não a
 totalidade: o replay local atual expõe 219 funções SQL de aplicação a
 `authenticated`/`anon`; 168 nomes chamados pela produção resolvem no catálogo
