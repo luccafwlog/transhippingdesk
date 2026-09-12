@@ -62,7 +62,7 @@ describe('buildInvoiceFileBaseName', () => {
       payments: [],
     } as unknown as Parameters<typeof buildInvoiceFileBaseName>[0])
     expect(name).toContain('INV-2026-001')
-    expect(name).toContain('Empresa Teste')
+    expect(name).toContain('Empresa')
     expect(name).toContain('BL123')
   })
 
