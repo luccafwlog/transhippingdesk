@@ -10,7 +10,7 @@ Quando um plano é totalmente executado, ele é movido para
 
 - [2026-09-06 — Remediação das auditorias #654–#660](2026-09-06-plano-remediacao-auditorias-654-660.md) — execução parcial; os residuais de S03, S05, S06/S07 e a prova de runtime continuam abertos.
 - [2026-09-12 — Remediação da revisão sistemática multiagente](2026-09-12-plano-implementacao-auditoria-sistematica.md) — plano de remediação dos achados consolidados da auditoria da PR #687, cobrindo acessibilidade, UX, documentos/faturas, segurança de testes, banco de dados e performance.
-- [2026-09-12 — Transição de marca: Transhipping Desk → Vela](2026-09-12-plano-transicao-marca-vela.md) — estudo e plano de renomeação do sistema interno para Vela e migração do domínio para `vela.app.br`; não inclui o Portal do Cliente (FWLog) nem a identidade financeira (Transhipping), que permanecem.
+- [2026-09-12 — Transição de marca: Transhipping Desk → Vela](2026-09-12-plano-transicao-marca-vela.md) — estudo e plano de renomeação do sistema interno para Vela, com lançamento direto em `vela.app.br`. Como o sistema ainda não está em produção, a renomeação é única e não faseada; a separação Vela/FWLog passa a ser o item de maior urgência. A identidade financeira (Transhipping) permanece.
 
 O plano [2026-09-03 — Issue 609: contatos e caixas de comunicação](../archive/plans/2026-09-03-issue-609-contatos-caixas-comunicacao.md) foi concluído e arquivado.
 

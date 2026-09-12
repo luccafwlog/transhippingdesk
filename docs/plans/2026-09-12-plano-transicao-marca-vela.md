@@ -1,10 +1,14 @@
 # 2026-09-12 — Transição de marca: Transhipping Desk → Vela
 
 - **Status:** estudo aprovado para planejamento; execução ainda **não iniciada**.
-- **Escopo:** renomear o **sistema interno** para **Vela** e migrar o domínio
-  para `vela.app.br`.
-- **Fora de escopo (tratado em outra sessão):** a migração do Portal do Cliente
-  para `portal.fwlog.com.br` e a identidade visual FWLog.
+- **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
+  `vela.app.br`.
+- **Contexto decisivo:** o sistema **ainda não está em produção**. Nem os
+  usuários internos nem o Portal do Cliente estão ativos; o lançamento é
+  previsto para algumas semanas. Isto muda a estratégia de execução mais do que
+  qualquer detalhe técnico deste documento — ver §4.2.
+- **Acoplado, não adiável:** a migração do Portal para `portal.fwlog.com.br` e a
+  identidade FWLog são de outra sessão, mas têm o **mesmo prazo** (§5.0).
 
 ## 1. As três marcas
 
@@ -77,25 +81,33 @@ resolvido por hostname, ou o build é dividido em dois. Essa decisão pertence �
 sessão do Portal FWLog, mas **precede** o corte de domínio deste plano, porque
 ambos editam `supabase/functions/_shared/cors.ts` e `src/App.tsx`.
 
-### 4.2 Desligar `transhippingdesk.com.br` quebra e-mails já entregues
+### 4.2 Pré-lançamento: a janela em que isto é barato
 
-Esta é a recomendação em que discordo do que foi dito ("o domínio deixará de
-existir"). O domínio deve ser **mantido registrado como redirecionador**, não
-extinto. O que depende dele hoje, já fora do nosso controle, na caixa de
-entrada dos clientes:
+Uma versão anterior deste estudo recomendava **manter** `transhippingdesk.com.br`
+registrado como redirecionador, porque o logo e os links de fatura embutidos em
+e-mails já entregues não expiram. Essa recomendação **não se aplica**: o sistema
+nunca esteve em produção, nenhum e-mail foi entregue a cliente real e não há
+link antigo em circulação. A restrição desaparece junto com a premissa.
 
-| Dependência | Prazo até parar de importar |
-|---|---|
-| Logo `…/branding/tr-logo.png` embutido em **todo** e-mail já enviado | Nunca expira |
-| Link de fatura `…/portal/billing` (`demurrage-dunning/index.ts:104`, `send-customer-communication/index.ts:119`) | **Sem token, sem expiração** |
-| Convite de ativação do Portal (`portal-invite-send/index.ts:32`) | 48 horas |
-| Recuperação de senha (`portal-password-recovery/index.ts:55`) | 1 hora |
+A consequência é maior do que "um risco a menos". Ela inverte a estratégia:
 
-Os tokens se resolvem em 48 horas. O logo e o link de faturas, não: são
-permanentes. Manter o domínio registrado apontando um 301 custa a anuidade do
-registro.br e evita que todo o histórico de comunicação com o cliente exiba
-imagem quebrada e link morto. Recomendo manter por prazo indeterminado, e no
-mínimo 12 meses.
+| | Renomear com o sistema no ar | Renomear antes do lançamento |
+|---|---|---|
+| Domínio | Migrar, com 301 preservando path, por prazo indeterminado | **Nunca apontar o domínio antigo para produção** |
+| CORS | Janela de origens duplas, remoção posterior | Uma allowlist, já correta |
+| E-mails já enviados | Aliases de logo permanentes | Não existem |
+| Tokens em circulação | Esperar 48 h | Não existem |
+| Ordem das fases | Rígida, corte de domínio por último | Livre |
+
+Portanto: **lançar direto em `vela.app.br`**. O domínio antigo não precisa de
+301 nem de sobrevida; basta nunca chegar a servir produção. Isso elimina as
+etapas 1, 4 e 7 da antiga Fase 4 e todo o custo de conviver com duas origens.
+
+Uma verificação antes de considerar a premissa fechada: conferir no Resend se
+existe qualquer envio a destinatário real (piloto, homologação com cliente,
+teste com endereço de colaborador). "Ainda não lançado" às vezes convive com
+alguns e-mails já entregues. Se o log estiver limpo, a análise acima vale
+integralmente.
 
 ### 4.3 O `project_ref` do Supabase é imutável
 
@@ -111,33 +123,110 @@ acoplado ao **nome do projeto Vercel**. Renomear o projeto Vercel sem atualizar
 esse regex derruba o CORS de todos os Previews e, com ele, a validação de PRs
 descrita na ADR 0056.
 
-## 5. Fases
+## 5. Execução
 
-A ordem é deliberada: tudo que não depende de DNS primeiro, o corte de domínio
-por último, depois que a decisão do Portal FWLog estiver tomada.
+A ordem antiga existia para proteger usuários em produção. Sem eles, a
+sequência deixa de ser imposta pelo risco e passa a ser imposta pelo **prazo**:
+tudo precisa estar pronto antes do lançamento. O modo correto agora é uma
+renomeação única e completa, não uma migração faseada com convivência.
 
-### Fase 0 — Pré-requisitos (fora do código)
+### 5.0 A decisão que virou urgente
 
-1. Concluir a aquisição de `vela.app.br`. Confirmar no registro.br que a
-   categoria `app.br` aceita o registro pretendido e verificar exigência de
-   HTTPS/HSTS antes de apontar produção.
-2. Decidir a arquitetura de entrega de 4.1 (um build por hostname, ou dois
-   builds). Sem isso, a Fase 4 não pode começar.
-3. Confirmar a marca nominativa "Vela" — é palavra comum em português;
-   vale uma busca no INPI antes de investir na identidade visual.
+No estudo anterior, a separação Vela / FWLog era "outra sessão", adiável. Com o
+lançamento em semanas, ela **inverte de prioridade e vira o item mais urgente
+do projeto**.
 
-### Fase 1 — Identidade visual Vela
+O motivo é o mesmo de §4.2, aplicado ao contrário. Hoje o Portal e o app
+interno são o mesmo bundle (§4.1) e separá-los custa uma decisão de arquitetura
+e algumas horas. Depois do lançamento, separá-los custa migração de domínio,
+janela de CORS duplo, aliases de logo e reemissão de convites — exatamente o
+cenário caro que §4.2 acabou de dispensar.
 
-Entregáveis, todos derivados da paleta atual, que **não muda**:
+Lançar com Portal e app interno no mesmo domínio "para arrumar depois" converte
+uma mudança gratuita na mudança mais cara do projeto. A decisão de entrega —
+dois domínios sobre um build com branding por hostname, ou dois builds — precisa
+sair **antes** do lançamento, não depois.
 
-- Logo horizontal (app header, ~32px de altura útil), em claro e escuro.
-- Símbolo isolado para ícone.
-- `favicon.svg`, `favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`.
-- `apple-touch-icon.png` (180×180), `android-chrome-192x192.png`,
-  `android-chrome-512x512.png`.
+### 5.1 Pré-requisitos (fora do código)
 
-Restrições herdadas de `src/index.css` — a identidade Vela é construída
-*dentro* delas, não contra elas:
+1. Concluir a aquisição de `vela.app.br` e confirmar no registro.br a exigência
+   de HTTPS/HSTS antes de apontar produção.
+2. Busca no INPI para a marca nominativa "Vela". É palavra comum, e **este é o
+   momento mais barato da vida do projeto para trocar de nome** — nenhum
+   usuário, nenhum material impresso, nenhum link em circulação. Depois do
+   lançamento, o mesmo achado custa uma segunda renomeação inteira.
+3. Decidir a arquitetura de entrega de §5.0.
+4. Confirmar no Resend a ausência de envios a destinatários reais (§4.2).
+
+### 5.2 Renomeação (PR única)
+
+Sem produção no ar, dividir em fases só serve à revisão, não à segurança. Uma
+PR por assunto continua sendo boa prática de revisão; a convivência entre nomes
+antigos e novos, não.
+
+- `index.html:12` — `<title>`.
+- `src/lib/pageTitle.ts:8` — `const BASE`, com o teste em
+  `src/lib/__tests__/pageTitle.test.ts`.
+- `public/site.webmanifest` — `name`, `short_name`.
+- `src/components/layout/AppLayout.tsx:130` — logo e `alt` do header interno.
+- `src/pages/Login.tsx:61` — logo da tela de login interna.
+- `src/pages/LineUpTVDisplay.tsx:199` — logo da tela de TV.
+- `src/hooks/useVisualTheme.ts:5` — `storageKey`. Sem usuários, não há
+  preferência de tema a preservar: renomeie para `vela_visual_theme` sem
+  qualquer cuidado de migração. (Este é um caso em que a análise anterior
+  recomendava manter a chave; a razão era proteger preferências existentes,
+  que não existem.)
+- `package.json`, `opencode.json`, `skills/**`, `.firebaserc`, `firebase.json`.
+- `transhipping_test` → `vela_test` em `.github/workflows/ci.yml` e nos 48
+  pontos de `src/integration/**` e `src/services/__tests__/**`.
+
+O schema **não** precisa de mudança: o nome do produto não aparece em nenhum
+identificador de tabela, coluna, função ou enum — apenas em dois comentários de
+cabeçalho das migrations 001 e 002, e nas duas linhas do beneficiário PIX, que
+permanecem. Não há motivo para re-baseline de migrations.
+
+Superfície do Portal (`PortalLayout.tsx`, `PortalLogin.tsx`,
+`PortalForgotPassword.tsx`, `PortalResetPassword.tsx`,
+`PortalConfirmarEmail.tsx`, templates de e-mail) continua sendo da sessão FWLog,
+por §5.0 — não porque possa esperar, mas porque tem outro dono.
+
+### 5.3 Documentação viva
+
+21 arquivos em `docs/` fora de `docs/archive/`, mais `CONTEXT.md`, `README.md` e
+`WORKFLOW.md` na raiz. Nas ADRs, corrigir onde o texto descreve o sistema no
+presente e preservar onde narra contexto histórico. Uma ADR nova registra a
+renomeação.
+
+`docs/RASTREABILIDADE.md` não cita o nome e não precisa de alteração.
+
+### 5.4 Stack e domínio
+
+Sem tráfego real, não há ordem obrigatória nem janela de convivência. Resta o
+cuidado de §4.3, que é sobre o fluxo de desenvolvimento, não sobre produção:
+
+1. Trocar as origens de `supabase/functions/_shared/cors.ts` para `vela.app.br`
+   diretamente — sem manter as antigas. Remover também as entradas
+   `*.web.app`/`*.firebaseapp.com`, marcadas como rollback de um cutover de
+   hosting já concluído.
+2. Renomear o projeto Vercel e **atualizar `VERCEL_PREVIEW_ORIGIN` no mesmo
+   commit** (§4.3). Este continua sendo o único passo que quebra algo de
+   verdade — o fluxo de PRs da equipe.
+3. Renomear o repositório GitHub e revalidar a integração de branching do
+   Supabase, que referencia `luccafwlog/transhippingdesk` (ADR 0056).
+4. Renomear o projeto no Supabase (cosmético, §4.3) e no Resend, verificando
+   SPF/DKIM do domínio novo antes do primeiro envio real.
+5. Apontar `vela.app.br` para o Vercel. `transhippingdesk.com.br` nunca chega a
+   servir produção.
+
+### 5.5 Identidade visual Vela
+
+Entregáveis: logo horizontal (claro e escuro), símbolo isolado, `favicon.svg`,
+`favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`,
+`apple-touch-icon.png` (180×180), `android-chrome-192x192.png`,
+`android-chrome-512x512.png`.
+
+Restrições herdadas de `src/index.css`, que **não mudam** — a identidade Vela é
+construída dentro delas:
 
 | Token | Valor |
 |---|---|
@@ -152,94 +241,42 @@ Restrições herdadas de `src/index.css` — a identidade Vela é construída
 
 Os três sentidos de "vela" — a vela náutica, a constelação de Vela e a chama —
 convergem numa mesma forma: um triângulo apoiado numa vertical. Vela náutica e
-chama compartilham a silhueta; a constelação entra como pontuação (as estrelas
-podem virar os pontos de um símbolo geométrico). Recomendo explorar essa
-convergência em vez de escolher um dos três sentidos, porque o navy `#152238`
-sobre o dourado `#d4882e` já sugere céu noturno e chama sem nenhum esforço
+chama compartilham a silhueta; a constelação entra como pontuação. Recomendo
+explorar a convergência em vez de escolher um dos três sentidos: o navy
+`#152238` sobre o dourado `#d4882e` já sugere céu noturno e chama sem esforço
 adicional.
 
-### Fase 2 — Renomeação interna (sem efeito externo)
-
-Arquivos e mudanças, todos de baixo risco e verificáveis por teste:
-
-- `index.html:12` — `<title>`.
-- `src/lib/pageTitle.ts:8` — `const BASE`. Há teste em
-  `src/lib/__tests__/pageTitle.test.ts` que precisa acompanhar.
-- `public/site.webmanifest` — `name`, `short_name`.
-- `src/components/layout/AppLayout.tsx:130` — logo e `alt` do header interno.
-- `src/pages/Login.tsx:61` — logo da tela de login interna.
-- `src/pages/LineUpTVDisplay.tsx:199` — logo da tela de TV (uso interno).
-- `src/hooks/useVisualTheme.ts:5` — `storageKey`. **Atenção:** mudar a chave
-  descarta a preferência de tema de todos os usuários. Ou manter a chave
-  antiga, ou migrar o valor na leitura. Recomendo manter — é invisível e
-  renomeá-la só gera perda.
-- `package.json` `name`, `opencode.json` (5 descrições de skill),
-  `skills/**`, `.firebaserc`, `firebase.json`.
-
-**Não** alterar nesta fase: `PortalLayout.tsx`, `PortalLogin.tsx`,
-`PortalForgotPassword.tsx`, `PortalResetPassword.tsx`,
-`PortalConfirmarEmail.tsx` — são superfície do cliente e pertencem à sessão
-FWLog.
-
-### Fase 3 — Documentação viva
-
-21 arquivos em `docs/` fora de `docs/archive/`, mais `CONTEXT.md`,
-`README.md` e `WORKFLOW.md` na raiz. Os principais: `docs/ARCHITECTURE.md`,
-`docs/README.md`, `docs/ROADMAP.md`, `docs/setup/deploy.md`,
-`docs/setup/development.md`, `docs/operations/*` e as ADRs 0003, 0010, 0012,
-0014, 0047, 0056, 0062.
-
-`docs/RASTREABILIDADE.md` não cita o nome e não precisa de alteração.
-
-Nas ADRs, o nome antigo é **registro de uma decisão datada**. A regra: corrigir
-onde o texto descreve o sistema no presente; preservar onde narra o contexto
-histórico. Uma ADR nova deve registrar a própria renomeação.
-
-### Fase 4 — Corte de domínio e stack
-
-Somente após a Fase 0.2. Ordem obrigatória, porque `cors.ts` precisa aceitar a
-origem nova **antes** de qualquer tráfego chegar por ela:
-
-1. Adicionar `https://vela.app.br` ao `FIXED_ALLOWED_ORIGINS` em
-   `supabase/functions/_shared/cors.ts`, mantendo as origens antigas. Publicar
-   as Edge Functions.
-2. Renomear o projeto Vercel e **atualizar `VERCEL_PREVIEW_ORIGIN`** no mesmo
-   commit (ver 4.3). Sem isso, todos os Previews quebram.
-3. Apontar `vela.app.br` para o projeto Vercel; validar em produção.
-4. Configurar 301 de `transhippingdesk.com.br` → `vela.app.br`, **preservando o
-   path** (para os links `/portal/billing` históricos continuarem chegando ao
-   destino correto até o Portal migrar para FWLog).
-5. Renomear o repositório GitHub. O GitHub mantém redirect de git, mas a
-   integração de branching do Supabase (ADR 0056) referencia
-   `luccafwlog/transhippingdesk` explicitamente — revalidar.
-6. Renomear o projeto no Supabase e no Resend. No Resend, verificar o domínio
-   novo (SPF/DKIM) **antes** de trocar o remetente; domínio não verificado
-   derruba entregabilidade.
-7. Só depois de tudo verde: remover as origens antigas de `cors.ts`. Manter as
-   entradas `*.web.app`/`*.firebaseapp.com`, já marcadas como rollback.
-8. `transhipping_test` → `vela_test` em `.github/workflows/ci.yml` e nos 48
-   pontos de `src/integration/**` e `src/services/__tests__/**`.
-   Puramente local, pode ir em PR separado a qualquer momento.
+Depende do INPI (§5.1.2) apenas para virar definitiva; explorações de forma
+podem começar antes.
 
 ## 6. Riscos
 
+O risco dominante deixou de ser técnico. Não há produção para quebrar; há um
+prazo para cumprir, e uma janela que fecha no lançamento.
+
 | Risco | Gravidade | Mitigação |
 |---|---|---|
-| Domínio antigo extinto quebra e-mails históricos | Alta | Manter registrado com 301 preservando path (4.2) |
-| Regex de preview do Vercel desatualizado derruba CORS dos Previews | Alta | Renomear projeto e regex no mesmo commit |
-| Nome Vela vazar para o Portal do Cliente | Média | Teste automatizado que falha se `Vela` aparecer em rotas `/portal/*` ou templates de e-mail |
-| Conflito com a sessão do Portal FWLog | Média | `cors.ts`, `App.tsx` e templates são de propriedade da sessão FWLog; este plano não os edita fora da Fase 4.1 |
-| Renomear `storageKey` descarta preferência de tema | Baixa | Manter a chave atual |
-| PR único com 420 alterações fica irrevisável | Média | Uma PR por fase; Fases 2 e 3 podem ser paralelas |
+| **Lançar com a separação Vela/FWLog por fazer** | **Alta** | §5.0 — decidir a arquitetura de entrega antes do lançamento; depois, o custo multiplica |
+| **INPI reprovar "Vela" após a identidade pronta** | **Alta** | Busca antes de §5.5 virar definitiva |
+| Lançar meio renomeado, com os dois nomes convivîndo | Média | Renomeação única (§5.2), não faseada |
+| Regex de preview do Vercel desatualizado derruba os Previews | Média | Renomear projeto e regex no mesmo commit; afeta a equipe, não o cliente |
+| Nome Vela vazar para o Portal do Cliente | Média | Teste que falha se `Vela` aparecer em rotas `/portal/*` ou templates de e-mail |
+| Premissa de "nenhum e-mail enviado" estar errada | Baixa | Conferir o log do Resend (§5.1.4) |
+
+Riscos que a versão anterior listava e que **deixam de existir**: quebra de
+e-mails históricos, perda de preferência de tema e conflito de convivência entre
+domínios.
 
 ## 7. Validação
 
-- Fases 2 e 4.8: `npm run lint`, `npm run test`, `npm run build`, mais os gates
-  de banco do `WORKFLOW.md` §11 para a renomeação do banco de teste.
-- Fase 3: `npm run docs:check` e `git diff --check`.
-- Fase 4: verificação manual em produção de login interno, um envio de e-mail
-  ao cliente e uma fatura com QR PIX — o QR deve continuar exibindo
-  `TRANSHIPPING AGENCIAMENTO MARITIMO` como beneficiário.
+- §5.2 e §5.4: `npm run lint`, `npm run test`, `npm run build`, mais os gates de
+  banco do `WORKFLOW.md` §11 para a renomeação do banco de teste.
+- §5.3: `npm run docs:check` e `git diff --check`.
+- Antes do lançamento: login interno, um envio de e-mail e uma fatura com QR
+  PIX — o QR deve exibir `TRANSHIPPING AGENCIAMENTO MARITIMO` como
+  beneficiário. Sem produção no ar, esta verificação vale mais do que qualquer
+  cuidado de cutover: é a única prova de que a separação das três marcas
+  sobreviveu à renomeação.
 - Teste novo sugerido: asserção de que nenhuma string `Vela` alcança
   `portalEmailTemplates.ts`, `customerCommunicationTemplates.ts` ou os
   componentes de documento fiscal.
