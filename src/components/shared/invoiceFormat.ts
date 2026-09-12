@@ -108,13 +108,13 @@ export function buildInvoiceFileBaseName(detail: InvoiceDetail): string {
   const invoice = detail.invoice
   const invoiceNumber = invoice?.invoice_number ?? (invoice ? `INV-${invoice.id}` : 'Fatura')
   const firstName = (invoice?.customer_name ?? '').trim().split(/\s+/)[0] ?? ''
-  const validBls = detail.bls.map((b) => b.bl_id).filter(Boolean) as string[]
-  let blPart = ''
-  if (validBls.length <= 3) {
-    blPart = validBls.join(', ')
-  } else {
-    blPart = `${validBls.slice(0, 3).join(', ')} e mais ${validBls.length - 3}`
-  }
+  const validBls = Array.isArray(detail.bls)
+    ? (detail.bls.map((b) => b.bl_id).filter(Boolean) as string[])
+    : []
+  const blPart =
+    validBls.length <= 3
+      ? validBls.join(', ')
+      : `${validBls.slice(0, 3).join(', ')} e mais ${validBls.length - 3}`
   const base = [invoiceNumber, 'FATURA TAXAS LOCAIS', firstName, blPart]
     .filter((part) => part && part.trim().length > 0)
     .join(' - ')

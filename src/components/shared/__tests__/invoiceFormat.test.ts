@@ -52,22 +52,32 @@ describe('fmtBRL and fmtUSD formatting', () => {
 describe('buildInvoiceFileBaseName', () => {
   it('gera nome para fatura individual', () => {
     const name = buildInvoiceFileBaseName({
-      invoice_number: 'INV-2026-001',
-      customer_name: 'Empresa Teste',
-      bl_number: 'BL123',
-    })
+      invoice: {
+        id: 1,
+        invoice_number: 'INV-2026-001',
+        customer_name: 'Empresa Teste',
+      },
+      bls: [{ bl_id: 'BL123' }],
+      items: [],
+      payments: [],
+    } as unknown as Parameters<typeof buildInvoiceFileBaseName>[0])
     expect(name).toContain('INV-2026-001')
     expect(name).toContain('Empresa Teste')
     expect(name).toContain('BL123')
   })
 
   it('resume lista de B/Ls quando há mais de 3 itens (DOC-04)', () => {
-    const manyBls = Array.from({ length: 50 }, (_, i) => `BL-${i + 1}`).join(', ')
+    const manyBls = Array.from({ length: 50 }, (_, i) => ({ bl_id: `BL-${i + 1}` }))
     const name = buildInvoiceFileBaseName({
-      invoice_number: 'INV-CONS-001',
-      customer_name: 'Cliente com muitos BLs',
-      bl_number: manyBls,
-    })
+      invoice: {
+        id: 2,
+        invoice_number: 'INV-CONS-001',
+        customer_name: 'Cliente com muitos BLs',
+      },
+      bls: manyBls,
+      items: [],
+      payments: [],
+    } as unknown as Parameters<typeof buildInvoiceFileBaseName>[0])
     expect(name).toContain('e mais 47')
     expect(name.length).toBeLessThanOrEqual(200)
   })
