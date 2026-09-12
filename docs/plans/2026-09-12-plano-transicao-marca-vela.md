@@ -4,8 +4,9 @@
 - **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
   `vela.app.br`.
 - **Executor previsto:** Codex, seguindo os blocos do §6 na ordem dada.
-- **Fora de escopo:** o Portal do Cliente e a marca FWLog, tratados em sessão
-  própria. Ver §1 e §2.
+- **Fora de escopo:** a marca FWLog e o conteúdo do Portal do Cliente, tratados
+  em sessão própria. A **separação técnica** dos dois builds é feita aqui — ver
+  §5, decisão D1, e o bloco B6.
 - **Contexto decisivo:** o sistema **ainda não está em produção**. Nem os
   usuários internos nem o Portal estão ativos; o lançamento é previsto para
   algumas semanas. Isto muda a estratégia mais do que qualquer detalhe técnico
@@ -46,13 +47,15 @@ repositório.
 ### 0.3 Ordem e bloqueios
 
 ```
-B1 → B2 → B3 → B4 → B5        (livres, podem começar hoje)
-                    ↓
-              D1 (decisão)  →  B6  →  §7 (console)  →  B7 (identidade visual)
+B1 → B2 → B3 → B4 → B5 → B6 → B7 → §7 (painéis) → B8
+                          ▲    ▲                    ▲
+                    separação  domínio        identidade
+                   dos builds  e CORS            visual
 ```
 
-B1–B5 não dependem de nenhuma decisão pendente e cobrem a maior parte do
-volume. B6 e o §7 dependem das decisões do §5.
+As quatro decisões do §5 estão **fechadas**; não há bloqueio externo. B1–B5 são
+renomeação e cobrem a maior parte do volume. B6 é o único bloco com risco
+arquitetural — leia-o inteiro antes de começar e coordene com a sessão FWLog.
 
 ---
 
@@ -134,7 +137,7 @@ Lista fechada. Qualquer alteração aqui exige autorização explícita do usuá
 |---|---|---|
 | Registro histórico (`docs/archive/`, `migrations_archive/`) | 174 | **Não tocar** (§2) |
 | Banco de teste `transhipping_test` | 50 | Renomear — bloco B2 |
-| Domínio `transhippingdesk.com.br` | 46 | Bloco B6 (bloqueado por D1) |
+| Domínio `transhippingdesk.com.br` | 46 | Blocos B6 e B7 |
 | Identidade jurídica / PIX | 13 | **Não tocar** (§2) |
 | Nome do produto e metadados de projeto | restante | Blocos B1, B3, B4 |
 
@@ -156,15 +159,14 @@ mas ignorar qualquer um produz um incidente.
 build**; o que separa os dois é o hostname, não o artefato.
 
 Consequência: a separação "Vela em `vela.app.br`" e "FWLog no domínio do
-Portal" não é uma mudança de DNS. É uma decisão de arquitetura de entrega —
-ou dois domínios continuam servindo o mesmo app com branding resolvido por
-hostname, ou o build é dividido em dois. É a decisão **D1** do §5.
+Portal" não é uma mudança de DNS. É uma decisão de arquitetura de entrega.
+**Decidida (D1): dois builds separados.** O bloco B6 executa a separação.
 
 Existe ainda a rota `/clientes/portal/inspecao/:customerId/*`, uma visão de
 inspeção do Portal **usada internamente**, que reaproveita os componentes
 `PortalBilling`, `PortalOperacao` e `PortalProfile`. Ela vive do lado interno
-mas renderiza superfície de Portal; decida conscientemente qual marca ela exibe
-em vez de deixar o resultado ao acaso.
+mas renderiza superfície de Portal — e é ela que impede que "dois builds"
+signifique "dois conjuntos disjuntos de arquivos". Ver B6.
 
 ### 4.2 Pré-lançamento: a janela em que isto é barato
 
@@ -189,7 +191,8 @@ Portanto: **lançar direto em `vela.app.br`**. O domínio antigo não precisa de
 
 Verificação que fecha a premissa: conferir no Resend se existe qualquer envio a
 destinatário real (piloto, homologação com cliente, teste com endereço de
-colaborador). É o item **D3** do §5.
+colaborador). Verificado: houve envio, mas só a endereços internos — ver D3
+no §5. A premissa se mantém.
 
 ### 4.3 O `project_ref` do Supabase é imutável, e o regex do Vercel não é
 
@@ -261,40 +264,43 @@ projeto como `transhipping-desk`.
 
 ---
 
-## 5. Decisões pendentes
+## 5. Decisões tomadas
 
-Quatro decisões estão em aberto. Três bloqueiam blocos específicos; nenhuma
-bloqueia B1–B5.
+As quatro decisões que bloqueavam a execução foram fechadas pelo usuário em
+2026-09-12. Ficam registradas com a consequência de cada uma, para não serem
+reabertas por engano.
 
-| ID | Decisão | Bloqueia | Estado |
+| ID | Pergunta | Decisão | Efeito no plano |
 |---|---|---|---|
-| **D1** | Arquitetura de entrega: um build com branding por hostname, ou dois builds? (§4.1) | B6 e §7 | **Aberta — item mais urgente do projeto** |
-| **D2** | Busca no INPI para a marca nominativa "Vela" | B7 (identidade definitiva) | Aberta |
-| **D3** | Conferir no log do Resend a ausência de envio a destinatário real (§4.2) | Fecha a premissa do plano | Aberta |
-| **D4** | Firebase Hosting: manter ou remover? (§6, bloco B3) | B3, item 4 | Aberta |
+| **D1** | Arquitetura de entrega | **Dois builds separados** | Cria o bloco B6 |
+| **D2** | Registro de marca no INPI | **Não haverá** — Vela não é produto comercial | Desbloqueia B8 |
+| **D3** | Log do Resend | **Irrelevante** — só houve teste interno | Fecha a premissa do §4.2 |
+| **D4** | Firebase Hosting | **Apagar tudo** | Fecha o item 4 do B3 |
 
-**Por que D1 é urgente.** Hoje o Portal e o app interno são o mesmo bundle
-(§4.1) e separá-los custa uma decisão e algumas horas. Depois do lançamento,
-separá-los custa migração de domínio, janela de CORS duplo, aliases de logo e
-reemissão de convites — exatamente o cenário caro que o §4.2 acabou de
-dispensar. Lançar com a separação por fazer converte a mudança mais barata do
-projeto na mais cara.
+**D1 — dois builds.** É a opção mais cara em esforço e a mais barata em risco.
+O ganho decisivo, dado o §1: com dois artefatos, "nenhuma string `Vela` alcança
+o cliente" deixa de depender de disciplina e passa a depender de o código
+simplesmente não estar lá. O bloco B5 continua valendo como rede, mas vira
+segunda linha em vez de primeira.
 
-**Por que D2 tem prazo.** "Vela" é palavra comum. Este é o momento mais barato da
-vida do projeto para trocar de nome: nenhum usuário, nenhum material impresso,
-nenhum link em circulação. Depois do lançamento, o mesmo achado custa uma
-segunda renomeação inteira. A busca precisa estar concluída **antes** de o
-bloco B7 produzir a identidade definitiva.
+**D2 — sem INPI.** O raciocínio se sustenta para uso interno: sem oferta de
+produto ou serviço sob a marca, não há a atividade que o registro protege. Dois
+resíduos, registrados aqui e não tratados como pendência: `vela.app.br` é DNS
+público, e o nome aparece na aba do navegador de quem vê uma tela. A exposição
+não é zero, mas é remota. **O gatilho para reavaliar é a comercialização** — se
+o Vela um dia for vendido ou licenciado a terceiros, a busca volta à mesa, e aí
+com o custo de uma renomeação com usuários dentro.
 
-**Sobre D4.** As origens `transhippingdesk.web.app` e
-`transhippingdesk.firebaseapp.com` estão marcadas em
-`supabase/functions/_shared/cors.ts:7` como rollback de um cutover de hosting
-**já concluído**. Se o Firebase Hosting está morto, `.firebaserc` e
-`firebase.json` devem ser **removidos**, não renomeados — o ID de projeto
-Firebase `transhipping-desk` é imutável, então renomeá-lo no arquivo apenas
-quebraria o deploy caso alguém tentasse usá-lo. Recomendação: remover.
+**D3 — envios de teste não contam.** Houve envio, mas apenas a endereços
+internos. Os e-mails carregam link para o domínio antigo e não expiram; como
+nenhum destinatário é cliente, não há consequência. A recomendação de manter
+`transhippingdesk.com.br` como redirecionador 301 permanece **retratada**
+(§4.2).
 
----
+**D4 — remover o Firebase.** O ID de projeto Firebase `transhipping-desk` é
+imutável no Google, então "renomear" nunca foi opção. Como o cutover para o
+Vercel está concluído e `supabase/functions/_shared/cors.ts:7` já marca as
+origens como resquício, os arquivos saem.
 
 ## 6. Execução (repositório — Codex)
 
@@ -356,16 +362,18 @@ o encontra sem variável de ambiente explícita.
 
 ### B3 — Metadados de projeto
 
-**Depende de:** D4, apenas para o item 4.
+**Depende de:** nada.
 
 1. `package.json:2` — `"name": "transhipping-desk"` → `"vela"`.
 2. `supabase/config.toml:6` — `project_id = "Transhipping_Desk"` → `"Vela"`
    (metadado local, §4.3).
 3. `opencode.json` — 5 descrições de skill: linhas 38, 90, 102, 146, 178.
-4. **Firebase, conforme D4:** se remover, apague `.firebaserc` e `firebase.json`
-   e retire as duas origens `*.web.app` / `*.firebaseapp.com` de
-   `supabase/functions/_shared/cors.ts:8–9` no mesmo commit. Se manter, **não
-   renomeie nada** — o ID de projeto Firebase é imutável.
+4. **Remover o Firebase (D4):** apagar `.firebaserc` e `firebase.json`, e
+   retirar as origens `https://transhippingdesk.web.app` e
+   `https://transhippingdesk.firebaseapp.com` de
+   `supabase/functions/_shared/cors.ts:7–9`, junto com o comentário que as
+   justificava, no mesmo commit. Conferir se `src/services/__tests__/edgeFunctionCors.test.ts`
+   depende delas.
 5. `skills/README.md` — 15, 94; e a linha `description:` de
    `skills/design-audit/SKILL.md`, `skills/import-parser/SKILL.md`,
    `skills/invoice-pdf/SKILL.md`, `skills/react-query-pattern/SKILL.md`,
@@ -434,17 +442,94 @@ combinado entre sessões. Vale mais que qualquer revisão manual.
 
 **Gate:** `npm run test`.
 
-### B6 — Domínio e CORS
+### B6 — Separação em dois builds
 
-**Depende de D1.** Não comece sem a decisão de arquitetura de entrega — este
-bloco e a sessão FWLog editam os mesmos arquivos.
+**Depende de:** B1–B5. **Combine com a sessão FWLog antes de começar** — este é
+o bloco que redesenha o terreno dos dois lados.
+
+**Estado atual.** Uma entrada (`src/main.tsx`), um HTML (`index.html`), um
+roteador (`src/App.tsx`), um artefato. O `main.tsx` envolve tudo com
+`PortalAuthProvider` **e** `AuthProvider` ao mesmo tempo (linhas 48–50), e
+`vercel.json` tem um único rewrite para `/index.html`.
+
+**O que "dois programas" significa aqui.** Duas entradas Vite e dois projetos
+Vercel **sobre a mesma base de código**. Não são dois repositórios nem duas
+cópias: serviços, tipos, cliente Supabase, hooks e componentes de UI continuam
+compartilhados. Separam-se quatro coisas — o HTML de entrada, o ponto de
+montagem React, o roteador e o provedor de autenticação — e, no fim, o artefato
+publicado.
+
+**Passos:**
+
+1. **Dois HTML.** `index.html` (interno) e `portal.html`, cada um com seu
+   `<title>`, seu manifest e seu conjunto de favicons.
+2. **Duas entradas.** `src/main.tsx` (interno) e `src/portal-main.tsx`. A
+   interna envolve apenas `AuthProvider`; a do Portal, apenas
+   `PortalAuthProvider`. Hoje as duas árvores convivem sem necessidade.
+3. **Dois roteadores.** `src/App.tsx` se divide em `src/AppInterno.tsx` (rotas
+   internas, incluindo `/clientes/portal/inspecao/*`) e `src/AppPortal.tsx` (as
+   nove rotas `/portal/*` públicas e autenticadas).
+4. **`vite.config.ts`** — declarar as duas entradas em
+   `build.rollupOptions.input`.
+5. **Dois projetos Vercel**, cada um com seu domínio, seu rewrite e seu
+   diretório de saída.
+
+**A armadilha deste bloco.** A rota interna
+`/clientes/portal/inspecao/:customerId/*` (`src/App.tsx:162–166`) renderiza
+`PortalBilling`, `PortalOperacao` e `PortalProfile`. Essas três páginas ficam
+**nos dois builds**. Dois artefatos não são dois conjuntos disjuntos de
+arquivos.
+
+Verificado: `PortalBilling.tsx`, `PortalOperacao.tsx`, `PortalProfile.tsx`,
+`PortalDashboard.tsx` e `PortalInspection.tsx` hoje **não contêm nenhuma
+referência de marca** — sem logo, sem nome, sem cor de marca. Toda a marca do
+Portal vive em `PortalLayout.tsx:30` e `PortalLogin.tsx:69`. É isso que faz o
+compartilhamento funcionar, e é uma propriedade a preservar, não um acaso:
+
+> **Regra:** as páginas compartilhadas permanecem neutras de marca. A marca
+> entra pelo layout que as embrulha. Um logo FWLog dentro de `PortalBilling`
+> aparece dentro do sistema interno.
+
+**Efeitos colaterais a tratar no mesmo bloco:**
+
+- `package.json`, bloco `size-limit`: os globs apontam para
+  `dist/assets/index-*.js`. Com duas entradas os nomes mudam e o job
+  "Build + Bundle size" quebra. Ajustar os padrões e reavaliar o limite de
+  250 kB — o build interno deve **encolher**, então o limite antigo deixa de
+  medir o que media.
+- `scripts/vercel-build.mjs` grava a página de espera apenas em
+  `dist/index.html`. Precisa gravar também em `dist/portal.html`, ou o Preview
+  do Portal serve 404 durante a janela da ADR 0056.
+- `src/lib/pageTitle.ts` mistura rotas internas e `/portal/*` na mesma tabela.
+  Separar, junto com os testes correspondentes.
+- Dois projetos Vercel produzem **dois padrões de URL de Preview**. O regex do
+  bloco B7 precisa cobrir os dois, ou o CORS derruba os Previews do Portal.
+
+**Gate:** `npm run lint && npm run test && npm run build && npm run size-limit`.
+E duas verificações manuais que nenhum teste faz sozinho: o bundle interno
+**não pode** conter as rotas `/portal/login`, `/portal/ativar`,
+`/portal/recuperar-senha`; o bundle do Portal não pode conter `/painel` nem
+`/admin`.
+
+**Por que este bloco fica aqui e não na sessão FWLog.** Feita a separação, a
+sessão FWLog passa a mexer apenas em `portal.html`, `src/portal-main.tsx`,
+`src/AppPortal.tsx` e nas páginas do Portal. O conflito em `src/App.tsx` — hoje
+o arquivo mais disputado entre as duas sessões — deixa de existir. Separar
+primeiro reduz o atrito em vez de aumentá-lo.
+
+### B7 — Domínio e CORS
+
+**Depende de B6.** Com dois builds há dois projetos Vercel, e este bloco
+precisa saber o nome dos dois.
 
 1. `supabase/functions/_shared/cors.ts:5–6` — trocar as origens para
-   `vela.app.br` diretamente, sem manter as antigas (§4.2). As linhas 8–9
-   saem conforme D4.
-2. `supabase/functions/_shared/cors.ts:18` — atualizar `VERCEL_PREVIEW_ORIGIN`
-   para o nome novo do projeto Vercel, **no mesmo commit** em que o projeto for
-   renomeado no painel (§4.3, §7.1).
+   `vela.app.br` diretamente, sem manter as antigas (§4.2). As origens Firebase
+   das linhas 7–9 já saíram no B3.
+2. `supabase/functions/_shared/cors.ts:18` — `VERCEL_PREVIEW_ORIGIN` precisa
+   agora cobrir **dois** padrões de URL de Preview, um por projeto Vercel
+   (§4.3, B6). Atualizar **no mesmo commit** em que os projetos forem
+   renomeados no painel. Um regex que cubra só o interno derruba silenciosamente
+   os Previews do Portal.
 3. `src/services/__tests__/edgeFunctionCors.test.ts:10, 50, 57` — acompanhar.
 4. `.env.example:7–8` — `VITE_PORTAL_URL` e `VITE_PORTAL_BILLING_URL`.
    **Arquivo disputado com a sessão FWLog:** combine quem edita antes.
@@ -462,16 +547,19 @@ não para o app interno. São da sessão FWLog (§4.6).
 abrir um Preview de PR e confirmar no navegador que uma chamada a Edge Function
 recebe `Access-Control-Allow-Origin` — o teste unitário não prova isso.
 
-### B7 — Identidade visual Vela
+### B8 — Identidade visual Vela
 
-**Depende de:** D2 (INPI) para virar definitiva; explorações de forma podem
-começar antes.
+**Depende de:** B6 (os favicons e o manifest passam a ser dois conjuntos, um
+por build). Sem bloqueio de INPI — ver D2 no §5.
 
 **Entregáveis:** logo horizontal (claro e escuro), símbolo isolado,
 `favicon.svg`, `favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`,
 `apple-touch-icon.png` (180×180), `android-chrome-192x192.png`,
 `android-chrome-512x512.png`. Os cinco últimos já existem em `public/` e são
-substituídos; os arquivos de `public/branding/` **não são** (§4.4).
+substituídos **pelo conjunto Vela**; os arquivos de `public/branding/` **não
+são** (§4.4). Depois do B6, `portal.html` referencia o conjunto FWLog, servido
+do mesmo `public/` sob nomes próprios — combine a convenção de nomes com a
+sessão FWLog para os dois não colidirem.
 
 **Repontar apenas o lado interno**, para os arquivos novos
 `public/branding/vela-*.png`, trocando `src` e `alt` juntos:
@@ -514,13 +602,22 @@ manual de quem tem acesso ao painel.
 
 ### 7.1 Vercel
 
-1. Renomear o projeto. **Coordenar com o item 2 do bloco B6** — o regex de
-   preview precisa ir no mesmo commit (§4.3).
-2. Adicionar `vela.app.br` ao projeto e obter o alvo real de DNS com
+Com a decisão D1, passam a existir **dois projetos**: o interno (Vela) e o do
+Portal (FWLog). O segundo é criado em coordenação com a sessão FWLog.
+
+1. Renomear o projeto atual para o nome interno e criar o segundo projeto,
+   apontando ambos para o mesmo repositório com comandos de build distintos.
+2. **Coordenar com o item 2 do bloco B7** — o regex de preview precisa cobrir
+   os dois nomes e ir no mesmo commit da renomeação (§4.3).
+3. Adicionar `vela.app.br` ao projeto interno e obter o alvo real de DNS com
    `vercel domains inspect`. Não presuma o valor.
-3. Conferir as variáveis de ambiente do projeto (`VITE_PORTAL_URL`,
-   `VITE_PORTAL_BILLING_URL`) — o bloco B6 muda o `.env.example`, que é
-   documentação, não configuração real.
+4. Conferir as variáveis de ambiente de cada projeto (`VITE_PORTAL_URL`,
+   `VITE_PORTAL_BILLING_URL`) — o `.env.example` é documentação, não
+   configuração real.
+5. Confirmar que a integração de branching do Supabase (ADR 0056) grava as
+   variáveis de Preview nos **dois** projetos. Se ela cobrir só um, o Preview do
+   outro cai na página de espera de `scripts/vercel-build.mjs` — que o B6
+   precisa ter ensinado a gravar `portal.html`.
 
 ### 7.2 registro.br
 
@@ -557,8 +654,8 @@ O DSN em `src/lib/telemetry.ts:9` **não muda** (§4.7).
 ### 7.6 Resend
 
 Renomear o rótulo do projeto. **Só isso** — SPF, DKIM, DMARC e aquecimento de
-domínio pertencem ao Portal, não a `vela.app.br` (§4.6). Antes de considerar o
-plano fechado, executar D3: conferir no log se houve envio a destinatário real.
+domínio pertencem ao Portal, não a `vela.app.br` (§4.6). D3 já está fechada: os
+envios existentes foram testes internos.
 
 ---
 
@@ -569,36 +666,43 @@ prazo, e uma janela que fecha no lançamento.
 
 | Risco | Gravidade | Mitigação |
 |---|---|---|
-| **Lançar com a separação Vela/FWLog por fazer** | **Alta** | D1 antes do lançamento; depois, o custo multiplica |
-| **INPI reprovar "Vela" depois da identidade pronta** | **Alta** | D2 antes de B7 virar definitivo |
+| **Lançar com a separação Vela/FWLog por fazer** | **Alta** | Bloco B6 antes do lançamento; depois, o custo multiplica |
+| **Marca de terceiro sobre "Vela" caso o sistema vire produto** | Baixa hoje | D2 — reavaliar se houver comercialização; hoje não há oferta sob a marca |
+| **B6 quebrar o gate de bundle ou o Preview do Portal** | **Alta** | Ajustar `size-limit` e `scripts/vercel-build.mjs` dentro do próprio B6 |
+| **Marca entrar numa página compartilhada e vazar entre os dois builds** | **Alta** | Regra do B6: páginas compartilhadas neutras, marca só no layout |
+| **Regex de preview cobrir só um dos dois projetos Vercel** | Média | B7 item 2 — dois padrões, um por projeto |
 | **Substituição global levar `Vela` a e-mail de cliente ou fatura** | **Alta** | §0.1 regra 1; bloco B5 como rede |
 | **Sobrescrever asset de `public/branding/` e vazar logo Vela para fatura e Portal** | **Alta** | §4.4 — arquivos novos, nunca substituição |
 | Regex de preview do Vercel desatualizado derruba os Previews | Média | B6 item 2 e §7.1 item 1 no mesmo commit; afeta a equipe, não o cliente |
 | Renomear o banco de teste pela metade e quebrar o CI | Média | Lista completa em B2, inclusive `scripts/` |
 | Lançar meio renomeado, com os dois nomes convivendo | Média | Blocos sequenciais com gate, não faseamento com convivência |
-| Conflito de merge com a sessão FWLog em `cors.ts`, `App.tsx`, `.env.example` | Média | Combinar a ordem; B6 é o único bloco daqui que toca esses arquivos |
-| Premissa de "nenhum e-mail enviado" estar errada | Baixa | D3 |
+| Conflito de merge com a sessão FWLog em `cors.ts`, `App.tsx`, `.env.example` | Média | Combinar a ordem; depois do B6 o conflito em `App.tsx` deixa de existir |
 
-Riscos que a versão anterior listava e que **deixam de existir**: quebra de
-e-mails históricos, perda de preferência de tema e conflito de convivência entre
-domínios.
+Riscos que as versões anteriores listavam e que **deixam de existir**: quebra
+de e-mails históricos, perda de preferência de tema, conflito de convivência
+entre domínios, e a premissa de "nenhum e-mail enviado" (D3 dispensou).
 
 ---
 
 ## 9. Definição de pronto
 
-O plano só é executável até o item 5; os demais dependem do §7 e do lançamento.
-
-1. B1–B5 concluídos, cada um com seu gate verde.
+1. **B1–B5** concluídos, cada um com seu gate verde.
 2. `grep -ri "transhipping" .` fora de `docs/archive/`,
    `supabase/migrations_archive/`, `package-lock.json` e da lista do §2 retorna
    **zero** ocorrências do nome do produto — as remanescentes devem ser todas
    identidade jurídica, superfície do Portal ou registro histórico.
-3. B5 verde: nenhuma string `Vela` alcança o Portal, os templates de e-mail ou
-   os documentos fiscais.
-4. D1 decidida e B6 concluído.
-5. §7 concluído e confirmado item a item por quem tem acesso aos painéis.
-6. Antes do lançamento, três verificações manuais: login interno, um envio de
+3. **B5 verde:** nenhuma string `Vela` alcança o Portal, os templates de e-mail
+   ou os documentos fiscais.
+4. **B6 concluído:** dois artefatos, e a prova manual de que o bundle interno
+   não contém as rotas públicas do Portal e vice-versa. `npm run size-limit`
+   verde com os globs novos.
+5. **B7 concluído:** allowlist de CORS só com os domínios novos, regex de
+   preview cobrindo os dois projetos Vercel, e um Preview real testado no
+   navegador — o teste unitário não prova CORS.
+6. **§7 concluído** e confirmado item a item por quem tem acesso aos painéis.
+7. **B8 concluído:** identidade Vela no app interno, sem tocar em
+   `public/branding/`.
+8. Antes do lançamento, três verificações manuais: login interno, um envio de
    e-mail e **uma fatura com QR PIX cujo beneficiário leia
    `TRANSHIPPING AGENCIAMENTO MARITIMO`**. Sem produção no ar, esta última vale
    mais do que qualquer cuidado de cutover: é a única prova de que a separação
