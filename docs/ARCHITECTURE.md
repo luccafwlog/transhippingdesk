@@ -639,13 +639,6 @@ Redirecionamentos ativos: `/vazios → /embarquevazios`, `/demurrage/invoices �
 | `/granito` | Operação de Granito |
 | `/granito/taxas` | Tarifas de Granito |
 | `/revisao` | Revisão operacional |
-
-`/revisao` trabalha visualmente por grupo de cliente, embora o gate canônico
-continue sendo calculado por B/L. O onboarding do grupo usa uma RPC transacional
-para resolver/criar cliente, contato e vínculos; CNPJs conflitantes ficam
-segregados e evidências brutas do consignatário/carga permanecem disponíveis.
-O convite do Portal é opcional, enviado para o mesmo e-mail informado após o
-commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 | `/clientes` | Clientes |
 | `/clientes/comunicacao` | Conferência, simulação/envio e histórico de Comunicados ao Cliente |
 | `/clientes/:cnpj` | Ficha do cliente (hub em abas via `?tab=`) |
@@ -671,6 +664,13 @@ commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 | `/admin` | Administração: abre a tela completa na aba padrão (Usuários) |
 | `/admin/:tab` | Uma sub-rota por aba (`usuarios`, `falhas`, `logs`, `metricas`, `prazo-adr`): o endereço é compartilhável e sobrevive ao refresh. Aba inexistente responde "Página não encontrada" em vez de cair na aba padrão |
 | `/perfil` | Perfil do usuário interno: nome, e-mail e troca da própria senha |
+
+`/revisao` trabalha visualmente por grupo de cliente, embora o gate canônico
+continue sendo calculado por B/L. O onboarding do grupo usa uma RPC transacional
+para resolver/criar cliente, contato e vínculos; CNPJs conflitantes ficam
+segregados e evidências brutas do consignatário/carga permanecem disponíveis.
+O convite do Portal é opcional, enviado para o mesmo e-mail informado após o
+commit, e seu ciclo de vida continua pertencendo ao Console de Provisionamento.
 
 `/clientes/portal/inspecao/:customerId/*` é uma rota interna protegida, no nível
 de `/line-up-tv/display`, fora do `AppLayout` para não aninhar dois shells. Ela

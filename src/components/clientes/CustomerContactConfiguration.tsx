@@ -254,11 +254,11 @@ export function CustomerContactConfiguration({
           return (
             <div
               key={box.code}
-              className="rounded-xl border border-[#30363d] bg-[#111820] p-4 flex flex-col justify-between"
+              className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white text-sm">{box.label}</span>
+                  <span className="font-semibold text-[var(--app-text-strong)] text-sm">{box.label}</span>
                   <span className="text-xs px-2 py-0.5 rounded bg-blue-900/60 text-blue-200 font-medium">
                     {linkedContacts.length} {linkedContacts.length === 1 ? 'e-mail' : 'e-mails'}
                   </span>

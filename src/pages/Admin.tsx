@@ -212,6 +212,7 @@ export function Admin() {
             <input
               className="app-input w-72"
               placeholder="Buscar por nome ou e-mail"
+              aria-label="Buscar por nome ou e-mail"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -477,20 +478,36 @@ export function Admin() {
               />
             </div>
             <div>
-              <label className="mb-1 block app-field__label">Autor (ID)</label>
+              <label htmlFor="audit-log-author" className="mb-1 block app-field__label">Autor (ID)</label>
               <input
+                id="audit-log-author"
                 className="app-input w-44"
+                aria-label="Autor por ID"
                 value={logFilters.changedBy}
                 onChange={(e) => setLogFilters((f) => ({ ...f, changedBy: e.target.value, page: 0 }))}
               />
             </div>
             <div>
-              <label className="mb-1 block app-field__label">De</label>
-              <input type="date" className="app-input" value={logFilters.dateFrom} onChange={(e) => setLogFilters((f) => ({ ...f, dateFrom: e.target.value, page: 0 }))} />
+              <label htmlFor="audit-log-date-from" className="mb-1 block app-field__label">De</label>
+              <input
+                id="audit-log-date-from"
+                type="date"
+                className="app-input"
+                aria-label="Data inicial (De)"
+                value={logFilters.dateFrom}
+                onChange={(e) => setLogFilters((f) => ({ ...f, dateFrom: e.target.value, page: 0 }))}
+              />
             </div>
             <div>
-              <label className="mb-1 block app-field__label">Ate</label>
-              <input type="date" className="app-input" value={logFilters.dateTo} onChange={(e) => setLogFilters((f) => ({ ...f, dateTo: e.target.value, page: 0 }))} />
+              <label htmlFor="audit-log-date-to" className="mb-1 block app-field__label">Ate</label>
+              <input
+                id="audit-log-date-to"
+                type="date"
+                className="app-input"
+                aria-label="Data final (Até)"
+                value={logFilters.dateTo}
+                onChange={(e) => setLogFilters((f) => ({ ...f, dateTo: e.target.value, page: 0 }))}
+              />
             </div>
             {(logFilters.entityType || logFilters.changedBy || logFilters.dateFrom || logFilters.dateTo) && (
               <button

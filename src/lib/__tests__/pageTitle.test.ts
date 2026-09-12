@@ -13,6 +13,8 @@ describe('routeTitle (WCAG 2.4.2 — título por rota)', () => {
   it('prioriza rotas específicas sobre genéricas', () => {
     expect(routeTitle('/demurrage/taxas')).toBe('Tarifas de Demurrage · Transhipping Desk')
     expect(routeTitle('/demurrage')).toBe('Demurrage · Transhipping Desk')
+    expect(routeTitle('/embarquevazios/depots')).toBe('Cadastro de Terminais · Transhipping Desk')
+    expect(routeTitle('/embarquevazios')).toBe('Embarque de Vazios · Transhipping Desk')
     expect(routeTitle('/manifestos/COSU6401234501')).toBe('Detalhe do B/L · Transhipping Desk')
     expect(routeTitle('/manifestos')).toBe('BLs CNTR · Transhipping Desk')
     expect(routeTitle('/clientes/12.345.678/0001-90')).toBe('Ficha do Cliente · Transhipping Desk')

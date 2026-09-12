@@ -308,7 +308,7 @@ function orderTerminalIds(
   for (const terminalId of Object.values(fronts)) if (terminalId) ids.add(terminalId)
   return sortAtracacoes([...ids].map((terminalId) => ({
     terminalId,
-    terminalCode: terminalById.get(terminalId)?.code ?? terminalId,
+    terminalCode: terminalById.get(terminalId)?.code ?? 'TBC',
     etb: combineIsoDateTime(dates[terminalId]?.etbDate ?? '', dates[terminalId]?.etbTime ?? ''),
     atb: combineIsoDateTime(dates[terminalId]?.atbDate ?? '', dates[terminalId]?.atbTime ?? ''),
   }))).map((terminal) => terminal.terminalId as string)
@@ -389,7 +389,7 @@ function buildTerminalPayload({
   const terminals: NonNullable<EscalaModalPayload['terminalState']>['terminals'] = []
   for (const terminalId of terminalIds) {
     const draft = terminalDates[terminalId] ?? emptyTerminalDatesDraft()
-    const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? terminalId
+    const code = [...terminalScale.activeTerminals, ...terminalScale.historicalTerminals].find((option) => option.id === terminalId)?.code ?? 'TBC'
 
     if (draft.atbDate && !draft.atbTime.trim()) {
       return { error: `A hora do ATB é obrigatória quando a data estiver preenchida para o terminal ${code}.` }
@@ -558,7 +558,7 @@ function TerminalFrontEditor({
         {terminalIds.map((terminalId) => {
           const option = terminalId === '__tbc__' ? undefined : terminalById.get(terminalId)
           const draft = terminalDates[terminalId] ?? emptyTerminalDatesDraft()
-          const code = terminalId === '__tbc__' ? 'TBC' : option?.code ?? terminalId
+          const code = terminalId === '__tbc__' ? 'TBC' : option?.code ?? 'TBC'
           return (
             <div
               key={terminalId}

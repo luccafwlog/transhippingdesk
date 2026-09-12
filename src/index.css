@@ -17,6 +17,7 @@
   --app-border: #cdc8bc;
   --app-border-strong: #b8b2a5;
   --app-border-focus: rgba(37, 99, 168, 0.22);
+  --app-focus-ring: #1d4d88;
   --app-text: #1c1915;
   --app-text-strong: #0e0c0a;
   --app-muted: #5a5549;
@@ -61,6 +62,7 @@
   --app-border: #22324d;
   --app-border-strong: #314569;
   --app-border-focus: rgba(96, 165, 250, 0.28);
+  --app-focus-ring: #60a5fa;
   --app-text: #eef2ff;
   --app-text-strong: #f8fbff;
   --app-muted: #95a7c0;
@@ -102,6 +104,7 @@
   --app-border: #cdc8bc;
   --app-border-strong: #b8b2a5;
   --app-border-focus: rgba(37, 99, 168, 0.22);
+  --app-focus-ring: #1d4d88;
   --app-text: #1c1915;
   --app-text-strong: #0e0c0a;
   --app-muted: #5a5549;
@@ -513,11 +516,16 @@ textarea {
   text-align: left;
 }
 
-.app-header__user-dropdown button:hover,
-.app-header__user-dropdown button:focus-visible {
+.app-header__user-dropdown button:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
-  outline: none;
+}
+
+.app-header__user-dropdown button:focus-visible {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: -2px;
 }
 
 .app-header__quick-link {
@@ -1512,6 +1520,12 @@ textarea {
   color: var(--app-muted-soft);
 }
 
+.app-voyage-command-bar__search:focus-within {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--app-radius);
+}
+
 .app-voyage-command-bar__search .app-input {
   min-height: 40px;
   flex: 1 1 auto;
@@ -1992,8 +2006,9 @@ textarea {
 }
 
 .app-btn:focus-visible {
-  outline: 0;
-  box-shadow: 0 0 0 4px var(--app-border-focus);
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--app-surface);
 }
 
 .app-btn:disabled {
@@ -2122,9 +2137,10 @@ textarea {
 }
 
 .app-input:focus {
-  border-color: var(--app-blue-btn);
-  box-shadow: 0 0 0 4px var(--app-border-focus);
-  background: #ffffff;
+  border-color: var(--app-focus-ring);
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 1px;
+  background: var(--app-surface-strong);
 }
 
 .app-input.app-review-search__input,
@@ -4749,9 +4765,11 @@ textarea {
 
 :root[data-visual-theme='current'] [class*='text-[#58a6ff]'],
 :root[data-visual-theme='current'] [class*='text-[#8cc8ff]'],
+:root[data-visual-theme='current'] [class*='text-[#d2a8ff]'],
 :root[data-visual-theme='current'] .text-blue-200,
 :root[data-visual-theme='light'] [class*='text-[#58a6ff]'],
 :root[data-visual-theme='light'] [class*='text-[#8cc8ff]'],
+:root[data-visual-theme='light'] [class*='text-[#d2a8ff]'],
 :root[data-visual-theme='light'] .text-blue-200 {
   color: var(--app-blue-btn) !important;
 }
@@ -4786,7 +4804,9 @@ textarea {
 }
 
 :root[data-visual-theme='current'] [class*='bg-[#161b22'],
-:root[data-visual-theme='light'] [class*='bg-[#161b22'] {
+:root[data-visual-theme='current'] [class*='bg-[#111820'],
+:root[data-visual-theme='light'] [class*='bg-[#161b22'],
+:root[data-visual-theme='light'] [class*='bg-[#111820'] {
   background-color: var(--app-surface) !important;
 }
 
@@ -5228,6 +5248,35 @@ textarea {
     print-color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
   }
+
+  /* Evita quebra de linhas de tabela, totais, grupos e blocos de PIX em impressao (DOC-03) */
+  .invoice-print-content tr,
+  .agency-report-print-content tr,
+  .customer-report-print-content tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .invoice-print-content thead,
+  .agency-report-print-content thead,
+  .customer-report-print-content thead {
+    display: table-header-group;
+  }
+
+  .invoice-print-content tfoot,
+  .agency-report-print-content tfoot,
+  .customer-report-print-content tfoot {
+    display: table-footer-group;
+  }
+
+  .invoice-document__totals,
+  .invoice-document__pix-box,
+  .invoice-document__group-bar,
+  [data-testid='invoice-pix-box'],
+  [data-testid='invoice-totals'] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
 }
 
 /* O impresso do ADR (AgencyReportDocument.tsx) usa a mesma linguagem visual das
@@ -5415,7 +5464,7 @@ textarea {
 }
 
 .app-lineup-display-board__row--cycle-start {
-  border-top: 2px solid var(--app-accent, #f59e0b);
+  border-top: 2px solid var(--app-gold);
 }
 
 /* ===========================================================================

@@ -128,7 +128,26 @@ export function BlDetalhe() {
   }
 
   if (error || !bl || !form) {
-    return <Card className="text-red-200">B/L nao encontrado ou erro ao consultar o Supabase.</Card>
+    return (
+      <>
+        <Breadcrumb
+          items={[
+            { label: 'Manifestos', to: '/manifestos' },
+            { label: 'B/L não encontrado' },
+          ]}
+        />
+        <PageHeader
+          title="Detalhes do B/L"
+          description="Consulta de informações do conhecimento de embarque."
+          action={
+            <Link className="text-sm font-semibold text-[var(--app-link)] hover:underline" to="/manifestos">
+              <ArrowLeft className="mr-1 inline" size={16} />Voltar para manifestos
+            </Link>
+          }
+        />
+        <Card className="text-red-200">B/L não encontrado ou erro ao consultar o Supabase.</Card>
+      </>
+    )
   }
 
   return (
