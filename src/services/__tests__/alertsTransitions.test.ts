@@ -172,6 +172,8 @@ it('usa RPCs tipadas de faturamento, com metadata opcional, para manter idempot�
 it('rotula eventos ativos e preserva o rótulo legado sem tratá-lo como produtor', () => {
   expect(getAlertTypeLabel(getEffectiveAlertType({ type: 'aggregate', item_type: 'pix_unreconciled' }))).toBe('PIX sem conciliação segura')
   expect(getAlertTypeLabel(getEffectiveAlertType({ type: 'demurrage' }))).toBe('Demurrage')
+expect(getAlertTypeLabel('tipo_novo_nao_catalogado')).toBe('Alerta não catalogado (tipo_novo_nao_catalogado)')
+expect(getAlertTypeLabel('outro_tipo_desconhecido')).toBe('Alerta não catalogado (outro_tipo_desconhecido)')
 })
 
 it('resolve destinos pela unidade do evento e pelo identificador canônico da invoice', () => {
