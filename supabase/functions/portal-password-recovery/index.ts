@@ -4,7 +4,7 @@ import { recoveryTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 import { findReusableRecoveryInvite } from '../_shared/portalInvites.ts'
 import { withCors } from '../_shared/cors.ts'
-import { canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
+import { canonicalPortalOrigin, canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
 
 // Achado 3.2 (auditoria 2026-08-12): a resposta antiga distinguia
 // account_found/email_sent, entao um atacante varria CNPJs distintos e
@@ -58,7 +58,7 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
   const customer = account.customers as { name?: string; cnpj_cpf?: string } | null
   const d = (customer?.cnpj_cpf ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase()
   const recoveryUrl = canonicalPortalUrl(`recuperar-senha?token=${encodeURIComponent(token)}`)
-  const portalUrl = canonicalPortalUrl()
+  const portalUrl = canonicalPortalOrigin()
   const supportEmail = portalSupportEmail()
   const template = recoveryTemplate({ companyName: customer?.name ?? 'sua empresa', cnpjMasked: d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***', recoveryUrl, portalUrl, supportEmail })
   const emailPromise = sendPortalEmail({ admin, kind: 'recuperacao', to: account.recovery_email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `recuperacao:${invite.id}`, accountId: account.id, inviteId: invite.id })

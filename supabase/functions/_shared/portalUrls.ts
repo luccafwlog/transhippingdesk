@@ -13,15 +13,23 @@ function getDenoEnv(key: string): string | undefined {
 }
 
 /**
+ * Retorna a origem canônica do Portal Fwlog (esquema + host, sem /portal nem barra final),
+ * apropriada para carregar assets estáticos (ex: /branding/tr-logo.png) ou compor URLs base.
+ */
+export function canonicalPortalOrigin(): string {
+  const envUrl = getDenoEnv('PORTAL_URL')
+  const raw = (envUrl ?? DEFAULT_PORTAL_URL).trim().replace(/\/+$/, '')
+  const base = raw || DEFAULT_PORTAL_URL
+  return base.replace(/\/portal(?:\/.*)?$/, '')
+}
+
+/**
  * Normaliza e constrói URLs canônicas para o Portal Fwlog.
  * Garante que caminhos nunca fiquem relativos (o que quebraria links em clientes de e-mail),
  * remove barras duplicadas e garante o prefixo canônico /portal.
  */
 export function canonicalPortalUrl(subpath = ''): string {
-  const envUrl = getDenoEnv('PORTAL_URL')
-  const raw = (envUrl ?? DEFAULT_PORTAL_URL).trim().replace(/\/+$/, '')
-  const base = raw || DEFAULT_PORTAL_URL
-  const domain = base.replace(/\/portal(?:\/billing)?$/, '')
+  const domain = canonicalPortalOrigin()
   const cleanSub = subpath.replace(/^\/portal/, '').replace(/^\//, '')
   return cleanSub ? `${domain}/portal/${cleanSub}` : `${domain}/portal`
 }

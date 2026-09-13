@@ -24,7 +24,8 @@ function layout(input: {
   portalUrl: string
   supportEmail: string
 }) {
-  const logoUrl = `${input.portalUrl}/branding/tr-logo.png`
+  const origin = input.portalUrl.replace(/\/portal(?:\/.*)?$/, '').replace(/\/+$/, '')
+  const logoUrl = `${origin}/branding/tr-logo.png`
   const body = input.paragraphs.map((paragraph) => `<p style="margin:0 0 16px;line-height:1.6;font-size:15px;color:${INK}">${escapeHtml(paragraph)}</p>`).join('')
 
   const identityBox = input.identity
@@ -206,6 +207,7 @@ export function bounceNotificationTemplate(i: {
     '',
     `Dúvidas ou suporte? Entre em contato com ${i.supportEmail}.`,
   ].join('\n')
+  const origin = i.portalUrl.replace(/\/portal(?:\/.*)?$/, '').replace(/\/+$/, '')
   return {
     subject: 'Falha de entrega: atualize o cadastro do cliente',
     text,
@@ -215,8 +217,8 @@ export function bounceNotificationTemplate(i: {
         `O endereço <strong>${escapeHtml(i.bouncedEmailMasked)}</strong> não recebeu um comunicado recente.`,
         'A entrega falhou permanentemente (bounce). Atualize o cadastro de contatos do cliente no Portal para garantir o recebimento dos próximos comunicados e avisos operacionais.',
       ],
-      button: { label: 'Acessar Portal do Cliente', url: `${i.portalUrl}/portal` },
-      portalUrl: i.portalUrl,
+      button: { label: 'Acessar Portal do Cliente', url: `${origin}/portal` },
+      portalUrl: origin,
       supportEmail: i.supportEmail,
     }),
   }

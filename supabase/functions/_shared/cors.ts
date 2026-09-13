@@ -6,6 +6,11 @@ const FIXED_ALLOWED_ORIGINS = [
   'https://portalfwlog.com.br',
   'https://vela.vercel.app',
   'https://fwlog-portal.vercel.app',
+  // Mantidos durante a janela de transição/cutover de DNS (ADR 0066)
+  'https://transhippingdesk.com.br',
+  'https://portal.transhippingdesk.com.br',
+  'https://transhippingdesk.web.app',
+  'https://transhippingdesk.firebaseapp.com',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
 ]
@@ -17,6 +22,7 @@ const FIXED_ALLOWED_ORIGINS = [
 const VERCEL_PREVIEW_ORIGINS = [
   /^https:\/\/vela(?:-[a-z0-9-]+)?-luccafwlogs-projects\.vercel\.app$/,
   /^https:\/\/fwlog-portal(?:-[a-z0-9-]+)?-luccafwlogs-projects\.vercel\.app$/,
+  /^https:\/\/transhippingdesk(?:-[a-z0-9-]+)?-luccafwlogs-projects\.vercel\.app$/,
 ]
 
 export function parseConfiguredOrigins(raw: string | undefined): string[] {

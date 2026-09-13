@@ -66,6 +66,31 @@ describe('roteamento por hostname no Vercel', () => {
     expect(routeMatches(spaRewrite!, internalHost, '/favicon.ico')).toBe(false)
   })
 
+  it('redireciona a raiz / e /index.html no host do Portal para /portal antes do filesystem', () => {
+    const redirects = vercelConfig.redirects ?? []
+    const portalHost = 'portalfwlog.com.br'
+
+    const rootRedirect = redirects.find((route) => route.source === '/')
+    expect(rootRedirect).toBeDefined()
+    expect(rootRedirect?.destination).toBe('/portal')
+    expect(routeMatches(rootRedirect!, portalHost, '/')).toBe(true)
+
+    const indexHtmlRedirect = redirects.find((route) => route.source === '/index.html')
+    expect(indexHtmlRedirect).toBeDefined()
+    expect(indexHtmlRedirect?.destination).toBe('/portal')
+    expect(routeMatches(indexHtmlRedirect!, portalHost, '/index.html')).toBe(true)
+  })
+
+  it('redireciona /portal.html no host interno Vela para a raiz /', () => {
+    const redirects = vercelConfig.redirects ?? []
+    const internalHost = 'vela.app.br'
+
+    const portalHtmlRedirect = redirects.find((route) => route.source === '/portal.html')
+    expect(portalHtmlRedirect).toBeDefined()
+    expect(portalHtmlRedirect?.destination).toBe('/')
+    expect(routeMatches(portalHtmlRedirect!, internalHost, '/portal.html')).toBe(true)
+  })
+
   it('redireciona rotas /portal acessadas no host interno Vela para o Portal Fwlog', () => {
     const redirects = vercelConfig.redirects ?? []
     const internalHost = 'vela.app.br'

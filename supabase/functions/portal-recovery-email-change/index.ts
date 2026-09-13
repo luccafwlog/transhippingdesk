@@ -6,7 +6,7 @@ import { revokePortalSessions } from '../_shared/revokePortalSessions.ts'
 import { isLoginRateLimited, registerLoginFailure, registerLoginSuccess } from '../_shared/portalLoginRateLimit.ts'
 import { resolveEmailChangeConfirmation } from '../_shared/portalInvites.ts'
 import { withCors } from '../_shared/cors.ts'
-import { canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
+import { canonicalPortalOrigin, canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
 
 // Mensagem própria para o pedido que já não tem o que aplicar. Dizer "link
 // inválido" aqui seria mentira -- o link estava válido -- e mandaria o cliente
@@ -58,7 +58,7 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
     const { data: invite } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'confirmacao_email', token_hash: tokenHash, sent_to_email: email, expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), status: 'pendente' }).select('id').single()
     if (!invite) return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 500 })
     await admin.from('customer_portal_accounts').update({ pending_recovery_email: email }).eq('id', account.id)
-    const portalUrl = canonicalPortalUrl()
+    const portalUrl = canonicalPortalOrigin()
     const supportEmail = portalSupportEmail()
     // Rota publica dedicada: o link chega no Email de Recuperacao, que costuma
     // ser lido pelo contato financeiro -- sem senha do Portal. Apontar para

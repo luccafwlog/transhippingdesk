@@ -3,7 +3,7 @@ import { generateToken, hashToken } from '../_shared/portalToken.ts'
 import { inviteTemplate, resendTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
+import { canonicalPortalOrigin, canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
 
 const json = (status: number, body: unknown, origin: string | null) => new Response(body === null ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } })
 const maskCnpj = (value: string) => { const d = value.replace(/[^0-9a-z]/gi, '').toUpperCase(); return d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***' }
@@ -34,7 +34,7 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   if (error || !invite) return json(500, { error: 'Não foi possível criar o convite.' }, origin)
   const customer = account.customers as { name?: string; cnpj_cpf?: string } | null
   const activationUrl = canonicalPortalUrl(`ativar?token=${encodeURIComponent(token)}`)
-  const portalUrl = canonicalPortalUrl()
+  const portalUrl = canonicalPortalOrigin()
   const supportEmail = portalSupportEmail()
   const templateInput = { companyName: customer?.name ?? 'sua empresa', cnpjMasked: maskCnpj(customer?.cnpj_cpf ?? ''), activationUrl, portalUrl, supportEmail }
   const template = resend ? resendTemplate(templateInput) : inviteTemplate(templateInput)

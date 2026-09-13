@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  bounceNotificationTemplate,
   dailyDigestTemplate,
   emailChangeAlertTemplate,
   emailChangeConfirmTemplate,
@@ -15,6 +16,24 @@ describe('Identidade visual dos emails do Portal', () => {
   it('inclui a logo real da Transhipping, hospedada a partir do PORTAL_URL', () => {
     const { html } = inviteTemplate({ companyName: 'ACME LTDA', cnpjMasked: '12.***.***/0001-90', activationUrl: 'https://x/ativar', portalUrl, supportEmail })
     expect(html).toContain(`<img src="${portalUrl}/branding/tr-logo.png"`)
+  })
+
+  it('normaliza a logo para a raiz do domínio mesmo quando portalUrl inclui /portal', () => {
+    const urlWithPortal = 'https://portalfwlog.com.br/portal'
+    const { html } = inviteTemplate({ companyName: 'ACME LTDA', cnpjMasked: '12.***.***/0001-90', activationUrl: 'https://x/ativar', portalUrl: urlWithPortal, supportEmail })
+    expect(html).toContain('<img src="https://portalfwlog.com.br/branding/tr-logo.png"')
+    expect(html).not.toContain('/portal/branding/tr-logo.png')
+  })
+
+  it('bounceNotificationTemplate normaliza tanto o logo quanto o botão de acesso', () => {
+    const bounce = bounceNotificationTemplate({
+      bouncedEmailMasked: 'c***@acme.com',
+      portalUrl: 'https://portalfwlog.com.br/portal',
+      supportEmail: 'suporte@portalfwlog.com.br',
+    })
+    expect(bounce.html).toContain('https://portalfwlog.com.br/branding/tr-logo.png')
+    expect(bounce.html).not.toContain('/portal/branding/tr-logo.png')
+    expect(bounce.html).toContain('url="https://portalfwlog.com.br/portal"')
   })
 
   it('mostra um quadro de identificação com empresa e CNPJ mascarado quando fornecido', () => {

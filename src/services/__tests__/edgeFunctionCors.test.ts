@@ -15,6 +15,9 @@ describe('corsHeaders das Edge Functions', () => {
     expect(corsHeaders('https://vela.app.br')['Access-Control-Allow-Origin']).toBe('https://vela.app.br')
     expect(corsHeaders('https://vela.vercel.app')['Access-Control-Allow-Origin']).toBe('https://vela.vercel.app')
     expect(corsHeaders('https://fwlog-portal.vercel.app')['Access-Control-Allow-Origin']).toBe('https://fwlog-portal.vercel.app')
+    // Mantidos durante o cutover de DNS
+    expect(corsHeaders('https://transhippingdesk.com.br')['Access-Control-Allow-Origin']).toBe('https://transhippingdesk.com.br')
+    expect(corsHeaders('https://portal.transhippingdesk.com.br')['Access-Control-Allow-Origin']).toBe('https://portal.transhippingdesk.com.br')
   })
 
   it('omite o header para origem fora da allowlist, em vez de devolver "null"', () => {
@@ -49,10 +52,11 @@ describe('corsHeaders das Edge Functions', () => {
     expect(parseConfiguredOrigins('*.vercel.app, http://preview.example, https://preview.example/path')).toEqual([])
   })
 
-  it('aceita o alias de Preview gerado para este projeto Vercel', () => {
+  it('aceita o alias de Preview gerado para este projeto Vercel (incluindo transhippingdesk no cutover)', () => {
     for (const origin of [
       'https://vela-git-feature-abc123-luccafwlogs-projects.vercel.app',
       'https://fwlog-portal-git-feature-abc123-luccafwlogs-projects.vercel.app',
+      'https://transhippingdesk-git-feature-abc123-luccafwlogs-projects.vercel.app',
     ]) {
       expect(isAllowedOrigin(origin)).toBe(true)
       expect(corsHeaders(origin)['Access-Control-Allow-Origin']).toBe(origin)
@@ -62,6 +66,7 @@ describe('corsHeaders das Edge Functions', () => {
   it('não aceita Preview de outro projeto ou equipe no Vercel', () => {
     expect(isAllowedOrigin('https://outro-projeto-abc123-luccafwlogs-projects.vercel.app')).toBe(false)
     expect(isAllowedOrigin('https://vela-abc123-outra-equipe.vercel.app')).toBe(false)
-    expect(isAllowedOrigin('https://transhippingdesk-git-feature-abc123-luccafwlogs-projects.vercel.app')).toBe(false)
+    expect(isAllowedOrigin('https://fwlog-portal-abc123-outra-equipe.vercel.app')).toBe(false)
+    expect(isAllowedOrigin('https://transhippingdesk-abc123-outra-equipe.vercel.app')).toBe(false)
   })
 })
