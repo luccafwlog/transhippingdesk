@@ -1,4 +1,4 @@
-# Auditoria de design — Transhipping Desk (novas implementações)
+# Auditoria de design — Vela (novas implementações)
 
 - **Data:** 2026-07-20
 - **Commit base:** `fca90b7`

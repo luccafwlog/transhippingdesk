@@ -17,7 +17,7 @@ Usar uma combinação de testes automatizados, validação manual documentada e 
 - `npm run lint` deve permanecer verde antes de PR quando a mudança toca código.
 - `src/integration/supabase.integration.test.ts` é opt-in e só roda com variáveis `SUPABASE_*` e `SUPABASE_RUN_INTEGRATION=1`.
 - `docs/operations/validacao.md` é o roteiro manual para fluxos que exigem Supabase real, autenticação, RLS, dados persistidos, portal ou smoke operacional.
-- GitHub Actions faz build e deploy para Firebase Hosting em PR auto-merge e em push para `main`.
+- GitHub Actions valida o código; a integração GitHub/Vercel faz os dois builds e publica os projetos Vela e Portal em PRs e em push para `main`.
 - Migrations Supabase não são aplicadas automaticamente pelo CI; precisam ser aplicadas no projeto Supabase antes do deploy de código dependente.
 - `src/types/database.ts` é gerado e não deve ser editado manualmente.
 

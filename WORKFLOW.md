@@ -1,6 +1,6 @@
-# WORKFLOW.md — Transhipping Desk
+# WORKFLOW.md — Vela
 
-Manual vivo para desenvolver, testar, migrar e publicar o Transhipping Desk.
+Manual vivo para desenvolver, testar, migrar e publicar o Vela e o Portal FWLog.
 Verificado contra o repositório em 2026-06-24.
 
 Use este documento para procedimentos técnicos. Consulte:
@@ -40,7 +40,8 @@ em documentação.
 - Supabase PostgreSQL, Auth, RLS e RPCs;
 - Edge Functions Deno;
 - Resend para email;
-- Vercel para hosting da SPA, com Preview Deployments em PRs e Production
+- Vercel para hosting dos dois builds estáticos (Vela interno e Portal FWLog),
+  cada um em seu projeto, com Preview Deployments em PRs e Production
   Deployments no `main`;
 - GitHub Actions para CI e deploy.
 

@@ -1,0 +1,67 @@
+# ADR 0066 — Transição de marca e separação das superfícies de entrega
+
+**Data:** 2026-09-12 · **Status:** aceito
+
+## Contexto
+
+O repositório atende três identidades que não podem ser tratadas como uma
+única marca:
+
+- **Vela** é o produto interno usado pela equipe;
+- **FWLog** é a superfície de atendimento e consulta do cliente;
+- **Transhipping** é a entidade jurídica e financeira que aparece no CNPJ,
+  PIX, invoices, recibos e histórico operacional.
+
+Antes desta decisão, o frontend interno e o Portal eram duas árvores de rota
+dentro do mesmo artefato Vite. Isso permitia que uma alteração de identidade
+do produto interno alcançasse, por engano, páginas do Portal, templates de
+email ou documentos fiscais.
+
+## Decisão
+
+1. A superfície interna passa a se chamar **Vela** e é publicada em
+   `https://vela.app.br`.
+2. A superfície externa permanece **FWLog** e é publicada em
+   `https://portalfwlog.com.br`. Nenhuma string, logo ou título de Vela deve
+   alcançar essa superfície.
+3. `Transhipping Agenciamento Marítimo Ltda.` permanece como identidade
+   jurídica e financeira. Não se alteram `pixMerchantName`, beneficiário PIX,
+   CNPJ, conteúdo fiscal, nomes de remetente do Portal, dados de cobrança,
+   histórico ou migrations aplicadas.
+4. A base de código continua única, mas entrega dois programas estáticos:
+   `index.html` + `src/main.tsx` + `src/AppInterno.tsx` para Vela e
+   `portal.html` + `src/portal-main.tsx` + `src/AppPortal.tsx` para FWLog.
+   Serviços, tipos, cliente Supabase e componentes de domínio neutros são
+   compartilhados; cada entrada usa somente o provedor de autenticação da sua
+   superfície.
+5. O projeto Vercel interno (`vela`) e o projeto do Portal (`fwlog-portal`)
+   apontam para o mesmo repositório e publicam seus respectivos artefatos,
+   com Previews independentes ligados à branch Supabase correspondente.
+6. Os assets de identidade visual do Vela não fazem parte desta decisão. A
+   criação e o repontamento desses assets fica no bloco B8 do plano de
+   transição, em trabalho paralelo com o designer. Até lá, os assets existentes
+   permanecem sem substituição.
+
+## Consequências
+
+- O nome do produto interno pode evoluir sem depender da sessão do Portal.
+- O isolamento entre os builds torna a fronteira Vela/FWLog verificável pelo
+  artefato, além do teste de conteúdo que cobre emails e documentos fiscais.
+- Existem dois projetos Vercel, dois ciclos de Preview e dois conjuntos de
+  configurações de domínio; a integração de branching precisa ser conferida
+  nos dois.
+- A allowlist de CORS precisa aceitar os dois domínios de produção e os dois
+  padrões de alias de Preview, sem wildcard amplo.
+- A ausência de assets novos é deliberada e deixa o B8 pendente; ela não impede
+  a separação técnica nem a publicação dos builds com os assets atuais.
+
+## Relação com decisões anteriores
+
+- Estende a [ADR 0003](./0003-spa-react-rotas-lazy-camadas-page-hook-service.md)
+  quanto à existência de duas entradas e dois mapas de rota sobre a mesma base.
+- Atualiza a [ADR 0010](./0010-validacao-testes-deploy-gates.md) quanto à
+  publicação pela Vercel em vez de Firebase Hosting.
+- Estende a [ADR 0056](./0056-branching-automatico-supabase-vercel.md) para
+  conectar os dois projetos Vercel às branches Supabase.
+- Não altera as decisões de viagens da ADR 0012, de Demurrage da ADR 0014, de
+  grants da ADR 0047 ou de consolidação histórica da ADR 0062.

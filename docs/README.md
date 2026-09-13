@@ -1,4 +1,4 @@
-# Documentação do Transhipping Desk
+# Documentação do Vela e do Portal FWLog
 
 Verificado contra o repositório em 2026-06-20.
 

@@ -17,16 +17,16 @@ aleatório de todas as branches automáticas.
 
 O Automatic branching permanece habilitado na integração GitHub do Supabase,
 com diretório de trabalho na raiz (`.`) e sincronização para o repositório
-`luccafwlog/transhippingdesk`. Cada branch do GitHub usada em uma PR recebe uma
-branch Supabase efêmera correspondente; as migrations de `supabase/migrations/`
-e os demais artefatos declarados são executados pelo branch action do Supabase.
+`luccafwlog/vela`. Cada branch do GitHub usada em uma PR recebe uma branch
+Supabase efêmera correspondente; as migrations de `supabase/migrations/` e os
+demais artefatos declarados são executados pelo branch action do Supabase.
 
-O projeto Vercel `transhippingdesk` permanece ligado ao mesmo repositório pelo
-GitHub Integration. A integração de branching Supabase com Vercel também fica
-instalada e conectada ao projeto Vercel. Ao abrir a PR, ela atualiza as
-variáveis de ambiente do Preview com a URL e a chave pública da branch Supabase
-correspondente e reimplanta o Preview se necessário por causa da ordem das
-operações.
+Os projetos Vercel `vela` e `fwlog-portal` permanecem ligados ao mesmo
+repositório pelo GitHub Integration. A integração de branching Supabase com
+Vercel também fica instalada e conectada aos dois projetos. Ao abrir a PR, ela
+atualiza as variáveis de ambiente do Preview de cada projeto com a URL e a
+chave pública da branch Supabase correspondente e reimplanta o Preview se
+necessário por causa da ordem das operações.
 
 As variáveis consumidas pelo Vite continuam sendo `VITE_SUPABASE_URL` e
 `VITE_SUPABASE_ANON_KEY`; seus valores de Preview são gerenciados pela

@@ -31,7 +31,7 @@ A spec comportamental abaixo é permanente e não entra nesta tabela.
 ## Behavioral Specification
 
 This directory holds the **single canonical, code-derived behavioral
-specification** for Transhipping Desk. It tracks every feature from
+specification** for Vela and the FWLog Portal. It tracks every feature from
 specification through verification in one spreadsheet.
 
 This directory is the living source of truth. Dated CSV/XLSX pairs are editions:

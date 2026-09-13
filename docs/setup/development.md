@@ -1,6 +1,6 @@
 # Desenvolvimento local
 
-> Como rodar o Transhipping Desk na sua máquina. Para deploy ver [deploy.md](deploy.md); para testes ver [testing.md](testing.md).
+> Como rodar o Vela e o Portal FWLog na sua máquina. Para deploy ver [deploy.md](deploy.md); para testes ver [testing.md](testing.md).
 
 ## Pré-requisitos
 

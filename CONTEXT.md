@@ -1,6 +1,6 @@
 # Contexto do Sistema
 
-Glossário de domínio do Transhipping Desk. Este arquivo define linguagem de
+Glossário de domínio do Vela. Este arquivo define linguagem de
 negócio; arquitetura e detalhes técnicos pertencem a `docs/ARCHITECTURE.md` e
 aos ADRs.
 
