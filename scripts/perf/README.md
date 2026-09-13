@@ -32,7 +32,7 @@ O benchmark é deliberadamente local e exige um banco sem viagens:
 ```bash
 bash scripts/setup-local-pg.sh --reset
 PERF_BENCHMARK_ALLOW_LOCAL=1 \
-LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test \
+LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/vela_test \
   npm run perf:operational-read-model
 ```
 

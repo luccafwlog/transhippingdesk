@@ -4,7 +4,7 @@
 //
 // Requer:
 //   PERF_BENCHMARK_ALLOW_LOCAL=1
-//   LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test
+//   LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/vela_test
 //
 // O banco deve estar vazio de viagens antes da execução para que a RPC sem
 // filtro compare exatamente o dataset sintético. O script recusa hosts não
@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
-const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test'
+const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/vela_test'
 const output = resolve(process.env.PERF_BENCHMARK_OUTPUT ?? 'artifacts/perf/operational-read-model.json')
 const rounds = Number(process.env.PERF_BENCHMARK_ROUNDS ?? 5)
 const sizes = String(process.env.PERF_BENCHMARK_SIZES ?? '100,1000,10000')

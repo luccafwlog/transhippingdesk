@@ -235,7 +235,7 @@ Para replay real das migrations sem tocar em produção, rode
 aplica os shims Supabase (schema `auth`, roles `anon`/`authenticated`/
 `service_role`, `pgcrypto` no schema `extensions`, stub de `pg_cron`, publicação
 `supabase_realtime`) e replica todas as migrations. Ecoa a `DATABASE_URL`
-(`postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test`). Use
+(`postgresql://postgres:postgres@127.0.0.1:5432/vela_test`). Use
 `--reset` para recriar do zero. Nunca aponte validação de migration ao projeto
 Supabase de produção.
 

@@ -119,7 +119,7 @@ bash scripts/setup-local-pg.sh
 bash scripts/setup-local-pg.sh --reset
 # valida a RPC/RLS da leitura do nome do closer (usuário ativo/inativo/anon):
 LOCAL_PG_INTEGRATION=1 \
-  LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test \
+  LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/vela_test \
   npx vitest run src/integration/agencyReportCloserName.local-pg.test.ts
 ```
 

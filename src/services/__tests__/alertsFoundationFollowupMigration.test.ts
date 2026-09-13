@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const migrationPath = resolve(process.cwd(), 'supabase/migrations/321_alerts_foundation_review_followups.sql')
 const migration = existsSync(migrationPath) ? readFileSync(migrationPath, 'utf8') : ''
 const describeLocal = process.env.LOCAL_PG_INTEGRATION === '1' ? describe : describe.skip
-const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test'
+const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/vela_test'
 
 function psql(sql: string): string {
   return execFileSync('psql', ['-X', '-v', 'ON_ERROR_STOP=1', '-At', '-d', databaseUrl, '-c', sql], { encoding: 'utf8' }).trim()

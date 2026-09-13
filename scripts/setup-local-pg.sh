@@ -4,7 +4,7 @@
 # (WORKFLOW.md §5: "banco descartável"). Idempotente. Nunca conecta em produção.
 #
 #   Uso:  scripts/setup-local-pg.sh [--reset]
-#   Saída: exporta/echo DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test
+#   Saída: exporta/echo DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/vela_test
 #
 # Requisitos: PostgreSQL 16. Em Debian usa o cluster 16/main; no macOS usa um
 # cluster local descartável em TMPDIR (Homebrew). Aplica shims Supabase (auth,
@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/local-pg-platform.sh
 source "$SCRIPT_DIR/lib/local-pg-platform.sh"
 
-DB=transhipping_test
+DB=vela_test
 PORT="${LOCAL_PG_PORT:-5432}"
 RESET="${1:-}"
 LOCAL_SUPERUSER="${PGUSER:-$(id -un)}"
@@ -34,7 +34,7 @@ else
   # macOS/Homebrew: não usa brew services nem toca no cluster global. O
   # diretório em TMPDIR é descartável e pode ser sobrescrito apenas por --reset.
   PG_BIN="${PG_BIN:-$(brew --prefix postgresql@16 2>/dev/null)/bin}"
-  PGDATA="${LOCAL_PGDATA:-${TMPDIR:-/tmp}/transhipping-local-pg16}"
+  PGDATA="${LOCAL_PGDATA:-${TMPDIR:-/tmp}/vela-local-pg16}"
   # initdb cria o superusuário com o nome da conta local. Não herde PGUSER
   # aqui: ele pode apontar para "postgres", papel criado apenas mais abaixo.
   LOCAL_SUPERUSER="$(id -un)"

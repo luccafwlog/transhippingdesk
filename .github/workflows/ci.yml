@@ -123,7 +123,7 @@ jobs:
         # stdin (-) em vez de -f caminho: o usuário postgres do SO não tem
         # travessia no diretório do checkout (Permission denied com -f).
         # Mesmo padrão de scripts/setup-local-pg.sh:118 (< "$f").
-        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f - < scripts/check-squash-replay.sql
+        run: sudo -u postgres psql -d vela_test -v ON_ERROR_STOP=1 -q -f - < scripts/check-squash-replay.sql
 
       - uses: actions/setup-node@v4
         with:
@@ -147,7 +147,7 @@ jobs:
         # compartilham um único banco e precisam de execução serializada.
         env:
           LOCAL_PG_INTEGRATION: '1'
-          LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test
+          LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vela_test
         run: |
           npx vitest run --no-file-parallelism \
             src/integration/auditSecurityBoundaries.local-pg.test.ts \
@@ -171,7 +171,7 @@ jobs:
       - name: Verify the executed RPC catalog
         # `npm run rpc:check` existia no package.json sem nenhum gate a executá-lo.
         env:
-          LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test
+          LOCAL_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vela_test
         run: npm run rpc:check
 
       - name: Apply seed on the replayed database
@@ -180,12 +180,12 @@ jobs:
         # nunca no gate da PR. Roda DEPOIS das asserções (elas são pré-seed).
         # O próprio seed.sql já aborta se tarifas (3/24/12) ou depots (9/4/50)
         # estiverem incompletos (B1 da revisão final: sem seed, 0/0/0).
-        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -f - < supabase/seed.sql
+        run: sudo -u postgres psql -d vela_test -v ON_ERROR_STOP=1 -q -f - < supabase/seed.sql
 
       - name: Log post-seed tariff counts
         # Evidência B1: bootstrap exige migrations + seed; migrations sozinhas
         # sobem sem tarifas. Só loga — a trava real está nas asserções do seed.
-        run: sudo -u postgres psql -d transhipping_test -v ON_ERROR_STOP=1 -q -c "SELECT (SELECT count(*) FROM public.charge_tables) AS charge_tables, (SELECT count(*) FROM public.charge_table_items) AS charge_table_items, (SELECT count(*) FROM public.demurrage_rates) AS demurrage_rates;"
+        run: sudo -u postgres psql -d vela_test -v ON_ERROR_STOP=1 -q -c "SELECT (SELECT count(*) FROM public.charge_tables) AS charge_tables, (SELECT count(*) FROM public.charge_table_items) AS charge_table_items, (SELECT count(*) FROM public.demurrage_rates) AS demurrage_rates;"
 
   # Gate único exigido pela proteção de branch: fica verde só quando todos os
   # jobs acima terminam verdes. Mantém um nome estável mesmo que os shards
