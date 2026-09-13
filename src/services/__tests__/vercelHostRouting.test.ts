@@ -13,6 +13,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const vercelConfig = JSON.parse(readFileSync(path.join(repositoryRoot, 'vercel.json'), 'utf8')) as {
   routes?: unknown[]
   rewrites?: Route[]
+  redirects?: Route[]
 }
 
 const routeMatches = (route: Route, host: string, pathname: string) => {
@@ -63,5 +64,24 @@ describe('roteamento por hostname no Vercel', () => {
     expect(routeMatches(spaRewrite!, internalHost, '/assets/app.js')).toBe(false)
     expect(routeMatches(spaRewrite!, internalHost, '/branding/vela.svg')).toBe(false)
     expect(routeMatches(spaRewrite!, internalHost, '/favicon.ico')).toBe(false)
+
+    // Bloqueia acesso público a sourcemaps e manifestos internos do Vite
+    expect(rewrites.some((route) => route.source?.includes('.vite'))).toBe(true)
+    expect(rewrites.some((route) => route.source?.includes('.map'))).toBe(true)
+  })
+
+  it('redireciona rotas /portal acessadas no host interno Vela para o Portal Fwlog', () => {
+    const redirects = vercelConfig.redirects ?? []
+    const internalHost = 'vela.app.br'
+
+    const portalRedirect = redirects.find((route) => route.source === '/portal')
+    expect(portalRedirect).toBeDefined()
+    expect(portalRedirect?.destination).toBe('https://portalfwlog.com.br/portal')
+    expect(routeMatches(portalRedirect!, internalHost, '/portal')).toBe(true)
+
+    const nestedRedirect = redirects.find((route) => route.source === '/portal/(.*)')
+    expect(nestedRedirect).toBeDefined()
+    expect(nestedRedirect?.destination).toBe('https://portalfwlog.com.br/portal/$1')
+    expect(routeMatches(nestedRedirect!, internalHost, '/portal/login')).toBe(true)
   })
 })

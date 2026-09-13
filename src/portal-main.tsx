@@ -14,7 +14,7 @@ import { isSupabaseConfigured } from './services/supabase'
 import { initTelemetry, markStartupStage, redactVercelTelemetryEvent } from './lib/telemetry'
 import { createPortalQueryClient } from './lib/portalQueryClient'
 
-initTelemetry()
+initTelemetry('portal')
 markStartupStage('entry')
 
 function ConfigurationError() {

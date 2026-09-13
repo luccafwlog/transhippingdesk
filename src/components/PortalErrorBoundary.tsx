@@ -42,10 +42,12 @@ export class PortalErrorBoundary extends Component<Props, State> {
             <p className="mb-4 text-sm text-slate-400">
               Algo deu errado. Recarregue a página para continuar.
             </p>
-            <details className="mb-4 rounded-lg bg-[#0d1117] p-3 text-left text-xs text-slate-400">
-              <summary className="cursor-pointer font-semibold">Detalhe técnico</summary>
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap">{this.state.error.message}</pre>
-            </details>
+            {import.meta.env.DEV ? (
+              <details className="mb-4 rounded-lg bg-[#0d1117] p-3 text-left text-xs text-slate-400">
+                <summary className="cursor-pointer font-semibold">Detalhe técnico</summary>
+                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap">{this.state.error.message}</pre>
+              </details>
+            ) : null}
             <div className="flex justify-center gap-3">
               <a
                 href="/portal/login"

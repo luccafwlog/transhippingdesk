@@ -51,5 +51,8 @@ describe('fronteiras dos builds Vela e Fwlog', () => {
     expect(read('supabase/functions/demurrage-dunning/index.ts')).toContain('`${configured}/portal/billing`')
     expect(read('supabase/functions/send-customer-communication/index.ts')).toContain('`${configured}/portal/billing`')
     expect(read('supabase/functions/_shared/portalEmailEventProcessor.ts')).toContain("?? 'https://portalfwlog.com.br'")
+    expect(read('supabase/functions/portal-invite-send/index.ts')).toContain('canonicalPortalUrl')
+    expect(read('supabase/functions/portal-password-recovery/index.ts')).toContain('canonicalPortalUrl')
+    expect(read('supabase/functions/portal-recovery-email-change/index.ts')).toContain('canonicalPortalUrl')
   })
 })

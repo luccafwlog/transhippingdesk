@@ -5,7 +5,39 @@
   "buildCommand": "node scripts/vercel-build.mjs",
   "outputDirectory": "dist",
   "ignoreCommand": "p=${VERCEL_GIT_PREVIOUS_SHA:-x}; c=${VERCEL_GIT_COMMIT_SHA:-x}; [ \"$p\" = \"$c\" ] && exit 1; git diff --quiet \"$p\" \"$c\" -- . 2>/dev/null || exit 1",
+  "redirects": [
+    {
+      "source": "/portal",
+      "has": [
+        {
+          "type": "host",
+          "value": "^(?:vela\\.app\\.br|vela(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
+        }
+      ],
+      "destination": "https://portalfwlog.com.br/portal",
+      "permanent": false
+    },
+    {
+      "source": "/portal/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "^(?:vela\\.app\\.br|vela(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
+        }
+      ],
+      "destination": "https://portalfwlog.com.br/portal/$1",
+      "permanent": false
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/\\.vite(?:/.*)?",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/(.*)\\.map$",
+      "destination": "/index.html"
+    },
     {
       "source": "/index.html",
       "has": [

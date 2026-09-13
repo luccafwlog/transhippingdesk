@@ -3,6 +3,7 @@ import { generateToken, hashToken } from '../_shared/portalToken.ts'
 import { inviteTemplate, resendTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+import { canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
 
 const json = (status: number, body: unknown, origin: string | null) => new Response(body === null ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } })
 const maskCnpj = (value: string) => { const d = value.replace(/[^0-9a-z]/gi, '').toUpperCase(); return d.length === 14 ? `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-${d.slice(12)}` : '***' }
@@ -32,8 +33,10 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   const { data: invite, error } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'convite', token_hash: tokenHash, sent_to_email: email, expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), status: 'pendente', created_by: callerUser.user?.id ?? null }).select('id').single()
   if (error || !invite) return json(500, { error: 'Não foi possível criar o convite.' }, origin)
   const customer = account.customers as { name?: string; cnpj_cpf?: string } | null
-  const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
-  const templateInput = { companyName: customer?.name ?? 'sua empresa', cnpjMasked: maskCnpj(customer?.cnpj_cpf ?? ''), activationUrl: `${portalUrl}/portal/ativar?token=${encodeURIComponent(token)}`, portalUrl, supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br' }
+  const activationUrl = canonicalPortalUrl(`ativar?token=${encodeURIComponent(token)}`)
+  const portalUrl = canonicalPortalUrl()
+  const supportEmail = portalSupportEmail()
+  const templateInput = { companyName: customer?.name ?? 'sua empresa', cnpjMasked: maskCnpj(customer?.cnpj_cpf ?? ''), activationUrl, portalUrl, supportEmail }
   const template = resend ? resendTemplate(templateInput) : inviteTemplate(templateInput)
   const sent = await sendPortalEmail({ admin, kind: resend ? 'reenvio' : 'convite', to: email, subject: template.subject, html: template.html, text: template.text, idempotencyKey: `convite:${invite.id}`, accountId: account.id, inviteId: invite.id })
   // `recovery_email_status` (299) descreve o endereço, não a conta: gravar um

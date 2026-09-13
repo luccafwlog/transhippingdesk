@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { dailyDigestTemplate } from '../_shared/portalEmailTemplates.ts'
 import { sendPortalEmail } from '../_shared/portalEmail.ts'
+import { canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
 
 function timingSafeEqual(a: string, b: string): boolean {
   const encoder = new TextEncoder()
@@ -30,8 +31,8 @@ if (typeof Deno !== 'undefined') Deno.serve(async (req) => {
   const counts = { failures: failures?.length ?? 0, activity: events?.length ?? 0, pending: pending?.length ?? 0 }
   if (counts.failures + counts.activity + counts.pending === 0) return new Response(JSON.stringify({ sent: 0 }), { status: 200 })
   const date = new Date().toISOString().slice(0, 10)
-  const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
-  const supportEmail = Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br'
+  const portalUrl = canonicalPortalUrl()
+  const supportEmail = portalSupportEmail()
   const template = dailyDigestTemplate({ date, failures: counts.failures, activity: counts.activity, pending: counts.pending, portalUrl, supportEmail })
   for (const user of users ?? []) {
     const { data: authUser } = await admin.auth.admin.getUserById(user.id)

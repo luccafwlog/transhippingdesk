@@ -12,7 +12,7 @@
 // nada de vermelho enganoso. O redeploy automático da integração substitui esta
 // página pela build real. Em Production (ou fora do Vercel) o guard continua
 // valendo e o build falha alto, como antes.
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
@@ -80,7 +80,28 @@ function main() {
 
   const result = spawnSync('npm', ['run', 'build'], { stdio: 'inherit', shell: process.platform === 'win32' })
   if (result.error) throw result.error
-  return result.status ?? 1
+  if (result.status !== 0) return result.status ?? 1
+  cleanProductionArtifacts(OUT_DIR)
+  return 0
+}
+
+export function cleanProductionArtifacts(outDir) {
+  try {
+    const viteDir = resolve(outDir, '.vite')
+    if (existsSync(viteDir)) {
+      rmSync(viteDir, { recursive: true, force: true })
+    }
+    const assetsDir = resolve(outDir, 'assets')
+    if (existsSync(assetsDir)) {
+      for (const file of readdirSync(assetsDir)) {
+        if (file.endsWith('.map')) {
+          rmSync(resolve(assetsDir, file), { force: true })
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[vercel-build] Aviso ao limpar artefatos confidenciais:', err)
+  }
 }
 
 // ponytail: sem framework de teste aqui — o import direto de

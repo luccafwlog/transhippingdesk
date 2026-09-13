@@ -13,6 +13,8 @@ describe('corsHeaders das Edge Functions', () => {
     expect(ALLOWED_ORIGINS.has(allowed)).toBe(true)
     expect(corsHeaders(allowed)['Access-Control-Allow-Origin']).toBe(allowed)
     expect(corsHeaders('https://vela.app.br')['Access-Control-Allow-Origin']).toBe('https://vela.app.br')
+    expect(corsHeaders('https://vela.vercel.app')['Access-Control-Allow-Origin']).toBe('https://vela.vercel.app')
+    expect(corsHeaders('https://fwlog-portal.vercel.app')['Access-Control-Allow-Origin']).toBe('https://fwlog-portal.vercel.app')
   })
 
   it('omite o header para origem fora da allowlist, em vez de devolver "null"', () => {

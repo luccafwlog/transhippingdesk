@@ -15,7 +15,7 @@ import { isSupabaseConfigured } from './services/supabase'
 import { initTelemetry, markStartupStage, redactVercelTelemetryEvent } from './lib/telemetry'
 import { createAppQueryClient } from './lib/queryClient'
 
-initTelemetry()
+initTelemetry('internal')
 markStartupStage('entry')
 
 function ConfigurationError() {
