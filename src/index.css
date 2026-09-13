@@ -3207,6 +3207,32 @@ textarea {
   z-index: 1;
 }
 
+.app-auth__logo--vela {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  object-position: center;
+  filter: none;
+  flex-shrink: 0;
+}
+
+.app-auth__logo-lockup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.app-auth__logo-name {
+  color: #eef2ff;
+  font-family: var(--app-font-display);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
 .app-auth__branding-copy {
   position: relative;
   z-index: 1;
@@ -4167,12 +4193,21 @@ textarea {
 .app-lineup-display-brand {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .app-lineup-display-brand__logo {
   height: 48px;
-  width: auto;
+  width: 48px;
   object-fit: contain;
+}
+
+.app-lineup-display-brand__name {
+  color: #152238;
+  font-family: var(--app-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
 .app-lineup-display-meta {
@@ -4553,6 +4588,11 @@ textarea {
 
   .app-lineup-display-brand__logo {
     height: 34px;
+    width: 34px;
+  }
+
+  .app-lineup-display-brand__name {
+    font-size: 21px;
   }
 
   .app-lineup-display-meta {

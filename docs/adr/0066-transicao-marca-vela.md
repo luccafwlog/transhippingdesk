@@ -37,10 +37,10 @@ email ou documentos fiscais.
 5. O projeto Vercel interno (`vela`) e o projeto do Portal (`fwlog-portal`)
    apontam para o mesmo repositório e publicam seus respectivos artefatos,
    com Previews independentes ligados à branch Supabase correspondente.
-6. Os assets de identidade visual do Vela não fazem parte desta decisão. A
-   criação e o repontamento desses assets fica no bloco B8 do plano de
-   transição, em trabalho paralelo com o designer. Até lá, os assets existentes
-   permanecem sem substituição.
+6. Os assets de identidade visual do Vela são arquivos novos em
+   `public/branding/`, entregues pela PR 689. O app interno usa os símbolos e
+   ícones Vela; os assets existentes de Fwlog e Transhipping permanecem sem
+   substituição.
 
 ## Consequências
 
@@ -52,8 +52,8 @@ email ou documentos fiscais.
   nos dois.
 - A allowlist de CORS precisa aceitar os dois domínios de produção e os dois
   padrões de alias de Preview, sem wildcard amplo.
-- A ausência de assets novos é deliberada e deixa o B8 pendente; ela não impede
-  a separação técnica nem a publicação dos builds com os assets atuais.
+- Os assets novos ficam isolados em `public/branding/`; isso permite publicar
+  Vela sem alterar os logos usados por Fwlog, faturas, recibos ou e-mails.
 
 ## Relação com decisões anteriores
 

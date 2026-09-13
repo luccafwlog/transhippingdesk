@@ -6,7 +6,7 @@ arquivo por outro coloca a marca errada na frente do público errado.
 | Marca | O que é | Assets |
 |---|---|---|
 | **Vela** | O sistema interno, usado pela equipe | `vela-*` |
-| **FWLog** | A empresa que atende o cliente (Portal) | `tr-logo.png` |
+| **Fwlog** | A empresa que atende o cliente (Portal) | `tr-logo.png` |
 | **Transhipping** | A entidade jurídica e financeira | `transhipping-logo*.png` |
 
 O cliente não deve ter visibilidade do nome Vela. Os assets `vela-*` são

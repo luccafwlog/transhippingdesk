@@ -127,7 +127,7 @@ export function AppLayout() {
       <header className="app-header">
         <div className="app-header__content">
           <button className="app-header__brand" onClick={() => navigate('/painel')} type="button">
-            <img className="app-header__brand-logo" src="/branding/tr-logo.png" alt="Transhipping" />
+            <img className="app-header__brand-logo" src="/branding/vela-mark-dark.svg" alt="Vela" />
             <div className="app-header__titles">
               <div className="app-header__eyebrow">Vela operacional</div>
               <div className="app-header__subtitle">importação, exportação e faturamento</div>

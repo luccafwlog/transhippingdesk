@@ -1,8 +1,8 @@
 # 2026-09-12 — Transição de marca: Transhipping Desk → Vela
 
-- **Status:** execução parcial — B1–B6 concluídos, B7 técnico implementado;
-  painéis e Preview real ainda pendentes. B8 foi adiado por solicitação do
-  usuário para ser tratado em paralelo com o designer.
+- **Status:** execução parcial — B1–B8 de repositório concluídos; publicação,
+  painéis e Preview real ainda pendentes. O B8 foi desbloqueado pelos assets
+  entregues na PR 689.
 - **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
   `vela.app.br`.
 - **Executor previsto:** Codex, seguindo os blocos do §6 na ordem dada.
@@ -551,9 +551,11 @@ recebe `Access-Control-Allow-Origin` — o teste unitário não prova isso.
 
 ### B8 — Identidade visual Vela
 
-**Status atual:** adiado. O usuário fará a identidade visual em paralelo com o
-designer; este bloco não cria nem substitui assets e não reponta logos enquanto
-o conjunto visual Vela não estiver disponível.
+**Status atual:** concluído no repositório com os assets entregues na PR 689.
+O lockup é composto pelo símbolo em `public/branding/vela-mark*.svg` e pelo
+nome Vela em HTML, conforme a especificação visual; os ícones têm arquivos
+próprios para 16px e 32px ou mais. Nenhum asset existente de Fwlog ou
+Transhipping foi substituído.
 
 **Depende de:** B6 (os favicons e o manifest passam a ser dois conjuntos, um
 por build). Sem bloqueio de INPI — ver D2 no §5.

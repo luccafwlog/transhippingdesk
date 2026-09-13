@@ -58,7 +58,10 @@ export function Login() {
     <main className="app-auth">
       <div className="app-auth__panel">
         <div className="app-auth__branding">
-          <img alt="Transhipping" className="app-auth__logo" src="/branding/transhipping-logo.png" />
+          <div className="app-auth__logo-lockup">
+            <img alt="Símbolo Vela" className="app-auth__logo app-auth__logo--vela" src="/branding/vela-mark-dark.svg" />
+            <span className="app-auth__logo-name">Vela</span>
+          </div>
           <div className="app-auth__branding-copy">
             <p className="app-auth__branding-label">Sistema operacional</p>
             <p className="app-auth__branding-desc">Gestão de viagens, EDIs, Manifestos, Faturamento, Taxas Locais e Demurrage.</p>
