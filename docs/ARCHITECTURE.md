@@ -243,8 +243,8 @@ senha em claro é persistido.
 ## Camadas do frontend
 
 ```text
-src/App.tsx
-  -> páginas lazy em src/pages/
+src/AppInterno.tsx + src/AppPortal.tsx
+  -> páginas lazy em src/pages/ (com compartilhamento neutro entre builds)
      -> hooks de estado remoto e mutations em src/hooks/
      -> serviços, parsers e regras em src/services/
      -> componentes compartilhados em src/components/

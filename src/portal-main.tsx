@@ -5,15 +5,15 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import './index.css'
-import App from './AppInterno'
-import { ErrorBoundary } from './components/ErrorBoundary'
-import { AuthProvider } from './hooks/useAuth'
+import App from './AppPortal'
+import { PortalErrorBoundary } from './components/PortalErrorBoundary'
+import { PortalAuthProvider } from './hooks/usePortalAuth'
 import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmDialogProvider } from './components/ui/ConfirmDialog'
 import { isSupabaseConfigured } from './services/supabase'
 import { initTelemetry, markStartupStage, redactVercelTelemetryEvent } from './lib/telemetry'
-import { createAppQueryClient } from './lib/queryClient'
+import { createPortalQueryClient } from './lib/portalQueryClient'
 
 initTelemetry()
 markStartupStage('entry')
@@ -33,29 +33,29 @@ function ConfigurationError() {
   )
 }
 
-const queryClient = createAppQueryClient()
+const queryClient = createPortalQueryClient()
 
 createRoot(document.getElementById('root')!).render(
   !isSupabaseConfigured ? (
     <ConfigurationError />
   ) : (
-  <StrictMode>
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <ToastProvider>
-            <ConfirmDialogProvider>
-              <VisualThemeProvider>
-                <AuthProvider>
-                  <App />
-                  <SpeedInsights beforeSend={redactVercelTelemetryEvent} />
-                </AuthProvider>
-              </VisualThemeProvider>
-            </ConfirmDialogProvider>
-          </ToastProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </StrictMode>
+    <StrictMode>
+      <PortalErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <ToastProvider>
+              <ConfirmDialogProvider>
+                <VisualThemeProvider>
+                  <PortalAuthProvider>
+                    <App />
+                    <SpeedInsights beforeSend={redactVercelTelemetryEvent} />
+                  </PortalAuthProvider>
+                </VisualThemeProvider>
+              </ConfirmDialogProvider>
+            </ToastProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </PortalErrorBoundary>
+    </StrictMode>
   ),
 )

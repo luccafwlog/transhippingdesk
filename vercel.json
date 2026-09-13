@@ -8,7 +8,23 @@
   "rewrites": [
     {
       "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "^(?:vela\\.app\\.br|vela(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
+        }
+      ],
       "destination": "/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "^(?:portalfwlog\\.com\\.br|fwlog-portal(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
+        }
+      ],
+      "destination": "/portal.html"
     }
   ],
   "headers": [
@@ -43,6 +59,15 @@
     },
     {
       "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/portal.html",
       "headers": [
         {
           "key": "Cache-Control",

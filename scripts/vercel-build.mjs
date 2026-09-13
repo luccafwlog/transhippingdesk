@@ -18,6 +18,7 @@ import { resolve } from 'node:path'
 
 const REQUIRED_ENV = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']
 const OUT_DIR = resolve(process.cwd(), 'dist')
+const ENTRYPOINTS = ['index.html', 'portal.html']
 
 export function resolvePreviewHoldReason(env) {
   if (env.VERCEL !== '1') return null
@@ -71,7 +72,9 @@ function main() {
         'A integração Supabase/Vercel reimplanta o Preview quando as variáveis estiverem gravadas (ADR 0056).',
     )
     mkdirSync(OUT_DIR, { recursive: true })
-    writeFileSync(resolve(OUT_DIR, 'index.html'), holdingPage(missing))
+    for (const entrypoint of ENTRYPOINTS) {
+      writeFileSync(resolve(OUT_DIR, entrypoint), holdingPage(missing))
+    }
     return 0
   }
 

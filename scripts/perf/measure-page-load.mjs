@@ -7,7 +7,7 @@
 // of the route's JS is the part the codebase actually controls.
 //
 // For each route we collect:
-//   baseline entry graph (main.tsx + vendor chunks, always loaded)
+//   baseline entry graph (main.tsx/internal + vendor chunks, always loaded)
 //   + the lazy page chunk and its static import graph.
 // We then measure V8 parse/compile time of that JS via vm.SourceTextModule
 // (parses + compiles WITHOUT evaluating, so browser-only code never runs), and
@@ -46,7 +46,7 @@ function collectChunks(key, acc = new Set(), seen = new Set()) {
   return acc
 }
 
-const entryKey = Object.keys(manifest).find((k) => manifest[k].isEntry)
+const entryKey = Object.keys(manifest).find((k) => manifest[k].isEntry && manifest[k].src === 'index.html')
 if (!entryKey) {
   console.error('No entry found in manifest.')
   process.exit(2)

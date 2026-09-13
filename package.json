@@ -25,16 +25,29 @@
   },
   "size-limit": [
     {
-      "name": "initial-load JS (entry + preloaded chunks, gzip)",
+      "name": "internal initial-load JS (entry + preloaded chunks, gzip)",
       "path": [
-        "dist/assets/index-*.js",
+        "dist/assets/internal-*.js",
         "dist/assets/rolldown-runtime-*.js",
+        "dist/assets/queryClient-*.js",
         "dist/assets/vendor-*.js",
         "dist/assets/exports-*.js",
         "dist/assets/utils-*.js",
         "dist/assets/createLucideIcon-*.js",
         "dist/assets/Button-*.js",
         "dist/assets/x-*.js"
+      ],
+      "limit": "250 kB"
+    },
+    {
+      "name": "portal initial-load JS (entry + preloaded chunks, gzip)",
+      "path": [
+        "dist/assets/portal-*.js",
+        "dist/assets/rolldown-runtime-*.js",
+        "dist/assets/queryClient-*.js",
+        "dist/assets/vendor-*.js",
+        "dist/assets/PortalLayout-*.js",
+        "dist/assets/usePortalScope-*.js"
       ],
       "limit": "250 kB"
     }

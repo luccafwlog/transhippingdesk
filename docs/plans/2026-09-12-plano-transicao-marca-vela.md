@@ -1,6 +1,8 @@
 # 2026-09-12 — Transição de marca: Transhipping Desk → Vela
 
-- **Status:** plano de execução aprovado; execução **não iniciada**.
+- **Status:** execução parcial — B1–B6 concluídos, B7 técnico implementado;
+  painéis e Preview real ainda pendentes. B8 foi adiado por solicitação do
+  usuário para ser tratado em paralelo com o designer.
 - **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
   `vela.app.br`.
 - **Executor previsto:** Codex, seguindo os blocos do §6 na ordem dada.
@@ -548,6 +550,10 @@ abrir um Preview de PR e confirmar no navegador que uma chamada a Edge Function
 recebe `Access-Control-Allow-Origin` — o teste unitário não prova isso.
 
 ### B8 — Identidade visual Vela
+
+**Status atual:** adiado. O usuário fará a identidade visual em paralelo com o
+designer; este bloco não cria nem substitui assets e não reponta logos enquanto
+o conjunto visual Vela não estiver disponível.
 
 **Depende de:** B6 (os favicons e o manifest passam a ser dois conjuntos, um
 por build). Sem bloqueio de INPI — ver D2 no §5.

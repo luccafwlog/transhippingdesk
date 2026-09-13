@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import { loadEnv } from 'vite'
 import { execSync } from 'node:child_process'
+import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -82,6 +83,10 @@ export default defineConfig(({ mode }) => {
       manifest: true,
       sourcemap: 'hidden',
       rollupOptions: {
+        input: {
+          internal: resolve(process.cwd(), 'index.html'),
+          portal: resolve(process.cwd(), 'portal.html'),
+        },
         output: {
           // Isola vendors estáveis em chunks próprios para melhorar o cache do
           // browser entre deploys (mudam com pouca frequência). xlsx já é
