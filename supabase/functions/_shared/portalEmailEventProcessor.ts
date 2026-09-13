@@ -51,7 +51,7 @@ async function sendBounceNotification(
   const normalizedBouncedEmail = normalizeEmail(bouncedEmail)
   const template = bounceNotificationTemplate({
     bouncedEmailMasked: maskEmail(normalizedBouncedEmail),
-    portalUrl: (Deno.env.get('PORTAL_URL') ?? 'https://portal.transhippingdesk.com.br').replace(/\/+$/, ''),
+    portalUrl: (Deno.env.get('PORTAL_URL') ?? 'https://portalfwlog.com.br').replace(/\/+$/, ''),
     supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br',
   })
 

@@ -70,11 +70,19 @@ export type CeMercanteCommunicationDispatchSummary = {
   reason: string | null
 }
 
+function canonicalPortalBillingUrl(value: string): string {
+  const normalized = value.replace(/\/+$/, '')
+  if (normalized.endsWith('/portal/billing')) return normalized
+  if (normalized.endsWith('/portal')) return `${normalized}/billing`
+  if (normalized.endsWith('/billing')) return `${normalized.slice(0, -'/billing'.length)}/portal/billing`
+  return `${normalized}/portal/billing`
+}
+
 function configuredPortalBillingUrl(): string {
   const explicit = String(import.meta.env.VITE_PORTAL_BILLING_URL ?? '').trim()
-  if (explicit) return explicit
+  if (explicit) return canonicalPortalBillingUrl(explicit)
   const portal = String(import.meta.env.VITE_PORTAL_URL ?? '').trim().replace(/\/+$/, '')
-  return portal ? `${portal}/billing` : CUSTOMER_PORTAL_BILLING_URL
+  return portal ? canonicalPortalBillingUrl(portal) : CUSTOMER_PORTAL_BILLING_URL
 }
 
 function normalizeNested<T>(value: T | T[] | null | undefined): T | null {

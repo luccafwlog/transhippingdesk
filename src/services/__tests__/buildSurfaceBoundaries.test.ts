@@ -40,4 +40,14 @@ describe('fronteiras dos builds Vela e Fwlog', () => {
     expect(portalRoutes).not.toContain('path="/painel"')
     expect(portalRoutes).not.toContain('path="/admin"')
   })
+
+  it('mantém os links de faturamento no caminho canônico do Portal', () => {
+    expect(read('.env.example')).toContain('VITE_PORTAL_BILLING_URL=https://portalfwlog.com.br/portal/billing')
+    expect(read('src/services/customerFinanceCommunications.ts')).toContain('canonicalPortalBillingUrl(portal)')
+    expect(read('src/services/customerCommunicationTemplates.ts')).toContain("https://portalfwlog.com.br/portal/billing")
+    expect(read('src/services/customerCommunicationTemplates.ts')).toContain("https://portalfwlog.com.br'")
+    expect(read('supabase/functions/demurrage-dunning/index.ts')).toContain('`${configured}/portal/billing`')
+    expect(read('supabase/functions/send-customer-communication/index.ts')).toContain('`${configured}/portal/billing`')
+    expect(read('supabase/functions/_shared/portalEmailEventProcessor.ts')).toContain("?? 'https://portalfwlog.com.br'")
+  })
 })

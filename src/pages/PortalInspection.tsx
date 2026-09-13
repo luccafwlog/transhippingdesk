@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { PortalLayout } from '../components/layout/PortalLayout'
+import { PortalInspectionAuthProvider } from '../hooks/usePortalAuth'
 import { PortalScopeProvider } from '../hooks/usePortalScope'
 import { openPortalInspection, type PortalScope } from '../services/portalScope'
 import { Button } from '../components/ui/Button'
@@ -23,5 +24,5 @@ export function PortalInspection() {
   if (error) return <main className="p-6"><div className="rounded-xl border border-red-400/40 p-4 text-red-200">{error}</div></main>
   if (!overview) return <main className="p-6 text-sm text-[var(--app-muted)]">Abrindo Modo Inspeção...</main>
   const scope: PortalScope = { mode: 'inspect', customerId: numericCustomerId, overview, basePath: `/clientes/portal/inspecao/${numericCustomerId}` }
-  return <PortalScopeProvider scope={scope}><div className="border-b border-amber-400/40 bg-amber-950/30 px-4 py-2 text-sm text-amber-100"><div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3"><div><strong>Modo Inspeção</strong> · {overview.customer_name} · {formatCnpjCpf(overview.customer_cnpj_cpf)}{overview.account_active === false ? ' · Conta não ativa' : ''}</div><Button variant="ghost" onClick={() => navigate('/clientes/portal')}>Sair da inspeção</Button></div></div><PortalLayout /></PortalScopeProvider>
+  return <PortalInspectionAuthProvider overview={overview}><PortalScopeProvider scope={scope}><div className="border-b border-amber-400/40 bg-amber-950/30 px-4 py-2 text-sm text-amber-100"><div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3"><div><strong>Modo Inspeção</strong> · {overview.customer_name} · {formatCnpjCpf(overview.customer_cnpj_cpf)}{overview.account_active === false ? ' · Conta não ativa' : ''}</div><Button variant="ghost" onClick={() => navigate('/clientes/portal')}>Sair da inspeção</Button></div></div><PortalLayout /></PortalScopeProvider></PortalInspectionAuthProvider>
 }
