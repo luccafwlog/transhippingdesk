@@ -9,7 +9,7 @@ type State = {
   error: Error | null
 }
 
-/** Error boundary da superfície FWLog. Mantém o bundle do Portal livre do
+/** Error boundary da superfície Fwlog. Mantém o bundle do Portal livre do
  * catálogo de rotas internas usado pelo ErrorBoundary operacional. */
 export class PortalErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
@@ -69,4 +69,3 @@ export class PortalErrorBoundary extends Component<Props, State> {
     return this.props.children
   }
 }
-

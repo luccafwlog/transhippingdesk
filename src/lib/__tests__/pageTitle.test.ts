@@ -26,12 +26,12 @@ describe('routeTitle (WCAG 2.4.2 — título por rota)', () => {
   })
 
   it('distingue portal de app interno', () => {
-    expect(portalRouteTitle('/portal')).toBe('Portal · Painel · FWLog')
-    expect(portalRouteTitle('/portal/billing')).toBe('Portal · Faturas · FWLog')
+    expect(portalRouteTitle('/portal')).toBe('Portal · Painel · Fwlog')
+    expect(portalRouteTitle('/portal/billing')).toBe('Portal · Faturas · Fwlog')
   })
 
   it('cai no nome do produto para rota desconhecida', () => {
     expect(routeTitle('/rota-inexistente')).toBe('Vela')
-    expect(portalRouteTitle('/rota-inexistente')).toBe('FWLog')
+    expect(portalRouteTitle('/rota-inexistente')).toBe('Fwlog')
   })
 })

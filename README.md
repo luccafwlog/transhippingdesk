@@ -42,7 +42,7 @@ O catálogo de módulos e o mapa de rotas estão em [`docs/README.md`](docs/READ
 
 ## Como o sistema é construído
 
-O frontend é composto por duas SPAs React/TypeScript carregadas sob demanda a partir da mesma base de código: o build interno do Vela e o build do Portal FWLog. Cada superfície tem sua própria entrada HTML, roteador, sessão de autenticação e projeto Vercel; serviços, tipos, dados e componentes neutros continuam compartilhados. O Supabase fornece PostgreSQL, Auth e Edge Functions.
+O frontend é composto por duas SPAs React/TypeScript carregadas sob demanda a partir da mesma base de código: o build interno do Vela e o build do Portal Fwlog. Cada superfície tem sua própria entrada HTML, roteador, sessão de autenticação e projeto Vercel; serviços, tipos, dados e componentes neutros continuam compartilhados. O Supabase fornece PostgreSQL, Auth e Edge Functions.
 
 - **Frontend:** React 19, TypeScript, Vite, React Router, TanStack Query, Tailwind CSS e Zod.
 - **Dados e segurança:** PostgreSQL no Supabase, RLS, grants e RPCs auditadas. A autorização real está no banco; proteção de rota e visibilidade de controles são apenas UX.

@@ -19,7 +19,7 @@ function reportPortalQueryError(
   )
 }
 
-/** Query client da superfície FWLog, sem importar o catálogo de rotas internas. */
+/** Query client da superfície Fwlog, sem importar o catálogo de rotas internas. */
 export function createPortalQueryClient() {
   return new QueryClient({
     queryCache: new QueryCache({
@@ -47,4 +47,3 @@ export function createPortalQueryClient() {
     },
   })
 }
-

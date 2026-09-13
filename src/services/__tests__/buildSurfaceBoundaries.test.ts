@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const read = (relativePath: string) => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 
-describe('fronteiras dos builds Vela e FWLog', () => {
+describe('fronteiras dos builds Vela e Fwlog', () => {
   it('declara duas entradas HTML, React e roteador independentes', () => {
     for (const relativePath of [
       'portal.html',

@@ -1,4 +1,4 @@
-# Documentação do Vela e do Portal FWLog
+# Documentação do Vela e do Portal Fwlog
 
 Verificado contra o repositório em 2026-06-20.
 

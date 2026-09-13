@@ -1,6 +1,6 @@
-// Títulos do build do Portal. Mantém a marca FWLog fora do app interno e
+// Títulos do build do Portal. Mantém a marca Fwlog fora do app interno e
 // permite que o artefato do cliente seja auditado sem carregar Vela.
-const BASE = 'FWLog'
+const BASE = 'Fwlog'
 
 const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/portal\/login/, 'Portal · Login'],

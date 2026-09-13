@@ -6,7 +6,7 @@
 - **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
   `vela.app.br`.
 - **Executor previsto:** Codex, seguindo os blocos do §6 na ordem dada.
-- **Fora de escopo:** a marca FWLog e o conteúdo do Portal do Cliente, tratados
+- **Fora de escopo:** a marca Fwlog e o conteúdo do Portal do Cliente, tratados
   em sessão própria. A **separação técnica** dos dois builds é feita aqui — ver
   §5, decisão D1, e o bloco B6.
 - **Contexto decisivo:** o sistema **ainda não está em produção**. Nem os
@@ -57,7 +57,7 @@ B1 → B2 → B3 → B4 → B5 → B6 → B7 → §7 (painéis) → B8
 
 As quatro decisões do §5 estão **fechadas**; não há bloqueio externo. B1–B5 são
 renomeação e cobrem a maior parte do volume. B6 é o único bloco com risco
-arquitetural — leia-o inteiro antes de começar e coordene com a sessão FWLog.
+arquitetural — leia-o inteiro antes de começar e coordene com a sessão Fwlog.
 
 ---
 
@@ -70,7 +70,7 @@ tratá-las como uma só é o que tornaria a transição perigosa.
 | Marca | O que é | Onde aparece | Muda? |
 |---|---|---|---|
 | **Vela** | O sistema interno, usado pela equipe | App interno, documentação, repositório, projetos da stack | **Novo nome** |
-| **FWLog** | A empresa que atende o cliente | Portal do Cliente, comunicação com o cliente | Outra sessão |
+| **Fwlog** | A empresa que atende o cliente | Portal do Cliente, comunicação com o cliente | Outra sessão |
 | **Transhipping** | A entidade jurídica e financeira | CNPJ, PIX, faturas, recibos | **Permanece** |
 
 O cliente não deve ter visibilidade do nome Vela. Isso é intencional e vira uma
@@ -97,7 +97,7 @@ Lista fechada. Qualquer alteração aqui exige autorização explícita do usuá
   `src/components/demurrage/CustomerSummaryReport.tsx`,
   `src/components/voyages/AgencyReportDocument.tsx`.
 
-**Superfície do cliente (pertence à sessão FWLog)**
+**Superfície do cliente (pertence à sessão Fwlog)**
 
 - `src/pages/PortalLogin.tsx`, `PortalForgotPassword.tsx`, `PortalResetPassword.tsx`,
   `PortalConfirmarEmail.tsx`, `src/components/layout/PortalLayout.tsx`,
@@ -107,7 +107,7 @@ Lista fechada. Qualquer alteração aqui exige autorização explícita do usuá
 - `src/services/customerCommunicationTemplates.ts` — **atenção:** as linhas 233,
   249 e 440 contêm hoje a string `Transhipping Desk` em texto que vai para o
   cliente. Isso é um vazamento do nome interno que já existe, e a correção é
-  trocá-lo por texto FWLog, **não** por `Vela`. É trabalho da sessão FWLog.
+  trocá-lo por texto Fwlog, **não** por `Vela`. É trabalho da sessão Fwlog.
 - Os testes que travam essas superfícies:
   `src/services/__tests__/portalEmailTemplatesBranding.test.ts`,
   `src/services/__tests__/customerCommunicationTemplatesVisualIdentity.test.ts`.
@@ -160,7 +160,7 @@ mas ignorar qualquer um produz um incidente.
 `transhippingdesk.com.br` e `portal.transhippingdesk.com.br` servem **o mesmo
 build**; o que separa os dois é o hostname, não o artefato.
 
-Consequência: a separação "Vela em `vela.app.br`" e "FWLog no domínio do
+Consequência: a separação "Vela em `vela.app.br`" e "Fwlog no domínio do
 Portal" não é uma mudança de DNS. É uma decisão de arquitetura de entrega.
 **Decidida (D1): dois builds separados.** O bloco B6 executa a separação.
 
@@ -446,7 +446,7 @@ combinado entre sessões. Vale mais que qualquer revisão manual.
 
 ### B6 — Separação em dois builds
 
-**Depende de:** B1–B5. **Combine com a sessão FWLog antes de começar** — este é
+**Depende de:** B1–B5. **Combine com a sessão Fwlog antes de começar** — este é
 o bloco que redesenha o terreno dos dois lados.
 
 **Estado atual.** Uma entrada (`src/main.tsx`), um HTML (`index.html`), um
@@ -489,7 +489,7 @@ Portal vive em `PortalLayout.tsx:30` e `PortalLogin.tsx:69`. É isso que faz o
 compartilhamento funcionar, e é uma propriedade a preservar, não um acaso:
 
 > **Regra:** as páginas compartilhadas permanecem neutras de marca. A marca
-> entra pelo layout que as embrulha. Um logo FWLog dentro de `PortalBilling`
+> entra pelo layout que as embrulha. Um logo Fwlog dentro de `PortalBilling`
 > aparece dentro do sistema interno.
 
 **Efeitos colaterais a tratar no mesmo bloco:**
@@ -513,8 +513,8 @@ E duas verificações manuais que nenhum teste faz sozinho: o bundle interno
 `/portal/recuperar-senha`; o bundle do Portal não pode conter `/painel` nem
 `/admin`.
 
-**Por que este bloco fica aqui e não na sessão FWLog.** Feita a separação, a
-sessão FWLog passa a mexer apenas em `portal.html`, `src/portal-main.tsx`,
+**Por que este bloco fica aqui e não na sessão Fwlog.** Feita a separação, a
+sessão Fwlog passa a mexer apenas em `portal.html`, `src/portal-main.tsx`,
 `src/AppPortal.tsx` e nas páginas do Portal. O conflito em `src/App.tsx` — hoje
 o arquivo mais disputado entre as duas sessões — deixa de existir. Separar
 primeiro reduz o atrito em vez de aumentá-lo.
@@ -534,7 +534,7 @@ precisa saber o nome dos dois.
    os Previews do Portal.
 3. `src/services/__tests__/edgeFunctionCors.test.ts:10, 50, 57` — acompanhar.
 4. `.env.example:7–8` — `VITE_PORTAL_URL` e `VITE_PORTAL_BILLING_URL`.
-   **Arquivo disputado com a sessão FWLog:** combine quem edita antes.
+   **Arquivo disputado com a sessão Fwlog:** combine quem edita antes.
 5. `src/lib/__tests__/telemetry.test.ts:108–151` — 11 URLs de exemplo.
 6. `scripts/perf/README.md:11` — `PERF_BASE_URL`.
 
@@ -543,7 +543,7 @@ precisa saber o nome dos dois.
 `portal-daily-digest:34`, `portal-invite-send:36`, `portal-invite-activate:31`,
 `portal-password-recovery:60`, `portal-recovery-email-change:61`,
 `_shared/portalEmailEventProcessor.ts:54–55`). Todos apontam para o **Portal**,
-não para o app interno. São da sessão FWLog (§4.6).
+não para o app interno. São da sessão Fwlog (§4.6).
 
 **Gate:** `npm run lint && npm run test && npm run build`. E, depois do deploy,
 abrir um Preview de PR e confirmar no navegador que uma chamada a Edge Function
@@ -563,9 +563,9 @@ por build). Sem bloqueio de INPI — ver D2 no §5.
 `apple-touch-icon.png` (180×180), `android-chrome-192x192.png`,
 `android-chrome-512x512.png`. Os cinco últimos já existem em `public/` e são
 substituídos **pelo conjunto Vela**; os arquivos de `public/branding/` **não
-são** (§4.4). Depois do B6, `portal.html` referencia o conjunto FWLog, servido
+são** (§4.4). Depois do B6, `portal.html` referencia o conjunto Fwlog, servido
 do mesmo `public/` sob nomes próprios — combine a convenção de nomes com a
-sessão FWLog para os dois não colidirem.
+sessão Fwlog para os dois não colidirem.
 
 **Repontar apenas o lado interno**, para os arquivos novos
 `public/branding/vela-*.png`, trocando `src` e `alt` juntos:
@@ -609,7 +609,7 @@ manual de quem tem acesso ao painel.
 ### 7.1 Vercel
 
 Com a decisão D1, passam a existir **dois projetos**: o interno (Vela) e o do
-Portal (FWLog). O segundo é criado em coordenação com a sessão FWLog.
+Portal (Fwlog). O segundo é criado em coordenação com a sessão Fwlog.
 
 1. Renomear o projeto atual para o nome interno e criar o segundo projeto,
    apontando ambos para o mesmo repositório com comandos de build distintos.
@@ -672,7 +672,7 @@ prazo, e uma janela que fecha no lançamento.
 
 | Risco | Gravidade | Mitigação |
 |---|---|---|
-| **Lançar com a separação Vela/FWLog por fazer** | **Alta** | Bloco B6 antes do lançamento; depois, o custo multiplica |
+| **Lançar com a separação Vela/Fwlog por fazer** | **Alta** | Bloco B6 antes do lançamento; depois, o custo multiplica |
 | **Marca de terceiro sobre "Vela" caso o sistema vire produto** | Baixa hoje | D2 — reavaliar se houver comercialização; hoje não há oferta sob a marca |
 | **B6 quebrar o gate de bundle ou o Preview do Portal** | **Alta** | Ajustar `size-limit` e `scripts/vercel-build.mjs` dentro do próprio B6 |
 | **Marca entrar numa página compartilhada e vazar entre os dois builds** | **Alta** | Regra do B6: páginas compartilhadas neutras, marca só no layout |
@@ -682,7 +682,7 @@ prazo, e uma janela que fecha no lançamento.
 | Regex de preview do Vercel desatualizado derruba os Previews | Média | B6 item 2 e §7.1 item 1 no mesmo commit; afeta a equipe, não o cliente |
 | Renomear o banco de teste pela metade e quebrar o CI | Média | Lista completa em B2, inclusive `scripts/` |
 | Lançar meio renomeado, com os dois nomes convivendo | Média | Blocos sequenciais com gate, não faseamento com convivência |
-| Conflito de merge com a sessão FWLog em `cors.ts`, `App.tsx`, `.env.example` | Média | Combinar a ordem; depois do B6 o conflito em `App.tsx` deixa de existir |
+| Conflito de merge com a sessão Fwlog em `cors.ts`, `App.tsx`, `.env.example` | Média | Combinar a ordem; depois do B6 o conflito em `App.tsx` deixa de existir |
 
 Riscos que as versões anteriores listavam e que **deixam de existir**: quebra
 de e-mails históricos, perda de preferência de tema, conflito de convivência

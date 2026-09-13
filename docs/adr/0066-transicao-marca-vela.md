@@ -8,7 +8,7 @@ O repositório atende três identidades que não podem ser tratadas como uma
 única marca:
 
 - **Vela** é o produto interno usado pela equipe;
-- **FWLog** é a superfície de atendimento e consulta do cliente;
+- **Fwlog** é a superfície de atendimento e consulta do cliente;
 - **Transhipping** é a entidade jurídica e financeira que aparece no CNPJ,
   PIX, invoices, recibos e histórico operacional.
 
@@ -21,7 +21,7 @@ email ou documentos fiscais.
 
 1. A superfície interna passa a se chamar **Vela** e é publicada em
    `https://vela.app.br`.
-2. A superfície externa permanece **FWLog** e é publicada em
+2. A superfície externa permanece **Fwlog** e é publicada em
    `https://portalfwlog.com.br`. Nenhuma string, logo ou título de Vela deve
    alcançar essa superfície.
 3. `Transhipping Agenciamento Marítimo Ltda.` permanece como identidade
@@ -30,7 +30,7 @@ email ou documentos fiscais.
    histórico ou migrations aplicadas.
 4. A base de código continua única, mas entrega dois programas estáticos:
    `index.html` + `src/main.tsx` + `src/AppInterno.tsx` para Vela e
-   `portal.html` + `src/portal-main.tsx` + `src/AppPortal.tsx` para FWLog.
+   `portal.html` + `src/portal-main.tsx` + `src/AppPortal.tsx` para Fwlog.
    Serviços, tipos, cliente Supabase e componentes de domínio neutros são
    compartilhados; cada entrada usa somente o provedor de autenticação da sua
    superfície.
@@ -45,7 +45,7 @@ email ou documentos fiscais.
 ## Consequências
 
 - O nome do produto interno pode evoluir sem depender da sessão do Portal.
-- O isolamento entre os builds torna a fronteira Vela/FWLog verificável pelo
+- O isolamento entre os builds torna a fronteira Vela/Fwlog verificável pelo
   artefato, além do teste de conteúdo que cobre emails e documentos fiscais.
 - Existem dois projetos Vercel, dois ciclos de Preview e dois conjuntos de
   configurações de domínio; a integração de branching precisa ser conferida

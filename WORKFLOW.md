@@ -1,6 +1,6 @@
 # WORKFLOW.md — Vela
 
-Manual vivo para desenvolver, testar, migrar e publicar o Vela e o Portal FWLog.
+Manual vivo para desenvolver, testar, migrar e publicar o Vela e o Portal Fwlog.
 Verificado contra o repositório em 2026-06-24.
 
 Use este documento para procedimentos técnicos. Consulte:
@@ -40,7 +40,7 @@ em documentação.
 - Supabase PostgreSQL, Auth, RLS e RPCs;
 - Edge Functions Deno;
 - Resend para email;
-- Vercel para hosting dos dois builds estáticos (Vela interno e Portal FWLog),
+- Vercel para hosting dos dois builds estáticos (Vela interno e Portal Fwlog),
   cada um em seu projeto, com Preview Deployments em PRs e Production
   Deployments no `main`;
 - GitHub Actions para CI e deploy.

@@ -4,7 +4,7 @@ Status: aceito — 2026-06-09
 
 ## Contexto
 
-O Vela e o Portal FWLog concentram muitos módulos operacionais, financeiros e de portal em duas superfícies de navegador sobre a mesma base de código: viagens, importações, revisão, clientes, taxas locais, faturamento, demurrage, conciliação, relatórios, administração e Portal do Cliente.
+O Vela e o Portal Fwlog concentram muitos módulos operacionais, financeiros e de portal em duas superfícies de navegador sobre a mesma base de código: viagens, importações, revisão, clientes, taxas locais, faturamento, demurrage, conciliação, relatórios, administração e Portal do Cliente.
 
 Sem uma separação estável, a tendência natural seria cada tela misturar navegação, cache, acesso ao Supabase, parsing de arquivos e componentes visuais, tornando difícil evoluir módulos grandes como `Faturamento`, `TaxasLocais`, `Viagens`, `Revisao` e `BlDetalhe`.
 

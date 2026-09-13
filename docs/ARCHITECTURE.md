@@ -1,4 +1,4 @@
-# Arquitetura do Vela e do Portal FWLog
+# Arquitetura do Vela e do Portal Fwlog
 
 Verificado contra o código, a configuração e as migrations em 2026-09-07.
 
@@ -112,7 +112,7 @@ projeto do Portal publica `portal.html` em `https://portalfwlog.com.br`.
 Cada projeto cria seus próprios Previews para pull requests; a integração de
 branching do Supabase mantém as credenciais de Preview alinhadas à branch Git
 correspondente. O branch `main` gera os dois Production Deployments e ambos
-usam o projeto Supabase de produção. O Portal continua sendo FWLog, enquanto
+usam o projeto Supabase de produção. O Portal continua sendo Fwlog, enquanto
 Vela identifica somente a superfície interna. O hosting Firebase não faz mais
 parte da arquitetura.
 
