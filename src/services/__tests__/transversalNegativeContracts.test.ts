@@ -20,7 +20,7 @@ describe('Contratos negativos das telas e fronteira do Portal do Cliente', () =>
     expect(tvDisplayContent).not.toContain('dismissAlertItem')
     expect(tvDisplayContent).not.toContain('InternalNotificationBell')
 
-    const appContent = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8')
+    const appContent = readFileSync(resolve(process.cwd(), 'src/AppInterno.tsx'), 'utf8')
     const displayIndex = appContent.indexOf('path="/line-up-tv/display"')
     const appLayoutIndex = appContent.indexOf('<Route element={<AppLayout />}>')
     expect(displayIndex).toBeGreaterThan(-1)

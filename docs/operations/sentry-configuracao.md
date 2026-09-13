@@ -1,6 +1,6 @@
-# Guia de Configuração e Uso do Sentry no Transhipping Desk
+# Guia de Configuração e Uso do Sentry no Vela
 
-Este documento orienta a equipe sobre a integração do **Sentry** com o Transhipping Desk, explicando como os erros são capturados, classificados e como configurar o painel web para receber alertas didáticos e objetivos.
+Este documento orienta a equipe sobre a integração do **Sentry** com o Vela, explicando como os erros são capturados, classificados e como configurar o painel web para receber alertas didáticos e objetivos.
 
 ---
 
@@ -23,13 +23,13 @@ Antes do envio para o Sentry, todo payload passa por sanitização automática e
 
 Para que as notificações por e-mail e canais de alerta reflitam a identidade do sistema:
 
-### A. Renomear o Projeto de `javascript-react` para `transhipping-desk`
+### A. Renomear o Projeto de `javascript-react` para `vela`
 1. Acesse [sentry.io](https://sentry.io) e entre na sua organização.
 2. No menu lateral esquerdo, clique em **Settings** > **Projects**.
 3. Selecione o projeto atual (que está com o nome padrão `javascript-react`).
-4. Em **General Settings** > **Project Name**, altere para: `transhipping-desk`.
+4. Em **General Settings** > **Project Name**, altere para: `vela`.
 5. Clique em **Save Changes**.
-* **Impacto imediato:** O assunto dos próximos e-mails virá com `[TRANSHIPPING-DESK]` em vez de `JAVASCRIPT-REACT-XX`.
+* **Impacto imediato:** O assunto dos próximos e-mails virá com `[VELA]` em vez de `JAVASCRIPT-REACT-XX`.
 
 ### B. Configurar Regras de Alerta Inteligentes (Evitar Spam em Testes)
 No Sentry, alertas disparados para todo e qualquer erro durante homologação podem sobrecarregar a caixa de entrada. Recomendamos criar uma regra de alerta focada:
@@ -47,7 +47,7 @@ No Sentry, alertas disparados para todo e qualquer erro durante homologação po
 
 ## 3. Estrutura das Novas Tags Didáticas
 
-A partir desta atualização, todo erro reportado pelo Transhipping Desk inclui tags padronizadas que aparecem tanto no resumo do e-mail quanto no painel do Sentry:
+A partir desta atualização, todo erro reportado pelo Vela inclui tags padronizadas que aparecem tanto no resumo do e-mail quanto no painel do Sentry:
 
 | Tag | Exemplo | Descrição |
 |---|---|---|

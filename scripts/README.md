@@ -119,7 +119,7 @@ bash scripts/setup-local-pg.sh
 bash scripts/setup-local-pg.sh --reset
 # valida a RPC/RLS da leitura do nome do closer (usuário ativo/inativo/anon):
 LOCAL_PG_INTEGRATION=1 \
-  LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test \
+  LOCAL_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/vela_test \
   npx vitest run src/integration/agencyReportCloserName.local-pg.test.ts
 ```
 
@@ -230,7 +230,7 @@ imprime um **relatório de conferência**: quantos clientes, viagens, containers
 faturas atravessariam, e o que ainda está impedindo.
 
 **Ele não muda nada.** Só lê e escreve na tela — não grava no sistema antigo,
-não grava no Transhipping Desk, não cria arquivo. É um ensaio.
+não grava no Vela, não cria arquivo. É um ensaio.
 
 **Quando usar:** antes da migração de verdade, e de novo no dia da virada (os
 números mudam enquanto o sistema antigo continua em uso).

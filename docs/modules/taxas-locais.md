@@ -11,7 +11,7 @@ transformam os dados de um B/L em linhas faturáveis. A rota
 liberação para faturamento, cobranças manuais e reconciliação de cliente são
 operações do mesmo domínio disparadas por outras telas.
 
-- `src/App.tsx` monta `/taxas-locais` dentro da aplicação interna protegida.
+- `src/AppInterno.tsx` monta `/taxas-locais` dentro da aplicação interna protegida.
 - `src/pages/TaxasLocaisTabelas.tsx` exige as capacidades de interface
   `charge_tables` e `charge_overrides`, definidas em `src/hooks/useAuth.tsx`.
 - `src/services/charges/chargeTableService.ts` e

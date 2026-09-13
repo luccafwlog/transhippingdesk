@@ -1,9 +1,9 @@
 # Deploy
 
-> Hosting: **Vercel**, com um único projeto para a SPA Vite. Pull requests
-> geram Preview Deployments e `main` gera o Production Deployment pela
-> integração GitHub/Vercel. O Firebase permanece configurado apenas como
-> rollback temporário até o cutover dos domínios.
+> Hosting: **Vercel**, com dois projetos sobre a mesma base de código. O projeto
+> `vela` publica o build interno em `vela.app.br`; `fwlog-portal` publica o
+> Portal em `portalfwlog.com.br`. Ambos geram Preview Deployments em pull
+> requests e Production Deployments em `main` pela integração GitHub/Vercel.
 
 ## Workflows
 
@@ -33,8 +33,10 @@ O contrato versionado está em [`vercel.json`](../../vercel.json):
 - saída `dist`;
 - `ignoreCommand` ignora commits sem alterações no frontend, dependências ou
   configuração de build;
-- rewrite para `/index.html`, preservando refresh em qualquer rota React Router;
-- headers de segurança equivalentes aos usados no Firebase;
+- entradas `index.html` e `portal.html`, com cada projeto selecionando seu
+  build e rewrite correspondente para preservar refresh em qualquer rota React
+  Router;
+- headers de segurança versionados no Vercel;
 - HTML sem cache e assets em `/assets/` com cache longo e `immutable`.
 
 No projeto Vercel, configure o Root Directory como a raiz deste repositório e
@@ -71,8 +73,8 @@ configuração do projeto Vercel.
 
 ### Preview ligado à branch automática
 
-O Vercel `transhippingdesk` deve estar conectado ao GitHub
-`luccafwlog/transhippingdesk` e à integração de branching do Supabase. O
+Os projetos Vercel `vela` e `fwlog-portal` devem estar conectados ao GitHub
+`luccafwlog/vela` e à integração de branching do Supabase. O
 Automatic branching deve permanecer habilitado no Supabase, com o diretório de
 trabalho `.`, e **Supabase changes only** deve ficar desligado quando todo
 Preview precisar de um banco isolado — caso contrário uma PR que só altera
@@ -164,39 +166,40 @@ service role, secret keys e URLs PostgreSQL permanecem fora do Vercel.
 Checklist no Dashboard:
 
 1. No Vercel Marketplace, mantenha a integração Supabase instalada e conectada
-   ao projeto existente `transhippingdesk`.
+   aos projetos `vela` e `fwlog-portal`.
 2. Na integração Supabase/Vercel, configure o prefixo específico do framework
    para `VITE_`, mantendo os nomes `VITE_SUPABASE_URL` e
    `VITE_SUPABASE_ANON_KEY` usados pelo código.
-3. No Supabase GitHub Integration, conecte `luccafwlog/transhippingdesk`, use
+3. No Supabase GitHub Integration, conecte `luccafwlog/vela`, use
    working directory `.`, deixe **Automatic branching** ligado e
    **Supabase changes only** desligado.
-4. No Vercel Git Integration, use o mesmo repositório e `main` como production
-   branch. Não crie uma segunda integração nem variáveis Preview fixas.
-5. Abra uma PR e confirme os três sinais: branch Supabase automática criada e
-   saudável, comentário/check do Supabase Preview concluído e Preview do
-   Vercel contendo as duas variáveis `VITE_*` da mesma branch.
+4. Nos dois projetos Vercel, use o mesmo repositório e `main` como production
+   branch; configure o build interno no `vela` e o build Portal no
+   `fwlog-portal`. Não use variáveis Preview fixas.
+5. Abra uma PR e confirme os sinais em cada projeto: branch Supabase
+   automática criada e saudável, comentário/check do Supabase Preview
+   concluído e Preview contendo as duas variáveis `VITE_*` da mesma branch.
 
 Se o Preview mostrar a tela de erro de configuração, o deploy recebeu zero ou
 apenas parte dessas variáveis. Verifique em **Vercel → Project Settings →
-Integrations** se o projeto `transhippingdesk` está conectado ao projeto
+Integrations** os projetos `vela` e `fwlog-portal` conectados ao projeto
 Supabase correto; na configuração da integração, use o prefixo `VITE_`. Depois
 de corrigir a integração, reimplante o commit mais recente da PR para que o
-Vercel refaça o build com os valores da branch automática. O build agora falha
-explicitamente quando roda no Vercel sem essas variáveis, evitando publicar um
-Preview quebrado silenciosamente.
+Vercel refaça os dois builds com os valores da branch automática. O build agora
+falha explicitamente quando roda no Vercel sem essas variáveis, evitando
+publicar um Preview quebrado silenciosamente.
 
 ## Domínios e cutover sem downtime
 
-O mesmo projeto Vercel deve receber:
+Os projetos Vercel recebem:
 
-- `https://transhippingdesk.com.br` — aplicação interna;
-- `https://portal.transhippingdesk.com.br` — Portal do Cliente.
+- `https://vela.app.br` — aplicação interna;
+- `https://portalfwlog.com.br` — Portal do Cliente.
 
 O `PORTAL_URL` das Edge Functions continua sendo
-`https://portal.transhippingdesk.com.br`, e `APP_URL` continua sendo
-`https://transhippingdesk.com.br`. Nenhum deles deve ser trocado por um
-domínio `.vercel.app`.
+`https://portalfwlog.com.br`, e `APP_URL` passa a ser
+`https://vela.app.br`. Nenhum deles deve ser trocado por um domínio
+`.vercel.app`.
 
 Sequência operacional:
 
@@ -208,12 +211,8 @@ Sequência operacional:
    por `vercel domains inspect`;
 5. trocar somente os registros web no provedor DNS, preservando MX, SPF, DKIM,
    DMARC, ImprovMX, Resend e demais registros de email;
-6. manter o Firebase publicado até DNS, SSL, aplicação, Portal, Supabase,
-   emails e Sentry estarem estáveis.
-
-O Firebase não deve ser apagado durante o cutover. Para rollback, restaure os
-registros web anteriores e mantenha `firebase.json` e `.firebaserc` até a
-estabilidade pós-migração ser comprovada.
+6. validar DNS, SSL, aplicação, Portal, Supabase, emails e Sentry; o domínio
+   antigo nunca deve ser apontado para produção.
 
 ## Content-Security-Policy
 
@@ -244,12 +243,12 @@ agrupáveis por tela, sem expor o registro acessado.
 ## CORS das Edge Functions
 
 As origens de produção permanecem na allowlist compartilhada em
-`supabase/functions/_shared/cors.ts`. Os domínios Firebase padrão continuam
-temporariamente para rollback.
+`supabase/functions/_shared/cors.ts`: `vela.app.br` e
+`portalfwlog.com.br`.
 
-Os aliases de Preview do projeto `transhippingdesk` são aceitos pela allowlist
-das Edge Functions. Para um domínio adicional que invoque Edge Functions pelo
-browser, configure no ambiente da branch Supabase:
+Os aliases de Preview dos projetos `vela` e `fwlog-portal` são aceitos pela
+allowlist das Edge Functions. Para um domínio adicional que invoque Edge
+Functions pelo browser, configure no ambiente da branch Supabase:
 
 ```text
 VERCEL_PREVIEW_ORIGINS=https://<url-preview-exata>.vercel.app
@@ -257,8 +256,8 @@ VERCEL_PREVIEW_ORIGINS=https://<url-preview-exata>.vercel.app
 
 Múltiplas URLs podem ser separadas por vírgula. O parser aceita somente URLs
 HTTPS exatas, sem caminho e sem `*`. A variável é necessária apenas para
-domínios adicionais; os aliases gerados pelo próprio projeto Vercel já são
-validados pelo padrão restrito em `supabase/functions/_shared/cors.ts`.
+domínios adicionais; os aliases gerados pelos projetos Vercel já são validados
+pelos padrões restritos em `supabase/functions/_shared/cors.ts`.
 
 ## Edge Functions, Resend e migrations
 
@@ -333,17 +332,8 @@ A migration 362 corrige a autorização do backfill da divergência
 Baplie/BL e mantém as reimportações atômicas sem transições intermediárias. A
 Vercel nunca executa migrations implicitamente.
 
-## Firebase rollback
+## Hosting legado
 
-Mantidos temporariamente:
-
-- `firebase.json` — configuração de hosting e headers/fallback legados;
-- `.firebaserc` — identificação do projeto Firebase.
-
-Removido:
-
-- `.github/workflows/firebase-deploy.yml` — publicação automática no Firebase.
-
-Não existe dependência `firebase-tools` no `package.json`/lockfile. A remoção
-definitiva dos arquivos Firebase só deve ocorrer depois do cutover, da
-propagação DNS e da janela de rollback acordada.
+O Firebase Hosting foi removido do repositório e não participa mais do
+cutover. O domínio antigo nunca deve ser apontado para produção; qualquer
+referência histórica a ele deve permanecer apenas em documentação arquivada.

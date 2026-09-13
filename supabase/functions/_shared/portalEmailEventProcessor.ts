@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { maskEmail, sendPortalEmail } from './portalEmail.ts'
 import { bounceNotificationTemplate } from './portalEmailTemplates.ts'
 import { resolveBounceCascade, type BounceContact } from './portalBounceCascade.ts'
+import { canonicalPortalOrigin, portalSupportEmail } from './portalUrls.ts'
 
 const BOUNCE_NOTIFICATION_KIND = 'contato_bounced_notificacao'
 
@@ -51,8 +52,8 @@ async function sendBounceNotification(
   const normalizedBouncedEmail = normalizeEmail(bouncedEmail)
   const template = bounceNotificationTemplate({
     bouncedEmailMasked: maskEmail(normalizedBouncedEmail),
-    portalUrl: (Deno.env.get('PORTAL_URL') ?? 'https://portal.transhippingdesk.com.br').replace(/\/+$/, ''),
-    supportEmail: Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br',
+    portalUrl: canonicalPortalOrigin(),
+    supportEmail: portalSupportEmail(),
   })
 
   try {

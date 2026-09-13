@@ -4,19 +4,12 @@
 // mais genérico (o primeiro match vence).
 import { ADMIN_TABS } from '../pages/adminTabs'
 
-const BASE = 'Transhipping Desk'
+const BASE = 'Vela'
 
 const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/clientes\/portal\/inspecao\//, 'Portal · Inspeção'],
   [/^\/perfil/, 'Meu perfil'],
   [/^\/login/, 'Login'],
-  [/^\/portal\/login/, 'Portal · Login'],
-  [/^\/portal\/esqueci-senha/, 'Portal · Recuperar senha'],
-  [/^\/portal\/recuperar-senha/, 'Portal · Nova senha'],
-  [/^\/portal\/billing/, 'Portal · Faturas'],
-  [/^\/portal\/operacao/, 'Portal · Operação'],
-  [/^\/portal\/perfil/, 'Portal · Perfil'],
-  [/^\/portal$/, 'Portal · Painel'],
   [/^\/line-up-tv\/display/, 'Line Up · Tela TV'],
   [/^\/painel/, 'Painel'],
   [/^\/viagens/, 'Viagens'],

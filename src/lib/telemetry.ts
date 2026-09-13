@@ -129,7 +129,7 @@ export function scrubEventValue(value: unknown, depth = 0): unknown {
 // Inicializa o relatório de erros em produção. Os default integrations do
 // @sentry/react já capturam window.onerror e onunhandledrejection; o release
 // usa o commit injetado no build (VITE_APP_COMMIT_SHA) para rastrear regressões.
-export function initTelemetry(): void {
+export function initTelemetry(surface?: 'internal' | 'portal'): void {
   if (!import.meta.env.PROD) return
   Sentry.init({
     dsn: SENTRY_DSN,
@@ -163,6 +163,7 @@ export function initTelemetry(): void {
       return event
     },
   })
+  if (surface) Sentry.setTag('surface', surface)
 }
 
 export function setTelemetryUser(user: { id: string; role?: string } | null): void {

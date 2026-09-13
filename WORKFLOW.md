@@ -1,6 +1,6 @@
-# WORKFLOW.md — Transhipping Desk
+# WORKFLOW.md — Vela
 
-Manual vivo para desenvolver, testar, migrar e publicar o Transhipping Desk.
+Manual vivo para desenvolver, testar, migrar e publicar o Vela e o Portal Fwlog.
 Verificado contra o repositório em 2026-06-24.
 
 Use este documento para procedimentos técnicos. Consulte:
@@ -40,7 +40,8 @@ em documentação.
 - Supabase PostgreSQL, Auth, RLS e RPCs;
 - Edge Functions Deno;
 - Resend para email;
-- Vercel para hosting da SPA, com Preview Deployments em PRs e Production
+- Vercel para hosting dos dois builds estáticos (Vela interno e Portal Fwlog),
+  cada um em seu projeto, com Preview Deployments em PRs e Production
   Deployments no `main`;
 - GitHub Actions para CI e deploy.
 
@@ -82,7 +83,8 @@ pré-autenticação para o resolver está documentada na
 
 ```text
 src/
-  App.tsx                 mapa de rotas
+  AppInterno.tsx          mapa de rotas do sistema interno
+  AppPortal.tsx           mapa de rotas do Portal Fwlog
   main.tsx                providers globais e telemetria
   pages/                  composição de telas
   hooks/                  queries e mutations reutilizáveis
@@ -235,7 +237,7 @@ Para replay real das migrations sem tocar em produção, rode
 aplica os shims Supabase (schema `auth`, roles `anon`/`authenticated`/
 `service_role`, `pgcrypto` no schema `extensions`, stub de `pg_cron`, publicação
 `supabase_realtime`) e replica todas as migrations. Ecoa a `DATABASE_URL`
-(`postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test`). Use
+(`postgresql://postgres:postgres@127.0.0.1:5432/vela_test`). Use
 `--reset` para recriar do zero. Nunca aponte validação de migration ao projeto
 Supabase de produção.
 
@@ -364,7 +366,8 @@ Parsers existentes são referências, não contratos universais:
 
 ## 8. Rotas e páginas
 
-`src/App.tsx` é a fonte executável das rotas.
+`src/AppInterno.tsx` e `src/AppPortal.tsx` são as fontes executáveis das rotas,
+cada uma no seu build.
 
 ### Nova rota
 

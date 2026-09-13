@@ -1,6 +1,6 @@
 # Desenvolvimento local
 
-> Como rodar o Transhipping Desk na sua máquina. Para deploy ver [deploy.md](deploy.md); para testes ver [testing.md](testing.md).
+> Como rodar o Vela e o Portal Fwlog na sua máquina. Para deploy ver [deploy.md](deploy.md); para testes ver [testing.md](testing.md).
 
 ## Pré-requisitos
 
@@ -85,6 +85,11 @@ npm test             # testes unitários (Vitest)
 npm run test:integration  # testes de integração com Supabase real (opt-in)
 npm run sync         # git fetch + pull --ff-only
 ```
+
+O mesmo servidor local atende as duas superfícies: use `/login` para o sistema
+interno e `/portal/login` para o Portal Fwlog. O middleware de desenvolvimento
+seleciona o HTML correto (`index.html` ou `portal.html`) sem alterar a URL da
+rota no navegador.
 
 ## Reset de dados de teste
 

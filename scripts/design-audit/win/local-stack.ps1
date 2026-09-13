@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Boot the local Supabase-compatible stack for Transhipping Desk on Windows.
+  Boot the local Supabase-compatible stack for Vela on Windows.
 
 .DESCRIPTION
   Native Postgres 16 + a stub pg_cron extension + the sb-shim emulator, so the

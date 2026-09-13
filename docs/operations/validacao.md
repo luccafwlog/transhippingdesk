@@ -1,4 +1,4 @@
-# Validação do Transhipping Desk
+# Validação do Vela e do Portal Fwlog
 
 Roteiro executável para o estado atual do repositório, revisado em 2026-08-26.
 

@@ -4,7 +4,7 @@
 
 ## Propósito e escopo
 
-O módulo mantém o cadastro mestre de clientes, seus contatos, o vínculo com B/Ls e invoices, o provisionamento administrativo da Conta de Portal e a comunicação operacional por e-mail. As rotas são internas, montadas sob `ProtectedRoute` e `AppLayout` em `src/App.tsx`; seleção/exclusão em massa e gestão do Portal aparecem somente para admin, enquanto Comunicados exigem a permissão `customer_communications`. A fronteira efetiva continua nas policies, RPCs e Edge Functions do Supabase.
+O módulo mantém o cadastro mestre de clientes, seus contatos, o vínculo com B/Ls e invoices, o provisionamento administrativo da Conta de Portal e a comunicação operacional por e-mail. As rotas são internas, montadas sob `ProtectedRoute` e `AppLayout` em `src/AppInterno.tsx`; seleção/exclusão em massa e gestão do Portal aparecem somente para admin, enquanto Comunicados exigem a permissão `customer_communications`. A fronteira efetiva continua nas policies, RPCs e Edge Functions do Supabase.
 
 `clientes.md` é dono do ciclo cadastral e do adaptador interno de provisionamento. Autenticação, sessão e autosserviço externos pertencem a [Portal do Cliente](portal-cliente.md); reconciliação manual e gate de faturamento pertencem a [Operação e suporte](operacao-suporte.md).
 

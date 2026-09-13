@@ -43,11 +43,13 @@ SUPABASE_INTEGRATION_PASSWORD=…
 
 ## Orçamento de carga das rotas (performance)
 
-`scripts/perf/measure-page-load.mjs` mede o custo de "page load" por rota — a
-quantidade de JS que o navegador precisa baixar e fazer parse/compile para
-renderizar a rota numa visita fria (rede e dados ficam fora por decisão, ver o
-cabeçalho do script). Cada rota deve ficar abaixo de **50 ms** de parse/compile
-(mediana de 7 execuções).
+`scripts/perf/measure-page-load.mjs` mede o custo de "page load" por rota e por
+superfície — a quantidade de JS que o navegador precisa baixar e fazer
+parse/compile para renderizar a rota numa visita fria (rede e dados ficam fora
+por decisão, ver o cabeçalho do script). Ele usa `index.html` +
+`src/AppInterno.tsx` para o sistema interno e `portal.html` + `src/AppPortal.tsx`
+para o Portal Fwlog. Cada rota deve ficar abaixo de **50 ms** de
+parse/compile (mediana de 7 execuções).
 
 ```bash
 npx vite build                                                   # gera dist/.vite/manifest.json

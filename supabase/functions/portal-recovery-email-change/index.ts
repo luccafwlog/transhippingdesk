@@ -6,6 +6,7 @@ import { revokePortalSessions } from '../_shared/revokePortalSessions.ts'
 import { isLoginRateLimited, registerLoginFailure, registerLoginSuccess } from '../_shared/portalLoginRateLimit.ts'
 import { resolveEmailChangeConfirmation } from '../_shared/portalInvites.ts'
 import { withCors } from '../_shared/cors.ts'
+import { canonicalPortalOrigin, canonicalPortalUrl, portalSupportEmail } from '../_shared/portalUrls.ts'
 
 // Mensagem própria para o pedido que já não tem o que aplicar. Dizer "link
 // inválido" aqui seria mentira -- o link estava válido -- e mandaria o cliente
@@ -57,13 +58,13 @@ if (typeof Deno !== 'undefined') Deno.serve(withCors(async (req) => {
     const { data: invite } = await admin.from('portal_invites').insert({ account_id: account.id, purpose: 'confirmacao_email', token_hash: tokenHash, sent_to_email: email, expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), status: 'pendente' }).select('id').single()
     if (!invite) return new Response(JSON.stringify({ error: 'Não foi possível iniciar a troca de email.' }), { status: 500 })
     await admin.from('customer_portal_accounts').update({ pending_recovery_email: email }).eq('id', account.id)
-    const portalUrl = Deno.env.get('PORTAL_URL') ?? ''
-    const supportEmail = Deno.env.get('PORTAL_SUPPORT_EMAIL') ?? 'suporte@transhippingdesk.com.br'
+    const portalUrl = canonicalPortalOrigin()
+    const supportEmail = portalSupportEmail()
     // Rota publica dedicada: o link chega no Email de Recuperacao, que costuma
     // ser lido pelo contato financeiro -- sem senha do Portal. Apontar para
     // /portal/perfil (rota protegida) fazia o guard redirecionar para o login
     // descartando a query string, e o token se perdia em silencio.
-    const urlConfirm = `${portalUrl}/portal/confirmar-email?token=${encodeURIComponent(token)}`
+    const urlConfirm = canonicalPortalUrl(`confirmar-email?token=${encodeURIComponent(token)}`)
     const customer = account.customers as { name?: string } | null
     const confirmTemplate = emailChangeConfirmTemplate({ companyName: customer?.name ?? 'sua empresa', confirmUrl: urlConfirm, portalUrl, supportEmail })
     await sendPortalEmail({ admin, kind: 'alteracao_email', to: email, subject: confirmTemplate.subject, html: confirmTemplate.html, text: confirmTemplate.text, idempotencyKey: `alteracao_email:${invite.id}`, accountId: account.id, inviteId: invite.id })

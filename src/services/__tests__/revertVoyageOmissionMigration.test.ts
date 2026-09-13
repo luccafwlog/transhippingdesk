@@ -10,7 +10,7 @@ const migration308 = fs.readFileSync(path.join(migrationsDir, '308_restore_omit_
 
 const enabled = process.env.LOCAL_PG_INTEGRATION === '1'
 const describeLocal = enabled ? describe : describe.skip
-const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test'
+const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/vela_test'
 const adminId = '00000000-0000-0000-0000-000000030901'
 const voyageId = 990309
 const carrierId = 990309

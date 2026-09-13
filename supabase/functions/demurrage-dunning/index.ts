@@ -101,8 +101,11 @@ function normalizeNested<T>(value: T | T[] | null | undefined): T | null {
 
 function portalBillingUrl(): string {
   const configured = (Deno.env.get('PORTAL_URL') ?? '').trim().replace(/\/+$/, '')
-  if (!configured) return 'https://portal.transhippingdesk.com.br/portal/billing'
-  return configured.endsWith('/billing') ? configured : `${configured}/billing`
+  if (!configured) return 'https://portalfwlog.com.br/portal/billing'
+  if (configured.endsWith('/portal/billing')) return configured
+  if (configured.endsWith('/portal')) return `${configured}/billing`
+  if (configured.endsWith('/billing')) return `${configured.slice(0, -'/billing'.length)}/portal/billing`
+  return `${configured}/portal/billing`
 }
 
 function dateOnly(value: string | null | undefined): string {

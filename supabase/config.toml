@@ -3,7 +3,7 @@
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
 
-project_id = "Transhipping_Desk"
+project_id = "Vela"
 
 [functions.alerts-detector]
 verify_jwt = false

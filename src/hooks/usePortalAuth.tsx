@@ -163,6 +163,30 @@ export function PortalAuthProvider({ children }: PropsWithChildren) {
   return <PortalAuthContext.Provider value={value}>{children}</PortalAuthContext.Provider>
 }
 
+export function PortalInspectionAuthProvider({
+  overview,
+  children,
+}: PropsWithChildren<{ overview: PortalSessionOverview }>) {
+  const signIn = useCallback(async () => {
+    throw new Error('Login do Portal indisponível no Modo Inspeção.')
+  }, [])
+  const signOut = useCallback(async () => {}, [])
+  const refreshOverview = useCallback(async () => {}, [])
+  const value = useMemo<PortalAuthContextValue>(
+    () => ({
+      overview,
+      loading: false,
+      isAuthenticated: true,
+      signIn,
+      signOut,
+      refreshOverview,
+    }),
+    [overview, refreshOverview, signIn, signOut],
+  )
+
+  return <PortalAuthContext.Provider value={value}>{children}</PortalAuthContext.Provider>
+}
+
 export function usePortalAuth() {
   const context = useContext(PortalAuthContext)
   if (!context) {

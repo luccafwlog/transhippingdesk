@@ -196,10 +196,11 @@ export function LineUpTVDisplay() {
       <header className="app-lineup-display-header">
         <div className="app-lineup-display-brand">
           <img
-            src="/branding/transhipping-logo-cropped.png"
-            alt="Transhipping"
+            src="/branding/vela-mark.svg"
+            alt="Símbolo Vela"
             className="app-lineup-display-brand__logo"
           />
+          <span className="app-lineup-display-brand__name">Vela</span>
         </div>
         <div className="app-lineup-display-meta">
           <div className="app-lineup-display-meta__group">

@@ -1,6 +1,6 @@
 ---
 name: invoice-pdf
-description: "Change Transhipping Desk invoice content, formatting or browser print layout."
+description: "Change Vela invoice content, formatting or browser print layout."
 ---
 
 # Printable Invoice Documents

@@ -112,6 +112,11 @@ no [CHANGELOG](../../CHANGELOG.md); planos vivos ficam em
   desativação lógica (`deactivated_at`), captura de e-mails em B/L (`ensure_customer_contact_email`), reparo por fallback
   (`repair_customer_contact_box_fallbacks`), auditoria append-only agrupada (`customer_contact_change_events`),
   UI na Ficha do Cliente e Portal do Cliente, e migração de conferência e disparo de comunicados. Migration `008`.
+- [`2026-09-12-plano-transicao-marca-vela.md`](2026-09-12-plano-transicao-marca-vela.md)
+  — Transição de marca: Transhipping Desk → Vela e separação das superfícies de entrega (ADR 0066, PR #688).
+  Renomeação do sistema interno para Vela com entrada em `index.html` e domínio `https://vela.app.br`, separação
+  do Portal Fwlog em entrada dedicada `portal.html` e domínio `https://portalfwlog.com.br`, preservação da identidade
+  jurídico-financeira Transhipping, e configuração de roteamento/CORS multi-host no Vercel e Edge Functions.
 - **Planos numerados** (`001`–`006`, `0001`) — sprint de manutenção 2026-06-15
   ([README-2026-06-15-maintenance-sprint.md](README-2026-06-15-maintenance-sprint.md)),
   redesign de Viagens e correções pós-auditoria.

@@ -10,7 +10,7 @@ cancelamentos e restituições. Demurrage tem operação própria em `/demurrage
 Para taxas locais, o saldo canônico é o ledger por recebível; a tabela
 `invoices` continua sendo o documento emitido.
 
-- `/taxas-locais` é a rota interna definida em `src/App.tsx` e composta por
+- `/taxas-locais` é a rota interna definida em `src/AppInterno.tsx` e composta por
   `src/pages/TaxasLocais.tsx`; `/faturamento` apenas preserva links legados.
 - Alterações financeiras exigem usuário ativo/admin nas RPCs. A capacidade
   `faturamento_edit` existe em `src/hooks/useAuth.tsx`, mas

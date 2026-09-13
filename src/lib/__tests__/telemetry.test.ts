@@ -105,14 +105,14 @@ describe('redactUrlQueryString', () => {
   // event.request.url = location.href antes do beforeSend rodar; telas de
   // reset/ativacao do Portal carregam o token na query string.
   it('remove a query string de uma URL com token', () => {
-    expect(redactUrlQueryString('https://portal.transhippingdesk.com.br/portal/recuperar-senha?token=SEGREDO')).toBe(
-      'https://portal.transhippingdesk.com.br/portal/recuperar-senha',
+    expect(redactUrlQueryString('https://portalfwlog.com.br/portal/recuperar-senha?token=SEGREDO')).toBe(
+      'https://portalfwlog.com.br/portal/recuperar-senha',
     )
   })
 
   it('preserva URL sem query string', () => {
-    expect(redactUrlQueryString('https://portal.transhippingdesk.com.br/portal/login')).toBe(
-      'https://portal.transhippingdesk.com.br/portal/login',
+    expect(redactUrlQueryString('https://portalfwlog.com.br/portal/login')).toBe(
+      'https://portalfwlog.com.br/portal/login',
     )
   })
 })
@@ -120,35 +120,35 @@ describe('redactUrlQueryString', () => {
 describe('redactVercelTelemetryEvent', () => {
   it('remove query strings and normalizes identifiers from application routes', () => {
     const event = redactVercelTelemetryEvent({
-      url: 'https://transhippingdesk.com.br/clientes/12345678000195?tab=financeiro',
+      url: 'https://vela.app.br/clientes/12345678000195?tab=financeiro',
       route: '/clientes/12345678000195',
     })
 
     expect(event).toEqual({
-      url: 'https://transhippingdesk.com.br/clientes/:cnpj',
+      url: 'https://vela.app.br/clientes/:cnpj',
       route: '/clientes/:cnpj',
     })
   })
 
   it('normalizes nested inspection and manifest routes', () => {
     expect(redactVercelTelemetryEvent({
-      url: 'https://portal.transhippingdesk.com.br/clientes/portal/inspecao/42?tab=operacao',
+      url: 'https://portalfwlog.com.br/clientes/portal/inspecao/42?tab=operacao',
     })).toEqual({
-      url: 'https://portal.transhippingdesk.com.br/clientes/portal/inspecao/:customerId',
+      url: 'https://portalfwlog.com.br/clientes/portal/inspecao/:customerId',
     })
 
     expect(redactVercelTelemetryEvent({
-      url: 'https://transhippingdesk.com.br/manifestos/bl-123?modal=details',
+      url: 'https://vela.app.br/manifestos/bl-123?modal=details',
     })).toEqual({
-      url: 'https://transhippingdesk.com.br/manifestos/:blId',
+      url: 'https://vela.app.br/manifestos/:blId',
     })
   })
 
   it('preserves safe routes while removing their query strings', () => {
     expect(redactVercelTelemetryEvent({
-      url: 'https://transhippingdesk.com.br/painel?filter=aberto',
+      url: 'https://vela.app.br/painel?filter=aberto',
     })).toEqual({
-      url: 'https://transhippingdesk.com.br/painel',
+      url: 'https://vela.app.br/painel',
     })
   })
 })

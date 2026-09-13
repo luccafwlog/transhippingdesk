@@ -7,7 +7,7 @@
 // of the route's JS is the part the codebase actually controls.
 //
 // For each route we collect:
-//   baseline entry graph (main.tsx + vendor chunks, always loaded)
+//   baseline entry graph (the selected app entry + vendor chunks, always loaded)
 //   + the lazy page chunk and its static import graph.
 // We then measure V8 parse/compile time of that JS via vm.SourceTextModule
 // (parses + compiles WITHOUT evaluating, so browser-only code never runs), and
@@ -46,17 +46,24 @@ function collectChunks(key, acc = new Set(), seen = new Set()) {
   return acc
 }
 
-const entryKey = Object.keys(manifest).find((k) => manifest[k].isEntry)
-if (!entryKey) {
-  console.error('No entry found in manifest.')
-  process.exit(2)
-}
-const baseline = collectChunks(entryKey)
+// Keep each route attached to the entry that actually renders it. Shared Portal
+// page modules intentionally appear in both graphs because internal inspection
+// and the customer-facing Portal use the same read-only screens.
+const surfaces = [
+  { name: 'internal', entrySource: 'index.html', appSource: 'src/AppInterno.tsx' },
+  { name: 'portal', entrySource: 'portal.html', appSource: 'src/AppPortal.tsx' },
+]
 
-// Route -> page source module (matches the lazyPage() imports in src/App.tsx).
-const pageKeys = Object.keys(manifest).filter(
-  (k) => k.startsWith('src/pages/') && k.endsWith('.tsx') && !k.includes('__tests__'),
-)
+function findEntryKey(source) {
+  return Object.keys(manifest).find((key) => manifest[key].isEntry && manifest[key].src === source)
+}
+
+function pageKeysForApp(appSource) {
+  const source = readFileSync(join(ROOT, appSource), 'utf8')
+  return [...source.matchAll(/import\(['"]\.\/pages\/([^'"]+)['"]\)/g)].map(
+    (match) => `src/pages/${match[1]}.tsx`,
+  )
+}
 
 // Cache file bytes + a measured parse/compile time per chunk so shared chunks
 // are only compiled once per run regardless of how many routes use them.
@@ -85,28 +92,42 @@ function median(xs) {
 }
 
 const rows = []
-for (const key of pageKeys) {
-  const files = new Set([...baseline, ...collectChunks(key)])
-  let raw = 0
-  let gzip = 0
-  for (const f of files) {
-    const { code, gzip: g } = loadFile(f)
-    raw += code.length
-    gzip += g
+for (const surface of surfaces) {
+  const entryKey = findEntryKey(surface.entrySource)
+  if (!entryKey) {
+    console.error(`No ${surface.name} entry found in manifest.`)
+    process.exit(2)
   }
-  const samples = []
-  for (let i = 0; i < RUNS; i++) {
-    let t = 0
-    for (const f of files) t += compileOnce(f)
-    samples.push(t)
+
+  const baseline = collectChunks(entryKey)
+  for (const key of pageKeysForApp(surface.appSource)) {
+    if (!manifest[key]) {
+      console.error(`No manifest entry found for ${surface.name} route module ${key}.`)
+      process.exit(2)
+    }
+
+    const files = new Set([...baseline, ...collectChunks(key)])
+    let raw = 0
+    let gzip = 0
+    for (const f of files) {
+      const { code, gzip: g } = loadFile(f)
+      raw += code.length
+      gzip += g
+    }
+    const samples = []
+    for (let i = 0; i < RUNS; i++) {
+      let t = 0
+      for (const f of files) t += compileOnce(f)
+      samples.push(t)
+    }
+    rows.push({
+      page: `${surface.name}/${key.replace('src/pages/', '').replace('.tsx', '')}`,
+      chunks: files.size,
+      rawKB: raw / 1024,
+      gzipKB: gzip / 1024,
+      ms: median(samples),
+    })
   }
-  rows.push({
-    page: key.replace('src/pages/', '').replace('.tsx', ''),
-    chunks: files.size,
-    rawKB: raw / 1024,
-    gzipKB: gzip / 1024,
-    ms: median(samples),
-  })
 }
 
 rows.sort((a, b) => b.ms - a.ms)

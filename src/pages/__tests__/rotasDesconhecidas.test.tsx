@@ -42,9 +42,9 @@ describe('abas de Administração em sub-rota', () => {
   })
 
   it('dá título próprio a cada aba e à tela sem sufixo', () => {
-    expect(routeTitle('/admin')).toBe('Administração · Transhipping Desk')
+    expect(routeTitle('/admin')).toBe('Administração · Vela')
     for (const { slug, label } of ADMIN_TABS) {
-      expect(routeTitle(`/admin/${slug}`)).toBe(`Administração · ${label} · Transhipping Desk`)
+      expect(routeTitle(`/admin/${slug}`)).toBe(`Administração · ${label} · Vela`)
     }
   })
 })

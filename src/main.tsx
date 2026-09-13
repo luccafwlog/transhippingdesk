@@ -5,10 +5,9 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import './index.css'
-import App from './App'
+import App from './AppInterno'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './hooks/useAuth'
-import { PortalAuthProvider } from './hooks/usePortalAuth'
 import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmDialogProvider } from './components/ui/ConfirmDialog'
@@ -16,7 +15,7 @@ import { isSupabaseConfigured } from './services/supabase'
 import { initTelemetry, markStartupStage, redactVercelTelemetryEvent } from './lib/telemetry'
 import { createAppQueryClient } from './lib/queryClient'
 
-initTelemetry()
+initTelemetry('internal')
 markStartupStage('entry')
 
 function ConfigurationError() {
@@ -47,12 +46,10 @@ createRoot(document.getElementById('root')!).render(
           <ToastProvider>
             <ConfirmDialogProvider>
               <VisualThemeProvider>
-                <PortalAuthProvider>
-                  <AuthProvider>
-                    <App />
-                    <SpeedInsights beforeSend={redactVercelTelemetryEvent} />
-                  </AuthProvider>
-                </PortalAuthProvider>
+                <AuthProvider>
+                  <App />
+                  <SpeedInsights beforeSend={redactVercelTelemetryEvent} />
+                </AuthProvider>
               </VisualThemeProvider>
             </ConfirmDialogProvider>
           </ToastProvider>

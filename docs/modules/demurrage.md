@@ -11,7 +11,7 @@ emissão; ROE/BRL congelam só no pagamento — ver
 [ADR 0014](../adr/0014-demurrage-recalculo-diario-substitui-roe-congelado.md) e
 [ADR 0015](../adr/0015-demurrage-conciliacao-janela-duas-ptax-data-pagamento.md)).
 As rotas internas ficam sob
-`ProtectedRoute` em [`src/App.tsx`](../../src/App.tsx); a interface de tarifas
+`ProtectedRoute` em [`src/AppInterno.tsx`](../../src/AppInterno.tsx); a interface de tarifas
 expõe mutações apenas para admin, enquanto as policies e RPCs continuam sendo a
 fronteira efetiva de autorização.
 

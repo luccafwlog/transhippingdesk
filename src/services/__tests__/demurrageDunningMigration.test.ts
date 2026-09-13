@@ -60,7 +60,7 @@ describe('migration 041 — recuperação segura de claims parciais', () => {
 // a suíte padrão; este cenário pega regressões de elegibilidade, starvation e
 // release/reuso no comportamento real.
 const describeLocal = process.env.LOCAL_PG_INTEGRATION === '1' ? describe : describe.skip
-const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/transhipping_test'
+const databaseUrl = process.env.LOCAL_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/vela_test'
 const localAdminId = '00000000-0000-0000-0000-000000010601'
 const localEligibleCustomerId = 99010601
 const localBouncedCustomerId = 99010602

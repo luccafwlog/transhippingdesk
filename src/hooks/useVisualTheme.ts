@@ -2,7 +2,8 @@ import { createContext, createElement, useEffect, useMemo, useState } from 'reac
 
 export type VisualTheme = 'current' | 'dark' | 'light'
 
-const storageKey = 'transhipping_visual_theme'
+const storageKey = 'vela_visual_theme'
+const legacyStorageKey = 'transhipping_visual_theme'
 
 type VisualThemeContextValue = {
   theme: VisualTheme
@@ -18,7 +19,7 @@ function isVisualTheme(value: string | null): value is VisualTheme {
 export function VisualThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<VisualTheme>(() => {
     if (typeof window === 'undefined') return 'current'
-    const stored = window.localStorage.getItem(storageKey)
+    const stored = window.localStorage.getItem(storageKey) ?? window.localStorage.getItem(legacyStorageKey)
     return isVisualTheme(stored) ? stored : 'current'
   })
 

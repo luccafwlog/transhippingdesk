@@ -1,6 +1,6 @@
 ---
 name: import-parser
-description: "Add or change Transhipping Desk file parsing and import persistence."
+description: "Add or change Vela file parsing and import persistence."
 ---
 
 # Import Parser Playbook

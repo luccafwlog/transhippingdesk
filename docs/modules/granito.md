@@ -10,7 +10,7 @@ clientes, persiste manifesto e B/Ls próprios e calcula snapshots quantitativos
 por peso/B/L. O módulo não promove B/Ls a uma etapa financeira nem emite invoices.
 
 As rotas são internas e ficam sob `ProtectedRoute` em
-[`src/App.tsx`](../../src/App.tsx). A UI de tarifas reserva mutações para admin;
+[`src/AppInterno.tsx`](../../src/AppInterno.tsx). A UI de tarifas reserva mutações para admin;
 as tabelas operacionais aceitam leitura/inserção/update de usuário ativo e
 DELETE de admin após
 [`supabase/migrations_archive/042_rls_module_hardening.sql`](../../supabase/migrations_archive/042_rls_module_hardening.sql).

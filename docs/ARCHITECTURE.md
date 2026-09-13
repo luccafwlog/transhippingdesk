@@ -1,4 +1,4 @@
-# Arquitetura do Transhipping Desk
+# Arquitetura do Vela e do Portal Fwlog
 
 Verificado contra o código, a configuração e as migrations em 2026-09-07.
 
@@ -106,15 +106,15 @@ aberta, bounce sem contato alternativo ou ausência de contato válido. O valor
 em USD permanece o da cobrança; o BRL exibido no comunicado leva ROE e data de
 referência e informa que será recalculado no pagamento.
 
-O hosting é um único projeto Vercel para a SPA Vite. O GitHub Integration cria
-Preview Deployments para pull requests, e a integração de branching do Supabase
-faz cada Preview apontar para a branch Supabase automática da mesma branch Git.
-O branch `main` gera o Production Deployment e usa o projeto Supabase de
-produção. `https://transhippingdesk.com.br` e
-`https://portal.transhippingdesk.com.br` são aliases do mesmo projeto, e o
-roteamento entre operação interna e Portal continua sendo responsabilidade do
-host/rota/autenticação da aplicação. O Firebase permanece apenas como rollback
-temporário durante a troca de DNS.
+O hosting usa dois projetos Vercel sobre o mesmo repositório e a mesma base de
+código: o projeto interno publica `index.html` em `https://vela.app.br`, e o
+projeto do Portal publica `portal.html` em `https://portalfwlog.com.br`.
+Cada projeto cria seus próprios Previews para pull requests; a integração de
+branching do Supabase mantém as credenciais de Preview alinhadas à branch Git
+correspondente. O branch `main` gera os dois Production Deployments e ambos
+usam o projeto Supabase de produção. O Portal continua sendo Fwlog, enquanto
+Vela identifica somente a superfície interna. O hosting Firebase não faz mais
+parte da arquitetura.
 
 Depois de um CI verde, o workflow confiável
 `.github/workflows/provision-preview-admin.yml` aguarda o check da branch
@@ -243,8 +243,8 @@ senha em claro é persistido.
 ## Camadas do frontend
 
 ```text
-src/App.tsx
-  -> páginas lazy em src/pages/
+src/AppInterno.tsx + src/AppPortal.tsx
+  -> páginas lazy em src/pages/ (com compartilhamento neutro entre builds)
      -> hooks de estado remoto e mutations em src/hooks/
      -> serviços, parsers e regras em src/services/
      -> componentes compartilhados em src/components/

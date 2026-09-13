@@ -128,14 +128,17 @@ for (const moduleDocument of moduleDocuments) {
   }
 }
 
-const appRoutes = [...read('src/App.tsx').matchAll(/<Route\s+path="([^"]+)"/g)]
-  .map((match) => match[1])
-  .filter((route) => route !== '*')
+const routeSources = ['src/AppInterno.tsx', 'src/AppPortal.tsx']
+const appRoutes = [...new Set(routeSources.flatMap((routeSource) =>
+  [...read(routeSource).matchAll(/<Route\s+path="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((route) => route !== '*'),
+))]
 const architecture = read('docs/ARCHITECTURE.md')
 
 for (const route of appRoutes) {
   if (!architecture.includes(`\`${route}\``)) {
-    addError('docs/ARCHITECTURE.md', `route from src/App.tsx is not documented: ${route}`)
+    addError('docs/ARCHITECTURE.md', `route from AppInterno/AppPortal is not documented: ${route}`)
   }
 }
 

@@ -97,7 +97,7 @@ export const COMMUNICATION_ATTACHMENT_ALLOWED_TYPES = [
 const COMMUNICATION_ATTACHMENT_ALLOWED_TYPE_SET = new Set<string>(COMMUNICATION_ATTACHMENT_ALLOWED_TYPES)
 const FORBIDDEN_ATTACHMENT_KINDS = new Set(['ce_mercante_taxas', 'cobranca_demurrage'])
 const BRASILIA_TIME_ZONE = 'America/Sao_Paulo'
-export const CUSTOMER_PORTAL_BILLING_URL = 'https://portal.transhippingdesk.com.br/portal/billing'
+export const CUSTOMER_PORTAL_BILLING_URL = 'https://portalfwlog.com.br/portal/billing'
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
@@ -188,7 +188,7 @@ const BRAND_MUTED = '#6b7280'
 const BRAND_BORDER = '#e5e7eb'
 const BRAND_CARD_BG = '#ffffff'
 const BRAND_PAGE_BG = '#f1f3f6'
-const DEFAULT_PORTAL_BASE_URL = 'https://portal.transhippingdesk.com.br'
+const DEFAULT_PORTAL_BASE_URL = 'https://portalfwlog.com.br'
 
 function extractBasePortalUrl(url?: string | null): string {
   const raw = url?.trim() || DEFAULT_PORTAL_BASE_URL
