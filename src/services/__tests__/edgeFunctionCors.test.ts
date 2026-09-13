@@ -7,11 +7,12 @@ import { ALLOWED_ORIGINS, corsHeaders, isAllowedOrigin, parseConfiguredOrigins }
 // `Access-Control-Allow-Origin: null` com ela, liberando justamente o contexto
 // mais anônimo. A negação correta em CORS é a ausência do header.
 describe('corsHeaders das Edge Functions', () => {
-  const allowed = 'https://portal.transhippingdesk.com.br'
+  const allowed = 'https://portalfwlog.com.br'
 
   it('ecoa a origem quando ela está na allowlist', () => {
     expect(ALLOWED_ORIGINS.has(allowed)).toBe(true)
     expect(corsHeaders(allowed)['Access-Control-Allow-Origin']).toBe(allowed)
+    expect(corsHeaders('https://vela.app.br')['Access-Control-Allow-Origin']).toBe('https://vela.app.br')
   })
 
   it('omite o header para origem fora da allowlist, em vez de devolver "null"', () => {
@@ -47,13 +48,18 @@ describe('corsHeaders das Edge Functions', () => {
   })
 
   it('aceita o alias de Preview gerado para este projeto Vercel', () => {
-    const origin = 'https://transhippingdesk-git-feature-abc123-luccafwlogs-projects.vercel.app'
-    expect(isAllowedOrigin(origin)).toBe(true)
-    expect(corsHeaders(origin)['Access-Control-Allow-Origin']).toBe(origin)
+    for (const origin of [
+      'https://vela-git-feature-abc123-luccafwlogs-projects.vercel.app',
+      'https://fwlog-portal-git-feature-abc123-luccafwlogs-projects.vercel.app',
+    ]) {
+      expect(isAllowedOrigin(origin)).toBe(true)
+      expect(corsHeaders(origin)['Access-Control-Allow-Origin']).toBe(origin)
+    }
   })
 
   it('não aceita Preview de outro projeto ou equipe no Vercel', () => {
     expect(isAllowedOrigin('https://outro-projeto-abc123-luccafwlogs-projects.vercel.app')).toBe(false)
-    expect(isAllowedOrigin('https://transhippingdesk-abc123-outra-equipe.vercel.app')).toBe(false)
+    expect(isAllowedOrigin('https://vela-abc123-outra-equipe.vercel.app')).toBe(false)
+    expect(isAllowedOrigin('https://transhippingdesk-git-feature-abc123-luccafwlogs-projects.vercel.app')).toBe(false)
   })
 })
