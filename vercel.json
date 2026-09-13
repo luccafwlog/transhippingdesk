@@ -31,14 +31,6 @@
   ],
   "rewrites": [
     {
-      "source": "/\\.vite(?:/.*)?",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/(.*)\\.map$",
-      "destination": "/index.html"
-    },
-    {
       "source": "/index.html",
       "has": [
         {

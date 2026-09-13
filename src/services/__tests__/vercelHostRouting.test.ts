@@ -64,10 +64,6 @@ describe('roteamento por hostname no Vercel', () => {
     expect(routeMatches(spaRewrite!, internalHost, '/assets/app.js')).toBe(false)
     expect(routeMatches(spaRewrite!, internalHost, '/branding/vela.svg')).toBe(false)
     expect(routeMatches(spaRewrite!, internalHost, '/favicon.ico')).toBe(false)
-
-    // Bloqueia acesso público a sourcemaps e manifestos internos do Vite
-    expect(rewrites.some((route) => route.source?.includes('.vite'))).toBe(true)
-    expect(rewrites.some((route) => route.source?.includes('.map'))).toBe(true)
   })
 
   it('redireciona rotas /portal acessadas no host interno Vela para o Portal Fwlog', () => {
