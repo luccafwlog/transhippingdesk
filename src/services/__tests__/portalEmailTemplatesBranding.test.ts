@@ -33,7 +33,7 @@ describe('Identidade visual dos emails do Portal', () => {
     })
     expect(bounce.html).toContain('https://portalfwlog.com.br/branding/tr-logo.png')
     expect(bounce.html).not.toContain('/portal/branding/tr-logo.png')
-    expect(bounce.html).toContain('url="https://portalfwlog.com.br/portal"')
+    expect(bounce.html).toContain('href="https://portalfwlog.com.br/portal"')
   })
 
   it('mostra um quadro de identificação com empresa e CNPJ mascarado quando fornecido', () => {
