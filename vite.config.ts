@@ -52,6 +52,26 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       {
         name: 'inject-external-preconnects',
+        configureServer(server) {
+          server.middlewares.use((request, _response, next) => {
+            const requestUrl = request.url
+            if (!requestUrl) {
+              next()
+              return
+            }
+
+            const queryStart = requestUrl.indexOf('?')
+            const pathname = queryStart >= 0 ? requestUrl.slice(0, queryStart) : requestUrl
+            if (pathname === '/portal' || pathname.startsWith('/portal/')) {
+              const query = queryStart >= 0 ? requestUrl.slice(queryStart) : ''
+              // Vite's dev fallback otherwise serves index.html for this MPA
+              // route. The browser keeps /portal/* in its address bar while
+              // the server transforms the Portal entry HTML.
+              request.url = `/portal.html${query}`
+            }
+            next()
+          })
+        },
         transformIndexHtml(html: string) {
           const origins = [originOf(env.VITE_SUPABASE_URL), originOf('https://olinda.bcb.gov.br')].filter(
             (origin): origin is string => Boolean(origin),

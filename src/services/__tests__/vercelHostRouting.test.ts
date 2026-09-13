@@ -4,55 +4,64 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 type Route = {
-  src?: string
-  dest?: string
-  handle?: string
+  source?: string
+  destination?: string
   has?: Array<{ type?: string; value?: string }>
 }
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const vercelConfig = JSON.parse(readFileSync(path.join(repositoryRoot, 'vercel.json'), 'utf8')) as {
-  routes?: Route[]
-  rewrites?: unknown[]
+  routes?: unknown[]
+  rewrites?: Route[]
 }
 
 const routeMatches = (route: Route, host: string, pathname: string) => {
   const hostMatcher = route.has?.find((condition) => condition.type === 'host')?.value
   return Boolean(
-    route.src &&
-      hostMatcher &&
-      new RegExp(route.src).test(pathname) &&
+    route.source &&
+    hostMatcher &&
+      new RegExp(route.source).test(pathname) &&
       new RegExp(hostMatcher).test(host),
   )
 }
 
 describe('roteamento por hostname no Vercel', () => {
-  it('seleciona a entrada correta antes da precedência do filesystem', () => {
-    const routes = vercelConfig.routes ?? []
+  it('seleciona a entrada correta e preserva o tratamento dos arquivos estáticos', () => {
+    const rewrites = vercelConfig.rewrites ?? []
     const internalHost = 'vela-git-claude-dreamy-keller-cyegz4-luccafwlogs-projects.vercel.app'
     const portalHost = 'fwlog-portal-e7j6ij3x8-luccafwlogs-projects.vercel.app'
 
-    expect(vercelConfig.rewrites).toBeUndefined()
-    expect(routes.some((route) => route.handle === 'filesystem')).toBe(true)
+    expect(vercelConfig.routes).toBeUndefined()
     expect(
-      routes.some(
-        (route) => route.dest === '/index.html' && routeMatches(route, internalHost, '/'),
+      rewrites.some(
+        (route) => route.destination === '/index.html' && routeMatches(route, internalHost, '/'),
       ),
     ).toBe(true)
     expect(
-      routes.some(
-        (route) => route.dest === '/portal.html' && routeMatches(route, portalHost, '/'),
+      rewrites.some(
+        (route) => route.destination === '/portal.html' && routeMatches(route, portalHost, '/'),
       ),
     ).toBe(true)
     expect(
-      routes.some(
-        (route) => route.dest === '/portal.html' && routeMatches(route, portalHost, '/portal/login'),
+      rewrites.some(
+        (route) => route.destination === '/portal.html' && routeMatches(route, portalHost, '/portal/login'),
       ),
     ).toBe(true)
     expect(
-      routes.some(
-        (route) => route.dest === '/index.html' && routeMatches(route, internalHost, '/clientes'),
+      rewrites.some(
+        (route) => route.destination === '/index.html' && routeMatches(route, internalHost, '/clientes'),
       ),
     ).toBe(true)
+
+    const spaRewrite = rewrites.find(
+      (route) => route.destination === '/index.html' && route.source?.includes('((?!'),
+    )
+    expect(spaRewrite?.source).toContain('((?!')
+    expect(spaRewrite?.source).toContain('assets')
+    expect(spaRewrite?.source).toContain('branding')
+    expect(spaRewrite?.source).toContain('.*\\.[^/]+$')
+    expect(routeMatches(spaRewrite!, internalHost, '/assets/app.js')).toBe(false)
+    expect(routeMatches(spaRewrite!, internalHost, '/branding/vela.svg')).toBe(false)
+    expect(routeMatches(spaRewrite!, internalHost, '/favicon.ico')).toBe(false)
   })
 })

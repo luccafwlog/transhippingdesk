@@ -83,7 +83,8 @@ pré-autenticação para o resolver está documentada na
 
 ```text
 src/
-  App.tsx                 mapa de rotas
+  AppInterno.tsx          mapa de rotas do sistema interno
+  AppPortal.tsx           mapa de rotas do Portal Fwlog
   main.tsx                providers globais e telemetria
   pages/                  composição de telas
   hooks/                  queries e mutations reutilizáveis
@@ -365,7 +366,8 @@ Parsers existentes são referências, não contratos universais:
 
 ## 8. Rotas e páginas
 
-`src/App.tsx` é a fonte executável das rotas.
+`src/AppInterno.tsx` e `src/AppPortal.tsx` são as fontes executáveis das rotas,
+cada uma no seu build.
 
 ### Nova rota
 

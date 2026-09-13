@@ -8,7 +8,6 @@ import './index.css'
 import App from './AppPortal'
 import { PortalErrorBoundary } from './components/PortalErrorBoundary'
 import { PortalAuthProvider } from './hooks/usePortalAuth'
-import { VisualThemeProvider } from './hooks/useVisualTheme'
 import { ToastProvider } from './components/ui/Toast'
 import { ConfirmDialogProvider } from './components/ui/ConfirmDialog'
 import { isSupabaseConfigured } from './services/supabase'
@@ -45,12 +44,10 @@ createRoot(document.getElementById('root')!).render(
           <BrowserRouter>
             <ToastProvider>
               <ConfirmDialogProvider>
-                <VisualThemeProvider>
-                  <PortalAuthProvider>
-                    <App />
-                    <SpeedInsights beforeSend={redactVercelTelemetryEvent} />
-                  </PortalAuthProvider>
-                </VisualThemeProvider>
+                <PortalAuthProvider>
+                  <App />
+                  <SpeedInsights beforeSend={redactVercelTelemetryEvent} />
+                </PortalAuthProvider>
               </ConfirmDialogProvider>
             </ToastProvider>
           </BrowserRouter>

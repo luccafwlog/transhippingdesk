@@ -8,7 +8,7 @@ Reconciliação PIX recebe a planilha bancária, extrai transações, casa TXIDs
 documentos locais ou de Demurrage, separa resultados seguros de ambiguidades,
 confirma o lote, apresenta histórico/exportação e permite cancelar baixas.
 
-- A rota interna está em `src/App.tsx` e a composição em
+- A rota interna está em `src/AppInterno.tsx` e a composição em
   `src/pages/Reconciliacao.tsx`.
 - `src/services/demurrage/demurrageKpis.ts` é o dono do parser da planilha.
 - `src/services/reconciliacao.ts` é o dono do matching, confirmação, histórico,

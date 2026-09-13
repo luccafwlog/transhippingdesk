@@ -5,49 +5,46 @@
   "buildCommand": "node scripts/vercel-build.mjs",
   "outputDirectory": "dist",
   "ignoreCommand": "p=${VERCEL_GIT_PREVIOUS_SHA:-x}; c=${VERCEL_GIT_COMMIT_SHA:-x}; [ \"$p\" = \"$c\" ] && exit 1; git diff --quiet \"$p\" \"$c\" -- . 2>/dev/null || exit 1",
-  "routes": [
+  "rewrites": [
     {
-      "src": "^/index\\.html$",
+      "source": "/index.html",
       "has": [
         {
           "type": "host",
           "value": "^(?:portalfwlog\\.com\\.br|fwlog-portal(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
         }
       ],
-      "dest": "/portal.html"
+      "destination": "/portal.html"
     },
     {
-      "src": "^/portal\\.html$",
+      "source": "/portal.html",
       "has": [
         {
           "type": "host",
           "value": "^(?:vela\\.app\\.br|vela(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
         }
       ],
-      "dest": "/index.html"
+      "destination": "/index.html"
     },
     {
-      "src": "^/(?!assets(?:/|$)|branding(?:/|$)|.*\\.[^/]+$).*",
+      "source": "/((?!assets(?:/|$)|branding(?:/|$)|.*\\.[^/]+$).*)",
       "has": [
         {
           "type": "host",
           "value": "^(?:vela\\.app\\.br|vela(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
         }
       ],
-      "dest": "/index.html"
+      "destination": "/index.html"
     },
     {
-      "src": "^/(?!assets(?:/|$)|branding(?:/|$)|.*\\.[^/]+$).*",
+      "source": "/((?!assets(?:/|$)|branding(?:/|$)|.*\\.[^/]+$).*)",
       "has": [
         {
           "type": "host",
           "value": "^(?:portalfwlog\\.com\\.br|fwlog-portal(?:-[a-z0-9-]+)?(?:-luccafwlogs-projects)?\\.vercel\\.app)$"
         }
       ],
-      "dest": "/portal.html"
-    },
-    {
-      "handle": "filesystem"
+      "destination": "/portal.html"
     }
   ],
   "headers": [
