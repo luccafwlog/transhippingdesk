@@ -2,7 +2,7 @@ import { createContext, createElement, useEffect, useMemo, useState } from 'reac
 
 export type VisualTheme = 'current' | 'dark' | 'light'
 
-const storageKey = 'transhipping_visual_theme'
+const storageKey = 'vela_visual_theme'
 
 type VisualThemeContextValue = {
   theme: VisualTheme
