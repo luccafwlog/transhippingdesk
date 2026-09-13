@@ -1,8 +1,8 @@
 # 2026-09-12 — Transição de marca: Transhipping Desk → Vela
 
 - **Status:** execução técnica concluída — B1–B8 de repositório concluídos;
-  GitHub, Vercel, Supabase e Sentry já foram atualizados. O deploy de produção
-  do Portal está verde. Permanecem pendentes a liberação da zona DNS de
+  GitHub, Vercel, Supabase e Sentry já foram atualizados. O deployment de
+  Preview do Portal está verde. Permanecem pendentes a liberação da zona DNS de
   `vela.app.br` após a transição do Registro.br, o DNS de
   `portalfwlog.com.br` no provedor correspondente e o rótulo do Resend. Os
   Previews reais dos dois projetos já foram validados. O B8 foi desbloqueado
@@ -654,6 +654,10 @@ Portal (Fwlog). O segundo é criado em coordenação com a sessão Fwlog.
    que `vela.app.br` servir esse header, **todo subdomínio de `vela.app.br` fica
    preso a HTTPS por um ano**. Não é problema; é irreversível dentro do prazo.
 4. `transhippingdesk.com.br` nunca chega a servir produção (§4.2).
+
+`portalfwlog.com.br` é um segundo domínio do Registro.br, mas permanece no
+estado "Novo", com pagamento pendente; o painel bloqueia a edição da zona até
+que ele seja regularizado.
 
 ### 7.3 GitHub
 
