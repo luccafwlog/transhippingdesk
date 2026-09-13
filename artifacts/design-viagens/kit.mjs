@@ -1,4 +1,4 @@
-// Vocabulário visual real do Transhipping Desk, extraído de src/index.css
+// Vocabulário visual real do Vela, extraído de src/index.css
 // (tema `current`/light) e dos componentes em src/components/ui + voyages.
 // Nada aqui é inventado: cada valor foi copiado do código de produção.
 

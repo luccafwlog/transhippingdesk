@@ -4,9 +4,6 @@
 const FIXED_ALLOWED_ORIGINS = [
   'https://transhippingdesk.com.br',
   'https://portal.transhippingdesk.com.br',
-  // Mantidos temporariamente para rollback durante o cutover do hosting.
-  'https://transhippingdesk.web.app',
-  'https://transhippingdesk.firebaseapp.com',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
 ]

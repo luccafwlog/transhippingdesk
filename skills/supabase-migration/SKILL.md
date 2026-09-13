@@ -1,6 +1,6 @@
 ---
 name: supabase-migration
-description: "Create or review a Transhipping Desk database migration and its app contract."
+description: "Create or review a Vela database migration and its app contract."
 ---
 
 # Supabase Migration Playbook

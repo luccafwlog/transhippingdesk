@@ -4,7 +4,7 @@
 -- como registro historico ate existir uma substituicao validada em banco
 -- descartavel.
 
--- Transhipping Desk - reset operacional para testes
+-- Vela - reset operacional para testes
 -- Preserva:
 -- - auth.users
 -- - public.user_profiles

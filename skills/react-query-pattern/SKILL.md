@@ -1,6 +1,6 @@
 ---
 name: react-query-pattern
-description: "Change Transhipping Desk remote-state ownership, query keys or mutation invalidation."
+description: "Change Vela remote-state ownership, query keys or mutation invalidation."
 ---
 
 # React Query and Data Access

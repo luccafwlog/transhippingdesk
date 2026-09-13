@@ -230,7 +230,7 @@ imprime um **relatório de conferência**: quantos clientes, viagens, containers
 faturas atravessariam, e o que ainda está impedindo.
 
 **Ele não muda nada.** Só lê e escreve na tela — não grava no sistema antigo,
-não grava no Transhipping Desk, não cria arquivo. É um ensaio.
+não grava no Vela, não cria arquivo. É um ensaio.
 
 **Quando usar:** antes da migração de verdade, e de novo no dia da virada (os
 números mudam enquanto o sistema antigo continua em uso).

@@ -35,7 +35,7 @@
       "template": "Invoke the skill customize-opencode and follow its instructions."
     },
     "design-audit": {
-      "description": "Full-site UI/UX audit playbook for Transhipping Desk. Boot the app, screenshot every page, audit, prioritize P0-P3, apply fixes, write report.",
+      "description": "Full-site UI/UX audit playbook for Vela. Boot the app, screenshot every page, audit, prioritize P0-P3, apply fixes, write report.",
       "template": "Invoke the skill design-audit and follow its instructions."
     },
     "diagnosing-bugs": {
@@ -87,7 +87,7 @@
       "template": "Invoke the skill implement and follow its instructions."
     },
     "import-parser": {
-      "description": "Use when adding or changing CSV, XLSX, EDI, EDIFACT, fixed-width, carrier, manifesto, Baplie, vehicle, container, customer, CE Mercante, Granito, or Vazios import behavior in Transhipping Desk.",
+      "description": "Use when adding or changing CSV, XLSX, EDI, EDIFACT, fixed-width, carrier, manifesto, Baplie, vehicle, container, customer, CE Mercante, Granito, or Vazios import behavior in Vela.",
       "template": "Invoke the skill import-parser and follow its instructions."
     },
     "improve": {
@@ -99,7 +99,7 @@
       "template": "Invoke the skill improve-codebase-architecture and follow its instructions."
     },
     "invoice-pdf": {
-      "description": "Use when adding or changing printable local-charge or Demurrage invoice documents, browser print behavior, invoice layout, or PIX QR rendering in Transhipping Desk.",
+      "description": "Use when adding or changing printable local-charge or Demurrage invoice documents, browser print behavior, invoice layout, or PIX QR rendering in Vela.",
       "template": "Invoke the skill invoice-pdf and follow its instructions."
     },
     "loop-me": {
@@ -143,7 +143,7 @@
       "template": "Invoke the skill prototype and follow its instructions."
     },
     "react-query-pattern": {
-      "description": "Use when adding or changing Supabase data access, TanStack React Query hooks, cache keys, invalidation, mutations, or page-to-service calls in Transhipping Desk.",
+      "description": "Use when adding or changing Supabase data access, TanStack React Query hooks, cache keys, invalidation, mutations, or page-to-service calls in Vela.",
       "template": "Invoke the skill react-query-pattern and follow its instructions."
     },
     "receiving-code-review": {
@@ -175,7 +175,7 @@
       "template": "Invoke the skill subagent-driven-development and follow its instructions."
     },
     "supabase-migration": {
-      "description": "Use when creating or reviewing a Transhipping Desk Supabase migration involving tables, columns, indexes, constraints, foreign keys, RLS, grants, views, functions, triggers, RPCs, or generated database types.",
+      "description": "Use when creating or reviewing a Vela Supabase migration involving tables, columns, indexes, constraints, foreign keys, RLS, grants, views, functions, triggers, RPCs, or generated database types.",
       "template": "Invoke the skill supabase-migration and follow its instructions."
     },
     "systematic-debugging": {

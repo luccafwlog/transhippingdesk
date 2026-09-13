@@ -1,6 +1,6 @@
 ---
 name: design-audit
-description: "Audit Transhipping Desk UI across pages with screenshots and prioritized findings."
+description: "Audit Vela UI across pages with screenshots and prioritized findings."
 ---
 
 # Design Audit Playbook

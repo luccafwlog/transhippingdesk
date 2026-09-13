@@ -12,7 +12,7 @@ Every skill below is tagged with where it comes from:
 |-----|---------|
 | **mattpocock/skills** | Vendored from [github.com/mattpocock/skills](https://github.com/mattpocock/skills) at tag `release/v1.2`. See the dedicated section below. |
 | **Superpowers** | Vendored from the [obra/superpowers](https://github.com/obra/superpowers) skill set. |
-| **Project** | Authored for this repository (Transhipping Desk domain/workflow skills). |
+| **Project** | Authored for this repository (Vela domain/workflow skills). |
 | **Third-party** | Vendored from another named author/source (credited per skill). |
 
 ## Mattpocock Skills (mattpocock/skills @ release/v1.2)
@@ -91,7 +91,7 @@ for the changes, structural checks and remaining installation limits.
 
 | Skill | Description |
 |-------|-------------|
-| **design-audit** | Full-site UI/UX audit playbook for Transhipping Desk: boot real app, screenshot every page, audit, prioritize P0-P3, apply safe fixes. |
+| **design-audit** | Full-site UI/UX audit playbook for Vela: boot real app, screenshot every page, audit, prioritize P0-P3, apply safe fixes. |
 | **import-parser** | Add or change CSV, XLSX, EDI, EDIFACT, fixed-width, Baplie, vehicle, container, customer, CE Mercante, Granito, or Vazios import behavior. |
 | **invoice-pdf** | Add or change printable local-charge or Demurrage invoice documents, browser print behavior, layout, fiscal formatting, PIX QR rendering. |
 | **react-query-pattern** | Add or change Supabase data access, TanStack React Query hooks, cache keys, invalidation, mutations, reusable remote state. |
