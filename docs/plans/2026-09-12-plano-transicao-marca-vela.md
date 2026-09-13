@@ -4,9 +4,9 @@
   GitHub, Vercel, Supabase e Sentry já foram atualizados. O deploy de produção
   do Portal está verde. Permanecem pendentes a liberação da zona DNS de
   `vela.app.br` após a transição do Registro.br, o DNS de
-  `portalfwlog.com.br` no provedor correspondente, o rótulo do Resend e a
-  validação de um Preview real após o último push. O B8 foi desbloqueado pelos
-  assets entregues na PR 689.
+  `portalfwlog.com.br` no provedor correspondente e o rótulo do Resend. Os
+  Previews reais dos dois projetos já foram validados. O B8 foi desbloqueado
+  pelos assets entregues na PR 689.
 - **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
   `vela.app.br`.
 - **Executor previsto:** Codex, seguindo os blocos do §6 na ordem dada.
@@ -623,9 +623,10 @@ Portal (Fwlog). O segundo é criado em coordenação com a sessão Fwlog.
    `fwlog-portal` foi criado, ambos conectados ao repositório
    `luccafwlog/vela`. O primeiro mantém o build interno; o segundo usa a
    entrada `portal.html` da mesma base.
-2. **Concluído no repositório e no painel.** O regex de Preview cobre os dois
-   projetos (`vela` e `fwlog-portal`) e foi publicado no mesmo branch da PR
-   688.
+2. **Concluído no repositório e no painel.** O roteamento por hostname cobre os
+   dois projetos (`vela` e `fwlog-portal`) antes da precedência do filesystem,
+   e os dois Previews foram publicados e abertos no navegador: o interno
+   mostra `Login · Vela` e o Portal mostra `Portal · Login · Fwlog`.
 3. **Parcial.** `vela.app.br` foi adicionado ao projeto `vela`. O Vercel
    indicou o registro `A @ → 216.198.79.1`; a publicação desse registro está
    aguardando o fim da transição de zona no Registro.br.
@@ -633,12 +634,12 @@ Portal (Fwlog). O segundo é criado em coordenação com a sessão Fwlog.
    `VITE_PORTAL_URL` e `VITE_PORTAL_BILLING_URL` estão configuradas como
    variáveis públicas em Produção e Preview no `fwlog-portal`; o projeto
    interno também mantém as variáveis do Portal em seus ambientes.
-5. **Parcial.** A integração Supabase está instalada e sincronizada no
+5. **Concluído.** A integração Supabase está instalada e sincronizada no
    `fwlog-portal`, com as variáveis de integração presentes em Produção e
-   Preview. O projeto interno já exibe as variáveis específicas dos branches
-   das PRs 688 e 689; a cobertura específica do branch no Portal será
-   revalidada junto ao primeiro Preview após este push, mantendo a página de
-   espera como fallback seguro.
+   Preview. O projeto interno exibe as variáveis específicas dos branches das
+   PRs 688 e 689. No Preview do Portal, o branch Supabase correspondente
+   respondeu a `OPTIONS` com `Access-Control-Allow-Origin` igual ao hostname
+   do Preview; a página de espera permanece como fallback seguro.
 
 ### 7.2 registro.br
 
@@ -723,10 +724,12 @@ entre domínios, e a premissa de "nenhum e-mail enviado" (D3 dispensou).
 4. **B6 concluído:** dois artefatos, e a prova manual de que o bundle interno
    não contém as rotas públicas do Portal e vice-versa. `npm run size-limit`
    verde com os globs novos.
-5. **B7 concluído:** allowlist de CORS só com os domínios novos, regex de
-   preview cobrindo os dois projetos Vercel, e um Preview real testado no
-   navegador — o teste unitário não prova CORS.
-6. **§7 concluído** e confirmado item a item por quem tem acesso aos painéis.
+5. **B7 concluído:** allowlist de CORS só com os domínios novos, roteamento
+   cobrindo os dois projetos Vercel, dois Previews reais testados no navegador
+   e resposta de CORS verificada no branch Supabase da PR 688.
+6. **§7 parcialmente concluído:** GitHub, Vercel (projetos, variáveis e
+   Previews), Supabase e Sentry foram confirmados; aguardam apenas a zona DNS
+   de `vela.app.br`, o DNS de `portalfwlog.com.br` e o rótulo do Resend.
 7. **B8 concluído:** identidade Vela no app interno, sem tocar em
    `public/branding/`.
 8. Antes do lançamento, três verificações manuais: login interno, um envio de
