@@ -1,12 +1,13 @@
 # 2026-09-12 — Transição de marca: Transhipping Desk → Vela
 
 - **Status:** execução técnica concluída — B1–B8 de repositório concluídos;
-  GitHub, Vercel, Supabase e Sentry já foram atualizados. O deployment de
-  Preview do Portal está verde. Permanecem pendentes a liberação da zona DNS de
-  `vela.app.br` após a transição do Registro.br, o DNS de
-  `portalfwlog.com.br` no provedor correspondente e o rótulo do Resend. Os
-  Previews reais dos dois projetos já foram validados. O B8 foi desbloqueado
-  pelos assets entregues na PR 689.
+  GitHub, Vercel, Supabase, Sentry e Resend já foram atualizados. O deployment
+  de Preview do Portal está verde. Os dois domínios estão publicados e com
+  pagamento confirmado; suas zonas DNS ainda aguardam o fim da transição do
+  Registro.br para receber `A @ → 216.198.79.1`. O projeto Firebase
+  `transhipping-desk` está desligado e programado para exclusão pelo Google
+  Cloud. Os Previews reais dos dois projetos já foram validados. O B8 foi
+  desbloqueado pelos assets entregues na PR 689.
 - **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
   `vela.app.br`.
 - **Executor previsto:** Codex, seguindo os blocos do §6 na ordem dada.
@@ -655,9 +656,9 @@ Portal (Fwlog). O segundo é criado em coordenação com a sessão Fwlog.
    preso a HTTPS por um ano**. Não é problema; é irreversível dentro do prazo.
 4. `transhippingdesk.com.br` nunca chega a servir produção (§4.2).
 
-`portalfwlog.com.br` é um segundo domínio do Registro.br, mas permanece no
-estado "Novo", com pagamento pendente; o painel bloqueia a edição da zona até
-que ele seja regularizado.
+`portalfwlog.com.br` é um segundo domínio do Registro.br. O pagamento foi
+confirmado, o domínio está publicado e o modo avançado foi confirmado; a zona
+está em transição, portanto a edição aguarda a liberação do Registro.br.
 
 ### 7.3 GitHub
 
@@ -680,14 +681,14 @@ O DSN em `src/lib/telemetry.ts:9` **não muda** (§4.7).
 
 ### 7.6 Resend
 
-**Pendente por falta de aba autenticada.** Renomear apenas o rótulo do projeto
-continua sendo o escopo; SPF, DKIM, DMARC e aquecimento de domínio pertencem ao
-Portal, não a `vela.app.br` (§4.6). D3 já está fechada: os envios existentes
-foram testes internos.
+**Concluído.** O rótulo do projeto foi renomeado para `Fwlog`. SPF, DKIM,
+DMARC e aquecimento de domínio pertencem ao Portal, não a `vela.app.br`
+(§4.6). D3 já está fechada: os envios existentes foram testes internos.
 
-O Firebase Hosting também não foi removido do console: a remoção dos arquivos
-locais e das origens de CORS foi feita no B3, mas a exclusão externa é
-destrutiva e exige confirmação específica com acesso ao painel Firebase.
+O Firebase Hosting foi removido do fluxo local no B3. Com a autorização
+expressa, a exclusão do projeto `transhipping-desk` também foi solicitada no
+Firebase; o Google Cloud confirmou que ele está desligado e **programado para
+exclusão**, com a janela padrão de restauração de 30 dias.
 
 ---
 
@@ -732,8 +733,8 @@ entre domínios, e a premissa de "nenhum e-mail enviado" (D3 dispensou).
    cobrindo os dois projetos Vercel, dois Previews reais testados no navegador
    e resposta de CORS verificada no branch Supabase da PR 688.
 6. **§7 parcialmente concluído:** GitHub, Vercel (projetos, variáveis e
-   Previews), Supabase e Sentry foram confirmados; aguardam apenas a zona DNS
-   de `vela.app.br`, o DNS de `portalfwlog.com.br` e o rótulo do Resend.
+   Previews), Supabase, Sentry e Resend foram confirmados; aguardam apenas a
+   liberação das zonas DNS de `vela.app.br` e `portalfwlog.com.br`.
 7. **B8 concluído:** identidade Vela no app interno, sem tocar em
    `public/branding/`.
 8. Antes do lançamento, três verificações manuais: login interno, um envio de
