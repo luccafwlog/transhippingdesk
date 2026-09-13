@@ -1,8 +1,12 @@
 # 2026-09-12 — Transição de marca: Transhipping Desk → Vela
 
-- **Status:** execução parcial — B1–B8 de repositório concluídos; publicação,
-  painéis e Preview real ainda pendentes. O B8 foi desbloqueado pelos assets
-  entregues na PR 689.
+- **Status:** execução técnica concluída — B1–B8 de repositório concluídos;
+  GitHub, Vercel, Supabase e Sentry já foram atualizados. O deploy de produção
+  do Portal está verde. Permanecem pendentes a liberação da zona DNS de
+  `vela.app.br` após a transição do Registro.br, o DNS de
+  `portalfwlog.com.br` no provedor correspondente, o rótulo do Resend e a
+  validação de um Preview real após o último push. O B8 foi desbloqueado pelos
+  assets entregues na PR 689.
 - **Escopo:** renomear o **sistema interno** para **Vela** e lançar em
   `vela.app.br`.
 - **Executor previsto:** Codex, seguindo os blocos do §6 na ordem dada.
@@ -13,8 +17,10 @@
   usuários internos nem o Portal estão ativos; o lançamento é previsto para
   algumas semanas. Isto muda a estratégia mais do que qualquer detalhe técnico
   deste documento — ver §4.2.
-- **Domínios reservados** (pagamento pendente): `vela.app.br` para o sistema
-  interno, `portalfwlog.com.br` para o Portal do Cliente.
+- **Domínios alvo:** `vela.app.br` para o sistema interno,
+  `portalfwlog.com.br` para o Portal do Cliente. O primeiro está publicado no
+  Registro.br e em transição para o modo avançado; ambos já foram adicionados
+  aos respectivos projetos Vercel.
 
 ---
 
@@ -613,27 +619,35 @@ manual de quem tem acesso ao painel.
 Com a decisão D1, passam a existir **dois projetos**: o interno (Vela) e o do
 Portal (Fwlog). O segundo é criado em coordenação com a sessão Fwlog.
 
-1. Renomear o projeto atual para o nome interno e criar o segundo projeto,
-   apontando ambos para o mesmo repositório com comandos de build distintos.
-2. **Coordenar com o item 2 do bloco B7** — o regex de preview precisa cobrir
-   os dois nomes e ir no mesmo commit da renomeação (§4.3).
-3. Adicionar `vela.app.br` ao projeto interno e obter o alvo real de DNS com
-   `vercel domains inspect`. Não presuma o valor.
-4. Conferir as variáveis de ambiente de cada projeto (`VITE_PORTAL_URL`,
-   `VITE_PORTAL_BILLING_URL`) — o `.env.example` é documentação, não
-   configuração real.
-5. Confirmar que a integração de branching do Supabase (ADR 0056) grava as
-   variáveis de Preview nos **dois** projetos. Se ela cobrir só um, o Preview do
-   outro cai na página de espera de `scripts/vercel-build.mjs` — que o B6
-   precisa ter ensinado a gravar `portal.html`.
+1. **Concluído.** O projeto interno foi renomeado para `vela` e o projeto
+   `fwlog-portal` foi criado, ambos conectados ao repositório
+   `luccafwlog/vela`. O primeiro mantém o build interno; o segundo usa a
+   entrada `portal.html` da mesma base.
+2. **Concluído no repositório e no painel.** O regex de Preview cobre os dois
+   projetos (`vela` e `fwlog-portal`) e foi publicado no mesmo branch da PR
+   688.
+3. **Parcial.** `vela.app.br` foi adicionado ao projeto `vela`. O Vercel
+   indicou o registro `A @ → 216.198.79.1`; a publicação desse registro está
+   aguardando o fim da transição de zona no Registro.br.
+4. **Concluído.** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+   `VITE_PORTAL_URL` e `VITE_PORTAL_BILLING_URL` estão configuradas como
+   variáveis públicas em Produção e Preview no `fwlog-portal`; o projeto
+   interno também mantém as variáveis do Portal em seus ambientes.
+5. **Parcial.** A integração Supabase está instalada e sincronizada no
+   `fwlog-portal`, com as variáveis de integração presentes em Produção e
+   Preview. O projeto interno já exibe as variáveis específicas dos branches
+   das PRs 688 e 689; a cobertura específica do branch no Portal será
+   revalidada junto ao primeiro Preview após este push, mantendo a página de
+   espera como fallback seguro.
 
 ### 7.2 registro.br
 
-1. Concluir o pagamento de `vela.app.br`. A exigência de HSTS preload que pesa
-   sobre o TLD genérico `.app` **não** se aplica à categoria `app.br` do
-   registro.br; não há restrição a planejar.
-2. Publicar o registro que o Vercel indicar e aguardar a emissão do
-   certificado.
+1. **Concluído.** `vela.app.br` está publicado, com pagamento confirmado. A
+   exigência de HSTS preload que pesa sobre o TLD genérico `.app` **não** se
+   aplica à categoria `app.br` do Registro.br.
+2. **Em andamento.** O modo avançado foi confirmado e o Registro.br iniciou a
+   transição da zona. Assim que a janela terminar, publicar `A @ →
+   216.198.79.1` e aguardar a emissão do certificado do Vercel.
 3. Saber de antemão: `vercel.json` já envia
    `Strict-Transport-Security: max-age=31536000; includeSubDomains`. No dia em
    que `vela.app.br` servir esse header, **todo subdomínio de `vela.app.br` fica
@@ -642,28 +656,33 @@ Portal (Fwlog). O segundo é criado em coordenação com a sessão Fwlog.
 
 ### 7.3 GitHub
 
-Renomear o repositório e revalidar a integração de branching do Supabase, que
-referencia `luccafwlog/transhippingdesk` (ADR 0056). O GitHub mantém
-redirecionamento do nome antigo, então links históricos na documentação
-continuam funcionando.
+**Concluído.** O repositório foi renomeado para `luccafwlog/vela`, a PR 688
+continua no branch de trabalho e o GitHub mantém redirecionamento do nome
+antigo. A integração de branching do Supabase foi conferida após a
+renomeação; os branches das PRs 688 e 689 continuam presentes.
 
 ### 7.4 Supabase
 
-Renomear o projeto no painel. Cosmético — o `project_ref` e portanto o
-`VITE_SUPABASE_URL` não mudam (§4.3). Conferir que a integração de branching
-continua conectada depois do item 7.3.
+**Concluído.** O rótulo do projeto foi renomeado para `Vela`. O `project_ref`
+e portanto o `VITE_SUPABASE_URL` não mudaram (§4.3). Os branches das PRs 688 e
+689 continuam conectados.
 
 ### 7.5 Sentry
 
-Renomear o projeto no painel, conforme
+**Concluído.** O projeto foi renomeado para `vela`, conforme
 [`../operations/sentry-configuracao.md`](../operations/sentry-configuracao.md).
 O DSN em `src/lib/telemetry.ts:9` **não muda** (§4.7).
 
 ### 7.6 Resend
 
-Renomear o rótulo do projeto. **Só isso** — SPF, DKIM, DMARC e aquecimento de
-domínio pertencem ao Portal, não a `vela.app.br` (§4.6). D3 já está fechada: os
-envios existentes foram testes internos.
+**Pendente por falta de aba autenticada.** Renomear apenas o rótulo do projeto
+continua sendo o escopo; SPF, DKIM, DMARC e aquecimento de domínio pertencem ao
+Portal, não a `vela.app.br` (§4.6). D3 já está fechada: os envios existentes
+foram testes internos.
+
+O Firebase Hosting também não foi removido do console: a remoção dos arquivos
+locais e das origens de CORS foi feita no B3, mas a exclusão externa é
+destrutiva e exige confirmação específica com acesso ao painel Firebase.
 
 ---
 
