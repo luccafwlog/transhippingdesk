@@ -1,0 +1,49 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Proposta" },
+    { "id": "page-2", "name": "Alternativas" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "page-1", "title": "Carga · NOA", "x": 0, "y": 0, "w": 1440, "h": 980 },
+    { "file": "Livre.dc.html", "page": "page-1", "title": "Carga · Livre", "x": 1560, "y": 0, "w": 1440, "h": 1120 },
+    { "file": "Institucional.dc.html", "page": "page-1", "title": "Institucional", "x": 3120, "y": 0, "w": 1440, "h": 1020 },
+    { "file": "Conferencia.dc.html", "page": "page-1", "title": "Depois de conferir", "x": 4680, "y": 0, "w": 1440, "h": 1180 },
+    { "file": "AltBarraComando.dc.html", "page": "page-2", "title": "Alternativa A · Barra de comando", "x": 0, "y": 0, "w": 1440, "h": 940 },
+    { "file": "AltEtapas.dc.html", "page": "page-2", "title": "Alternativa B · Etapas", "x": 1560, "y": 0, "w": 1440, "h": 860 }
+  ],
+  "annotations": [
+    {
+      "id": "proposta",
+      "page": "page-1",
+      "x": 0,
+      "y": -230,
+      "w": 720,
+      "text": "PROPOSTA — duas colunas: compor à esquerda, recorte vivo à direita.\n\nO que muda em relação ao que está no PR:\n· Sem seções numeradas. A numeração 1·2·3 prometia um wizard que não existia.\n· Modo vira segmentado (é binário — dropdown de 2 opções é desperdício).\n· Modelo vira lista de rádio com a descrição visível. É onde morava a confusão do Livre.\n· Público ocupa sempre a MESMA faixa, na mesma altura, seja fixo ou escolhível.\n· A coluna da direita responde \"quem vai receber isto?\" desde o primeiro segundo."
+    },
+    {
+      "id": "grid",
+      "page": "page-1",
+      "x": 780,
+      "y": -230,
+      "w": 660,
+      "text": "ALINHAMENTO\n\nUma régua só para a coluna inteira: rótulos 12px caixa-alta com 0.06em, controles de 44px, filtros num grid 3×2 de trilhas iguais, divisórias de 1px a cada 22px.\n\nNada de grid de 3 colunas com um campo só dentro (o CNPJ órfão do modo Institucional virou um par: o painel que explica o universo + o campo)."
+    },
+    {
+      "id": "conferir",
+      "page": "page-1",
+      "x": 4680,
+      "y": -230,
+      "w": 700,
+      "text": "O MAIOR GANHO\n\nDepois de conferir, a composição COLAPSA numa faixa-resumo com \"Editar\", e a lista assume a tela.\n\nHoje os dois cards ficam abertos: você rola o formulário inteiro para chegar nos destinatários e perde de vista o que está prestes a enviar.\n\nA lista virou tabela (cabeçalho navy, como o resto do app) em vez de cartões empilhados — cabe muito mais cliente na tela."
+    },
+    {
+      "id": "alternativas",
+      "page": "page-2",
+      "x": 0,
+      "y": -190,
+      "w": 720,
+      "text": "Duas direções que considerei e não escolhi. Cada uma traz o próprio contra-argumento no rodapé do artboard.\n\nSe você discordar da proposta, a Alternativa A é a mais defensável: reaproveita a barra de comando que /viagens já usa. O problema dela é onde escrever a mensagem do Livre e do Institucional."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

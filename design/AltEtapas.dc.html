@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "DM Sans", "Segoe UI", sans-serif; color: #1c1915; background: #f4f1ea; }
+    a { color: #1d4d88; text-decoration: none; }
+    a:hover { color: #152238; }
+    .lbl { display: block; color: #5a5549; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+    .inp { width: 100%; min-height: 44px; border: 1px solid #cdc8bc; border-radius: 8px; background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,247,251,0.98)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.86); color: #0e0c0a; padding: 11px 14px; font-size: 14px; display: flex; align-items: center; }
+    .inp--ph { color: #6f6a60; }
+    .card { border: 1.5px solid #cdc8bc; border-radius: 8px; background: #ffffff; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 8px; border: 1px solid transparent; padding: 10px 16px; font-size: 13px; font-weight: 600; font-family: inherit; line-height: 1.2; }
+    .btn--primary { background: #1d4d88; border-color: #1d4d88; color: #fff; }
+    .btn--secondary { background: #fff; border-color: #b8b2a5; color: #0e0c0a; }
+    .badge { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+    .badge--slate { background: #f3f4f6; border-color: #e5e7eb; color: #5a5549; }
+    .tab { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid #b8b2a5; border-radius: 8px; background: #fff; color: #1c1915; font-size: 0.88rem; font-weight: 700; }
+    .tab--active { background: #152238; border-color: #152238; box-shadow: inset 0 -2px 0 #d4882e; color: #fff; }
+    .step { display: flex; align-items: center; gap: 10px; flex: 1 1 0; }
+    .step__n {
+      flex: 0 0 auto; width: 28px; height: 28px; border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12.5px; font-weight: 700;
+      border: 1.5px solid #cdc8bc; background: #fff; color: #6f6a60;
+    }
+    .step__n--done { background: #167344; border-color: #167344; color: #fff; }
+    .step__n--now { background: #152238; border-color: #152238; color: #fff; box-shadow: inset 0 -2px 0 #d4882e; }
+    .step__t { font-size: 12.5px; font-weight: 700; color: #6f6a60; }
+    .step__t--now { color: #0e0c0a; }
+    .step__line { flex: 1 1 auto; height: 1.5px; background: #cdc8bc; }
+    .step__line--done { background: #167344; }
+    .pick__o { display: flex; gap: 10px; border: 1px solid #cdc8bc; border-radius: 8px; background: #fff; padding: 14px 16px; min-height: 80px; }
+    .pick__o--on { border-color: #1d4d88; border-width: 1.5px; background: #f7fafd; }
+    .dot { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 2px; border-radius: 999px; border: 1.5px solid #b8b2a5; background: #fff; }
+    .pick__o--on .dot { border-color: #1d4d88; border-width: 5px; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; min-height: 860px; padding: 28px 32px 40px; background-image: radial-gradient(circle, rgba(168,160,145,0.38) 1px, transparent 1px); background-size: 22px 22px;">
+
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+    <div>
+      <h1 style="margin: 0; font-family: Syne, sans-serif; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; color: #0e0c0a;">Comunicação com Clientes</h1>
+      <p style="margin: 5px 0 0; font-size: 14px; color: #5a5549;">Conferência e envio controlado de avisos operacionais e institucionais.</p>
+    </div>
+    <div class="btn btn--secondary">Voltar para Clientes</div>
+  </div>
+
+  <div style="display: flex; gap: 8px; margin-top: 20px;">
+    <div class="tab">Cobertura de viagens</div>
+    <div class="tab tab--active">Disparo</div>
+    <div class="tab">Histórico</div>
+  </div>
+
+  <div style="max-width: 880px; margin: 20px auto 0;">
+
+    <!-- Trilha de etapas: aqui a numeracao e honesta, porque so uma etapa aparece -->
+    <div class="card" style="display: flex; align-items: center; gap: 12px; padding: 14px 20px;">
+      <div class="step" style="flex: 0 0 auto;">
+        <span class="step__n step__n--done">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </span>
+        <span class="step__t">O que enviar</span>
+      </div>
+      <div class="step__line step__line--done"></div>
+      <div class="step" style="flex: 0 0 auto;">
+        <span class="step__n step__n--now">2</span>
+        <span class="step__t step__t--now">Para quem</span>
+      </div>
+      <div class="step__line"></div>
+      <div class="step" style="flex: 0 0 auto;">
+        <span class="step__n">3</span>
+        <span class="step__t">Conferir e enviar</span>
+      </div>
+    </div>
+
+    <!-- Etapa 1 resolvida, colapsada em uma linha -->
+    <div class="card" style="display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 20px; background: #f8f6f1;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#167344" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto;"><path d="M20 6 9 17l-5-5"/></svg>
+      <span style="flex: 1 1 auto; font-size: 13.5px; color: #1c1915;">
+        <strong style="font-weight: 700; color: #0e0c0a;">NOA · Aviso de Chegada</strong>
+        no modo <strong style="font-weight: 700; color: #0e0c0a;">Carga</strong>,
+        para a caixa <strong style="font-weight: 700; color: #0e0c0a;">Documentação e Operação</strong>
+      </span>
+      <a style="font-size: 12.5px; font-weight: 600;">Alterar</a>
+    </div>
+
+    <!-- Etapa corrente -->
+    <div class="card" style="margin-top: 12px; padding: 24px;">
+      <div style="font-family: Syne, sans-serif; font-size: 18px; font-weight: 700; color: #0e0c0a;">Para quem vai este NOA?</div>
+      <p style="margin: 6px 0 20px; font-size: 13.5px; color: #5a5549;">
+        Os destinatários vêm dos B/Ls que atenderem aos filtros. Filtro vazio nunca significa todos os clientes — informe ao menos um.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+        <div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Navio</span>
+          <div class="inp"><span style="font-weight: 500;">MSC ALTAIR</span></div>
+        </div>
+        <div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Viagem</span>
+          <div class="inp"><span style="font-weight: 500;">2401E</span></div>
+        </div>
+        <div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Escala</span>
+          <div class="inp inp--ph">Número ou porto</div>
+        </div>
+        <div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POD · Porto de descarga</span>
+          <div class="inp inp--ph">Ex.: Santos / BRSSZ</div>
+        </div>
+        <div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POL · Porto de embarque</span>
+          <div class="inp inp--ph">Ex.: Shanghai / CNSHA</div>
+        </div>
+        <div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">CNPJ do cliente</span>
+          <div class="inp inp--ph">Restringe a um cliente</div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; border-top: 1px solid #e2ddd2; padding-top: 18px;">
+        <div class="btn btn--secondary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+          Voltar
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="font-size: 12.5px; color: #6f6a60;">2 filtros informados</span>
+          <div class="btn btn--primary">
+            Conferir destinatários
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; border: 1px dashed #b8b2a5; border-radius: 8px; background: rgba(255,255,255,0.6); padding: 13px 15px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6f6a60" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <div style="font-size: 13px; font-weight: 700; color: #0e0c0a;">Trade-off desta direção</div>
+        <p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: #5a5549;">
+          É a única em que a numeração 1·2·3 é honesta, e torna impossível disparar com a receita incompleta —
+          bom para quem usa a tela de vez em quando. O preço é alto para o operador diário: três telas e dois
+          cliques a mais para um NOA de rotina, e você nunca vê a composição inteira de uma vez para conferir
+          antes de enviar.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
