@@ -1,7 +1,17 @@
-# Redesenho da aba Disparo (Estudo exploratório)
+# Redesenho da aba Disparo
 
-Origem dos mockups do canvas de design publicados como exploração conceitual para a aba `/clientes/comunicacao?tab=disparo`.
-São mockups estáticos de estudo visual para uma eventual evolução em duas colunas — não representam a implementação de produção (que manteve as etapas lineares com filtros compactados), e nada aqui entra no build.
+Origem dos mockups do canvas de design da aba `/clientes/comunicacao?tab=disparo`.
+São artefatos de design estáticos e nada aqui entra no build.
+
+A página **Proposta** (os quatro primeiros artboards) foi implementada em
+`src/pages/ClientesComunicacao.tsx`: duas colunas, modo segmentado, modelo em
+lista de rádio, público em faixa fixa, filtros numa linha só e a composição
+colapsando numa faixa-resumo depois de conferir. A página **Alternativas** segue
+sendo o que sempre foi: duas direções consideradas e não escolhidas.
+
+Ao mudar a tela, mude o artboard no mesmo commit — um mockup que descreve outra
+tela é pior que nenhum, porque convida a cobrar do código algo que nunca foi
+decidido.
 
 ## Artboards
 
