@@ -5629,3 +5629,10 @@ textarea {
   font-size: 11px;
   line-height: 1.35;
 }
+
+/* Títulos dos dois cartões da aba Disparo. A fonte de display é a mesma do
+   PageHeader; aqui ela marca que cada coluna é um assunto, não uma seção. */
+.comunicacao-titulo {
+  font-family: var(--app-font-display);
+  letter-spacing: -0.01em;
+}
