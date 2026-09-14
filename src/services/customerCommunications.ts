@@ -360,7 +360,11 @@ function matchesFilter(value: string | null | undefined, filter: string): boolea
  * qualquer navio — que é o que o operador espera de uma busca só.
  */
 function matchesVesselVoyage(vessel: string | null | undefined, voyage: string | null | undefined, filter: string): boolean {
-  const terms = normalizedUpper(filter).split(/\s+/).filter(Boolean)
+  const terms = normalizedUpper(filter)
+    .replace(/[/,]/g, ' ')
+    .replace(/\s+-\s+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
   if (!terms.length) return true
   const haystack = `${normalizedUpper(vessel)} ${normalizedUpper(voyage)}`
   return terms.every((term) => haystack.includes(term))

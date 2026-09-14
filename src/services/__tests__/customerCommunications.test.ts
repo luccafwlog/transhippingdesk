@@ -176,6 +176,11 @@ describe('recorte e conferência de Comunicados', () => {
     expect(recorte('ALTAIR 2401E')).toEqual(['BL-1'])
     // E fora de ordem, porque a busca casa termos e não a frase inteira.
     expect(recorte('2401e altair')).toEqual(['BL-1'])
+    // Tolera barra, vírgula e hífen como separadores (ex.: rótulo "Navio / Viagem").
+    expect(recorte('ALTAIR / 2401E')).toEqual(['BL-1'])
+    expect(recorte('ALTAIR/2401E')).toEqual(['BL-1'])
+    expect(recorte('ALTAIR, 2401E')).toEqual(['BL-1'])
+    expect(recorte('MSC ALTAIR - 2401E')).toEqual(['BL-1'])
     // Um termo que não existe zera o recorte em vez de ignorar o excedente.
     expect(recorte('ALTAIR 9999')).toEqual([])
   })
