@@ -54,7 +54,9 @@ e as supressões específicas do canal. As âncoras do comunicado são snapshots
 e não têm FK para escala, atracação ou invoice. A chave global vive no
 singleton `app_settings`, nasce desligada e só é alterada pela RPC
 `set_communications_enabled(boolean)`, que exige o perfil Administrativo e
-registra a mudança em `audit_logs`.
+registra a mudança em `audit_logs`. A linha singleton `id=1` é obrigatória para
+as leituras da aplicação; a migration `044_restore_app_settings_singleton.sql`
+reconverge o banco quando houver drift e não sobrescreve valores já existentes.
 
 A migration `008_portal_contact_boxes.sql` (ADR 0064) substituiu o modelo
 legado de quatro naturezas operacionais pelas **Caixas de Comunicação**
