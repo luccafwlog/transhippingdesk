@@ -4,10 +4,12 @@ import type {
   CustomerContactPreference,
 } from '../types/database'
 import { canonicalizeDocument } from '../lib/cnpj'
+import { operationFrontKindForCargoMode } from './escalaTerminalAllocation'
 import { listVoyageEscalaSchedulesByVoyageIds, type VoyageEscalaSchedule } from './voyageRouteSchedules'
 import { supabase } from './supabase'
 import type { CustomerCommunicationKind, CustomerCommunicationTemplateInput } from './customerCommunicationTemplates'
 import {
+  type CommunicationBoxCode,
   type CustomerCommunicationAudience,
   type CustomerContactBoxLink,
   type CustomerCommunicationRecipient,
@@ -177,25 +179,98 @@ export type CustomerCommunicationDispatchMode = 'carga' | 'institucional'
 
 export type CustomerCommunicationFilters = {
   mode: CustomerCommunicationDispatchMode
-  vessel: string
-  voyage: string
-  scale: string
-  pod: string
+  /** Navio e viagem num campo só, como no Line-up. Ver `matchesVesselVoyage`. */
+  vesselVoyage: string
   pol: string
+  pod: string
   cnpj: string
 }
 
 export const DEFAULT_CUSTOMER_COMMUNICATION_FILTERS: CustomerCommunicationFilters = {
   mode: 'carga',
-  vessel: '',
-  voyage: '',
-  scale: '',
-  pod: '',
+  vesselVoyage: '',
   pol: '',
+  pod: '',
   cnpj: '',
 }
 
-export const OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS = ['vessel', 'voyage', 'scale', 'pod', 'pol'] as const
+export const OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS = ['vesselVoyage', 'pol', 'pod'] as const
+
+/**
+ * Modelos que o operador pode disparar manualmente em `/clientes/comunicacao`,
+ * agrupados pelo Recorte de Destinatários que cada um usa. `ce_mercante_taxas` e
+ * `cobranca_demurrage` ficam de fora: nascem da régua automática, não do disparo.
+ */
+export const MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE: Record<
+  CustomerCommunicationDispatchMode,
+  readonly CustomerCommunicationKind[]
+> = {
+  carga: ['aviso_chegada_noa', 'aviso_prontidao_nor', 'aviso_atracacao_nob', 'livre'],
+  institucional: ['institucional'],
+}
+
+/**
+ * O modo do disparo é consequência do modelo, nunca uma escolha paralela: só o
+ * Comunicado institucional dispensa o recorte de carga. Manter isso derivado
+ * impede que Modo e Modelo apontem para universos diferentes.
+ */
+export function getCustomerCommunicationDispatchMode(
+  kind: CustomerCommunicationKind,
+): CustomerCommunicationDispatchMode {
+  return kind === 'institucional' ? 'institucional' : 'carga'
+}
+
+/** Modelos cujo assunto e mensagem são escritos pelo operador no momento do disparo. */
+export function isUserWrittenCustomerCommunicationKind(kind: CustomerCommunicationKind): boolean {
+  return kind === 'institucional' || kind === 'livre'
+}
+
+/** Primeiro modelo manual de um modo; usado quando o operador troca de modo. */
+export function getDefaultCustomerCommunicationKind(
+  mode: CustomerCommunicationDispatchMode,
+): CustomerCommunicationKind {
+  return MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE[mode][0] ?? 'aviso_chegada_noa'
+}
+
+export type CustomerCommunicationAudienceRule = {
+  /** Só o Comunicado livre deixa o operador escolher o público. */
+  editable: boolean
+  audience: CustomerCommunicationAudience
+  /** Motivo exibido na tela quando o público é imposto pelo modelo. */
+  reason: string
+}
+
+const DEFAULT_OPERATIONAL_BOX: CommunicationBoxCode = 'documentacao_operacao'
+
+/**
+ * Público de cada modelo. Avisos operacionais vão sempre para a caixa
+ * Documentação e Operação, o institucional alcança todos os contatos e só o
+ * livre é aberto à escolha do operador.
+ */
+export function getCustomerCommunicationAudienceRule(
+  kind: CustomerCommunicationKind,
+): CustomerCommunicationAudienceRule {
+  if (kind === 'institucional') {
+    return { editable: false, audience: { mode: 'todos' }, reason: 'O institucional alcança todos os contatos do Cliente Comunicável.' }
+  }
+  if (kind === 'livre') {
+    return { editable: true, audience: { mode: 'todos' }, reason: 'Escolha entre todos os contatos ou uma Caixa de Comunicação.' }
+  }
+  return {
+    editable: false,
+    audience: { mode: 'caixa', boxCode: DEFAULT_OPERATIONAL_BOX },
+    reason: 'Avisos operacionais seguem sempre para a caixa Documentação e Operação.',
+  }
+}
+
+/**
+ * Um disparo institucional ou livre carrega `dispatch_id` novo a cada lote, então
+ * cada envio é uma mensagem diferente e nunca o reenvio do mesmo Comunicado. Só os
+ * modelos ancorados em carga (NOA/NOR/NOB) exigem a confirmação de reenvio.
+ */
+export function requiresResendConfirmation(kind: CustomerCommunicationKind): boolean {
+  return !isUserWrittenCustomerCommunicationKind(kind)
+}
 
 export type CustomerCommunicationBlCandidate = {
   id: string
@@ -210,7 +285,6 @@ export type CustomerCommunicationBlCandidate = {
   cargoMode: string
   eta: string | null
   ata: string | null
-  scaleNumber: string | null
   terminalId: string | null
   terminalName: string | null
   terminalStateId: string | null
@@ -257,6 +331,7 @@ export type CustomerCommunicationConference = {
   totalExcludedEmails: number
   blockedCustomers: CustomerCommunicationConferenceRow[]
   excludedReasonCounts: Record<CustomerCommunicationExcludedReason, number>
+  unassignedOperationFronts?: boolean
 }
 
 export type CommunicationFilterValidation = {
@@ -278,6 +353,23 @@ function matchesFilter(value: string | null | undefined, filter: string): boolea
   return normalizedUpper(value).includes(normalizedFilter)
 }
 
+/**
+ * Navio e viagem casam contra "NAVIO VIAGEM" concatenado, e cada termo digitado
+ * precisa aparecer. Assim "ALTAIR 2401E" acha a viagem 2401E do MSC ALTAIR,
+ * "ALTAIR" sozinho acha todas as dela e "2401E" sozinho acha a viagem em
+ * qualquer navio — que é o que o operador espera de uma busca só.
+ */
+function matchesVesselVoyage(vessel: string | null | undefined, voyage: string | null | undefined, filter: string): boolean {
+  const terms = normalizedUpper(filter)
+    .replace(/[/,]/g, ' ')
+    .replace(/\s+-\s+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+  if (!terms.length) return true
+  const haystack = `${normalizedUpper(vessel)} ${normalizedUpper(voyage)}`
+  return terms.every((term) => haystack.includes(term))
+}
+
 function samePort(left: string | null | undefined, right: string | null | undefined): boolean {
   const a = normalizedUpper(left)
   const b = normalizedUpper(right)
@@ -289,7 +381,7 @@ export function validateCustomerCommunicationFilters(filters: CustomerCommunicat
   const hasOperationalFilter = OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS.some((key) => Boolean(cleanFilter(filters[key])))
   return hasOperationalFilter
     ? { valid: true, message: null }
-    : { valid: false, message: 'No modo carga, informe ao menos um filtro operacional: navio, viagem, escala, POD ou POL.' }
+    : { valid: false, message: 'No modo carga, informe ao menos um filtro operacional: navio/viagem, POL ou POD.' }
 }
 
 export function filterCustomerCommunicationBls(
@@ -298,11 +390,9 @@ export function filterCustomerCommunicationBls(
 ): CustomerCommunicationBlCandidate[] {
   return rows.filter((row) => {
     if (filters.mode === 'carga') {
-      if (!matchesFilter(row.vesselName, filters.vessel)) return false
-      if (!matchesFilter(row.voyageNumber, filters.voyage)) return false
-      if (!matchesFilter(row.scaleNumber, filters.scale)) return false
-      if (!matchesFilter(row.pod, filters.pod)) return false
+      if (!matchesVesselVoyage(row.vesselName, row.voyageNumber, filters.vesselVoyage)) return false
       if (!matchesFilter(row.pol, filters.pol)) return false
+      if (!matchesFilter(row.pod, filters.pod)) return false
     }
     if (cleanFilter(filters.cnpj) && canonicalizeDocument(row.customerCnpj) !== canonicalizeDocument(filters.cnpj)) return false
     return true
@@ -418,6 +508,7 @@ export function buildCustomerCommunicationConference(input: {
   communicationSuppressions?: readonly EmailSuppressionRow[]
   portalSuppressions?: readonly EmailSuppressionRow[]
   history?: readonly CustomerCommunicationHistoryMatch[]
+  unassignedOperationFronts?: boolean
   now?: Date
 }): CustomerCommunicationConference {
   const nature = communicationNatureForKind(input.kind, input.nature)
@@ -517,6 +608,7 @@ export function buildCustomerCommunicationConference(input: {
     totalExcludedEmails: rows.reduce((sum, row) => sum + row.excludedRecipients.length, 0),
     blockedCustomers: rows.filter((row) => row.blocked),
     excludedReasonCounts,
+    unassignedOperationFronts: input.unassignedOperationFronts ?? false,
   }
 }
 
@@ -547,7 +639,6 @@ function toBaseCandidate(row: RawCommunicationBlRow): CustomerCommunicationBlCan
     cargoMode: row.cargo_mode,
     eta: row.voyage.eta,
     ata: row.voyage.ata,
-    scaleNumber: null,
     terminalId: null,
     terminalName: null,
     terminalStateId: null,
@@ -559,10 +650,49 @@ function scheduleForCandidate(row: CustomerCommunicationBlCandidate, schedules: 
   return schedules.find((schedule) => samePort(schedule.port, row.pod)) ?? null
 }
 
+/**
+ * Chave de uma Frente de Operação atribuída: identifica que a carga de um dado
+ * `cargo_mode` foi descarregada NAQUELE terminal, naquela escala. É o que
+ * separa os clientes de uma Atracação dos da Atracação vizinha.
+ */
+function operationFrontKey(voyageId: number, port: string, terminalId: string, modalidade: string): string {
+  return `${voyageId}::${normalizedUpper(port)}::${terminalId}::${modalidade}`
+}
+
+/**
+ * Frentes de importação com terminal atribuído, para as viagens do recorte.
+ * Espelha o filtro que `evaluate_and_dispatch_automatic_communications` aplica
+ * no NOB automático — conferência manual e régua precisam ver o mesmo público.
+ */
+export async function fetchAssignedOperationFrontKeys(voyageIds: readonly number[]): Promise<Set<string>> {
+  const keys = new Set<string>()
+  if (!voyageIds.length) return keys
+  for (let from = 0; from < voyageIds.length; from += 25) {
+    const { data, error } = await supabase
+      .from('voyage_escala_operation_fronts')
+      .select('voyage_id, port, terminal_id, sentido, modalidade')
+      .in('voyage_id', voyageIds.slice(from, from + 25))
+    if (error) throw error
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      if (row.sentido !== 'importacao') continue
+      if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string') continue
+      if (typeof row.terminal_id !== 'string' || typeof row.modalidade !== 'string') continue
+      keys.add(operationFrontKey(row.voyage_id, row.port, row.terminal_id, row.modalidade))
+    }
+  }
+  return keys
+}
+
 function expandCandidatesForKind(
   rows: readonly CustomerCommunicationBlCandidate[],
   schedulesByVoyage: ReadonlyMap<number, readonly VoyageEscalaSchedule[]>,
   kind: CustomerCommunicationKind,
+  /**
+   * Frentes atribuídas, só consultadas no NOB. `undefined` significa "não
+   * consultado" e mantém o comportamento antigo para chamadores que não
+   * precisam do recorte por terminal.
+   */
+  assignedFrontKeys?: ReadonlySet<string>,
 ): CustomerCommunicationBlCandidate[] {
   const expanded: CustomerCommunicationBlCandidate[] = []
   for (const row of rows) {
@@ -571,7 +701,6 @@ function expandCandidatesForKind(
       if (schedule?.deleted || schedule?.omitted) continue
       expanded.push({
         ...row,
-        scaleNumber: schedule?.escalaNumber ?? null,
         eta: schedule?.eta ?? row.eta,
         ata: schedule?.ata ?? row.ata,
         milestoneAt: null,
@@ -584,9 +713,13 @@ function expandCandidatesForKind(
         // NOB is anchored by the state row UUID, never by the terminal UUID.
         // A missing state identity is not safe to turn into a dispatch.
         if (!atracacao.terminalId || !atracacao.stateId || !atracacao.atb) continue
+        // A Atracação só comunica a carga da Frente de Operação que ela hospeda:
+        // quem descarregou no berço vizinho não entra neste NOB.
+        if (assignedFrontKeys && !assignedFrontKeys.has(
+          operationFrontKey(row.voyageId, row.pod, atracacao.terminalId, operationFrontKindForCargoMode(row.cargoMode)),
+        )) continue
         expanded.push({
           ...row,
-          scaleNumber: schedule?.escalaNumber ?? null,
           terminalId: atracacao.terminalId,
           terminalName: atracacao.terminalCode ?? atracacao.terminalId,
           terminalStateId: atracacao.stateId,
@@ -600,7 +733,6 @@ function expandCandidatesForKind(
     if (!milestoneAt) continue
     expanded.push({
       ...row,
-      scaleNumber: schedule.escalaNumber ?? null,
       eta: schedule.eta,
       ata: schedule.ata,
       milestoneAt,
@@ -702,8 +834,19 @@ export async function fetchCustomerCommunicationConference(input: {
     ? await listVoyageEscalaSchedulesByVoyageIds(voyageIds)
     : new Map<number, VoyageEscalaSchedule[]>()
   const operationalKind = input.filters.mode === 'institucional' ? 'aviso_chegada_noa' : input.kind
-  const expanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind)
+  const assignedFrontKeys = operationalKind === 'aviso_atracacao_nob'
+    ? await fetchAssignedOperationFrontKeys(voyageIds)
+    : undefined
+  const expanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind, assignedFrontKeys)
   const filtered = filterCustomerCommunicationBls(expanded, input.filters)
+  let unassignedOperationFronts = false
+  if (operationalKind === 'aviso_atracacao_nob' && filtered.length === 0) {
+    const unassignedExpanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind, undefined)
+    const unassignedFiltered = filterCustomerCommunicationBls(unassignedExpanded, input.filters)
+    if (unassignedFiltered.length > 0) {
+      unassignedOperationFronts = true
+    }
+  }
   const customerIds = [...new Set(filtered.map((row) => row.customerId))]
   const { contactsByCustomer, boxLinks } = await fetchCommunicationContacts(customerIds)
   // (ponytail: supressoes filtradas por e-mail em vez de full-scan — a tabela
@@ -744,6 +887,7 @@ export async function fetchCustomerCommunicationConference(input: {
     portalSuppressions: portalSuppressions ?? [],
     communicationSuppressions: communicationSuppressions ?? [],
     history,
+    unassignedOperationFronts,
     now: input.now,
   })
 }
@@ -1018,9 +1162,9 @@ export function customerCommunicationStatusLabel(status: string): string {
 }
 
 export function customerCommunicationKindLabel(kind: string): string {
-  if (kind === 'aviso_chegada_noa') return 'NOA · Aviso de Chegada'
-  if (kind === 'aviso_prontidao_nor') return 'NOR · Prontidão de Descarga'
-  if (kind === 'aviso_atracacao_nob') return 'NOB · Atracação e Operação'
+  if (kind === 'aviso_chegada_noa') return 'NOA · Chegada Próxima'
+  if (kind === 'aviso_prontidao_nor') return 'NOR · Aviso de Chegada'
+  if (kind === 'aviso_atracacao_nob') return 'NOB · Aviso de Atracação'
   if (kind === 'ce_mercante_taxas') return 'CE Mercante · Taxas Locais'
   if (kind === 'cobranca_demurrage') return 'Cobrança de Demurrage'
   if (kind === 'institucional') return 'Institucional'

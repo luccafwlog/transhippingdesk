@@ -3,7 +3,7 @@ import { renderCustomerCommunicationTemplate } from '../_shared/customerCommunic
 
 type Candidate = {
   claim_key?: string
-  kind: 'aviso_chegada_noa' | 'aviso_prontidao_nor' | 'ce_mercante_taxas'
+  kind: 'aviso_chegada_noa' | 'aviso_prontidao_nor' | 'aviso_atracacao_nob' | 'ce_mercante_taxas'
   nature?: 'avisos_operacionais' | 'documentacao'
   customer_id: number
   customer_name: string
@@ -15,6 +15,10 @@ type Candidate = {
   milestone_at: string
   bl_ids: string[]
   emails: string[]
+  /** Só no NOB: identidade da Atracação e do terminal que a hospeda. */
+  anchor_atracacao_id?: string | null
+  terminal_id?: string | null
+  terminal_name?: string | null
 }
 
 function timingSafeEqual(leftValue: string, rightValue: string): boolean {
@@ -88,7 +92,18 @@ async function handler(req: Request): Promise<Response> {
         voyageNumber: payload?.voyage_number ?? candidate.voyage_number,
         port: payload?.port ?? candidate.port,
         milestoneAt: payload?.milestone_at ?? candidate.milestone_at,
-        bls: candidate.bl_ids.map((id) => ({ id, customerId: candidate.customer_id })),
+        bls: candidate.bl_ids.map((id) => ({
+          id,
+          customerId: candidate.customer_id,
+          // assertCommunicationScope exige que todo B/L do NOB carregue a mesma
+          // identidade de terminal do comunicado; a produtora já restringiu a
+          // lista à carga da Frente de Operação atribuída a esta Atracação.
+          terminalId: candidate.terminal_id ?? null,
+          terminalStateId: candidate.anchor_atracacao_id ?? null,
+        })),
+        terminalId: candidate.terminal_id ?? null,
+        terminalStateId: candidate.anchor_atracacao_id ?? null,
+        terminalName: candidate.terminal_name ?? null,
         portalUrl: Deno.env.get('PORTAL_URL'),
         ceMercanteRows: financeRows,
         totalBrl: financeRows.reduce((sum, row) => sum + row.totalBrl, 0),
@@ -107,6 +122,8 @@ async function handler(req: Request): Promise<Response> {
                 customer_id: candidate.customer_id, kind: candidate.kind, nature: candidate.nature ?? 'avisos_operacionais', recipient,
                 subject: rendered.subject, html: rendered.html, text: rendered.text, bl_ids: candidate.bl_ids,
                 anchor_voyage_id: candidate.voyage_id, anchor_port: candidate.port, attempt_discriminator: 0,
+                anchor_atracacao_id: candidate.anchor_atracacao_id ?? null,
+                terminal_name: candidate.terminal_name ?? null,
                 vessel_name: candidate.vessel_name, voyage_number: candidate.voyage_number, origin: 'automatico',
               }),
             })

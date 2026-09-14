@@ -12,13 +12,22 @@ import { useAuth } from '../hooks/useAuth'
 import { useCustomerCommunicationConference, useCustomerCommunicationHistory, useCustomerCommunicationSavedTemplates, useDispatchCustomerCommunication, useSaveCustomerCommunicationSavedTemplate, useVoyageCommunicationCoverage } from '../hooks/useCustomerCommunications'
 import {
   DEFAULT_CUSTOMER_COMMUNICATION_FILTERS,
+  MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE,
+  getCustomerCommunicationAudienceRule,
+  getCustomerCommunicationDispatchMode,
   getCustomerCommunicationNature,
+  getDefaultCustomerCommunicationKind,
+  isUserWrittenCustomerCommunicationKind,
+  requiresResendConfirmation,
+  validateCustomerCommunicationFilters,
   fetchCustomerCommunicationConference,
   type CustomerCommunicationConferenceRow,
   type CustomerCommunicationConference,
+  type CustomerCommunicationDispatchMode,
   type CustomerCommunicationFilters,
 } from '../services/customerCommunications'
 import {
+  CUSTOMER_COMMUNICATION_BOXES,
   type CommunicationBoxCode,
   type CustomerCommunicationAudience,
 } from '../services/customerCommunicationBoxes'
@@ -30,17 +39,39 @@ import {
   type CustomerCommunicationTemplateInput,
 } from '../services/customerCommunicationTemplates'
 import { customerCommunicationKindLabel, customerCommunicationStatusLabel } from '../services/customerCommunications'
-import type { CustomerCommunicationNature } from '../types/database'
 
 type CommunicationTab = 'cobertura' | 'disparo' | 'historico'
 
-const KIND_OPTIONS: Array<{ value: CustomerCommunicationKind; label: string }> = [
-  { value: 'aviso_chegada_noa', label: 'NOA · Aviso de Chegada' },
-  { value: 'aviso_prontidao_nor', label: 'NOR · Prontidão de Descarga' },
-  { value: 'aviso_atracacao_nob', label: 'NOB · Atracação e Operação' },
-  { value: 'institucional', label: 'Institucional' },
-  { value: 'livre', label: 'Livre · escrito no momento' },
+const KIND_OPTIONS: Array<{ value: CustomerCommunicationKind; label: string; hint: string }> = [
+  { value: 'aviso_chegada_noa', label: 'NOA · Chegada Próxima', hint: 'Texto fixo, enviado 5 dias antes do ETA da escala.' },
+  { value: 'aviso_prontidao_nor', label: 'NOR · Aviso de Chegada', hint: 'Texto fixo, enviado quando o ATA da escala é registrado.' },
+  { value: 'aviso_atracacao_nob', label: 'NOB · Aviso de Atracação', hint: 'Texto fixo, enviado quando o ATB da atracação é registrado.' },
+  { value: 'livre', label: 'Livre · você escreve a mensagem', hint: 'Assunto e mensagem escritos agora, enviados aos clientes da carga filtrada.' },
+  { value: 'institucional', label: 'Institucional · você escreve a mensagem', hint: 'Assunto e mensagem escritos agora, sem vínculo com carga.' },
 ]
+
+const MODE_OPTIONS: Array<{ value: CustomerCommunicationDispatchMode; label: string; hint: string }> = [
+  {
+    value: 'carga',
+    label: 'Carga · clientes de uma viagem',
+    hint: 'Os destinatários saem dos B/Ls filtrados por navio, viagem, POL ou POD.',
+  },
+  {
+    value: 'institucional',
+    label: 'Institucional · clientes comunicáveis',
+    hint: 'Sem recorte de viagem: alcança o cliente mesmo sem carga a bordo.',
+  },
+]
+
+function kindOptionsForMode(mode: CustomerCommunicationDispatchMode) {
+  const allowed = MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE[mode]
+  return KIND_OPTIONS.filter((option) => allowed.includes(option.value))
+}
+
+function audienceLabel(audience: CustomerCommunicationAudience): string {
+  if (audience.mode === 'todos') return 'Todos os contatos'
+  return CUSTOMER_COMMUNICATION_BOXES.find((box) => box.code === audience.boxCode)?.label ?? audience.boxCode
+}
 
 function statusTone(status: string): BadgeTone {
   if (status === 'enviado') return 'green'
@@ -81,7 +112,8 @@ function getSamplePreviewInput(subject: string, body: string): CustomerCommunica
 export function ClientesComunicacao() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [kind, setKind] = useState<CustomerCommunicationKind>('aviso_chegada_noa')
-  const [nature, setNature] = useState<CustomerCommunicationNature>('avisos_operacionais')
+  // `filters.mode` nunca é lido: o modo do disparo é sempre derivado do modelo em
+  // `dispatchFilters`, para Modo e Modelo não poderem apontar para universos diferentes.
   const [filters, setFilters] = useState<CustomerCommunicationFilters>(DEFAULT_CUSTOMER_COMMUNICATION_FILTERS)
   const [conferenceRequested, setConferenceRequested] = useState(false)
   const [selectionState, setSelectionState] = useState<{ scope: CustomerCommunicationConference | undefined; keys: Set<string> }>({ scope: undefined, keys: new Set() })
@@ -98,13 +130,29 @@ export function ClientesComunicacao() {
   const [customPreviewRow, setCustomPreviewRow] = useState<CustomerCommunicationConferenceRow | null>(null)
   const [coverageFilters, setCoverageFilters] = useState({ vessel: '', voyage: '', month: '' })
   const [historyFilters, setHistoryFilters] = useState({ vessel: '', month: '', kind: '', status: '', origin: '' })
-  const [audience, setAudience] = useState<CustomerCommunicationAudience>({ mode: 'caixa', boxCode: 'documentacao_operacao' })
+  // Só o Comunicado livre deixa o operador escolher o público; os demais modelos
+  // recebem o público imposto por `getCustomerCommunicationAudienceRule`.
+  const [freeAudience, setFreeAudience] = useState<CustomerCommunicationAudience>({ mode: 'todos' })
   const { data: settings } = useAppSettings()
   const { effectiveRole, isAdmin } = useAuth()
   const confirm = useConfirm()
   const canToggleCommunications = effectiveRole === 'administrativo' || isAdmin
   const setCommunicationsMutation = useSetCommunicationsEnabled()
-  const conferenceQuery = useCustomerCommunicationConference({ filters, kind, nature, audience, enabled: conferenceRequested })
+
+  const dispatchMode = getCustomerCommunicationDispatchMode(kind)
+  const nature = getCustomerCommunicationNature(kind)
+  const audienceRule = getCustomerCommunicationAudienceRule(kind)
+  const audience = audienceRule.editable ? freeAudience : audienceRule.audience
+  const userWritten = isUserWrittenCustomerCommunicationKind(kind)
+  const availableKindOptions = kindOptionsForMode(dispatchMode)
+  const activeKindOption = availableKindOptions.find((option) => option.value === kind)
+  const activeModeOption = MODE_OPTIONS.find((option) => option.value === dispatchMode)
+  const singleKindMode = availableKindOptions.length === 1
+  const dispatchFilters: CustomerCommunicationFilters = { ...filters, mode: dispatchMode }
+  const filterValidation = validateCustomerCommunicationFilters(dispatchFilters)
+  const messageMissing = userWritten && (!institutionalSubject.trim() || !institutionalBody.trim())
+
+  const conferenceQuery = useCustomerCommunicationConference({ filters: dispatchFilters, kind, nature, audience, enabled: conferenceRequested })
   const customerHistoryId = Number(searchParams.get('customer'))
   const historyCustomerId = Number.isInteger(customerHistoryId) && customerHistoryId > 0 ? customerHistoryId : undefined
   const historyCommunicationId = Number(searchParams.get('communication'))
@@ -127,13 +175,17 @@ export function ClientesComunicacao() {
     () => (conference?.rows ?? []).filter((row) => selectedKeys.has(row.key) && !row.blocked),
     [conference?.rows, selectedKeys],
   )
-  const hasResend = selectedRows.some((row) => row.nextAttemptDiscriminator > 0)
+  // Institucional e livre carregam `dispatch_id` novo a cada lote: um envio anterior
+  // não é reenvio do mesmo Comunicado, então vira informação e não trava.
+  const resendGateApplies = requiresResendConfirmation(kind)
+  const previouslyContacted = selectedRows.filter((row) => row.nextAttemptDiscriminator > 0).length
+  const hasResend = resendGateApplies && previouslyContacted > 0
   const activePreviewRow = customPreviewRow ?? selectedRows[0] ?? conference?.rows.find((row) => !row.blocked) ?? conference?.rows[0] ?? null
 
   const activePreview = useMemo(() => {
     try {
       if (activePreviewRow) {
-        const input = (kind === 'institucional' || kind === 'livre')
+        const input = isUserWrittenCustomerCommunicationKind(kind)
           ? { ...activePreviewRow.renderInput, subject: institutionalSubject, body: institutionalBody }
           : activePreviewRow.renderInput
         return renderCustomerCommunicationTemplate(kind, input)
@@ -151,31 +203,22 @@ export function ClientesComunicacao() {
     setDispatchMessage(null)
   }
 
+  /**
+   * Trocar o modelo nunca troca o modo escolhido pelo operador: o modo é derivado
+   * do próprio modelo, e a lista de modelos já vem filtrada pelo modo corrente.
+   */
   function handleKindChange(nextKind: CustomerCommunicationKind) {
     setKind(nextKind)
-    setNature(getCustomerCommunicationNature(nextKind))
-    if (nextKind === 'institucional') {
-      setAudience({ mode: 'todos' })
-    } else if (nextKind === 'livre') {
-      setAudience({ mode: 'todos' })
-    } else {
-      setAudience({ mode: 'caixa', boxCode: 'documentacao_operacao' })
-    }
-    updateFilter('mode', nextKind === 'institucional' ? 'institucional' : 'carga')
+    setFreeAudience(getCustomerCommunicationAudienceRule(nextKind).audience)
     setConferenceRequested(false)
+    setDispatchMessage(null)
+    setDispatchError(null)
   }
 
-  function handleModeChange(mode: CustomerCommunicationFilters['mode']) {
-    updateFilter('mode', mode)
-    if (mode === 'institucional') {
-      setKind('institucional')
-      setNature('avisos_gerais')
-      setAudience({ mode: 'todos' })
-    } else {
-      setKind('aviso_chegada_noa')
-      setNature('avisos_operacionais')
-      setAudience({ mode: 'caixa', boxCode: 'documentacao_operacao' })
-    }
+  /** Trocar o modo escolhe o primeiro modelo válido do novo modo. */
+  function handleModeChange(mode: CustomerCommunicationDispatchMode) {
+    if (mode === dispatchMode) return
+    handleKindChange(getDefaultCustomerCommunicationKind(mode))
   }
 
   function selectTab(nextTab: CommunicationTab) {
@@ -243,7 +286,7 @@ export function ClientesComunicacao() {
   async function handleDispatch() {
     setDispatchError(null)
     setDispatchMessage(null)
-    if ((kind === 'institucional' || kind === 'livre') && (!institutionalSubject.trim() || !institutionalBody.trim())) {
+    if (messageMissing) {
       setDispatchError('Informe o assunto e a mensagem antes de disparar.')
       return
     }
@@ -266,7 +309,7 @@ export function ClientesComunicacao() {
       // Revalidar a lista de destinatários antes de disparar
       try {
         const freshConference = await fetchCustomerCommunicationConference({
-          filters,
+          filters: dispatchFilters,
           kind,
           nature,
           audience,
@@ -290,10 +333,10 @@ export function ClientesComunicacao() {
         // Se a verificação de rede falhar, a validação autoritativa final fica com o backend
       }
 
-      const dispatchId = kind === 'institucional' || kind === 'livre' ? crypto.randomUUID() : null
-      const dispatchAnchored = kind === 'institucional' || kind === 'livre'
+      const dispatchId = userWritten ? crypto.randomUUID() : null
+      const dispatchAnchored = userWritten
       for (const row of selectedRows) {
-        const input = kind === 'institucional' || kind === 'livre'
+        const input = userWritten
           ? { ...row.renderInput, subject: institutionalSubject, body: institutionalBody }
           : row.renderInput
         const rendered = renderCustomerCommunicationTemplate(kind, input)
@@ -448,106 +491,132 @@ export function ClientesComunicacao() {
       ) : tab === 'disparo' ? (
         <div className="space-y-6">
           <Card>
-            <div className="mb-4">
+            <div className="mb-5">
               <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">Critérios do disparo</h2>
               <p className="text-sm text-[var(--app-muted)]">
-                {filters.mode === 'carga'
-                  ? 'Selecione o modelo operacional e informe os filtros da viagem para localizar as cargas e seus respectivos clientes.'
-                  : 'Selecione o modelo institucional ou escreva uma mensagem personalizada para os clientes comunicáveis.'}
+                Três passos: escolha o que enviar, defina para quem e — quando o modelo for escrito por você — redija a mensagem.
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Modo">
-                <Select value={filters.mode} onChange={(event) => handleModeChange(event.target.value as CustomerCommunicationFilters['mode'])}>
-                  <option value="carga">Carga (Avisos Operacionais)</option>
-                  <option value="institucional">Institucional · Cliente Comunicável</option>
-                </Select>
-              </Field>
-              <Field label="Modelo">
-                <Select value={kind} onChange={(event) => handleKindChange(event.target.value as CustomerCommunicationKind)}>
-                  {KIND_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Público">
-                <Select
-                  value={
-                    kind === 'institucional'
-                      ? 'todos'
-                      : kind === 'livre'
-                        ? (audience.mode === 'caixa' ? audience.boxCode : 'todos')
-                        : 'documentacao_operacao'
-                  }
-                  disabled={kind !== 'livre'}
-                  onChange={(event) => {
-                    const val = event.target.value
-                    const nextAudience: CustomerCommunicationAudience =
-                      val === 'todos' ? { mode: 'todos' } : { mode: 'caixa', boxCode: val as CommunicationBoxCode }
-                    setAudience(nextAudience)
-                    setConferenceRequested(false)
-                    setDispatchMessage(null)
-                  }}
-                >
-                  <option value="todos">Todos os contatos</option>
-                  <option value="documentacao_operacao">Documentação e Operação</option>
-                  <option value="financeiro">Financeiro</option>
-                  <option value="demurrage">Demurrage</option>
-                </Select>
-              </Field>
-            </div>
-
-            {filters.mode === 'carga' ? (
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <Field label="Navio">
-                  <Input
-                    value={filters.vessel}
-                    onChange={(event) => updateFilter('vessel', event.target.value)}
-                    placeholder="Nome do navio"
-                  />
+            <StepSection
+              step={1}
+              title="O que enviar"
+              description="O modo define de onde saem os destinatários; o modelo define o texto do e-mail."
+            >
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Modo" hint={activeModeOption?.hint}>
+                  <Select
+                    value={dispatchMode}
+                    onChange={(event) => handleModeChange(event.target.value as CustomerCommunicationDispatchMode)}
+                  >
+                    {MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
-                <Field label="Viagem">
-                  <Input
-                    value={filters.voyage}
-                    onChange={(event) => updateFilter('voyage', event.target.value)}
-                    placeholder="Número da viagem"
-                  />
+                {/* Um select de uma opção só não é escolha: é um rótulo disfarçado
+                    de controle, e obriga a repetir num hint o que o Modo já disse.
+                    Quando o modo resolve modelo e público, uma frase os resume. */}
+                {singleKindMode ? (
+                  <p className="self-center text-sm text-[var(--app-muted)] sm:col-span-2">
+                    Modelo único neste modo: você escreve o assunto e a mensagem, e ela vai para{' '}
+                    <strong className="font-semibold text-[var(--app-text-strong)]">todos os contatos</strong> de cada cliente.
+                  </p>
+                ) : (
+                  <>
+                <Field label="Modelo" hint={activeKindOption?.hint}>
+                  <Select value={kind} onChange={(event) => handleKindChange(event.target.value as CustomerCommunicationKind)}>
+                    {availableKindOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
-                <Field label="Escala">
-                  <Input
-                    value={filters.scale}
-                    onChange={(event) => updateFilter('scale', event.target.value)}
-                    placeholder="Número ou porto da escala"
-                  />
+                <Field label="Público" hint={audienceRule.reason}>
+                  {audienceRule.editable ? (
+                    <Select
+                      value={audience.mode === 'caixa' ? audience.boxCode : 'todos'}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        setFreeAudience(value === 'todos' ? { mode: 'todos' } : { mode: 'caixa', boxCode: value as CommunicationBoxCode })
+                        setConferenceRequested(false)
+                        setDispatchMessage(null)
+                      }}
+                    >
+                      <option value="todos">Todos os contatos</option>
+                      {CUSTOMER_COMMUNICATION_BOXES.map((box) => (
+                        <option key={box.code} value={box.code}>
+                          {box.label}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <div className="app-input app-input--full flex items-center bg-[var(--app-surface-muted)] text-[var(--app-muted)]">
+                      {audienceLabel(audience)}
+                    </div>
+                  )}
                 </Field>
-                <Field label="POD (Porto de Descarga)">
-                  <Input
-                    value={filters.pod}
-                    onChange={(event) => updateFilter('pod', event.target.value)}
-                    placeholder="Ex.: Santos / BRSSZ"
-                  />
-                </Field>
-                <Field label="POL (Porto de Embarque)">
-                  <Input
-                    value={filters.pol}
-                    onChange={(event) => updateFilter('pol', event.target.value)}
-                    placeholder="Ex.: Shanghai / CNSHA"
-                  />
-                </Field>
-                <Field label="CNPJ do Cliente (opcional)">
-                  <Input
-                    value={filters.cnpj}
-                    onChange={(event) => updateFilter('cnpj', event.target.value)}
-                    placeholder="Filtrar por CNPJ específico"
-                  />
-                </Field>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="mt-4 space-y-4">
-                <div className="grid gap-4 sm:grid-cols-3">
+            </StepSection>
+
+            <StepSection
+              step={2}
+              title="Para quem"
+              description={
+                dispatchMode === 'carga'
+                  ? 'Informe ao menos um filtro da viagem. Os clientes vêm dos B/Ls encontrados; filtro vazio nunca significa todos.'
+                  : 'Todo Cliente Comunicável entra no recorte. Opcional: restrinja a um único cliente pelo CNPJ.'
+              }
+            >
+              {dispatchMode === 'carga' ? (
+                /* Quatro filtros numa linha só. As trilhas não são iguais de
+                   propósito: navio/viagem e CNPJ recebem texto longo, POL e POD
+                   recebem uma sigla de cinco letras. */
+                <div className="comunicacao-filtros grid gap-3 sm:grid-cols-12">
+                  <div className="sm:col-span-4">
+                    <Field label="Navio / Viagem">
+                      <Input
+                        value={filters.vesselVoyage}
+                        onChange={(event) => updateFilter('vesselVoyage', event.target.value)}
+                        placeholder="Busque por navio ou viagem"
+                      />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Field label="POL">
+                      <Input
+                        value={filters.pol}
+                        onChange={(event) => updateFilter('pol', event.target.value)}
+                        placeholder="CNSHA"
+                      />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Field label="POD">
+                      <Input
+                        value={filters.pod}
+                        onChange={(event) => updateFilter('pod', event.target.value)}
+                        placeholder="BRSSZ"
+                      />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-4">
+                    <Field label="CNPJ do Cliente (opcional)">
+                      <Input
+                        value={filters.cnpj}
+                        onChange={(event) => updateFilter('cnpj', event.target.value)}
+                        placeholder="Filtrar por CNPJ específico"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ) : (
+                <div className="comunicacao-filtros grid gap-3 sm:grid-cols-3">
                   <Field label="CNPJ do Cliente (opcional)">
                     <Input
                       value={filters.cnpj}
@@ -555,65 +624,77 @@ export function ClientesComunicacao() {
                       placeholder="Filtrar por CNPJ específico"
                     />
                   </Field>
-                  {kind === 'institucional' ? (
-                    <>
-                      <Field label="Modelo salvo">
-                        <Select defaultValue="" onChange={(event) => applySavedTemplate(event.target.value)}>
-                          <option value="">Selecionar modelo salvo...</option>
-                          {(savedTemplatesQuery.data ?? []).map((template) => (
-                            <option key={template.id} value={template.id}>
-                              {template.name}
-                            </option>
-                          ))}
-                        </Select>
+                </div>
+              )}
+              {filterValidation.message ? (
+                <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">{filterValidation.message}</p>
+              ) : null}
+            </StepSection>
+
+            {userWritten ? (
+              <StepSection
+                step={3}
+                title="Mensagem"
+                description="Este modelo não tem texto fixo: o assunto e a mensagem abaixo são o e-mail que o cliente vai receber."
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Reaproveitar modelo salvo">
+                    <Select value="" onChange={(event) => applySavedTemplate(event.target.value)}>
+                      <option value="">Selecionar modelo salvo...</option>
+                      {(savedTemplatesQuery.data ?? []).map((template) => (
+                        <option key={template.id} value={String(template.id)}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <Field label="Salvar texto atual como modelo">
+                        <Input
+                          value={templateName}
+                          onChange={(event) => setTemplateName(event.target.value)}
+                          placeholder="Ex.: Aviso de recesso"
+                        />
                       </Field>
-                      <div className="flex items-end gap-2">
-                        <div className="flex-1">
-                          <Field label="Salvar novo modelo">
-                            <Input
-                              value={templateName}
-                              onChange={(event) => setTemplateName(event.target.value)}
-                              placeholder="Ex.: Aviso de recesso"
-                            />
-                          </Field>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          loading={saveTemplateMutation.isPending}
-                          onClick={() => void saveCurrentTemplate()}
-                        >
-                          Salvar
-                        </Button>
-                      </div>
-                    </>
-                  ) : null}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={saveTemplateMutation.isPending}
+                      onClick={() => void saveCurrentTemplate()}
+                    >
+                      Salvar
+                    </Button>
+                  </div>
                 </div>
 
-                <Field label="Assunto" required>
-                  <Input
-                    value={institutionalSubject}
-                    onChange={(event) => {
-                      setInstitutionalSubject(event.target.value)
-                      setDispatchMessage(null)
-                    }}
-                    placeholder="Assunto do comunicado"
-                  />
-                </Field>
+                <div className="mt-4 space-y-4">
+                  <Field label="Assunto" required>
+                    <Input
+                      value={institutionalSubject}
+                      onChange={(event) => {
+                        setInstitutionalSubject(event.target.value)
+                        setDispatchMessage(null)
+                      }}
+                      placeholder="Assunto do comunicado"
+                    />
+                  </Field>
 
-                <Field label="Mensagem" required>
-                  <Textarea
-                    rows={5}
-                    value={institutionalBody}
-                    onChange={(event) => {
-                      setInstitutionalBody(event.target.value)
-                      setDispatchMessage(null)
-                    }}
-                    placeholder="Escreva a mensagem para os clientes selecionados..."
-                  />
-                </Field>
-              </div>
-            )}
+                  <Field label="Mensagem" required>
+                    <Textarea
+                      rows={5}
+                      value={institutionalBody}
+                      onChange={(event) => {
+                        setInstitutionalBody(event.target.value)
+                        setDispatchMessage(null)
+                      }}
+                      placeholder="Escreva a mensagem para os clientes selecionados..."
+                    />
+                  </Field>
+                </div>
+              </StepSection>
+            ) : null}
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--app-border)] pt-4">
               <div className="flex flex-wrap items-center gap-3">
@@ -625,6 +706,7 @@ export function ClientesComunicacao() {
                     setDispatchMessage(null)
                   }}
                   loading={conferenceQuery.isFetching}
+                  disabled={!filterValidation.valid}
                 >
                   <CheckCircle2 size={16} /> Conferir destinatários
                 </Button>
@@ -656,9 +738,9 @@ export function ClientesComunicacao() {
                 ) : null}
               </div>
 
-              {!conferenceRequested && filters.mode === 'carga' && !filters.vessel && !filters.voyage && !filters.scale && !filters.pod && !filters.pol ? (
+              {messageMissing ? (
                 <div className="text-xs text-amber-700 dark:text-amber-300">
-                  Preencha ao menos um filtro da viagem antes de conferir.
+                  Escreva o assunto e a mensagem do passo 3 antes de disparar.
                 </div>
               ) : null}
             </div>
@@ -677,9 +759,8 @@ export function ClientesComunicacao() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold text-[var(--app-text-strong)]">Painel de conferência</h2>
-                    <Badge tone="blue">
-                      Público: {audience.mode === 'todos' ? 'Todos os contatos' : audience.boxCode === 'documentacao_operacao' ? 'Documentação e Operação' : audience.boxCode === 'financeiro' ? 'Financeiro' : 'Demurrage'}
-                    </Badge>
+                    <Badge tone="slate">{customerCommunicationKindLabel(kind)}</Badge>
+                    <Badge tone="blue">Público: {audienceLabel(audience)}</Badge>
                   </div>
                   <p className="mt-0.5 text-sm text-[var(--app-muted)]">
                     A seleção é mantida somente nesta conferência; desmarque os clientes que não devem receber o disparo.
@@ -700,7 +781,7 @@ export function ClientesComunicacao() {
                     type="button"
                     onClick={() => void handleDispatch()}
                     loading={sending}
-                    disabled={!selectedRows.length}
+                    disabled={!selectedRows.length || messageMissing}
                   >
                     <Send size={16} /> Disparar selecionados ({selectedRows.length})
                   </Button>
@@ -724,6 +805,10 @@ export function ClientesComunicacao() {
                   />
                   <span>Confirmo o reenvio dos clientes que já possuem um disparo deste modelo. A nova tentativa usará outro discriminador de idempotência.</span>
                 </label>
+              ) : !resendGateApplies && previouslyContacted ? (
+                <p className="mt-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--app-muted)]">
+                  {previouslyContacted} cliente(s) selecionado(s) já receberam outro comunicado deste modelo. Como o texto é escrito a cada disparo, este envio é uma mensagem nova e não um reenvio.
+                </p>
               ) : null}
 
               {dispatchError ? <div className="mt-4"><InlineError message={dispatchError} /></div> : null}
@@ -739,6 +824,7 @@ export function ClientesComunicacao() {
                     key={row.key}
                     row={row}
                     selected={selectedKeys.has(row.key)}
+                    resendLabel={row.nextAttemptDiscriminator > 0 ? (resendGateApplies ? `Reenvio ${row.nextAttemptDiscriminator}` : `${row.nextAttemptDiscriminator} envio(s) anterior(es)`) : null}
                     onToggle={() => toggleRow(row.key)}
                     onPreview={() => {
                       setCustomPreviewRow(row)
@@ -747,9 +833,18 @@ export function ClientesComunicacao() {
                   />
                 ))}
                 {!conference.rows.length ? (
-                  <div className="py-8 text-center text-sm text-[var(--app-muted)]">
-                    Nenhuma carga atende aos critérios informados.
-                  </div>
+                  conference.unassignedOperationFronts ? (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center text-sm text-amber-900 dark:text-amber-200">
+                      <p className="font-medium">Nenhuma carga disponível para envio de NOB</p>
+                      <p className="mt-1 text-xs opacity-90">
+                        A escala informada possui atracação com ATB registrado, mas não possui Frente de Operação atribuída ao terminal (Atracação TBC). Atribua a frente de operação na escala para habilitar o envio do NOB.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-sm text-[var(--app-muted)]">
+                      Nenhuma carga atende aos critérios informados.
+                    </div>
+                  )
                 ) : null}
               </div>
             </Card>
@@ -881,6 +976,34 @@ export function ClientesComunicacao() {
   )
 }
 
+/** Passo numerado do formulário de disparo: cada bloco responde a uma pergunta só. */
+function StepSection({
+  step,
+  title,
+  description,
+  children,
+}: {
+  step: number
+  title: string
+  description: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="mt-5 border-t border-[var(--app-border)] pt-5 first-of-type:mt-0 first-of-type:border-t-0 first-of-type:pt-0">
+      <div className="mb-3 flex items-start gap-3">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--app-surface-muted)] text-xs font-bold text-[var(--app-text-strong)]">
+          {step}
+        </span>
+        <div>
+          <h3 className="text-sm font-bold text-[var(--app-text-strong)]">{title}</h3>
+          <p className="text-xs text-[var(--app-muted)]">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
 function MetricCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="app-surface rounded-lg border border-[var(--app-border)] p-3 shadow-xs">
@@ -893,11 +1016,13 @@ function MetricCard({ label, value }: { label: string; value: number }) {
 function ConferenceRowCard({
   row,
   selected,
+  resendLabel,
   onToggle,
   onPreview,
 }: {
   row: CustomerCommunicationConferenceRow
   selected: boolean
+  resendLabel: string | null
   onToggle: () => void
   onPreview: () => void
 }) {
@@ -924,7 +1049,7 @@ function ConferenceRowCard({
               <strong className="text-[var(--app-text-strong)] font-semibold">{row.customerName}</strong>
               <span className="text-xs text-[var(--app-muted)]">{row.customerCnpj || 'CNPJ não informado'}</span>
               {row.terminalName ? <Badge tone="blue">{row.terminalName}</Badge> : null}
-              {row.nextAttemptDiscriminator > 0 ? <Badge tone="yellow">Reenvio {row.nextAttemptDiscriminator}</Badge> : null}
+              {resendLabel ? <Badge tone="yellow">{resendLabel}</Badge> : null}
               {row.blocked ? <Badge tone="red">Bloqueado</Badge> : <Badge tone="green">Elegível</Badge>}
             </div>
 

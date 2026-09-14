@@ -395,7 +395,7 @@ export function renderNoaTemplate(input: CustomerCommunicationTemplateInput): Re
   const vessel = clean(input.vesselName)
   const voyage = clean(input.voyageNumber)
   const milestone = formatCommunicationDateTime(input.milestoneAt)
-  const subject = `Notice of Arrival / Aviso de Chegada — ${vessel} / ${voyage} — Porto de ${port}`
+  const subject = `Notice of Arrival / Chegada Próxima — ${vessel} / ${voyage} — Porto de ${port}`
   return renderMilestoneContent(
     input,
     'aviso_chegada_noa',
@@ -411,9 +411,9 @@ export function renderNorTemplate(input: CustomerCommunicationTemplateInput): Re
   const vessel = clean(input.vesselName)
   const voyage = clean(input.voyageNumber)
   const milestone = formatCommunicationDateTime(input.milestoneAt)
-  const subject = `Notice of Readiness / Prontidão de Descarga — ${vessel} / ${voyage} — Porto de ${port}`
-  const sentenceHtml = `Registramos a prontidão de descarga do navio <strong>${escapeHtml(vessel)}</strong>, viagem <strong>${escapeHtml(voyage)}</strong>, em <strong>${escapeHtml(milestone)}</strong> no Porto de ${escapeHtml(port)}.`
-  const sentenceText = `Registramos a prontidão de descarga do navio ${vessel}, viagem ${voyage}, em ${milestone} no Porto de ${port}.`
+  const subject = `Notice of Readiness / Aviso de Chegada — ${vessel} / ${voyage} — Porto de ${port}`
+  const sentenceHtml = `Registramos a chegada do navio <strong>${escapeHtml(vessel)}</strong>, viagem <strong>${escapeHtml(voyage)}</strong>, em <strong>${escapeHtml(milestone)}</strong> no Porto de ${escapeHtml(port)}.`
+  const sentenceText = `Registramos a chegada do navio ${vessel}, viagem ${voyage}, em ${milestone} no Porto de ${port}.`
   return renderMilestoneContent(input, 'aviso_prontidao_nor', subject, sentenceHtml, sentenceText)
 }
 

@@ -48,7 +48,6 @@ function makeCandidate(overrides: Partial<CustomerCommunicationBlCandidate> & { 
     cargoMode: 'container',
     eta: '2026-09-10T12:00:00Z',
     ata: null,
-    scaleNumber: '1',
     terminalId: null,
     terminalName: null,
     terminalStateId: null,
@@ -92,11 +91,9 @@ describe('Revisão Completa E2E: Módulo de Comunicação com o Cliente', () => 
     it('invariante 3: modo carga exige ao menos um filtro de carga para evitar disparos acidentais à base inteira', () => {
       const emptyValidation = validateCustomerCommunicationFilters({
         mode: 'carga',
-        vessel: '',
-        voyage: '',
-        scale: '',
-        pod: '',
+        vesselVoyage: '',
         pol: '',
+        pod: '',
         cnpj: '',
       })
       expect(emptyValidation.valid).toBe(false)
@@ -104,22 +101,18 @@ describe('Revisão Completa E2E: Módulo de Comunicação com o Cliente', () => 
 
       const cnpjOnlyValidation = validateCustomerCommunicationFilters({
         mode: 'carga',
-        vessel: '',
-        voyage: '',
-        scale: '',
-        pod: '',
+        vesselVoyage: '',
         pol: '',
+        pod: '',
         cnpj: '12.345.678/0001-90',
       })
       expect(cnpjOnlyValidation.valid).toBe(false)
 
       const validValidation = validateCustomerCommunicationFilters({
         mode: 'carga',
-        vessel: '',
-        voyage: '2401E',
-        scale: '',
-        pod: '',
+        vesselVoyage: '2401E',
         pol: '',
+        pod: '',
         cnpj: '',
       })
       expect(validValidation.valid).toBe(true)
@@ -128,11 +121,9 @@ describe('Revisão Completa E2E: Módulo de Comunicação com o Cliente', () => 
     it('modo institucional permite conferência sobre o conjunto de Clientes Comunicáveis', () => {
       const instValidation = validateCustomerCommunicationFilters({
         mode: 'institucional',
-        vessel: '',
-        voyage: '',
-        scale: '',
-        pod: '',
+        vesselVoyage: '',
         pol: '',
+        pod: '',
         cnpj: '',
       })
       expect(instValidation.valid).toBe(true)

@@ -159,6 +159,22 @@ async function fetchAllRows<T>(
   }
 }
 
+/**
+ * Frente de Operação de importação a que um B/L pertence, derivada do seu
+ * `cargo_mode`. É a regra que liga a carga do cliente ao terminal atribuído —
+ * logo, ao NOB daquela Atracação. Dono único no lado TypeScript; o espelho SQL
+ * é `public.bl_operation_front_modalidade`, e
+ * `escalaOperationFrontKind.test.ts` prende os dois à mesma tabela de casos.
+ */
+export function operationFrontKindForCargoMode(
+  cargoMode: string | null | undefined,
+): Exclude<OperationFrontKind, 'granito'> {
+  const normalized = (cargoMode ?? '').trim().toLowerCase()
+  if (normalized === 'carga_solta') return 'carga_solta'
+  if (normalized === 'veiculo' || normalized === 'veiculos') return 'veiculo'
+  return 'carga_cheia'
+}
+
 const IMPORT_SECTION_BY_KIND: Record<Exclude<OperationFrontKind, 'granito'>, OperationFront['section']> = {
   carga_cheia: 'carga_descarregada',
   carga_solta: 'carga_descarregada',
@@ -366,9 +382,7 @@ export async function fetchEscalaTerminalState(voyageId: number, port: string): 
   )
   if (bls.error) throw bls.error
   for (const row of bls.data) {
-    if (row.cargo_mode === 'carga_solta') importKinds.add('carga_solta')
-    else if (row.cargo_mode === 'veiculo' || row.cargo_mode === 'veiculos') importKinds.add('veiculo')
-    else importKinds.add('carga_cheia')
+    importKinds.add(operationFrontKindForCargoMode(typeof row.cargo_mode === 'string' ? row.cargo_mode : null))
   }
   const emptyImports = await fetchAllRows<JsonRecord>((from, to) =>
     table('vazios_importacao_containers')
