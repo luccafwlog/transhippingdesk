@@ -43,8 +43,7 @@ INSERT INTO customer_contact_box_links (contact_id, box_code) VALUES
 
 INSERT INTO bls (id, voyage_id, customer_id, pod, cargo_mode) VALUES
   ('BL-ACME-1', 9901, 9901, 'BRSSZ', 'container'),
-  ('BL-BETA-1', 9901, 9902, 'BRSSZ', 'carga_solta'),
-  ('BL-ACME-OLD', 9901, 9901, 'BRSSZ', 'veiculo');
+  ('BL-BETA-1', 9901, 9902, 'BRSSZ', 'carga_solta');
 
 -- Escala com ETA dentro da janela D-5 (fonte real: audit_logs).
 INSERT INTO audit_logs (entity_type, entity_id, field_name, new_value, changed_at) VALUES
@@ -71,16 +70,20 @@ INSERT INTO voyage_escala_terminal_state (id, voyage_id, port, port_id, terminal
   ('dddddddd-0000-4000-8000-00000000000d', 9901, 'BRSSZ', 9901, 'bbbbbbbb-0000-4000-8000-00000000000b', now() - interval '5 days');
 
 -- Atracação antiga (45 dias): prova que o NOB nao dispara fora da janela de 30 dias.
+-- Ancorada na escala BRRIO (BL-ACME-3 / container -> carga_cheia), para garantir que teria
+-- produzido comunicado caso a guarda de 30 dias nao existisse.
 INSERT INTO depots (id, code, name, active, tipo, port_id) VALUES
-  ('eeeeeeee-0000-4000-8000-00000000000e', 'TERM-OLD', 'Terminal Antigo', true, 'terminal_portuario', 9901);
+  ('eeeeeeee-0000-4000-8000-00000000000e', 'TERM-OLD', 'Terminal Antigo', true, 'terminal_portuario', 9903);
 INSERT INTO voyage_escala_terminal_state (id, voyage_id, port, port_id, terminal_id, terminal_atb) VALUES
-  ('ffffffff-0000-4000-8000-00000000000f', 9901, 'BRSSZ', 9901, 'eeeeeeee-0000-4000-8000-00000000000e', now() - interval '45 days');
+  ('ffffffff-0000-4000-8000-00000000000f', 9901, 'BRRIO', 9903, 'eeeeeeee-0000-4000-8000-00000000000e', now() - interval '45 days');
 
--- Atribuição das Frentes de Operação: carga_cheia -> TERM-A, carga_solta -> TERM-B, veiculo -> TERM-OLD.
+-- Atribuição das Frentes de Operação:
+--   BRSSZ: carga_cheia -> TERM-A, carga_solta -> TERM-B.
+--   BRRIO: carga_cheia -> TERM-OLD (cobre BL-ACME-3).
 INSERT INTO voyage_escala_operation_fronts (voyage_id, port, port_id, sentido, modalidade, terminal_id, source) VALUES
   (9901, 'BRSSZ', 9901, 'importacao', 'carga_cheia', 'aaaaaaaa-0000-4000-8000-00000000000a', 'operational_data'),
   (9901, 'BRSSZ', 9901, 'importacao', 'carga_solta', 'bbbbbbbb-0000-4000-8000-00000000000b', 'operational_data'),
-  (9901, 'BRSSZ', 9901, 'importacao', 'veiculo', 'eeeeeeee-0000-4000-8000-00000000000e', 'operational_data');
+  (9901, 'BRRIO', 9903, 'importacao', 'carga_cheia', 'eeeeeeee-0000-4000-8000-00000000000e', 'operational_data');
 
 -- ===========================================================================
 SET LOCAL request.jwt.claim.role = 'service_role';
