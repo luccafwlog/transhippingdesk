@@ -43,7 +43,8 @@ INSERT INTO customer_contact_box_links (contact_id, box_code) VALUES
 
 INSERT INTO bls (id, voyage_id, customer_id, pod, cargo_mode) VALUES
   ('BL-ACME-1', 9901, 9901, 'BRSSZ', 'container'),
-  ('BL-BETA-1', 9901, 9902, 'BRSSZ', 'carga_solta');
+  ('BL-BETA-1', 9901, 9902, 'BRSSZ', 'carga_solta'),
+  ('BL-ACME-OLD', 9901, 9901, 'BRSSZ', 'veiculo');
 
 -- Escala com ETA dentro da janela D-5 (fonte real: audit_logs).
 INSERT INTO audit_logs (entity_type, entity_id, field_name, new_value, changed_at) VALUES
@@ -75,11 +76,11 @@ INSERT INTO depots (id, code, name, active, tipo, port_id) VALUES
 INSERT INTO voyage_escala_terminal_state (id, voyage_id, port, port_id, terminal_id, terminal_atb) VALUES
   ('ffffffff-0000-4000-8000-00000000000f', 9901, 'BRSSZ', 9901, 'eeeeeeee-0000-4000-8000-00000000000e', now() - interval '45 days');
 
--- Atribuição das Frentes de Operação: carga_cheia -> TERM-A, carga_solta -> TERM-B, carga_cheia -> TERM-OLD.
+-- Atribuição das Frentes de Operação: carga_cheia -> TERM-A, carga_solta -> TERM-B, veiculo -> TERM-OLD.
 INSERT INTO voyage_escala_operation_fronts (voyage_id, port, port_id, sentido, modalidade, terminal_id, source) VALUES
   (9901, 'BRSSZ', 9901, 'importacao', 'carga_cheia', 'aaaaaaaa-0000-4000-8000-00000000000a', 'operational_data'),
   (9901, 'BRSSZ', 9901, 'importacao', 'carga_solta', 'bbbbbbbb-0000-4000-8000-00000000000b', 'operational_data'),
-  (9901, 'BRSSZ', 9901, 'importacao', 'carga_cheia', 'eeeeeeee-0000-4000-8000-00000000000e', 'operational_data');
+  (9901, 'BRSSZ', 9901, 'importacao', 'veiculo', 'eeeeeeee-0000-4000-8000-00000000000e', 'operational_data');
 
 -- ===========================================================================
 SET LOCAL request.jwt.claim.role = 'service_role';
