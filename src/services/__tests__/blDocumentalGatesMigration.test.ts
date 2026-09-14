@@ -45,14 +45,17 @@ describe('B/L Documental billing gates migration', () => {
     expect(normalized).toMatch(/invoice_receivable_links[\s\S]*?assert_bl_ce_mercante\(NEW\.bl_id\)/)
   })
 
-  it('guards issuing an invoice after its links already exist', () => {
+  it('guards issuing an invoice after its links already exist and closes the direct bl_id bypass', () => {
     const normalized = compact(readMigration())
 
     expect(normalized).toMatch(/CREATE OR REPLACE FUNCTION public\.enforce_invoice_ce_on_issue\(\).*RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER/)
-    expect(normalized).toMatch(/CREATE TRIGGER trg_enforce_invoice_ce_on_issue BEFORE INSERT OR UPDATE OF status ON public\.invoices/)
+    expect(normalized).toMatch(/CREATE TRIGGER trg_enforce_invoice_ce_on_issue BEFORE INSERT OR UPDATE OF status, bl_id ON public\.invoices/)
     expect(normalized).toMatch(/FROM public\.invoice_bls AS ib WHERE ib\.invoice_id = NEW\.id/)
     expect(normalized).toMatch(/FROM public\.invoice_receivable_links AS irl WHERE irl\.invoice_id = NEW\.id AND irl\.status = 'active'/)
-    expect(normalized).toMatch(/REVOKE ALL ON FUNCTION public\.enforce_invoice_ce_on_issue\(\) FROM PUBLIC, anon, authenticated/)
+    expect(normalized).toContain('ELSIF OLD.bl_id IS DISTINCT FROM NEW.bl_id THEN')
+    expect(normalized).toContain('PERFORM public.assert_bl_ce_mercante(NEW.bl_id);')
+    expect(normalized).toContain('IF v_scan_links THEN')
+    expect(normalized).toContain('REVOKE ALL ON FUNCTION public.enforce_invoice_ce_on_issue() FROM PUBLIC, anon, authenticated')
   })
 
   it('does not introduce due-date or overdue semantics', () => {

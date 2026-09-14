@@ -179,34 +179,55 @@ SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_bl RECORD;
+  v_scan_links BOOLEAN := false;
 BEGIN
   IF NEW.status = 'issued' THEN
     IF TG_OP = 'INSERT' THEN
-      NULL;
-    ELSIF OLD.status IS NOT DISTINCT FROM NEW.status THEN
-      RETURN NEW;
+      IF NEW.bl_id IS NOT NULL THEN
+        PERFORM public.assert_bl_ce_mercante(NEW.bl_id);
+      END IF;
+      v_scan_links := true;
+    ELSE
+      IF OLD.status IS DISTINCT FROM NEW.status THEN
+        IF NEW.bl_id IS NOT NULL THEN
+          PERFORM public.assert_bl_ce_mercante(NEW.bl_id);
+        END IF;
+        v_scan_links := true;
+      ELSIF OLD.bl_id IS DISTINCT FROM NEW.bl_id THEN
+        -- A direct invoice.bl_id change is a distinct boundary from issue;
+        -- validate only the newly assigned B/L because existing links are
+        -- unchanged and were already guarded when they were created/issued.
+        IF NEW.bl_id IS NOT NULL THEN
+          PERFORM public.assert_bl_ce_mercante(NEW.bl_id);
+        END IF;
+        RETURN NEW;
+      ELSE
+        -- UPDATEs of unrelated columns on an issued invoice do not needlessly
+        -- rescan the direct and consolidated link tables.
+        RETURN NEW;
+      END IF;
     END IF;
 
-    IF NEW.bl_id IS NOT NULL THEN
-      PERFORM public.assert_bl_ce_mercante(NEW.bl_id);
+    -- Inserts and issue transitions must validate every linked B/L because
+    -- draft invoices may have acquired links before becoming issued.
+    IF v_scan_links THEN
+      FOR v_bl IN
+        SELECT ib.bl_id
+        FROM public.invoice_bls AS ib
+        WHERE ib.invoice_id = NEW.id
+      LOOP
+        PERFORM public.assert_bl_ce_mercante(v_bl.bl_id);
+      END LOOP;
+
+      FOR v_bl IN
+        SELECT irl.bl_id
+        FROM public.invoice_receivable_links AS irl
+        WHERE irl.invoice_id = NEW.id
+          AND irl.status = 'active'
+      LOOP
+        PERFORM public.assert_bl_ce_mercante(v_bl.bl_id);
+      END LOOP;
     END IF;
-
-    FOR v_bl IN
-      SELECT ib.bl_id
-      FROM public.invoice_bls AS ib
-      WHERE ib.invoice_id = NEW.id
-    LOOP
-      PERFORM public.assert_bl_ce_mercante(v_bl.bl_id);
-    END LOOP;
-
-    FOR v_bl IN
-      SELECT irl.bl_id
-      FROM public.invoice_receivable_links AS irl
-      WHERE irl.invoice_id = NEW.id
-        AND irl.status = 'active'
-    LOOP
-      PERFORM public.assert_bl_ce_mercante(v_bl.bl_id);
-    END LOOP;
   END IF;
 
   RETURN NEW;
@@ -217,5 +238,5 @@ REVOKE ALL ON FUNCTION public.enforce_invoice_ce_on_issue() FROM PUBLIC, anon, a
 
 DROP TRIGGER IF EXISTS trg_enforce_invoice_ce_on_issue ON public.invoices;
 CREATE TRIGGER trg_enforce_invoice_ce_on_issue
-BEFORE INSERT OR UPDATE OF status ON public.invoices
+BEFORE INSERT OR UPDATE OF status, bl_id ON public.invoices
 FOR EACH ROW EXECUTE FUNCTION public.enforce_invoice_ce_on_issue();
