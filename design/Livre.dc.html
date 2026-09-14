@@ -109,22 +109,22 @@
         <div class="pick__o">
           <div class="dot"></div>
           <div>
-            <div class="pick__t">NOA · Aviso de Chegada</div>
-            <div class="pick__d">Texto fixo, ancorado no ETA da escala.</div>
+            <div class="pick__t">NOA · Chegada Próxima</div>
+            <div class="pick__d">Texto fixo, enviado 5 dias antes do ETA da escala.</div>
           </div>
         </div>
         <div class="pick__o">
           <div class="dot"></div>
           <div>
-            <div class="pick__t">NOR · Prontidão de Descarga</div>
-            <div class="pick__d">Texto fixo, ancorado no ATA da escala.</div>
+            <div class="pick__t">NOR · Aviso de Chegada</div>
+            <div class="pick__d">Texto fixo, enviado quando o ATA da escala é registrado.</div>
           </div>
         </div>
         <div class="pick__o">
           <div class="dot"></div>
           <div>
-            <div class="pick__t">NOB · Atracação e Operação</div>
-            <div class="pick__d">Texto fixo, ancorado no ATB da atracação.</div>
+            <div class="pick__t">NOB · Aviso de Atracação</div>
+            <div class="pick__d">Texto fixo, enviado quando o ATB da atracação é registrado.</div>
           </div>
         </div>
         <div class="pick__o pick__o--on">
@@ -152,30 +152,22 @@
         <span class="lbl" style="margin-bottom: 0;">Recorte da carga</span>
         <span style="font-size: 12px; color: #6f6a60;">Ao menos um campo abaixo é obrigatório</span>
       </div>
-      <div class="filtros" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <div class="filtros" style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 12px;">
         <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Navio</span>
-          <div class="inp"><span style="font-weight: 500;">MSC ALTAIR</span></div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Navio / Viagem</span>
+          <div class="inp"><span style="font-weight: 500;">MSC ALTAIR · 2401E</span></div>
         </div>
         <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Viagem</span>
-          <div class="inp"><span style="font-weight: 500;">2401E</span></div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POL</span>
+          <div class="inp inp--ph">BRSSZ</div>
         </div>
         <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POD · Porto de descarga</span>
-          <div class="inp inp--ph">Ex.: Santos / BRSSZ</div>
-        </div>
-        <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POL · Porto de embarque</span>
-          <div class="inp inp--ph">Ex.: Shanghai / CNSHA</div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POD</span>
+          <div class="inp inp--ph">CNSHA</div>
         </div>
         <div>
           <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">CNPJ do cliente</span>
           <div class="inp inp--ph">Restringe a um cliente</div>
-        </div>
-        <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Nº da Escala (Mercante)</span>
-          <div class="inp inp--ph">Ex.: 25000123456</div>
         </div>
       </div>
 

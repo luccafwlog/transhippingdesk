@@ -1603,7 +1603,7 @@ Avisos gerais. Seu público pode ser todos os contatos ou uma Caixa de
 Comunicação específica.
 
 **Modelo de Comunicado**
-Texto pré-definido que um Comunicado usa. Aviso de Chegada (NOA), Aviso de Prontidão
+Texto pré-definido que um Comunicado usa. Chegada Próxima (NOA), Aviso de Chegada
 (NOR), Aviso de Atracação (NOB) e os dois comunicados financeiros são fixos e
 versionados no código; o institucional e o livre são escritos pelo usuário interno
 no momento do disparo, e o texto de qualquer um dos dois pode ser salvo para reuso
@@ -1615,17 +1615,23 @@ institucional dispensa a carga; NOA, NOR, NOB e o livre partem sempre dos B/Ls
 filtrados. O livre é, portanto, um texto escrito na hora e endereçado aos clientes
 de uma viagem — não uma variante do institucional.
 
-**Aviso de Chegada (NOA)**
+**Chegada Próxima (NOA)**
 Comunicado que antecipa a chegada da embarcação. É sempre por Escala e comunica
 o **ETA** da Escala (com data e hora opcional), saindo 5 dias antes da previsão
 de chegada — não o ATA, que é a chegada já consumada e esvazia a função do aviso.
 Uma viagem com vários portos tem vários ETAs e vários avisos. `NOA` (*Notice of Arrival*)
 é a denominação de mercado.
 
-**Aviso de Prontidão (NOR)**
+**Aviso de Chegada (NOR)**
 Comunicado que informa a prontidão e a chegada efetiva da embarcação ao porto
 (ou área de fundeio). É sempre por Escala e ancora no **ATA** da Escala, exigindo
 data e hora obrigatórias. `NOR` (*Notice of Readiness*) é a denominação de mercado.
+
+O par NOA/NOR divide a palavra *chegada* e a distinção é a do tempo verbal: a
+**Chegada Próxima** anuncia uma chegada que ainda vai acontecer (ETA), o **Aviso
+de Chegada** comunica a que já aconteceu (ATA). O assunto bilíngue do e-mail
+mantém os termos de mercado — `Notice of Arrival` e `Notice of Readiness` —, que
+são o que o cliente estrangeiro reconhece.
 
 **Aviso de Atracação (NOB)**
 Comunicado que informa a atracação efetiva da embarcação no terminal portuário

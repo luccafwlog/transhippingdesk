@@ -141,7 +141,6 @@ function candidate(overrides: Partial<CustomerCommunicationBlCandidate> = {}): C
     cargoMode: 'container',
     eta: '2026-09-01T12:00:00Z',
     ata: null,
-    scaleNumber: 'ESC-7',
     terminalId: 'terminal-1',
     terminalName: 'Terminal 1',
     terminalStateId: 'state-1',
@@ -153,11 +152,32 @@ function candidate(overrides: Partial<CustomerCommunicationBlCandidate> = {}): C
 describe('recorte e conferência de Comunicados', () => {
   it('não permite conferência de carga sem filtro operacional, mesmo com CNPJ', () => {
     expect(validateCustomerCommunicationFilters({
-      mode: 'carga', vessel: '', voyage: '', scale: '', pod: '', pol: '', cnpj: '12.345.678/0001-95',
+      mode: 'carga', vesselVoyage: '', pol: '', pod: '', cnpj: '12.345.678/0001-95',
     }).valid).toBe(false)
     expect(validateCustomerCommunicationFilters({
-      mode: 'carga', vessel: 'Navio', voyage: '', scale: '', pod: '', pol: '', cnpj: '',
+      mode: 'carga', vesselVoyage: 'Navio', pol: '', pod: '', cnpj: '',
     }).valid).toBe(true)
+  })
+
+  it('navio e viagem num campo só: cada termo digitado precisa aparecer', () => {
+    const rows = [
+      candidate({ id: 'BL-1', vesselName: 'MSC ALTAIR', voyageNumber: '2401E' }),
+      candidate({ id: 'BL-2', vesselName: 'MSC ALTAIR', voyageNumber: '2402E' }),
+      candidate({ id: 'BL-3', vesselName: 'CMA VEGA', voyageNumber: '2401E' }),
+    ]
+    const recorte = (vesselVoyage: string) =>
+      filterCustomerCommunicationBls(rows, { mode: 'carga', vesselVoyage, pol: '', pod: '', cnpj: '' }).map((row) => row.id)
+
+    // Só o navio: todas as viagens dele.
+    expect(recorte('altair')).toEqual(['BL-1', 'BL-2'])
+    // Só a viagem: o número em qualquer navio — é o que se espera de uma busca só.
+    expect(recorte('2401E')).toEqual(['BL-1', 'BL-3'])
+    // Os dois juntos, na ordem natural de quem digita.
+    expect(recorte('ALTAIR 2401E')).toEqual(['BL-1'])
+    // E fora de ordem, porque a busca casa termos e não a frase inteira.
+    expect(recorte('2401e altair')).toEqual(['BL-1'])
+    // Um termo que não existe zera o recorte em vez de ignorar o excedente.
+    expect(recorte('ALTAIR 9999')).toEqual([])
   })
 
   it('aplica CNPJ como restrição e normaliza pontuação', () => {
@@ -165,14 +185,14 @@ describe('recorte e conferência de Comunicados', () => {
       candidate({ id: 'BL-1' }),
       candidate({ id: 'BL-2', customerId: 100, customerCnpj: '98.765.432/0001-10' }),
     ], {
-      mode: 'carga', vessel: '', voyage: '', scale: '', pod: '', pol: '', cnpj: '12.345.678000195',
+      mode: 'carga', vesselVoyage: '', pol: '', pod: '', cnpj: '12.345.678000195',
     })
     expect(rows.map((row) => row.id)).toEqual(['BL-1'])
   })
 
   it('não reaplica filtros operacionais antigos no modo institucional', () => {
     const rows = filterCustomerCommunicationBls([candidate()], {
-      mode: 'institucional', vessel: 'Outro navio', voyage: 'V999', scale: 'Outra escala', pod: 'BRXXX', pol: 'BRYYY', cnpj: '',
+      mode: 'institucional', vesselVoyage: 'Outro navio V999', pol: 'BRYYY', pod: 'BRXXX', cnpj: '',
     })
     expect(rows.map((row) => row.id)).toEqual(['BL-1'])
   })
@@ -275,7 +295,7 @@ describe('Contrato entre modo, modelo e público do disparo', () => {
     expect(MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE.carga).toContain('livre')
     // O modo carga exige filtro operacional; isso vale também para o livre.
     expect(validateCustomerCommunicationFilters({
-      mode: 'carga', vessel: '', voyage: '', scale: '', pod: '', pol: '', cnpj: '',
+      mode: 'carga', vesselVoyage: '', pol: '', pod: '', cnpj: '',
     }).valid).toBe(false)
   })
 

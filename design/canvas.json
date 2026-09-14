@@ -26,7 +26,7 @@
       "x": 780,
       "y": -230,
       "w": 660,
-      "text": "ALINHAMENTO\n\nUma régua só para a coluna inteira: rótulos 12px caixa-alta com 0.06em, controles de 44px nas escolhas (modo, modelo, público), filtros num grid 3×2 de trilhas iguais, divisórias de 1px a cada 22px.\n\nOs filtros são a exceção deliberada: seis campos de texto curto enfileirados, em caixas de 36px. A altura cheia empurrava o botão de conferência para fora da primeira dobra sem ganhar legibilidade.\n\nNada de grid de 3 colunas com um campo só dentro (o CNPJ órfão do modo Institucional virou um par: o painel que explica o universo + o campo)."
+      "text": "ALINHAMENTO\n\nUma régua só para a coluna inteira: rótulos 12px caixa-alta com 0.06em, controles de 44px nas escolhas (modo, modelo, público), divisórias de 1px a cada 22px.\n\nOs filtros são a exceção deliberada: uma linha de quatro campos em caixas de 36px, trilhas 2·1·1·2. As trilhas não são iguais porque os campos não são: navio/viagem e CNPJ recebem texto longo, POL e POD uma sigla de cinco letras. Duas linhas de 44px empurravam o botão de conferência para fora da primeira dobra sem ganhar legibilidade.\n\nNada de grid com um campo só dentro (o CNPJ órfão do modo Institucional virou um par: o painel que explica o universo + o campo)."
     },
     {
       "id": "conferir",

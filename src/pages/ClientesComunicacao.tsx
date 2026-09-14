@@ -43,9 +43,9 @@ import { customerCommunicationKindLabel, customerCommunicationStatusLabel } from
 type CommunicationTab = 'cobertura' | 'disparo' | 'historico'
 
 const KIND_OPTIONS: Array<{ value: CustomerCommunicationKind; label: string; hint: string }> = [
-  { value: 'aviso_chegada_noa', label: 'NOA · Aviso de Chegada', hint: 'Texto fixo, ancorado no ETA da escala.' },
-  { value: 'aviso_prontidao_nor', label: 'NOR · Prontidão de Descarga', hint: 'Texto fixo, ancorado no ATA da escala.' },
-  { value: 'aviso_atracacao_nob', label: 'NOB · Atracação e Operação', hint: 'Texto fixo, ancorado no ATB da atracação.' },
+  { value: 'aviso_chegada_noa', label: 'NOA · Chegada Próxima', hint: 'Texto fixo, enviado 5 dias antes do ETA da escala.' },
+  { value: 'aviso_prontidao_nor', label: 'NOR · Aviso de Chegada', hint: 'Texto fixo, enviado quando o ATA da escala é registrado.' },
+  { value: 'aviso_atracacao_nob', label: 'NOB · Aviso de Atracação', hint: 'Texto fixo, enviado quando o ATB da atracação é registrado.' },
   { value: 'livre', label: 'Livre · você escreve a mensagem', hint: 'Assunto e mensagem escritos agora, enviados aos clientes da carga filtrada.' },
   { value: 'institucional', label: 'Institucional · você escreve a mensagem', hint: 'Assunto e mensagem escritos agora, sem vínculo com carga.' },
 ]
@@ -59,7 +59,7 @@ const MODE_OPTIONS: Array<{ value: CustomerCommunicationDispatchMode; label: str
   {
     value: 'institucional',
     label: 'Institucional · clientes comunicáveis',
-    hint: 'Os destinatários são os Clientes Comunicáveis, sem recorte de viagem.',
+    hint: 'Sem recorte de viagem: alcança o cliente mesmo sem carga a bordo.',
   },
 ]
 
@@ -147,6 +147,7 @@ export function ClientesComunicacao() {
   const availableKindOptions = kindOptionsForMode(dispatchMode)
   const activeKindOption = availableKindOptions.find((option) => option.value === kind)
   const activeModeOption = MODE_OPTIONS.find((option) => option.value === dispatchMode)
+  const singleKindMode = availableKindOptions.length === 1
   const dispatchFilters: CustomerCommunicationFilters = { ...filters, mode: dispatchMode }
   const filterValidation = validateCustomerCommunicationFilters(dispatchFilters)
   const messageMissing = userWritten && (!institutionalSubject.trim() || !institutionalBody.trim())
@@ -515,6 +516,16 @@ export function ClientesComunicacao() {
                     ))}
                   </Select>
                 </Field>
+                {/* Um select de uma opção só não é escolha: é um rótulo disfarçado
+                    de controle, e obriga a repetir num hint o que o Modo já disse.
+                    Quando o modo resolve modelo e público, uma frase os resume. */}
+                {singleKindMode ? (
+                  <p className="self-center text-sm text-[var(--app-muted)] sm:col-span-2">
+                    Modelo único neste modo: você escreve o assunto e a mensagem, e ela vai para{' '}
+                    <strong className="font-semibold text-[var(--app-text-strong)]">todos os contatos</strong> de cada cliente.
+                  </p>
+                ) : (
+                  <>
                 <Field label="Modelo" hint={activeKindOption?.hint}>
                   <Select value={kind} onChange={(event) => handleKindChange(event.target.value as CustomerCommunicationKind)}>
                     {availableKindOptions.map((option) => (
@@ -548,6 +559,8 @@ export function ClientesComunicacao() {
                     </div>
                   )}
                 </Field>
+                  </>
+                )}
               </div>
             </StepSection>
 
@@ -557,60 +570,50 @@ export function ClientesComunicacao() {
               description={
                 dispatchMode === 'carga'
                   ? 'Informe ao menos um filtro da viagem. Os clientes vêm dos B/Ls encontrados; filtro vazio nunca significa todos.'
-                  : 'Todos os Clientes Comunicáveis entram no recorte. Use o CNPJ para restringir a um cliente específico.'
+                  : 'Todo Cliente Comunicável entra no recorte. Opcional: restrinja a um único cliente pelo CNPJ.'
               }
             >
               {dispatchMode === 'carga' ? (
-                <div className="comunicacao-filtros grid gap-3 sm:grid-cols-3">
-                  <Field label="Navio">
-                    <Input
-                      value={filters.vessel}
-                      onChange={(event) => updateFilter('vessel', event.target.value)}
-                      placeholder="Nome do navio"
-                    />
-                  </Field>
-                  <Field label="Viagem">
-                    <Input
-                      value={filters.voyage}
-                      onChange={(event) => updateFilter('voyage', event.target.value)}
-                      placeholder="Número da viagem"
-                    />
-                  </Field>
-                  <Field label="POD (Porto de Descarga)">
-                    <Input
-                      value={filters.pod}
-                      onChange={(event) => updateFilter('pod', event.target.value)}
-                      placeholder="Ex.: Santos / BRSSZ"
-                    />
-                  </Field>
-                  <Field label="POL (Porto de Embarque)">
-                    <Input
-                      value={filters.pol}
-                      onChange={(event) => updateFilter('pol', event.target.value)}
-                      placeholder="Ex.: Shanghai / CNSHA"
-                    />
-                  </Field>
-                  <Field label="CNPJ do Cliente (opcional)">
-                    <Input
-                      value={filters.cnpj}
-                      onChange={(event) => updateFilter('cnpj', event.target.value)}
-                      placeholder="Filtrar por CNPJ específico"
-                    />
-                  </Field>
-
-                  {/* O Nº de Escala do Mercante é preenchido à mão e costuma
-                      estar vazio; filtrar por ele zera o recorte em silêncio.
-                      Por isso o rótulo é explícito e a dica avisa. */}
-                  <Field
-                    label="Nº da Escala (Mercante)"
-                    hint="Separa dois terminais no mesmo porto. Se não estiver cadastrado, não retorna carga."
-                  >
-                    <Input
-                      value={filters.scale}
-                      onChange={(event) => updateFilter('scale', event.target.value)}
-                      placeholder="Ex.: 25000123456"
-                    />
-                  </Field>
+                /* Quatro filtros numa linha só. As trilhas não são iguais de
+                   propósito: navio/viagem e CNPJ recebem texto longo, POL e POD
+                   recebem uma sigla de cinco letras. */
+                <div className="comunicacao-filtros grid gap-3 sm:grid-cols-12">
+                  <div className="sm:col-span-4">
+                    <Field label="Navio / Viagem">
+                      <Input
+                        value={filters.vesselVoyage}
+                        onChange={(event) => updateFilter('vesselVoyage', event.target.value)}
+                        placeholder="Busque por navio ou viagem"
+                      />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Field label="POL">
+                      <Input
+                        value={filters.pol}
+                        onChange={(event) => updateFilter('pol', event.target.value)}
+                        placeholder="BRSSZ"
+                      />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Field label="POD">
+                      <Input
+                        value={filters.pod}
+                        onChange={(event) => updateFilter('pod', event.target.value)}
+                        placeholder="CNSHA"
+                      />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-4">
+                    <Field label="CNPJ do Cliente (opcional)">
+                      <Input
+                        value={filters.cnpj}
+                        onChange={(event) => updateFilter('cnpj', event.target.value)}
+                        placeholder="Filtrar por CNPJ específico"
+                      />
+                    </Field>
+                  </div>
                 </div>
               ) : (
                 <div className="comunicacao-filtros grid gap-3 sm:grid-cols-3">

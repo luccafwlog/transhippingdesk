@@ -88,7 +88,7 @@
     <div class="card" style="display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 20px; background: #f8f6f1;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#167344" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto;"><path d="M20 6 9 17l-5-5"/></svg>
       <span style="flex: 1 1 auto; font-size: 13.5px; color: #1c1915;">
-        <strong style="font-weight: 700; color: #0e0c0a;">NOA · Aviso de Chegada</strong>
+        <strong style="font-weight: 700; color: #0e0c0a;">NOA · Chegada Próxima</strong>
         no modo <strong style="font-weight: 700; color: #0e0c0a;">Carga</strong>,
         para a caixa <strong style="font-weight: 700; color: #0e0c0a;">Documentação e Operação</strong>
       </span>
@@ -102,30 +102,22 @@
         Os destinatários vêm dos B/Ls que atenderem aos filtros. Filtro vazio nunca significa todos os clientes — informe ao menos um.
       </p>
 
-      <div class="filtros" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <div class="filtros" style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 12px;">
         <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Navio</span>
-          <div class="inp"><span style="font-weight: 500;">MSC ALTAIR</span></div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Navio / Viagem</span>
+          <div class="inp"><span style="font-weight: 500;">MSC ALTAIR · 2401E</span></div>
         </div>
         <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Viagem</span>
-          <div class="inp"><span style="font-weight: 500;">2401E</span></div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POL</span>
+          <div class="inp inp--ph">BRSSZ</div>
         </div>
         <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POD · Porto de descarga</span>
-          <div class="inp inp--ph">Ex.: Santos / BRSSZ</div>
-        </div>
-        <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POL · Porto de embarque</span>
-          <div class="inp inp--ph">Ex.: Shanghai / CNSHA</div>
+          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">POD</span>
+          <div class="inp inp--ph">CNSHA</div>
         </div>
         <div>
           <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">CNPJ do cliente</span>
           <div class="inp inp--ph">Restringe a um cliente</div>
-        </div>
-        <div>
-          <span class="lbl" style="font-size: 11px; letter-spacing: 0.05em;">Nº da Escala (Mercante)</span>
-          <div class="inp inp--ph">Ex.: 25000123456</div>
         </div>
       </div>
 

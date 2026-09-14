@@ -213,9 +213,9 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     )
 
     expect(screen.getByText('Critérios do disparo')).toBeTruthy()
-    expect(screen.getAllByText('NOA · Aviso de Chegada').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('NOA · Chegada Próxima').length).toBeGreaterThanOrEqual(1)
 
-    fireEvent.change(screen.getByLabelText('Navio'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
     fireEvent.click(screen.getByRole('button', { name: /Conferir destinatários/i }))
 
     // Detalhes da conferência renderizada
@@ -262,8 +262,14 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
       'livre',
     ])
 
+    // O modo Institucional resolve modelo e público sozinho: em vez de um select
+    // de uma opção só e dois hints repetindo o rótulo do Modo, uma frase resume.
     fireEvent.change(screen.getByLabelText(/^Modo/), { target: { value: 'institucional' } })
-    expect([...(screen.getByLabelText(/^Modelo/) as HTMLSelectElement).options].map((o) => o.value)).toEqual(['institucional'])
+    expect(screen.queryByLabelText(/^Modelo/)).toBeNull()
+    expect(screen.queryByLabelText(/^Público/)).toBeNull()
+    expect(screen.getByText(/Modelo único neste modo/)).toBeTruthy()
+    // E o editor continua abrindo, porque o modelo segue sendo o institucional.
+    expect(screen.getByLabelText(/^Assunto/)).toBeTruthy()
   })
 
   it('o modelo Livre abre o editor de mensagem sem sair do modo Carga', () => {
@@ -281,7 +287,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     expect(screen.getByLabelText(/^Assunto/)).toBeTruthy()
     expect(screen.getByLabelText(/^Mensagem/)).toBeTruthy()
     // O filtro da viagem continua ativo: o livre é ancorado na carga.
-    expect(screen.getByLabelText('Navio')).toBeTruthy()
+    expect(screen.getByLabelText('Navio / Viagem')).toBeTruthy()
   })
 
   it('só o modelo Livre deixa o operador escolher o público', () => {
@@ -316,22 +322,28 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     const conferir = screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement
     expect(conferir.disabled).toBe(true)
 
-    fireEvent.change(screen.getByLabelText('Navio'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
     expect((screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('mostra o Nº da Escala do Mercante com rótulo e exemplo honestos', () => {
+  it('cabe numa linha: um campo de navio/viagem, POL, POD e CNPJ', () => {
     render(
       <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
         <ClientesComunicacao />
       </MemoryRouter>,
     )
 
-    // O rótulo antigo prometia aceitar o porto da escala, o que nunca foi verdade.
-    expect(screen.queryByLabelText('Escala')).toBeNull()
+    // Navio e viagem viraram um campo só, como no Line-up.
+    expect(screen.queryByLabelText('Navio')).toBeNull()
+    expect(screen.queryByLabelText('Viagem')).toBeNull()
+    expect(screen.getByLabelText('Navio / Viagem')).toBeTruthy()
 
-    const campo = screen.getByLabelText(/Nº da Escala/) as HTMLInputElement
-    expect(campo.placeholder).toBe('Ex.: 25000123456')
+    // POL antes de POD, sem o rótulo por extenso.
+    const rotulos = screen.getAllByText(/^(POL|POD)$/).map((el) => el.textContent)
+    expect(rotulos).toEqual(['POL', 'POD'])
+
+    // O filtro de escala saiu de vez.
+    expect(screen.queryByLabelText(/Escala/)).toBeNull()
   })
 
   it('renderiza o histórico de disparos na aba historico', () => {

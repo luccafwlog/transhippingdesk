@@ -179,25 +179,22 @@ export type CustomerCommunicationDispatchMode = 'carga' | 'institucional'
 
 export type CustomerCommunicationFilters = {
   mode: CustomerCommunicationDispatchMode
-  vessel: string
-  voyage: string
-  scale: string
-  pod: string
+  /** Navio e viagem num campo só, como no Line-up. Ver `matchesVesselVoyage`. */
+  vesselVoyage: string
   pol: string
+  pod: string
   cnpj: string
 }
 
 export const DEFAULT_CUSTOMER_COMMUNICATION_FILTERS: CustomerCommunicationFilters = {
   mode: 'carga',
-  vessel: '',
-  voyage: '',
-  scale: '',
-  pod: '',
+  vesselVoyage: '',
   pol: '',
+  pod: '',
   cnpj: '',
 }
 
-export const OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS = ['vessel', 'voyage', 'scale', 'pod', 'pol'] as const
+export const OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS = ['vesselVoyage', 'pol', 'pod'] as const
 
 /**
  * Modelos que o operador pode disparar manualmente em `/clientes/comunicacao`,
@@ -288,7 +285,6 @@ export type CustomerCommunicationBlCandidate = {
   cargoMode: string
   eta: string | null
   ata: string | null
-  scaleNumber: string | null
   terminalId: string | null
   terminalName: string | null
   terminalStateId: string | null
@@ -356,6 +352,19 @@ function matchesFilter(value: string | null | undefined, filter: string): boolea
   return normalizedUpper(value).includes(normalizedFilter)
 }
 
+/**
+ * Navio e viagem casam contra "NAVIO VIAGEM" concatenado, e cada termo digitado
+ * precisa aparecer. Assim "ALTAIR 2401E" acha a viagem 2401E do MSC ALTAIR,
+ * "ALTAIR" sozinho acha todas as dela e "2401E" sozinho acha a viagem em
+ * qualquer navio — que é o que o operador espera de uma busca só.
+ */
+function matchesVesselVoyage(vessel: string | null | undefined, voyage: string | null | undefined, filter: string): boolean {
+  const terms = normalizedUpper(filter).split(/\s+/).filter(Boolean)
+  if (!terms.length) return true
+  const haystack = `${normalizedUpper(vessel)} ${normalizedUpper(voyage)}`
+  return terms.every((term) => haystack.includes(term))
+}
+
 function samePort(left: string | null | undefined, right: string | null | undefined): boolean {
   const a = normalizedUpper(left)
   const b = normalizedUpper(right)
@@ -367,7 +376,7 @@ export function validateCustomerCommunicationFilters(filters: CustomerCommunicat
   const hasOperationalFilter = OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS.some((key) => Boolean(cleanFilter(filters[key])))
   return hasOperationalFilter
     ? { valid: true, message: null }
-    : { valid: false, message: 'No modo carga, informe ao menos um filtro operacional: navio, viagem, escala, POD ou POL.' }
+    : { valid: false, message: 'No modo carga, informe ao menos um filtro operacional: navio/viagem, POL ou POD.' }
 }
 
 export function filterCustomerCommunicationBls(
@@ -376,11 +385,9 @@ export function filterCustomerCommunicationBls(
 ): CustomerCommunicationBlCandidate[] {
   return rows.filter((row) => {
     if (filters.mode === 'carga') {
-      if (!matchesFilter(row.vesselName, filters.vessel)) return false
-      if (!matchesFilter(row.voyageNumber, filters.voyage)) return false
-      if (!matchesFilter(row.scaleNumber, filters.scale)) return false
-      if (!matchesFilter(row.pod, filters.pod)) return false
+      if (!matchesVesselVoyage(row.vesselName, row.voyageNumber, filters.vesselVoyage)) return false
       if (!matchesFilter(row.pol, filters.pol)) return false
+      if (!matchesFilter(row.pod, filters.pod)) return false
     }
     if (cleanFilter(filters.cnpj) && canonicalizeDocument(row.customerCnpj) !== canonicalizeDocument(filters.cnpj)) return false
     return true
@@ -625,7 +632,6 @@ function toBaseCandidate(row: RawCommunicationBlRow): CustomerCommunicationBlCan
     cargoMode: row.cargo_mode,
     eta: row.voyage.eta,
     ata: row.voyage.ata,
-    scaleNumber: null,
     terminalId: null,
     terminalName: null,
     terminalStateId: null,
@@ -688,7 +694,6 @@ function expandCandidatesForKind(
       if (schedule?.deleted || schedule?.omitted) continue
       expanded.push({
         ...row,
-        scaleNumber: schedule?.escalaNumber ?? null,
         eta: schedule?.eta ?? row.eta,
         ata: schedule?.ata ?? row.ata,
         milestoneAt: null,
@@ -708,7 +713,6 @@ function expandCandidatesForKind(
         )) continue
         expanded.push({
           ...row,
-          scaleNumber: schedule?.escalaNumber ?? null,
           terminalId: atracacao.terminalId,
           terminalName: atracacao.terminalCode ?? atracacao.terminalId,
           terminalStateId: atracacao.stateId,
@@ -722,7 +726,6 @@ function expandCandidatesForKind(
     if (!milestoneAt) continue
     expanded.push({
       ...row,
-      scaleNumber: schedule.escalaNumber ?? null,
       eta: schedule.eta,
       ata: schedule.ata,
       milestoneAt,
@@ -1143,9 +1146,9 @@ export function customerCommunicationStatusLabel(status: string): string {
 }
 
 export function customerCommunicationKindLabel(kind: string): string {
-  if (kind === 'aviso_chegada_noa') return 'NOA · Aviso de Chegada'
-  if (kind === 'aviso_prontidao_nor') return 'NOR · Prontidão de Descarga'
-  if (kind === 'aviso_atracacao_nob') return 'NOB · Atracação e Operação'
+  if (kind === 'aviso_chegada_noa') return 'NOA · Chegada Próxima'
+  if (kind === 'aviso_prontidao_nor') return 'NOR · Aviso de Chegada'
+  if (kind === 'aviso_atracacao_nob') return 'NOB · Aviso de Atracação'
   if (kind === 'ce_mercante_taxas') return 'CE Mercante · Taxas Locais'
   if (kind === 'cobranca_demurrage') return 'Cobrança de Demurrage'
   if (kind === 'institucional') return 'Institucional'
