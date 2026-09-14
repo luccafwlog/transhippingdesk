@@ -337,6 +337,53 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     expect((screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('o CNPJ sozinho não libera a conferência, e a frase do recorte não finge o contrário', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/^CNPJ do Cliente/), { target: { value: '12.345.678/0001-90' } })
+
+    // `validateCustomerCommunicationFilters` aceita só navio/viagem, POL ou POD.
+    expect((screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/informe navio\/viagem, POL ou POD/i)).toBeTruthy()
+  })
+
+  it('não deixa conferir sem mensagem, porque a conferência desmonta o editor', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    escolher(/Comunicado livre/)
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+
+    const conferir = () => screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement
+    expect(conferir().disabled).toBe(true)
+    expect(screen.getByText(/Escreva o assunto e a mensagem para conferir/i)).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText(/^Assunto/), { target: { value: 'Recesso' } })
+    fireEvent.change(screen.getByLabelText(/^Mensagem/), { target: { value: 'Comunicamos o recesso.' } })
+    expect(conferir().disabled).toBe(false)
+  })
+
+  it('o alerta de alcance máximo do institucional cala quando um CNPJ restringe o disparo', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    escolher(/^Institucional/)
+    expect(screen.getByText(/atinge a base inteira/i)).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText(/^CNPJ do Cliente/), { target: { value: '12.345.678/0001-90' } })
+    expect(screen.queryByText(/atinge a base inteira/i)).toBeNull()
+  })
+
   it('cabe numa linha: um campo de navio/viagem, POL, POD e CNPJ', () => {
     render(
       <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
@@ -356,7 +403,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     expect(screen.getByPlaceholderText('BRSSZ')).toBeTruthy()
 
     // O painel da direita nomeia o recorte em vez de repetir a lista de campos.
-    expect(screen.getByText(/informe ao menos um filtro do recorte/i)).toBeTruthy()
+    expect(screen.getByText(/informe navio\/viagem, POL ou POD/i)).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
     expect(screen.getByText('MSC ALTAIR')).toBeTruthy()
 

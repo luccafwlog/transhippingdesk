@@ -74,16 +74,29 @@ function audienceLabel(audience: CustomerCommunicationAudience): string {
 
 /**
  * Descreve o recorte da carga em português, listando só os filtros informados.
- * Sem nenhum filtro a frase diz o que falta em vez de mentir um alcance: no modo
- * carga, filtro vazio nunca significa todos os clientes.
+ * Sem recorte operacional a frase diz o que falta em vez de mentir um alcance: no
+ * modo carga, filtro vazio nunca significa todos os clientes.
+ *
+ * O CNPJ não conta como recorte completo porque
+ * `validateCustomerCommunicationFilters` não o aceita sozinho — ele restringe um
+ * universo, não o define. Uma frase que se declarasse pronta só com o CNPJ
+ * contradiria o botão "Conferir destinatários", que continuaria desabilitado.
  */
 function describeCargoScope(filters: CustomerCommunicationFilters): React.ReactNode {
   const partes: React.ReactNode[] = []
   if (filters.vesselVoyage.trim()) partes.push(<>com carga em <strong key="nv" className="font-bold">{filters.vesselVoyage.trim()}</strong></>)
   if (filters.pol.trim()) partes.push(<>embarcada em <strong key="pol" className="font-bold">{filters.pol.trim()}</strong></>)
   if (filters.pod.trim()) partes.push(<>destinada a <strong key="pod" className="font-bold">{filters.pod.trim()}</strong></>)
+  if (!partes.length) {
+    const cnpj = filters.cnpj.trim()
+    return (
+      <span className="text-[var(--app-gold-strong)]">
+        {cnpj ? <>do CNPJ <strong className="font-bold">{cnpj}</strong> — </> : '— '}
+        informe navio/viagem, POL ou POD
+      </span>
+    )
+  }
   if (filters.cnpj.trim()) partes.push(<>do CNPJ <strong key="cnpj" className="font-bold">{filters.cnpj.trim()}</strong></>)
-  if (!partes.length) return <span className="text-[var(--app-gold-strong)]">— informe ao menos um filtro do recorte</span>
   return partes.map((parte, index) => <span key={index}>{index ? ', ' : ''}{parte}</span>)
 }
 
@@ -649,7 +662,10 @@ export function ClientesComunicacao() {
             ) : (
               <Card>
                 <ComposerLabel>Modo</ComposerLabel>
-                <div className="grid gap-2 sm:grid-cols-2">
+                {/* `name` agrupa os rádios para o teclado, mas não dá nome ao grupo:
+                    sem isto o leitor de tela anuncia a opção sem dizer de que
+                    pergunta ela é resposta. O rótulo visível fica fora do grupo. */}
+                <div role="radiogroup" aria-label="Modo" className="grid gap-2 sm:grid-cols-2">
                   {MODE_OPTIONS.map((option) => (
                     <ChoiceOption
                       key={option.value}
@@ -679,7 +695,7 @@ export function ClientesComunicacao() {
                 ) : (
                   <>
                     <ComposerLabel>Modelo</ComposerLabel>
-                    <div className="grid gap-2">
+                    <div role="radiogroup" aria-label="Modelo" className="grid gap-2">
                       {availableKindOptions.map((option) => (
                         <ChoiceOption
                           key={option.value}
@@ -738,7 +754,7 @@ export function ClientesComunicacao() {
                   <>
                     <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                       <ComposerLabel inline>Recorte da carga</ComposerLabel>
-                      <span className="text-xs text-[var(--app-muted)]">Ao menos um campo abaixo é obrigatório</span>
+                      <span className="text-xs text-[var(--app-muted)]">Navio/Viagem, POL ou POD: ao menos um é obrigatório</span>
                     </div>
                     {/* Quatro filtros numa linha só. As trilhas não são iguais de
                         propósito: navio/viagem e CNPJ recebem texto longo, POL e POD
@@ -764,7 +780,7 @@ export function ClientesComunicacao() {
                         </Field>
                       </div>
                       <div className="sm:col-span-4">
-                        <Field label="CNPJ do Cliente (opcional)">
+                        <Field label="CNPJ do Cliente (opcional)" hint="Restringe o recorte; não substitui os três campos acima.">
                           <Input value={filters.cnpj} onChange={(event) => updateFilter('cnpj', event.target.value)} placeholder="Filtrar por CNPJ específico" />
                         </Field>
                       </div>
@@ -897,10 +913,12 @@ export function ClientesComunicacao() {
                     O comunicado livre fica vinculado aos B/Ls da viagem e aparece no histórico de cada um.
                   </p>
                 ) : null}
-                {!showConference && dispatchMode === 'institucional' ? (
+{/* O alerta some quando o CNPJ restringe o disparo a um cliente: repetido ali,
+    contradiria a frase logo acima, que já diz o alcance real. */}
+                {!showConference && dispatchMode === 'institucional' && !filters.cnpj.trim() ? (
                   <p className="mt-3 flex items-start gap-2 rounded-lg bg-[var(--app-gold-soft)] px-3 py-2.5 text-xs leading-relaxed text-[var(--app-gold-strong)]">
                     <AlertTriangle size={15} className="mt-px shrink-0" aria-hidden="true" />
-                    É o disparo de maior alcance da tela: sem filtro de viagem, atinge a base inteira.
+                    É o disparo de maior alcance da tela: sem filtro de viagem nem CNPJ, atinge a base inteira.
                   </p>
                 ) : null}
               </div>
@@ -998,11 +1016,20 @@ export function ClientesComunicacao() {
                       setDispatchMessage(null)
                     }}
                     loading={conferenceQuery.isFetching}
-                    disabled={!filterValidation.valid}
+                    disabled={!filterValidation.valid || messageMissing}
                   >
                     <CheckCircle2 size={16} /> Conferir destinatários
                   </Button>
                 )}
+                {/* A conferência troca a composição pela lista de destinatários, e o
+                    editor de assunto e mensagem sai da tela junto. Se o disparo pede
+                    mensagem, ela tem que existir antes de conferir — senão o operador
+                    chega numa tela que exige um campo que ela mesma desmontou. */}
+                {!showConference && messageMissing ? (
+                  <p className="-mt-1 text-center text-xs text-[var(--app-gold-strong)]">
+                    Escreva o assunto e a mensagem para conferir os destinatários.
+                  </p>
+                ) : null}
                 <Button
                   type="button"
                   variant="secondary"
@@ -1254,9 +1281,17 @@ function ConferenceRow({
         {row.terminalName ? <div className="mt-1"><Badge tone="blue">{row.terminalName}</Badge></div> : null}
       </td>
       <td className="p-3 align-top">
-        <span className="font-mono" title={row.bls.map((bl) => bl.id).join(', ')}>
-          {row.bls.length || row.sourceBls.length}
-        </span>
+        {/* Comunicado institucional não vincula B/L: `bls` vem vazio e `sourceBls`
+            só comprova que o cliente é comunicável. Somar um no outro faria a
+            coluna prometer vínculo de carga onde não há nenhum. */}
+        {row.bls.length ? (
+          <span className="font-mono" title={row.bls.map((bl) => bl.id).join(', ')}>{row.bls.length}</span>
+        ) : (
+          <span className="text-[11px] text-[var(--app-muted)]" title={row.sourceBls.map((bl) => bl.id).join(', ')}>
+            Sem vínculo
+            {row.sourceBls.length ? <span className="mt-0.5 block">{row.sourceBls.length} de origem</span> : null}
+          </span>
+        )}
       </td>
       <td className="p-3 align-top">
         {row.eligibleRecipients.length ? (

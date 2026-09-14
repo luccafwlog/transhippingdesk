@@ -56,14 +56,21 @@ A aba **Disparo** tem duas colunas: à esquerda o operador compõe, à direita o
 painel **O que será enviado** responde "quem vai receber isto?" desde o primeiro
 segundo, com a frase do disparo, as quatro métricas do recorte, os anexos e os
 botões de ação. A frase é montada por `describeCargoScope` a partir dos filtros
-informados e, sem nenhum deles, diz o que falta em vez de mentir um alcance —
-no modo carga, filtro vazio nunca significa todos os clientes.
+informados e, sem recorte operacional, diz o que falta em vez de mentir um
+alcance — no modo carga, filtro vazio nunca significa todos os clientes. O CNPJ
+aparece na frase, mas não a completa sozinho: como
+`validateCustomerCommunicationFilters` não o aceita como recorte, uma frase que se
+declarasse pronta com ele contradiria o botão de conferência, que seguiria
+travado.
 
 A coluna da composição encadeia três perguntas, separadas por divisórias e sem
 numeração (a numeração 1·2·3 prometia um wizard que a tela não tem):
 
 1. **Modo e Modelo** — o Modo é um segmentado de duas opções e o Modelo uma lista
-   de rádio com a descrição de cada um visível, sem abrir nada: um select esconde
+   de rádio com a descrição de cada um visível, sem abrir nada (cada grupo declara
+   `role="radiogroup"` com o próprio nome, porque o `name` compartilhado liga os
+   rádios para o teclado mas não diz de que pergunta eles são resposta): um select
+   esconde
    justamente a diferença entre NOA, NOR, NOB e **Livre**, que é onde morava a
    confusão. O Modo escolhe o Recorte de Destinatários (**Carga**, clientes de uma
    viagem; **Institucional**, Clientes Comunicáveis) e a lista de modelos já vem
@@ -85,7 +92,8 @@ numeração (a numeração 1·2·3 prometia um wizard que a tela não tem):
    dois extremos, sigla de cinco letras no meio). Exige ao menos um filtro
    operacional (`OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS`: navio/viagem, POL ou
    POD), validado por `validateCustomerCommunicationFilters`, que também desabilita
-   o botão de conferência; CNPJ é restrição adicional. Navio e viagem são um campo
+   o botão de conferência; CNPJ é restrição adicional, nunca o recorte em si — daí
+   o rótulo do grupo nomear os três campos que valem. Navio e viagem são um campo
    só, como no Line-up: `matchesVesselVoyage` casa contra `NAVIO VIAGEM`
    concatenado e exige cada termo digitado, então `ALTAIR 2401E`, `ALTAIR` e
    `2401E` recortam o que o operador espera. O filtro por **Nº da Escala do
@@ -103,7 +111,9 @@ numeração (a numeração 1·2·3 prometia um wizard que a tela não tem):
    vez dos primitivos `Input`/`Textarea`. O acervo de modelos salvos é
    compartilhado pelos dois. O **Livre** permanece no modo Carga: é texto escrito
    na hora, endereçado aos clientes da viagem filtrada, e por isso mantém vínculo
-   de B/L.
+   de B/L. Escrever assunto e mensagem é pré-condição para conferir, e não só para
+   disparar: a conferência desmonta o editor, então chegar lá sem texto deixaria a
+   tela exigindo um campo que ela mesma tirou de cena.
 
 Conferir troca a tela: a composição colapsa numa faixa-resumo de uma linha com
 **Editar composição**, e a lista de destinatários assume a coluna principal como
@@ -113,7 +123,11 @@ tela e não `conferenceQuery.data`: voltar pelo Editar não muda a chave da quer
 então derivar a vista do cache deixaria a lista montada depois do pedido de voltar.
 O painel da direita vira **Pronto para disparar**, com as métricas preenchidas,
 `Marcar todos`/`Desmarcar` na tabela (a seleção em massa nunca alcança linha
-bloqueada) e o motivo textual sempre que o botão de disparo estiver travado.
+bloqueada) e o motivo textual sempre que o botão de disparo estiver travado. A
+coluna **B/Ls** conta apenas os B/Ls vinculados ao Comunicado; nas linhas
+institucionais, que não vinculam nenhum, ela diz `Sem vínculo` e mostra à parte
+quantas cargas provaram que o cliente é comunicável (`sourceBls`) — somar os dois
+sob o mesmo número prometeria um vínculo que o envio não cria.
 
 A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita de reenvio apenas para os modelos ancorados em carga (`requiresResendConfirmation`). Institucional e livre carregam `dispatch_id` novo a cada lote — cada envio é uma mensagem diferente, não o reenvio do mesmo Comunicado —, então o disparo anterior vira informação no painel e não trava a operação.
 
