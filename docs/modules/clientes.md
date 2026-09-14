@@ -62,6 +62,16 @@ A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos
 
 O preview usa os renderizadores pt-BR de `customerCommunicationTemplates.ts`, com assunto bilíngue, data/hora de Brasília e isolamento por cliente/terminal. Anexos são validados antes do dispatch (até três arquivos, 10 MB no total; formatos de cobrança local e demurrage são proibidos). A faixa de simulação permanece visível enquanto `app_settings.communications_enabled` estiver desligado; nesse estado a Edge Function registra `simulado` e não chama o Resend. Os modelos de texto reutilizáveis (institucional e livre compartilham o mesmo acervo) são salvos pela RPC `save_customer_communication_saved_template`; o bucket de anexos permanece privado e sem escrita direta pelo navegador (`supabase/migrations_archive/375_comunicados_bloco2_correcoes.sql`).
 
+A régua automática cobre NOA, NOR, **NOB** e `ce_mercante_taxas`. Os destinatários
+de todo envio automático saem da Caixa de Comunicação que o Cliente configurou —
+`documentacao_operacao` nos avisos operacionais, somada a `financeiro` no
+comunicado de CE e Taxas —, o mesmo recorte da conferência manual; até a migration
+`045` a produtora do cron ignorava as caixas e alcançava todos os contatos do
+Cliente. O NOB é produzido por Atracação e restrito aos Clientes da Frente de
+Operação atribuída àquele terminal (`bl_operation_front_modalidade` no banco,
+`operationFrontKindForCargoMode` no app); Atracação sem frente atribuída não
+comunica e mantém o alerta `comunicado_nob_pendente` aberto. Ver ADR 0067.
+
 O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`. O runner `supabase/functions/customer-communication-auto-runner/index.ts`, agendado pela migration `381_customer_communications_automation.sql`, avalia NOA/NOR e `ce_mercante_taxas` em background, aplica a chave global e grava claims idempotentes; as correções de lease e prontidão estão na migration `384_comunicados_automacao_falhas.sql`.
 
 O resumo financeiro `ce_mercante_taxas` não é um disparo genérico por invoice:

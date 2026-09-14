@@ -238,6 +238,20 @@ trava por informação, porque cada lote tem `dispatch_id` próprio. **Código**
 **Teste:** `customerCommunications.test.ts`, `ClientesComunicacao.test.tsx` e
 `customerCommunicationTemplates.test.ts`.
 
+A produtora `evaluate_and_dispatch_automatic_communications` (cron de 15 em 15
+minutos via `customer-communication-auto-runner`) resolve destinatários por
+`customer_contact_box_links`, não mais pelo modelo legado de
+`customer_contact_preferences`, e produz NOA, NOR, **NOB** e `ce_mercante_taxas`.
+O NOB é por Atracação (`voyage_escala_terminal_state.id` como
+`anchor_atracacao_id`) e restrito à carga cuja Frente de Operação está atribuída
+àquele terminal em `voyage_escala_operation_fronts`. A migration `045` corrige o
+roteamento — a `008` havia aplicado a correção de caixas em
+`find_due_customer_communication_automations`, que não tem chamador. **Código**;
+**Teste:** `comunicadosCaixasNobAutomaticoMigration.test.ts`,
+`escalaOperationFrontKind.test.ts`, `customerCommunicationAutoRunner.test.ts`;
+**Teste de contrato SQL:** `scripts/check-comunicados-caixas-nob.sql`, executado
+no CI contra o Postgres real após o replay das migrations.
+
 `customerCommunicationDispatches.ts` chama `send-customer-communication`, que
 confere contato, preferência, complaint/bounce e natureza, registra a operação
 por RPC atômica e mantém o dry-run quando

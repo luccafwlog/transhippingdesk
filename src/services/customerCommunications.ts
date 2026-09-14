@@ -4,6 +4,7 @@ import type {
   CustomerContactPreference,
 } from '../types/database'
 import { canonicalizeDocument } from '../lib/cnpj'
+import { operationFrontKindForCargoMode } from './escalaTerminalAllocation'
 import { listVoyageEscalaSchedulesByVoyageIds, type VoyageEscalaSchedule } from './voyageRouteSchedules'
 import { supabase } from './supabase'
 import type { CustomerCommunicationKind, CustomerCommunicationTemplateInput } from './customerCommunicationTemplates'
@@ -636,10 +637,49 @@ function scheduleForCandidate(row: CustomerCommunicationBlCandidate, schedules: 
   return schedules.find((schedule) => samePort(schedule.port, row.pod)) ?? null
 }
 
+/**
+ * Chave de uma Frente de Operação atribuída: identifica que a carga de um dado
+ * `cargo_mode` foi descarregada NAQUELE terminal, naquela escala. É o que
+ * separa os clientes de uma Atracação dos da Atracação vizinha.
+ */
+function operationFrontKey(voyageId: number, port: string, terminalId: string, modalidade: string): string {
+  return `${voyageId}::${normalizedUpper(port)}::${terminalId}::${modalidade}`
+}
+
+/**
+ * Frentes de importação com terminal atribuído, para as viagens do recorte.
+ * Espelha o filtro que `evaluate_and_dispatch_automatic_communications` aplica
+ * no NOB automático — conferência manual e régua precisam ver o mesmo público.
+ */
+export async function fetchAssignedOperationFrontKeys(voyageIds: readonly number[]): Promise<Set<string>> {
+  const keys = new Set<string>()
+  if (!voyageIds.length) return keys
+  for (let from = 0; from < voyageIds.length; from += 25) {
+    const { data, error } = await supabase
+      .from('voyage_escala_operation_fronts')
+      .select('voyage_id, port, terminal_id, sentido, modalidade')
+      .in('voyage_id', voyageIds.slice(from, from + 25))
+    if (error) throw error
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      if (row.sentido !== 'importacao') continue
+      if (typeof row.voyage_id !== 'number' || typeof row.port !== 'string') continue
+      if (typeof row.terminal_id !== 'string' || typeof row.modalidade !== 'string') continue
+      keys.add(operationFrontKey(row.voyage_id, row.port, row.terminal_id, row.modalidade))
+    }
+  }
+  return keys
+}
+
 function expandCandidatesForKind(
   rows: readonly CustomerCommunicationBlCandidate[],
   schedulesByVoyage: ReadonlyMap<number, readonly VoyageEscalaSchedule[]>,
   kind: CustomerCommunicationKind,
+  /**
+   * Frentes atribuídas, só consultadas no NOB. `undefined` significa "não
+   * consultado" e mantém o comportamento antigo para chamadores que não
+   * precisam do recorte por terminal.
+   */
+  assignedFrontKeys?: ReadonlySet<string>,
 ): CustomerCommunicationBlCandidate[] {
   const expanded: CustomerCommunicationBlCandidate[] = []
   for (const row of rows) {
@@ -661,6 +701,11 @@ function expandCandidatesForKind(
         // NOB is anchored by the state row UUID, never by the terminal UUID.
         // A missing state identity is not safe to turn into a dispatch.
         if (!atracacao.terminalId || !atracacao.stateId || !atracacao.atb) continue
+        // A Atracação só comunica a carga da Frente de Operação que ela hospeda:
+        // quem descarregou no berço vizinho não entra neste NOB.
+        if (assignedFrontKeys && !assignedFrontKeys.has(
+          operationFrontKey(row.voyageId, row.pod, atracacao.terminalId, operationFrontKindForCargoMode(row.cargoMode)),
+        )) continue
         expanded.push({
           ...row,
           scaleNumber: schedule?.escalaNumber ?? null,
@@ -779,7 +824,10 @@ export async function fetchCustomerCommunicationConference(input: {
     ? await listVoyageEscalaSchedulesByVoyageIds(voyageIds)
     : new Map<number, VoyageEscalaSchedule[]>()
   const operationalKind = input.filters.mode === 'institucional' ? 'aviso_chegada_noa' : input.kind
-  const expanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind)
+  const assignedFrontKeys = operationalKind === 'aviso_atracacao_nob'
+    ? await fetchAssignedOperationFrontKeys(voyageIds)
+    : undefined
+  const expanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind, assignedFrontKeys)
   const filtered = filterCustomerCommunicationBls(expanded, input.filters)
   const customerIds = [...new Set(filtered.map((row) => row.customerId))]
   const { contactsByCustomer, boxLinks } = await fetchCommunicationContacts(customerIds)

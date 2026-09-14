@@ -1633,6 +1633,13 @@ Comunicado que informa a atracação efetiva da embarcação no terminal portuá
 hora obrigatórias. Uma Escala com múltiplos terminais gera um NOB para cada
 atracação realizada. `NOB` (*Notice of Berthing*) é a denominação de mercado.
 
+Cada NOB alcança apenas os Clientes cuja carga pertence a uma Frente de Operação
+atribuída àquele terminal: quem descarregou no berço vizinho não entra. Sai pela
+régua automática enquanto o ATB estiver nos últimos 30 dias, e o disparo manual
+continua sendo o caminho para os casos que a régua não alcançou. Atracação sem
+frente atribuída (Atracação TBC) não comunica por nenhum dos dois caminhos, e o
+alerta de NOB pendente permanece aberto até a atribuição existir (ADR 0067).
+
 **Disparo de Comunicado**
 Operação de enviar um Comunicado a um Recorte de Destinatários. Passa
 obrigatoriamente por conferência antes do envio e produz um e-mail por Cliente
