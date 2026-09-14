@@ -1,15 +1,69 @@
 {
   "pages": [
-    { "id": "page-1", "name": "Proposta" },
-    { "id": "page-2", "name": "Alternativas" }
+    {
+      "id": "page-1",
+      "name": "Proposta"
+    },
+    {
+      "id": "page-2",
+      "name": "Alternativas"
+    }
   ],
   "artboards": [
-    { "file": "Main.dc.html", "page": "page-1", "title": "Carga · NOA", "x": 0, "y": 0, "w": 1440, "h": 980 },
-    { "file": "Livre.dc.html", "page": "page-1", "title": "Carga · Livre", "x": 1560, "y": 0, "w": 1440, "h": 1120 },
-    { "file": "Institucional.dc.html", "page": "page-1", "title": "Institucional", "x": 3120, "y": 0, "w": 1440, "h": 1020 },
-    { "file": "Conferencia.dc.html", "page": "page-1", "title": "Depois de conferir", "x": 4680, "y": 0, "w": 1440, "h": 1180 },
-    { "file": "AltBarraComando.dc.html", "page": "page-2", "title": "Alternativa A · Barra de comando", "x": 0, "y": 0, "w": 1440, "h": 940 },
-    { "file": "AltEtapas.dc.html", "page": "page-2", "title": "Alternativa B · Etapas", "x": 1560, "y": 0, "w": 1440, "h": 860 }
+    {
+      "file": "Main.dc.html",
+      "page": "page-1",
+      "title": "Carga · NOA",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 980
+    },
+    {
+      "file": "Livre.dc.html",
+      "page": "page-1",
+      "title": "Carga · Livre",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 1120
+    },
+    {
+      "file": "Institucional.dc.html",
+      "page": "page-1",
+      "title": "Institucional",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 1020
+    },
+    {
+      "file": "Conferencia.dc.html",
+      "page": "page-1",
+      "title": "Depois de conferir",
+      "x": 4680,
+      "y": 0,
+      "w": 1440,
+      "h": 1180
+    },
+    {
+      "file": "AltBarraComando.dc.html",
+      "page": "page-2",
+      "title": "Alternativa A · Barra de comando",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 940
+    },
+    {
+      "file": "AltEtapas.dc.html",
+      "page": "page-2",
+      "title": "Alternativa B · Etapas",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 860
+    }
   ],
   "annotations": [
     {
@@ -18,7 +72,7 @@
       "x": 0,
       "y": -230,
       "w": 720,
-      "text": "PROPOSTA DE REDESENHO (estudo exploratório para evolução da tela) — duas colunas: compor à esquerda, recorte vivo à direita.\n\nO que esta proposta explora em relação à implementação da tela:\n· Sem seções numeradas (a tela atual adota etapas lineares 1·2·3).\n· Modo em controle segmentado em vez de select.\n· Modelo em lista de opções com descrição visível para dirimir dúvidas do Livre.\n· Público ocupando sempre a mesma faixa de altura, seja fixo ou escolhível.\n· Coluna da direita com preview de destinatários desde o primeiro momento."
+      "text": "PROPOSTA — duas colunas: compor à esquerda, recorte vivo à direita.\n\nImplementada em src/pages/ClientesComunicacao.tsx.\n\n· Sem seções numeradas. A numeração 1·2·3 prometia um wizard que não existia.\n· Modo é segmentado (é binário — dropdown de 2 opções é desperdício).\n· Modelo é lista de rádio com a descrição visível. Era onde morava a confusão do Livre.\n· Público ocupa sempre a MESMA faixa, na mesma altura, seja fixo ou escolhível.\n· A coluna da direita responde \"quem vai receber isto?\" desde o primeiro segundo."
     },
     {
       "id": "grid",
@@ -34,7 +88,7 @@
       "x": 4680,
       "y": -230,
       "w": 700,
-      "text": "O MAIOR GANHO\n\nDepois de conferir, a composição COLAPSA numa faixa-resumo com \"Editar\", e a lista assume a tela.\n\nHoje os dois cards ficam abertos: você rola o formulário inteiro para chegar nos destinatários e perde de vista o que está prestes a enviar.\n\nA lista virou tabela (cabeçalho navy, como o resto do app) em vez de cartões empilhados — cabe muito mais cliente na tela."
+      "text": "O MAIOR GANHO\n\nDepois de conferir, a composição COLAPSA numa faixa-resumo com \"Editar composição\", e a lista assume a tela.\n\nAntes os dois cards ficavam abertos: era preciso rolar o formulário inteiro para chegar nos destinatários, perdendo de vista o que estava prestes a ser enviado.\n\nA lista virou tabela (cabeçalho no padrão do app) em vez de cartões empilhados — cabe muito mais cliente na tela."
     },
     {
       "id": "alternativas",
@@ -45,5 +99,8 @@
       "text": "Duas direções que considerei e não escolhi. Cada uma traz o próprio contra-argumento no rodapé do artboard.\n\nSe você discordar da proposta, a Alternativa A é a mais defensável: reaproveita a barra de comando que /viagens já usa. O problema dela é onde escrever a mensagem do Livre e do Institucional."
     }
   ],
-  "launch": { "view": "canvas", "page": "page-1" }
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
 }

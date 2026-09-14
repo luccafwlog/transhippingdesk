@@ -52,11 +52,68 @@ Loading com skeleton e um estado único para documento ausente, inválido, não 
 
 `src/pages/ClientesComunicacao.tsx` mantém as abas de cobertura, disparo e histórico. A cobertura filtra navio, viagem e mês e mostra a matriz NOA/NOR/NOB/CE-Taxas. O histórico filtra navio, mês, modelo, status e origem (`Robô automático` ou `Operador`); a viagem pode ser filtrada pela ficha do cliente.
 
-A aba **Disparo** é um formulário de três passos, e cada passo responde a uma pergunta só:
+A aba **Disparo** tem duas colunas: à esquerda o operador compõe, à direita o
+painel **O que será enviado** responde "quem vai receber isto?" desde o primeiro
+segundo, com a frase do disparo, as quatro métricas do recorte, os anexos e os
+botões de ação. A frase é montada por `describeCargoScope` a partir dos filtros
+informados e, sem nenhum deles, diz o que falta em vez de mentir um alcance —
+no modo carga, filtro vazio nunca significa todos os clientes.
 
-1. **O que enviar** — Modo, Modelo e Público. O Modo escolhe o Recorte de Destinatários (**Carga**, clientes de uma viagem; **Institucional**, Clientes Comunicáveis) e a lista de modelos já vem filtrada por ele (`MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE`): Carga oferece NOA, NOR, NOB e **Livre**; Institucional oferece só o institucional. Trocar o modelo nunca troca o modo — `filters.mode` é sempre derivado do modelo por `getCustomerCommunicationDispatchMode`, e trocar o modo apenas escolhe o primeiro modelo válido do novo modo. O Público vem de `getCustomerCommunicationAudienceRule`: fixo na caixa Documentação e Operação para NOA/NOR/NOB, todos os contatos no institucional, e editável (todos ou uma Caixa de Comunicação) apenas no livre — quando é imposto pelo modelo, aparece como texto explicado, não como select desabilitado. No modo Institucional, onde só existe um modelo e o público é fixo, os dois controles somem: um select de uma opção só não é escolha, e mantê-lo obrigava a repetir na tela o que o Modo já tinha dito. Em lugar deles fica uma frase que declara o que o modo resolveu.
-2. **Para quem** — filtros do recorte, numa linha só: **Navio / Viagem**, **POL**, **POD** e CNPJ. O modo Carga exige ao menos um filtro operacional (`OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS`: navio/viagem, POL ou POD), validado por `validateCustomerCommunicationFilters`, que também desabilita o botão de conferência; CNPJ é restrição adicional. Navio e viagem são um campo só, como no Line-up: `matchesVesselVoyage` casa contra `NAVIO VIAGEM` concatenado e exige cada termo digitado, então `ALTAIR 2401E`, `ALTAIR` e `2401E` recortam o que o operador espera. O filtro por **Nº da Escala do Mercante** não existe mais — era preenchido à mão e, em branco no cadastro, zerava o recorte em silêncio; desde o ADR 0067 o NOB é automático e ancorado na Atracação, então desambiguar dois terminais deixou de depender dele. O modo Institucional pede só o CNPJ opcional e seleciona o Cliente Comunicável por B/L com ETA desde doze meses atrás, sem limite superior para datas futuras.
-3. **Mensagem** — só aparece para os modelos escritos pelo operador (`isUserWrittenCustomerCommunicationKind`: institucional e livre), com assunto, corpo e o acervo compartilhado de modelos salvos. O **Livre** permanece no modo Carga: é texto escrito na hora, endereçado aos clientes da viagem filtrada, e por isso mantém vínculo de B/L.
+A coluna da composição encadeia três perguntas, separadas por divisórias e sem
+numeração (a numeração 1·2·3 prometia um wizard que a tela não tem):
+
+1. **Modo e Modelo** — o Modo é um segmentado de duas opções e o Modelo uma lista
+   de rádio com a descrição de cada um visível, sem abrir nada: um select esconde
+   justamente a diferença entre NOA, NOR, NOB e **Livre**, que é onde morava a
+   confusão. O Modo escolhe o Recorte de Destinatários (**Carga**, clientes de uma
+   viagem; **Institucional**, Clientes Comunicáveis) e a lista de modelos já vem
+   filtrada por ele (`MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE`). Trocar o
+   modelo nunca troca o modo — `filters.mode` é sempre derivado do modelo por
+   `getCustomerCommunicationDispatchMode`, e trocar o modo apenas escolhe o
+   primeiro modelo válido do novo modo. O título de cada modelo vem de
+   `customerCommunicationKindLabel`, e não de uma cópia local, para a lista, a
+   faixa-resumo e o histórico dizerem o mesmo nome. O **Público** ocupa sempre a
+   mesma faixa, na mesma altura, vindo de `getCustomerCommunicationAudienceRule`:
+   fixo na caixa Documentação e Operação para NOA/NOR/NOB (com a etiqueta `Fixo`),
+   todos os contatos no institucional, e um select apenas no livre (etiqueta
+   `Você escolhe`). No modo Institucional, onde só existe um modelo e o público é
+   fixo, os dois controles somem: um select de uma opção só não é escolha, e
+   mantê-lo obrigava a repetir na tela o que o Modo já tinha dito. Em lugar deles
+   fica uma frase que declara o que o modo resolveu.
+2. **Recorte** — no modo Carga, quatro filtros numa linha só: **Navio / Viagem**,
+   **POL**, **POD** e CNPJ, com trilhas desiguais de propósito (texto longo nos
+   dois extremos, sigla de cinco letras no meio). Exige ao menos um filtro
+   operacional (`OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS`: navio/viagem, POL ou
+   POD), validado por `validateCustomerCommunicationFilters`, que também desabilita
+   o botão de conferência; CNPJ é restrição adicional. Navio e viagem são um campo
+   só, como no Line-up: `matchesVesselVoyage` casa contra `NAVIO VIAGEM`
+   concatenado e exige cada termo digitado, então `ALTAIR 2401E`, `ALTAIR` e
+   `2401E` recortam o que o operador espera. O filtro por **Nº da Escala do
+   Mercante** não existe mais — era preenchido à mão e, em branco no cadastro,
+   zerava o recorte em silêncio; desde o ADR 0067 o NOB é automático e ancorado na
+   Atracação, então desambiguar dois terminais deixou de depender dele. No modo
+   Institucional o CNPJ opcional não fica órfão numa grade de um campo só: ganha ao
+   lado o painel que declara o universo (Cliente Comunicável — B/L com ETA desde
+   doze meses atrás, sem limite superior para datas futuras).
+3. **Mensagem** — só aparece para os modelos escritos pelo operador
+   (`isUserWrittenCustomerCommunicationKind`: institucional e livre). Assunto e
+   corpo moram dentro de uma moldura única com a aparência do e-mail, com contagem
+   de caracteres e o aviso de que cabeçalho, assinatura e dados da carga são
+   acrescentados no envio; por isso usam `input`/`textarea` sem borda própria em
+   vez dos primitivos `Input`/`Textarea`. O acervo de modelos salvos é
+   compartilhado pelos dois. O **Livre** permanece no modo Carga: é texto escrito
+   na hora, endereçado aos clientes da viagem filtrada, e por isso mantém vínculo
+   de B/L.
+
+Conferir troca a tela: a composição colapsa numa faixa-resumo de uma linha com
+**Editar composição**, e a lista de destinatários assume a coluna principal como
+tabela (cabeçalho no padrão do app), em vez dos cartões empilhados que obrigavam a
+rolar o formulário inteiro para chegar em quem recebe. `showConference` é estado de
+tela e não `conferenceQuery.data`: voltar pelo Editar não muda a chave da query,
+então derivar a vista do cache deixaria a lista montada depois do pedido de voltar.
+O painel da direita vira **Pronto para disparar**, com as métricas preenchidas,
+`Marcar todos`/`Desmarcar` na tabela (a seleção em massa nunca alcança linha
+bloqueada) e o motivo textual sempre que o botão de disparo estiver travado.
 
 A conferência agrupa B/Ls por cliente, calcula elegíveis, excluídos e motivos de bloqueio, permite desmarcar destinatários e exige confirmação explícita de reenvio apenas para os modelos ancorados em carga (`requiresResendConfirmation`). Institucional e livre carregam `dispatch_id` novo a cada lote — cada envio é uma mensagem diferente, não o reenvio do mesmo Comunicado —, então o disparo anterior vira informação no painel e não trava a operação.
 
