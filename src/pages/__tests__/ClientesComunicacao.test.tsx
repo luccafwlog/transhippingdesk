@@ -320,6 +320,41 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     expect((screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('recolhe o Nº da Escala do Mercante, que raramente é preenchido', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    // Fora do caminho por padrão: filtrar por um campo em branco no cadastro
+    // zera o recorte em silêncio.
+    expect(screen.queryByLabelText(/Nº da Escala/)).toBeNull()
+    // E o rótulo antigo, que prometia aceitar o porto, não existe mais.
+    expect(screen.queryByLabelText('Escala')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /Nº da Escala/ }))
+    const campo = screen.getByLabelText(/Nº da Escala/) as HTMLInputElement
+    expect(campo.placeholder).toBe('Ex.: 25000123456')
+  })
+
+  it('nunca esconde o filtro de escala quando ele está ativo', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Nº da Escala/ }))
+    fireEvent.change(screen.getByLabelText(/Nº da Escala/), { target: { value: '25000123456' } })
+
+    // Clicar de novo não pode ocultar um filtro que está restringindo o recorte:
+    // filtro ativo invisível é pior que filtro fora do caminho.
+    fireEvent.click(screen.getByRole('button', { name: /Nº da Escala/ }))
+    expect((screen.getByLabelText(/Nº da Escala/) as HTMLInputElement).value).toBe('25000123456')
+    expect(screen.getByText('Ativo')).toBeTruthy()
+  })
+
   it('renderiza o histórico de disparos na aba historico', () => {
     render(
       <MemoryRouter initialEntries={['/clientes/comunicacao?tab=historico']}>

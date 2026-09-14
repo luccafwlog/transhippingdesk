@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2, Eye, History, Mail, Paperclip, Send } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronUp, CheckCircle2, Eye, History, Mail, Paperclip, Send, SlidersHorizontal } from 'lucide-react'
 import { Badge, type BadgeTone } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, InlineError, PageHeader } from '../components/ui/Card'
@@ -128,6 +128,10 @@ export function ClientesComunicacao() {
   const [templateName, setTemplateName] = useState('')
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [customPreviewRow, setCustomPreviewRow] = useState<CustomerCommunicationConferenceRow | null>(null)
+  // O Nº de Escala do Mercante é preenchido à mão e costuma estar vazio; filtrar
+  // por ele zera o recorte em silêncio. Fica recolhido, e nunca escondido quando
+  // tem valor — filtro ativo invisível é pior que filtro fora do caminho.
+  const [scaleFilterExpanded, setScaleFilterExpanded] = useState(false)
   const [coverageFilters, setCoverageFilters] = useState({ vessel: '', voyage: '', month: '' })
   const [historyFilters, setHistoryFilters] = useState({ vessel: '', month: '', kind: '', status: '', origin: '' })
   // Só o Comunicado livre deixa o operador escolher o público; os demais modelos
@@ -150,6 +154,7 @@ export function ClientesComunicacao() {
   const dispatchFilters: CustomerCommunicationFilters = { ...filters, mode: dispatchMode }
   const filterValidation = validateCustomerCommunicationFilters(dispatchFilters)
   const messageMissing = userWritten && (!institutionalSubject.trim() || !institutionalBody.trim())
+  const scaleFilterOpen = scaleFilterExpanded || Boolean(filters.scale.trim())
 
   const conferenceQuery = useCustomerCommunicationConference({ filters: dispatchFilters, kind, nature, audience, enabled: conferenceRequested })
   const customerHistoryId = Number(searchParams.get('customer'))
@@ -576,13 +581,6 @@ export function ClientesComunicacao() {
                       placeholder="Número da viagem"
                     />
                   </Field>
-                  <Field label="Escala">
-                    <Input
-                      value={filters.scale}
-                      onChange={(event) => updateFilter('scale', event.target.value)}
-                      placeholder="Número ou porto da escala"
-                    />
-                  </Field>
                   <Field label="POD (Porto de Descarga)">
                     <Input
                       value={filters.pod}
@@ -604,6 +602,45 @@ export function ClientesComunicacao() {
                       placeholder="Filtrar por CNPJ específico"
                     />
                   </Field>
+
+                  {/* Sexta célula da grade: mantém o alinhamento e abriga o filtro recolhido. */}
+                  <div className="self-end">
+                    <button
+                      type="button"
+                      onClick={() => setScaleFilterExpanded((open) => !open)}
+                      aria-expanded={scaleFilterOpen}
+                      aria-controls="filtro-escala-mercante"
+                      className="inline-flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg border border-dashed border-[var(--app-border-strong)] bg-transparent px-3 py-2 text-sm font-medium text-[var(--app-muted)] hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <SlidersHorizontal size={15} />
+                        Nº da Escala (Mercante)
+                      </span>
+                      {filters.scale.trim() ? (
+                        <Badge tone="blue">Ativo</Badge>
+                      ) : scaleFilterOpen ? (
+                        <ChevronUp size={15} />
+                      ) : (
+                        <ChevronDown size={15} />
+                      )}
+                    </button>
+                  </div>
+
+                  {scaleFilterOpen ? (
+                    <div id="filtro-escala-mercante" className="sm:col-span-3">
+                      <Field
+                        label="Nº da Escala (Mercante)"
+                        hint="Identificador federal da escala. Separa dois terminais no mesmo porto, mas é preenchido à mão — se estiver em branco no cadastro, filtrar por ele não retorna nenhuma carga."
+                      >
+                        <Input
+                          value={filters.scale}
+                          onChange={(event) => updateFilter('scale', event.target.value)}
+                          placeholder="Ex.: 25000123456"
+                          className="sm:max-w-xs"
+                        />
+                      </Field>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-3">
