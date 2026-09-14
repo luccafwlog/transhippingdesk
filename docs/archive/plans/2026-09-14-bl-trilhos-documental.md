@@ -4,7 +4,7 @@
 
 **Goal:** Implement the approved B/L detail design with two independent rails: keep the Operational rail unchanged and replace the Financial rail with a Documental rail whose four cards explain the actionable gates for customer, local charges, CE Mercante, and invoice.
 
-**Architecture:** Keep domain derivation in `src/services/blRails.ts`, pass the Documental projection into `BlRailsPipeline`, and keep `BlDetalhe` as the composition boundary. Use the existing server-side billing functions and invoice-link tables as authorities. Add migration `045_bl_documental_gates.sql` for universal CE enforcement at readiness/emission link boundaries, while retaining the existing Portal release helper as the CE authority for Portal visibility. Derive the header count from blocking core cards and treat Demurrage as an optional auxiliary indicator.
+**Architecture:** Keep domain derivation in `src/services/blRails.ts`, pass the Documental projection into `BlRailsPipeline`, and keep `BlDetalhe` as the composition boundary. Use the existing server-side billing functions and invoice-link tables as authorities. Add migration `047_bl_documental_gates.sql` for universal CE enforcement at readiness/emission link boundaries, while retaining the existing Portal release helper as the CE authority for Portal visibility. Derive the header count from blocking core cards and treat Demurrage as an optional auxiliary indicator.
 
 **Tech Stack:** React 19, TypeScript, React Router, TanStack Query, Tailwind-style utility classes, Vitest/Testing Library, Supabase PostgreSQL migrations and SQL contract tests.
 
@@ -38,12 +38,12 @@
 
 ## Task 3: Enforce the CE Mercante rule for every billing mode
 
-**Files:** `src/services/__tests__/reviewBillingAutomation.test.ts`, `src/services/reviewBillingAutomation.ts`, `supabase/migrations/045_bl_documental_gates.sql`, `src/services/__tests__/blDocumentalGatesMigration.test.ts`
+**Files:** `src/services/__tests__/reviewBillingAutomation.test.ts`, `src/services/reviewBillingAutomation.ts`, `supabase/migrations/047_bl_documental_gates.sql`, `src/services/__tests__/blDocumentalGatesMigration.test.ts`
 
 - [x] Add a failing automation test for `carga_solta` proving a missing CE blocks emission after a valid local-charge calculation, and a test proving adding CE allows the CE-triggered auto-billing path for `carga_solta`.
 - [x] Add failing SQL-contract assertions that the new migration patches `mark_bl_ready_for_billing`, guards individual invoice linkage/emission, guards consolidated receivable linkage/emission, and preserves `SET search_path TO 'public', 'pg_temp'` plus explicit function ACLs.
 - [x] Update `tryAutoIssueInvoice` to apply the CE gate universally and update `maybeAutoBillAfterCeMercante` to accept `carga_solta` as well as `container`/legacy empty mode.
-- [x] Create `045_bl_documental_gates.sql` as an additive migration after active migration 044. Keep existing function signatures. Add a security-definer CE assertion at the final billing boundaries so direct/manual and consolidated paths cannot issue a B/L without CE, including the `invoice_receivable_links` path. Do not introduce due dates or change the Portal’s existing universal CE helper.
+- [x] Create `047_bl_documental_gates.sql` as an additive migration after active migration 046. Keep existing function signatures. Add a security-definer CE assertion at the final billing boundaries so direct/manual and consolidated paths cannot issue a B/L without CE, including the `invoice_receivable_links` path. Do not introduce due dates or change the Portal’s existing universal CE helper.
 - [x] Add a focused SQL trigger/function contract test covering both `invoice_bls` and `invoice_receivable_links`; use a runtime local-Postgres test only if the repository’s controlled integration environment is available.
 - [x] Run `npx vitest run src/services/__tests__/reviewBillingAutomation.test.ts src/services/__tests__/blDocumentalGatesMigration.test.ts` and typecheck.
 

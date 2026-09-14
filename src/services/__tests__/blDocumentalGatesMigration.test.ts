@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const migrationPath = resolve(process.cwd(), 'supabase/migrations/045_bl_documental_gates.sql')
+const migrationPath = resolve(process.cwd(), 'supabase/migrations/047_bl_documental_gates.sql')
 
 function readMigration() {
   expect(existsSync(migrationPath)).toBe(true)
