@@ -47,8 +47,11 @@ O NOB passa a ser produzido pela régua automática, por Atracação, restrito a
 Clientes cuja carga pertence a uma Frente de Operação atribuída **àquele**
 terminal. A mesma restrição passa a valer na conferência manual.
 
-A janela é o ATB dos últimos 30 dias — a mesma do alerta que este comunicado
-passa a resolver, e a mesma do NOR.
+Não há teto de idade do marco. O gatilho do NOB é o **registro** do ATB, não a
+idade dele, e o mesmo passa a valer para o NOR: a guarda de 30 dias sobre o ATA
+sai junto. O NOA mantém a sua janela, que não é guarda de idade e sim a
+definição do comunicado — um aviso de chegada é antecipação, e depois do ETA
+quem assume é o NOR.
 
 A regra `cargo_mode → modalidade` ganha dono explícito nos dois lados:
 `operationFrontKindForCargoMode` em TypeScript e
@@ -75,9 +78,16 @@ atribui não comunica.
 
 - O alerta `comunicado_nob_pendente` deixa de ser uma fila de trabalho manual e
   passa a sinalizar **atribuição de terminal faltando**, que é a sua causa real.
-- O disparo manual do NOB continua existindo e é o caminho para os buracos da
-  régua — janela vencida, cliente cadastrado depois, e-mail corrigido depois —,
-  agora com o mesmo público da automação.
+- O disparo manual do NOB continua existindo e é o caminho para os buracos que
+  restam — cliente cadastrado depois do envio automático, e-mail corrigido
+  depois, contato regularizado depois —, agora com o mesmo público da automação.
+  Lançamento atrasado do ATB deixa de ser um desses buracos: a régua o alcança.
+- Sem teto de idade, um import em massa de histórico depois do go-live
+  dispararia NOB para viagem já encerrada. Nenhuma regra de tempo separa isso de
+  um lançamento atrasado legítimo — a tentativa de separar por tempo é
+  exatamente o defeito que esta decisão remove. A contenção é a chave global de
+  envio, que nasce desligada; o upgrade é barrar por estado da viagem, e está
+  marcado com `ponytail:` na migration.
 - A produtora ganha um laço sobre `voyage_escala_terminal_state`. A leitura de
   escala excluída/omitida em `audit_logs` passa a ter três cópias no banco; a
   duplicação está marcada com `ponytail:` na migration, nomeando o upgrade

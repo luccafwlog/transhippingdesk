@@ -49,10 +49,21 @@ INSERT INTO bls (id, voyage_id, customer_id, pod, cargo_mode) VALUES
 INSERT INTO audit_logs (entity_type, entity_id, field_name, new_value, changed_at) VALUES
   ('voyage_pod_schedule', '9901::BRSSZ', 'eta', to_char(now() + interval '2 days', 'YYYY-MM-DD"T"HH24:MI:SSOF'), now());
 
+-- Segunda escala, com ATA de 45 dias atras registrado hoje: prova o NOR pelo
+-- mesmo principio do NOB (o gatilho e o registro, nao a idade do marco).
+INSERT INTO ports (id, name, locode) VALUES (9902, 'VITORIA', 'BRVIX');
+INSERT INTO bls (id, voyage_id, customer_id, pod, cargo_mode) VALUES
+  ('BL-ACME-2', 9901, 9901, 'BRVIX', 'container');
+INSERT INTO audit_logs (entity_type, entity_id, field_name, new_value, changed_at) VALUES
+  ('voyage_pod_schedule', '9901::BRVIX', 'eta', to_char(now() - interval '46 days', 'YYYY-MM-DD"T"HH24:MI:SSOF'), now()),
+  ('voyage_pod_schedule', '9901::BRVIX', 'ata', to_char(now() - interval '45 days', 'YYYY-MM-DD"T"HH24:MI:SSOF'), now());
+
 -- Duas Atracações, ambas com ATB.
 INSERT INTO voyage_escala_terminal_state (id, voyage_id, port, port_id, terminal_id, terminal_atb) VALUES
   ('cccccccc-0000-4000-8000-00000000000c', 9901, 'BRSSZ', 9901, 'aaaaaaaa-0000-4000-8000-00000000000a', now() - interval '1 day'),
-  ('dddddddd-0000-4000-8000-00000000000d', 9901, 'BRSSZ', 9901, 'bbbbbbbb-0000-4000-8000-00000000000b', now() - interval '1 day');
+  -- Lancamento atrasado: atracou ha 45 dias e o ATB so foi registrado agora.
+  -- Sem guarda de idade, continua sendo comunicado devido.
+  ('dddddddd-0000-4000-8000-00000000000d', 9901, 'BRSSZ', 9901, 'bbbbbbbb-0000-4000-8000-00000000000b', now() - interval '45 days');
 
 -- Atribuição das Frentes de Operação: carga_cheia -> TERM-A, carga_solta -> TERM-B.
 INSERT INTO voyage_escala_operation_fronts (voyage_id, port, port_id, sentido, modalidade, terminal_id, source) VALUES
@@ -117,6 +128,32 @@ BEGIN
      AND item->>'customer_name' = 'ACME';
   IF NOT FOUND THEN RAISE EXCEPTION 'FALHOU: ancora do NOB nao e o state_id'; END IF;
   RAISE NOTICE 'OK 4 — NOB ancorado no state_id da Atracacao';
+
+  -- 5. Lancamento atrasado NAO e descartado: o gatilho e o registro do fato.
+  --    A Atracacao do TERM-B tem ATB de 45 dias atras e continua produzindo NOB.
+  PERFORM 1 FROM resultado
+   WHERE item->>'kind' = 'aviso_atracacao_nob' AND item->>'terminal_name' = 'TERM-B';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FALHOU: NOB descartado por idade do ATB — a guarda de 30 dias voltou';
+  END IF;
+  RAISE NOTICE 'OK 5 — NOB com ATB de 45 dias atras ainda e comunicado devido';
+
+  -- 6. O mesmo principio vale para o NOR.
+  PERFORM 1 FROM resultado
+   WHERE item->>'kind' = 'aviso_prontidao_nor' AND item->>'port' = 'BRVIX';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FALHOU: NOR descartado por idade do ATA — a guarda de 30 dias voltou';
+  END IF;
+  RAISE NOTICE 'OK 6 — NOR com ATA de 45 dias atras ainda e comunicado devido';
+
+  -- 7. O NOA mantem a sua janela: ela e a definicao do comunicado, nao guarda
+  --    de idade. A escala de BRVIX ja passou do ETA, entao nao produz NOA.
+  PERFORM 1 FROM resultado
+   WHERE item->>'kind' = 'aviso_chegada_noa' AND item->>'port' = 'BRVIX';
+  IF FOUND THEN
+    RAISE EXCEPTION 'FALHOU: NOA saiu depois do ETA — a janela do NOA foi removida junto';
+  END IF;
+  RAISE NOTICE 'OK 7 — NOA continua restrito a D-5 ate o ETA';
 
   RAISE NOTICE '--- TODAS AS ASSERCOES PASSARAM ---';
 END $$;

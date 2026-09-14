@@ -6,6 +6,11 @@
 --   (2) O Aviso de Atracação (NOB) deixa de ser exclusivamente manual e passa a
 --       sair pela régua, restrito aos Clientes cuja carga pertence a uma Frente
 --       de Operação atribuída àquele terminal.
+--   (3) NOR e NOB perdem a guarda de idade de 30 dias sobre o marco. O gatilho
+--       dos dois é o registro do fato, não a idade dele; um número fixo é aposta
+--       sobre a velocidade de um processo humano e descarta em silêncio o que
+--       foi lançado tarde. O NOA mantém a sua janela, que não é guarda de idade
+--       e sim a definição do comunicado: aviso de chegada é antecipação.
 --
 -- Causa raiz de (1)
 --   A migration 008 ("12. Atualizar produtoras automaticas para consultar
@@ -125,7 +130,7 @@ BEGIN
     WHERE NOT l.deleted AND NOT l.omitted
       AND ((l.ata IS NULL AND l.eta IS NOT NULL
             AND v_as_of >= l.eta - interval '5 days' AND v_as_of < l.eta)
-        OR (l.ata IS NOT NULL AND l.ata BETWEEN v_as_of - interval '30 days' AND v_as_of))
+        OR (l.ata IS NOT NULL AND l.ata <= v_as_of))
   LOOP
     v_voyage_id := v_schedule.voyage_id;
     v_vessel_name := v_schedule.vessel_name;
@@ -247,6 +252,16 @@ BEGIN
   -- NOB: uma Atracação por vez. O universo não é a escala inteira — é a carga
   -- cujo `cargo_mode` pertence a uma Frente de Operação atribuída a ESTE
   -- terminal. Cliente que só descarregou no outro berço não recebe este NOB.
+  --
+  -- Sem teto de idade do ATB, deliberadamente. O gatilho do NOB é o REGISTRO do
+  -- fato, não a idade dele: atracação de sexta lançada na segunda (ou depois de
+  -- um feriado, ou na volta das férias) continua sendo comunicado devido, e
+  -- nenhum número fixo separa "lançamento atrasado" de "lançamento normal".
+  -- Envio repetido é barrado pela idempotência abaixo, não por janela.
+  -- (ponytail: import em massa de histórico depois do go-live dispararia NOB
+  -- para viagem já encerrada — nenhuma regra de tempo separa isso de um
+  -- lançamento atrasado legítimo. Hoje a contenção é a chave global de envio,
+  -- que nasce desligada. Upgrade: barrar por estado da viagem, não por data.)
   FOR v_atracacao IN
     SELECT ts.id AS state_id, ts.voyage_id, upper(btrim(ts.port)) AS port,
       ts.terminal_id, ts.terminal_atb,
@@ -258,7 +273,6 @@ BEGIN
     WHERE ts.terminal_id IS NOT NULL
       AND ts.terminal_atb IS NOT NULL
       AND ts.terminal_atb <= v_as_of
-      AND ts.terminal_atb >= v_as_of - interval '30 days'
       AND public.voyage_terminal_code(ts.terminal_id) IS NOT NULL
   LOOP
     -- (ponytail: escala excluída/omitida relida do audit_logs aqui, como em

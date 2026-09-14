@@ -1635,8 +1635,11 @@ atracação realizada. `NOB` (*Notice of Berthing*) é a denominação de mercad
 
 Cada NOB alcança apenas os Clientes cuja carga pertence a uma Frente de Operação
 atribuída àquele terminal: quem descarregou no berço vizinho não entra. Sai pela
-régua automática enquanto o ATB estiver nos últimos 30 dias, e o disparo manual
-continua sendo o caminho para os casos que a régua não alcançou. Atracação sem
+régua automática assim que o ATB é registrado, sem teto de idade do marco: o
+gatilho é o lançamento do dado, não a idade dele, e atracação de sexta lançada
+na segunda segue sendo comunicado devido. O envio repetido é barrado pela
+idempotência da Atracação. O disparo manual continua sendo o caminho para os
+casos que a régua não alcançou. Atracação sem
 frente atribuída (Atracação TBC) não comunica por nenhum dos dois caminhos, e o
 alerta de NOB pendente permanece aberto até a atribuição existir (ADR 0067).
 
