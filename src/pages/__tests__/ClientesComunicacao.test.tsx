@@ -213,10 +213,10 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     )
 
     expect(screen.getByText('Critérios do disparo')).toBeTruthy()
-    expect(screen.getByText('NOA · Aviso de Chegada')).toBeTruthy()
+    expect(screen.getAllByText('NOA · Aviso de Chegada').length).toBeGreaterThanOrEqual(1)
 
-    const conferirBtn = screen.getByRole('button', { name: /Conferir destinatários/i })
-    fireEvent.click(conferirBtn)
+    fireEvent.change(screen.getByLabelText('Navio'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.click(screen.getByRole('button', { name: /Conferir destinatários/i }))
 
     // Detalhes da conferência renderizada
     expect(screen.getByText('Painel de conferência')).toBeTruthy()
@@ -245,6 +245,79 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     expect(screen.getByText(/Pré-visualização do Comunicado/i)).toBeTruthy()
     expect(screen.getByText(/Destinatário:/i)).toBeTruthy()
     expect(screen.getByText(/Assunto:/i)).toBeTruthy()
+  })
+
+  it('cada modo oferece apenas os modelos do seu recorte de destinatários', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    const modelo = screen.getByLabelText(/^Modelo/) as HTMLSelectElement
+    expect([...modelo.options].map((option) => option.value)).toEqual([
+      'aviso_chegada_noa',
+      'aviso_prontidao_nor',
+      'aviso_atracacao_nob',
+      'livre',
+    ])
+
+    fireEvent.change(screen.getByLabelText(/^Modo/), { target: { value: 'institucional' } })
+    expect([...(screen.getByLabelText(/^Modelo/) as HTMLSelectElement).options].map((o) => o.value)).toEqual(['institucional'])
+  })
+
+  it('o modelo Livre abre o editor de mensagem sem sair do modo Carga', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByLabelText(/^Mensagem/)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/^Modelo/), { target: { value: 'livre' } })
+
+    expect((screen.getByLabelText(/^Modo/) as HTMLSelectElement).value).toBe('carga')
+    expect(screen.getByLabelText(/^Assunto/)).toBeTruthy()
+    expect(screen.getByLabelText(/^Mensagem/)).toBeTruthy()
+    // O filtro da viagem continua ativo: o livre é ancorado na carga.
+    expect(screen.getByLabelText('Navio')).toBeTruthy()
+  })
+
+  it('só o modelo Livre deixa o operador escolher o público', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    // NOA: público imposto pelo modelo, exibido como texto e não como select.
+    expect(screen.getByText('Documentação e Operação')).toBeTruthy()
+    expect(screen.queryByLabelText(/^Público/)).toBeNull()
+
+    fireEvent.change(screen.getByLabelText(/^Modelo/), { target: { value: 'livre' } })
+    const publico = screen.getByLabelText(/^Público/) as HTMLSelectElement
+    expect(publico.value).toBe('todos')
+    expect([...publico.options].map((option) => option.value)).toEqual([
+      'todos',
+      'documentacao_operacao',
+      'financeiro',
+      'demurrage',
+    ])
+  })
+
+  it('bloqueia a conferência do modo carga enquanto nenhum filtro operacional for informado', () => {
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    const conferir = screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement
+    expect(conferir.disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('Navio'), { target: { value: 'MSC ALTAIR' } })
+    expect((screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('renderiza o histórico de disparos na aba historico', () => {

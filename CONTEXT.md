@@ -1605,9 +1605,15 @@ Comunicação específica.
 **Modelo de Comunicado**
 Texto pré-definido que um Comunicado usa. Aviso de Chegada (NOA), Aviso de Prontidão
 (NOR), Aviso de Atracação (NOB) e os dois comunicados financeiros são fixos e
-versionados no código; o institucional e o livre são escritos pelo usuário interno,
-e o institucional pode ser salvo para reuso. Todo modelo renderiza por Cliente,
-com as variáveis da carga do próprio destinatário.
+versionados no código; o institucional e o livre são escritos pelo usuário interno
+no momento do disparo, e o texto de qualquer um dos dois pode ser salvo para reuso
+no mesmo acervo de modelos salvos. Todo modelo renderiza por Cliente, com as
+variáveis da carga do próprio destinatário.
+
+O modelo determina o Recorte de Destinatários, e não o contrário: só o
+institucional dispensa a carga; NOA, NOR, NOB e o livre partem sempre dos B/Ls
+filtrados. O livre é, portanto, um texto escrito na hora e endereçado aos clientes
+de uma viagem — não uma variante do institucional.
 
 **Aviso de Chegada (NOA)**
 Comunicado que antecipa a chegada da embarcação. É sempre por Escala e comunica

@@ -8,6 +8,7 @@ import { listVoyageEscalaSchedulesByVoyageIds, type VoyageEscalaSchedule } from 
 import { supabase } from './supabase'
 import type { CustomerCommunicationKind, CustomerCommunicationTemplateInput } from './customerCommunicationTemplates'
 import {
+  type CommunicationBoxCode,
   type CustomerCommunicationAudience,
   type CustomerContactBoxLink,
   type CustomerCommunicationRecipient,
@@ -196,6 +197,82 @@ export const DEFAULT_CUSTOMER_COMMUNICATION_FILTERS: CustomerCommunicationFilter
 }
 
 export const OPERATIONAL_CUSTOMER_COMMUNICATION_FILTERS = ['vessel', 'voyage', 'scale', 'pod', 'pol'] as const
+
+/**
+ * Modelos que o operador pode disparar manualmente em `/clientes/comunicacao`,
+ * agrupados pelo Recorte de Destinatários que cada um usa. `ce_mercante_taxas` e
+ * `cobranca_demurrage` ficam de fora: nascem da régua automática, não do disparo.
+ */
+export const MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE: Record<
+  CustomerCommunicationDispatchMode,
+  readonly CustomerCommunicationKind[]
+> = {
+  carga: ['aviso_chegada_noa', 'aviso_prontidao_nor', 'aviso_atracacao_nob', 'livre'],
+  institucional: ['institucional'],
+}
+
+/**
+ * O modo do disparo é consequência do modelo, nunca uma escolha paralela: só o
+ * Comunicado institucional dispensa o recorte de carga. Manter isso derivado
+ * impede que Modo e Modelo apontem para universos diferentes.
+ */
+export function getCustomerCommunicationDispatchMode(
+  kind: CustomerCommunicationKind,
+): CustomerCommunicationDispatchMode {
+  return kind === 'institucional' ? 'institucional' : 'carga'
+}
+
+/** Modelos cujo assunto e mensagem são escritos pelo operador no momento do disparo. */
+export function isUserWrittenCustomerCommunicationKind(kind: CustomerCommunicationKind): boolean {
+  return kind === 'institucional' || kind === 'livre'
+}
+
+/** Primeiro modelo manual de um modo; usado quando o operador troca de modo. */
+export function getDefaultCustomerCommunicationKind(
+  mode: CustomerCommunicationDispatchMode,
+): CustomerCommunicationKind {
+  return MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE[mode][0] ?? 'aviso_chegada_noa'
+}
+
+export type CustomerCommunicationAudienceRule = {
+  /** Só o Comunicado livre deixa o operador escolher o público. */
+  editable: boolean
+  audience: CustomerCommunicationAudience
+  /** Motivo exibido na tela quando o público é imposto pelo modelo. */
+  reason: string
+}
+
+const DEFAULT_OPERATIONAL_BOX: CommunicationBoxCode = 'documentacao_operacao'
+
+/**
+ * Público de cada modelo. Avisos operacionais vão sempre para a caixa
+ * Documentação e Operação, o institucional alcança todos os contatos e só o
+ * livre é aberto à escolha do operador.
+ */
+export function getCustomerCommunicationAudienceRule(
+  kind: CustomerCommunicationKind,
+): CustomerCommunicationAudienceRule {
+  if (kind === 'institucional') {
+    return { editable: false, audience: { mode: 'todos' }, reason: 'O institucional alcança todos os contatos do Cliente Comunicável.' }
+  }
+  if (kind === 'livre') {
+    return { editable: true, audience: { mode: 'todos' }, reason: 'Escolha entre todos os contatos ou uma Caixa de Comunicação.' }
+  }
+  return {
+    editable: false,
+    audience: { mode: 'caixa', boxCode: DEFAULT_OPERATIONAL_BOX },
+    reason: 'Avisos operacionais seguem sempre para a caixa Documentação e Operação.',
+  }
+}
+
+/**
+ * Um disparo institucional ou livre carrega `dispatch_id` novo a cada lote, então
+ * cada envio é uma mensagem diferente e nunca o reenvio do mesmo Comunicado. Só os
+ * modelos ancorados em carga (NOA/NOR/NOB) exigem a confirmação de reenvio.
+ */
+export function requiresResendConfirmation(kind: CustomerCommunicationKind): boolean {
+  return !isUserWrittenCustomerCommunicationKind(kind)
+}
 
 export type CustomerCommunicationBlCandidate = {
   id: string

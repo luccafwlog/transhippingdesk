@@ -225,9 +225,17 @@ alternativo ou o alerta `cliente_contato_bounced_sem_alternativa`. **Código**;
 `/clientes/comunicacao` é a superfície protegida pela permissão
 `customer_communications`: o modo carga exige filtro operacional e agrupa B/Ls
 por cliente; o modo institucional usa Cliente Comunicável, com ETA a partir de
-doze meses atrás e sem teto futuro. A conferência mostra elegíveis, exclusões,
-bloqueios, preview e confirmação explícita de reenvio. **Código**;
-**Teste:** `customerCommunications.test.ts` e
+doze meses atrás e sem teto futuro. A aba Disparo é um formulário de três passos
+(o que enviar, para quem, mensagem) em que o modo deriva do modelo
+(`getCustomerCommunicationDispatchMode`), a lista de modelos vem filtrada pelo
+modo (`MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE`), o público segue
+`getCustomerCommunicationAudienceRule` e o editor de assunto/mensagem aparece nos
+modelos escritos pelo operador (`isUserWrittenCustomerCommunicationKind`) —
+inclusive no livre, que continua no modo carga. A conferência mostra elegíveis,
+exclusões, bloqueios, preview e confirmação explícita de reenvio para os modelos
+ancorados em carga (`requiresResendConfirmation`); institucional e livre trocam a
+trava por informação, porque cada lote tem `dispatch_id` próprio. **Código**;
+**Teste:** `customerCommunications.test.ts`, `ClientesComunicacao.test.tsx` e
 `customerCommunicationTemplates.test.ts`.
 
 `customerCommunicationDispatches.ts` chama `send-customer-communication`, que

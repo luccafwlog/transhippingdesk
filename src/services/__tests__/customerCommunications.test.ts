@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE,
   buildCustomerCommunicationConference,
   filterCustomerCommunicationBls,
+  getCustomerCommunicationAudienceRule,
+  getCustomerCommunicationDispatchMode,
+  getDefaultCustomerCommunicationKind,
   getEmailSuppressionReason,
   isInstitutionalCustomerCommunicable,
+  isUserWrittenCustomerCommunicationKind,
+  requiresResendConfirmation,
   resolveCustomerCommunicationRecipients,
   customerCommunicationStatusLabel,
   validateCustomerCommunicationFilters,
@@ -243,5 +249,48 @@ describe('recorte e conferência de Comunicados', () => {
     expect(conference.rows).toHaveLength(1)
     expect(conference.rows[0]?.bls).toHaveLength(2)
     expect(conference.rows[0]?.nextAttemptDiscriminator).toBe(2)
+  })
+})
+
+describe('Contrato entre modo, modelo e público do disparo', () => {
+  it('todo modelo manual pertence a exatamente um modo, e o modo é derivado dele', () => {
+    for (const [mode, kinds] of Object.entries(MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE)) {
+      for (const kind of kinds) {
+        expect(getCustomerCommunicationDispatchMode(kind)).toBe(mode)
+      }
+    }
+    // Um modelo nunca aparece nos dois modos: escolher modelo não pode trocar o modo.
+    const carga = MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE.carga
+    const institucional = MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE.institucional
+    expect(carga.filter((kind) => institucional.includes(kind))).toEqual([])
+    expect(getDefaultCustomerCommunicationKind('carga')).toBe('aviso_chegada_noa')
+    expect(getDefaultCustomerCommunicationKind('institucional')).toBe('institucional')
+  })
+
+  it('o comunicado livre é escrito pelo operador e continua ancorado na carga', () => {
+    expect(isUserWrittenCustomerCommunicationKind('livre')).toBe(true)
+    expect(isUserWrittenCustomerCommunicationKind('institucional')).toBe(true)
+    expect(isUserWrittenCustomerCommunicationKind('aviso_chegada_noa')).toBe(false)
+    expect(getCustomerCommunicationDispatchMode('livre')).toBe('carga')
+    expect(MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE.carga).toContain('livre')
+    // O modo carga exige filtro operacional; isso vale também para o livre.
+    expect(validateCustomerCommunicationFilters({
+      mode: 'carga', vessel: '', voyage: '', scale: '', pod: '', pol: '', cnpj: '',
+    }).valid).toBe(false)
+  })
+
+  it('só o livre deixa o operador escolher o público', () => {
+    expect(getCustomerCommunicationAudienceRule('livre')).toMatchObject({ editable: true, audience: { mode: 'todos' } })
+    expect(getCustomerCommunicationAudienceRule('institucional')).toMatchObject({ editable: false, audience: { mode: 'todos' } })
+    expect(getCustomerCommunicationAudienceRule('aviso_prontidao_nor')).toMatchObject({
+      editable: false,
+      audience: { mode: 'caixa', boxCode: 'documentacao_operacao' },
+    })
+  })
+
+  it('só os modelos ancorados em carga confirmam reenvio', () => {
+    expect(requiresResendConfirmation('aviso_atracacao_nob')).toBe(true)
+    expect(requiresResendConfirmation('livre')).toBe(false)
+    expect(requiresResendConfirmation('institucional')).toBe(false)
   })
 })
