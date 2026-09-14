@@ -96,6 +96,8 @@ type InvoiceLinkInfo = {
   status: string | null
   total_brl: number | null
   balance_brl: number | null
+  invoice_type: string | null
+  source: 'invoice_bls' | 'invoice_receivable_links'
 }
 
 type InvoiceLinksByBl = Record<string, InvoiceLinkInfo[]>
@@ -880,49 +882,62 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
   const normalizedIds = Array.from(new Set(blIds.map((value) => value.trim().toUpperCase()).filter(Boolean)))
   if (normalizedIds.length === 0) return {} as InvoiceLinksByBl
 
-  const { data, error } = await supabase
-    .from('invoice_bls')
-    .select('bl_id, invoice:invoices(id, invoice_number, status, total_brl, balance_brl)')
-    .in('bl_id', normalizedIds)
+  const invoiceSelect = 'bl_id, invoice:invoices(id, invoice_number, status, total_brl, balance_brl, invoice_type)'
+  const [individualResult, consolidatedResult] = await Promise.all([
+    supabase.from('invoice_bls').select(invoiceSelect).in('bl_id', normalizedIds),
+    supabase
+      .from('invoice_receivable_links')
+      .select(invoiceSelect)
+      .eq('status', 'active')
+      .in('bl_id', normalizedIds),
+  ])
 
-  if (error) {
-    if (classifyDbError(error).kind === 'permissao') {
-      return {} as InvoiceLinksByBl
-    }
-    throw error
-  }
+  const sources = [
+    { ...individualResult, source: 'invoice_bls' as const },
+    { ...consolidatedResult, source: 'invoice_receivable_links' as const },
+  ]
 
   const map: InvoiceLinksByBl = {}
-  for (const row of data ?? []) {
-    const blId = String(row.bl_id ?? '')
-    if (!blId) continue
-
-    const invoice = row.invoice as {
-      id?: number
-      invoice_number?: string | null
-      status?: string | null
-      total_brl?: number | null
-      balance_brl?: number | null
-    } | null
-
-    if (!invoice?.id) continue
-
-    if (!map[blId]) {
-      map[blId] = []
+  for (const source of sources) {
+    if (source.error) {
+      if (classifyDbError(source.error).kind === 'permissao') continue
+      throw source.error
     }
-    map[blId].push({
-      id: invoice.id,
-      invoice_number: invoice.invoice_number ?? null,
-      status: invoice.status ?? null,
-      total_brl: invoice.total_brl ?? null,
-      balance_brl: invoice.balance_brl ?? null,
-    })
+
+    for (const row of source.data ?? []) {
+      const blId = String(row.bl_id ?? '').trim().toUpperCase()
+      if (!blId) continue
+
+      const invoice = row.invoice as {
+        id?: number
+        invoice_number?: string | null
+        status?: string | null
+        total_brl?: number | null
+        balance_brl?: number | null
+        invoice_type?: string | null
+      } | null
+
+      if (!invoice?.id) continue
+
+      if (!map[blId]) {
+        map[blId] = []
+      }
+      map[blId].push({
+        id: invoice.id,
+        invoice_number: invoice.invoice_number ?? null,
+        status: invoice.status ?? null,
+        total_brl: invoice.total_brl ?? null,
+        balance_brl: invoice.balance_brl ?? null,
+        invoice_type: invoice.invoice_type ?? null,
+        source: source.source,
+      })
+    }
   }
 
   for (const key of Object.keys(map)) {
     map[key] = map[key]
       .slice()
-      .sort((left, right) => right.id - left.id)
+      .sort((left, right) => right.id - left.id || left.source.localeCompare(right.source))
   }
 
   return map

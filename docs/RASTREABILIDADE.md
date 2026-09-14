@@ -1,6 +1,6 @@
 # Rastreabilidade Técnica
 
-Verificado contra o repositório em 2026-09-11.
+Verificado contra o repositório em 2026-09-14.
 
 Este índice liga cada rota e ação relevante aos chamadores do frontend, aos
 contratos executáveis do Supabase e ao documento do módulo proprietário. Ele é
@@ -26,6 +26,26 @@ no código. Levantamento e lacunas detalhadas na
 - **Teste**: comportamento sustentado por uma asserção automatizada identificada.
 - **Runtime**: comportamento observado em navegador/API/banco controlado.
 - **Suspeita**: divergência plausível que ainda exige confirmação adicional.
+
+## Atualização do detalhe do B/L — trilho Documental — 2026-09-14
+
+`/manifestos/:blId` mantém o trilho Operacional e agora apresenta o antigo
+Financeiro como **Documental**. `BlRailsPipeline` recebe quatro cards centrais
+(`Cliente`, `Taxas Locais`, `CE Mercante`, `Fatura`), calcula o contador somente
+com os bloqueios desses cards e aponta a próxima ação para o primeiro deles.
+Demurrage permanece auxiliar e não altera a emissão da fatura comum.
+
+`listInvoiceLinksByBls` lê `invoice_bls` e `invoice_receivable_links`, preserva
+`invoice_type` e a origem do vínculo, e permite que a ficha identifique uma
+fatura `Individual` ou `Consolidada`. O CE Mercante é obrigatório para
+container e carga solta: `045_bl_documental_gates.sql` protege a prontidão do
+B/L, os vínculos de emissão individual/consolidada e a transição da invoice
+para `issued`. A disponibilidade do Portal continua sob
+`bl_has_portal_release`, que já usa CE como gate universal.
+
+**Evidência:** `BlRailsPipeline.test.tsx`, `blRails.test.ts`,
+`billing.test.ts`, `reviewBillingAutomation.test.ts` e
+`blDocumentalGatesMigration.test.ts`.
 
 ## Atualização da PR #670 — 2026-09-10
 
@@ -332,10 +352,10 @@ as divergências permanecem no documento vivo do módulo indicado.
 | `/carga-solta` | Pré-visualizar e importar breakbulk | `src/pages/CargaSolta.tsx`, `FileImportModal` | `breakbulkImport.ts`, `importCore.ts`, `cacheEffects.ts` | RPC transacional de importação breakbulk | Escolhe a Viagem antes do arquivo; preview/confirmação são compartilhados; invalida o manifesto e filtros relacionados | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
 | `/carga-solta` | Pré-visualizar e importar B/L avulso (.pdf/.docx) | `src/pages/CargaSolta.tsx`, `src/components/shared/BlDocumentImportModal.tsx`, `FileImportModal` | `blDocumentParser.ts`, `blDocumentPdf.ts`, `blDocumentDocx.ts`, `blDocumentFields.ts`, `blDocumentImport.ts`, `breakbulkImport.ts`, `src/lib/zipEntry.ts`, `cacheEffects.ts` | Mesma RPC transacional de importação breakbulk | Escolhe a Viagem antes dos arquivos; um arquivo por B/L, vários por vez; divergência de navio/viagem bloqueia o arquivo; avisos de leitura vão para os erros do lote | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
 | `/veiculos` | Importar ou excluir veículos de forma controlada | `src/pages/Veiculos.tsx` | `vehicleImport.ts`, `vehicles.ts` | RPCs transacionais + `cancel_invoice` quando necessário | Recalcula cobranças e atualiza B/L/container/invoice | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
-| `/manifestos/:blId` | Editar detalhes e revisão do B/L | `src/pages/BlDetalhe.tsx`, `BlDetalhesTab.tsx` | `useBlEditForm` | `save_bl_review` | Lock otimista, auditoria, gate e invalidation do detalhe; inclui Place of Receipt, Movement From/To, Issue Place, Place of Delivery, emissão e **NCM** (`ncm_codes`, migration `358`) | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
-| `/manifestos/:blId` | Consultar Visão Geral e trilhos | `BlVisaoGeralTab`, `BlRailsPipeline` | `useBlCockpit`, `blRails.ts` | Leitura de schedules, B/L, containers, invoices e demurrage | Queries `bl-cockpit`, invoice-links e demurrage por B/L | Dados ainda não cadastrados aparecem como pendentes; próxima ação aponta para a ficha ou faturamento | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
+| `/manifestos/:blId` | Editar detalhes e dados documentais do B/L | `src/pages/BlDetalhe.tsx`, `BlDetalhesTab.tsx` | `useBlEditForm` | `save_bl_review` | Lock otimista, auditoria, gate e invalidation do detalhe; inclui Place of Receipt, Movement From/To, Issue Place, Place of Delivery, emissão e **NCM** (`ncm_codes`, migration `358`) | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
+| `/manifestos/:blId` | Consultar Visão Geral e trilhos Operacional/Documental | `BlVisaoGeralTab`, `BlRailsPipeline` | `useBlCockpit`, `blRails.ts`, `listInvoiceLinksByBls` | Leitura de schedules, B/L, containers, invoices individuais/consolidadas e demurrage | Queries `bl-cockpit`, invoice-links (diretos e `invoice_receivable_links`) e demurrage por B/L; o Documental conta apenas os quatro cards centrais e o CE bloqueia emissão/Portal para container e carga solta (`045_bl_documental_gates.sql`) | Dados ainda não cadastrados aparecem como pendentes; próxima ação aponta para a ficha ou faturamento; o card Fatura identifica `Individual`/`Consolidada` sem vencimento | **Código**, **Teste**, **Teste de contrato SQL** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
 | `/manifestos/:blId` | Importar B/L na ficha | `src/pages/BlDetalhe.tsx`, `src/components/shared/BlImportModal.tsx` | `blParser.ts`, `blFreightImport.ts`, `ladenOnBoardAtd.ts` | `import_bl_freight_transactional`, `bl_freight_lines`; após confirmação chama `applyLadenOnBoardAtd` | Restringe ao B/L aberto, exige viagem declarada, aplica os mesmos bloqueios de divergência/faturamento, normaliza POL/POD/destino para UN/LOCODE, vincula o cliente pelo documento/nome do consignatário, aplica review gate/fila e, após confirmar, usa Laden on Board para aplicar o menor ATD por Viagem+POL e invalidar `voyage-pol-schedules` e `voyage-timeline`; alerta a troca de consignatário com as faturas e recebíveis que a acompanham, só a aplica com aceite explícito (`relink_bl_customer`) e mostra a recusa devolvida pelo servidor; não dispara faturamento automático, cujo gatilho é o cadastro do CE Mercante conforme `manifesto-edi.md` | **Código**, **Teste**, **Teste de contrato SQL** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
-| `/manifestos/:blId` | Gerir cliente, taxas, demurrage e fatura | `BlFaturamentoTab.tsx` | `useLocalCharges`, `BlDemurrageSection` | charges RPCs, `save_bl_review`, `bl_containers`, invoices | Consolida efeitos financeiros e atualiza timeline/cache | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
+| `/manifestos/:blId` | Gerir cliente, taxas, demurrage e fatura | `BlFaturamentoTab.tsx` | `useLocalCharges`, `BlDemurrageSection` | charges RPCs, `save_bl_review`, `bl_containers`, invoices | Consolida efeitos financeiros e atualiza timeline/cache; links de fatura do trilho são lidos das relações individuais e consolidadas | **Código**, **Teste** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
 | `/manifestos/:blId` | Paginar Histórico humanizado | `BlHistoricoTab.tsx` | `useBlTimeline` / `blTimeline.ts` | `bl_timeline` | Páginas de 50 eventos; Auditoria é o subconjunto justificado | **Código**, **Teste**, **Teste de contrato SQL** | [Manifestos e EDI](modules/manifesto-edi.md#catálogo-de-ações) |
 | `/revisao` | Agrupar por cliente, cadastrar/vincular cliente e corrigir exceções | `src/pages/Revisao.tsx`, `ReviewGroupBlock`, `ReviewCustomerOnboarding`, `ReviewDocumentEvidence`, `ReviewDrawer` | `useReviewQueue`, `useReviewCustomerGroup`, `reviewCustomerGroup.ts`; onboarding chama `complete_review_customer_group`; convite opcional chama `portal-invite-send` com o mesmo e-mail | `customers`, `customer_contacts`, `bls`, fila de reconciliação e `audit_logs`; exceções individuais continuam em `save_bl_review` | Invalida `review-queue`, `customers`, `customer-lookup`, `bls`, `local-charge-pendencies` e `portal-provisioning` | CNPJs conflitantes não permitem vínculo; `PT409` recarrega a fila; falha de convite não desfaz onboarding | **Código**, **Teste**, **Teste de contrato SQL** | [Operação e suporte](modules/operacao-suporte.md#catálogo-de-ações) |
 | `/revisao` | Tentar cálculo e faturamento após zerar pendências | `reviewBillingAutomation.ts`, `operationalEvents.ts` | charge/billing services | `calculate_bl_local_charges`, `mark_bl_ready_and_create_invoice`, `audit_logs` | Só tenta emissão com lista canônica vazia; falha inesperada gera evento operacional `bl_auto_billing_failed`, e reimport de B/L já faturado gera `ce_reimport_already_invoiced` | **Código**, **Teste** | [Operação e suporte](modules/operacao-suporte.md#fluxos-e-invariantes) |

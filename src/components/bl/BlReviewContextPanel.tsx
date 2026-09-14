@@ -20,7 +20,7 @@ export function BlReviewContextPanel({ bl }: { bl: BLDetail }) {
     computedReasons.push('Peso BB ausente')
   }
 
-  const reasons = notesReasons.length > 0 ? notesReasons : (computedReasons.length > 0 ? computedReasons : ['Pendente de revisão'])
+  const reasons = notesReasons.length > 0 ? notesReasons : (computedReasons.length > 0 ? computedReasons : ['Pendência documental não classificada'])
 
   return (
     <Card className="border-amber-500/30 bg-amber-500/5 p-4">
@@ -28,7 +28,7 @@ export function BlReviewContextPanel({ bl }: { bl: BLDetail }) {
         <div className="flex items-center gap-2">
           <AlertTriangle className="text-amber-400 shrink-0" size={18} />
           <h3 className="text-sm font-semibold text-[var(--app-text-strong)]">
-            Pendência de Revisão Manual
+            Pendências documentais
           </h3>
           <Badge tone="yellow">Documentação</Badge>
           <Badge tone="red">Bloqueio de faturamento</Badge>
@@ -38,7 +38,7 @@ export function BlReviewContextPanel({ bl }: { bl: BLDetail }) {
             to={`/revisao?search=${encodeURIComponent(bl.id)}`}
             className="flex items-center gap-1 text-xs font-semibold text-[#58a6ff] hover:underline"
           >
-            Tratar na Revisão Manual
+            Tratar pendência na ficha
             <ExternalLink size={13} />
           </Link>
         </div>
@@ -59,15 +59,15 @@ export function BlReviewContextPanel({ bl }: { bl: BLDetail }) {
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--app-muted)]">
         <span>Ambiente de correção:</span>
-        <span className="font-semibold text-[var(--app-text)]">Revisão Manual / Ficha do B/L</span>
+        <span className="font-semibold text-[var(--app-text)]">Ficha do B/L / fila documental</span>
         <span>·</span>
         <span>Ação sugerida:</span>
         <span className="text-[var(--app-text)]">
           {bl.customer_id == null
-            ? 'Vincule ou cadastre o cliente com CNPJ e e-mail válidos na tela de Revisão.'
+            ? 'Vincule ou cadastre o cliente com CNPJ e e-mail válidos na ficha do B/L.'
             : reasons.some((r) => r.toLowerCase().includes('peso'))
               ? 'Informe o peso BB na aba Detalhes do B/L.'
-              : 'Verifique os dados cadastrais do cliente na tela de Revisão.'}
+              : 'Verifique os dados cadastrais do cliente na ficha do B/L.'}
         </span>
       </div>
     </Card>

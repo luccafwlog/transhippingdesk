@@ -13,7 +13,6 @@ import { BlFaturamentoTab } from '../components/bl/BlFaturamentoTab'
 import { BlHistoricoTab } from '../components/bl/BlHistoricoTab'
 import { BlVisaoGeralTab, type BaplieStatus } from '../components/bl/BlVisaoGeralTab'
 import { BlRailsPipeline } from '../components/bl/BlRailsPipeline'
-import { BlReviewContextPanel } from '../components/bl/BlReviewContextPanel'
 import { ImportResultPanel } from '../components/shared/ImportResultPanel'
 import { Button } from '../components/ui/Button'
 import { useBlDetail } from '../hooks/useBls'
@@ -22,8 +21,9 @@ import { useBlCockpit } from '../hooks/useBlCockpit'
 import { useAuth } from '../hooks/useAuth'
 import { useSetBlDisposition } from '../hooks/useTransshipments'
 import { useInvoiceLinks } from '../hooks/useBilling'
+import { extractReviewReasons } from '../hooks/useReview'
 import { listDemurrageInvoices } from '../services/demurrage/demurrageInvoices'
-import { buildFinancialRail, buildOperationalRail, pickNextAction } from '../services/blRails'
+import { buildDocumentalRail, buildOperationalRail, pickNextAction, summarizeDocumentalRail } from '../services/blRails'
 import { getBlPortalStatus } from '../services/blPortalStatus'
 import { queryKeys } from '../services/queryKeys'
 import { useVoyageReconciliation } from '../hooks/useVoyageReconciliation'
@@ -81,7 +81,21 @@ export function BlDetalhe() {
   })), [bl?.bl_containers])
   const operational = useMemo(() => bl ? buildOperationalRail({ bl, polSchedule: cockpitQuery.data?.polSchedule ?? null, podSchedule: cockpitQuery.data?.podSchedule ?? null, containers: railContainers, omission: cockpitQuery.data?.omission ?? null }) : [], [bl, cockpitQuery.data, railContainers])
   const latestInvoice = bl ? invoiceLinksByBl?.[bl.id]?.[0] ?? null : null
-  const financial = useMemo(() => bl ? buildFinancialRail({ bl, latestInvoice: latestInvoice ? { id: latestInvoice.id, status: latestInvoice.status, total_brl: latestInvoice.total_brl } : null, demurrageInvoices: (demurrageInvoices ?? []).map((invoice) => ({ id: invoice.id, status: invoice.status })) }) : [], [bl, demurrageInvoices, latestInvoice])
+  const reviewReasons = useMemo(() => extractReviewReasons(bl?.notes), [bl?.notes])
+  const documental = useMemo(() => bl ? buildDocumentalRail({
+    bl,
+    latestInvoice: latestInvoice ? {
+      id: latestInvoice.id,
+      invoice_number: latestInvoice.invoice_number,
+      status: latestInvoice.status,
+      total_brl: latestInvoice.total_brl,
+      invoice_type: latestInvoice.invoice_type,
+    } : null,
+    demurrageInvoices: (demurrageInvoices ?? []).map((invoice) => ({ id: invoice.id, status: invoice.status })),
+    reviewReasons,
+    portalVisibility: portalStatus?.visibility ?? null,
+  }) : [], [bl, demurrageInvoices, latestInvoice, portalStatus?.visibility, reviewReasons])
+  const documentalSummary = useMemo(() => summarizeDocumentalRail(documental), [documental])
   const blDivergenceCount = useMemo(() => {
     if (!reconciliation || !bl) return 0
     const numbers = new Set((bl.bl_containers ?? []).map((container) => container.container_number))
@@ -181,14 +195,8 @@ export function BlDetalhe() {
         }
       />
 
-      {bl.review_status === 'pending_review' ? (
-        <div className="mb-5">
-          <BlReviewContextPanel bl={bl} />
-        </div>
-      ) : null}
-
       <div className="mb-5">
-        <BlRailsPipeline operational={operational} financial={financial} nextAction={pickNextAction(financial)} />
+        <BlRailsPipeline operational={operational} documental={documental} documentalSummary={documentalSummary} nextAction={pickNextAction(documental)} />
       </div>
 
       <div className="mb-5 grid gap-3">

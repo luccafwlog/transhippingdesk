@@ -1,6 +1,6 @@
 # Faturamento
 
-> **Status:** ativo · **Atualizado:** 2026-09-01 · **Rotas:** operação em `/taxas-locais`; `/faturamento` é redirect legado; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
+> **Status:** ativo · **Atualizado:** 2026-09-14 · **Rotas:** operação em `/taxas-locais`; `/faturamento` é redirect legado; detalhe e estorno de pagamentos também são abertos por `/reconciliacao`
 
 ## Propósito e escopo
 
@@ -19,7 +19,7 @@ Para taxas locais, o saldo canônico é o ledger por recebível; a tabela
   `ready_for_billing`.
 - Para B/Ls de container, carga solta e Granito, emissão automática de taxas
   locais só nasce após o cadastro do CE Mercante (ADRs 0020 e 0042) e continua
-  respeitando reconciliação de cliente, revisão e holds. Granito sem CE fica em
+  respeitando reconciliação de cliente, pendências documentais e holds. Granito sem CE fica em
   “Aguardando CE Mercante”; a exceção manual é a emissão individual “Emitir”,
   que mantém os mesmos gates. Embarque de Vazios não emite CE nem possui
   faturamento de cliente.
@@ -38,6 +38,36 @@ Para taxas locais, o saldo canônico é o ledger por recebível; a tabela
   `demurrage_invoices`, sem entrar no ledger local.
 
 ## Anatomia das telas
+
+### Detalhe do B/L: trilhos Operacional e Documental
+
+`src/pages/BlDetalhe.tsx` monta dois trilhos independentes em
+`BlRailsPipeline`. O trilho **Operacional** permanece com os marcos
+`Saída do POL → Chegada ao POD → Descarga → Devolução` para B/Ls de container
+(e os marcos de escala para carga solta).
+
+O trilho antes chamado Financeiro agora é **Documental**. Seus quatro cards
+centrais, sempre nesta ordem, são:
+
+- **Cliente:** vínculo, reconciliação e pendências do cadastro/Portal;
+- **Taxas Locais:** `Não calculado`, `Calculado`, `Isento` ou `Bloqueado · <causa>`;
+- **CE Mercante:** `Cadastrado` ou `Pendente · bloqueia emissão e Portal`, para
+  container e carga solta;
+- **Fatura:** `Não emitida`, `Rascunho`, `Emitida`, `Parcialmente paga`, `Paga`,
+  `Coberta`, `Cancelada` ou `Obsoleta`, com `Individual`/`Consolidada` quando
+  houver vínculo.
+
+O cabeçalho mostra apenas pendências dos quatro cards centrais e a próxima ação
+aponta para o primeiro bloqueio. Demurrage é um indicador auxiliar opcional e
+não bloqueia a fatura comum. A fatura do detalhe é lida tanto de
+`invoice_bls` quanto de `invoice_receivable_links`, permitindo identificar uma
+consolidada mesmo quando o B/L não tem vínculo individual. Não há vencimento ou
+estado `Vencida` nesse trilho: essa regra não existe para taxas locais.
+
+No backend, `045_bl_documental_gates.sql` exige CE Mercante antes de marcar o
+B/L como pronto e nas fronteiras de emissão individual e consolidada. O Portal
+continua usando `bl_has_portal_release`, que já aplica a mesma exigência aos
+dois modos de carga.
 
 ### Lista de invoices
 
@@ -210,11 +240,11 @@ impressão e chama `window.print()`; o nome sugerido é calculado por
 | Detalhe · carregar breakdown consolidado | Invoice sem itens diretos e com `invoice_receivable_links` | `listInvoiceDetails` após RPC base | Lê links/snapshots; RPC `get_consolidated_invoice_item_breakdown`; valida com Zod | `invoice_receivable_links`, `voyages`, leitura protegida de `charge_calculations` | Reusa `invoice-detail`; usa linha agregada por B/L se breakdown não reconciliar com subtotal | Erro/shape inválido do breakdown é best-effort e cai no agregado | **Código:** `src/services/billing.ts`, `supabase/migrations_archive/086_consolidated_invoice_item_breakdown.sql`, `supabase/migrations_archive/090_restrict_consolidated_invoice_breakdown.sql` |
 | Validação · recalcular selecionados | Seleção não vazia | `ValidacaoTab.runBatchOperation('recalculate')` | Hooks de Taxas Locais; Granito usa `runGraniteBatch` canônico | Uma operação por B/L | Invalida operações, invoices, B/Ls e resumo após o lote | Resultado parcial agrega erros sem interromper os demais B/Ls | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/hooks/useLocalCharges.ts`, `src/services/graniteBillingWorkflow.ts` · **Teste:** `src/services/__tests__/localCharges.test.ts`, `src/services/__tests__/graniteBillingWorkflow.test.ts` |
 | Validação · apoio operacional de Granito | Não aplicável a Granito; a fila oferece apenas recálculo | `runBatchOperation('recalculate')` | `runGraniteBatch` chama exclusivamente `calculateGraniteBlCharges` | Snapshot quantitativo operacional | Invalida operações, B/Ls e resumo | Falhas são isoladas por B/L; nenhum estado financeiro é promovido | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/services/graniteBillingWorkflow.ts` · **Teste:** `src/services/__tests__/graniteBillingWorkflow.test.ts` |
-| Validação · marcar pronto selecionados | Seleção; gates de cliente/taxas | `runBatchOperation('ready')` | Agrupa locais por cliente e usa `markBlsReadyAndCreateInvoice` | RPC `mark_bls_ready_and_create_invoice` promove e emite atomicamente por grupo | Invalida operações, invoices, B/Ls e resumo | Qualquer falha reverte promoção e emissão do grupo | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/services/localBatchBillingWorkflow.ts`, `src/services/billing.ts`, `supabase/migrations_archive/133_mark_bls_ready_and_create_invoice_atomic.sql` |
+| Validação · marcar pronto selecionados | Seleção; gates de cliente/taxas/CE Mercante | `runBatchOperation('ready')` | Agrupa locais por cliente e usa `markBlsReadyAndCreateInvoice` | RPC `mark_bls_ready_and_create_invoice` promove e emite atomicamente por grupo; `045_bl_documental_gates.sql` impede pronto/emissão sem CE em qualquer modo de carga | Invalida operações, invoices, B/Ls e resumo | Qualquer falha reverte promoção e emissão do grupo | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/services/localBatchBillingWorkflow.ts`, `src/services/billing.ts`, `supabase/migrations_archive/133_mark_bls_ready_and_create_invoice_atomic.sql`, `supabase/migrations/045_bl_documental_gates.sql` |
 | Validação · emitir invoice individual | B/L local elegível, não faturado e com cliente | `handleIssueSingleInvoice` | `createInvoiceFromBls`; Granito é somente apoio operacional e não oferece emissão | RPC local para B/Ls financeiros; nenhum caminho financeiro novo para Granito | Invalida operações, invoices, B/Ls e resumo após emissão local | RPC revalida estado, cliente e vínculos; Granito não exibe o botão “Emitir” | **Código:** `src/components/billing/ValidacaoTab.tsx`, `src/components/billing/ValidacaoOperationsTable.tsx` · **Teste:** `src/components/billing/__tests__/ValidacaoOperationsTable.test.tsx` |
-| B/L/revisão · marcar pronto e emitir atomicamente | Um B/L com cliente e gates satisfeitos | `BlCobrancasTab`, `reviewBillingAutomation` | `markBlReadyAndCreateInvoice` | RPC `mark_bl_ready_and_create_invoice` chama promoção + criação ledger na mesma transação | Chamadores invalidam seus domínios após sucesso | Qualquer falha aborta promoção e emissão juntas | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/services/reviewBillingAutomation.ts`, `supabase/migrations_archive/102_mark_ready_and_invoice_atomic.sql` |
+| B/L · marcar pronto e emitir atomicamente | Um B/L com cliente reconciliado, taxas elegíveis e CE Mercante | `BlCobrancasTab`, `reviewBillingAutomation` | `markBlReadyAndCreateInvoice` | RPC `mark_bl_ready_and_create_invoice` chama promoção + criação ledger na mesma transação; `045_bl_documental_gates.sql` reforça CE na prontidão e emissão | Chamadores invalidam seus domínios após sucesso | Qualquer falha aborta promoção e emissão juntas | **Código:** `src/components/bl/BlCobrancasTab.tsx`, `src/services/reviewBillingAutomation.ts`, `supabase/migrations_archive/102_mark_ready_and_invoice_atomic.sql`, `supabase/migrations/045_bl_documental_gates.sql` |
 | Modal consolidada · listar elegíveis | Cliente selecionado; filtros opcionais | `ConsolidatedInvoiceModal` | `useConsolidatableReceivables` → `listConsolidatableReceivables` | RPC `list_consolidatable_receivables` lê ledger e links | Query `queryKeys.billingLedger.consolidatableReceivables(filters)` | Sem cliente não consulta; rows pagas/sem saldo/em consolidada aberta ficam desabilitadas | **Código:** `src/components/billing/ConsolidatedInvoiceModal.tsx`, `src/services/billingLedger.ts` · **Teste:** `src/components/billing/__tests__/ConsolidatedInvoiceSelection.test.ts` |
-| Modal consolidada · emitir | Cliente e ao menos um receivable elegível selecionado | `ConsolidatedInvoiceModal.submit` | `useCreateConsolidatedInvoice` → `createConsolidatedInvoice` | RPC `create_local_consolidated_invoice` cria invoice, links, evento e auditoria | Invalidação ledger comum: ledger, invoices, B/Ls, clientes, detalhes, refunds, alertas e contagem | RPC trava receivables e rejeita cliente divergente, saldo inválido ou consolidada aberta | **Código:** `src/services/billingLedger.ts`, `supabase/migrations_archive/067_local_billing_ledger_phase2.sql` · **Teste:** `src/services/__tests__/billingLedger.test.ts` |
+| Modal consolidada · emitir | Cliente, ao menos um receivable elegível e CE Mercante em cada B/L selecionado | `ConsolidatedInvoiceModal.submit` | `useCreateConsolidatedInvoice` → `createConsolidatedInvoice` | RPC `create_local_consolidated_invoice` cria invoice, links, evento e auditoria; `045_bl_documental_gates.sql` guarda links e transição para emissão | Invalidação ledger comum: ledger, invoices, B/Ls, clientes, detalhes, refunds, alertas e contagem | RPC trava receivables e rejeita cliente divergente, saldo inválido, consolidada aberta ou B/L sem CE | **Código:** `src/services/billingLedger.ts`, `supabase/migrations_archive/067_local_billing_ledger_phase2.sql`, `supabase/migrations/045_bl_documental_gates.sql` · **Teste:** `src/services/__tests__/billingLedger.test.ts`, `src/services/__tests__/blDocumentalGatesMigration.test.ts` |
 | Detalhe · registrar pagamento ledger | `isLedgerInvoicePayable`: tipo individual/consolidated, status `issued`/`partially_paid`/`overdue`, saldo positivo | `InvoiceDetailModal.handleRegisterPayment` | `useRegisterLedgerInvoicePayment` → `registerLedgerInvoicePayment` | RPC `register_ledger_invoice_payment` → `payments`, `ledger_settlements`, receivables, invoice, B/Ls, eventos e possível refund | Invalidação ledger comum | Valor/data validados; RPC rejeita estado, ausência de links, TXID duplicado e regras de valor | **Código:** `src/pages/faturamentoLedgerPayment.ts`, `src/components/billing/InvoiceDetailModal.tsx`, `src/services/billingLedger.ts` · **Teste:** `src/services/__tests__/billingLedger.test.ts` |
 | Detalhe · registrar pagamento legado | Invoice não classificada como ledger payable | Mesmo handler, ramo `else` | `useRegisterInvoicePayment` → `registerInvoicePayment` | RPC `register_invoice_payment` → `payments`, agregados de `invoices`, `bls.financial_status`, auditoria | Invalida invoices, detalhe, B/Ls e clientes | Bloqueia valor não positivo, acima do saldo, invoice paga/cancelada | **Código:** `src/hooks/useBilling.ts`, `supabase/migrations_archive/020_billing_hybrid_workflow.sql` · **Teste:** `src/services/__tests__/billing.test.ts` |
 | Detalhe · adicionar other charge | Invoice não consolidada, status `draft`/`issued`/`overdue`, sem pagamentos | `handleAddCharge` | Zod `manualInvoiceChargeSchema` → `useAddManualInvoiceCharge` | RPC `add_manual_invoice_charge` → `invoice_items` e totais | Invalida invoices e detalhe | Validação de descrição/quantidade/valor; RPC guarda estado e pagamentos | **Código:** `src/components/billing/InvoiceDetailModal.tsx`, `src/services/financialValidation.ts`, `supabase/migrations_archive/108_guard_manual_charges_and_clear_pix_on_reversal.sql` |

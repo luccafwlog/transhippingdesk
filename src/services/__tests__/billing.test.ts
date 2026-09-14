@@ -19,6 +19,7 @@ import {
   getInvoiceBls,
   getInvoicePaymentDate,
   isConsolidatedInvoice,
+  listInvoiceLinksByBls,
   listInvoices,
   registerInvoicePayment,
 } from '../billing'
@@ -358,6 +359,75 @@ describe('deleteManualInvoiceCharge', () => {
   it('propaga erro do RPC', async () => {
     supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: new Error('delete falhou') })
     await expect(deleteManualInvoiceCharge({ itemId: 31 })).rejects.toThrow('delete falhou')
+  })
+})
+
+describe('listInvoiceLinksByBls', () => {
+  it('combina links individuais e consolidados, preservando tipo e origem', async () => {
+    const individual = chainQuery({
+      data: [
+        {
+          bl_id: ' bl-1 ',
+          invoice: {
+            id: 12,
+            invoice_number: 'INV-12',
+            status: 'issued',
+            total_brl: 100,
+            balance_brl: 100,
+            invoice_type: 'individual',
+          },
+        },
+      ],
+      error: null,
+    })
+    const consolidated = chainQuery({
+      data: [
+        {
+          bl_id: 'BL-1',
+          invoice: {
+            id: 20,
+            invoice_number: 'INV-20',
+            status: 'paid',
+            total_brl: 300,
+            balance_brl: 0,
+            invoice_type: 'consolidated',
+          },
+        },
+      ],
+      error: null,
+    })
+    supabaseMocks.from.mockReturnValueOnce(individual).mockReturnValueOnce(consolidated)
+
+    const result = await listInvoiceLinksByBls([' bl-1 '])
+
+    expect(supabaseMocks.from).toHaveBeenNthCalledWith(1, 'invoice_bls')
+    expect(supabaseMocks.from).toHaveBeenNthCalledWith(2, 'invoice_receivable_links')
+    expect(individual.select).toHaveBeenCalledWith(
+      'bl_id, invoice:invoices(id, invoice_number, status, total_brl, balance_brl, invoice_type)',
+    )
+    expect(consolidated.eq).toHaveBeenCalledWith('status', 'active')
+    expect(result).toEqual({
+      'BL-1': [
+        {
+          id: 20,
+          invoice_number: 'INV-20',
+          status: 'paid',
+          total_brl: 300,
+          balance_brl: 0,
+          invoice_type: 'consolidated',
+          source: 'invoice_receivable_links',
+        },
+        {
+          id: 12,
+          invoice_number: 'INV-12',
+          status: 'issued',
+          total_brl: 100,
+          balance_brl: 100,
+          invoice_type: 'individual',
+          source: 'invoice_bls',
+        },
+      ],
+    })
   })
 })
 
