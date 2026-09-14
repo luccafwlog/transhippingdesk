@@ -35,7 +35,7 @@ describe('templates de Comunicados', () => {
   it('renderiza NOA em português, com assunto bilíngue e escape por cliente', () => {
     const rendered = renderNoaTemplate(input())
 
-    expect(rendered.subject).toContain('Notice of Arrival / Aviso de Chegada')
+    expect(rendered.subject).toContain('Notice of Arrival / Chegada Próxima')
     expect(rendered.text).toContain('01/09/2026 às 12:00 (horário de Brasília)')
     expect(rendered.html).toContain('Cliente &lt;Importador&gt;')
     expect(rendered.html).toContain('BL-10')
@@ -46,7 +46,7 @@ describe('templates de Comunicados', () => {
     const nor = renderNorTemplate(input({ milestoneAt: '2026-09-02T16:30:00Z' }))
     const nob = renderNobTemplate(input({ milestoneAt: '2026-09-03T17:45:00Z' }))
 
-    expect(nor.subject).toContain('Notice of Readiness / Prontidão de Descarga')
+    expect(nor.subject).toContain('Notice of Readiness / Aviso de Chegada')
     expect(nor.text).toContain('02/09/2026 às 13:30 (horário de Brasília)')
     expect(nob.subject).toContain('Notice of Berthing / Aviso de Atracação')
     expect(nob.subject).toContain('BRSSZ (Terminal Leste)')

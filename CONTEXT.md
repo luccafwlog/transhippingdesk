@@ -1630,8 +1630,9 @@ data e hora obrigatórias. `NOR` (*Notice of Readiness*) é a denominação de m
 O par NOA/NOR divide a palavra *chegada* e a distinção é a do tempo verbal: a
 **Chegada Próxima** anuncia uma chegada que ainda vai acontecer (ETA), o **Aviso
 de Chegada** comunica a que já aconteceu (ATA). O assunto bilíngue do e-mail
-mantém os termos de mercado — `Notice of Arrival` e `Notice of Readiness` —, que
-são o que o cliente estrangeiro reconhece.
+carrega os dois lados — `Notice of Arrival / Chegada Próxima` e `Notice of
+Readiness / Aviso de Chegada` —: o lado inglês é o termo de mercado que o
+cliente estrangeiro reconhece e não acompanha a renomeação.
 
 **Aviso de Atracação (NOB)**
 Comunicado que informa a atracação efetiva da embarcação no terminal portuário
