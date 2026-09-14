@@ -231,7 +231,7 @@ describe('recorte e conferência de Comunicados', () => {
     expect(conference.blockedCustomers).toHaveLength(0)
   })
 
-  it('separa NOBs por identidade da linha de terminal', () => {
+  it('separa NOBs por identidade da linha de terminal e propaga unassignedOperationFronts', () => {
     const conference = buildCustomerCommunicationConference({
       kind: 'aviso_atracacao_nob',
       mode: 'carga',
@@ -241,10 +241,12 @@ describe('recorte e conferência de Comunicados', () => {
       ],
       contactsByCustomer: new Map([[99, [contact(1, 'cliente@example.com')]]]),
       preferences: [{ contact_id: 1, nature: 'avisos_operacionais', enabled: true }],
+      unassignedOperationFronts: true,
     })
 
     expect(conference.rows).toHaveLength(2)
     expect(conference.rows.map((row) => row.renderInput.terminalId)).toEqual(['terminal-1', 'terminal-1'])
+    expect(conference.unassignedOperationFronts).toBe(true)
   })
 
   it('usa o próprio disparo como âncora do comunicado livre e avança o discriminador', () => {

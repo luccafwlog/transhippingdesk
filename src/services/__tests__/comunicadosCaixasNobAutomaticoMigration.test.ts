@@ -59,17 +59,15 @@ describe('migration 045 — roteamento por caixa e NOB automático', () => {
     expect(nob).toMatch(/field_name = 'omitted'/i)
   })
 
-  it('NOR e NOB não têm teto de idade do marco: o gatilho é o registro', () => {
-    // Um número fixo é aposta sobre a velocidade de um processo humano e
-    // descarta em silêncio a atracação de sexta lançada na segunda. Envio
-    // repetido é barrado pela idempotência, não por janela.
+  it('NOR e NOB respeitam a janela operacional de 30 dias sobre o marco', () => {
+    // A janela de 30 dias protege produção contra disparos em massa de histórico
+    // e alinha o NOB automático ao detector do alerta comunicado_nob_pendente.
     const nob = sql.slice(sql.indexOf('-- NOB'))
     expect(nob).toMatch(/ts\.terminal_atb <= v_as_of/i)
-    expect(nob).not.toMatch(/terminal_atb >= v_as_of - interval/i)
+    expect(nob).toMatch(/ts\.terminal_atb >= v_as_of - interval '30 days'/i)
 
     const noaNor = sql.slice(sql.indexOf('-- NOA/NOR'), sql.indexOf('-- CE Mercante'))
-    expect(noaNor).toMatch(/l\.ata IS NOT NULL AND l\.ata <= v_as_of/i)
-    expect(noaNor).not.toMatch(/l\.ata BETWEEN v_as_of - interval/i)
+    expect(noaNor).toMatch(/l\.ata IS NOT NULL AND l\.ata BETWEEN v_as_of - interval '30 days' AND v_as_of/i)
   })
 
   it('o NOA mantém a janela, que é a definição do comunicado e não guarda de idade', () => {

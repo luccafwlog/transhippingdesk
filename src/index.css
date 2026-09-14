@@ -5607,7 +5607,7 @@ textarea {
   color: var(--app-link);
 }
 
-/* Filtros do recorte em Clientes › Comunicação › Disparo. São seis campos de
+/* Filtros do recorte em Clientes › Comunicação › Disparo. São quatro campos de
    texto curto enfileirados; a altura padrão de 44px empurrava o botão de
    conferência para fora da primeira dobra sem ganho de legibilidade. */
 .comunicacao-filtros .app-input {

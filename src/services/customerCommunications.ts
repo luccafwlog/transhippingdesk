@@ -331,6 +331,7 @@ export type CustomerCommunicationConference = {
   totalExcludedEmails: number
   blockedCustomers: CustomerCommunicationConferenceRow[]
   excludedReasonCounts: Record<CustomerCommunicationExcludedReason, number>
+  unassignedOperationFronts?: boolean
 }
 
 export type CommunicationFilterValidation = {
@@ -503,6 +504,7 @@ export function buildCustomerCommunicationConference(input: {
   communicationSuppressions?: readonly EmailSuppressionRow[]
   portalSuppressions?: readonly EmailSuppressionRow[]
   history?: readonly CustomerCommunicationHistoryMatch[]
+  unassignedOperationFronts?: boolean
   now?: Date
 }): CustomerCommunicationConference {
   const nature = communicationNatureForKind(input.kind, input.nature)
@@ -602,6 +604,7 @@ export function buildCustomerCommunicationConference(input: {
     totalExcludedEmails: rows.reduce((sum, row) => sum + row.excludedRecipients.length, 0),
     blockedCustomers: rows.filter((row) => row.blocked),
     excludedReasonCounts,
+    unassignedOperationFronts: input.unassignedOperationFronts ?? false,
   }
 }
 
@@ -832,6 +835,14 @@ export async function fetchCustomerCommunicationConference(input: {
     : undefined
   const expanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind, assignedFrontKeys)
   const filtered = filterCustomerCommunicationBls(expanded, input.filters)
+  let unassignedOperationFronts = false
+  if (operationalKind === 'aviso_atracacao_nob' && filtered.length === 0) {
+    const unassignedExpanded = expandCandidatesForKind(baseRows, schedulesByVoyage, operationalKind, undefined)
+    const unassignedFiltered = filterCustomerCommunicationBls(unassignedExpanded, input.filters)
+    if (unassignedFiltered.length > 0) {
+      unassignedOperationFronts = true
+    }
+  }
   const customerIds = [...new Set(filtered.map((row) => row.customerId))]
   const { contactsByCustomer, boxLinks } = await fetchCommunicationContacts(customerIds)
   // (ponytail: supressoes filtradas por e-mail em vez de full-scan — a tabela
@@ -872,6 +883,7 @@ export async function fetchCustomerCommunicationConference(input: {
     portalSuppressions: portalSuppressions ?? [],
     communicationSuppressions: communicationSuppressions ?? [],
     history,
+    unassignedOperationFronts,
     now: input.now,
   })
 }

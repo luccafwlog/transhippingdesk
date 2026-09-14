@@ -53,12 +53,18 @@ describe('assunto bilíngue dos avisos operacionais', () => {
     expect(migration).toContain(`AND subject_template = 'Notice of Readiness / Prontidão de Descarga — {{vessel_name}}`)
   })
 
+  it('o renderizador usa o corpo condizente com Aviso de Chegada', () => {
+    const rendered = renderCustomerCommunicationTemplate('aviso_prontidao_nor', base)
+    expect(rendered.html).toContain('Registramos a chegada do navio')
+    expect(rendered.text).toContain('Registramos a chegada do navio')
+  })
+
   it('nenhum texto vivo ainda chama o NOR de Prontidão de Descarga', () => {
     const renderer = readFileSync('src/services/customerCommunicationTemplates.ts', 'utf8')
     const page = readFileSync('src/pages/ClientesComunicacao.tsx', 'utf8')
     const service = readFileSync('src/services/customerCommunications.ts', 'utf8')
     for (const arquivo of [renderer, page, service]) {
-      expect(arquivo).not.toContain('Prontidão de Descarga')
+      expect(arquivo.toLowerCase()).not.toContain('prontidão de descarga')
     }
   })
 })

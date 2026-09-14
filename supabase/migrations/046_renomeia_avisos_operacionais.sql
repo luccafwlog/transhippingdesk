@@ -30,6 +30,8 @@ UPDATE public.customer_communication_templates
    AND subject_template = 'Notice of Arrival / Aviso de Chegada — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}';
 
 UPDATE public.customer_communication_templates
-   SET subject_template = 'Notice of Readiness / Aviso de Chegada — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}'
+   SET subject_template = 'Notice of Readiness / Aviso de Chegada — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}',
+       body_template = '<p>Olá, {{customer_name}}.</p><p>Registramos a chegada do navio <strong>{{vessel_name}}</strong>, viagem <strong>{{voyage_number}}</strong>, em <strong>{{milestone_at}}</strong> no Porto de {{port}}.</p><p>B/Ls relacionados: {{bl_list}}.</p>',
+       body_text_template = 'Olá, {{customer_name}}. Registramos a chegada do navio {{vessel_name}}, viagem {{voyage_number}}, em {{milestone_at}} no Porto de {{port}}. B/Ls relacionados: {{bl_list}}.'
  WHERE kind = 'aviso_prontidao_nor'
    AND subject_template = 'Notice of Readiness / Prontidão de Descarga — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}';

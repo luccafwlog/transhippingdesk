@@ -72,7 +72,7 @@ Operação atribuída àquele terminal (`bl_operation_front_modalidade` no banco
 `operationFrontKindForCargoMode` no app); Atracação sem frente atribuída não
 comunica e mantém o alerta `comunicado_nob_pendente` aberto. Ver ADR 0067.
 
-O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`. O runner `supabase/functions/customer-communication-auto-runner/index.ts`, agendado pela migration `381_customer_communications_automation.sql`, avalia NOA/NOR e `ce_mercante_taxas` em background, aplica a chave global e grava claims idempotentes; as correções de lease e prontidão estão na migration `384_comunicados_automacao_falhas.sql`.
+O Histórico da rota, da ficha do cliente e do B/L lê a mesma trilha de `customer_communications` e `customer_communication_attempts`; a criação do comunicado e de seus vínculos é feita pela RPC atômica `create_customer_communication_atomic`. O runner `supabase/functions/customer-communication-auto-runner/index.ts`, agendado pela migration `381_customer_communications_automation.sql`, avalia NOA, NOR, NOB e `ce_mercante_taxas` em background, aplica a chave global e grava claims idempotentes; as correções de lease e prontidão estão na migration `384_comunicados_automacao_falhas.sql`.
 
 O resumo financeiro `ce_mercante_taxas` não é um disparo genérico por invoice:
 após o vínculo do CE, a prontidão é calculada por cliente/viagem e exige CE,
@@ -181,7 +181,7 @@ O cabeçalho desta página é o ponto de entrada para `/clientes/portal`, com ba
 
 **Código:** `/clientes/comunicacao` agora expõe o painel de cobertura, o
 disparo manual e o histórico auditável. O runner `customer-communication-
-auto-runner` avalia NOA/NOR e CE Mercante em background a cada quinze minutos, respeita a
+auto-runner` avalia NOA, NOR, NOB e CE Mercante em background a cada quinze minutos, respeita a
 chave global de envio e registra a origem como `automatico`; a chave de claim
 impede duplicação em execuções concorrentes. O histórico principal filtra
 navio, mês, modelo, status e origem; a viagem pode ser restringida pela ficha

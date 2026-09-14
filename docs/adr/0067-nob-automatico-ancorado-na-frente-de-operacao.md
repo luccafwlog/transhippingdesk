@@ -47,9 +47,10 @@ O NOB passa a ser produzido pela régua automática, por Atracação, restrito a
 Clientes cuja carga pertence a uma Frente de Operação atribuída **àquele**
 terminal. A mesma restrição passa a valer na conferência manual.
 
-Não há teto de idade do marco. O gatilho do NOB é o **registro** do ATB, não a
-idade dele, e o mesmo passa a valer para o NOR: a guarda de 30 dias sobre o ATA
-sai junto. O NOA mantém a sua janela, que não é guarda de idade e sim a
+O NOB e o NOR operam na janela de 30 dias sobre o marco (ATB e ATA,
+respectivamente), mantendo a régua alinhada ao detector de alertas
+(`comunicado_nob_pendente`) e prevenindo varreduras históricas sobre
+`audit_logs`. O NOA mantém a sua janela, que não é guarda de idade e sim a
 definição do comunicado — um aviso de chegada é antecipação, e depois do ETA
 quem assume é o NOR.
 
@@ -62,7 +63,8 @@ por `escalaOperationFrontKind.test.ts`.
 
 Quando nenhuma Frente de Operação aponta para o terminal — a Atracação **TBC**
 do CONTEXT.md —, nenhum NOB é produzido para ela, nem automática nem
-manualmente, e o alerta `comunicado_nob_pendente` permanece aberto.
+manualmente, e o alerta `comunicado_nob_pendente` permanece aberto durante a sua
+janela operacional de 30 dias.
 
 A alternativa recusada era cair para "toda a carga da escala" quando a
 atribuição falta. Ela restaura exatamente o defeito que esta decisão corrige,
@@ -81,13 +83,10 @@ atribui não comunica.
 - O disparo manual do NOB continua existindo e é o caminho para os buracos que
   restam — cliente cadastrado depois do envio automático, e-mail corrigido
   depois, contato regularizado depois —, agora com o mesmo público da automação.
-  Lançamento atrasado do ATB deixa de ser um desses buracos: a régua o alcança.
-- Sem teto de idade, um import em massa de histórico depois do go-live
-  dispararia NOB para viagem já encerrada. Nenhuma regra de tempo separa isso de
-  um lançamento atrasado legítimo — a tentativa de separar por tempo é
-  exatamente o defeito que esta decisão remove. A contenção é a chave global de
-  envio, que nasce desligada; o upgrade é barrar por estado da viagem, e está
-  marcado com `ponytail:` na migration.
+  Lançamento atrasado do ATB em até 30 dias deixa de ser um desses buracos: a régua o alcança.
+- A janela operacional de 30 dias sobre o ATB e o ATA protege a produção contra
+  o risco de disparo em massa de histórico e timeouts no runner, alinhando a
+  régua ao comportamento de `detect_customer_communication_alerts`.
 - A produtora ganha um laço sobre `voyage_escala_terminal_state`. A leitura de
   escala excluída/omitida em `audit_logs` passa a ter três cópias no banco; a
   duplicação está marcada com `ponytail:` na migration, nomeando o upgrade

@@ -271,8 +271,8 @@ VALUES
   (
     'aviso_prontidao_nor',
     'Notice of Readiness / Aviso de Chegada — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}',
-    '<p>Olá, {{customer_name}}.</p><p>Registramos a prontidão de descarga do navio <strong>{{vessel_name}}</strong>, viagem <strong>{{voyage_number}}</strong>, em <strong>{{milestone_at}}</strong> no Porto de {{port}}.</p><p>B/Ls relacionados: {{bl_list}}.</p>',
-    'Olá, {{customer_name}}. Registramos a prontidão de descarga do navio {{vessel_name}}, viagem {{voyage_number}}, em {{milestone_at}} no Porto de {{port}}. B/Ls relacionados: {{bl_list}}.'
+    '<p>Olá, {{customer_name}}.</p><p>Registramos a chegada do navio <strong>{{vessel_name}}</strong>, viagem <strong>{{voyage_number}}</strong>, em <strong>{{milestone_at}}</strong> no Porto de {{port}}.</p><p>B/Ls relacionados: {{bl_list}}.</p>',
+    'Olá, {{customer_name}}. Registramos a chegada do navio {{vessel_name}}, viagem {{voyage_number}}, em {{milestone_at}} no Porto de {{port}}. B/Ls relacionados: {{bl_list}}.'
   ),
   (
     'aviso_atracacao_nob',

@@ -54,7 +54,7 @@ const MODE_OPTIONS: Array<{ value: CustomerCommunicationDispatchMode; label: str
   {
     value: 'carga',
     label: 'Carga · clientes de uma viagem',
-    hint: 'Os destinatários saem dos B/Ls filtrados por navio, viagem, escala, POD ou POL.',
+    hint: 'Os destinatários saem dos B/Ls filtrados por navio, viagem, POL ou POD.',
   },
   {
     value: 'institucional',
@@ -592,7 +592,7 @@ export function ClientesComunicacao() {
                       <Input
                         value={filters.pol}
                         onChange={(event) => updateFilter('pol', event.target.value)}
-                        placeholder="BRSSZ"
+                        placeholder="CNSHA"
                       />
                     </Field>
                   </div>
@@ -601,7 +601,7 @@ export function ClientesComunicacao() {
                       <Input
                         value={filters.pod}
                         onChange={(event) => updateFilter('pod', event.target.value)}
-                        placeholder="CNSHA"
+                        placeholder="BRSSZ"
                       />
                     </Field>
                   </div>
@@ -833,9 +833,18 @@ export function ClientesComunicacao() {
                   />
                 ))}
                 {!conference.rows.length ? (
-                  <div className="py-8 text-center text-sm text-[var(--app-muted)]">
-                    Nenhuma carga atende aos critérios informados.
-                  </div>
+                  conference.unassignedOperationFronts ? (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center text-sm text-amber-900 dark:text-amber-200">
+                      <p className="font-medium">Nenhuma carga disponível para envio de NOB</p>
+                      <p className="mt-1 text-xs opacity-90">
+                        A escala informada possui atracação com ATB registrado, mas não possui Frente de Operação atribuída ao terminal (Atracação TBC). Atribua a frente de operação na escala para habilitar o envio do NOB.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-sm text-[var(--app-muted)]">
+                      Nenhuma carga atende aos critérios informados.
+                    </div>
+                  )
                 ) : null}
               </div>
             </Card>

@@ -1642,13 +1642,12 @@ atracação realizada. `NOB` (*Notice of Berthing*) é a denominação de mercad
 
 Cada NOB alcança apenas os Clientes cuja carga pertence a uma Frente de Operação
 atribuída àquele terminal: quem descarregou no berço vizinho não entra. Sai pela
-régua automática assim que o ATB é registrado, sem teto de idade do marco: o
-gatilho é o lançamento do dado, não a idade dele, e atracação de sexta lançada
-na segunda segue sendo comunicado devido. O envio repetido é barrado pela
-idempotência da Atracação. O disparo manual continua sendo o caminho para os
-casos que a régua não alcançou. Atracação sem
-frente atribuída (Atracação TBC) não comunica por nenhum dos dois caminhos, e o
-alerta de NOB pendente permanece aberto até a atribuição existir (ADR 0067).
+régua automática assim que o ATB é registrado, dentro da janela operacional de
+30 dias do marco, alinhado ao detector de alertas e ao NOR. O envio repetido é
+barrado pela idempotência da Atracação. O disparo manual continua sendo o
+caminho para os casos que a régua não alcançou. Atracação sem frente atribuída
+(Atracação TBC) não comunica por nenhum dos dois caminhos, e o alerta de NOB
+pendente permanece aberto durante a sua janela operacional de 30 dias (ADR 0067).
 
 **Disparo de Comunicado**
 Operação de enviar um Comunicado a um Recorte de Destinatários. Passa
@@ -1657,9 +1656,8 @@ obrigatoriamente por conferência antes do envio e produz um e-mail por Cliente
 
 **Recorte de Destinatários**
 Conjunto de Clientes resolvido pelos filtros do Disparo. O universo é a carga:
-parte dos B/Ls filtrados por navio, viagem, escala, porto de descarga e porto
-de embarque, com CNPJ restringindo o resultado. Filtro vazio nunca significa
-todos os Clientes.
+parte dos B/Ls filtrados por navio, viagem, POD e POL, com CNPJ restringindo o
+resultado. Filtro vazio nunca significa todos os Clientes.
 
 **Vínculo a Caixa de Comunicação**
 Relação entre um endereço de contato e uma ou mais Caixas de Comunicação. No

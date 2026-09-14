@@ -18,7 +18,7 @@
       "x": 0,
       "y": -230,
       "w": 720,
-      "text": "PROPOSTA — duas colunas: compor à esquerda, recorte vivo à direita.\n\nO que muda em relação ao que está no PR:\n· Sem seções numeradas. A numeração 1·2·3 prometia um wizard que não existia.\n· Modo vira segmentado (é binário — dropdown de 2 opções é desperdício).\n· Modelo vira lista de rádio com a descrição visível. É onde morava a confusão do Livre.\n· Público ocupa sempre a MESMA faixa, na mesma altura, seja fixo ou escolhível.\n· A coluna da direita responde \"quem vai receber isto?\" desde o primeiro segundo."
+      "text": "PROPOSTA DE REDESENHO (estudo exploratório para evolução da tela) — duas colunas: compor à esquerda, recorte vivo à direita.\n\nO que esta proposta explora em relação à implementação da tela:\n· Sem seções numeradas (a tela atual adota etapas lineares 1·2·3).\n· Modo em controle segmentado em vez de select.\n· Modelo em lista de opções com descrição visível para dirimir dúvidas do Livre.\n· Público ocupando sempre a mesma faixa de altura, seja fixo ou escolhível.\n· Coluna da direita com preview de destinatários desde o primeiro momento."
     },
     {
       "id": "grid",

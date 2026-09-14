@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CustomerCommunicationConference } from '../../services/customerCommunications'
 import { ClientesComunicacao } from '../ClientesComunicacao'
 
 const mockSetCommunicationsMutation = {
@@ -131,9 +132,11 @@ vi.mock('../../hooks/useAuth', () => ({
   }),
 }))
 
+let activeMockConference: CustomerCommunicationConference | undefined = undefined
+
 vi.mock('../../hooks/useCustomerCommunications', () => ({
   useCustomerCommunicationConference: () => ({
-    data: mockConference,
+    data: activeMockConference !== undefined ? activeMockConference : mockConference,
     isFetching: false,
     isError: false,
   }),
@@ -164,6 +167,7 @@ vi.mock('../../components/ui/ConfirmDialog', () => ({
 describe('Página ClientesComunicacao (UI e fluxos)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    activeMockConference = undefined
     mockAppSettings = { communications_enabled: false }
   })
 
@@ -338,12 +342,50 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     expect(screen.queryByLabelText('Viagem')).toBeNull()
     expect(screen.getByLabelText('Navio / Viagem')).toBeTruthy()
 
-    // POL antes de POD, sem o rótulo por extenso.
+    // POL antes de POD, sem o rótulo por extenso e com os placeholders corretos.
     const rotulos = screen.getAllByText(/^(POL|POD)$/).map((el) => el.textContent)
     expect(rotulos).toEqual(['POL', 'POD'])
+    expect(screen.getByPlaceholderText('CNSHA')).toBeTruthy()
+    expect(screen.getByPlaceholderText('BRSSZ')).toBeTruthy()
+
+    // Hint do modo Carga não cita escala.
+    expect(screen.getByText(/Os destinatários saem dos B\/Ls filtrados por navio, viagem, POL ou POD\./i)).toBeTruthy()
 
     // O filtro de escala saiu de vez.
     expect(screen.queryByLabelText(/Escala/)).toBeNull()
+  })
+
+  it('exibe mensagem explicativa quando a conferência de NOB é vazia por falta de Frente de Operação', () => {
+    activeMockConference = {
+      kind: 'aviso_atracacao_nob',
+      nature: 'avisos_operacionais',
+      mode: 'carga',
+      totalCustomers: 0,
+      totalEligibleEmails: 0,
+      totalExcludedEmails: 0,
+      excludedReasonCounts: {
+        preferencia_desligada: 0,
+        email_ausente: 0,
+        suprimido_complaint: 0,
+        suprimido_bounce: 0,
+      },
+      blockedCustomers: [],
+      rows: [],
+      unassignedOperationFronts: true,
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/clientes/comunicacao?tab=disparo']}>
+        <ClientesComunicacao />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/^Modelo/), { target: { value: 'aviso_atracacao_nob' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.click(screen.getByRole('button', { name: /Conferir destinatários/i }))
+
+    expect(screen.getByText('Nenhuma carga disponível para envio de NOB')).toBeTruthy()
+    expect(screen.getByText(/Atracação TBC/i)).toBeTruthy()
   })
 
   it('renderiza o histórico de disparos na aba historico', () => {

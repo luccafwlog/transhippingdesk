@@ -1,7 +1,7 @@
-# Redesenho da aba Disparo
+# Redesenho da aba Disparo (Estudo exploratório)
 
-Origem do canvas de design publicado para `/clientes/comunicacao?tab=disparo`.
-São mockups estáticos, não código de produção — nada aqui entra no build.
+Origem dos mockups do canvas de design publicados como exploração conceitual para a aba `/clientes/comunicacao?tab=disparo`.
+São mockups estáticos de estudo visual para uma eventual evolução em duas colunas — não representam a implementação de produção (que manteve as etapas lineares com filtros compactados), e nada aqui entra no build.
 
 ## Artboards
 
