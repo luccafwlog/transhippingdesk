@@ -125,6 +125,9 @@ jobs:
         # Mesmo padrão de scripts/setup-local-pg.sh:118 (< "$f").
         run: sudo -u postgres psql -d vela_test -v ON_ERROR_STOP=1 -q -f - < scripts/check-squash-replay.sql
 
+      - name: Assert comunicados routing and NOB behaviour
+        run: sudo -u postgres psql -d vela_test -v ON_ERROR_STOP=1 -q -f - < scripts/check-comunicados-caixas-nob.sql
+
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

@@ -1603,29 +1603,51 @@ Avisos gerais. Seu público pode ser todos os contatos ou uma Caixa de
 Comunicação específica.
 
 **Modelo de Comunicado**
-Texto pré-definido que um Comunicado usa. Aviso de Chegada (NOA), Aviso de Prontidão
+Texto pré-definido que um Comunicado usa. Chegada Próxima (NOA), Aviso de Chegada
 (NOR), Aviso de Atracação (NOB) e os dois comunicados financeiros são fixos e
-versionados no código; o institucional e o livre são escritos pelo usuário interno,
-e o institucional pode ser salvo para reuso. Todo modelo renderiza por Cliente,
-com as variáveis da carga do próprio destinatário.
+versionados no código; o institucional e o livre são escritos pelo usuário interno
+no momento do disparo, e o texto de qualquer um dos dois pode ser salvo para reuso
+no mesmo acervo de modelos salvos. Todo modelo renderiza por Cliente, com as
+variáveis da carga do próprio destinatário.
 
-**Aviso de Chegada (NOA)**
+O modelo determina o Recorte de Destinatários, e não o contrário: só o
+institucional dispensa a carga; NOA, NOR, NOB e o livre partem sempre dos B/Ls
+filtrados. O livre é, portanto, um texto escrito na hora e endereçado aos clientes
+de uma viagem — não uma variante do institucional.
+
+**Chegada Próxima (NOA)**
 Comunicado que antecipa a chegada da embarcação. É sempre por Escala e comunica
 o **ETA** da Escala (com data e hora opcional), saindo 5 dias antes da previsão
 de chegada — não o ATA, que é a chegada já consumada e esvazia a função do aviso.
 Uma viagem com vários portos tem vários ETAs e vários avisos. `NOA` (*Notice of Arrival*)
 é a denominação de mercado.
 
-**Aviso de Prontidão (NOR)**
+**Aviso de Chegada (NOR)**
 Comunicado que informa a prontidão e a chegada efetiva da embarcação ao porto
 (ou área de fundeio). É sempre por Escala e ancora no **ATA** da Escala, exigindo
 data e hora obrigatórias. `NOR` (*Notice of Readiness*) é a denominação de mercado.
+
+O par NOA/NOR divide a palavra *chegada* e a distinção é a do tempo verbal: a
+**Chegada Próxima** anuncia uma chegada que ainda vai acontecer (ETA), o **Aviso
+de Chegada** comunica a que já aconteceu (ATA). O assunto bilíngue do e-mail
+carrega os dois lados — `Notice of Arrival / Chegada Próxima` e `Notice of
+Readiness / Aviso de Chegada` —: o lado inglês é o termo de mercado que o
+cliente estrangeiro reconhece e não acompanha a renomeação.
 
 **Aviso de Atracação (NOB)**
 Comunicado que informa a atracação efetiva da embarcação no terminal portuário
 (berço). É sempre por Atracação e ancora no **ATB** da Atracação, exigindo data e
 hora obrigatórias. Uma Escala com múltiplos terminais gera um NOB para cada
 atracação realizada. `NOB` (*Notice of Berthing*) é a denominação de mercado.
+
+Cada NOB alcança apenas os Clientes cuja carga pertence a uma Frente de Operação
+atribuída àquele terminal: quem descarregou no berço vizinho não entra. Sai pela
+régua automática assim que o ATB é registrado, dentro da janela operacional de
+30 dias do marco, alinhado ao detector de alertas e ao NOR. O envio repetido é
+barrado pela idempotência da Atracação. O disparo manual continua sendo o
+caminho para os casos que a régua não alcançou. Atracação sem frente atribuída
+(Atracação TBC) não comunica por nenhum dos dois caminhos, e o alerta de NOB
+pendente permanece aberto durante a sua janela operacional de 30 dias (ADR 0067).
 
 **Disparo de Comunicado**
 Operação de enviar um Comunicado a um Recorte de Destinatários. Passa
@@ -1634,9 +1656,8 @@ obrigatoriamente por conferência antes do envio e produz um e-mail por Cliente
 
 **Recorte de Destinatários**
 Conjunto de Clientes resolvido pelos filtros do Disparo. O universo é a carga:
-parte dos B/Ls filtrados por navio, viagem, escala, porto de descarga e porto
-de embarque, com CNPJ restringindo o resultado. Filtro vazio nunca significa
-todos os Clientes.
+parte dos B/Ls filtrados por navio, viagem, POD e POL, com CNPJ restringindo o
+resultado. Filtro vazio nunca significa todos os Clientes.
 
 **Vínculo a Caixa de Comunicação**
 Relação entre um endereço de contato e uma ou mais Caixas de Comunicação. No

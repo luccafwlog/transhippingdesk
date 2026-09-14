@@ -225,10 +225,32 @@ alternativo ou o alerta `cliente_contato_bounced_sem_alternativa`. **Código**;
 `/clientes/comunicacao` é a superfície protegida pela permissão
 `customer_communications`: o modo carga exige filtro operacional e agrupa B/Ls
 por cliente; o modo institucional usa Cliente Comunicável, com ETA a partir de
-doze meses atrás e sem teto futuro. A conferência mostra elegíveis, exclusões,
-bloqueios, preview e confirmação explícita de reenvio. **Código**;
-**Teste:** `customerCommunications.test.ts` e
+doze meses atrás e sem teto futuro. A aba Disparo é um formulário de três passos
+(o que enviar, para quem, mensagem) em que o modo deriva do modelo
+(`getCustomerCommunicationDispatchMode`), a lista de modelos vem filtrada pelo
+modo (`MANUAL_CUSTOMER_COMMUNICATION_KINDS_BY_MODE`), o público segue
+`getCustomerCommunicationAudienceRule` e o editor de assunto/mensagem aparece nos
+modelos escritos pelo operador (`isUserWrittenCustomerCommunicationKind`) —
+inclusive no livre, que continua no modo carga. A conferência mostra elegíveis,
+exclusões, bloqueios, preview e confirmação explícita de reenvio para os modelos
+ancorados em carga (`requiresResendConfirmation`); institucional e livre trocam a
+trava por informação, porque cada lote tem `dispatch_id` próprio. **Código**;
+**Teste:** `customerCommunications.test.ts`, `ClientesComunicacao.test.tsx` e
 `customerCommunicationTemplates.test.ts`.
+
+A produtora `evaluate_and_dispatch_automatic_communications` (cron de 15 em 15
+minutos via `customer-communication-auto-runner`) resolve destinatários por
+`customer_contact_box_links`, não mais pelo modelo legado de
+`customer_contact_preferences`, e produz NOA, NOR, **NOB** e `ce_mercante_taxas`.
+O NOB é por Atracação (`voyage_escala_terminal_state.id` como
+`anchor_atracacao_id`) e restrito à carga cuja Frente de Operação está atribuída
+àquele terminal em `voyage_escala_operation_fronts`. A migration `045` corrige o
+roteamento — a `008` havia aplicado a correção de caixas em
+`find_due_customer_communication_automations`, que não tem chamador. **Código**;
+**Teste:** `comunicadosCaixasNobAutomaticoMigration.test.ts`,
+`escalaOperationFrontKind.test.ts`, `customerCommunicationAutoRunner.test.ts`;
+**Teste de contrato SQL:** `scripts/check-comunicados-caixas-nob.sql`, executado
+no CI contra o Postgres real após o replay das migrations.
 
 `customerCommunicationDispatches.ts` chama `send-customer-communication`, que
 confere contato, preferência, complaint/bounce e natureza, registra a operação
@@ -601,7 +623,7 @@ loops, não apenas por regex de `CREATE POLICY`.
 | `alerts-detector` | `pg_cron` via `pg_net`, job `alerts-foundation-detectors` a cada 15 minutos | `POST` + Bearer comparado em tempo constante com `ALERTS_DETECTOR_SECRET`; `verify_jwt=false` | Cliente Supabase `service_role` chama `run_alert_detectors`, que executa os detectores históricos com contexto interno | Recalcula pendências ADR, revisão B/L, Portal, PIX e operação de viagem; não é chamado pelo browser. O detector de faturas vencidas saiu do runner na migration `348` (ADR 0055) | **Código:** `supabase/functions/alerts-detector/index.ts`; migrations `319`, `332`; **Teste de contrato SQL:** `alertsFoundationMigration.test.ts`, `unifiedAlertsRunnerMigration.test.ts` |
 | `send-customer-communication` | Frontend interno autorizado ou automação financeira server-side | `verify_jwt=false`; valida Bearer por Supabase Auth e perfil interno ativo para o fluxo interativo; CORS compartilhado | Cliente Supabase `service_role`; RPCs `create_customer_communication_atomic`, `customer_local_charges_communication_dispatch_ready` e `refresh_customer_communication_status` | Confere contato, natureza, preferência e supressões; grava Comunicado/tentativa; em chave desligada registra `simulado` sem chamar Resend; revalida CE Mercante imediatamente antes do dispatch; quando ligada envia via `_shared/email.ts` | **Código:** `supabase/functions/send-customer-communication/index.ts`, `src/services/customerCommunicationDispatches.ts`; migrations `032`/`033`/`039`; **Teste de contrato SQL:** `sendCustomerCommunicationFunction.test.ts`, `customerCommunicationReadinessGuardsMigration.test.ts` |
 | `demurrage-dunning` | `pg_cron` via `pg_net`, job horário | `verify_jwt=false`; Bearer de `DEMURRAGE_DUNNING_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC `claim_demurrage_dunning_candidates` em lotes; release server-only; escrita atômica da trilha de Comunicado | Reivindica a próxima cobrança por `first_billed_at`, pausa por disputa/bounce/ausência de contato válido, libera claims que não chegaram a envio concluído, trata `parcial` como terminal na recuperação de órfãos, não aplica teto e envia `cobranca_demurrage` respeitando a chave global; ao reencontrar tentativa legada, reutiliza sua chave de idempotência persistida | **Código:** `supabase/functions/demurrage-dunning/index.ts`, `supabase/functions/_shared/email.ts`, `src/services/demurrageDunning.ts`; migrations `039`, `041`, `378` e `379`; **Teste:** `demurrageDunningFunction.test.ts`, `demurrageDunningMigration.test.ts`, `emailShared.test.ts` |
-| `customer-communication-auto-runner` | `pg_cron` via `pg_net`, job a cada 15 minutos | `verify_jwt=false`; header `X-Communication-Automation-Secret` comparado em tempo constante | Cliente Supabase `service_role`; RPC `evaluate_and_dispatch_automatic_communications` com lease; release server-only | Avalia NOA (ETA − 5 dias), NOR (ATA nos últimos 30 dias) e `ce_mercante_taxas` após prontidão financeira, reivindica alvos por claims transacionais idempotentes, não adquire claims sem readiness válida e trata `parcial` da chamada atual como resolvido antes de liberar retries | **Código:** `supabase/functions/customer-communication-auto-runner/index.ts`; migrations `032`/`033`/`039` e `381`–`384`; **Teste:** `customerCommunicationAutoRunner.test.ts`, `customerCommunicationAutomationMigration.test.ts`, `customerCommunicationReadinessGuardsMigration.test.ts` |
+| `customer-communication-auto-runner` | `pg_cron` via `pg_net`, job a cada 15 minutos | `verify_jwt=false`; header `X-Communication-Automation-Secret` comparado em tempo constante | Cliente Supabase `service_role`; RPC `evaluate_and_dispatch_automatic_communications` com lease; release server-only | Avalia NOA (ETA − 5 dias até o ETA), NOR (ATA nos últimos 30 dias), NOB (por Atracação, ATB nos últimos 30 dias) e `ce_mercante_taxas` após prontidão financeira, reivindica alvos por claims transacionais idempotentes, não adquire claims sem readiness válida e trata `parcial` da chamada atual como resolvido antes de liberar retries | **Código:** `supabase/functions/customer-communication-auto-runner/index.ts`; migrations `032`/`033`/`039` e `381`–`384`; **Teste:** `customerCommunicationAutoRunner.test.ts`, `customerCommunicationAutomationMigration.test.ts`, `customerCommunicationReadinessGuardsMigration.test.ts` |
 | `portal-email-events-runner` | `pg_cron` via `pg_net`, job a cada minuto | `verify_jwt=false`; Bearer de `PORTAL_EMAIL_EVENTS_CRON_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPCs `claim_portal_email_events`, `process_portal_email_event` e `complete_portal_email_event` | Processa a inbox durável do webhook, respeita ordenação, retry, bounce/complaint, fallback e alerta de investigação; não reenvia evento legado sem payload | **Código:** `supabase/functions/portal-email-events-runner/index.ts`, `_shared/portalEmailEventProcessor.ts`; migration `022`; **Teste:** `portalEmailInboxMigration.test.ts`, `emailInbox.local-pg.test.ts` |
 | `import-effects-runner` | `pg_cron` via `pg_net`, job a cada 5 minutos | `verify_jwt=false`; Bearer de `IMPORT_EFFECTS_CRON_SECRET`; consumidor adicionalmente exige `IMPORT_EFFECTS_RUNNER_ENABLED=true` | Cliente Supabase `service_role`; claim e `process_import_effect` server-only | Executa efeitos pós-commit com lease, idempotência, retry transitório e bloqueio investigável; tipos sem consumidor completo permanecem bloqueados | **Código:** `supabase/functions/import-effects-runner/index.ts`; migration `025`; **Teste:** `importEffectsRunner.test.ts`, `importEffects.local-pg.test.ts` |
 | `recalc-demurrage-ptax` | `pg_cron`, agenda nominal em dias úteis, deliberadamente inativa | `verify_jwt=false`; Bearer de `RECALC_CRON_SECRET` comparado em tempo constante | Cliente Supabase `service_role`; RPC server-side de recálculo | Consulta PTAX com retry/backoff, preserva procedência e abre/resolve alerta persistente; ativação depende de validação de gateway, Vault e Preview | **Código:** `supabase/functions/recalc-demurrage-ptax/index.ts`; migrations `018` e `024`; **Teste:** `recalcDemurragePtax.test.ts`, `exchangeRateIntegrity.local-pg.test.ts` |

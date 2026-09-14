@@ -264,15 +264,15 @@ INSERT INTO public.customer_communication_templates (
 VALUES
   (
     'aviso_chegada_noa',
-    'Notice of Arrival / Aviso de Chegada — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}',
+    'Notice of Arrival / Chegada Próxima — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}',
     '<p>Olá, {{customer_name}}.</p><p>O navio <strong>{{vessel_name}}</strong>, viagem <strong>{{voyage_number}}</strong>, tem chegada prevista para <strong>{{milestone_at}}</strong> no Porto de {{port}}.</p><p>B/Ls relacionados: {{bl_list}}.</p>',
     'Olá, {{customer_name}}. O navio {{vessel_name}}, viagem {{voyage_number}}, tem chegada prevista para {{milestone_at}} no Porto de {{port}}. B/Ls relacionados: {{bl_list}}.'
   ),
   (
     'aviso_prontidao_nor',
-    'Notice of Readiness / Prontidão de Descarga — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}',
-    '<p>Olá, {{customer_name}}.</p><p>Registramos a prontidão de descarga do navio <strong>{{vessel_name}}</strong>, viagem <strong>{{voyage_number}}</strong>, em <strong>{{milestone_at}}</strong> no Porto de {{port}}.</p><p>B/Ls relacionados: {{bl_list}}.</p>',
-    'Olá, {{customer_name}}. Registramos a prontidão de descarga do navio {{vessel_name}}, viagem {{voyage_number}}, em {{milestone_at}} no Porto de {{port}}. B/Ls relacionados: {{bl_list}}.'
+    'Notice of Readiness / Aviso de Chegada — {{vessel_name}} / {{voyage_number}} — Porto de {{port}}',
+    '<p>Olá, {{customer_name}}.</p><p>Registramos a chegada do navio <strong>{{vessel_name}}</strong>, viagem <strong>{{voyage_number}}</strong>, em <strong>{{milestone_at}}</strong> no Porto de {{port}}.</p><p>B/Ls relacionados: {{bl_list}}.</p>',
+    'Olá, {{customer_name}}. Registramos a chegada do navio {{vessel_name}}, viagem {{voyage_number}}, em {{milestone_at}} no Porto de {{port}}. B/Ls relacionados: {{bl_list}}.'
   ),
   (
     'aviso_atracacao_nob',
