@@ -195,6 +195,19 @@ function extractBasePortalUrl(url?: string | null): string {
   return raw.replace(/\/+$/, '').replace(/\/billing$/, '')
 }
 
+function renderEmailTitleHtml(title: string): string {
+  const parts = title.split(/\s*—\s*/)
+  if (parts.length > 1) {
+    const mainType = parts[0]?.trim() || ''
+    const details = parts.slice(1).join(' — ').trim()
+    return `<div style="margin:0 0 24px;text-align:center">
+      <div style="font-size:20px;line-height:1.35;color:${BRAND_NAVY};font-weight:700;letter-spacing:-0.01em">${escapeHtml(mainType)}</div>
+      <div style="margin-top:6px;font-size:14.5px;line-height:1.45;color:${BRAND_MUTED};font-weight:500">${escapeHtml(details)}</div>
+    </div>`
+  }
+  return `<h1 style="margin:0 0 20px;font-size:20px;line-height:1.35;color:${BRAND_NAVY};font-weight:700;text-align:center">${escapeHtml(title)}</h1>`
+}
+
 function layout(title: string, bodyHtml: string, portalUrl?: string | null): string {
   const basePortalUrl = extractBasePortalUrl(portalUrl)
   const logoUrl = `${basePortalUrl}/branding/fwlog-logo-white.png`
@@ -218,7 +231,7 @@ function layout(title: string, bodyHtml: string, portalUrl?: string | null): str
           <tr><td style="height:3px;line-height:3px;font-size:0;background:${BRAND_GOLD}">&nbsp;</td></tr>
           <tr>
             <td style="padding:32px 32px 16px">
-              <h1 style="margin:0 0 20px;font-size:21px;line-height:1.35;color:${BRAND_NAVY};font-weight:700">${escapeHtml(title)}</h1>
+              ${renderEmailTitleHtml(title)}
               <main style="line-height:1.6;color:${BRAND_INK};font-size:15px">
                 ${bodyHtml}
               </main>
