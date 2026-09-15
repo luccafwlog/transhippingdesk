@@ -48,7 +48,7 @@ export function PortalForgotPassword() {
       <main className="app-auth">
         <Card className="app-auth__card">
           <div className="app-auth__brand">
-            <img alt="Transhipping" className="app-auth__logo app-auth__logo--on-light" src="/branding/transhipping-logo.png" />
+            <img alt="FWLog" className="app-auth__logo app-auth__logo--on-light" src="/branding/fwlog-logo.png" />
             <div>
               <h1 className="app-auth__title">Solicitação recebida</h1>
             </div>
@@ -76,7 +76,7 @@ export function PortalForgotPassword() {
     <main className="app-auth">
       <Card className="app-auth__card">
         <div className="app-auth__brand">
-          <img alt="Transhipping" className="app-auth__logo app-auth__logo--on-light" src="/branding/transhipping-logo.png" />
+          <img alt="FWLog" className="app-auth__logo app-auth__logo--on-light" src="/branding/fwlog-logo.png" />
           <div>
             <h1 className="app-auth__title">Recuperar senha</h1>
             <p className="app-auth__subtitle">Informe seu CNPJ cadastrado para receber o link de redefinição.</p>

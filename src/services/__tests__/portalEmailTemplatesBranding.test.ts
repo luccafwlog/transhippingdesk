@@ -13,16 +13,16 @@ const portalUrl = 'https://portal.transhippingdesk.com.br'
 const supportEmail = 'suporte@transhippingdesk.com.br'
 
 describe('Identidade visual dos emails do Portal', () => {
-  it('inclui a logo real da Transhipping, hospedada a partir do PORTAL_URL', () => {
+  it('inclui a logo real da FWLog, hospedada a partir do PORTAL_URL', () => {
     const { html } = inviteTemplate({ companyName: 'ACME LTDA', cnpjMasked: '12.***.***/0001-90', activationUrl: 'https://x/ativar', portalUrl, supportEmail })
-    expect(html).toContain(`<img src="${portalUrl}/branding/tr-logo.png"`)
+    expect(html).toContain(`<img src="${portalUrl}/branding/fwlog-logo-white.png"`)
   })
 
   it('normaliza a logo para a raiz do domínio mesmo quando portalUrl inclui /portal', () => {
     const urlWithPortal = 'https://portalfwlog.com.br/portal'
     const { html } = inviteTemplate({ companyName: 'ACME LTDA', cnpjMasked: '12.***.***/0001-90', activationUrl: 'https://x/ativar', portalUrl: urlWithPortal, supportEmail })
-    expect(html).toContain('<img src="https://portalfwlog.com.br/branding/tr-logo.png"')
-    expect(html).not.toContain('/portal/branding/tr-logo.png')
+    expect(html).toContain('<img src="https://portalfwlog.com.br/branding/fwlog-logo-white.png"')
+    expect(html).not.toContain('/portal/branding/fwlog-logo-white.png')
   })
 
   it('bounceNotificationTemplate normaliza tanto o logo quanto o botão de acesso', () => {
@@ -31,8 +31,8 @@ describe('Identidade visual dos emails do Portal', () => {
       portalUrl: 'https://portalfwlog.com.br/portal',
       supportEmail: 'suporte@portalfwlog.com.br',
     })
-    expect(bounce.html).toContain('https://portalfwlog.com.br/branding/tr-logo.png')
-    expect(bounce.html).not.toContain('/portal/branding/tr-logo.png')
+    expect(bounce.html).toContain('https://portalfwlog.com.br/branding/fwlog-logo-white.png')
+    expect(bounce.html).not.toContain('/portal/branding/fwlog-logo-white.png')
     expect(bounce.html).toContain('href="https://portalfwlog.com.br/portal"')
   })
 

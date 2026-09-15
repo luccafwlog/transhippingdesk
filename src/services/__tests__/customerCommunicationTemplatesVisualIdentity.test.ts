@@ -46,11 +46,11 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
     { name: 'Livre', fn: () => renderInstitutionalTemplate(sampleInput, 'livre') },
   ]
 
-  it.each(templates)('o template $name possui o cabeçalho marinho institucional (#152238) e a logo oficial da Transhipping', ({ fn }) => {
+  it.each(templates)('o template $name possui o cabeçalho marinho institucional (#152238) e a logo oficial da FWLog', ({ fn }) => {
     const rendered = fn()
     expect(rendered.html).toContain('background:#152238')
-    expect(rendered.html).toContain('/branding/tr-logo.png')
-    expect(rendered.html).toContain('alt="Transhipping"')
+    expect(rendered.html).toContain('/branding/fwlog-logo-white.png')
+    expect(rendered.html).toContain('alt="FWLog"')
   })
 
   it.each(templates)('o template $name inclui o filete dourado (#d4882e) com 3px de altura', ({ fn }) => {
@@ -91,7 +91,7 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
 
     expect(bounce.html).toContain('background:#152238')
     expect(bounce.html).toContain('background:#d4882e')
-    expect(bounce.html).toContain('https://portal.transhippingdesk.com.br/branding/tr-logo.png')
+    expect(bounce.html).toContain('https://portal.transhippingdesk.com.br/branding/fwlog-logo-white.png')
     expect(bounce.html).toContain('op***@cliente.com.br')
     expect(bounce.html).toContain('Acessar Portal do Cliente')
     expect(bounce.text).toContain('op***@cliente.com.br')

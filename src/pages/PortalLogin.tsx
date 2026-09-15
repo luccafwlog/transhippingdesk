@@ -64,12 +64,12 @@ export function PortalLogin() {
       <Card className="app-auth__card">
         <div className="app-auth__brand">
           <img
-            alt="Transhipping"
+            alt="FWLog"
             className="app-auth__logo app-auth__logo--on-light"
-            src="/branding/transhipping-logo-cropped.png"
+            src="/branding/fwlog-logo.png"
             onError={(event) => {
               event.currentTarget.onerror = null
-              event.currentTarget.src = '/branding/tr-logo.png'
+              event.currentTarget.src = '/branding/fwlog-logo.png'
             }}
           />
           <div>

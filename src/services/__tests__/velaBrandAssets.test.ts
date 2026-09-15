@@ -18,6 +18,8 @@ describe('aplicação da identidade Vela', () => {
       'public/branding/vela-icon-180.png',
       'public/branding/vela-icon-192.png',
       'public/branding/vela-icon-512.png',
+      'public/branding/fwlog-logo.png',
+      'public/branding/fwlog-logo-white.png',
     ]) {
       expect(existsSync(path.join(repositoryRoot, relativePath)), relativePath).toBe(true)
     }
