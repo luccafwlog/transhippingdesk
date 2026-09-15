@@ -4,7 +4,7 @@
 **Sistema Auditado:** Transhipping Desk (Vela & Portal Fwlog)  
 **Papel do Auditor:** Staff Database Engineer, AppSec / Lead QA & Software Architect  
 **Bases Canônicas de Referência:** `CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/RASTREABILIDADE.md`, `docs/CONVENCOES.md`, `supabase/migrations/` e `src/types/database.ts`  
-**Baseline Executável:** 593 suítes de teste (3.191 testes unitários e de integração aprovados), 173 RPCs ativas validadas em `public.pg_proc`, 50 rotas documentadas.
+**Baseline Executável:** 595 suítes de teste (3.198 testes unitários e de integração aprovados), 173 RPCs ativas validadas em `public.pg_proc`, 50 rotas documentadas.
 
 ---
 
@@ -44,7 +44,7 @@ Todas as constatações técnicas deste documento seguem os quatro níveis de ev
   - `preflight_depots_terminal_port_mapping` (`src/services/depots.ts:33`, migration `306`): Identifica terminais legados pendentes de mapeamento para portos brasileiros.
   - `upsertDepot` (`src/services/depots.ts:43-57`): Bloqueia terminais portuários sem `port_id` válido e proíbe atribuição de free time a terminais portuários. [**Código**, **Teste**]
 - **Invalidação de Cache:**
-  - `afterViagemAlterada`, `afterEscalaAlterada` e `afterRotaAlterada` em `src/services/cacheEffects.ts` gerenciam as chaves do React Query. Detectou-se que `afterEscalaAlterada` omitia `['portal-schedule-voyages']`, exigindo F5 na tela de Chegadas e Saídas (`ChegadasSaidas.tsx`); esta lacuna foi **corrigida e testada** nesta auditoria. [**Código**, **Teste**]
+  - `afterViagemAlterada`, `afterEscalaAlterada` e `afterRotaAlterada` em `src/services/cacheEffects.ts` gerenciam as chaves do React Query. Detectou-se que `afterEscalaAlterada` e `afterViagemAlterada` omitiam `['portal-schedule-voyages']`, exigindo F5 na tela de Chegadas e Saídas (`ChegadasSaidas.tsx`) e no Portal; esta lacuna foi **corrigida e testada** nesta auditoria. [**Código**, **Teste**]
 
 #### Módulo 2: Cargas, B/Ls, Containers e Manifesto (Importação & CE Mercante)
 - **Atomicidade de Importação:**
