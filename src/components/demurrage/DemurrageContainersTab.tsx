@@ -93,7 +93,7 @@ export function DemurrageContainersTab({
                           <div className="flex items-center gap-3">
                             {blTotalUSD > 0 && <span className="text-sm font-semibold text-amber-400">{fmtUSD(blTotalUSD)}</span>}
                             {hasOverdue && (
-                              <Button variant="secondary" disabled={generatingBl === blId} onClick={() => onGenerateInvoice(blId)}>
+                              <Button variant="secondary" disabled={Boolean(generatingBl)} onClick={() => onGenerateInvoice(blId)}>
                                 <FileText size={14} />
                                 {generatingBl === blId ? 'Gerando...' : 'Gerar Fatura'}
                               </Button>
@@ -119,8 +119,9 @@ export function DemurrageContainersTab({
                           <td className="py-2">
                             <button
                               type="button"
-                              className="rounded p-1 text-slate-500 transition-colors hover:text-slate-200"
-                              title="Editar datas"
+                              className="rounded p-1 text-slate-500 transition-colors hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
+                              title={generatingBl ? 'Aguarde a emissão da fatura...' : 'Editar datas'}
+                              disabled={Boolean(generatingBl)}
                               onClick={() => onEditContainer(container)}
                             >
                               <Pencil size={14} />

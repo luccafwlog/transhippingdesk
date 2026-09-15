@@ -114,9 +114,66 @@ function locCodeOf(segment: ParsedSegment): string | null {
   return code || null
 }
 
+export class BaplieParseError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'BaplieParseError'
+  }
+}
+
+export async function parseBaplieInWorker(buffer: ArrayBuffer): Promise<ParsedBaplie> {
+  return new Promise((resolve, reject) => {
+    try {
+      const worker = new Worker(new URL('./baplieWorker.ts', import.meta.url), { type: 'module' })
+      const timeoutId = setTimeout(() => {
+        worker.terminate()
+        reject(new Error('Tempo limite de processamento do Baplie excedido no Web Worker (60s).'))
+      }, 60_000)
+
+      worker.onmessage = (event: MessageEvent<{ ok: boolean; result?: ParsedBaplie; error?: string }>) => {
+        clearTimeout(timeoutId)
+        worker.terminate()
+        if (event.data.ok && event.data.result) {
+          resolve(event.data.result)
+        } else {
+          reject(new BaplieParseError(event.data.error || 'Falha no processamento do Baplie pelo Web Worker.'))
+        }
+      }
+
+      worker.onerror = (error) => {
+        clearTimeout(timeoutId)
+        worker.terminate()
+        const message = error instanceof ErrorEvent ? error.message : 'Falha na execução do Web Worker de Baplie'
+        reject(new Error(message))
+      }
+
+      // Transferência de posse (zero-copy) do clone para a thread do Worker,
+      // preservando o buffer original do chamador em caso de fallback de infraestrutura.
+      const transferCopy = buffer.slice(0)
+      worker.postMessage(transferCopy, [transferCopy])
+    } catch (err) {
+      reject(err)
+    }
+  })
+}
+
 export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
   assertUploadFile(file, ['edi', 'txt', 'edi2', 'bpl'])
   const buffer = await file.arrayBuffer()
+
+  if (typeof Worker !== 'undefined') {
+    try {
+      return await parseBaplieInWorker(buffer)
+    } catch (err) {
+      // Se o worker processou o arquivo e detectou erro de validação/formato,
+      // propaga o erro imediatamente em vez de reprocessar o mesmo arquivo inválido na main thread.
+      if (err instanceof BaplieParseError) {
+        throw err
+      }
+      // Fallback gracioso para a thread principal apenas em falhas de infraestrutura do Worker (CSP, inicialização)
+    }
+  }
+
   return parseBaplieBuffer(buffer)
 }
 
