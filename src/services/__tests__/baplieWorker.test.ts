@@ -66,7 +66,7 @@ describe('baplieWorker & parseBaplieInWorker', () => {
       onmessage: ((event: MessageEvent<BaplieWorkerResponse>) => void) | null = null
       onerror: ((event: unknown) => void) | null = null
 
-      postMessage(_data: unknown, _transfer?: Transferable[]) {
+      postMessage() {
         setTimeout(() => {
           if (this.onmessage) {
             this.onmessage(new MessageEvent('message', { data: mockResponse }))
