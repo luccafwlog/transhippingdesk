@@ -13,16 +13,16 @@ import { bounceNotificationTemplate } from '../../../supabase/functions/_shared/
 const sampleInput: CustomerCommunicationTemplateInput = {
   customerId: 10,
   customerName: 'ACME Logística & Importação',
-  vesselName: 'MSC ALTAIR',
+  vesselName: 'COSCO SHIPPING XING WANG',
   voyageNumber: '2401E',
   port: 'Santos (BRSSZ)',
   terminalName: 'BTP Santos',
   terminalId: 'term-1',
   milestoneAt: '2026-09-10T14:00:00Z',
-  bls: [{ id: 'MSCU1234567', customerId: 10, terminalId: 'term-1' }],
+  bls: [{ id: 'CSC45360805C00', customerId: 10, terminalId: 'term-1' }],
   portalUrl: 'https://portal.transhippingdesk.com.br',
   ceMercanteRows: [
-    { blId: 'MSCU1234567', ceMercante: '123456789012345', totalBrl: 1500.5 },
+    { blId: 'CSC45360805C00', ceMercante: '123456789012345', totalBrl: 1500.5 },
   ],
   demurrage: {
     docNumber: 'DEM-2026-001',
@@ -46,11 +46,11 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
     { name: 'Livre', fn: () => renderInstitutionalTemplate(sampleInput, 'livre') },
   ]
 
-  it.each(templates)('o template $name possui o cabeçalho marinho institucional (#152238) e a logo oficial da Transhipping', ({ fn }) => {
+  it.each(templates)('o template $name possui o cabeçalho marinho institucional (#152238) e a logo oficial da Fwlog', ({ fn }) => {
     const rendered = fn()
     expect(rendered.html).toContain('background:#152238')
-    expect(rendered.html).toContain('/branding/tr-logo.png')
-    expect(rendered.html).toContain('alt="Transhipping"')
+    expect(rendered.html).toContain('/branding/fwlog-logo-white.png')
+    expect(rendered.html).toContain('alt="Fwlog"')
   })
 
   it.each(templates)('o template $name inclui o filete dourado (#d4882e) com 3px de altura', ({ fn }) => {
@@ -66,10 +66,10 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
     expect(rendered.html).toContain('background:#ffffff')
   })
 
-  it.each(templates)('o template $name contém o rodapé oficial da Transhipping Desk', ({ fn }) => {
+  it.each(templates)('o template $name contém o rodapé oficial do Portal Fwlog', ({ fn }) => {
     const rendered = fn()
-    expect(rendered.html).toContain('Mensagem operacional enviada pelo Transhipping Desk')
-    expect(rendered.text).toContain('Mensagem operacional enviada pelo Transhipping Desk')
+    expect(rendered.html).toContain('Portal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:suporte@portalfwlog.com.br"')
+    expect(rendered.text).toContain('Portal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com suporte@portalfwlog.com.br.')
   })
 
   it('renderiza botão de ação (CTA) para o Portal do Cliente em CE Mercante e Demurrage', () => {
@@ -91,7 +91,7 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
 
     expect(bounce.html).toContain('background:#152238')
     expect(bounce.html).toContain('background:#d4882e')
-    expect(bounce.html).toContain('https://portal.transhippingdesk.com.br/branding/tr-logo.png')
+    expect(bounce.html).toContain('https://portal.transhippingdesk.com.br/branding/fwlog-logo-white.png')
     expect(bounce.html).toContain('op***@cliente.com.br')
     expect(bounce.html).toContain('Acessar Portal do Cliente')
     expect(bounce.text).toContain('op***@cliente.com.br')

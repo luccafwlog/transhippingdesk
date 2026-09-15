@@ -195,9 +195,22 @@ function extractBasePortalUrl(url?: string | null): string {
   return raw.replace(/\/+$/, '').replace(/\/billing$/, '')
 }
 
+function renderEmailTitleHtml(title: string): string {
+  const parts = title.split(/\s*—\s*/)
+  if (parts.length > 1) {
+    const mainType = parts[0]?.trim() || ''
+    const details = parts.slice(1).join(' — ').trim()
+    return `<div style="margin:0 0 24px;text-align:center">
+      <div style="font-size:20px;line-height:1.35;color:${BRAND_NAVY};font-weight:700;letter-spacing:-0.01em">${escapeHtml(mainType)}</div>
+      <div style="margin-top:6px;font-size:14.5px;line-height:1.45;color:${BRAND_MUTED};font-weight:500">${escapeHtml(details)}</div>
+    </div>`
+  }
+  return `<h1 style="margin:0 0 20px;font-size:20px;line-height:1.35;color:${BRAND_NAVY};font-weight:700;text-align:center">${escapeHtml(title)}</h1>`
+}
+
 function layout(title: string, bodyHtml: string, portalUrl?: string | null): string {
   const basePortalUrl = extractBasePortalUrl(portalUrl)
-  const logoUrl = `${basePortalUrl}/branding/tr-logo.png`
+  const logoUrl = `${basePortalUrl}/branding/fwlog-logo-white.png`
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -212,13 +225,13 @@ function layout(title: string, bodyHtml: string, portalUrl?: string | null): str
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${BRAND_CARD_BG};border:1px solid ${BRAND_BORDER};border-radius:12px;overflow:hidden">
           <tr>
             <td style="background:${BRAND_NAVY};padding:24px 32px">
-              <img src="${logoUrl}" alt="Transhipping" height="28" style="height:28px;width:auto;display:block;border:0" />
+              <img src="${logoUrl}" alt="Fwlog" height="28" style="height:28px;width:auto;display:block;border:0" />
             </td>
           </tr>
           <tr><td style="height:3px;line-height:3px;font-size:0;background:${BRAND_GOLD}">&nbsp;</td></tr>
           <tr>
             <td style="padding:32px 32px 16px">
-              <h1 style="margin:0 0 20px;font-size:21px;line-height:1.35;color:${BRAND_NAVY};font-weight:700">${escapeHtml(title)}</h1>
+              ${renderEmailTitleHtml(title)}
               <main style="line-height:1.6;color:${BRAND_INK};font-size:15px">
                 ${bodyHtml}
               </main>
@@ -230,7 +243,7 @@ function layout(title: string, bodyHtml: string, portalUrl?: string | null): str
                 <tr>
                   <td style="padding-top:16px">
                     <p style="margin:0;font-size:12.5px;line-height:1.6;color:${BRAND_MUTED}">
-                      Mensagem operacional enviada pelo Transhipping Desk. Em caso de dúvida, responda a este e-mail para falar com a equipe.
+                      Portal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:suporte@portalfwlog.com.br" style="color:${BRAND_NAVY};text-decoration:underline">suporte@portalfwlog.com.br</a>.
                     </p>
                   </td>
                 </tr>
@@ -246,7 +259,7 @@ function layout(title: string, bodyHtml: string, portalUrl?: string | null): str
 }
 
 function textLayout(title: string, body: string): string {
-  return `Transhipping Desk\n${title}\n\n${body}\n\nMensagem operacional enviada pelo Transhipping Desk. Em caso de dúvida, responda a este e-mail para falar com a equipe.`
+  return `Portal Fwlog\n${title}\n\n${body}\n\nPortal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com suporte@portalfwlog.com.br.`
 }
 
 function formatBrl(value: number): string {

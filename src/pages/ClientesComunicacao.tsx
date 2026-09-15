@@ -122,14 +122,14 @@ function getSamplePreviewInput(subject: string, body: string): CustomerCommunica
   return {
     customerId: 1,
     customerName: 'ACME LOGÍSTICA & IMPORTAÇÃO LTDA',
-    vesselName: 'MSC ALTAIR',
+    vesselName: 'COSCO SHIPPING XING WANG',
     voyageNumber: '2401E',
     terminalName: 'BTP Santos',
     port: 'Santos (BRSSZ)',
     milestoneAt: new Date().toISOString(),
     bls: [
-      { id: 'MSCU1234567', customerId: 1 },
-      { id: 'MSCU7654321', customerId: 1 },
+      { id: 'CSC45360805C00', customerId: 1 },
+      { id: 'CSC45360805D00', customerId: 1 },
     ],
     subject: subject.trim() || undefined,
     body: body.trim() || undefined,

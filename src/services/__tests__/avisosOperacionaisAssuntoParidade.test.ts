@@ -19,7 +19,7 @@ const ESPERADO = {
 const base = {
   customerId: 1,
   customerName: 'Cliente',
-  vesselName: 'MSC ALTAIR',
+  vesselName: 'COSCO SHIPPING XING WANG',
   voyageNumber: '2401E',
   port: 'Santos',
   terminalName: 'Terminal 1',

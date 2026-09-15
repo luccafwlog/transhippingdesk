@@ -355,8 +355,8 @@ function matchesFilter(value: string | null | undefined, filter: string): boolea
 
 /**
  * Navio e viagem casam contra "NAVIO VIAGEM" concatenado, e cada termo digitado
- * precisa aparecer. Assim "ALTAIR 2401E" acha a viagem 2401E do MSC ALTAIR,
- * "ALTAIR" sozinho acha todas as dela e "2401E" sozinho acha a viagem em
+ * precisa aparecer. Assim "XING WANG 2401E" acha a viagem 2401E do COSCO SHIPPING XING WANG,
+ * "XING WANG" sozinho acha todas as dela e "2401E" sozinho acha a viagem em
  * qualquer navio — que é o que o operador espera de uma busca só.
  */
 function matchesVesselVoyage(vessel: string | null | undefined, voyage: string | null | undefined, filter: string): boolean {

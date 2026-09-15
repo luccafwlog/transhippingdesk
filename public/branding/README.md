@@ -6,13 +6,12 @@ arquivo por outro coloca a marca errada na frente do público errado.
 | Marca | O que é | Assets |
 |---|---|---|
 | **Vela** | O sistema interno, usado pela equipe | `vela-*` |
-| **Fwlog** | A empresa que atende o cliente (Portal) | `tr-logo.png` |
-| **Transhipping** | A entidade jurídica e financeira | `transhipping-logo*.png` |
+| **Fwlog** | A empresa que atende o cliente (Portal e e-mails) | `fwlog-logo*.png` |
+| **Transhipping** | A entidade jurídica e financeira (faturas, recibos, documentos) | `transhipping-logo*.png`, `tr-logo.png` |
 
-O cliente não deve ter visibilidade do nome Vela. Os assets `vela-*` são
-arquivos novos: nenhum arquivo existente foi substituído, e `tr-logo.png` e
-`transhipping-logo-cropped.png` continuam servindo fatura, recibo, Portal,
-templates de e-mail e `CustomerSummaryReport` exatamente como antes.
+O cliente não deve ter visibilidade do nome Vela. Os assets `vela-*` atendem o
+sistema interno. Os assets `fwlog-*` atendem o Portal do Cliente e as comunicações/e-mails.
+Documentos fiscais, faturas e recibos mantêm a identidade e titularidade da Transhipping (`tr-logo.png` e `transhipping-logo*.png`).
 
 ## Arquivos Vela
 
