@@ -114,9 +114,41 @@ function locCodeOf(segment: ParsedSegment): string | null {
   return code || null
 }
 
+export async function parseBaplieInWorker(buffer: ArrayBuffer): Promise<ParsedBaplie> {
+  return new Promise((resolve, reject) => {
+    try {
+      const worker = new Worker(new URL('./baplieWorker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = (event: MessageEvent<{ ok: boolean; result?: ParsedBaplie; error?: string }>) => {
+        worker.terminate()
+        if (event.data.ok && event.data.result) {
+          resolve(event.data.result)
+        } else {
+          reject(new Error(event.data.error || 'Falha no processamento do Baplie pelo Web Worker.'))
+        }
+      }
+      worker.onerror = (error) => {
+        worker.terminate()
+        reject(error)
+      }
+      worker.postMessage(buffer.slice(0))
+    } catch (err) {
+      reject(err)
+    }
+  })
+}
+
 export async function parseBaplieFile(file: File): Promise<ParsedBaplie> {
   assertUploadFile(file, ['edi', 'txt', 'edi2', 'bpl'])
   const buffer = await file.arrayBuffer()
+
+  if (typeof window !== 'undefined' && typeof Worker !== 'undefined') {
+    try {
+      return await parseBaplieInWorker(buffer)
+    } catch {
+      // Fallback gracioso para a thread principal se o Worker for bloqueado ou falhar
+    }
+  }
+
   return parseBaplieBuffer(buffer)
 }
 

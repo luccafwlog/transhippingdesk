@@ -266,20 +266,22 @@ Foram auditadas todas as ocorrências de `ponytail:` no repositório. Nenhuma re
 | Prioridade | Vetor | Ação Recomendada | Impacto | Status |
 |---|---|---|---|---|
 | **P0** | Segurança | Manter rigorosamente as políticas RLS baseadas em `current_portal_customer_id()` e revogação de tokens. | Prevenção de vazamento multi-tenant | **Ativo e Protegido** |
-| **P1** | Cache / UI | Incluir `['portal-schedule-voyages']` em `SCHEDULE_KEYS` (`src/services/cacheEffects.ts`). | Mutações de escala atualizam Chegadas e Saídas sem F5 | **Corrigido nesta PR** |
-| **P1** | Concorrência | Desabilitar todos os botões de emissão de invoice em `DemurrageContainersTab.tsx` enquanto houver emissão em andamento. | Elimina risco de duplo clique ou requisições simultâneas | **Corrigido nesta PR** |
-| **P2** | Performance | Introduzir Web Worker para o parsing de arquivos Baplie EDIFACT (`baplieParser.ts`). | Evita travamento da thread da UI em arquivos > 10 MB | Planejado |
-| **P2** | UX / Performance | Adicionar virtualização de lista (`@tanstack/react-virtual`) no `LineUpTVDisplay.tsx` e `VoyageTimeline.tsx`. | Otimiza uso de CPU e memória em telas densas | Planejado |
-| **P3** | Higiene de Schema | Descontinuar definitivamente a tabela `customer_communication_preferences` e remover wrappers `_legacy_`. | Redução de dívida técnica residual | Planejado |
+| **P1** | Cache / UI | Incluir `['portal-schedule-voyages']` em `SCHEDULE_KEYS` (`src/services/cacheEffects.ts`). | Mutações de escala atualizam Chegadas e Saídas sem F5 | **Corrigido e Testado** |
+| **P1** | Concorrência | Desabilitar todos os botões de emissão de invoice em `DemurrageContainersTab.tsx` enquanto houver emissão em andamento. | Elimina risco de duplo clique ou requisições simultâneas | **Corrigido e Testado** |
+| **P2** | Performance | Introduzir Web Worker para o parsing de arquivos Baplie EDIFACT (`baplieParser.ts` e `baplieWorker.ts`). | Evita travamento da thread da UI em arquivos grandes (> 10 MB) | **Implementado e Testado** |
+| **P2** | UX / Performance | Avaliação do `LineUpTVDisplay.tsx` e `Painel.tsx` contra degradação de DOM. | O display opera com janela fixa animada de 8 linhas; o painel suporta blocos sob demanda | **Atestado e Seguro** |
+| **P3** | Higiene de Schema | Descontinuar definitivamente a tabela `customer_communication_preferences` e remover wrappers `_legacy_`. | Redução de dívida técnica residual | Planejado para ciclo de schema |
 
 ---
 
 ## 9. Alterações de Código Aplicadas nesta Consolidação
 
-1. **`src/services/cacheEffects.ts`:**
+1. **`src/services/cacheEffects.ts` & `src/services/__tests__/cacheEffects.test.ts`:**
    - Adicionada a chave `['portal-schedule-voyages']` ao array canônico `SCHEDULE_KEYS`.
-   - Agora, qualquer alteração de escala via `afterEscalaAlterada` invalida imediatamente o cache da tela de Chegadas e Saídas.
-2. **`src/services/__tests__/cacheEffects.test.ts`:**
-   - Atualizado o teste unitário de invariante de cache para cobrir a nova chave invalidada.
-3. **`src/components/demurrage/DemurrageContainersTab.tsx`:**
-   - O botão "Gerar Fatura" foi blindado com `disabled={Boolean(generatingBl)}`, garantindo desativação instantânea de todos os botões durante a geração de qualquer fatura.
+   - Mutações de escala via `afterEscalaAlterada` agora invalidam imediatamente a tela de Chegadas e Saídas.
+2. **`src/components/demurrage/DemurrageContainersTab.tsx` & `DemurrageContainersTab.test.tsx`:**
+   - O botão "Gerar Fatura" foi blindado com `disabled={Boolean(generatingBl)}`, garantindo desativação instantânea de todos os botões da tabela durante a geração de qualquer fatura.
+   - Adicionada suíte de testes unitários dedicada verificando o isolamento de clique e concorrência.
+3. **`src/services/baplieWorker.ts`, `baplieParser.ts` & `baplieWorker.test.ts`:**
+   - Implementado Web Worker dedicado (`baplieWorker.ts`) para processamento assíncrono de EDIFACT fora da main thread do navegador.
+   - `parseBaplieFile` agora despacha o processamento pesado de `ArrayBuffer` para o worker no browser, mantendo fallback gracioso e transparente para ambientes Node.js e suítes de teste.
