@@ -922,6 +922,7 @@ export async function listInvoiceLinksByBls(blIds: string[]) {
       if (!map[blId]) {
         map[blId] = []
       }
+      if (map[blId].some((item) => item.id === invoice.id)) continue
       map[blId].push({
         id: invoice.id,
         invoice_number: invoice.invoice_number ?? null,

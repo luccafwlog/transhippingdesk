@@ -39,10 +39,10 @@ function normalizeText(value: string) {
 }
 
 function classifyDocumentalReason(reason: string): RailStage['key'] {
-  const normalized = normalizeText(reason)
-  if (normalized.includes('ce mercante') || normalized === 'ce' || normalized.includes('ce ausente')) return 'ce'
-  if (normalized.includes('cliente') || normalized.includes('email') || normalized.includes('e-mail') || normalized.includes('portal')) return 'customer'
-  if (normalized.includes('peso') || normalized.includes('tabela') || normalized.includes('no_table') || normalized.includes('linha') || normalized.includes('calcul') || normalized.includes('taxa') || normalized.includes('billing_hold') || normalized.includes('no_billable')) return 'charges'
+  const normalized = normalizeText(reason).replace(/[_-]+/g, ' ')
+  if (normalized.includes('ce mercante') || normalized === 'ce' || normalized.includes('ce ausente') || normalized.includes('sem ce')) return 'ce'
+  if (normalized.includes('cliente') || normalized.includes('email') || normalized.includes('e mail') || normalized.includes('portal')) return 'customer'
+  if (normalized.includes('peso') || normalized.includes('tabela') || normalized.includes('no table') || normalized.includes('linha') || normalized.includes('calcul') || normalized.includes('taxa') || normalized.includes('billing hold') || normalized.includes('no billable')) return 'charges'
   // Toda pendência legada precisa aparecer em um card acionável. Até que um
   // código mais específico seja criado, o card Cliente é a rota de correção
   // documental mais segura para mensagens não classificadas.
@@ -50,13 +50,13 @@ function classifyDocumentalReason(reason: string): RailStage['key'] {
 }
 
 function reasonDetail(reason: string) {
-  const normalized = normalizeText(reason)
-  if (normalized.includes('peso') && (normalized.includes('bb') || normalized.includes('weight_missing'))) return 'Peso BB ausente'
-  if (normalized.includes('tabela') || normalized.includes('no_table')) return 'Tabela não encontrada'
-  if (normalized.includes('unsupported_basis')) return 'Regra de cobrança incompatível'
-  if (normalized.includes('no_containers')) return 'Containers não encontrados'
+  const normalized = normalizeText(reason).replace(/[_-]+/g, ' ')
+  if (normalized.includes('peso') && (normalized.includes('bb') || normalized.includes('weight missing'))) return 'Peso BB ausente'
+  if (normalized.includes('tabela') || normalized.includes('no table')) return 'Tabela não encontrada'
+  if (normalized.includes('unsupported basis')) return 'Regra de cobrança incompatível'
+  if (normalized.includes('no containers')) return 'Containers não encontrados'
   if (normalized.includes('linha') || normalized.includes('calcul') || normalized.includes('invalid')) return 'Linha inválida'
-  if (normalized.includes('email') || normalized.includes('e-mail')) return 'Cliente sem e-mail cadastrado'
+  if (normalized.includes('email') || normalized.includes('e mail')) return 'Cliente sem e-mail cadastrado'
   if (normalized.includes('portal')) return 'Conta do Portal não está ativa/provisionada'
   if (normalized.includes('cliente') && normalized.includes('vincul')) return 'Sem cliente vinculado'
   if (normalized.includes('revis') || normalized.includes('review')) return 'Pendência documental'

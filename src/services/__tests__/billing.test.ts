@@ -429,6 +429,28 @@ describe('listInvoiceLinksByBls', () => {
       ],
     })
   })
+
+  it('desduplica invoices quando há múltiplos links para a mesma fatura', async () => {
+    const individual = chainQuery({ data: [], error: null })
+    const consolidated = chainQuery({
+      data: [
+        {
+          bl_id: 'BL-1',
+          invoice: { id: 30, invoice_number: 'INV-30', status: 'issued', total_brl: 500, balance_brl: 500, invoice_type: 'consolidated' },
+        },
+        {
+          bl_id: 'BL-1',
+          invoice: { id: 30, invoice_number: 'INV-30', status: 'issued', total_brl: 500, balance_brl: 500, invoice_type: 'consolidated' },
+        },
+      ],
+      error: null,
+    })
+    supabaseMocks.from.mockReturnValueOnce(individual).mockReturnValueOnce(consolidated)
+
+    const result = await listInvoiceLinksByBls(['BL-1'])
+    expect(result['BL-1']).toHaveLength(1)
+    expect(result['BL-1'][0].id).toBe(30)
+  })
 })
 
 describe('listInvoices', () => {

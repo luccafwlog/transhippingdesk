@@ -265,4 +265,21 @@ describe('B/L rails', () => {
     expect(summarizeDocumentalRail(rail)).toEqual({ pendingCount: 0, label: 'Sem pendências' })
     expect(pickNextAction(rail)).toBeNull()
   })
+
+  it('classifica pendências com underscore para os cards corretos (ce_mercante, no_table)', () => {
+    const rail = makeDocumental({
+      ce_mercante: null,
+      customer_id: 9,
+      customer_reconciliation_status: 'reconciled',
+      charge_status: 'review_required',
+      review_status: 'reviewed',
+    }, {
+      portalVisibility: { visible: true, reasons: [] },
+      reviewReasons: ['ce_mercante', 'no_table'],
+    })
+
+    expect(rail.find((stage) => stage.key === 'customer')).toMatchObject({ state: 'done', detail: 'Cliente apto' })
+    expect(rail.find((stage) => stage.key === 'charges')).toMatchObject({ state: 'blocked', detail: 'Bloqueado · Tabela não encontrada' })
+    expect(rail.find((stage) => stage.key === 'ce')).toMatchObject({ state: 'blocked' })
+  })
 })
