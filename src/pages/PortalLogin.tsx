@@ -64,7 +64,7 @@ export function PortalLogin() {
       <Card className="app-auth__card">
         <div className="app-auth__brand">
           <img
-            alt="FWLog"
+            alt="Fwlog"
             className="app-auth__logo app-auth__logo--on-light"
             src="/branding/fwlog-logo.png"
             onError={(event) => {

@@ -46,11 +46,11 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
     { name: 'Livre', fn: () => renderInstitutionalTemplate(sampleInput, 'livre') },
   ]
 
-  it.each(templates)('o template $name possui o cabeçalho marinho institucional (#152238) e a logo oficial da FWLog', ({ fn }) => {
+  it.each(templates)('o template $name possui o cabeçalho marinho institucional (#152238) e a logo oficial da Fwlog', ({ fn }) => {
     const rendered = fn()
     expect(rendered.html).toContain('background:#152238')
     expect(rendered.html).toContain('/branding/fwlog-logo-white.png')
-    expect(rendered.html).toContain('alt="FWLog"')
+    expect(rendered.html).toContain('alt="Fwlog"')
   })
 
   it.each(templates)('o template $name inclui o filete dourado (#d4882e) com 3px de altura', ({ fn }) => {

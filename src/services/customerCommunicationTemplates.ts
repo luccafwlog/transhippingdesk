@@ -212,7 +212,7 @@ function layout(title: string, bodyHtml: string, portalUrl?: string | null): str
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${BRAND_CARD_BG};border:1px solid ${BRAND_BORDER};border-radius:12px;overflow:hidden">
           <tr>
             <td style="background:${BRAND_NAVY};padding:24px 32px">
-              <img src="${logoUrl}" alt="FWLog" height="28" style="height:28px;width:auto;display:block;border:0" />
+              <img src="${logoUrl}" alt="Fwlog" height="28" style="height:28px;width:auto;display:block;border:0" />
             </td>
           </tr>
           <tr><td style="height:3px;line-height:3px;font-size:0;background:${BRAND_GOLD}">&nbsp;</td></tr>

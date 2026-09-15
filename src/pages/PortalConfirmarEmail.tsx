@@ -69,7 +69,7 @@ export function PortalConfirmarEmail() {
     <main className="app-auth">
       <Card className="app-auth__card">
         <div className="app-auth__brand">
-          <img alt="FWLog" className="app-auth__logo app-auth__logo--on-light" src="/branding/fwlog-logo.png" />
+          <img alt="Fwlog" className="app-auth__logo app-auth__logo--on-light" src="/branding/fwlog-logo.png" />
           <div>
             <h1 className="app-auth__title">
               {state === 'ok' ? 'Email confirmado' : state === 'erro' ? 'Confirmacao de email' : 'Confirmando seu email...'}

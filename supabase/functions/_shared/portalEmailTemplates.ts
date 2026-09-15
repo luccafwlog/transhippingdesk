@@ -73,7 +73,7 @@ function layout(input: {
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${CARD_BG};border:1px solid ${BORDER};border-radius:12px;overflow:hidden">
           <tr>
             <td style="background:${NAVY};padding:28px 32px 25px">
-              <img src="${logoUrl}" alt="FWLog" height="28" style="height:28px;width:auto;display:block;border:0" />
+              <img src="${logoUrl}" alt="Fwlog" height="28" style="height:28px;width:auto;display:block;border:0" />
             </td>
           </tr>
           <tr><td style="height:3px;line-height:3px;font-size:0;background:${GOLD}">&nbsp;</td></tr>
@@ -90,7 +90,7 @@ function layout(input: {
           <tr>
             <td style="padding:24px 32px 28px">
               <table role="presentation" width="100%" style="border-collapse:collapse;border-top:1px solid ${BORDER}"><tr><td style="padding-top:20px">
-                <p style="margin:0;font-size:12.5px;line-height:1.6;color:${MUTED}">Portal do Cliente — FWLog. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:${escapeHtml(input.supportEmail)}" style="color:${NAVY};text-decoration:underline">${escapeHtml(input.supportEmail)}</a>.</p>
+                <p style="margin:0;font-size:12.5px;line-height:1.6;color:${MUTED}">Portal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:${escapeHtml(input.supportEmail)}" style="color:${NAVY};text-decoration:underline">${escapeHtml(input.supportEmail)}</a>.</p>
               </td></tr></table>
             </td>
           </tr>

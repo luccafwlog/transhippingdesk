@@ -13,7 +13,7 @@ const portalUrl = 'https://portal.transhippingdesk.com.br'
 const supportEmail = 'suporte@transhippingdesk.com.br'
 
 describe('Identidade visual dos emails do Portal', () => {
-  it('inclui a logo real da FWLog, hospedada a partir do PORTAL_URL', () => {
+  it('inclui a logo real da Fwlog, hospedada a partir do PORTAL_URL', () => {
     const { html } = inviteTemplate({ companyName: 'ACME LTDA', cnpjMasked: '12.***.***/0001-90', activationUrl: 'https://x/ativar', portalUrl, supportEmail })
     expect(html).toContain(`<img src="${portalUrl}/branding/fwlog-logo-white.png"`)
   })
