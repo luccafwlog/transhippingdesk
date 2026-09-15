@@ -66,10 +66,10 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
     expect(rendered.html).toContain('background:#ffffff')
   })
 
-  it.each(templates)('o template $name contém o rodapé oficial da Transhipping Desk', ({ fn }) => {
+  it.each(templates)('o template $name contém o rodapé oficial do Portal Fwlog', ({ fn }) => {
     const rendered = fn()
-    expect(rendered.html).toContain('Mensagem operacional enviada pelo Transhipping Desk')
-    expect(rendered.text).toContain('Mensagem operacional enviada pelo Transhipping Desk')
+    expect(rendered.html).toContain('Mensagem operacional enviada pelo Portal Fwlog')
+    expect(rendered.text).toContain('Mensagem operacional enviada pelo Portal Fwlog')
   })
 
   it('renderiza botão de ação (CTA) para o Portal do Cliente em CE Mercante e Demurrage', () => {
