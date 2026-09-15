@@ -38,14 +38,14 @@ describe('BlReviewContextPanel', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Pendência de Revisão Manual')).toBeTruthy()
+    expect(screen.getByText('Pendências documentais')).toBeTruthy()
     expect(screen.getByText('Documentação')).toBeTruthy()
     expect(screen.getByText('Bloqueio de faturamento')).toBeTruthy()
     expect(screen.getByText('Cliente nao vinculado')).toBeTruthy()
     expect(screen.getByText('Cliente sem e-mail cadastrado')).toBeTruthy()
-    expect(screen.getByText('Tratar na Revisão Manual')).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Tratar na Revisão Manual/i }).getAttribute('href')).toBe(
-      '/revisao?search=BL100',
+    expect(screen.getByText('Tratar pendência na ficha')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Tratar pendência na ficha/i }).getAttribute('href')).toBe(
+      '/revisao?bl=BL100',
     )
   })
 
@@ -71,7 +71,7 @@ describe('BlReviewContextPanel', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Pendência de Revisão Manual')).toBeTruthy()
+    expect(screen.getByText('Pendências documentais')).toBeTruthy()
     expect(screen.getByText('Peso BB ausente')).toBeTruthy()
     expect(screen.getByText(/Informe o peso BB na aba Detalhes/i)).toBeTruthy()
   })

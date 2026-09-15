@@ -3,11 +3,16 @@ import { supabase } from './supabase'
 
 export type BlPortalVisibility = { visible: boolean; reasons: string[] }
 
-export function computeBlPortalVisibility(input: { ceMercante: string | null; customerId: number | null; accountSituation: string | null }): BlPortalVisibility {
+export function computeBlPortalVisibility(input: {
+  ceMercante: string | null
+  customerId: number | null
+  accountSituation?: string | null
+  portalAccessReady?: boolean | null
+}): BlPortalVisibility {
   const reasons: string[] = []
-  if (!input.ceMercante) reasons.push('Sem CE Mercante')
+  if (!input.ceMercante?.trim()) reasons.push('Sem CE Mercante')
   if (input.customerId == null) reasons.push('Sem cliente vinculado')
-  if (input.accountSituation !== 'ativo') reasons.push('Cliente sem Conta de Portal ativa')
+  if (input.portalAccessReady !== true) reasons.push('Conta do Portal não está ativa/provisionada')
   return { visible: reasons.length === 0, reasons }
 }
 
@@ -17,6 +22,7 @@ const blPortalStatusSchema = z.object({
   ce_mercante: z.string().nullable(),
   customer_id: z.number().nullable(),
   account_situation: z.string().nullable(),
+  portal_access_ready: z.boolean().nullable().optional(),
   notifications: z.array(z.object({
     id: z.number(),
     type: z.string(),
@@ -38,7 +44,12 @@ export async function getBlPortalStatus(input: { blId: string; ceMercante: strin
   if (error) throw error
   const result = blPortalStatusSchema.parse(data)
   return {
-    visibility: computeBlPortalVisibility({ ceMercante: result.ce_mercante, customerId: result.customer_id, accountSituation: result.account_situation }),
+    visibility: computeBlPortalVisibility({
+      ceMercante: result.ce_mercante,
+      customerId: result.customer_id,
+      accountSituation: result.account_situation,
+      portalAccessReady: result.portal_access_ready ?? null,
+    }),
     notifications: result.notifications ?? [],
     openDisputes: result.open_disputes ?? [],
   }

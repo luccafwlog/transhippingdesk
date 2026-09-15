@@ -166,9 +166,6 @@ export async function tryAutoIssueInvoice({
   }
 
   const bl = (blData ?? {}) as Partial<BillingAttemptBl>
-  const cargoMode = bl.cargo_mode ?? 'container'
-  const ceMercante = bl.ce_mercante?.trim() ?? ''
-
   const attemptBl: BillingAttemptBl = {
     ce_mercante: bl.ce_mercante ?? null,
     cargo_mode: bl.cargo_mode ?? null,
@@ -271,8 +268,8 @@ export async function tryAutoIssueInvoice({
   })
 
   // O CE Mercante não é necessário para calcular, mas continua exigido para
-  // emitir — a invoice precisa do documento.
-  if ((cargoMode === 'container' || cargoMode === '') && !ceMercante) {
+  // emitir — a invoice precisa do documento em qualquer modalidade de carga.
+  if (!authoritativeBl.ce_mercante?.trim()) {
     return { status: 'blocked', reason: 'awaiting_flow', message: 'Aguardando cadastro do CE Mercante para emitir a fatura (ADR 0020).', calculation }
   }
 
@@ -330,7 +327,7 @@ export async function maybeAutoBillAfterCeMercante(blId: string, actorId: string
 
   if (!bl?.customer_id || !isCustomerReconciliationResolved(bl.customer_reconciliation_status)) return null
   const cargoMode = bl.cargo_mode ?? 'container'
-  if (cargoMode !== 'container' && cargoMode !== '') return null
+  if (cargoMode !== 'container' && cargoMode !== 'carga_solta' && cargoMode !== '') return null
 
   // Reimport de CE em B/L ja faturado e no-op benigno: create_invoice_from_bls_core
   // recusaria a segunda fatura. Registramos como info e nao tentamos refaturar.

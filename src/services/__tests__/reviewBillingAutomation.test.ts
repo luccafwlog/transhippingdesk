@@ -83,16 +83,27 @@ beforeEach(() => {
 
 describe('tryAutoIssueInvoice', () => {
   it('calcula taxas mesmo sem CE Mercante, mas bloqueia a emissao', async () => {
-    mockFrom.mockImplementationOnce(() => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({
-            data: { ce_mercante: null, cargo_mode: 'container', customer_id: 99, customer_reconciliation_status: 'matched_document' },
-            error: null,
+    mockFrom
+      .mockImplementationOnce(() => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({
+              data: { ce_mercante: null, cargo_mode: 'container', customer_id: 99, customer_reconciliation_status: 'matched_document' },
+              error: null,
+            }),
           }),
         }),
-      }),
-    }))
+      }))
+      .mockImplementationOnce(() => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({
+              data: { ce_mercante: null, cargo_mode: 'container', customer_id: 99, customer_reconciliation_status: 'matched_document' },
+              error: null,
+            }),
+          }),
+        }),
+      }))
 
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
@@ -426,22 +437,38 @@ describe('tryAutoIssueInvoice', () => {
     }))
   })
 
-  it('nao exige CE Mercante para carga solta', async () => {
-    mockFrom.mockImplementationOnce(() => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({
-            data: { ce_mercante: null, cargo_mode: 'carga_solta', customer_id: 99, customer_reconciliation_status: 'matched_document' },
-            error: null,
+  it('exige CE Mercante para carga solta', async () => {
+    mockFrom
+      .mockImplementationOnce(() => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({
+              data: { ce_mercante: null, cargo_mode: 'carga_solta', customer_id: 99, customer_reconciliation_status: 'matched_document' },
+              error: null,
+            }),
           }),
         }),
-      }),
-    }))
+      }))
+      .mockImplementationOnce(() => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({
+              data: { ce_mercante: null, cargo_mode: 'carga_solta', customer_id: 99, customer_reconciliation_status: 'matched_document' },
+              error: null,
+            }),
+          }),
+        }),
+      }))
 
     const result = await tryAutoIssueInvoice({ blId: 'BL1', customerId: 99, actorId: 'user-1' })
 
-    expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
+    expect(result).toMatchObject({
+      status: 'blocked',
+      reason: 'awaiting_flow',
+      message: 'Aguardando cadastro do CE Mercante para emitir a fatura (ADR 0020).',
+    })
     expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
+    expect(mockedCreateInvoice).not.toHaveBeenCalled()
   })
 
   it('não cria A2 quando o cliente ainda pertence ao fluxo de reconciliação', async () => {
@@ -546,6 +573,18 @@ describe('maybeAutoBillAfterCeMercante', () => {
     expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
     expect(mockedCalculate).toHaveBeenCalledWith('BL1', { actorId: 'user-1', recalculate: true })
     expect(mockedCreateInvoice).toHaveBeenCalled()
+  })
+
+  it('dispara o auto faturamento de carga solta quando o CE foi cadastrado', async () => {
+    mockBl({ id: 'BL-BB-1', cargo_mode: 'carga_solta' })
+    mockedCalculate.mockReset()
+    mockedCalculate.mockResolvedValue(validCalculation())
+
+    const result = await maybeAutoBillAfterCeMercante('BL-BB-1', 'user-1')
+
+    expect(result).toEqual({ status: 'invoiced', invoiceResult: { invoice_id: 55 } })
+    expect(mockedCalculate).toHaveBeenCalledWith('BL-BB-1', { actorId: 'user-1', recalculate: true })
+    expect(mockedCreateInvoice).toHaveBeenCalledWith({ blId: 'BL-BB-1', customerId: 99, actorId: 'user-1' })
   })
 
   it('deixa o resumo financeiro para o runner server-side após faturar o B/L', async () => {
