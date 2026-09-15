@@ -28,6 +28,7 @@ function makeDocumental(overrides: Partial<typeof baseBl> = {}, input: Partial<P
     bl: makeBl(overrides),
     latestInvoice: null,
     demurrageInvoices: [],
+    portalVisibility: { visible: true, reasons: [] },
     ...input,
   })
 }
@@ -78,6 +79,7 @@ describe('B/L rails', () => {
     expect(makeDocumental().find((stage) => stage.key === 'customer')).toMatchObject({
       state: 'blocked',
       detail: 'Sem cliente vinculado',
+      href: '/revisao?bl=BL1',
     })
 
     expect(makeDocumental({
@@ -134,6 +136,39 @@ describe('B/L rails', () => {
     expect(makeDocumental({ charge_status: 'review_required' }, { reviewReasons: ['Peso BB ausente'] }).find((stage) => stage.key === 'charges')).toMatchObject({
       state: 'blocked',
       detail: 'Bloqueado · Peso BB ausente',
+    })
+  })
+
+  it('direciona peso BB ausente de carga solta para Taxas Locais mesmo com notas obsoletas', () => {
+    const rail = makeDocumental({
+      cargo_mode: 'carga_solta',
+      bb_weight_ton: null,
+      customer_id: 9,
+      customer_reconciliation_status: 'reconciled',
+      review_status: 'pending_review',
+      charge_status: 'calculated',
+    })
+
+    expect(rail.find((stage) => stage.key === 'charges')).toMatchObject({
+      state: 'blocked',
+      detail: 'Bloqueado · Peso BB ausente',
+    })
+    expect(rail.find((stage) => stage.key === 'customer')).toMatchObject({ state: 'done', detail: 'Cliente apto' })
+    expect(pickNextAction(rail)?.key).toBe('charges')
+  })
+
+  it('falha fechado no card Cliente enquanto a prontidao do Portal nao foi carregada', () => {
+    const rail = makeDocumental({
+      ce_mercante: 'CE-1',
+      customer_id: 9,
+      customer_reconciliation_status: 'reconciled',
+      charge_status: 'calculated',
+      review_status: 'reviewed',
+    }, { portalVisibility: null })
+
+    expect(rail.find((stage) => stage.key === 'customer')).toMatchObject({
+      state: 'blocked',
+      detail: 'Conta do Portal não está ativa/provisionada',
     })
   })
 

@@ -8,6 +8,7 @@ function Stage({ stage }: { stage: RailStage }) {
   const inner = (
     <div
       className="flex min-w-[9rem] flex-col gap-1 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2"
+      role="group"
       aria-label={`${stage.label}: ${stateLabel[stage.state]}. ${stage.detail}`}
     >
       <div className="flex items-center gap-2">

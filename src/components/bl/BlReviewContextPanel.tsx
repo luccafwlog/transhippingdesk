@@ -35,7 +35,7 @@ export function BlReviewContextPanel({ bl }: { bl: BLDetail }) {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to={`/revisao?search=${encodeURIComponent(bl.id)}`}
+            to={`/revisao?bl=${encodeURIComponent(bl.id)}`}
             className="flex items-center gap-1 text-xs font-semibold text-[#58a6ff] hover:underline"
           >
             Tratar pendência na ficha

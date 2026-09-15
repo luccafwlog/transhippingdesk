@@ -10,6 +10,76 @@
 -- Rollback: drop the three CE triggers and their trigger functions, then
 -- restore mark_bl_ready_for_billing from the previous active definition. The
 -- assertion function can be dropped after the trigger functions are removed.
+-- The Portal projection can be rolled back by restoring the previous body of
+-- get_bl_portal_status, which omitted portal_access_ready.
+
+-- Keep the internal B/L lookup as the only source of the customer id passed to
+-- the privileged Portal predicate. The response remains scoped to p_bl_id and
+-- preserves the existing notification/dispute payload.
+CREATE OR REPLACE FUNCTION public.get_bl_portal_status(p_bl_id text) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_customer_id BIGINT;
+  v_ce_mercante TEXT;
+  v_account_situation TEXT;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active_read_user() THEN
+    RAISE EXCEPTION 'Usuario sem permissao ativa.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT b.customer_id, b.ce_mercante
+  INTO v_customer_id, v_ce_mercante
+  FROM public.bls b
+  WHERE b.id = p_bl_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'B/L % nao encontrado', p_bl_id USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT a.account_situation
+  INTO v_account_situation
+  FROM public.customer_portal_accounts a
+  WHERE a.customer_id = v_customer_id;
+
+  RETURN jsonb_build_object(
+    'customer_id', v_customer_id,
+    'ce_mercante', v_ce_mercante,
+    'account_situation', v_account_situation,
+    'portal_access_ready', public.customer_portal_access_ready(v_customer_id),
+    'notifications', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', n.id,
+        'type', n.type,
+        'title', n.title,
+        'created_at', n.created_at,
+        'read_at', n.read_at
+      ) ORDER BY n.created_at DESC)
+      FROM (
+        SELECT id, type, title, created_at, read_at
+        FROM public.portal_notifications
+        WHERE bl_id = p_bl_id
+        ORDER BY created_at DESC
+        LIMIT 10
+      ) n
+    ), '[]'::JSONB),
+    'open_disputes', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', d.id,
+        'doc_number', d.doc_number,
+        'dispute_status', d.dispute_status
+      ) ORDER BY d.id DESC)
+      FROM public.demurrage_invoices d
+      WHERE d.bl_id = p_bl_id
+        AND d.dispute_open = true
+    ), '[]'::JSONB)
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_bl_portal_status(p_bl_id text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_bl_portal_status(p_bl_id text) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.assert_bl_ce_mercante(p_bl_id text)
 RETURNS void

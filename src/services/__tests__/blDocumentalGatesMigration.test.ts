@@ -61,4 +61,16 @@ describe('B/L Documental billing gates migration', () => {
   it('does not introduce due-date or overdue semantics', () => {
     expect(readMigration()).not.toMatch(/vencimento|vencida|overdue/i)
   })
+
+  it('projects the canonical Portal readiness through the existing scoped B/L RPC', () => {
+    const normalized = compact(readMigration())
+
+    expect(normalized).toMatch(/CREATE OR REPLACE FUNCTION public\.get_bl_portal_status\(p_bl_id text\).*SECURITY DEFINER/)
+    expect(normalized).toMatch(/get_bl_portal_status[\s\S]*?public\.customer_portal_access_ready\(v_customer_id\)/)
+    expect(normalized).toMatch(/get_bl_portal_status[\s\S]*?'portal_access_ready'/)
+    expect(normalized).toContain("SET search_path TO 'public', 'pg_temp'")
+    expect(normalized).toContain('REVOKE ALL ON FUNCTION public.get_bl_portal_status(p_bl_id text) FROM PUBLIC, anon;')
+    expect(normalized).toContain('GRANT EXECUTE ON FUNCTION public.get_bl_portal_status(p_bl_id text) TO authenticated;')
+    expect(normalized).not.toContain('GRANT EXECUTE ON FUNCTION public.customer_portal_access_ready')
+  })
 })

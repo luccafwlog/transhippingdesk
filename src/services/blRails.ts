@@ -15,7 +15,7 @@ export type RailStage = {
 type RailBl = Pick<
   BL,
   'id' | 'voyage_id' | 'cargo_mode' | 'ce_mercante' | 'review_status'
-  | 'customer_reconciliation_status' | 'customer_id' | 'charge_status' | 'financial_status' | 'billing_hold_reason'
+  | 'customer_reconciliation_status' | 'customer_id' | 'charge_status' | 'financial_status' | 'billing_hold_reason' | 'bb_weight_ton'
 >
 
 export type RailContainer = { container_number: string; discharge_date: string | null; return_date: string | null }
@@ -57,17 +57,21 @@ function reasonDetail(reason: string) {
   if (normalized.includes('no_containers')) return 'Containers não encontrados'
   if (normalized.includes('linha') || normalized.includes('calcul') || normalized.includes('invalid')) return 'Linha inválida'
   if (normalized.includes('email') || normalized.includes('e-mail')) return 'Cliente sem e-mail cadastrado'
-  if (normalized.includes('portal')) return 'Conta do Portal não está ativa'
+  if (normalized.includes('portal')) return 'Conta do Portal não está ativa/provisionada'
   if (normalized.includes('cliente') && normalized.includes('vincul')) return 'Sem cliente vinculado'
   if (normalized.includes('revis') || normalized.includes('review')) return 'Pendência documental'
   return reason.trim() || 'Pendência documental'
 }
 
 function documentalReasonMap(input: { bl: RailBl; reviewReasons?: string[]; portalVisibility?: RailPortalVisibility | null }) {
+  const missingLooseCargoWeight = input.bl.cargo_mode === 'carga_solta'
+    && (input.bl.bb_weight_ton == null || Number(input.bl.bb_weight_ton) <= 0)
   const reasons = [
     ...(input.reviewReasons ?? []),
     ...(input.portalVisibility?.visible === false ? input.portalVisibility.reasons : []),
+    ...(input.portalVisibility == null ? ['Status do Portal indisponível'] : []),
     ...(input.bl.billing_hold_reason ? [input.bl.billing_hold_reason] : []),
+    ...(missingLooseCargoWeight ? ['Peso BB ausente'] : []),
   ]
   const map = new Map<RailStage['key'], string>()
   for (const reason of reasons) {
@@ -128,13 +132,13 @@ export function buildDocumentalRail(input: {
   const reasonMap = documentalReasonMap({ bl, reviewReasons, portalVisibility })
 
   const customer: RailStage = !bl.customer_id
-    ? { key: 'customer', label: 'Cliente', detail: 'Sem cliente vinculado', state: 'blocked', href: '/revisao?search=' + encodeURIComponent(bl.id) }
+    ? { key: 'customer', label: 'Cliente', detail: 'Sem cliente vinculado', state: 'blocked', href: '/revisao?bl=' + encodeURIComponent(bl.id) }
     : !isCustomerReconciliationResolved(bl.customer_reconciliation_status)
-      ? { key: 'customer', label: 'Cliente', detail: 'Pendente de reconciliação', state: 'blocked', href: '/revisao?search=' + encodeURIComponent(bl.id) }
+      ? { key: 'customer', label: 'Cliente', detail: 'Pendente de reconciliação', state: 'blocked', href: '/revisao?bl=' + encodeURIComponent(bl.id) }
       : reasonMap.has('customer')
-        ? { key: 'customer', label: 'Cliente', detail: reasonMap.get('customer')!, state: 'blocked', href: '/revisao?search=' + encodeURIComponent(bl.id) }
-        : bl.review_status === 'pending_review'
-          ? { key: 'customer', label: 'Cliente', detail: 'Pendência documental', state: 'blocked', href: '/revisao?search=' + encodeURIComponent(bl.id) }
+        ? { key: 'customer', label: 'Cliente', detail: reasonMap.get('customer')!, state: 'blocked', href: '/revisao?bl=' + encodeURIComponent(bl.id) }
+        : bl.review_status === 'pending_review' && !reasonMap.has('charges')
+          ? { key: 'customer', label: 'Cliente', detail: 'Pendência documental', state: 'blocked', href: '/revisao?bl=' + encodeURIComponent(bl.id) }
           : { key: 'customer', label: 'Cliente', detail: 'Cliente apto', state: 'done' }
 
   const chargeStatus = bl.charge_status ?? 'not_calculated'

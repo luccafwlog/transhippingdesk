@@ -21,6 +21,8 @@ describe('BlRailsPipeline', () => {
 
   it('expõe o estado do card para tecnologia assistiva mesmo quando o detalhe é curto', () => {
     render(<MemoryRouter><BlRailsPipeline operational={[]} documental={[stage('customer', 'Cliente', 'blocked', 'Pendente de reconciliação')]} documentalSummary={{ pendingCount: 1, label: '1 pendência' }} nextAction={null} /></MemoryRouter>)
-    expect(screen.getByLabelText('Cliente: Bloqueado. Pendente de reconciliação')).toBeTruthy()
+    const card = screen.getByRole('group', { name: 'Cliente: Bloqueado. Pendente de reconciliação' })
+    expect(card).toBeTruthy()
+    expect(card.getAttribute('aria-label')).toBe('Cliente: Bloqueado. Pendente de reconciliação')
   })
 })

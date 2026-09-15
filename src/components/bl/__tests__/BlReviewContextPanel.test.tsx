@@ -45,7 +45,7 @@ describe('BlReviewContextPanel', () => {
     expect(screen.getByText('Cliente sem e-mail cadastrado')).toBeTruthy()
     expect(screen.getByText('Tratar pendência na ficha')).toBeTruthy()
     expect(screen.getByRole('link', { name: /Tratar pendência na ficha/i }).getAttribute('href')).toBe(
-      '/revisao?search=BL100',
+      '/revisao?bl=BL100',
     )
   })
 

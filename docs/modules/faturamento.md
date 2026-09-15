@@ -65,9 +65,10 @@ consolidada mesmo quando o B/L não tem vínculo individual. Não há vencimento
 estado `Vencida` nesse trilho: essa regra não existe para taxas locais.
 
 No backend, `047_bl_documental_gates.sql` exige CE Mercante antes de marcar o
-B/L como pronto e nas fronteiras de emissão individual e consolidada. O Portal
-continua usando `bl_has_portal_release`, que já aplica a mesma exigência aos
-dois modos de carga.
+B/L como pronto e nas fronteiras de emissão individual e consolidada. A leitura
+de Portal do detalhe também devolve `portal_access_ready`, calculado pela
+função canônica `customer_portal_access_ready`; a entrega continua usando
+`bl_has_portal_release`, que aplica a mesma exigência aos dois modos de carga.
 
 ### Lista de invoices
 
