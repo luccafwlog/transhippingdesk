@@ -79,11 +79,16 @@ describe('DemurrageContainersTab - Concorrência e Emissão de Fatura', () => {
     expect(buttons[0].disabled).toBe(false)
     expect(buttons[1].disabled).toBe(false)
 
+    const editButtons = screen.getAllByRole('button', { name: /Editar datas/i }) as HTMLButtonElement[]
+    expect(editButtons).toHaveLength(2)
+    expect(editButtons[0].disabled).toBe(false)
+    expect(editButtons[1].disabled).toBe(false)
+
     await user.click(buttons[0])
     expect(onGenerateInvoice).toHaveBeenCalledWith('BL-001')
   })
 
-  it('desabilita todos os botões de emissão quando um B/L específico está em processamento', () => {
+  it('desabilita todos os botões de emissão e edição quando um B/L específico está em processamento', () => {
     render(
       <MemoryRouter>
         <DemurrageContainersTab
@@ -108,5 +113,11 @@ describe('DemurrageContainersTab - Concorrência e Emissão de Fatura', () => {
     // O botão do BL-002 ainda mostra 'Gerar Fatura', mas também está desabilitado contra concorrência
     const otherButton = screen.getByRole('button', { name: /Gerar Fatura/i }) as HTMLButtonElement
     expect(otherButton.disabled).toBe(true)
+
+    // Os botões de editar datas também ficam desabilitados para prevenir alterações conflitantes
+    const editButtons = screen.getAllByRole('button', { name: /Aguarde a emissão da fatura\.\.\./i }) as HTMLButtonElement[]
+    expect(editButtons).toHaveLength(2)
+    expect(editButtons[0].disabled).toBe(true)
+    expect(editButtons[1].disabled).toBe(true)
   })
 })

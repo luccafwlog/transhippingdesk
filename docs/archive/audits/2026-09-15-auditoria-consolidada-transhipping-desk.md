@@ -277,11 +277,13 @@ Foram auditadas todas as ocorrências de `ponytail:` no repositório. Nenhuma re
 ## 9. Alterações de Código Aplicadas nesta Consolidação
 
 1. **`src/services/cacheEffects.ts` & `src/services/__tests__/cacheEffects.test.ts`:**
-   - Adicionada a chave `['portal-schedule-voyages']` ao array canônico `SCHEDULE_KEYS`.
-   - Mutações de escala via `afterEscalaAlterada` agora invalidam imediatamente a tela de Chegadas e Saídas.
+   - Adicionada a chave `['portal-schedule-voyages']` tanto em `SCHEDULE_KEYS` quanto em `afterViagemAlterada`.
+   - Mutações de escala e de viagem agora invalidam reativamente e em tempo real a visualização de Chegadas e Saídas (`ChegadasSaidas.tsx`) e o cronograma do Portal do Cliente.
 2. **`src/components/demurrage/DemurrageContainersTab.tsx` & `DemurrageContainersTab.test.tsx`:**
    - O botão "Gerar Fatura" foi blindado com `disabled={Boolean(generatingBl)}`, garantindo desativação instantânea de todos os botões da tabela durante a geração de qualquer fatura.
-   - Adicionada suíte de testes unitários dedicada verificando o isolamento de clique e concorrência.
+   - O botão "Editar datas" de contêineres também foi blindado contra concorrência durante a emissão de faturas (`disabled={Boolean(generatingBl)}`).
+   - Adicionada suíte de testes unitários dedicada verificando o isolamento de clique e concorrência de faturamento e edição.
 3. **`src/services/baplieWorker.ts`, `baplieParser.ts` & `baplieWorker.test.ts`:**
-   - Implementado Web Worker dedicado (`baplieWorker.ts`) para processamento assíncrono de EDIFACT fora da main thread do navegador.
-   - `parseBaplieFile` agora despacha o processamento pesado de `ArrayBuffer` para o worker no browser, mantendo fallback gracioso e transparente para ambientes Node.js e suítes de teste.
+   - Implementado Web Worker dedicado (`baplieWorker.ts`) para processamento assíncrono de EDIFACT fora da main thread do navegador, com validação de tipo de entrada e transferência zero-copy (`[transferCopy]`).
+   - Criada a classe `BaplieParseError`, permitindo distinguir falhas de validação do arquivo (propagadas imediatamente sem reprocessamento redundante) de falhas de infraestrutura do navegador (que ativam o fallback transparente para a thread principal).
+   - Adicionado timeout de 60s para prevenir vazamento de workers e implementada suíte abrangente de testes unitários.

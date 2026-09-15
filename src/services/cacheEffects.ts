@@ -32,7 +32,7 @@ async function invalidate(queryClient: QueryInvalidator, keys: readonly (readonl
 
 export async function afterViagemAlterada(queryClient: QueryInvalidator, options: { voyageId: number | string }): Promise<void> {
   await invalidate(queryClient, [
-    ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['voyage-escala-schedules'], ['bls'], ['containers'], ['dashboard'],
+    ['voyages'], ['voyage-options'], ['voyage-pod-schedules'], ['voyage-escala-schedules'], ['portal-schedule-voyages'], ['bls'], ['containers'], ['dashboard'],
     voyageTimelineKey(options.voyageId), ...LINEUP_KEYS,
   ])
 }

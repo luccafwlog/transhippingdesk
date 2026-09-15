@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { parseBaplieFile, parseBaplieInWorker } from '../baplieParser'
+import { BaplieParseError, parseBaplieFile, parseBaplieInWorker } from '../baplieParser'
 import type { BaplieWorkerResponse } from '../baplieWorker'
 
 function makeBaplieBuffer(): ArrayBuffer {
@@ -32,7 +32,7 @@ describe('baplieWorker & parseBaplieInWorker', () => {
     expect(parsed.containers[0].container_number).toBe('COSU1234567')
   })
 
-  it('parseBaplieInWorker interage com a API Worker com sucesso', async () => {
+  it('parseBaplieInWorker interage com a API Worker com sucesso e transfere buffer', async () => {
     const buffer = makeBaplieBuffer()
     const mockResponse: BaplieWorkerResponse = {
       ok: true,
@@ -66,7 +66,7 @@ describe('baplieWorker & parseBaplieInWorker', () => {
       onmessage: ((event: MessageEvent<BaplieWorkerResponse>) => void) | null = null
       onerror: ((event: unknown) => void) | null = null
 
-      postMessage() {
+      postMessage(_data: unknown, _transfer?: Transferable[]) {
         setTimeout(() => {
           if (this.onmessage) {
             this.onmessage(new MessageEvent('message', { data: mockResponse }))
@@ -89,7 +89,7 @@ describe('baplieWorker & parseBaplieInWorker', () => {
     }
   })
 
-  it('parseBaplieInWorker rejeita Promise caso o Worker sinalize erro', async () => {
+  it('parseBaplieInWorker rejeita com BaplieParseError quando o Worker indica erro de formato', async () => {
     const buffer = makeBaplieBuffer()
     const mockErrorResponse: BaplieWorkerResponse = {
       ok: false,
@@ -115,7 +115,63 @@ describe('baplieWorker & parseBaplieInWorker', () => {
     globalThis.Worker = FailingWorker as unknown as typeof Worker
 
     try {
-      await expect(parseBaplieInWorker(buffer)).rejects.toThrow('Arquivo Baplie corrompido no segmento UNH')
+      await expect(parseBaplieInWorker(buffer)).rejects.toThrow(BaplieParseError)
+    } finally {
+      globalThis.Worker = originalWorker
+    }
+  })
+
+  it('parseBaplieFile relança BaplieParseError imediatamente sem reprocessamento duplicado', async () => {
+    const buffer = makeBaplieBuffer()
+    const file = new File([buffer], 'manifest.edi', { type: 'text/plain' })
+
+    const mockErrorResponse: BaplieWorkerResponse = {
+      ok: false,
+      error: 'Erro de validação EDI',
+    }
+
+    class FailingWorker {
+      onmessage: ((event: MessageEvent<BaplieWorkerResponse>) => void) | null = null
+      onerror: ((event: unknown) => void) | null = null
+
+      postMessage() {
+        setTimeout(() => {
+          if (this.onmessage) {
+            this.onmessage(new MessageEvent('message', { data: mockErrorResponse }))
+          }
+        }, 0)
+      }
+
+      terminate = vi.fn()
+    }
+
+    const originalWorker = globalThis.Worker
+    globalThis.Worker = FailingWorker as unknown as typeof Worker
+
+    try {
+      await expect(parseBaplieFile(file)).rejects.toThrow('Erro de validação EDI')
+    } finally {
+      globalThis.Worker = originalWorker
+    }
+  })
+
+  it('parseBaplieFile faz fallback síncrono se a inicialização do Worker falhar', async () => {
+    const buffer = makeBaplieBuffer()
+    const file = new File([buffer], 'manifest.edi', { type: 'text/plain' })
+
+    class CrashingWorker {
+      constructor() {
+        throw new Error('SecurityError: CSP impediu criação do worker')
+      }
+    }
+
+    const originalWorker = globalThis.Worker
+    globalThis.Worker = CrashingWorker as unknown as typeof Worker
+
+    try {
+      const parsed = await parseBaplieFile(file)
+      expect(parsed.vessel_name).toBe('COSCO SHIPPING STAR')
+      expect(parsed.containers).toHaveLength(1)
     } finally {
       globalThis.Worker = originalWorker
     }
