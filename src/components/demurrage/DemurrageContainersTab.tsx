@@ -93,7 +93,7 @@ export function DemurrageContainersTab({
                           <div className="flex items-center gap-3">
                             {blTotalUSD > 0 && <span className="text-sm font-semibold text-amber-400">{fmtUSD(blTotalUSD)}</span>}
                             {hasOverdue && (
-                              <Button variant="secondary" disabled={generatingBl === blId} onClick={() => onGenerateInvoice(blId)}>
+                              <Button variant="secondary" disabled={Boolean(generatingBl)} onClick={() => onGenerateInvoice(blId)}>
                                 <FileText size={14} />
                                 {generatingBl === blId ? 'Gerando...' : 'Gerar Fatura'}
                               </Button>

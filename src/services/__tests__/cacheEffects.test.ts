@@ -25,7 +25,7 @@ describe('cache effects', () => {
     const { client, keys } = fakeQueryClient()
     await afterEscalaAlterada(client, { voyageId: 24 })
     expect(keys()).toEqual(keySet([
-      ['voyage-pod-schedules'], ['voyage-pol-schedules'], ['voyage-export-schedules'], ['voyage-escala-schedules'],
+      ['voyage-pod-schedules'], ['voyage-pol-schedules'], ['voyage-export-schedules'], ['voyage-escala-schedules'], ['portal-schedule-voyages'],
       ['voyage-timeline', '24'], ['voyages'], ['lineup-tv-v3'], ['lineup-tv-display-v2'],
     ]))
   })

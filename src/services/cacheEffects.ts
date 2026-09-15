@@ -12,6 +12,7 @@ const SCHEDULE_KEYS: readonly (readonly unknown[])[] = [
   ['voyage-pol-schedules'],
   ['voyage-export-schedules'],
   ['voyage-escala-schedules'],
+  ['portal-schedule-voyages'],
 ]
 
 function voyageTimelineKey(voyageId: number | string): readonly unknown[] {
