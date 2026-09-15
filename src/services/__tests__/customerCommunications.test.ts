@@ -161,28 +161,28 @@ describe('recorte e conferência de Comunicados', () => {
 
   it('navio e viagem num campo só: cada termo digitado precisa aparecer', () => {
     const rows = [
-      candidate({ id: 'BL-1', vesselName: 'MSC ALTAIR', voyageNumber: '2401E' }),
-      candidate({ id: 'BL-2', vesselName: 'MSC ALTAIR', voyageNumber: '2402E' }),
+      candidate({ id: 'BL-1', vesselName: 'COSCO SHIPPING XING WANG', voyageNumber: '2401E' }),
+      candidate({ id: 'BL-2', vesselName: 'COSCO SHIPPING XING WANG', voyageNumber: '2402E' }),
       candidate({ id: 'BL-3', vesselName: 'CMA VEGA', voyageNumber: '2401E' }),
     ]
     const recorte = (vesselVoyage: string) =>
       filterCustomerCommunicationBls(rows, { mode: 'carga', vesselVoyage, pol: '', pod: '', cnpj: '' }).map((row) => row.id)
 
     // Só o navio: todas as viagens dele.
-    expect(recorte('altair')).toEqual(['BL-1', 'BL-2'])
+    expect(recorte('xing wang')).toEqual(['BL-1', 'BL-2'])
     // Só a viagem: o número em qualquer navio — é o que se espera de uma busca só.
     expect(recorte('2401E')).toEqual(['BL-1', 'BL-3'])
     // Os dois juntos, na ordem natural de quem digita.
-    expect(recorte('ALTAIR 2401E')).toEqual(['BL-1'])
+    expect(recorte('XING WANG 2401E')).toEqual(['BL-1'])
     // E fora de ordem, porque a busca casa termos e não a frase inteira.
-    expect(recorte('2401e altair')).toEqual(['BL-1'])
+    expect(recorte('2401e xing wang')).toEqual(['BL-1'])
     // Tolera barra, vírgula e hífen como separadores (ex.: rótulo "Navio / Viagem").
-    expect(recorte('ALTAIR / 2401E')).toEqual(['BL-1'])
-    expect(recorte('ALTAIR/2401E')).toEqual(['BL-1'])
-    expect(recorte('ALTAIR, 2401E')).toEqual(['BL-1'])
-    expect(recorte('MSC ALTAIR - 2401E')).toEqual(['BL-1'])
+    expect(recorte('XING WANG / 2401E')).toEqual(['BL-1'])
+    expect(recorte('XING WANG/2401E')).toEqual(['BL-1'])
+    expect(recorte('XING WANG, 2401E')).toEqual(['BL-1'])
+    expect(recorte('COSCO SHIPPING XING WANG - 2401E')).toEqual(['BL-1'])
     // Um termo que não existe zera o recorte em vez de ignorar o excedente.
-    expect(recorte('ALTAIR 9999')).toEqual([])
+    expect(recorte('XING WANG 9999')).toEqual([])
   })
 
   it('aplica CNPJ como restrição e normaliza pontuação', () => {

@@ -18,7 +18,7 @@ const mockDispatchMutation = {
 const mockCoverage = [
   {
     voyageId: 101,
-    vesselName: 'MSC ALTAIR',
+    vesselName: 'COSCO SHIPPING XING WANG',
     voyageNumber: '2401E',
     customers: 3,
     noa: { sent: 3, total: 3 },
@@ -44,7 +44,7 @@ const blockedCustomerRow = {
   renderInput: {
     customerId: 2,
     customerName: 'Cliente Bloqueado S/A',
-    vesselName: 'MSC ALTAIR',
+    vesselName: 'COSCO SHIPPING XING WANG',
     voyageNumber: '2401E',
     port: 'Santos',
     milestoneAt: '2026-09-10T12:00:00Z',
@@ -72,7 +72,7 @@ const acmeRow = {
   renderInput: {
     customerId: 1,
     customerName: 'ACME Importadora',
-    vesselName: 'MSC ALTAIR',
+    vesselName: 'COSCO SHIPPING XING WANG',
     voyageNumber: '2401E',
     port: 'Santos',
     milestoneAt: '2026-09-10T12:00:00Z',
@@ -104,7 +104,7 @@ const mockHistory = [
     status: 'simulado',
     customer_id: 1,
     customer: { name: 'ACME Importadora', cnpj_cpf: '11111111000111' },
-    vessel_name: 'MSC ALTAIR',
+    vessel_name: 'COSCO SHIPPING XING WANG',
     voyage_number: '2401E',
     anchor_port: 'Santos',
     terminal_name: null,
@@ -209,7 +209,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     )
 
     expect(screen.getByText('Painel de cobertura')).toBeTruthy()
-    expect(screen.getByText('MSC ALTAIR · 2401E')).toBeTruthy()
+    expect(screen.getByText('COSCO SHIPPING XING WANG · 2401E')).toBeTruthy()
     expect(screen.getByText('3/3')).toBeTruthy() // NOA 3/3
     expect(screen.getByText('2/3')).toBeTruthy() // NOR 2/3
   })
@@ -224,7 +224,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     expect(screen.getByText('O que será enviado')).toBeTruthy()
     expect(screen.getAllByText('NOA · Chegada Próxima').length).toBeGreaterThanOrEqual(1)
 
-    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'COSCO SHIPPING XING WANG' } })
     fireEvent.click(screen.getByRole('button', { name: /Conferir destinatários/i }))
 
     // Detalhes da conferência renderizada
@@ -333,7 +333,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     const conferir = screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement
     expect(conferir.disabled).toBe(true)
 
-    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'COSCO SHIPPING XING WANG' } })
     expect((screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
@@ -359,7 +359,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     )
 
     escolher(/Comunicado livre/)
-    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'COSCO SHIPPING XING WANG' } })
 
     const conferir = () => screen.getByRole('button', { name: /Conferir destinatários/i }) as HTMLButtonElement
     expect(conferir().disabled).toBe(true)
@@ -404,8 +404,8 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
 
     // O painel da direita nomeia o recorte em vez de repetir a lista de campos.
     expect(screen.getByText(/informe navio\/viagem, POL ou POD/i)).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
-    expect(screen.getByText('MSC ALTAIR')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'COSCO SHIPPING XING WANG' } })
+    expect(screen.getByText('COSCO SHIPPING XING WANG')).toBeTruthy()
 
     // O filtro de escala saiu de vez.
     expect(screen.queryByLabelText(/Escala/)).toBeNull()
@@ -437,7 +437,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     )
 
     escolher(/NOB · Aviso de Atracação/)
-    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'COSCO SHIPPING XING WANG' } })
     fireEvent.click(screen.getByRole('button', { name: /Conferir destinatários/i }))
 
     expect(screen.getByText('Nenhuma carga disponível para envio de NOB')).toBeTruthy()
@@ -451,7 +451,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'COSCO SHIPPING XING WANG' } })
     fireEvent.click(screen.getByRole('button', { name: /Conferir destinatários/i }))
 
     // A lista assume a tela: o formulário que a produziu vira uma linha só.
@@ -463,7 +463,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Editar composição/i }))
 
     // E volta inteiro, com o filtro preservado — sair da conferência não é refazer.
-    expect((screen.getByLabelText('Navio / Viagem') as HTMLInputElement).value).toBe('MSC ALTAIR')
+    expect((screen.getByLabelText('Navio / Viagem') as HTMLInputElement).value).toBe('COSCO SHIPPING XING WANG')
     expect(screen.queryByText('Destinatários conferidos')).toBeNull()
     expect(screen.getByText('O que será enviado')).toBeTruthy()
   })
@@ -475,7 +475,7 @@ describe('Página ClientesComunicacao (UI e fluxos)', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'MSC ALTAIR' } })
+    fireEvent.change(screen.getByLabelText('Navio / Viagem'), { target: { value: 'COSCO SHIPPING XING WANG' } })
     fireEvent.click(screen.getByRole('button', { name: /Conferir destinatários/i }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Desmarcar' }))

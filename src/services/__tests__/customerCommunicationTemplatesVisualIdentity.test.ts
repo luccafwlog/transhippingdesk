@@ -13,16 +13,16 @@ import { bounceNotificationTemplate } from '../../../supabase/functions/_shared/
 const sampleInput: CustomerCommunicationTemplateInput = {
   customerId: 10,
   customerName: 'ACME Logística & Importação',
-  vesselName: 'MSC ALTAIR',
+  vesselName: 'COSCO SHIPPING XING WANG',
   voyageNumber: '2401E',
   port: 'Santos (BRSSZ)',
   terminalName: 'BTP Santos',
   terminalId: 'term-1',
   milestoneAt: '2026-09-10T14:00:00Z',
-  bls: [{ id: 'MSCU1234567', customerId: 10, terminalId: 'term-1' }],
+  bls: [{ id: 'CSC45360805C00', customerId: 10, terminalId: 'term-1' }],
   portalUrl: 'https://portal.transhippingdesk.com.br',
   ceMercanteRows: [
-    { blId: 'MSCU1234567', ceMercante: '123456789012345', totalBrl: 1500.5 },
+    { blId: 'CSC45360805C00', ceMercante: '123456789012345', totalBrl: 1500.5 },
   ],
   demurrage: {
     docNumber: 'DEM-2026-001',

@@ -41,7 +41,7 @@ function makeCandidate(overrides: Partial<CustomerCommunicationBlCandidate> & { 
     customerName: 'Cliente',
     customerCnpj: '11.111.111/0001-11',
     voyageId: 100,
-    vesselName: 'MSC ALTAIR',
+    vesselName: 'COSCO SHIPPING XING WANG',
     voyageNumber: '2401E',
     pod: 'BRSSZ',
     pol: 'CNSHA',
@@ -346,7 +346,7 @@ describe('Revisão Completa E2E: Módulo de Comunicação com o Cliente', () => 
       const rendered = renderDemurrageTemplate({
         customerId: 10,
         customerName: 'Importadora Sul',
-        vesselName: 'MSC VITORIA',
+        vesselName: 'COSCO STAR',
         voyageNumber: '101S',
         port: 'Santos',
         milestoneAt: '2026-09-01T00:00:00Z',
@@ -360,7 +360,7 @@ describe('Revisão Completa E2E: Módulo de Comunicação com o Cliente', () => 
         },
       })
 
-      expect(rendered.subject).toContain('Cobrança de Demurrage — DEM-999 — MSC VITORIA / 101S')
+      expect(rendered.subject).toContain('Cobrança de Demurrage — DEM-999 — COSCO STAR / 101S')
       expect(rendered.text).toContain('Valor da cobrança: $1,200.00')
       expect(rendered.text).toContain('6.600,00')
       expect(rendered.text).toContain('ROE 5.5000')
@@ -375,7 +375,7 @@ describe('Revisão Completa E2E: Módulo de Comunicação com o Cliente', () => 
       const rendered = renderCeMercanteTaxasTemplate({
         customerId: 10,
         customerName: 'Importadora Norte',
-        vesselName: 'MSC ALTAIR',
+        vesselName: 'COSCO SHIPPING XING WANG',
         voyageNumber: '2401E',
         port: 'Santos',
         milestoneAt: '2026-09-01T00:00:00Z',
@@ -386,7 +386,7 @@ describe('Revisão Completa E2E: Módulo de Comunicação com o Cliente', () => 
         totalBrl: 850.5,
       })
 
-      expect(rendered.subject).toBe('CE Mercante Disponível e Resumo de Taxas Locais — MSC ALTAIR / 2401E')
+      expect(rendered.subject).toBe('CE Mercante Disponível e Resumo de Taxas Locais — COSCO SHIPPING XING WANG / 2401E')
       expect(rendered.html).toContain('123456789012345')
       expect(rendered.html).toContain('BL-100')
       expect(rendered.html).toContain('850,50')
