@@ -230,7 +230,7 @@ function layout(title: string, bodyHtml: string, portalUrl?: string | null): str
                 <tr>
                   <td style="padding-top:16px">
                     <p style="margin:0;font-size:12.5px;line-height:1.6;color:${BRAND_MUTED}">
-                      Mensagem operacional enviada pelo Portal Fwlog. Em caso de dúvida, responda a este e-mail para falar com a equipe.
+                      Portal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:suporte@portalfwlog.com.br" style="color:${BRAND_NAVY};text-decoration:underline">suporte@portalfwlog.com.br</a>.
                     </p>
                   </td>
                 </tr>
@@ -246,7 +246,7 @@ function layout(title: string, bodyHtml: string, portalUrl?: string | null): str
 }
 
 function textLayout(title: string, body: string): string {
-  return `Portal Fwlog\n${title}\n\n${body}\n\nMensagem operacional enviada pelo Portal Fwlog. Em caso de dúvida, responda a este e-mail para falar com a equipe.`
+  return `Portal Fwlog\n${title}\n\n${body}\n\nPortal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com suporte@portalfwlog.com.br.`
 }
 
 function formatBrl(value: number): string {

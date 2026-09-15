@@ -60,7 +60,7 @@ export function PortalForgotPassword() {
             Enviamos um link de redefinição para o email cadastrado na conta. O link vale por 1 hora.
           </p>
           <p className="mt-2 text-sm text-[var(--app-muted)]">
-            Não recebeu em alguns minutos? Confira a caixa de spam ou fale com seu contato comercial na Transhipping.
+            Não recebeu em alguns minutos? Confira a caixa de spam ou fale com seu contato comercial na Fwlog.
           </p>
           <div className="mt-4 text-center">
             <Link to="/portal/login" className="text-sm text-[var(--app-link)] hover:underline">

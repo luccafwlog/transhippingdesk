@@ -68,8 +68,8 @@ describe('Identidade visual dos e-mails de Comunicação com o Cliente', () => {
 
   it.each(templates)('o template $name contém o rodapé oficial do Portal Fwlog', ({ fn }) => {
     const rendered = fn()
-    expect(rendered.html).toContain('Mensagem operacional enviada pelo Portal Fwlog')
-    expect(rendered.text).toContain('Mensagem operacional enviada pelo Portal Fwlog')
+    expect(rendered.html).toContain('Portal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com <a href="mailto:suporte@portalfwlog.com.br"')
+    expect(rendered.text).toContain('Portal do Cliente — Fwlog. Dúvidas ou não reconhece esta mensagem? Fale com suporte@portalfwlog.com.br.')
   })
 
   it('renderiza botão de ação (CTA) para o Portal do Cliente em CE Mercante e Demurrage', () => {

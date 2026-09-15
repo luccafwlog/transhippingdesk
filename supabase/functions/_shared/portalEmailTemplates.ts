@@ -103,14 +103,14 @@ function layout(input: {
 }
 
 export function inviteTemplate(i: InviteTemplateInput) {
-  const text = [`A ${i.companyName} (CNPJ ${i.cnpjMasked}) foi convidada para o Portal do Cliente.`, '', 'Ative o acesso e crie sua própria senha. O link vale por 48 horas:', i.activationUrl, '', `Se você não é a pessoa autorizada, ignore este email e avise a Transhipping em ${i.supportEmail}.`].join('\n')
+  const text = [`A ${i.companyName} (CNPJ ${i.cnpjMasked}) foi convidada para o Portal do Cliente.`, '', 'Ative o acesso e crie sua própria senha. O link vale por 48 horas:', i.activationUrl, '', `Se você não é a pessoa autorizada, ignore este email e avise a Fwlog em ${i.supportEmail}.`].join('\n')
   return {
     subject: `Ative o acesso da ${i.companyName} ao Portal do Cliente`,
     text,
     html: layout({
       title: 'Ative seu acesso ao Portal do Cliente',
       identity: { companyName: i.companyName, cnpjMasked: i.cnpjMasked },
-      paragraphs: ['Você foi convidado a acessar o Portal do Cliente da Transhipping, onde acompanha faturas, B/Ls e o andamento das suas operações.', 'Clique no botão abaixo para criar sua própria senha. O link é de uso único e vale por 48 horas.', `Se você não é a pessoa autorizada a acessar esta conta, ignore este email e avise a Transhipping em ${i.supportEmail}.`],
+      paragraphs: ['Você foi convidado a acessar o Portal do Cliente da Fwlog, onde acompanha faturas, B/Ls e o andamento das suas operações.', 'Clique no botão abaixo para criar sua própria senha. O link é de uso único e vale por 48 horas.', `Se você não é a pessoa autorizada a acessar esta conta, ignore este email e avise a Fwlog em ${i.supportEmail}.`],
       button: { label: 'Ativar acesso', url: i.activationUrl },
       portalUrl: i.portalUrl,
       supportEmail: i.supportEmail,
@@ -119,14 +119,14 @@ export function inviteTemplate(i: InviteTemplateInput) {
 }
 
 export function resendTemplate(i: InviteTemplateInput) {
-  const text = [`Enviamos um novo link de ativação para ${i.companyName} (CNPJ ${i.cnpjMasked}).`, 'Os links anteriores deixaram de funcionar.', '', i.activationUrl, '', `Se você não é a pessoa autorizada, ignore este email e avise a Transhipping em ${i.supportEmail}.`].join('\n')
+  const text = [`Enviamos um novo link de ativação para ${i.companyName} (CNPJ ${i.cnpjMasked}).`, 'Os links anteriores deixaram de funcionar.', '', i.activationUrl, '', `Se você não é a pessoa autorizada, ignore este email e avise a Fwlog em ${i.supportEmail}.`].join('\n')
   return {
     subject: 'Novo convite para ativar seu acesso ao Portal do Cliente',
     text,
     html: layout({
       title: 'Novo convite do Portal do Cliente',
       identity: { companyName: i.companyName, cnpjMasked: i.cnpjMasked },
-      paragraphs: ['Enviamos um novo link de ativação. Os links anteriores deixaram de funcionar.', 'O novo link é de uso único e vale por 48 horas.', `Se você não é a pessoa autorizada, ignore este email e avise a Transhipping em ${i.supportEmail}.`],
+      paragraphs: ['Enviamos um novo link de ativação. Os links anteriores deixaram de funcionar.', 'O novo link é de uso único e vale por 48 horas.', `Se você não é a pessoa autorizada, ignore este email e avise a Fwlog em ${i.supportEmail}.`],
       button: { label: 'Ativar acesso', url: i.activationUrl },
       portalUrl: i.portalUrl,
       supportEmail: i.supportEmail,
