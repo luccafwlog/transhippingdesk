@@ -78,6 +78,7 @@ Resend reais.
 | `portal_list_demurrage_invoices_page`, `portal_list_invoices_page`, `_portal_list_demurrage_invoices_page_core`, `_portal_list_invoices_page_core` | `021_portal_billing_pages.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `customer_billing_access_ready` | `019_local_billing_integrity.sql`; `localBillingIntegrity.local-pg.test.ts` |
 | `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql` + `049_terminalized_schedule_persistence.sql`; `auditSecurityBoundaries.local-pg.test.ts`, `terminalizedSchedulePersistenceMigration.test.ts` |
+| `portal_list_provisioning_console` (candidatos ativos do cadastro canônico) | `050_portal_provisioning_active_contact_candidates.sql`; `portalProvisioningCandidatesMigration.test.ts` |
 | `portal_email_event_attempts_append_only` | `022_email_inbox_and_dispatch_state.sql`; `emailInbox.local-pg.test.ts` |
 | `refresh_customer_communication_status`, `mark_customer_communication_dispatch_blocked` | `032_customer_communication_partial_status.sql`, `038_customer_communication_status_recipient_latest.sql`, `039_customer_communication_status_identity.sql`; `customerCommunicationPartialStatusMigration.test.ts`, `customerCommunicationRecipientLatestMigration.test.ts`, `customerCommunicationStatusIdentityMigration.test.ts` |
 | `claim_demurrage_dunning_candidates` (recuperação terminal de `parcial`) | `041_dunning_partial_claim_recovery.sql`; `demurrageDunningMigration.test.ts` |

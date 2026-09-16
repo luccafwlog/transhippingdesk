@@ -12,6 +12,13 @@
   Também foram corrigidos a prévia institucional, a emissão em Modo Inspeção e
   o marcador `OMIT` no planejamento interno. O orçamento de bundle passou a
   medir os chunks realmente pré-carregados pelas superfícies interna e portal.
+- **QA adversarial — Portal e candidatos financeiros:** o convite do Portal
+  agora reprova e-mails inválidos antes de habilitar qualquer ação de envio;
+  a fila de provisionamento passa a listar contatos ativos do cadastro
+  canônico de caixas mesmo quando o `purpose` legado é nulo, omitindo contatos
+  desativados (`050_portal_provisioning_active_contact_candidates.sql`).
+  A validação focada cobriu os dois contratos; a execução manual usou somente
+  registros sintéticos `.test`, sem convite ou e-mail real.
 - **B/L — trilho Documental:** detalhe do B/L passa a exibir os quatro gates de Cliente, Taxas Locais, CE Mercante e Fatura, com resumo e próxima ação sem card de Revisão, Pagamento ou vencimento. O CE agora bloqueia emissão para contêiner e carga solta também nas ligações individuais e consolidadas (`047_bl_documental_gates.sql`), e a fatura consolidada fica identificada no trilho. Verificado com testes focados, suíte completa, typecheck, lint, build, `rpc:check`, contraste e `docs:check`.
 - **Caixas de Comunicação, Salvamento Atômico e Auditoria de Contatos (Issue 609 / ADR 0064):**
   substituição do modelo legado de preferências (`customer_contact_preferences` e `purpose` como roteador)
