@@ -3,6 +3,15 @@
 > Histórico curado de entregas relevantes. Sintetizado dos planos de execução (arquivados em [archive/](archive/README.md)) e do histórico git. Não substitui o `git log`.
 
 ## 2026-09
+- **QA adversarial — correções pós-caos:** o primeiro e-mail da importação de
+  clientes passa a ser principal (com reparo determinístico dos clientes
+  legados sem principal), o resumo da ficha não promove contatos adicionais,
+  e a invalidação pós-importação cobre os KPIs e leitores de B/L, físico e
+  faturamento. O salvamento da ETA/ATA na escala terminalizada agora mantém o
+  snapshot POD na mesma transação (`049_terminalized_schedule_persistence.sql`).
+  Também foram corrigidos a prévia institucional, a emissão em Modo Inspeção e
+  o marcador `OMIT` no planejamento interno. O orçamento de bundle passou a
+  medir os chunks realmente pré-carregados pelas superfícies interna e portal.
 - **B/L — trilho Documental:** detalhe do B/L passa a exibir os quatro gates de Cliente, Taxas Locais, CE Mercante e Fatura, com resumo e próxima ação sem card de Revisão, Pagamento ou vencimento. O CE agora bloqueia emissão para contêiner e carga solta também nas ligações individuais e consolidadas (`047_bl_documental_gates.sql`), e a fatura consolidada fica identificada no trilho. Verificado com testes focados, suíte completa, typecheck, lint, build, `rpc:check`, contraste e `docs:check`.
 - **Caixas de Comunicação, Salvamento Atômico e Auditoria de Contatos (Issue 609 / ADR 0064):**
   substituição do modelo legado de preferências (`customer_contact_preferences` e `purpose` como roteador)

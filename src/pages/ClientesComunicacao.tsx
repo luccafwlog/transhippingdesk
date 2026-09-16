@@ -118,7 +118,7 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
-function getSamplePreviewInput(subject: string, body: string): CustomerCommunicationTemplateInput {
+function getSamplePreviewInput(subject: string, body: string, kind: CustomerCommunicationKind): CustomerCommunicationTemplateInput {
   return {
     customerId: 1,
     customerName: 'ACME LOGÍSTICA & IMPORTAÇÃO LTDA',
@@ -127,10 +127,14 @@ function getSamplePreviewInput(subject: string, body: string): CustomerCommunica
     terminalName: 'BTP Santos',
     port: 'Santos (BRSSZ)',
     milestoneAt: new Date().toISOString(),
-    bls: [
-      { id: 'CSC45360805C00', customerId: 1 },
-      { id: 'CSC45360805D00', customerId: 1 },
-    ],
+    // Institucional é deliberadamente independente de carga; incluir B/Ls no
+    // exemplo faz o renderer rejeitar a prévia antes de existir uma conferência.
+    bls: kind === 'institucional'
+      ? []
+      : [
+          { id: 'CSC45360805C00', customerId: 1 },
+          { id: 'CSC45360805D00', customerId: 1 },
+        ],
     subject: subject.trim() || undefined,
     body: body.trim() || undefined,
   }
@@ -216,7 +220,7 @@ export function ClientesComunicacao() {
           : activePreviewRow.renderInput
         return renderCustomerCommunicationTemplate(kind, input)
       }
-      const sampleInput = getSamplePreviewInput(institutionalSubject, institutionalBody)
+      const sampleInput = getSamplePreviewInput(institutionalSubject, institutionalBody, kind)
       return renderCustomerCommunicationTemplate(kind, sampleInput)
     } catch {
       return null

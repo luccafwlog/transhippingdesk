@@ -62,7 +62,7 @@ Resend reais.
 | Família / funções introduzidas ou redefinidas nesta PR | Migração / evidência executável |
 |---|---|
 | `apply_baplie_physical_flags_atomic`, `apply_container_dates_atomic` | `015_import_dates_and_flags_atomic.sql`; `importAtomicity.local-pg.test.ts`, `baplieParserS03.test.ts` |
-| `apply_customer_base_row_atomic`, `import_bl_freight_with_metadata` | `016_import_metadata_and_omission_conflicts.sql`; testes de importação/customer base |
+| `apply_customer_base_row_atomic`, `import_bl_freight_with_metadata` | `016_import_metadata_and_omission_conflicts.sql` + `048_customer_base_primary_contact.sql`; testes de importação/customer base e contrato da migration 048 |
 | `claim_import_effects`, `complete_import_effect`, `enqueue_import_effect`, `list_import_effects`, `retry_import_effect`, `prevent_import_effect_attempt_mutation` | `017_import_effects_outbox.sql`, `025_import_effect_worker.sql`; `importEffects.local-pg.test.ts` |
 | `create_customer_dunning_group_atomic`, `demurrage_dunning_candidate_sendable`, `release_demurrage_dunning_claim` | `010_contact_routing_and_dunning_eligibility.sql`, `011_dunning_group_membership.sql`; contratos de dunning |
 | `apply_demurrage_discount`, `cancel_demurrage_invoice`, `confirm_demurrage_pix_matches`, `register_demurrage_payment`, `reopen_demurrage_invoice`, `_demurrage_mutation_request` | `012_demurrage_mutation_guards.sql`, `027_demurrage_money_fixes.sql`; `demurrageMoney.local-pg.test.ts` |
@@ -77,7 +77,7 @@ Resend reais.
 | `portal_list_disputes`, `_portal_list_disputes_core` | `013_portal_disputes_inspection.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `portal_list_demurrage_invoices_page`, `portal_list_invoices_page`, `_portal_list_demurrage_invoices_page_core`, `_portal_list_invoices_page_core` | `021_portal_billing_pages.sql`; `portalInspectionParity.local-pg.test.ts` |
 | `customer_billing_access_ready` | `019_local_billing_integrity.sql`; `localBillingIntegrity.local-pg.test.ts` |
-| `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql`; `auditSecurityBoundaries.local-pg.test.ts` |
+| `current_portal_customer_id`, `save_voyage_escala_terminal_state_v2` | `009_rpc_entry_security.sql` + `049_terminalized_schedule_persistence.sql`; `auditSecurityBoundaries.local-pg.test.ts`, `terminalizedSchedulePersistenceMigration.test.ts` |
 | `portal_email_event_attempts_append_only` | `022_email_inbox_and_dispatch_state.sql`; `emailInbox.local-pg.test.ts` |
 | `refresh_customer_communication_status`, `mark_customer_communication_dispatch_blocked` | `032_customer_communication_partial_status.sql`, `038_customer_communication_status_recipient_latest.sql`, `039_customer_communication_status_identity.sql`; `customerCommunicationPartialStatusMigration.test.ts`, `customerCommunicationRecipientLatestMigration.test.ts`, `customerCommunicationStatusIdentityMigration.test.ts` |
 | `claim_demurrage_dunning_candidates` (recuperação terminal de `parcial`) | `041_dunning_partial_claim_recovery.sql`; `demurrageDunningMigration.test.ts` |

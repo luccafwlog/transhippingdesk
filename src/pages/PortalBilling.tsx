@@ -148,7 +148,11 @@ export function PortalBilling() {
               <Download size={16} />
               Exportar Excel
             </Button>
-            <Button onClick={() => setConsolidateOpen(true)}>
+            <Button
+              onClick={() => setConsolidateOpen(true)}
+              disabled={portalScope.mode === 'inspect'}
+              title={portalScope.mode === 'inspect' ? 'Ação do cliente — indisponível em Modo Inspeção' : undefined}
+            >
               <FilePlus2 size={16} />
               Gerar fatura consolidada
             </Button>
