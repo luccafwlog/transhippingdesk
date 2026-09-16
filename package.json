@@ -29,13 +29,18 @@
       "path": [
         "dist/assets/internal-*.js",
         "dist/assets/rolldown-runtime-*.js",
-        "dist/assets/queryClient-*.js",
-        "dist/assets/vendor-*.js",
-        "dist/assets/exports-*.js",
-        "dist/assets/utils-*.js",
+        "dist/assets/vendor-data-*.js",
+        "dist/assets/vendor-react-*.js",
         "dist/assets/createLucideIcon-*.js",
-        "dist/assets/Button-*.js",
-        "dist/assets/x-*.js"
+        "dist/assets/ConfirmDialog-*.js",
+        "dist/assets/chevron-down-*.js",
+        "dist/assets/ship-*.js",
+        "dist/assets/demurrageKpis-*.js",
+        "dist/assets/portCode-*.js",
+        "dist/assets/voyageRouteSchedules-*.js",
+        "dist/assets/operationalLists-*.js",
+        "dist/assets/queryKeys-*.js",
+        "dist/assets/vaziosExportOperations-*.js"
       ],
       "limit": "250 kB"
     },
@@ -44,10 +49,17 @@
       "path": [
         "dist/assets/portal-*.js",
         "dist/assets/rolldown-runtime-*.js",
-        "dist/assets/queryClient-*.js",
-        "dist/assets/vendor-*.js",
-        "dist/assets/PortalLayout-*.js",
-        "dist/assets/usePortalScope-*.js"
+        "dist/assets/vendor-data-*.js",
+        "dist/assets/vendor-react-*.js",
+        "dist/assets/createLucideIcon-*.js",
+        "dist/assets/ConfirmDialog-*.js",
+        "dist/assets/building-2-*.js",
+        "dist/assets/file-text-*.js",
+        "dist/assets/message-square-*.js",
+        "dist/assets/portalScope-*.js",
+        "dist/assets/usePortalScope-*.js",
+        "dist/assets/portalBilling-*.js",
+        "dist/assets/PortalLayout-*.js"
       ],
       "limit": "250 kB"
     }

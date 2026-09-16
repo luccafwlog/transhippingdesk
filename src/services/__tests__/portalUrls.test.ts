@@ -25,4 +25,21 @@ describe('canonicalPortalUrl e canonicalPortalOrigin', () => {
     expect(portalSupportEmail()).toBe(DEFAULT_PORTAL_SUPPORT_EMAIL)
     expect(portalSupportEmail()).toBe('suporte@portalfwlog.com.br')
   })
+
+  it('corrige overrides legados do domínio e suporte após o cutover', () => {
+    const runtime = globalThis as typeof globalThis & { Deno?: { env: { get(name: string): string | undefined } } }
+    const previous = runtime.Deno
+    Object.defineProperty(runtime, 'Deno', {
+      configurable: true,
+      value: { env: { get: (name: string) => name === 'PORTAL_URL' ? 'https://portal.transhippingdesk.com.br/portal' : name === 'PORTAL_SUPPORT_EMAIL' ? 'suporte@transhippingdesk.com.br' : undefined } },
+    })
+    try {
+      expect(canonicalPortalOrigin()).toBe(DEFAULT_PORTAL_URL)
+      expect(canonicalPortalUrl('ativar?token=xyz')).toBe(`${DEFAULT_PORTAL_URL}/portal/ativar?token=xyz`)
+      expect(portalSupportEmail()).toBe(DEFAULT_PORTAL_SUPPORT_EMAIL)
+    } finally {
+      if (previous) Object.defineProperty(runtime, 'Deno', { configurable: true, value: previous })
+      else delete runtime.Deno
+    }
+  })
 })

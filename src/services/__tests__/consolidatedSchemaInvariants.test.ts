@@ -180,11 +180,13 @@ describe('schema consolidado v1.0 (arquivos realmente aplicados)', () => {
       blImport.indexOf('jsonb_array_elements'),
     )
 
-    // #660.3: permissão do núcleo de escala antes de criar porto.
+    // #660.3: permissão do núcleo de escala antes de delegar ao corpo que
+    // cria/reutiliza o porto. A migration 049 envolve esse corpo para garantir
+    // que o snapshot POD seja salvo na mesma transação.
     const escala = definicaoFinal('save_voyage_escala_terminal_state_v2')
     expect(escala).toContain('Usuario ativo sem permissao para editar a escala.')
     expect(escala.indexOf('Usuario ativo sem permissao para editar a escala.')).toBeLessThan(
-      escala.indexOf('INSERT INTO public.ports'),
+      escala.indexOf('public.save_voyage_escala_terminal_state_v2_legacy_049'),
     )
   })
 })
