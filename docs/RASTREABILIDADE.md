@@ -281,7 +281,9 @@ por RPC atômica e mantém o dry-run quando
 `375_comunicados_bloco2_correcoes.sql` fecha a escrita direta do Storage e cria
 modelos institucionais reutilizáveis; anexos são
 limitados a três arquivos e 10 MB e não são aceitos em cobrança local ou
-demurrage. **Código**; **Teste de contrato SQL:**
+demurrage. Em erro HTTP da Edge Function, o service lê o corpo JSON retornado
+(`error`/`message`) antes de repassar a falha à tela, preservando a causa para
+diagnóstico (BUG-10). **Código**; **Teste de contrato SQL:**
 `comunicadosAnexosMigration.test.ts` e
 `sendCustomerCommunicationFunction.test.ts`.
 
