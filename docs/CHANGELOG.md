@@ -34,6 +34,12 @@
   `PORTAL_URL` e `PORTAL_SUPPORT_EMAIL` agora são normalizados para o domínio e
   suporte atuais do Portal, evitando convites com link 404 mesmo quando um
   segredo antigo ainda estiver implantado (BUG-11).
+- **QA adversarial — Portal autenticado:** após a ativação do usuário sintético,
+  o login por CNPJ abriu o painel do cliente e as áreas de Operação, Faturas e
+  Perfil. O Portal exibiu o B/L `QABL002`, o container devolvido
+  `CSNU2049996`, a escala publicada e as notificações sintéticas; o saldo e as
+  faturas permaneceram zerados porque nenhuma emissão ou liquidação financeira
+  foi executada.
 - **B/L — trilho Documental:** detalhe do B/L passa a exibir os quatro gates de Cliente, Taxas Locais, CE Mercante e Fatura, com resumo e próxima ação sem card de Revisão, Pagamento ou vencimento. O CE agora bloqueia emissão para contêiner e carga solta também nas ligações individuais e consolidadas (`047_bl_documental_gates.sql`), e a fatura consolidada fica identificada no trilho. Verificado com testes focados, suíte completa, typecheck, lint, build, `rpc:check`, contraste e `docs:check`.
 - **Caixas de Comunicação, Salvamento Atômico e Auditoria de Contatos (Issue 609 / ADR 0064):**
   substituição do modelo legado de preferências (`customer_contact_preferences` e `purpose` como roteador)
