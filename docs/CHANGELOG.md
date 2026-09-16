@@ -18,7 +18,10 @@
   canônico de caixas mesmo quando o `purpose` legado é nulo, omitindo contatos
   desativados (`050_portal_provisioning_active_contact_candidates.sql`).
   A validação focada cobriu os dois contratos; a execução manual usou somente
-  registros sintéticos `.test`, sem convite ou e-mail real.
+  registros sintéticos `.test`, sem endereço real. Após confirmação explícita,
+  o convite foi enviado para `qa-financeiro-20260915@example.test` e a conta
+  ficou em `Ativação pendente`, sem caixa/token disponível para concluir a
+  ativação.
 - **QA adversarial — erro de faturamento acionável:** a falha da emissão
   automática no botão `Pronto para faturar` deixa de virar um toast genérico.
   O cliente agora lê `code`, `message`, `details` e `hint`, reconhece gates de
