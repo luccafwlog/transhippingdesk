@@ -19,6 +19,11 @@
   desativados (`050_portal_provisioning_active_contact_candidates.sql`).
   A validação focada cobriu os dois contratos; a execução manual usou somente
   registros sintéticos `.test`, sem convite ou e-mail real.
+- **QA adversarial — erro de faturamento acionável:** a falha da emissão
+  automática no botão `Pronto para faturar` deixa de virar um toast genérico.
+  O cliente agora lê `code`, `message`, `details` e `hint`, reconhece gates de
+  revisão/cliente/Portal sem depender de acentos e exibe a razão operacional
+  devolvida pelo backend (BUG-09).
 - **B/L — trilho Documental:** detalhe do B/L passa a exibir os quatro gates de Cliente, Taxas Locais, CE Mercante e Fatura, com resumo e próxima ação sem card de Revisão, Pagamento ou vencimento. O CE agora bloqueia emissão para contêiner e carga solta também nas ligações individuais e consolidadas (`047_bl_documental_gates.sql`), e a fatura consolidada fica identificada no trilho. Verificado com testes focados, suíte completa, typecheck, lint, build, `rpc:check`, contraste e `docs:check`.
 - **Caixas de Comunicação, Salvamento Atômico e Auditoria de Contatos (Issue 609 / ADR 0064):**
   substituição do modelo legado de preferências (`customer_contact_preferences` e `purpose` como roteador)
